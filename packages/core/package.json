@@ -1,0 +1,17 @@
+{
+  "name": "@vc/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "tsc"
+  },
+  "dependencies": {
+    "@vc/validators": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

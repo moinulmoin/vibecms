@@ -1,0 +1,21 @@
+{
+  "name": "@vc/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "tsc",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@vc/core": "workspace:*",
+    "drizzle-orm": "^0.45.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260426.1",
+    "drizzle-kit": "^0.31.7",
+    "typescript": "6.0.3"
+  }
+}

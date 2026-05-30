@@ -1,0 +1,51 @@
+{
+  // Schema reference for wrangler configuration
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Name of your worker
+  "name": "vibecms",
+
+  // Entry point for your worker
+  "main": "src/worker.tsx",
+
+  // Compatibility settings
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Assets configuration
+  "assets": {
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms_dev",
+      "database_id": "869d397e-f61f-4206-b8d8-ad3255c415f9",
+      "migrations_dir": "../../packages/db/drizzle"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "vibecms-assets"
+    }
+  ],
+
+  // Observability settings
+  "observability": {
+    "enabled": true
+  },
+
+  // Environment variables
+  "vars": {
+    "APP_ENV": "development",
+    "APP_URL": "https://vibecms.moinulislammoin2019.workers.dev",
+    "BETTER_AUTH_URL": "https://vibecms.moinulislammoin2019.workers.dev",
+    "PUBLIC_BLOG_DOMAIN": "vibecms.moinulislammoin2019.workers.dev",
+    "SELF_HOSTED": "false",
+    "POLAR_PRODUCT_ID": "product_dev_placeholder",
+    "POLAR_SERVER": "sandbox"
+  }
+}

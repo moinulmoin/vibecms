@@ -1,0 +1,52 @@
+{
+  "name": "vibecms",
+  "version": "0.1.0",
+  "description": "A minimal blog CMS for humans and AI agents, built for Cloudflare.",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.3.0",
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "D1 database for VibeCMS auth, content, activity, versions, and billing state. Keep the binding name as `DB`."
+      },
+      "ASSETS_BUCKET": {
+        "description": "R2 bucket for uploaded blog media. Keep the binding name as `ASSETS_BUCKET`."
+      },
+      "APP_URL": {
+        "description": "Full deployed Worker URL, for example `https://your-worker.your-subdomain.workers.dev`."
+      },
+      "BETTER_AUTH_URL": {
+        "description": "Usually the same value as `APP_URL`. Better Auth uses this for auth URLs and callbacks."
+      },
+      "PUBLIC_BLOG_DOMAIN": {
+        "description": "Worker hostname without protocol, for example `your-worker.your-subdomain.workers.dev`."
+      },
+      "BETTER_AUTH_SECRET": {
+        "description": "Required secret. Generate with `openssl rand -hex 32`."
+      },
+      "TOKEN_PEPPER": {
+        "description": "Required secret. Generate with `openssl rand -hex 32`. Used to hash VibeCMS API tokens."
+      }
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @vc/web build",
+    "build:self-host": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=../../wrangler.jsonc pnpm --filter @vc/web build",
+    "dev": "pnpm --filter @vc/web dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "db:generate": "pnpm --filter @vc/db db:generate",
+    "db:migrate:local": "pnpm --filter @vc/web exec wrangler d1 migrations apply vibecms_dev --local",
+    "db:migrate:self-host:local": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --local --config ../../wrangler.jsonc",
+    "db:migrate:self-host:remote": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote --config ../../wrangler.jsonc",
+    "db:seed:local": "pnpm --filter @vc/web exec wrangler d1 execute vibecms_dev --local --file ../../packages/db/seed.sql",
+    "db:migrate:dev": "pnpm --filter @vc/web exec wrangler d1 migrations apply vibecms_dev --remote",
+    "db:seed:dev": "pnpm --filter @vc/web exec wrangler d1 execute vibecms_dev --remote --file ../../packages/db/seed.sql",
+    "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/web exec wrangler deploy --config dist/worker/wrangler.json",
+    "deploy:dev": "pnpm build && pnpm --filter @vc/web exec wrangler deploy",
+    "public:audit": "bash scripts/public-release-audit.sh",
+    "test:smoke": "bash scripts/smoke-local.sh"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  // Root Deploy-to-Cloudflare config for self-hosted VibeCMS.
+  // The hosted/dev Worker keeps its private Cloudflare IDs in apps/web/wrangler.jsonc.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms",
+  "main": "apps/web/src/worker.tsx",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "packages/db/drizzle"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "vibecms-media"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  },
+
+  "vars": {
+    "APP_ENV": "production",
+    "APP_URL": "https://vibecms.example.workers.dev",
+    "BETTER_AUTH_URL": "https://vibecms.example.workers.dev",
+    "PUBLIC_BLOG_DOMAIN": "vibecms.example.workers.dev",
+    "SELF_HOSTED": "true",
+    "POLAR_SERVER": "production"
+  },
+
+  "secrets": {
+    "required": ["BETTER_AUTH_SECRET", "TOKEN_PEPPER"]
+  }
+}
