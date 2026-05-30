@@ -59,7 +59,7 @@ The repo is intentionally set up as **one repository** for both VibeCMS Cloud de
 Deploy button shape, once this repo is public:
 
 ```md
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/vibecms/vibecms)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
 During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL:

@@ -30,7 +30,7 @@ The root `wrangler.jsonc` is the source of truth for self-hosting. It declares `
 Once the repository is public, the README can expose this button:
 
 ```md
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/vibecms/vibecms)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
 Cloudflare's deploy flow should run the root `deploy` script:
@@ -120,7 +120,7 @@ Dashboard opens without Polar
 Before turning on the public deploy button, finish this release checklist:
 
 - make the GitHub repo public
-- replace the placeholder `https://github.com/vibecms/vibecms` button URL if the actual repo slug differs
+- replace the placeholder `https://github.com/moinulmoin/vibecms` button URL
 - verify the Cloudflare deploy-button UI prompts cleanly for the URL vars and required secrets
 - rotate/remove any local development secrets before publishing
 

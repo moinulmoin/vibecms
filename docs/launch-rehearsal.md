@@ -46,7 +46,7 @@ The app uses product IDs from Worker secrets/vars. It does not verify prices or 
 After the repo is public, test the real button from a clean browser/account path:
 
 ```md
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/vibecms/vibecms)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
 Confirm:
