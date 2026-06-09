@@ -51,7 +51,7 @@ const requireBilling = async ({ ctx, request }: { ctx: AppContext; request: Requ
   if (pathname === "/app/billing" || pathname === "/app/billing/checkout") return;
   if (!ctx.app) return new Response(null, { status: 302, headers: { Location: "/login" } });
   const billingStatus = await getBillingStatus(ctx.app.workspaceId);
-  if (billingStatus !== "trialing" && billingStatus !== "active") return new Response(null, { status: 302, headers: { Location: "/app/billing" } });
+  if (billingStatus !== "trialing" && billingStatus !== "active") return new Response(null, { status: 302, headers: { Location: "/app/billing?error=billing_required" } });
 };
 
 const requireApp = (ctx: AppContext) => {
@@ -62,9 +62,42 @@ const requireApp = (ctx: AppContext) => {
 const requireBillableApp = async (ctx: AppContext) => {
   const app = requireApp(ctx);
   const billingStatus = await getBillingStatus(app.workspaceId);
-  if (billingStatus !== "trialing" && billingStatus !== "active") throw new Response(null, { status: 303, headers: { Location: "/app/billing" } });
+  if (billingStatus !== "trialing" && billingStatus !== "active") throw new Response(null, { status: 303, headers: { Location: "/app/billing?error=billing_required" } });
   return app;
 };
+
+const TOKEN_FLASH_COOKIE = "vc_token_flash";
+
+function redirect(to: string, headers?: HeadersInit) {
+  return new Response(null, { status: 303, headers: { Location: to, ...headers } });
+}
+
+function tokenFlashCookieValue(token: string, name: string) {
+  return encodeURIComponent(JSON.stringify({ token, name }));
+}
+
+function tokenFlashCookieHeader(token: string, name: string) {
+  const secure = env.APP_ENV === "production" ? "; Secure" : "";
+  return `${TOKEN_FLASH_COOKIE}=${tokenFlashCookieValue(token, name)}; HttpOnly; SameSite=Lax${secure}; Path=/app/settings/token-created; Max-Age=120`;
+}
+
+function clearTokenFlashCookieHeader() {
+  const secure = env.APP_ENV === "production" ? "; Secure" : "";
+  return `${TOKEN_FLASH_COOKIE}=; HttpOnly; SameSite=Lax${secure}; Path=/app/settings/token-created; Max-Age=0`;
+}
+
+function parseTokenFlashCookie(request: Request) {
+  const cookie = request.headers.get("cookie") ?? "";
+  const match = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${TOKEN_FLASH_COOKIE}=`));
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match.slice(TOKEN_FLASH_COOKIE.length + 1))) as { token?: unknown; name?: unknown };
+    if (typeof parsed.token !== "string" || typeof parsed.name !== "string") return null;
+    return { token: parsed.token, name: parsed.name };
+  } catch {
+    return null;
+  }
+}
 
 export default defineApp([
   setCommonHeaders(),
@@ -107,8 +140,8 @@ export default defineApp([
     route("/app/posts/create", { post: async ({ ctx, request }) => createPostFromRequest(await requireBillableApp(ctx), request) }),
     route("/app/posts/:postId/edit", [requireBilling, EditPost]),
     route("/app/posts/:postId/update", { post: async ({ ctx, request, params }) => updatePostFromRequest(await requireBillableApp(ctx), request, params.postId) }),
-    route("/app/posts/:postId/publish", { post: async ({ ctx, params }) => publishPostFromRequest(await requireBillableApp(ctx), params.postId) }),
-    route("/app/posts/:postId/archive", { post: async ({ ctx, params }) => archivePostFromRequest(await requireBillableApp(ctx), params.postId) }),
+    route("/app/posts/:postId/publish", { post: async ({ ctx, request, params }) => publishPostFromRequest(await requireBillableApp(ctx), params.postId, request) }),
+    route("/app/posts/:postId/archive", { post: async ({ ctx, request, params }) => archivePostFromRequest(await requireBillableApp(ctx), params.postId, request) }),
     route("/app/media", [requireBilling, Media]),
     route("/app/media/upload", { post: async ({ ctx, request }) => uploadAssetFromRequest(await requireBillableApp(ctx), request) }),
     route("/app/activity", [requireBilling, Activity]),
@@ -117,11 +150,32 @@ export default defineApp([
     route("/app/settings", [requireBilling, Settings]),
     route("/app/settings/api-keys/create", {
       post: async ({ ctx, request }) => {
-        const created = await createApiKeyFromRequest(await requireBillableApp(ctx), request);
-        return <TokenCreated token={created.token} name={created.name} />;
+        try {
+          const created = await createApiKeyFromRequest(await requireBillableApp(ctx), request);
+          return redirect("/app/settings/token-created", { "Set-Cookie": tokenFlashCookieHeader(created.token, created.name) });
+        } catch (error) {
+          if (error instanceof Response) throw error;
+          return redirect("/app/settings?error=unknown");
+        }
       },
     }),
-    route("/app/settings/api-keys/:keyId/revoke", { post: async ({ ctx, params }) => revokeApiKey(await requireBillableApp(ctx), params.keyId) }),
+    route("/app/settings/token-created", [requireBilling, ({ ctx, request, response }) => {
+      const flash = parseTokenFlashCookie(request);
+      if (!flash) return redirect("/app/settings?error=token_expired");
+      // Enforce the one-time reveal server-side: clear the flash cookie on this
+      // same response so a reload (even with JS disabled) cannot show it again.
+      response.headers.append("Set-Cookie", clearTokenFlashCookieHeader());
+      return <TokenCreated token={flash.token} name={flash.name} app={requireApp(ctx)} />;
+    }]),
+    route("/app/settings/token-created/clear", { post: () => new Response(null, { status: 204, headers: { "Set-Cookie": clearTokenFlashCookieHeader() } }) }),
+    route("/app/settings/api-keys/:keyId/revoke", { post: async ({ ctx, params }) => {
+      try {
+        return await revokeApiKey(await requireBillableApp(ctx), params.keyId);
+      } catch (error) {
+        if (error instanceof Response) throw error;
+        return redirect("/app/settings?error=unknown");
+      }
+    } }),
     route("/:slug", PublicPost),
   ]),
 ]);

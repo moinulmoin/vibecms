@@ -31,6 +31,9 @@ importers:
       better-auth:
         specifier: ^1.2.7
         version: 1.6.11(@cloudflare/workers-types@4.20260426.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260426.1)(kysely@0.28.17))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      lucide-react:
+        specifier: ^1.16.0
+        version: 1.16.0(react@19.2.6)
       react:
         specifier: 19.2.6
         version: 19.2.6

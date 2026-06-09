@@ -11,7 +11,7 @@ export function LogoutButton({ authUrl }: { authUrl: string }) {
     <Button
       type="button"
       variant="ghost"
-      className="self-center"
+      className="self-center text-muted-foreground hover:text-foreground"
       disabled={isPending}
       onClick={() => startTransition(() => {
         void authClient.signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/login"; } } });

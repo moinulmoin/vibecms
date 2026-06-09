@@ -64,7 +64,7 @@ Acceptance:
 Acceptance:
 
 - Images upload to R2 with D1 asset metadata.
-- MIME and 5MB limits are enforced.
+- MIME and 10MB image-size limits are enforced.
 - Media can be used as post cover image.
 - Media writes create activity.
 

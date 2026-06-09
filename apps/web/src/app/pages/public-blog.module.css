@@ -1,28 +1,20 @@
-:root {
-  --reader-bg: #fbfbf7;
-  --reader-ink: #171717;
-  --reader-muted: #66645d;
-  --reader-line: #dedbd0;
-}
+/* Public blog reader - aligned to design tokens + Geist */
 
 .publicPage {
   max-width: 860px;
   margin: 0 auto;
   padding: clamp(24px, 7vw, 72px) 22px;
-  color: var(--reader-ink);
-  background: var(--reader-bg);
   min-height: 100vh;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 .publicHeader {
-  border-bottom: 1px solid var(--reader-line);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 28px;
   margin-bottom: 42px;
 }
 
 .publicBrand {
-  color: var(--reader-ink);
+  color: var(--foreground);
   text-decoration: none;
   font-size: 28px;
   font-weight: 900;
@@ -33,7 +25,7 @@
 .postCard p,
 .date,
 .empty {
-  color: var(--reader-muted);
+  color: var(--muted-foreground);
   line-height: 1.6;
 }
 
@@ -43,7 +35,7 @@
 }
 
 .postCard {
-  border-bottom: 1px solid var(--reader-line);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 24px;
 }
 
@@ -51,7 +43,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   margin-bottom: 18px;
 }
 
@@ -59,7 +51,7 @@
   width: 100%;
   max-height: 520px;
   object-fit: cover;
-  border-radius: 28px;
+  border-radius: var(--radius-xl);
   margin: 18px 0 28px;
 }
 
@@ -71,7 +63,7 @@
 
 .postCard a,
 .backLink {
-  color: var(--reader-ink);
+  color: var(--foreground);
   text-decoration: none;
 }
 
@@ -87,6 +79,7 @@
   margin-top: 28px;
 }
 
+/* Markdown rendering */
 .markdown h1 {
   margin: 10px 0 28px;
   font-size: clamp(42px, 7vw, 72px);
@@ -108,5 +101,87 @@
 .markdown p {
   font-size: 19px;
   line-height: 1.75;
-  color: #2d2d2a;
+  color: var(--foreground);
+}
+
+.markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown a:hover {
+  color: var(--ring);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  font-size: 19px;
+  line-height: 1.75;
+}
+
+.markdown ul {
+  list-style-type: disc;
+}
+
+.markdown ol {
+  list-style-type: decimal;
+}
+
+.markdown li {
+  margin-bottom: 0.35rem;
+}
+
+.markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+}
+
+.markdown pre {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--border);
+  margin: 1.25rem 0;
+  padding: 0.5rem 1rem;
+  color: var(--muted-foreground);
+}
+
+.markdown blockquote p {
+  color: inherit;
+  font-size: inherit;
+}
+
+.markdown strong {
+  font-weight: 700;
+}
+
+.markdown em {
+  font-style: italic;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
 }

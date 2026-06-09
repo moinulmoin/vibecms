@@ -1,6 +1,10 @@
 import { createD1PostRepository } from "@vc/db";
 import {
   AppError,
+  BillingRequiredError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
   archivePost,
   createPost,
   listPosts,
@@ -19,12 +23,32 @@ type ActivityRow = { action: string; summary: string; actor_name: string; create
 type CountRow = { count: number };
 type AssetSiteRow = { id: string };
 
+type StatusKind = "ok" | "error";
+
 function repository() {
   return createD1PostRepository(env.DB);
 }
 
 function redirect(to: string) {
   return new Response(null, { status: 303, headers: { Location: to } });
+}
+
+function redirectWithStatus(to: string, kind: StatusKind, code: string) {
+  const url = new URL(to, env.APP_URL || "http://localhost");
+  url.searchParams.delete("ok");
+  url.searchParams.delete("error");
+  url.searchParams.set(kind, code);
+  return redirect(`${url.pathname}${url.search}`);
+}
+
+function redirectBack(request: Request | undefined, fallback: string, kind: StatusKind, code: string) {
+  if (!request) return redirectWithStatus(fallback, kind, code);
+  const referrer = request.headers.get("referer");
+  if (!referrer) return redirectWithStatus(fallback, kind, code);
+  const currentOrigin = new URL(request.url).origin;
+  const url = new URL(referrer);
+  if (url.origin !== currentOrigin || !url.pathname.startsWith("/app")) return redirectWithStatus(fallback, kind, code);
+  return redirectWithStatus(`${url.pathname}${url.search}`, kind, code);
 }
 
 function field(form: FormData, name: string) {
@@ -42,6 +66,18 @@ function tagsFromForm(form: FormData) {
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function errorCode(error: unknown) {
+  if (error instanceof BillingRequiredError) return "billing_required";
+  if (error instanceof NotFoundError) return "not_found";
+  if (error instanceof ForbiddenError) return "owner_required";
+  if (error instanceof ValidationError) return "unknown";
+  if (error instanceof AppError && error.code === "INVALID_COVER_ASSET") return "invalid_cover_asset";
+  if (error instanceof AppError && error.code === "BILLING_REQUIRED") return "billing_required";
+  if (error instanceof AppError && error.code === "NOT_FOUND") return "not_found";
+  if (error instanceof AppError && error.code === "FORBIDDEN") return "owner_required";
+  return "unknown";
 }
 
 async function coverAssetIdForSite(app: AppUserContext, form: FormData) {
@@ -89,47 +125,58 @@ export async function getPostForEditing(app: AppUserContext, postId: string) {
 }
 
 export async function createPostFromRequest(app: AppUserContext, request: Request) {
-  const form = await request.formData();
-  const coverAssetId = await coverAssetIdForSite(app, form);
-  const post = await createPost(repository(), app.actor, {
-    siteId: app.siteId,
-    title: field(form, "title"),
-    slug: field(form, "slug"),
-    excerpt: optionalField(form, "excerpt"),
-    contentMarkdown: field(form, "contentMarkdown"),
-    coverAssetId,
-    tags: tagsFromForm(form),
-  });
-  return redirect(`/app/posts/${post.id}/edit`);
+  try {
+    const form = await request.formData();
+    const coverAssetId = await coverAssetIdForSite(app, form);
+    const post = await createPost(repository(), app.actor, {
+      siteId: app.siteId,
+      title: field(form, "title"),
+      slug: field(form, "slug"),
+      excerpt: optionalField(form, "excerpt"),
+      contentMarkdown: field(form, "contentMarkdown"),
+      coverAssetId,
+      tags: tagsFromForm(form),
+    });
+    return redirectWithStatus(`/app/posts/${post.id}/edit`, "ok", "post_created");
+  } catch (error) {
+    return redirectWithStatus("/app/posts/new", "error", errorCode(error));
+  }
 }
 
 export async function updatePostFromRequest(app: AppUserContext, request: Request, postId: string) {
-  const form = await request.formData();
-  const coverAssetId = await coverAssetIdForSite(app, form);
-  await updatePost(repository(), app.actor, {
-    siteId: app.siteId,
-    postId,
-    title: field(form, "title"),
-    slug: field(form, "slug"),
-    excerpt: optionalField(form, "excerpt"),
-    contentMarkdown: field(form, "contentMarkdown"),
-    coverAssetId,
-    tags: tagsFromForm(form),
-  });
-  return redirect(`/app/posts/${postId}/edit`);
+  try {
+    const form = await request.formData();
+    const coverAssetId = await coverAssetIdForSite(app, form);
+    await updatePost(repository(), app.actor, {
+      siteId: app.siteId,
+      postId,
+      title: field(form, "title"),
+      slug: field(form, "slug"),
+      excerpt: optionalField(form, "excerpt"),
+      contentMarkdown: field(form, "contentMarkdown"),
+      coverAssetId,
+      tags: tagsFromForm(form),
+    });
+    return redirectWithStatus(`/app/posts/${postId}/edit`, "ok", "post_saved");
+  } catch (error) {
+    return redirectWithStatus(`/app/posts/${postId}/edit`, "error", errorCode(error));
+  }
 }
 
-export async function publishPostFromRequest(app: AppUserContext, postId: string) {
+export async function publishPostFromRequest(app: AppUserContext, postId: string, request?: Request) {
   try {
     await publishPost(repository(), app.actor, { siteId: app.siteId, postId, billingStatus: await getBillingStatus(app.workspaceId) });
   } catch (error) {
-    if (error instanceof AppError) return new Response(error.message, { status: error.status });
-    throw error;
+    return redirectBack(request, "/app/posts", "error", errorCode(error));
   }
-  return redirect("/app/posts");
+  return redirectBack(request, "/app/posts", "ok", "post_published");
 }
 
-export async function archivePostFromRequest(app: AppUserContext, postId: string) {
-  await archivePost(repository(), app.actor, { siteId: app.siteId, postId });
-  return redirect("/app/posts");
+export async function archivePostFromRequest(app: AppUserContext, postId: string, request?: Request) {
+  try {
+    await archivePost(repository(), app.actor, { siteId: app.siteId, postId });
+  } catch (error) {
+    return redirectBack(request, "/app/posts", "error", errorCode(error));
+  }
+  return redirectBack(request, "/app/posts", "ok", "post_archived");
 }

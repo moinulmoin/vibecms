@@ -1,3 +1,4 @@
+import { MEDIA } from "@vc/config";
 import { createAsset, listAssets } from "@vc/core";
 import { createD1AssetRepository } from "@vc/db";
 import { allowedImageMimeTypes } from "@vc/validators";
@@ -6,10 +7,13 @@ import { getBillingStatusForSite, isSelfHosted } from "./billing";
 import type { AppUserContext } from "./onboarding";
 
 type AssetRow = { id: string; site_id: string; r2_key: string; filename: string; mime_type: string; size_bytes: number; alt_text: string | null };
+type UploadErrorCode = "upload_missing_file" | "upload_type" | "upload_too_large" | "media_quota_trial" | "media_quota_paid" | "billing_required" | "unknown";
 
-const maxImageBytes = 10 * 1024 * 1024;
-const trialMediaBytes = 500 * 1024 * 1024;
-const paidMediaBytes = 5 * 1024 * 1024 * 1024;
+class UploadError extends Error {
+  constructor(readonly code: UploadErrorCode) {
+    super(code);
+  }
+}
 
 function repository() {
   return createD1AssetRepository(env.DB);
@@ -17,6 +21,10 @@ function repository() {
 
 function redirect(to: string) {
   return new Response(null, { status: 303, headers: { Location: to } });
+}
+
+function redirectWithStatus(kind: "ok" | "error", code: string) {
+  return redirect(`/app/media?${kind}=${code}`);
 }
 
 function isAllowedMimeType(type: string): type is typeof allowedImageMimeTypes[number] {
@@ -32,14 +40,14 @@ export async function getMedia(app: AppUserContext) {
 }
 
 export async function uploadAsset(app: AppUserContext, file: File, altText?: string) {
-  if (!isAllowedMimeType(file.type)) throw new Error("Only JPEG, PNG, WebP, and GIF images are allowed");
-  if (file.size <= 0 || file.size > maxImageBytes) throw new Error("Images must be 10MB or smaller");
+  if (!isAllowedMimeType(file.type)) throw new UploadError("upload_type");
+  if (file.size <= 0 || file.size > MEDIA.maxImageBytes) throw new UploadError("upload_too_large");
   if (!isSelfHosted()) {
     const billingStatus = await getBillingStatusForSite(app.siteId);
-    if (billingStatus !== "trialing" && billingStatus !== "active") throw new Error("An active trial or subscription is required to upload media");
-    const limit = billingStatus === "trialing" ? trialMediaBytes : paidMediaBytes;
+    if (billingStatus !== "trialing" && billingStatus !== "active") throw new UploadError("billing_required");
+    const limit = billingStatus === "trialing" ? MEDIA.trialStorageBytes : MEDIA.paidStorageBytes;
     const usage = await env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS total FROM assets WHERE site_id = ?").bind(app.siteId).first<{ total: number }>();
-    if ((usage?.total ?? 0) + file.size > limit) throw new Error(billingStatus === "trialing" ? "Trial media storage is limited to 500MB" : "Media storage is limited to 5GB");
+    if ((usage?.total ?? 0) + file.size > limit) throw new UploadError(billingStatus === "trialing" ? "media_quota_trial" : "media_quota_paid");
   }
   const filename = safeFilename(file.name);
   const r2Key = `${app.siteId}/${crypto.randomUUID()}-${filename}`;
@@ -50,13 +58,13 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
 export async function uploadAssetFromRequest(app: AppUserContext, request: Request) {
   const form = await request.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) return new Response("Missing file", { status: 400 });
+  if (!(file instanceof File)) return redirectWithStatus("error", "upload_missing_file");
   try {
     await uploadAsset(app, file, typeof form.get("altText") === "string" ? String(form.get("altText")) : undefined);
   } catch (error) {
-    return new Response(error instanceof Error ? error.message : "Upload failed", { status: 400 });
+    return redirectWithStatus("error", error instanceof UploadError ? error.code : "unknown");
   }
-  return redirect("/app/media");
+  return redirectWithStatus("ok", "media_uploaded");
 }
 
 export async function serveAsset(assetId: string) {

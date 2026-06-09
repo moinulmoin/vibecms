@@ -82,5 +82,5 @@ export async function completeSiteSetup(app: AppUserContext, request: Request) {
       .bind(`activity_site_setup_${app.user.id}_${timestamp}`, app.siteId, app.actor.type, app.actor.id, app.actor.name, app.siteId, `Configured ${name}`, timestamp),
   ]);
 
-  return new Response(null, { status: 303, headers: { Location: isSelfHosted() ? "/app" : "/app/billing" } });
+  return new Response(null, { status: 303, headers: { Location: isSelfHosted() ? "/app?ok=setup_complete" : "/app/billing?ok=setup_complete" } });
 }

@@ -1,4 +1,5 @@
 import type { BillingStatus } from "@vc/core";
+import { ForbiddenError } from "@vc/core";
 import { Polar } from "@polar-sh/sdk";
 import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { env } from "cloudflare:workers";
@@ -17,8 +18,16 @@ export function isSelfHosted() {
   return env.SELF_HOSTED === "true";
 }
 
+function redirect(to: string) {
+  return new Response(null, { status: 303, headers: { Location: to } });
+}
+
+function redirectWithStatus(to: string, kind: "ok" | "error", code: string) {
+  return redirect(`${to}?${kind}=${code}`);
+}
+
 function requireOwner(app: AppUserContext) {
-  if (app.actor.type !== "human" || app.actor.role !== "owner") throw new Response("Owner access required", { status: 403 });
+  if (app.actor.type !== "human" || app.actor.role !== "owner") throw new ForbiddenError("Owner access required");
 }
 
 export async function ensureBillingRow(workspaceId: string, status: BillingStatus = "none") {
@@ -55,37 +64,53 @@ function polar() {
 }
 
 export async function createCheckoutSession(app: AppUserContext, request?: Request) {
-  requireOwner(app);
-  if (isSelfHosted()) return new Response(null, { status: 303, headers: { Location: "/app" } });
+  try {
+    requireOwner(app);
+  } catch {
+    return redirectWithStatus("/app/billing", "error", "owner_required");
+  }
+  if (isSelfHosted()) return redirect("/app");
   const form = request ? await request.formData().catch(() => null) : null;
   const interval = form?.get("interval") === "yearly" ? "yearly" : "monthly";
   const monthlyProductId = env.POLAR_MONTHLY_PRODUCT_ID ?? env.POLAR_PRODUCT_ID;
   const productId = interval === "yearly" ? env.POLAR_YEARLY_PRODUCT_ID ?? monthlyProductId : monthlyProductId;
-  if (!productId) return new Response("Missing Polar product ID", { status: 501 });
+  if (!productId) return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
   const client = polar();
-  if (!client) return new Response("Polar is not configured", { status: 501 });
-  const session = await client.checkouts.create({
-    products: [productId],
-    successUrl: `${env.APP_URL}/app?billing=success&checkout_id={CHECKOUT_ID}`,
-    returnUrl: `${env.APP_URL}/app/billing?billing=cancelled`,
-    externalCustomerId: app.workspaceId,
-    customerEmail: app.user.email,
-    customerName: app.user.name,
-    metadata: { workspaceId: app.workspaceId },
-    customerMetadata: { workspaceId: app.workspaceId },
-  });
-  return new Response(null, { status: 303, headers: { Location: session.url } });
+  if (!client) return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
+  try {
+    const session = await client.checkouts.create({
+      products: [productId],
+      successUrl: `${env.APP_URL}/app?ok=billing_success&checkout_id={CHECKOUT_ID}`,
+      returnUrl: `${env.APP_URL}/app/billing?error=unknown`,
+      externalCustomerId: app.workspaceId,
+      customerEmail: app.user.email,
+      customerName: app.user.name,
+      metadata: { workspaceId: app.workspaceId },
+      customerMetadata: { workspaceId: app.workspaceId },
+    });
+    return redirect(session.url);
+  } catch {
+    return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
+  }
 }
 
 export async function createPortalSession(app: AppUserContext) {
-  requireOwner(app);
-  if (isSelfHosted()) return new Response(null, { status: 303, headers: { Location: "/app/settings" } });
+  try {
+    requireOwner(app);
+  } catch {
+    return redirectWithStatus("/app/settings", "error", "owner_required");
+  }
+  if (isSelfHosted()) return redirect("/app/settings");
   const billing = await getBilling(app.workspaceId);
-  if (!billing?.polar_customer_id && billing?.status === "none") return new Response("No Polar customer yet", { status: 400 });
+  if (!billing?.polar_customer_id && billing?.status === "none") return redirectWithStatus("/app/settings", "error", "billing_required");
   const client = polar();
-  if (!client) return new Response("Polar is not configured", { status: 501 });
-  const session = await client.customerSessions.create({ externalCustomerId: app.workspaceId, returnUrl: `${env.APP_URL}/app/settings` });
-  return new Response(null, { status: 303, headers: { Location: session.customerPortalUrl } });
+  if (!client) return redirectWithStatus("/app/settings", "error", "polar_unconfigured");
+  try {
+    const session = await client.customerSessions.create({ externalCustomerId: app.workspaceId, returnUrl: `${env.APP_URL}/app/settings` });
+    return redirect(session.customerPortalUrl);
+  } catch {
+    return redirectWithStatus("/app/settings", "error", "polar_unconfigured");
+  }
 }
 
 function subscriptionStatus(value: unknown): BillingStatus {

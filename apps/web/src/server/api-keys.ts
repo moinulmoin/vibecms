@@ -119,7 +119,7 @@ export async function revokeApiKey(app: AppUserContext, keyId: string) {
     `INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at)
      VALUES (?, ?, ?, ?, ?, 'api_key.revoked', 'api_key', ?, 'Revoked API key', ?)`,
   ).bind(crypto.randomUUID(), app.siteId, app.actor.type, app.actor.id, app.actor.name, keyId, timestamp).run();
-  return new Response(null, { status: 303, headers: { Location: "/app/settings" } });
+  return new Response(null, { status: 303, headers: { Location: "/app/settings?ok=token_revoked" } });
 }
 
 export async function authenticateBearerToken(request: Request): Promise<{ actor: Actor; siteId: string } | null> {
