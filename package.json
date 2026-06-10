@@ -42,10 +42,11 @@
     "db:migrate:self-host:local": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --local --config ../../wrangler.jsonc",
     "db:migrate:self-host:remote": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote --config ../../wrangler.jsonc",
     "db:seed:local": "pnpm --filter @vc/web exec wrangler d1 execute vibecms_dev --local --file ../../packages/db/seed.sql",
-    "db:migrate:dev": "pnpm --filter @vc/web exec wrangler d1 migrations apply vibecms_dev --remote",
-    "db:seed:dev": "pnpm --filter @vc/web exec wrangler d1 execute vibecms_dev --remote --file ../../packages/db/seed.sql",
+    "db:migrate:dev": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote",
+    "db:seed:dev": "pnpm --filter @vc/web exec wrangler d1 execute DB --remote --file ../../packages/db/seed.sql",
     "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/web exec wrangler deploy --config dist/worker/wrangler.json",
-    "deploy:dev": "pnpm build && pnpm --filter @vc/web exec wrangler deploy",
+    "deploy:dev": "pnpm db:migrate:dev && pnpm build && pnpm --filter @vc/web exec wrangler deploy",
+    "release:dev": "pnpm --filter @vc/web release",
     "public:audit": "bash scripts/public-release-audit.sh",
     "test:smoke": "bash scripts/smoke-local.sh"
   }

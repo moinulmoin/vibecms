@@ -18,7 +18,7 @@ curl -fsS -b "$COOKIE_JAR" -H "origin: $BASE_URL" \
 
 APP_STATUS=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' -b "$COOKIE_JAR" "$BASE_URL/app")
 case "$APP_STATUS" in
-  302:*"/app/billing"|303:*"/app/billing") ;;
+  302:*"/app/billing"|303:*"/app/billing"|302:*"/app/billing?"*|303:*"/app/billing?"*) ;;
   *) echo "expected /app to redirect to /app/billing, got $APP_STATUS" >&2; exit 1 ;;
 esac
 curl -fsS -b "$COOKIE_JAR" "$BASE_URL/app/billing" >/dev/null

@@ -161,11 +161,12 @@ Run the full dev deploy/test flow:
 pnpm install
 pnpm typecheck
 pnpm lint
-pnpm db:migrate:dev
 pnpm db:seed:dev
 pnpm deploy:dev
 BASE_URL=https://vibecms.moinulislammoin2019.workers.dev pnpm test:smoke
 ```
+
+`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the RedwoodSDK worker, and deploys it. `pnpm release:dev` is also available when you want RedwoodSDK's interactive `rw-scripts ensure-deploy-env` release flow.
 
 For Polar billing, create a sandbox product in Polar and update:
 

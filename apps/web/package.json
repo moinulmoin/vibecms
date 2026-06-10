@@ -21,7 +21,8 @@
     "check": "npm run generate && npm run types",
     "types": "tsc",
     "typecheck": "tsc",
-    "lint": "tsc"
+    "lint": "tsc",
+    "migrate:prd": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@polar-sh/sdk": "^0.47.1",
