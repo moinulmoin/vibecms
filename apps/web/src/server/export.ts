@@ -8,7 +8,6 @@ type SiteExportRow = {
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
-  theme: string;
 };
 
 type PostExportRow = {
@@ -34,7 +33,7 @@ export async function handleExport(app: AppUserContext): Promise<Response> {
     return Response.json({ error: "owner_required" }, { status: 403, headers: { "cache-control": "no-store" } });
   }
   const site = await env.DB.prepare(
-    "SELECT id, name, slug, description, default_seo_title, default_seo_description, theme FROM sites WHERE id = ? LIMIT 1",
+    "SELECT id, name, slug, description, default_seo_title, default_seo_description FROM sites WHERE id = ? LIMIT 1",
   )
     .bind(app.siteId)
     .first<SiteExportRow>();
@@ -75,7 +74,6 @@ export async function handleExport(app: AppUserContext): Promise<Response> {
       description: site.description,
       defaultSeoTitle: site.default_seo_title,
       defaultSeoDescription: site.default_seo_description,
-      theme: site.theme,
     },
     posts,
   };

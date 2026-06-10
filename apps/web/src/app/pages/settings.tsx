@@ -1,8 +1,8 @@
 import { DEFAULT_SCOPES } from "@vc/core";
-import { BRAND, ENTITLEMENTS, MEDIA, PRICING, THEMES, readFormStatus } from "@vc/config";
+import { BRAND, ENTITLEMENTS, MEDIA, PRICING, readFormStatus } from "@vc/config";
 import { allScopes, listApiKeys } from "@/server/api-keys";
 import { getBilling, isSelfHosted } from "@/server/billing";
-import { getSiteSetup, type AppUserContext } from "@/server/onboarding";
+import type { AppUserContext } from "@/server/onboarding";
 import { Badge, Button, ConfirmSubmit, CopyButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, Input, SubmitButton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@vc/ui";
 import { AppShell, EmptyState, PageHeader, Panel, StatusAlert, formatDate } from "./app-layout";
 
@@ -24,7 +24,6 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
   const selfHosted = isSelfHosted();
   const isOwner = ctx.app.actor.type === "human" && ctx.app.actor.role === "owner";
   const status = readFormStatus(new URL(request.url).searchParams);
-  const { theme } = await getSiteSetup(ctx.app);
   const origin = new URL(request.url).origin;
   const mcpUrl = `${origin}/mcp`;
   const httpClientExample = `{
@@ -68,23 +67,6 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
             </div>
           ) : <p className="mt-4 text-sm text-muted-foreground">Only workspace owners can manage billing.</p>}
         </div>
-      </Panel>
-      <Panel title="Appearance" meta="Public blog theme">
-        <form className="grid gap-4" method="post" action="/app/settings/appearance">
-          <fieldset className="grid gap-3 sm:grid-cols-3">
-            <legend className="sr-only">Public blog theme</legend>
-            {THEMES.map((option) => (
-              <label key={option.id} className="flex cursor-pointer flex-col gap-1 rounded-xl border border-border bg-background p-4 transition-colors hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-accent">
-                <span className="flex items-center gap-2">
-                  <input type="radio" name="theme" value={option.id} defaultChecked={option.id === theme} className="size-4 accent-primary" />
-                  <span className="font-medium text-foreground">{option.label}</span>
-                </span>
-                <span className="text-sm text-muted-foreground">{option.description}</span>
-              </label>
-            ))}
-          </fieldset>
-          <div><SubmitButton variant="outline" pendingText={"Saving theme\u2026"}>Save theme</SubmitButton></div>
-        </form>
       </Panel>
       <Panel title="Agent Access Token" meta="Default excludes Publish">
         <form className="grid max-w-3xl gap-4" method="post" action="/app/settings/api-keys/create">

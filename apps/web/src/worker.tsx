@@ -30,7 +30,7 @@ import {
   publishPostFromRequest,
   updatePostFromRequest,
 } from "@/server/cms";
-import { completeSiteSetup, ensureOnboarding, getSiteSetup, updateSiteTheme, type AppUserContext } from "@/server/onboarding";
+import { completeSiteSetup, ensureOnboarding, getSiteSetup, type AppUserContext } from "@/server/onboarding";
 import { env } from "cloudflare:workers";
 
 export type AppContext = { authUrl?: string; app?: AppUserContext };
@@ -174,7 +174,6 @@ export default defineApp([
       return <TokenCreated token={flash.token} name={flash.name} app={requireApp(ctx)} />;
     }]),
     route("/app/settings/token-created/clear", { post: () => new Response(null, { status: 204, headers: { "Set-Cookie": clearTokenFlashCookieHeader() } }) }),
-    route("/app/settings/appearance", { post: ({ ctx, request }) => updateSiteTheme(requireApp(ctx), request) }),
     route("/app/settings/api-keys/:keyId/revoke", { post: async ({ ctx, params }) => {
       try {
         return await revokeApiKey(await requireBillableApp(ctx), params.keyId);

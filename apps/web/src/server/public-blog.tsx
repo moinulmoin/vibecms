@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import styles from "@/app/pages/public-blog.module.css";
 import { parseMarkdown } from "@/lib/markdown";
-import { normalizeTheme } from "@vc/config";
 
 export type SiteRow = {
   id: string;
@@ -13,7 +12,6 @@ export type SiteRow = {
   default_seo_description: string | null;
   billing_status: string | null;
   current_period_end: number | null;
-  theme: string;
 };
 
 export type PostRow = {
@@ -57,7 +55,7 @@ export async function resolveSite(request: Request) {
 
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
-      sites.default_seo_title, sites.default_seo_description, sites.theme,
+      sites.default_seo_title, sites.default_seo_description,
       billing_customers.status AS billing_status, billing_customers.current_period_end
      FROM domains
      INNER JOIN sites ON sites.id = domains.site_id
@@ -66,7 +64,7 @@ export async function resolveSite(request: Request) {
      LIMIT 1`,
   ).bind(host).first<SiteRow>();
   if (!site || !canRenderPublic(site)) return null;
-  return { ...site, theme: normalizeTheme(site.theme) };
+  return site;
 }
 
 export async function listPublishedPosts(siteId: string) {
@@ -100,7 +98,7 @@ function Markdown({ source }: { source: string }) {
 
 function PublicNotFound({ site }: { site: SiteRow }) {
   return (
-    <main className={styles.publicPage} data-theme={site.theme}>
+    <main className={styles.publicPage}>
       <title>{`Not found - ${site.name}`}</title>
       <meta name="robots" content="noindex" />
       <header className={styles.publicHeader}>
@@ -124,7 +122,7 @@ function PublicShell({ site, children }: { site: SiteRow; children: React.ReactN
   const seoDescription = site.default_seo_description || site.description || undefined;
   const indexable = isPublicBlogIndexable(site);
   return (
-    <main className={styles.publicPage} data-theme={site.theme}>
+    <main className={styles.publicPage}>
       {seoTitle ? <title>{seoTitle}</title> : null}
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
@@ -187,7 +185,7 @@ export async function PublicPost({ request, params }: { request: Request; params
   const indexable = isPublicBlogIndexable(site);
 
   return (
-    <main className={styles.publicPage} data-theme={site.theme}>
+    <main className={styles.publicPage}>
       <title>{seoTitle}</title>
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}

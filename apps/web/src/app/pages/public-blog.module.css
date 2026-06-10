@@ -1,93 +1,27 @@
-/* ============================================================
-   Public blog reader - three curated themes
-   Each theme is fully self-contained: explicit colors, fonts,
-   and color-scheme so OS dark-mode never leaks into light themes.
-   ============================================================ */
-
-/* ----------------------------------------------------------
-   THEME: minimal (LIGHT, default)
-   Geist sans, airy whitespace, near-white/near-black, green accent
-   ---------------------------------------------------------- */
-
-.publicPage[data-theme='minimal'],
-.publicPage:not([data-theme]) {
+.publicPage {
   color-scheme: light;
   background: oklch(98.7% 0.004 106);
   color: oklch(22% 0.006 106);
   font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
   --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --blog-accent: oklch(45% 0.11 154);
   --blog-accent-hover: oklch(36% 0.1 154);
-  --blog-bg: oklch(98.7% 0.004 106);
-  --blog-surface: oklch(100% 0 0);
   --blog-border: oklch(91% 0.006 106);
   --blog-muted: oklch(54% 0.012 106);
   --blog-code-bg: oklch(95.5% 0.006 106);
   --blog-pre-bg: oklch(97% 0.006 106);
   --blog-radius: 10px;
-}
-
-/* ----------------------------------------------------------
-   THEME: editorial (LIGHT)
-   System serif stack, warm paper, classic magazine
-   ---------------------------------------------------------- */
-
-.publicPage[data-theme='editorial'] {
-  color-scheme: light;
-  background: oklch(98.5% 0.013 82);
-  color: oklch(27% 0.012 82);
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  --blog-font-body: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: oklch(47% 0.12 55);
-  --blog-accent-hover: oklch(39% 0.11 55);
-  --blog-bg: oklch(98.5% 0.013 82);
-  --blog-surface: oklch(96.5% 0.014 82);
-  --blog-border: oklch(89% 0.015 82);
-  --blog-muted: oklch(58% 0.019 82);
-  --blog-code-bg: oklch(94% 0.016 82);
-  --blog-pre-bg: oklch(93% 0.018 82);
-  --blog-radius: 6px;
-}
-
-/* ----------------------------------------------------------
-   THEME: terminal (DARK, always)
-   Deep ink bg, off-white text, mono headings/meta, green accent
-   ---------------------------------------------------------- */
-
-.publicPage[data-theme='terminal'] {
-  color-scheme: dark;
-  background: oklch(15% 0.015 160);
-  color: oklch(92% 0.015 150);
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
-  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: oklch(72% 0.17 150);
-  --blog-accent-hover: oklch(82% 0.16 150);
-  --blog-bg: oklch(15% 0.015 160);
-  --blog-surface: oklch(20% 0.018 160);
-  --blog-border: oklch(29% 0.025 160);
-  --blog-muted: oklch(63% 0.035 160);
-  --blog-code-bg: oklch(20% 0.018 160);
-  --blog-pre-bg: oklch(18% 0.019 160);
-  --blog-radius: 6px;
-}
-
-/* ============================================================
-   SHARED LAYOUT (applies to all themes)
-   ============================================================ */
-
-.publicPage {
   max-width: 860px;
+  min-height: 100vh;
   margin: 0 auto;
   padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
-  min-height: 100vh;
 }
 
-/* --- Header & Brand --- */
-
 .publicHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16px;
   border-bottom: 1px solid var(--blog-border);
   padding-bottom: 28px;
   margin-bottom: 42px;
@@ -105,8 +39,6 @@
   color: var(--blog-accent);
 }
 
-/* --- Post List --- */
-
 .postList {
   display: grid;
   gap: 18px;
@@ -115,14 +47,17 @@
 .postCard {
   border-bottom: 1px solid var(--blog-border);
   padding-bottom: 24px;
+  transition: border-color 180ms ease;
+}
+
+.postCard:hover {
+  border-color: var(--blog-accent);
 }
 
 .postCard p {
   color: var(--blog-muted);
   line-height: 1.6;
 }
-
-/* --- Images --- */
 
 .coverImage {
   width: 100%;
@@ -140,8 +75,6 @@
   margin: 18px 0 28px;
 }
 
-/* --- Post card headings --- */
-
 .postCard h2 {
   margin: 6px 0;
   font-size: clamp(28px, 5vw, 44px);
@@ -156,15 +89,13 @@
   text-decoration: none;
 }
 
-.postCard a:hover h2,
+.postCard h2 a:hover,
 .backLink:hover {
   color: var(--blog-accent);
 }
 
-/* --- Article container --- */
-
 .article {
-  max-width: 720px;
+  max-width: 70ch;
 }
 
 .articleTitle {
@@ -182,13 +113,11 @@
 
 .date {
   color: var(--blog-muted);
-  font-size: 0.875rem;
+  font-family: var(--blog-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
   margin-top: 28px;
 }
-
-/* ============================================================
-   MARKDOWN PROSE (shared base + per-theme overrides)
-   ============================================================ */
 
 .markdown h1 {
   margin: 10px 0 28px;
@@ -214,6 +143,7 @@
 }
 
 .markdown p {
+  max-width: 70ch;
   font-size: 19px;
   line-height: 1.75;
   margin: 0 0 1.2em;
@@ -278,7 +208,7 @@
 }
 
 .markdown blockquote {
-  border-left: 3px solid var(--blog-border);
+  border-left: 3px solid var(--blog-accent);
   margin: 1.25rem 0;
   padding: 0.5rem 1rem;
   color: var(--blog-muted);
@@ -310,8 +240,6 @@
   margin: 1.5rem 0;
 }
 
-/* --- Empty & Not Found --- */
-
 .empty,
 .notFound {
   color: var(--blog-muted);
@@ -320,307 +248,6 @@
   font-size: 1.1rem;
   line-height: 1.6;
 }
-
-/* ============================================================
-   THEME-SPECIFIC OVERRIDES
-   ============================================================ */
-
-/* ---- Minimal: specific refinements ---- */
-
-.publicPage[data-theme='minimal'] .publicHeader,
-.publicPage:not([data-theme]) .publicHeader {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.publicPage[data-theme='minimal'] .publicBrand,
-.publicPage:not([data-theme]) .publicBrand {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-.publicPage[data-theme='minimal'] .date,
-.publicPage:not([data-theme]) .date {
-  font-family: var(--blog-font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-}
-
-.publicPage[data-theme='minimal'] .article,
-.publicPage:not([data-theme]) .article {
-  max-width: 70ch;
-}
-
-.publicPage[data-theme='minimal'] .markdown p,
-.publicPage:not([data-theme]) .markdown p {
-  max-width: 70ch;
-}
-
-.publicPage[data-theme='minimal'] .articleTitle,
-.publicPage:not([data-theme]) .articleTitle,
-.publicPage[data-theme='minimal'] .markdown h1,
-.publicPage:not([data-theme]) .markdown h1 {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  font-weight: 800;
-}
-
-.publicPage[data-theme='minimal'] .markdown h2,
-.publicPage:not([data-theme]) .markdown h2 {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-.publicPage[data-theme='minimal'] .markdown h3,
-.publicPage:not([data-theme]) .markdown h3 {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-.publicPage[data-theme='minimal'] .markdown blockquote,
-.publicPage:not([data-theme]) .markdown blockquote {
-  border-left-color: var(--blog-accent);
-}
-
-.publicPage[data-theme='minimal'] .postCard,
-.publicPage:not([data-theme]) .postCard {
-  transition: border-color 180ms ease;
-}
-
-.publicPage[data-theme='minimal'] .postCard:hover,
-.publicPage:not([data-theme]) .postCard:hover {
-  border-color: var(--blog-accent);
-}
-
-.publicPage[data-theme='minimal'] .backLink,
-.publicPage:not([data-theme]) .backLink {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-.publicPage[data-theme='minimal'] .empty,
-.publicPage:not([data-theme]) .empty,
-.publicPage[data-theme='minimal'] .notFound,
-.publicPage:not([data-theme]) .notFound {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-/* ---- Editorial: serif refinement ---- */
-
-.publicPage[data-theme='editorial'] .publicHeader {
-  border-bottom-width: 2px;
-  padding-bottom: 32px;
-}
-
-.publicPage[data-theme='editorial'] .publicBrand {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-size: 32px;
-}
-
-.publicPage[data-theme='editorial'] .date {
-  font-family: var(--blog-font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.publicPage[data-theme='editorial'] .postCard {
-  padding-bottom: 28px;
-  margin-bottom: 8px;
-}
-
-.publicPage[data-theme='editorial'] .postCard h2 {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.publicPage[data-theme='editorial'] .article {
-  max-width: 68ch;
-}
-
-.publicPage[data-theme='editorial'] .articleTitle,
-.publicPage[data-theme='editorial'] .markdown h1 {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-}
-
-.publicPage[data-theme='editorial'] .markdown h2 {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.publicPage[data-theme='editorial'] .markdown h3 {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-size: 20px;
-  font-weight: 600;
-  font-style: italic;
-}
-
-.publicPage[data-theme='editorial'] .markdown p {
-  max-width: 68ch;
-  line-height: 1.8;
-  font-size: 18.5px;
-}
-
-.publicPage[data-theme='editorial'] .markdown ul,
-.publicPage[data-theme='editorial'] .markdown ol {
-  line-height: 1.8;
-  font-size: 18.5px;
-}
-
-.publicPage[data-theme='editorial'] .markdown blockquote {
-  border-left-color: var(--blog-accent);
-  border-left-width: 3px;
-  font-style: italic;
-  padding: 0.75rem 1.25rem;
-}
-
-.publicPage[data-theme='editorial'] .markdown blockquote p {
-  font-style: inherit;
-}
-
-.publicPage[data-theme='editorial'] .markdown hr {
-  border-top-width: 2px;
-  border-top-color: var(--blog-border);
-}
-
-.publicPage[data-theme='editorial'] .backLink {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  font-size: 1rem;
-}
-
-.publicPage[data-theme='editorial'] .empty,
-.publicPage[data-theme='editorial'] .notFound {
-  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
-  font-style: italic;
-}
-
-/* ---- Terminal: dark, mono headings, green accent ---- */
-
-.publicPage[data-theme='terminal'] .publicHeader {
-  border-bottom-color: var(--blog-border);
-}
-
-.publicPage[data-theme='terminal'] .publicBrand {
-  font-family: var(--blog-font-mono);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.publicPage[data-theme='terminal'] .publicBrand::before {
-  content: "> ";
-  color: var(--blog-accent);
-}
-
-.publicPage[data-theme='terminal'] .date {
-  font-family: var(--blog-font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-  color: var(--blog-muted);
-}
-
-.publicPage[data-theme='terminal'] .postCard {
-  border-bottom-color: var(--blog-border);
-}
-
-.publicPage[data-theme='terminal'] .postCard h2 {
-  font-family: var(--blog-font-mono);
-  font-weight: 700;
-  font-size: clamp(24px, 4.5vw, 38px);
-  letter-spacing: -0.02em;
-}
-
-.publicPage[data-theme='terminal'] .postCard:hover {
-  border-color: var(--blog-accent);
-}
-
-.publicPage[data-theme='terminal'] .article {
-  max-width: 72ch;
-}
-
-.publicPage[data-theme='terminal'] .articleTitle,
-.publicPage[data-theme='terminal'] .markdown h1 {
-  font-family: var(--blog-font-mono);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-}
-
-.publicPage[data-theme='terminal'] .markdown h2 {
-  font-family: var(--blog-font-mono);
-  font-weight: 700;
-}
-
-.publicPage[data-theme='terminal'] .markdown h3 {
-  font-family: var(--blog-font-mono);
-  font-weight: 600;
-}
-
-.publicPage[data-theme='terminal'] .markdown p {
-  max-width: 72ch;
-  line-height: 1.75;
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-}
-
-.publicPage[data-theme='terminal'] .markdown a {
-  color: var(--blog-accent);
-  text-decoration-color: var(--blog-accent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.publicPage[data-theme='terminal'] .markdown a:hover {
-  color: var(--blog-accent-hover);
-  text-decoration-color: var(--blog-accent-hover);
-}
-
-.publicPage[data-theme='terminal'] .markdown code {
-  color: var(--blog-accent);
-}
-
-.publicPage[data-theme='terminal'] .markdown pre {
-  border-color: var(--blog-border);
-}
-
-.publicPage[data-theme='terminal'] .markdown pre code {
-  color: oklch(86% 0.03 150);
-}
-
-.publicPage[data-theme='terminal'] .markdown blockquote {
-  border-left-color: var(--blog-accent);
-}
-
-.publicPage[data-theme='terminal'] .markdown hr {
-  border-top-color: var(--blog-border);
-}
-
-.publicPage[data-theme='terminal'] .backLink {
-  font-family: var(--blog-font-mono);
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.01em;
-}
-
-.publicPage[data-theme='terminal'] .backLink::before {
-  content: "< ";
-  color: var(--blog-muted);
-}
-
-.publicPage[data-theme='terminal'] .empty,
-.publicPage[data-theme='terminal'] .notFound {
-  font-family: var(--blog-font-mono);
-}
-
-/* ============================================================
-   RESPONSIVE - tighten padding/measure on small screens
-   ============================================================ */
 
 @media (max-width: 640px) {
   .publicPage {
@@ -660,10 +287,6 @@
     border-radius: var(--blog-radius);
   }
 }
-
-/* ============================================================
-   REDUCED MOTION - disable transitions
-   ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
   .publicPage,

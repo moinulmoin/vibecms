@@ -4,7 +4,6 @@ import {
   ChevronDownIcon,
   ClockIcon,
   CodeIcon,
-  ColorWheelIcon,
   CounterClockwiseClockIcon,
   Cross2Icon,
   CubeIcon,
@@ -18,7 +17,7 @@ import {
   StackIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
-import { BRAND, PRICING, ENTITLEMENTS, MEDIA, THEMES } from "@vc/config";
+import { BRAND, PRICING, ENTITLEMENTS, MEDIA } from "@vc/config";
 
 const navItems = [
   ["Features", "#features"],
@@ -53,9 +52,9 @@ const features = [
     body: "Let agents write, draft, and publish through scoped MCP.",
   },
   {
-    glyph: "palette",
-    title: "Public presets",
-    body: "Curated public blog looks for a simple publication.",
+    glyph: "reader",
+    title: "Markdown preview",
+    body: "Switch between writing and rendered preview before publishing.",
   },
   {
     glyph: "rss",
@@ -122,7 +121,6 @@ const glyphIcons = {
   upload: UploadIcon,
   history: CounterClockwiseClockIcon,
   filetext: FileTextIcon,
-  palette: ColorWheelIcon,
   rss: ReaderIcon,
   download: DownloadIcon,
   user: PersonIcon,
@@ -267,7 +265,7 @@ export const Home = () => {
                   "Open the dashboard and write in a clean Markdown editor.",
                   "Upload images directly. They are stored in R2 and served fast.",
                   "Review the version trail before publishing.",
-                  "Pick a curated public preset.",
+                  "Preview the public blog before publishing.",
                   "Export all posts as JSON. Yours to keep.",
                 ].map((step, i) => (
                   <li className="flex gap-3 text-sm leading-6" key={step}>
@@ -306,29 +304,6 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Curated themes */}
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="themes">
-        <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          Curated public presets.
-        </h2>
-        <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          Pick a curated look for your public blog. Minimal by default, easy to swap later.
-        </p>
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {THEMES.map((theme) => (
-            <article className="rounded-xl border border-border bg-card p-6" key={theme.id}>
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Glyph kind="palette" />
-              </div>
-              <h3 className="mt-5 text-xl font-medium tracking-[-0.02em]">{theme.label}</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{theme.description}</p>
-              <span className="mt-4 inline-block rounded-full border border-border px-3 py-1 font-mono text-xs text-muted-foreground">
-                {theme.colorMode === "dark" ? "Dark" : "Light"}
-              </span>
-            </article>
-          ))}
-        </div>
-      </section>
 
       {/* Agents - 2 column split */}
       <section className="border-y border-border bg-card py-20" id="agents">
