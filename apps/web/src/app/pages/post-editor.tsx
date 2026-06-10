@@ -5,6 +5,7 @@ import { getMedia } from "@/server/media";
 import type { AppUserContext } from "@/server/onboarding";
 import { Button, ConfirmSubmit, Field, FieldDescription, FieldLabel, Input, Select, SubmitButton, Textarea } from "@vc/ui";
 import { AppShell, PageHeader, Panel, StatusAlert } from "./app-layout";
+import { MarkdownEditor } from "./markdown-editor";
 
 type EditorProps = { request: Request; params: { postId?: string }; ctx: { app?: AppUserContext } };
 
@@ -50,7 +51,7 @@ function PostEditor({ app, post, assets = [], missing, formStatus }: PostEditorP
               </Field>
               <Field>
                 <FieldLabel htmlFor="post-markdown">Markdown</FieldLabel>
-                <Textarea id="post-markdown" name="contentMarkdown" className="min-h-[32rem] font-mono leading-6" maxLength={500000} defaultValue={post?.contentMarkdown ?? ""} />
+                <MarkdownEditor assets={assets} defaultValue={post?.contentMarkdown ?? ""} />
                 <FieldDescription>Markdown is rendered with the same safe renderer as the public blog.</FieldDescription>
               </Field>
             </div>

@@ -105,6 +105,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },
   billing_success: { variant: "success", title: "Subscription active", message: "Billing is set up. Welcome aboard." },
+  theme_saved: { variant: "success", title: "Theme updated", message: "Your public blog now uses the new theme." },
   invalid_cover_asset: { variant: "error", title: "Cover image not found", message: "Pick an image from your media library." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
@@ -126,4 +127,18 @@ export function readFormStatus(search: URLSearchParams): FormStatus | null {
   const ok = search.get("ok");
   if (ok) return FORM_STATUS[ok] ?? null;
   return null;
+}
+
+export const THEMES = [
+  { id: "minimal", label: "Minimal", description: "Clean sans-serif, airy and light. The calm default.", colorMode: "light" },
+  { id: "editorial", label: "Editorial", description: "Serif headlines and a generous reading measure.", colorMode: "light" },
+  { id: "terminal", label: "Terminal", description: "Monospace on deep ink. Built for builders.", colorMode: "dark" },
+] as const;
+
+export type ThemeId = (typeof THEMES)[number]["id"];
+
+export const DEFAULT_THEME: ThemeId = "minimal";
+
+export function normalizeTheme(value: string | null | undefined): ThemeId {
+  return THEMES.some((theme) => theme.id === value) ? (value as ThemeId) : DEFAULT_THEME;
 }

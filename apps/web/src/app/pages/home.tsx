@@ -1,28 +1,71 @@
 import { Button } from "@vc/ui";
-import { Check, ChevronDown, Clock, Globe, Server, ShieldCheck, SquarePen, Terminal, X } from "lucide-react";
-import { BRAND, PRICING, ENTITLEMENTS, MEDIA } from "@vc/config";
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  Clock,
+  Download,
+  FileText,
+  Globe,
+  History,
+  Palette,
+  Rss,
+  Server,
+  ShieldCheck,
+  SquarePen,
+  Terminal,
+  Upload,
+  User,
+  X,
+} from "lucide-react";
+import { BRAND, PRICING, ENTITLEMENTS, MEDIA, THEMES } from "@vc/config";
 
 const navItems = [
-  ["Product", "#product"],
+  ["Features", "#features"],
   ["Agents", "#agents"],
   ["Pricing", "#pricing"],
 ] as const;
 
-const productFeatures = [
+const features = [
   {
     glyph: "edit",
-    title: "A writing room, not a cockpit",
-    body: "Draft, edit, upload images, and publish without wading through a bloated content suite.",
+    title: "Rich editor",
+    body: "Write in Markdown with a clean, distraction-free editor.",
+  },
+  {
+    glyph: "upload",
+    title: "Media uploads",
+    body: `Drag in images up to ${MEDIA.maxImageLabel}. Stored in R2.`,
+  },
+  {
+    glyph: "history",
+    title: "Version history",
+    body: "Every save creates a version you can compare and restore.",
+  },
+  {
+    glyph: "filetext",
+    title: "Activity log",
+    body: "See who did what and when, including agent actions.",
   },
   {
     glyph: "shield",
-    title: "Agent access with boundaries",
-    body: "Give assistants scoped keys so they can help with posts while your account stays yours.",
+    title: "Scoped tokens",
+    body: "Issue agent keys with precise read/write boundaries.",
   },
   {
-    glyph: "clock",
-    title: "A record of what changed",
-    body: "Activity and version history make agent-assisted publishing understandable after the fact.",
+    glyph: "palette",
+    title: "Curated themes",
+    body: "Minimal, Editorial, or Terminal. No page builder needed.",
+  },
+  {
+    glyph: "rss",
+    title: "RSS and SEO",
+    body: "Automatic feeds and meta tags so readers find you.",
+  },
+  {
+    glyph: "download",
+    title: "One-click export",
+    body: "Download every post as JSON anytime. No lock-in.",
   },
 ];
 
@@ -76,6 +119,14 @@ const glyphIcons = {
   check: Check,
   x: X,
   chevron: ChevronDown,
+  upload: Upload,
+  history: History,
+  filetext: FileText,
+  palette: Palette,
+  rss: Rss,
+  download: Download,
+  user: User,
+  bot: Bot,
 } as const;
 
 function Glyph({ kind }: { kind: string }) {
@@ -112,7 +163,7 @@ export const Home = () => {
             {BRAND.tagline}
           </h1>
           <p className="mt-5 max-w-lg text-pretty text-lg leading-8 text-muted-foreground">
-            Publish from a clean dashboard. Let trusted agents draft and update posts through scoped MCP/API access.
+            Publish from a clean dashboard or let agents draft and update posts through scoped MCP and API access.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
@@ -129,11 +180,16 @@ export const Home = () => {
             </div>
             <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-6 text-foreground">
               <code>{`{
-  "tool": "create_post",
-  "arguments": {
-    "title": "Shipping week 23",
-    "content_markdown": "## What shipped\\n...",
-    "status": "draft"
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "posts.create",
+    "arguments": {
+      "title": "Shipping week 23",
+      "slug": "shipping-week-23",
+      "contentMarkdown": "## What shipped..."
+    }
   }
 }`}</code>
             </pre>
@@ -141,13 +197,11 @@ export const Home = () => {
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
               <span className="text-primary"><Glyph kind="terminal" /></span>
-              <span className="font-mono text-xs text-muted-foreground">REST API</span>
+              <span className="font-mono text-xs text-muted-foreground">REST API (read-only)</span>
             </div>
             <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-6 text-foreground">
-              <code>{`curl -X POST https://your-blog.com/api/posts \\
-  -H "Authorization: Bearer vc_example_token" \\
-  -H "Content-Type: application/json" \\
-  -d '{"title":"Hello world","status":"draft"}'`}</code>
+              <code>{`curl -H "Authorization: Bearer vc_..." \\
+  https://your-blog.example/api/posts`}</code>
             </pre>
           </div>
         </div>
@@ -170,22 +224,107 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Product features - 3 column cards */}
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="product">
+      {/* Feature grid */}
+      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="features">
         <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          Built for writing, ready for automation.
+          Everything a real blog needs.
         </h2>
         <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          VibeCMS keeps the blog simple while making the agent boundary clear.
+          Write, publish, manage media, and give agents access. Nothing missing, nothing extra.
+        </p>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((f) => (
+            <article className="rounded-xl border border-border bg-card p-5" key={f.title}>
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Glyph kind={f.glyph} />
+              </div>
+              <h3 className="mt-4 text-base font-medium tracking-[-0.01em]">{f.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{f.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works - human vs agent */}
+      <section className="border-y border-border bg-card py-20">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
+            Two ways in, one blog.
+          </h2>
+          <p className="mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
+            Write from the dashboard yourself, or connect an agent through MCP and REST.
+          </p>
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <article className="rounded-xl border border-border bg-background p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Glyph kind="user" />
+                </div>
+                <h3 className="text-xl font-medium tracking-[-0.02em]">For humans</h3>
+              </div>
+              <ol className="mt-6 space-y-4 border-t border-border pt-5">
+                {[
+                  "Open the dashboard and write in a clean Markdown editor.",
+                  "Upload images directly. They are stored in R2 and served fast.",
+                  "Review the version trail before publishing.",
+                  "Pick a curated theme. No page builder, no drag-and-drop.",
+                  "Export all posts and media with one click. Yours to keep.",
+                ].map((step, i) => (
+                  <li className="flex gap-3 text-sm leading-6" key={step}>
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <span className="text-muted-foreground">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </article>
+            <article className="rounded-xl border border-border bg-background p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Glyph kind="bot" />
+                </div>
+                <h3 className="text-xl font-medium tracking-[-0.02em]">For agents</h3>
+              </div>
+              <ol className="mt-6 space-y-4 border-t border-border pt-5">
+                {[
+                  "Connect through the MCP endpoint (JSON-RPC) or REST API.",
+                  "Create drafts with the posts.create tool and upload media.",
+                  "Every action appears in the activity log for audit.",
+                  "Scoped tokens keep billing and ownership out of reach.",
+                ].map((step, i) => (
+                  <li className="flex gap-3 text-sm leading-6" key={step}>
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <span className="text-muted-foreground">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/* Curated themes */}
+      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="themes">
+        <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
+          Three themes, zero page builder.
+        </h2>
+        <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
+          Pick a curated look for your public blog. Minimal by default, swap anytime.
         </p>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {productFeatures.map((card) => (
-            <article className="rounded-xl border border-border bg-card p-6" key={card.title}>
+          {THEMES.map((theme) => (
+            <article className="rounded-xl border border-border bg-card p-6" key={theme.id}>
               <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Glyph kind={card.glyph} />
+                <Glyph kind="palette" />
               </div>
-              <h3 className="mt-5 text-xl font-medium tracking-[-0.02em]">{card.title}</h3>
-              <p className="mt-3 leading-7 text-muted-foreground">{card.body}</p>
+              <h3 className="mt-5 text-xl font-medium tracking-[-0.02em]">{theme.label}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{theme.description}</p>
+              <span className="mt-4 inline-block rounded-full border border-border px-3 py-1 font-mono text-xs text-muted-foreground">
+                {theme.colorMode === "dark" ? "Dark" : "Light"}
+              </span>
             </article>
           ))}
         </div>
@@ -392,7 +531,7 @@ export const Home = () => {
           <div>
             <h3 className="mb-3 font-medium">Product</h3>
             <div className="space-y-2 text-muted-foreground">
-              <a className="block no-underline hover:text-foreground" href="#product">Product</a>
+              <a className="block no-underline hover:text-foreground" href="#features">Features</a>
               <a className="block no-underline hover:text-foreground" href="#agents">Agents</a>
               <a className="block no-underline hover:text-foreground" href="#pricing">Pricing</a>
             </div>

@@ -8,7 +8,7 @@ const slug = z
 
 const tags = z.array(z.string().trim().min(1).max(40)).max(20).default([]);
 
-export const postStatus = z.enum(["draft", "published", "scheduled", "archived"]);
+export const postStatus = z.enum(["draft", "published", "archived"]);
 
 export const createPostInput = z.object({
   siteId: z.string().min(1),

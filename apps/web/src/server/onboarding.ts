@@ -1,4 +1,5 @@
 import type { Actor } from "@vc/core";
+import { normalizeTheme } from "@vc/config";
 import { env } from "cloudflare:workers";
 import { ensureBillingRow, isSelfHosted } from "./billing";
 
@@ -10,7 +11,7 @@ export type AppUserContext = {
   actor: Actor;
 };
 type RoleRow = { role: "owner" | "editor" | "viewer" };
-type SiteSetupRow = { name: string; slug: string; description: string | null; default_seo_title: string | null };
+type SiteSetupRow = { name: string; slug: string; description: string | null; default_seo_title: string | null; theme: string };
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -52,12 +53,13 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
 
 export async function getSiteSetup(app: AppUserContext) {
   const site = await env.DB.prepare(
-    "SELECT name, slug, description, default_seo_title FROM sites WHERE id = ? LIMIT 1",
+    "SELECT name, slug, description, default_seo_title, theme FROM sites WHERE id = ? LIMIT 1",
   ).bind(app.siteId).first<SiteSetupRow>();
   return {
     name: site?.name ?? "My Blog",
     slug: site?.slug ?? "my-blog",
     description: site?.description ?? "",
+    theme: normalizeTheme(site?.theme),
     isComplete: Boolean(site?.default_seo_title),
   };
 }
@@ -83,4 +85,18 @@ export async function completeSiteSetup(app: AppUserContext, request: Request) {
   ]);
 
   return new Response(null, { status: 303, headers: { Location: isSelfHosted() ? "/app?ok=setup_complete" : "/app/billing?ok=setup_complete" } });
+}
+
+export async function updateSiteTheme(app: AppUserContext, request: Request) {
+  const form = await request.formData();
+  const value = form.get("theme");
+  const theme = normalizeTheme(typeof value === "string" ? value : null);
+  const timestamp = now();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE sites SET theme = ?, updated_at = ? WHERE id = ?").bind(theme, timestamp, app.siteId),
+    env.DB.prepare(
+      "INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, 'site.updated', 'site', ?, ?, ?)",
+    ).bind(`activity_theme_${app.user.id}_${timestamp}`, app.siteId, app.actor.type, app.actor.id, app.actor.name, app.siteId, `Changed theme to ${theme}`, timestamp),
+  ]);
+  return new Response(null, { status: 303, headers: { Location: "/app/settings?ok=theme_saved" } });
 }

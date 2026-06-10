@@ -16,7 +16,7 @@ export type Actor =
   | { type: "agent"; id: string; name: string; scopes: Scope[] }
   | { type: "system"; id: "system"; name: "System" };
 
-export type PostStatus = "draft" | "published" | "scheduled" | "archived";
+export type PostStatus = "draft" | "published" | "archived";
 export type BillingStatus = "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "none";
 
 export type Post = {

@@ -34,6 +34,7 @@ export const sites = sqliteTable("sites", {
   defaultSeoTitle: text("default_seo_title"),
   defaultSeoDescription: text("default_seo_description"),
   status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+  theme: text("theme", { enum: ["minimal", "editorial", "terminal"] }).notNull().default("minimal"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 
@@ -56,9 +57,8 @@ export const posts = sqliteTable("posts", {
   excerpt: text("excerpt"),
   contentMarkdown: text("content_markdown").notNull(),
   coverAssetId: text("cover_asset_id"),
-  status: text("status", { enum: ["draft", "published", "scheduled", "archived"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   publishedAt: integer("published_at"),
-  scheduledAt: integer("scheduled_at"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   canonicalUrl: text("canonical_url"),

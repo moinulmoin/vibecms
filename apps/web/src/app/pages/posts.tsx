@@ -14,7 +14,7 @@ export const Posts = async ({ request, ctx }: PostsProps) => {
   const hasFilters = Boolean(status || search);
   const posts = await getPosts(
     ctx.app,
-    status === "draft" || status === "published" || status === "scheduled" || status === "archived" ? status : undefined,
+    status === "draft" || status === "published" || status === "archived" ? status : undefined,
     search,
   );
   const formStatus = readFormStatus(url.searchParams);
@@ -35,7 +35,6 @@ export const Posts = async ({ request, ctx }: PostsProps) => {
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
               <option value="published">Published</option>
-              <option value="scheduled">Scheduled</option>
               <option value="archived">Archived</option>
             </Select>
           </Field>

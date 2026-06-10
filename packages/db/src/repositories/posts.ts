@@ -8,7 +8,7 @@ type PostRow = {
   excerpt: string | null;
   content_markdown: string;
   cover_asset_id: string | null;
-  status: Post["status"];
+  status: string;
   published_at: number | null;
   tags_json: string;
   created_at: number;
@@ -29,6 +29,10 @@ function actorName(actor: Actor) {
   return actor.name;
 }
 
+function normalizePostStatus(status: string): Post["status"] {
+  return status === "published" || status === "archived" ? status : "draft";
+}
+
 function mapPost(row: PostRow): Post {
   return {
     id: row.id,
@@ -38,7 +42,7 @@ function mapPost(row: PostRow): Post {
     excerpt: row.excerpt,
     contentMarkdown: row.content_markdown,
     coverAssetId: row.cover_asset_id,
-    status: row.status,
+    status: normalizePostStatus(row.status),
     publishedAt: row.published_at,
     tags: JSON.parse(row.tags_json) as string[],
     createdAt: row.created_at,

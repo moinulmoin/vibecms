@@ -1,33 +1,111 @@
-/* Public blog reader - aligned to design tokens + Geist */
+/* ============================================================
+   Public blog reader - three curated themes
+   Each theme is fully self-contained: explicit colors, fonts,
+   and color-scheme so OS dark-mode never leaks into light themes.
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   THEME: minimal (LIGHT, default)
+   Geist sans, airy whitespace, near-white/near-black, green accent
+   ---------------------------------------------------------- */
+
+.publicPage[data-theme='minimal'],
+.publicPage:not([data-theme]) {
+  color-scheme: light;
+  background: #fafaf9;
+  color: #1a1a19;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
+  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --blog-accent: #1f6f4d;
+  --blog-accent-hover: #17593d;
+  --blog-bg: #fafaf9;
+  --blog-surface: #ffffff;
+  --blog-border: #e4e4e0;
+  --blog-muted: #7a7a72;
+  --blog-code-bg: #f0f0ec;
+  --blog-pre-bg: #f5f5f2;
+  --blog-radius: 10px;
+}
+
+/* ----------------------------------------------------------
+   THEME: editorial (LIGHT)
+   System serif stack, warm paper, classic magazine
+   ---------------------------------------------------------- */
+
+.publicPage[data-theme='editorial'] {
+  color-scheme: light;
+  background: #faf8f3;
+  color: #2b2926;
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  --blog-font-body: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --blog-accent: #8b4513;
+  --blog-accent-hover: #6e3610;
+  --blog-bg: #faf8f3;
+  --blog-surface: #f5f2eb;
+  --blog-border: #e0dcd3;
+  --blog-muted: #8a8578;
+  --blog-code-bg: #f0ece3;
+  --blog-pre-bg: #ede9df;
+  --blog-radius: 6px;
+}
+
+/* ----------------------------------------------------------
+   THEME: terminal (DARK, always)
+   Deep ink bg, off-white text, mono headings/meta, green accent
+   ---------------------------------------------------------- */
+
+.publicPage[data-theme='terminal'] {
+  color-scheme: dark;
+  background: #0c0f0e;
+  color: #e2e8e4;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
+  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --blog-accent: #22c55e;
+  --blog-accent-hover: #4ade80;
+  --blog-bg: #0c0f0e;
+  --blog-surface: #141a17;
+  --blog-border: #263330;
+  --blog-muted: #7a8e84;
+  --blog-code-bg: #141a17;
+  --blog-pre-bg: #111916;
+  --blog-radius: 6px;
+}
+
+/* ============================================================
+   SHARED LAYOUT (applies to all themes)
+   ============================================================ */
 
 .publicPage {
   max-width: 860px;
   margin: 0 auto;
-  padding: clamp(24px, 7vw, 72px) 22px;
+  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
   min-height: 100vh;
 }
 
+/* --- Header & Brand --- */
+
 .publicHeader {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--blog-border);
   padding-bottom: 28px;
   margin-bottom: 42px;
 }
 
 .publicBrand {
-  color: var(--foreground);
+  color: inherit;
   text-decoration: none;
   font-size: 28px;
   font-weight: 900;
   letter-spacing: -0.05em;
 }
 
-.publicHeader p,
-.postCard p,
-.date,
-.empty {
-  color: var(--muted-foreground);
-  line-height: 1.6;
+.publicBrand:hover {
+  color: var(--blog-accent);
 }
+
+/* --- Post List --- */
 
 .postList {
   display: grid;
@@ -35,15 +113,22 @@
 }
 
 .postCard {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--blog-border);
   padding-bottom: 24px;
 }
+
+.postCard p {
+  color: var(--blog-muted);
+  line-height: 1.6;
+}
+
+/* --- Images --- */
 
 .coverImage {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: var(--radius-lg);
+  border-radius: var(--blog-radius);
   margin-bottom: 18px;
 }
 
@@ -51,21 +136,32 @@
   width: 100%;
   max-height: 520px;
   object-fit: cover;
-  border-radius: var(--radius-xl);
+  border-radius: calc(var(--blog-radius) + 4px);
   margin: 18px 0 28px;
 }
+
+/* --- Post card headings --- */
 
 .postCard h2 {
   margin: 6px 0;
   font-size: clamp(28px, 5vw, 44px);
   letter-spacing: -0.06em;
+  line-height: 1.1;
+  font-weight: 800;
 }
 
 .postCard a,
 .backLink {
-  color: var(--foreground);
+  color: inherit;
   text-decoration: none;
 }
+
+.postCard a:hover h2,
+.backLink:hover {
+  color: var(--blog-accent);
+}
+
+/* --- Article container --- */
 
 .article {
   max-width: 720px;
@@ -73,45 +169,57 @@
 
 .backLink {
   font-weight: 800;
+  font-size: 0.95rem;
 }
 
 .date {
+  color: var(--blog-muted);
+  font-size: 0.875rem;
   margin-top: 28px;
 }
 
-/* Markdown rendering */
+/* ============================================================
+   MARKDOWN PROSE (shared base + per-theme overrides)
+   ============================================================ */
+
 .markdown h1 {
   margin: 10px 0 28px;
   font-size: clamp(42px, 7vw, 72px);
   line-height: 0.96;
   letter-spacing: -0.07em;
+  font-weight: 800;
 }
 
 .markdown h2 {
   margin-top: 38px;
+  margin-bottom: 12px;
   font-size: 28px;
   letter-spacing: -0.04em;
+  font-weight: 700;
 }
 
 .markdown h3 {
   margin-top: 28px;
+  margin-bottom: 8px;
   font-size: 20px;
+  font-weight: 600;
 }
 
 .markdown p {
   font-size: 19px;
   line-height: 1.75;
-  color: var(--foreground);
+  margin: 0 0 1.2em;
 }
 
 .markdown a {
-  color: var(--primary);
+  color: var(--blog-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 .markdown a:hover {
-  color: var(--ring);
+  color: var(--blog-accent-hover);
 }
 
 .markdown ul,
@@ -131,22 +239,23 @@
 }
 
 .markdown li {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 
 .markdown code {
-  font-family: var(--font-mono);
+  font-family: var(--blog-font-mono);
   font-size: 0.875em;
-  background: var(--muted);
+  background: var(--blog-code-bg);
   padding: 0.15em 0.4em;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 
 .markdown pre {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
+  font-family: var(--blog-font-mono);
+  background: var(--blog-pre-bg);
+  border: 1px solid var(--blog-border);
+  border-radius: var(--blog-radius);
+  padding: 1rem 1.25rem;
   overflow-x: auto;
   margin: 1.25rem 0;
   font-size: 0.875rem;
@@ -161,10 +270,10 @@
 }
 
 .markdown blockquote {
-  border-left: 3px solid var(--border);
+  border-left: 3px solid var(--blog-border);
   margin: 1.25rem 0;
   padding: 0.5rem 1rem;
-  color: var(--muted-foreground);
+  color: var(--blog-muted);
 }
 
 .markdown blockquote p {
@@ -182,6 +291,375 @@
 
 .markdown hr {
   border: none;
-  border-top: 1px solid var(--border);
-  margin: 2rem 0;
+  border-top: 1px solid var(--blog-border);
+  margin: 2.5rem 0;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--blog-radius);
+  margin: 1.5rem 0;
+}
+
+/* --- Empty & Not Found --- */
+
+.empty,
+.notFound {
+  color: var(--blog-muted);
+  text-align: center;
+  padding: 4rem 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   THEME-SPECIFIC OVERRIDES
+   ============================================================ */
+
+/* ---- Minimal: specific refinements ---- */
+
+.publicPage[data-theme='minimal'] .publicHeader,
+.publicPage:not([data-theme]) .publicHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.publicPage[data-theme='minimal'] .publicBrand,
+.publicPage:not([data-theme]) .publicBrand {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+.publicPage[data-theme='minimal'] .date,
+.publicPage:not([data-theme]) .date {
+  font-family: var(--blog-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.publicPage[data-theme='minimal'] .article,
+.publicPage:not([data-theme]) .article {
+  max-width: 70ch;
+}
+
+.publicPage[data-theme='minimal'] .markdown p,
+.publicPage:not([data-theme]) .markdown p {
+  max-width: 70ch;
+}
+
+.publicPage[data-theme='minimal'] .markdown h1,
+.publicPage:not([data-theme]) .markdown h1 {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+}
+
+.publicPage[data-theme='minimal'] .markdown h2,
+.publicPage:not([data-theme]) .markdown h2 {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+.publicPage[data-theme='minimal'] .markdown h3,
+.publicPage:not([data-theme]) .markdown h3 {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+.publicPage[data-theme='minimal'] .markdown blockquote,
+.publicPage:not([data-theme]) .markdown blockquote {
+  border-left-color: var(--blog-accent);
+}
+
+.publicPage[data-theme='minimal'] .postCard,
+.publicPage:not([data-theme]) .postCard {
+  transition: border-color 180ms ease;
+}
+
+.publicPage[data-theme='minimal'] .postCard:hover,
+.publicPage:not([data-theme]) .postCard:hover {
+  border-color: var(--blog-accent);
+}
+
+.publicPage[data-theme='minimal'] .backLink,
+.publicPage:not([data-theme]) .backLink {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+.publicPage[data-theme='minimal'] .empty,
+.publicPage:not([data-theme]) .empty,
+.publicPage[data-theme='minimal'] .notFound,
+.publicPage:not([data-theme]) .notFound {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---- Editorial: serif refinement ---- */
+
+.publicPage[data-theme='editorial'] .publicHeader {
+  border-bottom-width: 2px;
+  padding-bottom: 32px;
+}
+
+.publicPage[data-theme='editorial'] .publicBrand {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 32px;
+}
+
+.publicPage[data-theme='editorial'] .date {
+  font-family: var(--blog-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.publicPage[data-theme='editorial'] .postCard {
+  padding-bottom: 28px;
+  margin-bottom: 8px;
+}
+
+.publicPage[data-theme='editorial'] .postCard h2 {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.publicPage[data-theme='editorial'] .article {
+  max-width: 68ch;
+}
+
+.publicPage[data-theme='editorial'] .markdown h1 {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.publicPage[data-theme='editorial'] .markdown h2 {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.publicPage[data-theme='editorial'] .markdown h3 {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.publicPage[data-theme='editorial'] .markdown p {
+  max-width: 68ch;
+  line-height: 1.8;
+  font-size: 18.5px;
+}
+
+.publicPage[data-theme='editorial'] .markdown ul,
+.publicPage[data-theme='editorial'] .markdown ol {
+  line-height: 1.8;
+  font-size: 18.5px;
+}
+
+.publicPage[data-theme='editorial'] .markdown blockquote {
+  border-left-color: var(--blog-accent);
+  border-left-width: 3px;
+  font-style: italic;
+  padding: 0.75rem 1.25rem;
+}
+
+.publicPage[data-theme='editorial'] .markdown blockquote p {
+  font-style: inherit;
+}
+
+.publicPage[data-theme='editorial'] .markdown hr {
+  border-top-width: 2px;
+  border-top-color: var(--blog-border);
+}
+
+.publicPage[data-theme='editorial'] .backLink {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.publicPage[data-theme='editorial'] .empty,
+.publicPage[data-theme='editorial'] .notFound {
+  font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+/* ---- Terminal: dark, mono headings, green accent ---- */
+
+.publicPage[data-theme='terminal'] .publicHeader {
+  border-bottom-color: var(--blog-border);
+}
+
+.publicPage[data-theme='terminal'] .publicBrand {
+  font-family: var(--blog-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.publicPage[data-theme='terminal'] .publicBrand::before {
+  content: "> ";
+  color: var(--blog-accent);
+}
+
+.publicPage[data-theme='terminal'] .date {
+  font-family: var(--blog-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--blog-muted);
+}
+
+.publicPage[data-theme='terminal'] .postCard {
+  border-bottom-color: var(--blog-border);
+}
+
+.publicPage[data-theme='terminal'] .postCard h2 {
+  font-family: var(--blog-font-mono);
+  font-weight: 700;
+  font-size: clamp(24px, 4.5vw, 38px);
+  letter-spacing: -0.02em;
+}
+
+.publicPage[data-theme='terminal'] .postCard:hover {
+  border-color: var(--blog-accent);
+}
+
+.publicPage[data-theme='terminal'] .article {
+  max-width: 72ch;
+}
+
+.publicPage[data-theme='terminal'] .markdown h1 {
+  font-family: var(--blog-font-mono);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.publicPage[data-theme='terminal'] .markdown h2 {
+  font-family: var(--blog-font-mono);
+  font-weight: 700;
+}
+
+.publicPage[data-theme='terminal'] .markdown h3 {
+  font-family: var(--blog-font-mono);
+  font-weight: 600;
+}
+
+.publicPage[data-theme='terminal'] .markdown p {
+  max-width: 72ch;
+  line-height: 1.75;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+.publicPage[data-theme='terminal'] .markdown a {
+  color: var(--blog-accent);
+  text-decoration-color: var(--blog-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.publicPage[data-theme='terminal'] .markdown a:hover {
+  color: var(--blog-accent-hover);
+  text-decoration-color: var(--blog-accent-hover);
+}
+
+.publicPage[data-theme='terminal'] .markdown code {
+  color: var(--blog-accent);
+}
+
+.publicPage[data-theme='terminal'] .markdown pre {
+  border-color: var(--blog-border);
+}
+
+.publicPage[data-theme='terminal'] .markdown pre code {
+  color: #c8d6cc;
+}
+
+.publicPage[data-theme='terminal'] .markdown blockquote {
+  border-left-color: var(--blog-accent);
+}
+
+.publicPage[data-theme='terminal'] .markdown hr {
+  border-top-color: var(--blog-border);
+}
+
+.publicPage[data-theme='terminal'] .backLink {
+  font-family: var(--blog-font-mono);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.publicPage[data-theme='terminal'] .backLink::before {
+  content: "< ";
+  color: var(--blog-muted);
+}
+
+.publicPage[data-theme='terminal'] .empty,
+.publicPage[data-theme='terminal'] .notFound {
+  font-family: var(--blog-font-mono);
+}
+
+/* ============================================================
+   RESPONSIVE - tighten padding/measure on small screens
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .publicPage {
+    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
+  }
+
+  .publicHeader {
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .publicBrand {
+    font-size: 22px;
+  }
+
+  .postCard h2 {
+    font-size: clamp(22px, 6vw, 32px);
+  }
+
+  .markdown h1 {
+    font-size: clamp(32px, 9vw, 52px);
+  }
+
+  .markdown h2 {
+    font-size: 22px;
+  }
+
+  .markdown p,
+  .markdown ul,
+  .markdown ol {
+    font-size: 17px;
+  }
+
+  .heroImage {
+    max-height: 320px;
+    border-radius: var(--blog-radius);
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION - disable transitions
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .publicPage,
+  .publicPage *,
+  .publicPage *::before,
+  .publicPage *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

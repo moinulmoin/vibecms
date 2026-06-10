@@ -13,7 +13,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/app", Icon: LayoutDashboard },
+  { label: "Overview", href: "/app", Icon: LayoutDashboard },
   { label: "Posts", href: "/app/posts", Icon: FileText },
   { label: "Media", href: "/app/media", Icon: ImageIcon },
   { label: "Activity", href: "/app/activity", Icon: Activity },

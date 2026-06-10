@@ -28,7 +28,7 @@ Acceptance:
 - Host/site resolver can find a site from default domain rows.
 - Blog index renders only published posts.
 - Post detail renders only published posts by slug.
-- Draft, scheduled future, archived, and unknown posts return 404.
+- Draft, archived, and unknown posts return 404.
 - Markdown rendering is sanitized.
 
 ## M3, Authentication and onboarding — done
