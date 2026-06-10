@@ -73,7 +73,7 @@ export const Dashboard = async ({ request, ctx }: DashboardProps) => {
                 </DataRow>
               ))}
             </div>
-          ) : <EmptyState title="No posts yet" description="Create the first post manually, then connect an MCP/API token when you are ready for trusted agents to help." action={<Button asChild><a href="/app/posts/new">New post</a></Button>} />}
+          ) : <EmptyState title="No posts yet" description="Create the first post manually, then connect an agent token when you are ready for trusted agents to help." action={<Button asChild><a href="/app/posts/new">New post</a></Button>} />}
         </Panel>
         <Panel title="Recent Activity" meta={<Button asChild variant="link"><a href="/app/activity">View all</a></Button>}>
           {recentActivity.length ? (

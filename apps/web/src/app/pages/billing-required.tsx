@@ -32,7 +32,7 @@ export const BillingRequired = async ({ request, ctx }: { request: Request; ctx:
               <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="monthly" pendingText="Starting checkout…">Start monthly trial</SubmitButton></form>
               <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Start yearly trial</SubmitButton></form>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">Trial sites are noindexed until paid. Publishing, media uploads, and MCP/API access require an active trial or subscription.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Trial sites are noindexed until paid. Publishing, media uploads, and agent access require an active trial or subscription.</p>
           </CardContent>
         </Card>
       </div>

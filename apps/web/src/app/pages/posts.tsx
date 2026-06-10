@@ -70,7 +70,7 @@ export const Posts = async ({ request, ctx }: PostsProps) => {
               ))}
             </TableBody>
           </Table>
-        ) : <EmptyState title={hasFilters ? "No posts match" : "No posts yet"} description={hasFilters ? "Clear the filters or try a different search to review existing drafts and published posts." : "Create the first post manually, then connect an MCP/API token when you are ready for trusted agents to help."} action={hasFilters ? <Button asChild variant="outline"><a href="/app/posts">Clear filters</a></Button> : <Button asChild><a href="/app/posts/new">New post</a></Button>} />}
+        ) : <EmptyState title={hasFilters ? "No posts match" : "No posts yet"} description={hasFilters ? "Clear the filters or try a different search to review existing drafts and published posts." : "Create the first post manually, then connect an agent token when you are ready for trusted agents to help."} action={hasFilters ? <Button asChild variant="outline"><a href="/app/posts">Clear filters</a></Button> : <Button asChild><a href="/app/posts/new">New post</a></Button>} />}
       </Panel>
     </AppShell>
   );

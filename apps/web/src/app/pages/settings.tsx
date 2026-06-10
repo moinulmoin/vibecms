@@ -45,7 +45,7 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           <div>
             <p className="text-sm font-medium text-foreground">{selfHosted ? "Billing is disabled for this self-hosted workspace" : `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {selfHosted ? "Publishing, media uploads, MCP/API access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `${PRICING.trialLabel}. Trial media is capped at ${MEDIA.trialStorageLabel}; paid media is capped at ${MEDIA.paidStorageLabel}.`}
+              {selfHosted ? "Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `${PRICING.trialLabel}. Trial media is capped at ${MEDIA.trialStorageLabel}; paid media is capped at ${MEDIA.paidStorageLabel}.`}
             </p>
           </div>
           {selfHosted ? <Badge variant="outline" className="w-fit lg:justify-self-end">SELF_HOSTED=true</Badge> : isOwner ? (
@@ -119,11 +119,11 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
               ))}
             </TableBody>
           </Table>
-        ) : <EmptyState title="No tokens yet" description={`Create a token when you are ready to connect an agent through ${BRAND.name} scoped MCP/API access.`} />}
+        ) : <EmptyState title="No tokens yet" description={`Create a token when you are ready to connect an agent through ${BRAND.name}.`} />}
       </Panel>
-      <Panel title="Connect an agent" meta="MCP + API">
+      <Panel title="Connect an agent" meta="MCP writes + REST reads">
         <div className="grid gap-5 text-sm">
-          <p className="text-muted-foreground">Point any MCP client or HTTP agent at your workspace with a scoped token. A token carries only the scopes you grant, and every write is recorded in activity.</p>
+          <p className="text-muted-foreground">Point MCP clients at your workspace for scoped writes, or use REST for read/list access. Every write is recorded in activity.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel>MCP endpoint</FieldLabel>

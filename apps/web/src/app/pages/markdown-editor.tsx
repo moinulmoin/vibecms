@@ -2,8 +2,8 @@
 
 import { parseMarkdown } from "@/lib/markdown";
 import { Button, FieldDescription, Select, Textarea } from "@vc/ui";
-import { Eye, ImagePlus, PenLine } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { EyeOpenIcon, ImageIcon, Pencil2Icon } from "@radix-ui/react-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type MarkdownAsset = {
   id: string;
@@ -76,7 +76,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
             aria-pressed={mode === "write"}
             onClick={showWrite}
           >
-            <PenLine className="size-4" aria-hidden="true" />
+            <Pencil2Icon className="size-4" aria-hidden="true" />
             Write
           </Button>
           <Button
@@ -87,7 +87,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
             aria-pressed={mode === "preview"}
             onClick={showPreview}
           >
-            <Eye className="size-4" aria-hidden="true" />
+            <EyeOpenIcon className="size-4" aria-hidden="true" />
             Preview
           </Button>
         </div>
@@ -104,7 +104,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
               ))}
             </Select>
             <Button type="button" variant="outline" size="sm" className="h-9" onClick={insertImage}>
-              <ImagePlus className="size-4" aria-hidden="true" />
+              <ImageIcon className="size-4" aria-hidden="true" />
               Insert image
             </Button>
           </div>
@@ -143,6 +143,75 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   );
 }
 
+
+export function UnsavedChangesGuard({ message = "You have unsaved changes." }: { message?: string }) {
+  const markerRef = useRef<HTMLParagraphElement>(null);
+  const [warning, setWarning] = useState(false);
+
+  useEffect(() => {
+    const form = markerRef.current?.closest("form");
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const initialValue = serializeForm(form);
+    let submitting = false;
+    const isDirty = () => serializeForm(form) !== initialValue;
+
+    const handleSubmit = (event: SubmitEvent) => {
+      if (isDirty()) {
+        const formAction = new URL(form.getAttribute("action") ?? window.location.href, window.location.href).href;
+        const submitterAction = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formaction") : null;
+        const alternateAction = submitterAction ? new URL(submitterAction, window.location.href).href : null;
+        if (alternateAction && alternateAction !== formAction) {
+          event.preventDefault();
+          setWarning(true);
+          return;
+        }
+      }
+      setWarning(false);
+      submitting = true;
+    };
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (submitting || !isDirty()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest<HTMLAnchorElement>("a[href]");
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const href = link.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+      if (!isDirty() || window.confirm(message)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    form.addEventListener("submit", handleSubmit);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      form.removeEventListener("submit", handleSubmit);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [message]);
+
+  return (
+    <p ref={markerRef} role="status" aria-live="polite" className={warning ? "rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:col-span-2" : "hidden"}>
+      Save the draft before publishing or archiving unsaved changes.
+    </p>
+  );
+}
+
+function serializeForm(form: HTMLFormElement) {
+  return Array.from(new FormData(form).entries())
+    .map(([key, value]) => `${key}=${typeof value === "string" ? value : value.name}`)
+    .sort()
+    .join("\n");
+}
 function altTextFor(filename: string) {
   return filename
     .replace(/\.[^.]+$/, "")

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy } from "lucide-react";
+import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { Button, type ButtonProps } from "./button";
 
 export interface CopyButtonProps extends Omit<ButtonProps, "value" | "children"> {
@@ -46,7 +46,7 @@ function CopyButton({
 
   return (
     <Button type="button" variant={variant} size={size} onClick={copy} aria-label={iconOnly ? (copied ? copiedLabel : label) : undefined} {...props}>
-      {copied ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
+      {copied ? <CheckIcon className="size-4" aria-hidden="true" /> : <CopyIcon className="size-4" aria-hidden="true" />}
       {iconOnly ? (
         <span className="sr-only" aria-live="polite">{copied ? copiedLabel : label}</span>
       ) : (

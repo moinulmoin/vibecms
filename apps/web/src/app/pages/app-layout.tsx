@@ -2,22 +2,22 @@ import { BRAND } from "@vc/config";
 import type { FormStatus } from "@vc/config";
 import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, cn } from "@vc/ui";
 import type { ReactNode } from "react";
-import { Activity, FileText, ImageIcon, LayoutDashboard, Settings, type LucideIcon } from "lucide-react";
+import { ActivityLogIcon, DashboardIcon, FileTextIcon, GearIcon, ImageIcon } from "@radix-ui/react-icons";
 
 type MaxWidth = "md" | "lg" | "xl" | "dashboard";
 
 type NavItem = {
   label: string;
   href: string;
-  Icon: LucideIcon;
+  Icon: typeof DashboardIcon;
 };
 
 const navItems: NavItem[] = [
-  { label: "Overview", href: "/app", Icon: LayoutDashboard },
-  { label: "Posts", href: "/app/posts", Icon: FileText },
+  { label: "Overview", href: "/app", Icon: DashboardIcon },
+  { label: "Posts", href: "/app/posts", Icon: FileTextIcon },
   { label: "Media", href: "/app/media", Icon: ImageIcon },
-  { label: "Activity", href: "/app/activity", Icon: Activity },
-  { label: "Settings", href: "/app/settings", Icon: Settings },
+  { label: "Activity", href: "/app/activity", Icon: ActivityLogIcon },
+  { label: "Settings", href: "/app/settings", Icon: GearIcon },
 ];
 
 const maxWidths: Record<MaxWidth, string> = {
@@ -75,7 +75,7 @@ export function AppFrame({ children, maxWidth = "dashboard" }: { children: React
 function BrandLockup({ siteName, compact = false }: { siteName?: string; compact?: boolean }) {
   return (
     <a href="/app" className={cn("flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-foreground no-underline transition-colors hover:border-primary/40 hover:bg-accent", compact && "p-2.5")}>
-      <span className="flex size-9 items-center justify-center rounded-lg bg-primary font-mono text-xs font-semibold text-primary-foreground">v</span>
+      <span className="flex size-9 items-center justify-center rounded-lg bg-primary font-mono text-xs font-semibold text-primary-foreground">vc</span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold tracking-[-0.01em]">{siteName ?? BRAND.name}</span>
         <span className="block truncate font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{BRAND.name}</span>
@@ -161,7 +161,7 @@ export function OnboardingFrame({ children, phase = "Setup" }: { children: React
           <div>
             <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{BRAND.tagline}</p>
             <h1 className="mt-4 max-w-xl text-balance text-4xl font-semibold tracking-[-0.05em] md:text-6xl">Set up a calm publishing system for humans and AI agents.</h1>
-            <p className="mt-5 max-w-lg text-pretty text-sm leading-6 text-muted-foreground md:text-base">Configure the hosted blog, start the trial when needed, then manage posts, media, activity, and scoped MCP/API access from one dashboard.</p>
+            <p className="mt-5 max-w-lg text-pretty text-sm leading-6 text-muted-foreground md:text-base">Configure the hosted blog, start the trial when needed, then manage posts, media, activity, and scoped agent access from one dashboard.</p>
           </div>
         </section>
         {children}

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { AlertCircle, CheckCircle2, Info, TriangleAlert } from "lucide-react";
+import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { cn } from "../lib/utils";
 
 const alertVariants = cva(
@@ -18,7 +18,7 @@ const alertVariants = cva(
   },
 );
 
-const icons = { info: Info, success: CheckCircle2, error: AlertCircle, warning: TriangleAlert } as const;
+const icons = { info: InfoCircledIcon, success: CheckCircledIcon, error: CrossCircledIcon, warning: ExclamationTriangleIcon } as const;
 
 interface AlertProps extends React.ComponentProps<"div">, VariantProps<typeof alertVariants> {
   title?: string;

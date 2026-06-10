@@ -16,7 +16,7 @@ export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
               Run a blog yourself. Let trusted agents help safely.
             </h1>
             <p className="mt-6 max-w-lg text-pretty text-lg leading-8 text-primary-foreground/70">
-              A hosted blog CMS with scoped MCP/API access, activity history, and post versions built into every content change.
+              A hosted blog CMS with scoped MCP writes, REST reads, activity history, and post versions built into every content change.
             </p>
           </div>
           <Card className="relative z-10 grid gap-3 rounded-xl border-white/15 bg-white/10 p-5 text-sm text-white/80 shadow-none backdrop-blur">
@@ -45,7 +45,7 @@ export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
             </a>
             <CardHeader className="p-0">
               <CardDescription className="text-pretty text-sm leading-6">
-                Sign in to publish posts, upload images, and issue scoped MCP/API tokens for trusted agents.
+                Sign in to publish posts, upload images, and issue scoped agent tokens for trusted assistants.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">

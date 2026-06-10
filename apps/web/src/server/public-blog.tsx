@@ -122,9 +122,11 @@ export function isPublicBlogIndexable(site: SiteRow) {
 function PublicShell({ site, children }: { site: SiteRow; children: React.ReactNode }) {
   const seoTitle = site.default_seo_title || site.name;
   const seoDescription = site.default_seo_description || site.description || undefined;
+  const indexable = isPublicBlogIndexable(site);
   return (
     <main className={styles.publicPage} data-theme={site.theme}>
       {seoTitle ? <title>{seoTitle}</title> : null}
+      <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
       {seoTitle ? <meta property="og:title" content={seoTitle} /> : null}
       {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
@@ -135,6 +137,10 @@ function PublicShell({ site, children }: { site: SiteRow; children: React.ReactN
       {children}
     </main>
   );
+}
+
+function RobotsMeta({ indexable }: { indexable: boolean }) {
+  return indexable ? null : <meta name="robots" content="noindex,nofollow" />;
 }
 
 export async function PublicIndex({ request }: { request: Request }) {
@@ -178,10 +184,12 @@ export async function PublicPost({ request, params }: { request: Request; params
   const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const canonicalUrl = new URL(`/${post.slug}`, request.url).href;
+  const indexable = isPublicBlogIndexable(site);
 
   return (
     <main className={styles.publicPage} data-theme={site.theme}>
       <title>{seoTitle}</title>
+      <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
       <meta property="og:title" content={seoTitle} />
       {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
@@ -193,6 +201,7 @@ export async function PublicPost({ request, params }: { request: Request; params
       </header>
       <article className={styles.article}>
         <a href="/" className={styles.backLink}>{"\u2190"} All posts</a>
+        <h1 className={styles.articleTitle}>{post.title}</h1>
         {post.cover_asset_id ? (
           <img
             className={styles.heroImage}

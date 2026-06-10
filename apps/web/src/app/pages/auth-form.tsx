@@ -2,7 +2,7 @@
 
 import { setupAuthClient } from "@/lib/auth-client";
 import { Button, Field, FieldDescription, FieldGroup, FieldLabel, Input, Alert } from "@vc/ui";
-import { Loader2 } from "lucide-react";
+import { ReloadIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 
 export function AuthForm({ authUrl }: { authUrl: string }) {
@@ -92,7 +92,7 @@ export function AuthForm({ authUrl }: { authUrl: string }) {
         >
           {loading ? (
             <>
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
               {isSignUp ? "Creating account\u2026" : "Signing in\u2026"}
             </>
           ) : (

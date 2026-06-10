@@ -12,19 +12,19 @@
 .publicPage[data-theme='minimal'],
 .publicPage:not([data-theme]) {
   color-scheme: light;
-  background: #fafaf9;
-  color: #1a1a19;
+  background: oklch(98.7% 0.004 106);
+  color: oklch(22% 0.006 106);
   font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
   --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: #1f6f4d;
-  --blog-accent-hover: #17593d;
-  --blog-bg: #fafaf9;
-  --blog-surface: #ffffff;
-  --blog-border: #e4e4e0;
-  --blog-muted: #7a7a72;
-  --blog-code-bg: #f0f0ec;
-  --blog-pre-bg: #f5f5f2;
+  --blog-accent: oklch(45% 0.11 154);
+  --blog-accent-hover: oklch(36% 0.1 154);
+  --blog-bg: oklch(98.7% 0.004 106);
+  --blog-surface: oklch(100% 0 0);
+  --blog-border: oklch(91% 0.006 106);
+  --blog-muted: oklch(54% 0.012 106);
+  --blog-code-bg: oklch(95.5% 0.006 106);
+  --blog-pre-bg: oklch(97% 0.006 106);
   --blog-radius: 10px;
 }
 
@@ -35,19 +35,19 @@
 
 .publicPage[data-theme='editorial'] {
   color-scheme: light;
-  background: #faf8f3;
-  color: #2b2926;
+  background: oklch(98.5% 0.013 82);
+  color: oklch(27% 0.012 82);
   font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
   --blog-font-body: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
   --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: #8b4513;
-  --blog-accent-hover: #6e3610;
-  --blog-bg: #faf8f3;
-  --blog-surface: #f5f2eb;
-  --blog-border: #e0dcd3;
-  --blog-muted: #8a8578;
-  --blog-code-bg: #f0ece3;
-  --blog-pre-bg: #ede9df;
+  --blog-accent: oklch(47% 0.12 55);
+  --blog-accent-hover: oklch(39% 0.11 55);
+  --blog-bg: oklch(98.5% 0.013 82);
+  --blog-surface: oklch(96.5% 0.014 82);
+  --blog-border: oklch(89% 0.015 82);
+  --blog-muted: oklch(58% 0.019 82);
+  --blog-code-bg: oklch(94% 0.016 82);
+  --blog-pre-bg: oklch(93% 0.018 82);
   --blog-radius: 6px;
 }
 
@@ -58,19 +58,19 @@
 
 .publicPage[data-theme='terminal'] {
   color-scheme: dark;
-  background: #0c0f0e;
-  color: #e2e8e4;
+  background: oklch(15% 0.015 160);
+  color: oklch(92% 0.015 150);
   font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   --blog-font-body: Geist, ui-sans-serif, system-ui, sans-serif;
   --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: #22c55e;
-  --blog-accent-hover: #4ade80;
-  --blog-bg: #0c0f0e;
-  --blog-surface: #141a17;
-  --blog-border: #263330;
-  --blog-muted: #7a8e84;
-  --blog-code-bg: #141a17;
-  --blog-pre-bg: #111916;
+  --blog-accent: oklch(72% 0.17 150);
+  --blog-accent-hover: oklch(82% 0.16 150);
+  --blog-bg: oklch(15% 0.015 160);
+  --blog-surface: oklch(20% 0.018 160);
+  --blog-border: oklch(29% 0.025 160);
+  --blog-muted: oklch(63% 0.035 160);
+  --blog-code-bg: oklch(20% 0.018 160);
+  --blog-pre-bg: oklch(18% 0.019 160);
   --blog-radius: 6px;
 }
 
@@ -165,6 +165,14 @@
 
 .article {
   max-width: 720px;
+}
+
+.articleTitle {
+  margin: 20px 0 16px;
+  font-size: clamp(42px, 7vw, 72px);
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  font-weight: 800;
 }
 
 .backLink {
@@ -349,6 +357,8 @@
   max-width: 70ch;
 }
 
+.publicPage[data-theme='minimal'] .articleTitle,
+.publicPage:not([data-theme]) .articleTitle,
 .publicPage[data-theme='minimal'] .markdown h1,
 .publicPage:not([data-theme]) .markdown h1 {
   font-family: Geist, ui-sans-serif, system-ui, sans-serif;
@@ -429,6 +439,7 @@
   max-width: 68ch;
 }
 
+.publicPage[data-theme='editorial'] .articleTitle,
 .publicPage[data-theme='editorial'] .markdown h1 {
   font-family: Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", serif;
   font-weight: 700;
@@ -534,6 +545,7 @@
   max-width: 72ch;
 }
 
+.publicPage[data-theme='terminal'] .articleTitle,
 .publicPage[data-theme='terminal'] .markdown h1 {
   font-family: var(--blog-font-mono);
   font-weight: 700;
@@ -578,7 +590,7 @@
 }
 
 .publicPage[data-theme='terminal'] .markdown pre code {
-  color: #c8d6cc;
+  color: oklch(86% 0.03 150);
 }
 
 .publicPage[data-theme='terminal'] .markdown blockquote {
@@ -628,6 +640,7 @@
     font-size: clamp(22px, 6vw, 32px);
   }
 
+  .articleTitle,
   .markdown h1 {
     font-size: clamp(32px, 9vw, 52px);
   }

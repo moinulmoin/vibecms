@@ -2,7 +2,7 @@
 
 A minimal blog CMS for humans and AI agents, built for Cloudflare.
 
-Core product rule: humans use the UI, agents use MCP/API, and both call the same domain commands. Every mutation should create activity; meaningful post changes should create versions.
+Core product rule: humans use the UI, agents write through MCP, REST stays read/list, and every mutation creates activity. Meaningful post changes create versions.
 
 ## Features
 
@@ -48,7 +48,7 @@ VibeCMS now has a real self-host switch:
 SELF_HOSTED=true
 ```
 
-In self-host mode, Polar is optional and billing gates are disabled. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, MCP/API access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
+In self-host mode, Polar is optional and billing gates are disabled. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
 
 The repo is intentionally set up as **one repository** for both VibeCMS Cloud development and self-hosted deploys:
 
@@ -140,7 +140,7 @@ Recommended sandbox product setup:
 - 7-day free trial in Polar, card required.
 - Use the monthly product for `POLAR_MONTHLY_PRODUCT_ID` or the legacy `POLAR_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`; otherwise yearly checkout falls back to the monthly product.
 - In hosted mode, new workspaces stay behind the Polar checkout gate until checkout/webhooks mark billing active. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
-- Launch entitlement: 1 hosted blog, unlimited posts, 500MB media during trial, 5GB media after subscription, MCP/API access, activity history, and post version history.
+- Launch entitlement: 1 hosted blog, unlimited posts, 500MB media during trial, 5GB media after subscription, scoped agent access, activity history, and post version history.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 
 Recommended minimum Polar organization access token scopes:

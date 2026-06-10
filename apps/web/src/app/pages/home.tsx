@@ -1,23 +1,23 @@
 import { Button } from "@vc/ui";
 import {
-  Bot,
-  Check,
-  ChevronDown,
-  Clock,
-  Download,
-  FileText,
-  Globe,
-  History,
-  Palette,
-  Rss,
-  Server,
-  ShieldCheck,
-  SquarePen,
-  Terminal,
-  Upload,
-  User,
-  X,
-} from "lucide-react";
+  CheckIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  CodeIcon,
+  ColorWheelIcon,
+  CounterClockwiseClockIcon,
+  Cross2Icon,
+  CubeIcon,
+  DownloadIcon,
+  FileTextIcon,
+  GlobeIcon,
+  LockClosedIcon,
+  Pencil2Icon,
+  PersonIcon,
+  ReaderIcon,
+  StackIcon,
+  UploadIcon,
+} from "@radix-ui/react-icons";
 import { BRAND, PRICING, ENTITLEMENTS, MEDIA, THEMES } from "@vc/config";
 
 const navItems = [
@@ -110,27 +110,27 @@ const faqs = [
 ] as const;
 
 const glyphIcons = {
-  edit: SquarePen,
-  shield: ShieldCheck,
-  clock: Clock,
-  globe: Globe,
-  server: Server,
-  terminal: Terminal,
-  check: Check,
-  x: X,
-  chevron: ChevronDown,
-  upload: Upload,
-  history: History,
-  filetext: FileText,
-  palette: Palette,
-  rss: Rss,
-  download: Download,
-  user: User,
-  bot: Bot,
+  edit: Pencil2Icon,
+  shield: LockClosedIcon,
+  clock: ClockIcon,
+  globe: GlobeIcon,
+  server: StackIcon,
+  terminal: CodeIcon,
+  check: CheckIcon,
+  x: Cross2Icon,
+  chevron: ChevronDownIcon,
+  upload: UploadIcon,
+  history: CounterClockwiseClockIcon,
+  filetext: FileTextIcon,
+  palette: ColorWheelIcon,
+  rss: ReaderIcon,
+  download: DownloadIcon,
+  user: PersonIcon,
+  bot: CubeIcon,
 } as const;
 
 function Glyph({ kind }: { kind: string }) {
-  const Icon = glyphIcons[kind as keyof typeof glyphIcons] ?? Terminal;
+  const Icon = glyphIcons[kind as keyof typeof glyphIcons] ?? CodeIcon;
   return <Icon className="size-4" aria-hidden="true" />;
 }
 
@@ -163,7 +163,7 @@ export const Home = () => {
             {BRAND.tagline}
           </h1>
           <p className="mt-5 max-w-lg text-pretty text-lg leading-8 text-muted-foreground">
-            Publish from a clean dashboard or let agents draft and update posts through scoped MCP and API access.
+            Publish from a clean dashboard, then let agents draft and update posts through scoped MCP. REST stays read-only for safe listing.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
@@ -212,7 +212,7 @@ export const Home = () => {
         <div className="mx-auto grid max-w-7xl gap-0 px-5 py-0 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
           {[
             ["Hosted blog", "One clean publication with posts, images, public pages, and a dashboard that stays out of the way."],
-            ["Agent-ready", "Scoped MCP/API access lets trusted assistants draft, update, and inspect content without sharing your login."],
+            ["Agent-ready", "Scoped MCP writes and REST reads let trusted assistants prepare, update, and inspect content without sharing your login."],
             ["Versioned", "Every important edit can be traced through activity history and post versions."],
             ["Self-hostable", "Run the open-source app on Cloudflare, or use VibeCMS Cloud when you want it managed."],
           ].map(([value, label]) => (
@@ -227,10 +227,10 @@ export const Home = () => {
       {/* Feature grid */}
       <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="features">
         <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          Everything a real blog needs.
+          The essentials for one serious blog.
         </h2>
         <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          Write, publish, manage media, and give agents access. Nothing missing, nothing extra.
+          Write, publish, manage media, review history, and give trusted agents scoped access.
         </p>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
@@ -252,7 +252,7 @@ export const Home = () => {
             Two ways in, one blog.
           </h2>
           <p className="mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-            Write from the dashboard yourself, or connect an agent through MCP and REST.
+            Write from the dashboard yourself, use MCP for agent writes, and keep REST for safe reads.
           </p>
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
             <article className="rounded-xl border border-border bg-background p-6">
@@ -267,7 +267,7 @@ export const Home = () => {
                   "Open the dashboard and write in a clean Markdown editor.",
                   "Upload images directly. They are stored in R2 and served fast.",
                   "Review the version trail before publishing.",
-                  "Pick a curated theme. No page builder, no drag-and-drop.",
+                  "Pick a curated public preset. No page builder, no drag-and-drop.",
                   "Export all posts and media with one click. Yours to keep.",
                 ].map((step, i) => (
                   <li className="flex gap-3 text-sm leading-6" key={step}>
@@ -288,7 +288,7 @@ export const Home = () => {
               </div>
               <ol className="mt-6 space-y-4 border-t border-border pt-5">
                 {[
-                  "Connect through the MCP endpoint (JSON-RPC) or REST API.",
+                  "Connect writers through MCP, or use REST to list posts.",
                   "Create drafts with the posts.create tool and upload media.",
                   "Every action appears in the activity log for audit.",
                   "Scoped tokens keep billing and ownership out of reach.",
@@ -309,10 +309,10 @@ export const Home = () => {
       {/* Curated themes */}
       <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="themes">
         <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          Three themes, zero page builder.
+          Public presets, not a page builder.
         </h2>
         <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          Pick a curated look for your public blog. Minimal by default, swap anytime.
+          Pick a curated look for your public blog. Minimal by default, easy to swap later.
         </p>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {THEMES.map((theme) => (
@@ -420,7 +420,7 @@ export const Home = () => {
                 <p>Managed Workers hosting</p>
                 <p>D1 database</p>
                 <p>R2 media storage</p>
-                <p>MCP/API endpoint</p>
+                <p>MCP writes + REST reads</p>
               </div>
             </article>
             <article className="rounded-xl border border-border bg-card p-7">
@@ -431,7 +431,7 @@ export const Home = () => {
                 <p>Cloudflare Workers</p>
                 <p>D1 database</p>
                 <p>R2 media bucket</p>
-                <p>MCP/API endpoint</p>
+                <p>MCP writes + REST reads</p>
               </div>
             </article>
           </div>
