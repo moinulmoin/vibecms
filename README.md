@@ -1,8 +1,8 @@
 # VibeCMS
 
-A minimal blog CMS for humans and AI agents, built for Cloudflare.
+Simple, minimal CMS for humans and AI agents.
 
-Core product rule: humans use the UI, agents write through MCP, REST stays read/list, and every mutation creates activity. Meaningful post changes create versions.
+Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP. REST stays read/list, every mutation creates activity, and meaningful post changes create versions.
 
 ## Features
 
@@ -13,7 +13,7 @@ Core product rule: humans use the UI, agents write through MCP, REST stays read/
 - D1 database
 - Activity history
 - Post version history
-- Scoped API keys with `vc_` tokens
+- Scoped agent tokens with `vc_` prefixes
 - MCP endpoint for trusted agents
 - Polar billing for hosted VibeCMS Cloud
 - `SELF_HOSTED=true` mode without Polar

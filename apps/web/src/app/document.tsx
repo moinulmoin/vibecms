@@ -11,15 +11,15 @@ export const Document: React.FC<{ children: React.ReactNode }> = ({
       <meta name="theme-color" content="#0c100e" media="(prefers-color-scheme: dark)" />
       <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
       <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
-      <title>VibeCMS | Blog CMS for humans and AI agents</title>
+      <title>VibeCMS | Simple, minimal CMS for humans and AI agents</title>
       <meta
         name="description"
-        content="VibeCMS is an open-source Cloudflare-native blog CMS with a clean dashboard, media uploads, activity history, post versions, and scoped MCP/API access for trusted agents."
+        content="Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP."
       />
-      <meta property="og:title" content="VibeCMS | Blog CMS for humans and AI agents" />
+      <meta property="og:title" content="VibeCMS | Simple, minimal CMS for humans and AI agents" />
       <meta
         property="og:description"
-        content="Publish from a clean dashboard and let trusted agents draft, update, and inspect posts through scoped MCP/API access."
+        content="Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP."
       />
       <meta property="og:type" content="website" />
       <meta name="twitter:card" content="summary_large_image" />

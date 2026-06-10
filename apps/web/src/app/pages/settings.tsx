@@ -14,7 +14,7 @@ const scopeCopy: Record<string, { label: string; description: string; risk?: str
   "posts:publish": { label: "Publish", description: "Push content to the public blog.", risk: "high risk" },
   "posts:archive": { label: "Archive Posts", description: "Hide posts while keeping versions and history." },
   "assets:write": { label: "Upload Images", description: "Upload allowed blog media to the library." },
-  "activity:read": { label: "Read Audit Log", description: "Review human/API/agent activity history." },
+  "activity:read": { label: "Read Audit Log", description: "Review human and agent activity history." },
 };
 
 export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?: AppUserContext } }) => {
@@ -121,9 +121,9 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           </Table>
         ) : <EmptyState title="No tokens yet" description={`Create a token when you are ready to connect an agent through ${BRAND.name}.`} />}
       </Panel>
-      <Panel title="Connect an agent" meta="MCP writes + REST reads">
+      <Panel title="Connect an agent" meta="MCP publishing + REST reads">
         <div className="grid gap-5 text-sm">
-          <p className="text-muted-foreground">Point MCP clients at your workspace for scoped writes, or use REST for read/list access. Every write is recorded in activity.</p>
+          <p className="text-muted-foreground">Point MCP clients at your workspace so agents can write, draft, and publish through scoped tools. REST stays read/list only.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel>MCP endpoint</FieldLabel>

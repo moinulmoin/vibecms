@@ -29,8 +29,8 @@ const navItems = [
 const features = [
   {
     glyph: "edit",
-    title: "Rich editor",
-    body: "Write in Markdown with a clean, distraction-free editor.",
+    title: "Markdown editor",
+    body: "Write clean posts in Markdown.",
   },
   {
     glyph: "upload",
@@ -40,7 +40,7 @@ const features = [
   {
     glyph: "history",
     title: "Version history",
-    body: "Every save creates a version you can compare and restore.",
+    body: "Every meaningful edit creates a version you can trace.",
   },
   {
     glyph: "filetext",
@@ -50,12 +50,12 @@ const features = [
   {
     glyph: "shield",
     title: "Scoped tokens",
-    body: "Issue agent keys with precise read/write boundaries.",
+    body: "Let agents write, draft, and publish through scoped MCP.",
   },
   {
     glyph: "palette",
-    title: "Curated themes",
-    body: "Minimal, Editorial, or Terminal. No page builder needed.",
+    title: "Public presets",
+    body: "Curated public blog looks for a simple publication.",
   },
   {
     glyph: "rss",
@@ -163,7 +163,7 @@ export const Home = () => {
             {BRAND.tagline}
           </h1>
           <p className="mt-5 max-w-lg text-pretty text-lg leading-8 text-muted-foreground">
-            Publish from a clean dashboard, then let agents draft and update posts through scoped MCP. REST stays read-only for safe listing.
+            {BRAND.description}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
@@ -212,7 +212,7 @@ export const Home = () => {
         <div className="mx-auto grid max-w-7xl gap-0 px-5 py-0 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
           {[
             ["Hosted blog", "One clean publication with posts, images, public pages, and a dashboard that stays out of the way."],
-            ["Agent-ready", "Scoped MCP writes and REST reads let trusted assistants prepare, update, and inspect content without sharing your login."],
+            ["Agent-ready", "Scoped MCP lets trusted assistants write, draft, publish, update, and inspect content without sharing your login."],
             ["Versioned", "Every important edit can be traced through activity history and post versions."],
             ["Self-hostable", "Run the open-source app on Cloudflare, or use VibeCMS Cloud when you want it managed."],
           ].map(([value, label]) => (
@@ -230,7 +230,7 @@ export const Home = () => {
           The essentials for one serious blog.
         </h2>
         <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          Write, publish, manage media, review history, and give trusted agents scoped access.
+          {BRAND.description}
         </p>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
@@ -252,7 +252,7 @@ export const Home = () => {
             Two ways in, one blog.
           </h2>
           <p className="mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-            Write from the dashboard yourself, use MCP for agent writes, and keep REST for safe reads.
+            Write Markdown in the dashboard, let agents publish through MCP, and keep REST for safe reads.
           </p>
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
             <article className="rounded-xl border border-border bg-background p-6">
@@ -267,8 +267,8 @@ export const Home = () => {
                   "Open the dashboard and write in a clean Markdown editor.",
                   "Upload images directly. They are stored in R2 and served fast.",
                   "Review the version trail before publishing.",
-                  "Pick a curated public preset. No page builder, no drag-and-drop.",
-                  "Export all posts and media with one click. Yours to keep.",
+                  "Pick a curated public preset.",
+                  "Export all posts as JSON. Yours to keep.",
                 ].map((step, i) => (
                   <li className="flex gap-3 text-sm leading-6" key={step}>
                     <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
@@ -288,8 +288,8 @@ export const Home = () => {
               </div>
               <ol className="mt-6 space-y-4 border-t border-border pt-5">
                 {[
-                  "Connect writers through MCP, or use REST to list posts.",
-                  "Create drafts with the posts.create tool and upload media.",
+                  "Connect trusted assistants through scoped MCP.",
+                  "Create drafts, update posts, publish, archive, and upload media.",
                   "Every action appears in the activity log for audit.",
                   "Scoped tokens keep billing and ownership out of reach.",
                 ].map((step, i) => (
@@ -309,7 +309,7 @@ export const Home = () => {
       {/* Curated themes */}
       <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="themes">
         <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          Public presets, not a page builder.
+          Curated public presets.
         </h2>
         <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
           Pick a curated look for your public blog. Minimal by default, easy to swap later.
@@ -335,10 +335,10 @@ export const Home = () => {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_0.95fr] lg:items-center">
           <div>
             <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              Give assistants a door, not the keys to the house.
+              Let agents publish through MCP without giving them your login.
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-              Use scoped access for the work agents should do, and keep sensitive controls outside their reach.
+              Give assistants only the scopes they need: draft, update, publish, archive, upload media, or read activity.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-background p-5">
@@ -420,7 +420,7 @@ export const Home = () => {
                 <p>Managed Workers hosting</p>
                 <p>D1 database</p>
                 <p>R2 media storage</p>
-                <p>MCP writes + REST reads</p>
+                <p>Scoped MCP publishing</p>
               </div>
             </article>
             <article className="rounded-xl border border-border bg-card p-7">
@@ -431,7 +431,7 @@ export const Home = () => {
                 <p>Cloudflare Workers</p>
                 <p>D1 database</p>
                 <p>R2 media bucket</p>
-                <p>MCP writes + REST reads</p>
+                <p>Scoped MCP publishing</p>
               </div>
             </article>
           </div>
@@ -446,7 +446,7 @@ export const Home = () => {
               One plan for a serious single blog.
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-              Simple enough to start today, complete enough to run a real publication with agent help.
+              Simple enough to start today, complete enough to run a real publication with agent help through MCP.
             </p>
           </div>
           <article className="rounded-xl border border-border bg-card p-7">
@@ -505,10 +505,10 @@ export const Home = () => {
         <div className="mx-auto max-w-7xl rounded-xl border border-border bg-card p-8 sm:p-12">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              Start with the blog. Add agents when you are ready.
+              Start simple. Add agents when you are ready.
             </h2>
             <p className="mt-4 text-lg leading-8 text-muted-foreground">
-              Hosted for convenience, open source for trust, built for Cloudflare from day one.
+              Write in Markdown, keep versions, and let trusted agents publish through scoped MCP.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>

@@ -23,7 +23,7 @@ All notable changes to VibeCMS will be documented in this file.
 - D1 schema and migrations.
 - R2 image uploads with JPEG/PNG/WebP/GIF allowlist and 10MB max image size.
 - Activity history and post version history.
-- Scoped `vc_` API keys.
+- Scoped `vc_` agent tokens.
 - MCP endpoint for trusted agent access.
 - Polar checkout, portal, and webhook billing for hosted mode.
 - `SELF_HOSTED=true` mode for billing-free self-hosting.
