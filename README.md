@@ -20,6 +20,49 @@ Write in Markdown, manage media and versions, and let agents write, draft, and p
 - Polar billing for hosted VibeCMS Cloud
 - `SELF_HOSTED=true` mode without Polar
 
+## Connect an MCP client
+
+VibeCMS exposes MCP over normal HTTPS. Create a scoped token in **Settings → Agent Access Token**, then give your agent:
+
+```txt
+MCP URL: https://your-vibecms-domain.com/mcp
+Authorization: Bearer vc_...
+```
+
+Direct HTTP MCP clients can use this shape:
+
+```json
+{
+  "mcpServers": {
+    "vibecms": {
+      "type": "http",
+      "url": "https://your-vibecms-domain.com/mcp",
+      "headers": {
+        "Authorization": "Bearer vc_..."
+      }
+    }
+  }
+}
+```
+
+Verify the endpoint:
+
+```sh
+curl https://your-vibecms-domain.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer vc_..." \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+Use REST only for read/list access:
+
+```sh
+curl https://your-vibecms-domain.com/api/posts \
+  -H "Authorization: Bearer vc_..."
+```
+
+Some older MCP clients only accept local stdio servers. Use an HTTP-to-stdio bridge for those clients only; the VibeCMS integration itself is just HTTPS plus the bearer token.
+
 ## License
 
 VibeCMS is licensed under AGPL-3.0-or-later. See `LICENSE`.

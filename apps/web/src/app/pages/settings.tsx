@@ -26,16 +26,28 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
   const status = readFormStatus(new URL(request.url).searchParams);
   const { theme } = await getSiteSetup(ctx.app);
   const origin = new URL(request.url).origin;
-  const mcpExample = `{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "posts.create",
-    "arguments": { "title": "Shipping week 23", "slug": "shipping-week-23", "contentMarkdown": "## What shipped" }
+  const mcpUrl = `${origin}/mcp`;
+  const httpClientExample = `{
+  "mcpServers": {
+    "vibecms": {
+      "type": "http",
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer vc_..."
+      }
+    }
   }
 }`;
-  const restExample = `curl -H "Authorization: Bearer vc_..." ${origin}/api/posts`;
+  const mcpListExample = `curl ${mcpUrl} \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer vc_..." \\
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'`;
+  const mcpCreateExample = `curl ${mcpUrl} \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer vc_..." \\
+  --data '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"posts.create","arguments":{"title":"Shipping week 23","slug":"shipping-week-23","contentMarkdown":"## What shipped"}}}'`;
+  const restExample = `curl ${origin}/api/posts \\
+  -H "Authorization: Bearer vc_..."`;
   return (
     <AppShell current="/app/settings" userEmail={ctx.app.user.email}>
       <PageHeader kicker="Settings" title="Workspace Settings" description="Manage billing and the scoped credentials agents use to safely operate the blog." />
@@ -121,31 +133,48 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           </Table>
         ) : <EmptyState title="No tokens yet" description={`Create a token when you are ready to connect an agent through ${BRAND.name}.`} />}
       </Panel>
-      <Panel title="Connect an agent" meta="MCP publishing + REST reads">
+      <Panel title="Connect an agent" meta="HTTPS MCP + REST reads">
         <div className="grid gap-5 text-sm">
-          <p className="text-muted-foreground">Point MCP clients at your workspace so agents can write, draft, and publish through scoped tools. REST stays read/list only.</p>
+          <p className="text-muted-foreground">Agents connect over normal HTTPS. Give them the MCP endpoint plus a scoped token in the <code className="font-mono text-foreground">Authorization</code> header. REST stays read/list only.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel>MCP endpoint</FieldLabel>
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs">{origin}/mcp</code>
-                <CopyButton value={`${origin}/mcp`} />
+                <code className="flex-1 truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs">{mcpUrl}</code>
+                <CopyButton value={mcpUrl} />
               </div>
+              <FieldDescription>Use this URL for remote HTTP MCP clients.</FieldDescription>
             </Field>
             <Field>
-              <FieldLabel>REST base</FieldLabel>
+              <FieldLabel>Authorization header</FieldLabel>
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs">{origin}/api</code>
-                <CopyButton value={`${origin}/api`} />
+                <code className="flex-1 truncate rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs">Authorization: Bearer vc_...</code>
+                <CopyButton value="Authorization: Bearer vc_..." />
               </div>
+              <FieldDescription>Tokens are shown once when created. Revoke them anytime.</FieldDescription>
             </Field>
           </div>
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-2">
-              <FieldLabel>Create a post (MCP, JSON-RPC)</FieldLabel>
-              <CopyButton value={mcpExample} />
+              <FieldLabel>Remote HTTP MCP config</FieldLabel>
+              <CopyButton value={httpClientExample} />
             </div>
-            <pre className="overflow-x-auto rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">{mcpExample}</pre>
+            <pre className="overflow-x-auto rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">{httpClientExample}</pre>
+            <p className="text-xs leading-5 text-muted-foreground">Use this shape for clients that support remote HTTP MCP with custom headers. Client key names may vary.</p>
+          </div>
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel>Verify tools/list</FieldLabel>
+              <CopyButton value={mcpListExample} />
+            </div>
+            <pre className="overflow-x-auto rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">{mcpListExample}</pre>
+          </div>
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel>Create a draft through MCP</FieldLabel>
+              <CopyButton value={mcpCreateExample} />
+            </div>
+            <pre className="overflow-x-auto rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">{mcpCreateExample}</pre>
           </div>
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-2">

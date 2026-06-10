@@ -10,7 +10,7 @@ SELF_HOSTED=true
 
 - skips the Polar billing gate after onboarding
 - treats the workspace as effectively active
-- allows publishing, media uploads, MCP/API access, activity history, and post versions
+- allows publishing, media uploads, MCP agent access, REST reads, activity history, and post versions
 - hides hosted checkout/customer-portal controls in settings
 - ignores `/polar/webhook` payloads
 - keeps image safety limits: JPEG/PNG/WebP/GIF only, 10MB max per image
@@ -25,9 +25,11 @@ D1 database bound as DB
 R2 bucket bound as ASSETS_BUCKET
 ```
 
-The root `wrangler.jsonc` is the source of truth for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web/wrangler.jsonc` so private development resources do not leak into the public self-host config.
+The root `wrangler.jsonc` is the starting point for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web/wrangler.jsonc` so private development resources do not leak into the public self-host config.
 
-Once the repository is public, the README can expose this button:
+Self-hosting is meant to be easy for users who already know Cloudflare Workers, D1, and R2. It is not required for VibeCMS Cloud, and the launch path does not depend on perfect one-click self-hosting. A clean self-host deploy still needs real Cloudflare resources and secrets.
+
+Once the repository is public, the README can expose a Deploy to Cloudflare button after the clean-account flow is rehearsed:
 
 ```md
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
@@ -39,7 +41,7 @@ Cloudflare's deploy flow should run the root `deploy` script:
 pnpm deploy
 ```
 
-That script builds the RedwoodSDK app with the root self-host Wrangler config, applies D1 migrations using the `DB` binding name, and deploys the generated Worker bundle.
+That script builds the RedwoodSDK app with the root self-host Wrangler config, applies D1 migrations using the `DB` binding name, and deploys the generated Worker bundle. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update `wrangler.jsonc` first.
 
 ## Required variables and secrets
 
@@ -78,8 +80,8 @@ Do not set Polar secrets for self-hosted mode unless you intentionally want to t
 ## Manual deploy flow
 
 1. Fork/clone the repo.
-2. Update root `wrangler.jsonc` with your Worker name and public URL vars above.
-3. If not using automatic provisioning, create D1/R2 and update the root `wrangler.jsonc` database/bucket values.
+2. Create or select a Cloudflare D1 database and R2 bucket.
+3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, and public URL vars above.
 4. Set secrets:
 
 ```sh
@@ -104,13 +106,12 @@ pnpm deploy
 9. Complete blog setup.
 10. You should land directly on `/app` instead of `/app/billing`.
 
-## One-click deploy target
+## Deploy button target
 
-The public COSS target is:
+The self-host target is:
 
 ```txt
-Click Deploy to Cloudflare
-Cloudflare provisions D1/R2
+User brings or provisions Cloudflare resources
 User supplies APP_URL, BETTER_AUTH_SECRET, TOKEN_PEPPER
 Migrations run
 First account becomes owner
@@ -120,8 +121,20 @@ Dashboard opens without Polar
 Before turning on the public deploy button, finish this release checklist:
 
 - make the GitHub repo public
-- replace the placeholder `https://github.com/moinulmoin/vibecms` button URL
-- verify the Cloudflare deploy-button UI prompts cleanly for the URL vars and required secrets
+- replace the placeholder `https://github.com/moinulmoin/vibecms` button URL if the owner/repo changes
+- rehearse the Deploy to Cloudflare flow from a clean account
+- verify the deploy UI prompts cleanly for URL vars and required secrets
 - rotate/remove any local development secrets before publishing
 
 `SELF_HOSTED=true` is the product-level switch that makes the app self-hostable without billing.
+
+## MCP in self-hosted mode
+
+Self-hosted MCP uses the same remote HTTP endpoint as hosted VibeCMS:
+
+```txt
+https://<your-worker>.<your-subdomain>.workers.dev/mcp
+Authorization: Bearer vc_...
+```
+
+Create the token in Settings, copy it once, and pass it as the bearer token. Agents can write, draft, publish, upload media, and inspect activity only when the token has the matching scopes.
