@@ -1,4 +1,11 @@
+import { BRAND } from "@vc/config";
+import { env } from "cloudflare:workers";
+
 import styles from "./globals.css?url";
+
+const siteUrl = env.APP_URL.replace(/\/$/, "");
+const pageTitle = `${BRAND.name} | ${BRAND.tagline}`;
+const ogImageUrl = `${siteUrl}/brand/og-image.png`;
 
 export const Document: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -11,18 +18,20 @@ export const Document: React.FC<{ children: React.ReactNode }> = ({
       <meta name="theme-color" content="#0c100e" media="(prefers-color-scheme: dark)" />
       <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)" />
       <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
-      <title>VibeCMS | Simple, minimal CMS for humans and AI agents</title>
-      <meta
-        name="description"
-        content="Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP."
-      />
-      <meta property="og:title" content="VibeCMS | Simple, minimal CMS for humans and AI agents" />
-      <meta
-        property="og:description"
-        content="Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP."
-      />
+      <title>{pageTitle}</title>
+      <meta name="description" content={BRAND.description} />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={BRAND.description} />
       <meta property="og:type" content="website" />
+      <meta property="og:url" content={siteUrl} />
+      <meta property="og:image" content={ogImageUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={`${BRAND.name}: ${BRAND.tagline}`} />
       <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={BRAND.description} />
+      <meta name="twitter:image" content={ogImageUrl} />
       <link rel="stylesheet" href={styles} />
       <link rel="modulepreload" href="/src/client.tsx" />
     </head>
