@@ -23,17 +23,6 @@ export const Document: React.FC<{ children: React.ReactNode }> = ({
       />
       <meta property="og:type" content="website" />
       <meta name="twitter:card" content="summary_large_image" />
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossOrigin=""
-      />
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=optional"
-        precedence="first"
-      />
       <link rel="stylesheet" href={styles} />
       <link rel="modulepreload" href="/src/client.tsx" />
     </head>
