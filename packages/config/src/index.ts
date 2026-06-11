@@ -46,7 +46,7 @@ export function assertRuntimeEnv(env: Partial<RuntimeEnv>): asserts env is Runti
 
 export const BRAND = {
   name: "VibeCMS",
-  tagline: "Simple, minimal CMS for humans and AI agents.",
+  tagline: "CMS for humans and AI agents.",
   description:
     "Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP.",
   repoUrl: "https://github.com/moinulmoin/vibecms",

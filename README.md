@@ -2,7 +2,7 @@
 
 ![VibeCMS social preview](apps/web/public/brand/github-social.png)
 
-Simple, minimal CMS for humans and AI agents.
+CMS for humans and AI agents.
 
 Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP. REST stays read/list, every mutation creates activity, and meaningful post changes create versions.
 
