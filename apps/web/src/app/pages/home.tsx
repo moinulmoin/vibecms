@@ -25,62 +25,65 @@ const navItems = [
   ["Pricing", "#pricing"],
 ] as const;
 
-const features = [
+const essentials = [
   {
     glyph: "edit",
     title: "Markdown editor",
-    body: "Write clean posts in Markdown.",
+    body: "Write posts in Markdown with preview before publishing.",
+    className: "lg:col-span-2 lg:row-span-2",
   },
   {
-    glyph: "upload",
-    title: "Media uploads",
-    body: `Drag in images up to ${MEDIA.maxImageLabel}. Stored in R2.`,
+    glyph: "shield",
+    title: "Scoped MCP",
+    body: "Let agents draft, update, publish, archive, upload, and read only what you allow.",
+    className: "lg:col-span-2",
   },
   {
     glyph: "history",
     title: "Version history",
     body: "Every meaningful edit creates a version you can trace.",
+    className: "lg:col-span-1",
   },
   {
     glyph: "filetext",
     title: "Activity log",
-    body: "See who did what and when, including agent actions.",
+    body: "See human and agent actions in one audit trail.",
+    className: "lg:col-span-1",
   },
   {
-    glyph: "shield",
-    title: "Scoped tokens",
-    body: "Let agents write, draft, and publish through scoped MCP.",
-  },
-  {
-    glyph: "reader",
-    title: "Markdown preview",
-    body: "Switch between writing and rendered preview before publishing.",
+    glyph: "upload",
+    title: "Media library",
+    body: `Upload images up to ${MEDIA.maxImageLabel}. Store them in R2.`,
+    className: "lg:col-span-2",
   },
   {
     glyph: "rss",
-    title: "RSS and SEO",
-    body: "Automatic feeds and meta tags so readers find you.",
+    title: "Public output",
+    body: "RSS, sitemap, robots, meta tags, and public blog pages are built in.",
+    className: "lg:col-span-2",
   },
   {
     glyph: "download",
-    title: "One-click export",
-    body: "Download every post as JSON anytime. No lock-in.",
+    title: "Export anytime",
+    body: "Download posts as JSON. No lock-in.",
+    className: "lg:col-span-2",
   },
-];
+] as const;
 
 const agentPermissions: [string, boolean][] = [
-  ["Create a draft", true],
-  ["Update metadata", true],
-  ["Upload blog images", true],
+  ["Create drafts", true],
+  ["Update posts", true],
+  ["Publish posts", true],
+  ["Upload media", true],
   ["Change billing", false],
-  ["Change site ownership", false],
+  ["Change ownership", false],
 ];
 
-const workflowSteps = [
-  ["Start", "Create the blog and set the basic publication details."],
-  ["Write", "Publish from the dashboard or let an agent prepare a draft."],
-  ["Review", "Check the version trail before important posts go live."],
-  ["Publish", "Serve the public blog from a managed Cloudflare stack."],
+const publishingPath = [
+  ["Write", "Draft in the dashboard or through MCP."],
+  ["Review", "Preview Markdown, attach media, and inspect versions."],
+  ["Publish", "Go live from the UI or a scoped agent call."],
+  ["Trace", "Keep the activity trail for every important change."],
 ] as const;
 
 const pricingFeatures = [
@@ -134,9 +137,8 @@ function Glyph({ kind }: { kind: string }) {
 
 export const Home = () => {
   return (
-    <main className="min-h-[100dvh] bg-background text-foreground">
-      {/* Nav */}
-      <nav className="sticky top-0 z-30 border-b border-border bg-background/92 backdrop-blur">
+    <main className="dark min-h-[100dvh] overflow-hidden bg-background text-foreground">
+      <nav className="sticky top-0 z-30 border-b border-border bg-background/88 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <a className="flex items-center gap-2.5 text-sm font-semibold no-underline" href="/">
             <span className="grid size-7 place-items-center rounded-lg bg-primary font-mono text-[10px] text-primary-foreground" aria-hidden="true">vc</span>
@@ -154,13 +156,16 @@ export const Home = () => {
         </div>
       </nav>
 
-      {/* Hero */}
-      <header className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-20 sm:px-8 md:pt-24 lg:min-h-[calc(100dvh-64px)] lg:grid-cols-[1fr_1.1fr] lg:items-center lg:pt-8">
-        <div className="relative z-10">
-          <h1 className="max-w-2xl text-balance text-5xl font-medium leading-[0.95] tracking-[-0.05em] sm:text-6xl lg:text-[3.75rem]">
+      <header className="relative mx-auto grid min-h-[calc(100dvh-64px)] max-w-7xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-8">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-primary/10 blur-3xl" aria-hidden="true" />
+        <div className="relative z-10 max-w-2xl">
+          <p className="mb-5 inline-flex rounded-full border border-border bg-card/70 px-3 py-1 font-mono text-xs text-muted-foreground">
+            Markdown CMS plus scoped MCP
+          </p>
+          <h1 className="text-balance text-5xl font-medium leading-[0.94] tracking-[-0.06em] sm:text-6xl lg:text-7xl">
             {BRAND.tagline}
           </h1>
-          <p className="mt-5 max-w-lg text-pretty text-lg leading-8 text-muted-foreground">
+          <p className="mt-6 max-w-xl text-pretty text-lg leading-8 text-muted-foreground">
             {BRAND.description}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -169,294 +174,203 @@ export const Home = () => {
           </div>
         </div>
 
-        {/* MCP tool call + REST API examples */}
-        <div className="grid gap-4">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
-              <span className="text-primary"><Glyph kind="terminal" /></span>
-              <span className="font-mono text-xs text-muted-foreground">MCP tool call</span>
-            </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-6 text-foreground">
-              <code>{`{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "posts.create",
-    "arguments": {
-      "title": "Shipping week 23",
-      "slug": "shipping-week-23",
-      "contentMarkdown": "## What shipped..."
-    }
-  }
-}`}</code>
-            </pre>
+        <div className="relative z-10">
+          <div className="rounded-2xl border border-border bg-card/65 p-2 shadow-2xl shadow-primary/10">
+            <img
+              alt="VibeCMS product artwork showing Markdown, media, versions, and agent nodes"
+              className="aspect-[16/11] w-full rounded-xl object-cover"
+              decoding="async"
+              fetchPriority="high"
+              src="/brand/landing-hero.webp"
+            />
           </div>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
-              <span className="text-primary"><Glyph kind="terminal" /></span>
-              <span className="font-mono text-xs text-muted-foreground">REST API (read-only)</span>
-            </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-6 text-foreground">
-              <code>{`curl -H "Authorization: Bearer vc_..." \\
-  https://your-blog.example/api/posts`}</code>
-            </pre>
+          <div className="mx-4 -mt-6 grid gap-3 rounded-xl border border-border bg-background/92 p-4 shadow-2xl shadow-background/50 backdrop-blur sm:mx-8 sm:grid-cols-3">
+            {[
+              ["draft", "agent can write"],
+              ["publish", "owner can allow"],
+              ["versions", "history stays"],
+            ].map(([title, body]) => (
+              <div key={title}>
+                <p className="font-mono text-xs text-primary">{title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Proof strip */}
-      <section className="border-y border-border bg-muted/40">
-        <div className="mx-auto grid max-w-7xl gap-0 px-5 py-0 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
+      <section className="border-y border-border bg-card/35">
+        <div className="mx-auto grid max-w-7xl gap-px px-5 py-4 sm:px-8 lg:grid-cols-3">
           {[
-            ["Hosted blog", "One clean publication with posts, images, public pages, and a dashboard that stays out of the way."],
-            ["Agent-ready", "Scoped MCP lets trusted assistants write, draft, publish, update, and inspect content without sharing your login."],
-            ["Versioned", "Every important edit can be traced through activity history and post versions."],
-            ["Self-hostable", "Run the open-source app on Cloudflare, or use VibeCMS Cloud when you want it managed."],
-          ].map(([value, label]) => (
-            <div className="border-b border-border py-7 sm:px-5 lg:border-b-0 lg:border-r lg:last:border-r-0" key={value}>
-              <p className="text-2xl font-medium tracking-[-0.03em] text-primary">{value}</p>
-              <p className="mt-3 max-w-[19rem] text-sm leading-6 text-muted-foreground">{label}</p>
-            </div>
+            ["Markdown-first", "A calm writing surface for posts."],
+            ["Agent-scoped", "MCP tokens limit what assistants can touch."],
+            ["Versioned", "Posts, activity, and history stay connected."],
+          ].map(([title, body]) => (
+            <article className="rounded-xl bg-background/70 p-5" key={title}>
+              <p className="text-xl font-medium tracking-[-0.03em]">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      {/* Feature grid */}
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="features">
-        <h2 className="max-w-xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-          The essentials for one serious blog.
-        </h2>
-        <p className="mt-4 max-w-md text-lg leading-8 text-muted-foreground">
-          {BRAND.description}
-        </p>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f) => (
-            <article className="rounded-xl border border-border bg-card p-5" key={f.title}>
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8" id="features">
+        <div className="max-w-2xl">
+          <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+            The essentials for one serious blog.
+          </h2>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
+            One clean publication surface with the CMS pieces that matter: writing, media, history, public output, and export.
+          </p>
+        </div>
+        <div className="mt-12 grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {essentials.map((f, index) => (
+            <article className={`rounded-2xl border border-border p-5 ${index === 0 ? "bg-primary text-primary-foreground" : index % 3 === 0 ? "bg-accent/60" : "bg-card"} ${f.className}`} key={f.title}>
+              <div className={`flex size-10 items-center justify-center rounded-lg ${index === 0 ? "bg-primary-foreground/15 text-primary-foreground" : "bg-primary/10 text-primary"}`}>
                 <Glyph kind={f.glyph} />
               </div>
-              <h3 className="mt-4 text-base font-medium tracking-[-0.01em]">{f.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{f.body}</p>
+              <h3 className="mt-5 text-xl font-medium tracking-[-0.03em]">{f.title}</h3>
+              <p className={`mt-3 max-w-sm text-sm leading-6 ${index === 0 ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{f.body}</p>
             </article>
           ))}
         </div>
       </section>
 
-      {/* How it works - human vs agent */}
-      <section className="border-y border-border bg-card py-20">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-            Two ways in, one blog.
-          </h2>
-          <p className="mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-            Write Markdown in the dashboard, let agents publish through MCP, and keep REST for safe reads.
-          </p>
-          <div className="mt-12 grid gap-6 lg:grid-cols-2">
-            <article className="rounded-xl border border-border bg-background p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Glyph kind="user" />
-                </div>
-                <h3 className="text-xl font-medium tracking-[-0.02em]">For humans</h3>
-              </div>
-              <ol className="mt-6 space-y-4 border-t border-border pt-5">
-                {[
-                  "Open the dashboard and write in a clean Markdown editor.",
-                  "Upload images directly. They are stored in R2 and served fast.",
-                  "Review the version trail before publishing.",
-                  "Preview the public blog before publishing.",
-                  "Export all posts as JSON. Yours to keep.",
-                ].map((step, i) => (
-                  <li className="flex gap-3 text-sm leading-6" key={step}>
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
-                      {i + 1}
-                    </span>
-                    <span className="text-muted-foreground">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </article>
-            <article className="rounded-xl border border-border bg-background p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Glyph kind="bot" />
-                </div>
-                <h3 className="text-xl font-medium tracking-[-0.02em]">For agents</h3>
-              </div>
-              <ol className="mt-6 space-y-4 border-t border-border pt-5">
-                {[
-                  "Connect trusted assistants through scoped MCP.",
-                  "Create drafts, update posts, publish, archive, and upload media.",
-                  "Every action appears in the activity log for audit.",
-                  "Scoped tokens keep billing and ownership out of reach.",
-                ].map((step, i) => (
-                  <li className="flex gap-3 text-sm leading-6" key={step}>
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
-                      {i + 1}
-                    </span>
-                    <span className="text-muted-foreground">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </article>
-          </div>
-        </div>
-      </section>
-
-
-      {/* Agents - 2 column split */}
-      <section className="border-y border-border bg-card py-20" id="agents">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_0.95fr] lg:items-center">
+      <section className="border-y border-border bg-card/35 py-24" id="agents">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div>
-            <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              Let agents publish through MCP without giving them your login.
+            <h2 className="max-w-3xl text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+              Let agents publish without giving them your login.
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-              Give assistants only the scopes they need: draft, update, publish, archive, upload media, or read activity.
+              Give assistants only the scopes they need. Draft, update, publish, archive, upload media, or inspect activity.
             </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {agentPermissions.map(([action, allowed]) => (
+                <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3 text-sm" key={action}>
+                  <span>{action}</span>
+                  {allowed ? (
+                    <span className="flex items-center gap-1.5 font-mono text-xs text-primary">
+                      <Glyph kind="check" /> Allowed
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 font-mono text-xs text-destructive">
+                      <Glyph kind="x" /> Blocked
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="rounded-xl border border-border bg-background p-5">
-            <div className="rounded-lg border border-border bg-card p-5">
+          <div className="grid gap-4">
+            <div className="rounded-2xl border border-border bg-background p-5">
               <div className="flex items-center justify-between border-b border-border pb-4">
                 <div>
-                  <p className="font-mono text-xs text-muted-foreground">agent token</p>
-                  <p className="mt-1 font-mono text-sm"><span className="text-primary">vc_</span>blog_writer</p>
+                  <p className="font-mono text-xs text-muted-foreground">remote MCP endpoint</p>
+                  <p className="mt-1 font-mono text-sm"><span className="text-primary">POST</span> /mcp</p>
                 </div>
-                <span className="rounded-full border border-primary/25 bg-accent px-3 py-1 font-mono text-xs text-primary">active</span>
+                <span className="rounded-full border border-primary/25 bg-accent px-3 py-1 font-mono text-xs text-primary">Bearer vc_...</span>
               </div>
-              <div className="mt-5 grid gap-2">
-                {agentPermissions.map(([action, allowed]) => (
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm" key={action}>
-                    <span>{action}</span>
-                    {allowed ? (
-                      <span className="flex items-center gap-1.5 font-mono text-xs text-primary">
-                        <Glyph kind="check" /> Allowed
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-                        <Glyph kind="x" /> Not allowed
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div className="mt-5 rounded-xl bg-card p-4 font-mono text-xs leading-6 text-muted-foreground">
+                <p>{`tools/call -> posts.create`}</p>
+                <p>{`tools/call -> posts.publish`}</p>
+                <p>{`tools/call -> media.upload`}</p>
               </div>
             </div>
+            <img
+              alt="VibeCMS poster artwork with agent-aware publishing motifs"
+              className="hidden rounded-2xl border border-border object-cover shadow-2xl shadow-primary/10 md:block"
+              decoding="async"
+              loading="lazy"
+              src="/brand/launch-poster.png"
+            />
           </div>
         </div>
       </section>
 
-      {/* Workflow - split list + visual */}
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-start">
           <div>
-            <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              From idea to published post without losing the trail.
+            <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+              From draft to published, with the trail intact.
             </h2>
-            <div className="mt-8 divide-y divide-border border-y border-border">
-              {workflowSteps.map(([title, body]) => (
-                <div className="grid gap-3 py-5 sm:grid-cols-[120px_1fr]" key={title}>
-                  <h3 className="font-mono text-sm text-primary">{title}</h3>
-                  <p className="leading-7 text-muted-foreground">{body}</p>
-                </div>
-              ))}
-            </div>
+            <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
+              Humans and agents use different doors into the same command layer, so the blog stays coherent.
+            </p>
           </div>
-          <div className="overflow-hidden rounded-xl border border-border bg-muted/40 p-6">
-            <div className="grid gap-4">
-              {[
-                { label: "new blog", glyph: "globe" },
-                { label: "clean editor", glyph: "edit" },
-                { label: "scoped agent key", glyph: "shield" },
-                { label: "published with history", glyph: "clock" },
-              ].map(({ label, glyph }) => (
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3" key={label}>
-                  <span className="text-primary"><Glyph kind={glyph} /></span>
-                  <span className="text-sm font-medium">{label}</span>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {publishingPath.map(([title, body]) => (
+              <article className="rounded-2xl border border-border bg-card p-6" key={title}>
+                <p className="font-mono text-sm text-primary">{title}</p>
+                <p className="mt-4 text-lg leading-7">{body}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Self-host vs Cloud - 2 column cards */}
-      <section className="border-y border-border bg-muted/40 py-20" id="self-host">
+      <section className="border-y border-border bg-card/35 py-24" id="self-host">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <h2 className="max-w-3xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-            Use the hosted version, or bring your own Cloudflare account.
+          <h2 className="max-w-3xl text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+            Hosted when you want speed. Self-hosted when you want control.
           </h2>
           <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            <article className="rounded-xl border border-border bg-card p-7">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Glyph kind="globe" /></div>
+            <article className="rounded-2xl border border-border bg-background p-7">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Glyph kind="globe" /></div>
               <h3 className="mt-5 text-2xl font-medium tracking-[-0.03em]">{PRICING.planName}</h3>
-              <p className="mt-3 leading-7 text-muted-foreground">Managed hosting, billing, updates, and storage so you can focus on the publication.</p>
-              <div className="mt-6 rounded-lg border border-border bg-background p-4 font-mono text-sm leading-7 text-foreground">
-                <p>Managed Workers hosting</p>
-                <p>D1 database</p>
-                <p>R2 media storage</p>
-                <p>Scoped MCP publishing</p>
-              </div>
+              <p className="mt-3 leading-7 text-muted-foreground">Managed Workers hosting, billing, updates, and storage so you can focus on the publication.</p>
             </article>
-            <article className="rounded-xl border border-border bg-card p-7">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Glyph kind="server" /></div>
+            <article className="rounded-2xl border border-border bg-background p-7">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Glyph kind="server" /></div>
               <h3 className="mt-5 text-2xl font-medium tracking-[-0.03em]">Open source</h3>
               <p className="mt-3 leading-7 text-muted-foreground">Deploy to Workers with D1 and R2, inspect the code, and keep the same agent-aware publishing model.</p>
-              <div className="mt-6 rounded-lg border border-border bg-background p-4 font-mono text-sm leading-7 text-foreground">
-                <p>Cloudflare Workers</p>
-                <p>D1 database</p>
-                <p>R2 media bucket</p>
-                <p>Scoped MCP publishing</p>
-              </div>
             </article>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8" id="pricing">
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8" id="pricing">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
+            <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
               One plan for a serious single blog.
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
               Simple enough to start today, complete enough to run a real publication with agent help through MCP.
             </p>
           </div>
-          <article className="rounded-xl border border-border bg-card p-7">
+          <article className="rounded-2xl border border-primary/30 bg-primary p-7 text-primary-foreground shadow-2xl shadow-primary/10">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-medium tracking-[-0.03em]">{PRICING.planName}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{PRICING.trialLabel}</p>
+                <p className="mt-2 text-sm text-primary-foreground/75">{PRICING.trialLabel}</p>
               </div>
               <div className="text-right">
                 <p className="text-6xl font-medium tracking-[-0.05em]">${PRICING.monthlyUsd}</p>
-                <p className="text-sm text-muted-foreground">{PRICING.monthlyLabel}, or {PRICING.annualLabel}</p>
+                <p className="text-sm text-primary-foreground/75">{PRICING.monthlyLabel}, or {PRICING.annualLabel}</p>
               </div>
             </div>
-            <Button asChild className="mt-7 w-full rounded-lg" size="lg"><a href="/login">Start free trial</a></Button>
-            <ul className="mt-7 grid gap-x-6 gap-y-3 border-y border-border py-6 sm:grid-cols-2">
+            <Button asChild className="mt-7 w-full rounded-lg" size="lg" variant="secondary"><a href="/login">Start free trial</a></Button>
+            <ul className="mt-7 grid gap-x-6 gap-y-3 border-y border-primary-foreground/20 py-6 sm:grid-cols-2">
               {pricingFeatures.map((item) => (
                 <li className="flex gap-3 text-sm leading-6" key={item}>
-                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" />
+                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary-foreground" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-6 text-sm leading-6 text-muted-foreground">
+            <p className="mt-6 text-sm leading-6 text-primary-foreground/75">
               Fair-use hosting included. Native video hosting and generic file storage are not included.
             </p>
           </article>
         </div>
       </section>
 
-      {/* FAQ - accordion */}
-      <section className="border-y border-border bg-muted/40 py-20">
+      <section className="border-y border-border bg-card/35 py-24">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              Frequently asked questions
+            <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+              Questions before launch.
             </h2>
           </div>
           <div className="border-t border-border">
@@ -475,26 +389,33 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Closing CTA */}
-      <section className="bg-accent/30 px-5 py-20 sm:px-8">
-        <div className="mx-auto max-w-7xl rounded-xl border border-border bg-card p-8 sm:p-12">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-balance text-4xl font-medium leading-tight tracking-[-0.04em] sm:text-5xl">
-              Start simple. Add agents when you are ready.
-            </h2>
-            <p className="mt-4 text-lg leading-8 text-muted-foreground">
-              Write in Markdown, keep versions, and let trusted agents publish through scoped MCP.
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
-              <Button asChild className="rounded-lg active:translate-y-px" size="lg" variant="outline"><a href="#self-host">Self-host</a></Button>
+      <section className="px-5 py-24 sm:px-8">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="grid gap-8 p-8 sm:p-12 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+            <div>
+              <h2 className="max-w-2xl text-balance text-4xl font-medium leading-tight tracking-[-0.05em] sm:text-6xl">
+                Start simple. Add agents when you are ready.
+              </h2>
+              <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
+                Write in Markdown, keep versions, and let trusted agents publish through scoped MCP.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
+                <Button asChild className="rounded-lg active:translate-y-px" size="lg" variant="outline"><a href="#self-host">Self-host</a></Button>
+              </div>
             </div>
+            <img
+              alt="VibeCMS social preview artwork"
+              className="rounded-xl border border-border object-cover"
+              decoding="async"
+              loading="lazy"
+              src="/brand/social-banner.png"
+            />
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-muted/30 py-12">
+      <footer className="border-t border-border bg-card/35 py-12">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 text-sm sm:px-8 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>
             <a className="mb-4 flex items-center gap-2.5 font-semibold no-underline" href="/">
