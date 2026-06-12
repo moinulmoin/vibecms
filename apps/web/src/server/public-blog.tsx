@@ -113,18 +113,23 @@ function Markdown({ source }: { source: string }) {
   return <div className={styles.markdown}>{parseMarkdown(source)}</div>;
 }
 
+function publicIndexHref(basePath: string) {
+  return basePath || "/";
+}
+
 function PublicNotFound({ site, basePath }: { site: SiteRow; basePath: string }) {
+  const homeHref = publicIndexHref(basePath);
   return (
     <main className={styles.publicPage}>
       <title>{`Not found - ${site.name}`}</title>
       <meta name="robots" content="noindex" />
       <header className={styles.publicHeader}>
-        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
+        <a href={homeHref} className={styles.publicBrand}>{site.name}</a>
       </header>
       <section className={styles.notFound}>
         <h1>Post not found</h1>
         <p>That post does not exist or is no longer published.</p>
-        <a href={basePath} className={styles.backLink}>{"\u2190"} All posts</a>
+        <a href={homeHref} className={styles.backLink}>{"\u2190"} All posts</a>
       </section>
     </main>
   );
@@ -138,6 +143,7 @@ function PublicShell({ site, basePath, children }: { site: SiteRow; basePath: st
   const seoTitle = site.default_seo_title || site.name;
   const seoDescription = site.default_seo_description || site.description || undefined;
   const indexable = isPublicBlogIndexable(site);
+  const homeHref = publicIndexHref(basePath);
   return (
     <main className={styles.publicPage}>
       {seoTitle ? <title>{seoTitle}</title> : null}
@@ -146,7 +152,7 @@ function PublicShell({ site, basePath, children }: { site: SiteRow; basePath: st
       {seoTitle ? <meta property="og:title" content={seoTitle} /> : null}
       {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
       <header className={styles.publicHeader}>
-        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
+        <a href={homeHref} className={styles.publicBrand}>{site.name}</a>
         {site.description ? <p>{site.description}</p> : null}
       </header>
       {children}
@@ -201,6 +207,7 @@ async function renderPublicPost(request: Request, site: SiteRow, basePath: strin
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const canonicalUrl = new URL(`${basePath}/${post.slug}`, request.url).href;
   const indexable = isPublicBlogIndexable(site);
+  const indexHref = publicIndexHref(basePath);
 
   return (
     <main className={styles.publicPage}>
@@ -212,11 +219,11 @@ async function renderPublicPost(request: Request, site: SiteRow, basePath: strin
       <meta property="og:type" content="article" />
       <link rel="canonical" href={canonicalUrl} />
       <header className={styles.publicHeader}>
-        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
+        <a href={indexHref} className={styles.publicBrand}>{site.name}</a>
         {site.description ? <p>{site.description}</p> : null}
       </header>
       <article className={styles.article}>
-        <a href={basePath} className={styles.backLink}>{"\u2190"} All posts</a>
+        <a href={indexHref} className={styles.backLink}>{"\u2190"} All posts</a>
         <h1 className={styles.articleTitle}>{post.title}</h1>
         {post.cover_asset_id ? (
           <img
@@ -241,7 +248,7 @@ export async function PublicPost({ request, params }: { request: Request; params
   return renderPublicPost(request, site, "", params.slug);
 }
 
-export async function PublicIndexBySlug({ request, params }: { request: Request; params: { siteSlug?: string } }) {
+export async function PublicIndexBySlug({ params }: { request: Request; params: { siteSlug?: string } }) {
   const site = await resolveSiteBySlug(params.siteSlug);
   if (!site) return notFound();
   return renderPublicIndex(site, `/blog/${site.slug}`);

@@ -194,7 +194,7 @@ export default defineApp([
     route("/app/activity", [requireBilling, Activity]),
     route("/app/billing/checkout", { post: ({ ctx, request }) => createCheckoutSession(requireApp(ctx), request) }),
     route("/app/billing/portal", { post: ({ ctx }) => createPortalSession(requireApp(ctx)) }),
-    route("/app/settings", [requireBilling, Settings]),
+    route("/app/settings", [requireSetup, Settings]),
     route("/app/settings/api-keys/create", {
       post: async ({ ctx, request }) => {
         try {
@@ -218,7 +218,7 @@ export default defineApp([
     route("/app/settings/token-created/clear", { post: () => new Response(null, { status: 204, headers: { "Set-Cookie": clearTokenFlashCookieHeader() } }) }),
     route("/app/settings/api-keys/:keyId/revoke", { post: async ({ ctx, params }) => {
       try {
-        return await revokeApiKey(await requireBillableApp(ctx), params.keyId);
+        return await revokeApiKey(requireApp(ctx), params.keyId);
       } catch (error) {
         if (error instanceof Response) throw error;
         if (error instanceof AppError && error.code === "FORBIDDEN") return redirect("/app/settings?error=owner_required");

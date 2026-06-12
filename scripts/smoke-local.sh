@@ -5,6 +5,7 @@ BASE_URL=${BASE_URL:-http://localhost:5173}
 RUN_ID="$(date +%s%N)"
 EMAIL="smoke-$RUN_ID@example.test"
 SITE_SLUG="smoke-blog-$RUN_ID"
+POST_SLUG="smoke-post-$RUN_ID"
 COOKIE_JAR=$(mktemp)
 
 curl -fsS "$BASE_URL/login" >/dev/null
@@ -20,7 +21,7 @@ APP_STATUS=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' -b "$COOKIE
 case "$APP_STATUS" in
   200:*)
     CREATE_STATUS=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' -b "$COOKIE_JAR" -H "origin: $BASE_URL" -H "referer: $BASE_URL/app/posts/new" \
-      -d "title=Smoke+Post&slug=smoke-post-$RUN_ID&excerpt=Smoke+post&contentMarkdown=%23%23+Smoke%0A%0ALaunch+smoke+content.&tags=smoke" \
+      -d "title=Smoke+Post&slug=$POST_SLUG&excerpt=Smoke+post&contentMarkdown=%23%23+Smoke%0A%0ALaunch+smoke+content.&tags=smoke" \
       "$BASE_URL/app/posts/create")
     case "$CREATE_STATUS" in
       302:*"/app/posts/"*"/edit"*|303:*"/app/posts/"*"/edit"*) ;;
@@ -31,6 +32,11 @@ case "$APP_STATUS" in
     POST_ID=${POST_ID%%/edit*}
     curl -fsS -b "$COOKIE_JAR" -H "origin: $BASE_URL" -H "referer: $BASE_URL/app/posts/$POST_ID/edit" -X POST "$BASE_URL/app/posts/$POST_ID/publish" >/dev/null
     curl -fsS -b "$COOKIE_JAR" "$BASE_URL/app/posts?status=published" >/dev/null
+    PUBLIC_POST=$(curl -fsS "$BASE_URL/blog/$SITE_SLUG/$POST_SLUG")
+    case "$PUBLIC_POST" in
+      *"Launch smoke content."*) ;;
+      *) echo "expected public post content on /blog/$SITE_SLUG/$POST_SLUG" >&2; exit 1 ;;
+    esac
     ;;
   302:*"/app/billing"|303:*"/app/billing"|302:*"/app/billing?"*|303:*"/app/billing?"*)
     curl -fsS -b "$COOKIE_JAR" "$BASE_URL/app/billing" >/dev/null

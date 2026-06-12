@@ -83,7 +83,7 @@ Do not set Polar secrets for self-hosted mode unless you intentionally want to t
 
 1. Fork/clone the repo.
 2. Create or select a Cloudflare D1 database and R2 bucket.
-3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, public URL vars above, and wildcard DNS/Worker routing for `*.PUBLIC_BLOG_DOMAIN`.
+3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, and public URL vars above. If `PUBLIC_BLOG_DOMAIN` is a separate domain from `APP_URL`, also add wildcard DNS and Worker routing for `*.PUBLIC_BLOG_DOMAIN`.
 4. Set secrets:
 
 ```sh

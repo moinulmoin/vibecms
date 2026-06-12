@@ -23,6 +23,8 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
   const selfHosted = isSelfHosted();
   const isOwner = ctx.app.actor.type === "human" && ctx.app.actor.role === "owner";
   const canManageTokens = canManageApiKeys(ctx.app);
+  const canUseBillableFeatures = selfHosted || billing?.status === "trialing" || billing?.status === "active";
+  const canCreateTokens = canManageTokens && canUseBillableFeatures;
   const apiKeys = await listApiKeys(ctx.app);
   const status = readFormStatus(new URL(request.url).searchParams);
   const origin = new URL(request.url).origin;
@@ -69,8 +71,8 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           ) : <p className="mt-4 text-sm text-muted-foreground">Only workspace owners can manage billing.</p>}
         </div>
       </Panel>
-      <Panel title="Agent Access Token" meta={canManageTokens ? "Default excludes Publish" : "Owner access required"}>
-        {canManageTokens ? (
+      <Panel title="Agent Access Token" meta={canCreateTokens ? "Default excludes Publish" : canManageTokens ? "Billing required to create new tokens" : "Owner access required"}>
+        {canCreateTokens ? (
           <form className="grid max-w-3xl gap-4" method="post" action="/app/settings/api-keys/create">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
@@ -99,7 +101,7 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
             </FieldSet>
             <SubmitButton className="w-fit" pendingText="Creating token…">Create token</SubmitButton>
           </form>
-        ) : <p className="text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>}
+        ) : canManageTokens ? <p className="text-sm text-muted-foreground">Reactivate billing to create new agent access tokens. Existing tokens can still be revoked below.</p> : <p className="text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>}
       </Panel>
       <Panel title="Existing Tokens" meta={`${apiKeys.length} total`}>
         {apiKeys.length ? (
