@@ -1,6 +1,6 @@
 import { render, route } from "rwsdk/router";
 import { defineApp } from "rwsdk/worker";
-import { can } from "@vc/core";
+import { AppError, can } from "@vc/core";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
@@ -16,13 +16,14 @@ import { Setup } from "@/app/pages/setup";
 import { Settings } from "@/app/pages/settings";
 import { TokenCreated } from "@/app/pages/token-created";
 import { auth } from "@/lib/auth";
-import { PublicPost } from "@/server/public-blog";
+import { PublicIndexBySlug, PublicPost, PublicPostBySlug } from "@/server/public-blog";
 import { authenticateBearerToken, createApiKeyFromRequest, revokeApiKey } from "@/server/api-keys";
 import { createCheckoutSession, createPortalSession, getBillingStatus, handlePolarWebhook } from "@/server/billing";
 import { serveAsset, uploadAssetFromRequest } from "@/server/media";
 import { handleMcpRequest } from "@/server/mcp";
 import { handleFeed, handleRobots, handleSitemap } from "@/server/public-feeds";
 import { handleExport } from "@/server/export";
+import { rejectCrossOriginBrowserPost } from "@/server/csrf";
 import {
   archivePostFromRequest,
   createPostFromRequest,
@@ -101,8 +102,35 @@ function parseTokenFlashCookie(request: Request) {
   }
 }
 
+function apiError(error: unknown) {
+  if (error instanceof AppError) {
+    const status = error.status >= 400 && error.status < 600 ? error.status : 500;
+    const safeCode = ["UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "VALIDATION_ERROR", "BILLING_REQUIRED"].includes(error.code) ? error.code : "INTERNAL_ERROR";
+    return Response.json({ error: safeCode }, { status });
+  }
+  return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+}
+
+function postStatusParam(value: string | null) {
+  return value === "draft" || value === "published" || value === "archived" ? value : undefined;
+}
+
+function boundedIntegerParam(value: string | null, fallback: number, min: number, max: number) {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+
 export default defineApp([
   setCommonHeaders(),
+  ({ request }) => {
+    const pathname = new URL(request.url).pathname;
+    if (request.method !== "POST") return;
+    if (pathname !== "/api/onboarding/ensure" && !pathname.startsWith("/app/")) return;
+    return rejectCrossOriginBrowserPost(request);
+  },
   async ({ ctx, request }) => {
     ctx.authUrl = env.BETTER_AUTH_URL;
     const session = await auth.api.getSession({ headers: request.headers });
@@ -124,10 +152,23 @@ export default defineApp([
   route("/api/posts", {
     get: async ({ request }) => {
       const authResult = await authenticateBearerToken(request);
-      if (!authResult) return Response.json({ error: "Unauthorized" }, { status: 401 });
-      if (!can(authResult.actor, "posts:read")) return Response.json({ error: "Forbidden" }, { status: 403 });
-      const posts = await getPosts({ user: { id: "api", name: authResult.actor.name, email: "api" }, workspaceId: "api", siteId: authResult.siteId, actor: authResult.actor });
-      return Response.json({ posts });
+      if (!authResult) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+      if (!can(authResult.actor, "posts:read")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+      try {
+        const url = new URL(request.url);
+        const limit = boundedIntegerParam(url.searchParams.get("limit"), 20, 1, 100);
+        const offset = boundedIntegerParam(url.searchParams.get("offset"), 0, 0, 10_000);
+        const posts = await getPosts(
+          { user: { id: "api", name: authResult.actor.name, email: "api" }, workspaceId: "api", siteId: authResult.siteId, actor: authResult.actor },
+          postStatusParam(url.searchParams.get("status")),
+          url.searchParams.get("search") || undefined,
+          limit,
+          offset,
+        );
+        return Response.json({ posts, pagination: { limit, offset, count: posts.length } });
+      } catch (error) {
+        return apiError(error);
+      }
     },
   }),
   route("/feed.xml", ({ request }) => handleFeed(request)),
@@ -161,6 +202,7 @@ export default defineApp([
           return redirect("/app/settings/token-created", { "Set-Cookie": tokenFlashCookieHeader(created.token, created.name) });
         } catch (error) {
           if (error instanceof Response) throw error;
+          if (error instanceof AppError && error.code === "FORBIDDEN") return redirect("/app/settings?error=owner_required");
           return redirect("/app/settings?error=unknown");
         }
       },
@@ -179,9 +221,12 @@ export default defineApp([
         return await revokeApiKey(await requireBillableApp(ctx), params.keyId);
       } catch (error) {
         if (error instanceof Response) throw error;
+        if (error instanceof AppError && error.code === "FORBIDDEN") return redirect("/app/settings?error=owner_required");
         return redirect("/app/settings?error=unknown");
       }
     } }),
+    route("/blog/:siteSlug", PublicIndexBySlug),
+    route("/blog/:siteSlug/:postSlug", PublicPostBySlug),
     route("/:slug", PublicPost),
   ]),
 ]);

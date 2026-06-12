@@ -49,7 +49,7 @@ export function AuthForm({ authUrl }: { authUrl: string }) {
           <FieldLabel htmlFor="name">Name</FieldLabel>
           <Input
             id="name"
-            className="h-11 rounded-lg bg-background"
+            name="name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             autoComplete="name"
@@ -61,7 +61,7 @@ export function AuthForm({ authUrl }: { authUrl: string }) {
         <FieldLabel htmlFor="email">Email</FieldLabel>
         <Input
           id="email"
-          className="h-11 rounded-lg bg-background"
+          name="email"
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -74,7 +74,7 @@ export function AuthForm({ authUrl }: { authUrl: string }) {
         <FieldLabel htmlFor="password">Password</FieldLabel>
         <Input
           id="password"
-          className="h-11 rounded-lg bg-background"
+          name="password"
           type="password"
           minLength={8}
           value={password}

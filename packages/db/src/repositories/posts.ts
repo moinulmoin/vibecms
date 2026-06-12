@@ -1,4 +1,4 @@
-import type { ActivityInput, Actor, Post, PostRepository } from "@vc/core";
+import { ConflictError, type ActivityInput, type Actor, type Post, type PostRepository, type PostSummary } from "@vc/core";
 
 type PostRow = {
   id: string;
@@ -15,7 +15,6 @@ type PostRow = {
   updated_at: number;
 };
 
-type VersionRow = { next_version: number | null };
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -50,74 +49,166 @@ function mapPost(row: PostRow): Post {
   };
 }
 
-export function createD1PostRepository(db: D1Database): PostRepository {
+type PostSummaryRow = Omit<PostRow, "content_markdown">;
+
+function mapPostSummary(row: PostSummaryRow): PostSummary {
   return {
-    async createPost(input, actor) {
+    id: row.id,
+    siteId: row.site_id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt,
+    coverAssetId: row.cover_asset_id,
+    status: normalizePostStatus(row.status),
+    publishedAt: row.published_at,
+    tags: JSON.parse(row.tags_json) as string[],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeD1Error(error: unknown): unknown {
+  if (!(error instanceof Error)) return error;
+  if (error.message.includes("idx_posts_site_slug_unique") || error.message.includes("posts.site_id, posts.slug")) {
+    return new ConflictError("A post with this slug already exists");
+  }
+  if (error.message.includes("idx_post_versions_post_number") || error.message.includes("post_versions.post_id, post_versions.version_number")) {
+    return new ConflictError("Post changed concurrently; retry the save");
+  }
+  return error;
+}
+
+export function createD1PostRepository(db: D1Database): PostRepository {
+  const getPost = async (siteId: string, postId: string) => {
+    const row = await db.prepare(
+      `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+        tags_json, created_at, updated_at
+      FROM posts WHERE site_id = ? AND id = ? LIMIT 1`,
+    ).bind(siteId, postId).first<PostRow>();
+    return row ? mapPost(row) : null;
+  };
+
+  const postVersionStatement = (post: Post, actor: Actor, changeSummary: string, timestamp: number) => db.prepare(
+    `INSERT INTO post_versions (
+      id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
+      cover_asset_id, status, tags_json, created_by_type, created_by_id, change_summary, created_at
+    ) VALUES (?, ?, ?, COALESCE((SELECT MAX(version_number) FROM post_versions WHERE post_id = ?), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    crypto.randomUUID(),
+    post.id,
+    post.siteId,
+    post.id,
+    post.title,
+    post.slug,
+    post.excerpt,
+    post.contentMarkdown,
+    post.coverAssetId,
+    post.status,
+    JSON.stringify(post.tags),
+    actor.type,
+    actorId(actor),
+    changeSummary,
+    timestamp,
+  );
+
+  const activityStatement = (input: ActivityInput, timestamp: number) => db.prepare(
+    `INSERT INTO activity_events (
+      id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
+      summary, before_json, after_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    crypto.randomUUID(),
+    input.siteId,
+    input.actor.type,
+    actorId(input.actor),
+    actorName(input.actor),
+    input.action,
+    input.entityType,
+    input.entityId,
+    input.summary,
+    input.before ? JSON.stringify(input.before) : null,
+    input.after ? JSON.stringify(input.after) : null,
+    timestamp,
+  );
+
+  const runHistoryBatch = async (statements: D1PreparedStatement[]) => {
+    try {
+      // D1 batch statements are a SQL transaction: failure aborts and rolls
+      // back the whole post/version/activity sequence.
+      return await db.batch(statements);
+    } catch (error) {
+      throw normalizeD1Error(error);
+    }
+  };
+
+  return {
+    async createPostWithHistory(input, actor, history) {
       const timestamp = now();
-      await db.prepare(
-        `INSERT INTO posts (
-          id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
-          tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(
-        input.id,
-        input.siteId,
-        input.title,
-        input.slug,
-        input.excerpt,
-        input.contentMarkdown,
-        input.coverAssetId,
-        input.status,
-        input.publishedAt,
-        JSON.stringify(input.tags),
-        actor.type,
-        actorId(actor),
-        actor.type,
-        actorId(actor),
-        timestamp,
-        timestamp,
-      ).run();
-      const post = await this.getPost(input.siteId, input.id);
-      if (!post) throw new Error("Post insert failed");
+      const post: Post = { ...input, createdAt: timestamp, updatedAt: timestamp };
+      await runHistoryBatch([
+        db.prepare(
+          `INSERT INTO posts (
+            id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+            tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          post.id,
+          post.siteId,
+          post.title,
+          post.slug,
+          post.excerpt,
+          post.contentMarkdown,
+          post.coverAssetId,
+          post.status,
+          post.publishedAt,
+          JSON.stringify(post.tags),
+          actor.type,
+          actorId(actor),
+          actor.type,
+          actorId(actor),
+          timestamp,
+          timestamp,
+        ),
+        postVersionStatement(post, actor, history.changeSummary, timestamp),
+        activityStatement({ siteId: post.siteId, actor, action: history.activityAction, entityType: "post", entityId: post.id, summary: history.activitySummary, after: post }, timestamp),
+      ]);
       return post;
     },
 
-    async updatePost(siteId, postId, patch, actor) {
-      const before = await this.getPost(siteId, postId);
+    async updatePostWithHistory(siteId, postId, patch, actor, history) {
+      const before = await getPost(siteId, postId);
       if (!before) return null;
-      const next = { ...before, ...patch, updatedAt: now() };
-      await db.prepare(
-        `UPDATE posts SET
-          title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?, status = ?, published_at = ?,
-          tags_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
-        WHERE site_id = ? AND id = ?`,
-      ).bind(
-        next.title,
-        next.slug,
-        next.excerpt,
-        next.contentMarkdown,
-        next.coverAssetId,
-        next.status,
-        next.publishedAt,
-        JSON.stringify(next.tags),
-        actor.type,
-        actorId(actor),
-        next.updatedAt,
-        siteId,
-        postId,
-      ).run();
-      return this.getPost(siteId, postId);
+      const timestamp = now();
+      const after: Post = { ...before, ...patch, updatedAt: timestamp };
+      const [updateResult] = await runHistoryBatch([
+        db.prepare(
+          `UPDATE posts SET
+            title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?, status = ?, published_at = ?,
+            tags_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
+          WHERE site_id = ? AND id = ?`,
+        ).bind(
+          after.title,
+          after.slug,
+          after.excerpt,
+          after.contentMarkdown,
+          after.coverAssetId,
+          after.status,
+          after.publishedAt,
+          JSON.stringify(after.tags),
+          actor.type,
+          actorId(actor),
+          timestamp,
+          siteId,
+          postId,
+        ),
+        postVersionStatement(after, actor, history.changeSummary, timestamp),
+        activityStatement({ siteId: after.siteId, actor, action: history.activityAction, entityType: "post", entityId: after.id, summary: history.activitySummary, before, after }, timestamp),
+      ]);
+      return updateResult.meta.changes === 0 ? null : after;
     },
 
-    async getPost(siteId, postId) {
-      const row = await db.prepare(
-        `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
-          tags_json, created_at, updated_at
-        FROM posts WHERE site_id = ? AND id = ? LIMIT 1`,
-      ).bind(siteId, postId).first<PostRow>();
-      return row ? mapPost(row) : null;
-    },
+    getPost,
 
     async findPostBySlug(siteId, slug) {
       const row = await db.prepare(
@@ -133,81 +224,35 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       const result = input.status
         ? search
           ? await db.prepare(
-              `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+              `SELECT id, site_id, title, slug, excerpt, cover_asset_id, status, published_at,
                 tags_json, created_at, updated_at
               FROM posts
               WHERE site_id = ? AND status = ? AND (title LIKE ? OR slug LIKE ? OR excerpt LIKE ?)
-              ORDER BY updated_at DESC`,
-            ).bind(input.siteId, input.status, search, search, search).all<PostRow>()
+              ORDER BY updated_at DESC
+              LIMIT ? OFFSET ?`,
+            ).bind(input.siteId, input.status, search, search, search, input.limit, input.offset).all<PostSummaryRow>()
           : await db.prepare(
-              `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+              `SELECT id, site_id, title, slug, excerpt, cover_asset_id, status, published_at,
                 tags_json, created_at, updated_at
-              FROM posts WHERE site_id = ? AND status = ? ORDER BY updated_at DESC`,
-            ).bind(input.siteId, input.status).all<PostRow>()
+              FROM posts WHERE site_id = ? AND status = ? ORDER BY updated_at DESC
+              LIMIT ? OFFSET ?`,
+            ).bind(input.siteId, input.status, input.limit, input.offset).all<PostSummaryRow>()
         : search
           ? await db.prepare(
-              `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+              `SELECT id, site_id, title, slug, excerpt, cover_asset_id, status, published_at,
                 tags_json, created_at, updated_at
               FROM posts
               WHERE site_id = ? AND (title LIKE ? OR slug LIKE ? OR excerpt LIKE ?)
-              ORDER BY updated_at DESC`,
-            ).bind(input.siteId, search, search, search).all<PostRow>()
+              ORDER BY updated_at DESC
+              LIMIT ? OFFSET ?`,
+            ).bind(input.siteId, search, search, search, input.limit, input.offset).all<PostSummaryRow>()
           : await db.prepare(
-              `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+              `SELECT id, site_id, title, slug, excerpt, cover_asset_id, status, published_at,
                 tags_json, created_at, updated_at
-              FROM posts WHERE site_id = ? ORDER BY updated_at DESC`,
-            ).bind(input.siteId).all<PostRow>();
-      return result.results.map(mapPost);
-    },
-
-    async createPostVersion(post, actor, changeSummary) {
-      const version = await db.prepare(
-        "SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version FROM post_versions WHERE post_id = ?",
-      ).bind(post.id).first<VersionRow>();
-      await db.prepare(
-        `INSERT INTO post_versions (
-          id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
-          cover_asset_id, status, tags_json, created_by_type, created_by_id, change_summary, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(
-        crypto.randomUUID(),
-        post.id,
-        post.siteId,
-        version?.next_version ?? 1,
-        post.title,
-        post.slug,
-        post.excerpt,
-        post.contentMarkdown,
-        post.coverAssetId,
-        post.status,
-        JSON.stringify(post.tags),
-        actor.type,
-        actorId(actor),
-        changeSummary,
-        now(),
-      ).run();
-    },
-
-    async createActivity(input: ActivityInput) {
-      await db.prepare(
-        `INSERT INTO activity_events (
-          id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
-          summary, before_json, after_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(
-        crypto.randomUUID(),
-        input.siteId,
-        input.actor.type,
-        actorId(input.actor),
-        actorName(input.actor),
-        input.action,
-        input.entityType,
-        input.entityId,
-        input.summary,
-        input.before ? JSON.stringify(input.before) : null,
-        input.after ? JSON.stringify(input.after) : null,
-        now(),
-      ).run();
+              FROM posts WHERE site_id = ? ORDER BY updated_at DESC
+              LIMIT ? OFFSET ?`,
+            ).bind(input.siteId, input.limit, input.offset).all<PostSummaryRow>();
+      return result.results.map(mapPostSummary);
     },
   };
 }

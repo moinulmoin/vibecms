@@ -36,8 +36,9 @@ export const setCommonHeaders =
     // Forces browser to use the declared content-type instead of trying to guess/sniff it
     response.headers.set("X-Content-Type-Options", "nosniff");
 
-    // Stops browsers from sending the referring webpage URL in HTTP headers
-    response.headers.set("Referrer-Policy", "no-referrer");
+    // Keep full referrers off-site, but preserve same-origin POST referrers for
+    // the browser form CSRF guard.
+    response.headers.set("Referrer-Policy", "same-origin");
 
     // Explicitly disables access to specific browser features/APIs
     response.headers.set(

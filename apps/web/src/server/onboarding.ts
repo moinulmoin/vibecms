@@ -21,6 +21,28 @@ function slugify(input: string) {
   return slug || "site";
 }
 
+export function publicBlogBaseDomain() {
+  const raw = env.PUBLIC_BLOG_DOMAIN?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    const hostname = url.hostname.toLowerCase();
+    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "127.0.0.1") return null;
+    return hostname;
+  } catch {
+    return null;
+  }
+}
+
+export function defaultHostname(slug: string) {
+  return `${slug}.${publicBlogBaseDomain() ?? "localhost"}`;
+}
+
+export function isLocalDefaultHostname(hostname: string) {
+  const host = hostname.toLowerCase();
+  return host === "localhost" || host.endsWith(".localhost");
+}
+
 export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserContext> {
   const timestamp = now();
   const workspaceId = `workspace_${user.id}`;
@@ -36,7 +58,7 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
     env.DB.prepare("INSERT OR IGNORE INTO sites (id, workspace_id, name, slug, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)")
       .bind(siteId, workspaceId, `${user.name || "My"} Blog`, siteSlug, "A clean blog for humans and agents.", timestamp, timestamp),
     env.DB.prepare("INSERT OR IGNORE INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)")
-      .bind(`domain_${user.id}`, siteId, `${siteSlug}.localhost`, timestamp, timestamp),
+      .bind(`domain_${user.id}`, siteId, defaultHostname(siteSlug), timestamp, timestamp),
     env.DB.prepare("INSERT OR IGNORE INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, 'system', 'system', 'System', 'site.created', 'site', ?, ?, ?)")
       .bind(`activity_site_created_${user.id}`, siteId, siteId, "Created site during onboarding", timestamp),
   ]);
@@ -77,7 +99,7 @@ export async function completeSiteSetup(app: AppUserContext, request: Request) {
       "UPDATE sites SET name = ?, slug = ?, description = ?, default_seo_title = ?, default_seo_description = ?, updated_at = ? WHERE id = ?",
     ).bind(name, slug, description, name, description, timestamp, app.siteId),
     env.DB.prepare("UPDATE domains SET hostname = ?, updated_at = ? WHERE site_id = ? AND type = 'default'")
-      .bind(`${slug}.localhost`, timestamp, app.siteId),
+      .bind(defaultHostname(slug), timestamp, app.siteId),
     env.DB.prepare("INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, 'site.updated', 'site', ?, ?, ?)")
       .bind(`activity_site_setup_${app.user.id}_${timestamp}`, app.siteId, app.actor.type, app.actor.id, app.actor.name, app.siteId, `Configured ${name}`, timestamp),
   ]);

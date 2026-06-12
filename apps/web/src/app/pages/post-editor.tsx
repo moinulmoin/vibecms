@@ -62,8 +62,8 @@ function PostEditor({ app, post, assets = [], missing, formStatus }: PostEditorP
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel htmlFor="post-slug">Slug</FieldLabel>
-                  <Input id="post-slug" name="slug" required maxLength={120} pattern="[a-z0-9]+(-[a-z0-9]+)*" defaultValue={post?.slug ?? ""} />
-                  <FieldDescription>Lowercase letters, numbers, and hyphens.</FieldDescription>
+                  <Input id="post-slug" name="slug" required maxLength={120} pattern="[a-z0-9]+(-[a-z0-9]+)*" aria-describedby="post-slug-help" defaultValue={post?.slug ?? ""} />
+                  <FieldDescription id="post-slug-help">Lowercase letters, numbers, and hyphens.</FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="post-excerpt">Excerpt</FieldLabel>

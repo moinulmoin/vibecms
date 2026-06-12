@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import styles from "@/app/pages/public-blog.module.css";
 import { parseMarkdown } from "@/lib/markdown";
+import { isLocalDefaultHostname, publicBlogBaseDomain } from "./onboarding";
 
 export type SiteRow = {
   id: string;
@@ -51,7 +52,7 @@ function canRenderPublic(site: SiteRow) {
 
 export async function resolveSite(request: Request) {
   const host = normalizeHost(request);
-  if (!host || host === "localhost" || host === appHost() || host.startsWith("app.")) return null;
+  if (!host || host === "localhost" || host === appHost() || host.startsWith("app.") || (isLocalDefaultHostname(host) && publicBlogBaseDomain())) return null;
 
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
@@ -66,6 +67,22 @@ export async function resolveSite(request: Request) {
   if (!site || !canRenderPublic(site)) return null;
   return site;
 }
+
+async function resolveSiteBySlug(slug: string | undefined) {
+  if (!slug) return null;
+  const site = await env.DB.prepare(
+    `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
+      sites.default_seo_title, sites.default_seo_description,
+      billing_customers.status AS billing_status, billing_customers.current_period_end
+     FROM sites
+     LEFT JOIN billing_customers ON billing_customers.workspace_id = sites.workspace_id
+     WHERE sites.slug = ? AND sites.status = 'active'
+     LIMIT 1`,
+  ).bind(slug).first<SiteRow>();
+  if (!site || !canRenderPublic(site)) return null;
+  return site;
+}
+
 
 export async function listPublishedPosts(siteId: string) {
   const now = Math.floor(Date.now() / 1000);
@@ -96,18 +113,18 @@ function Markdown({ source }: { source: string }) {
   return <div className={styles.markdown}>{parseMarkdown(source)}</div>;
 }
 
-function PublicNotFound({ site }: { site: SiteRow }) {
+function PublicNotFound({ site, basePath }: { site: SiteRow; basePath: string }) {
   return (
     <main className={styles.publicPage}>
       <title>{`Not found - ${site.name}`}</title>
       <meta name="robots" content="noindex" />
       <header className={styles.publicHeader}>
-        <a href="/" className={styles.publicBrand}>{site.name}</a>
+        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
       </header>
       <section className={styles.notFound}>
         <h1>Post not found</h1>
         <p>That post does not exist or is no longer published.</p>
-        <a href="/" className={styles.backLink}>{"\u2190"} All posts</a>
+        <a href={basePath} className={styles.backLink}>{"\u2190"} All posts</a>
       </section>
     </main>
   );
@@ -117,7 +134,7 @@ export function isPublicBlogIndexable(site: SiteRow) {
   return env.SELF_HOSTED === "true" || site.billing_status === "active";
 }
 
-function PublicShell({ site, children }: { site: SiteRow; children: React.ReactNode }) {
+function PublicShell({ site, basePath, children }: { site: SiteRow; basePath: string; children: React.ReactNode }) {
   const seoTitle = site.default_seo_title || site.name;
   const seoDescription = site.default_seo_description || site.description || undefined;
   const indexable = isPublicBlogIndexable(site);
@@ -129,7 +146,7 @@ function PublicShell({ site, children }: { site: SiteRow; children: React.ReactN
       {seoTitle ? <meta property="og:title" content={seoTitle} /> : null}
       {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
       <header className={styles.publicHeader}>
-        <a href="/" className={styles.publicBrand}>{site.name}</a>
+        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
         {site.description ? <p>{site.description}</p> : null}
       </header>
       {children}
@@ -141,12 +158,10 @@ function RobotsMeta({ indexable }: { indexable: boolean }) {
   return indexable ? null : <meta name="robots" content="noindex,nofollow" />;
 }
 
-export async function PublicIndex({ request }: { request: Request }) {
-  const site = await resolveSite(request);
-  if (!site) return null;
+async function renderPublicIndex(site: SiteRow, basePath: string) {
   const posts = await listPublishedPosts(site.id);
   return (
-    <PublicShell site={site}>
+    <PublicShell site={site} basePath={basePath}>
       <section className={styles.postList}>
         {posts.map((post) => (
           <article className={styles.postCard} key={post.id}>
@@ -161,7 +176,7 @@ export async function PublicIndex({ request }: { request: Request }) {
               />
             ) : null}
             <p>{post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : "Published"}</p>
-            <h2><a href={`/${post.slug}`}>{post.title}</a></h2>
+            <h2><a href={`${basePath}/${post.slug}`}>{post.title}</a></h2>
             {post.excerpt ? <p>{post.excerpt}</p> : null}
           </article>
         ))}
@@ -171,17 +186,20 @@ export async function PublicIndex({ request }: { request: Request }) {
   );
 }
 
-export async function PublicPost({ request, params }: { request: Request; params: { slug?: string } }) {
+export async function PublicIndex({ request }: { request: Request }) {
   const site = await resolveSite(request);
-  if (!site) return notFound();
-  const slug = params.slug;
-  if (!slug) return <PublicNotFound site={site} />;
+  if (!site) return null;
+  return renderPublicIndex(site, "");
+}
+
+async function renderPublicPost(request: Request, site: SiteRow, basePath: string, slug: string | undefined) {
+  if (!slug) return <PublicNotFound site={site} basePath={basePath} />;
   const post = await getPublishedPost(site.id, slug);
-  if (!post) return <PublicNotFound site={site} />;
+  if (!post) return <PublicNotFound site={site} basePath={basePath} />;
 
   const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
   const seoDescription = post.seo_description || post.excerpt || undefined;
-  const canonicalUrl = new URL(`/${post.slug}`, request.url).href;
+  const canonicalUrl = new URL(`${basePath}/${post.slug}`, request.url).href;
   const indexable = isPublicBlogIndexable(site);
 
   return (
@@ -194,11 +212,11 @@ export async function PublicPost({ request, params }: { request: Request; params
       <meta property="og:type" content="article" />
       <link rel="canonical" href={canonicalUrl} />
       <header className={styles.publicHeader}>
-        <a href="/" className={styles.publicBrand}>{site.name}</a>
+        <a href={basePath} className={styles.publicBrand}>{site.name}</a>
         {site.description ? <p>{site.description}</p> : null}
       </header>
       <article className={styles.article}>
-        <a href="/" className={styles.backLink}>{"\u2190"} All posts</a>
+        <a href={basePath} className={styles.backLink}>{"\u2190"} All posts</a>
         <h1 className={styles.articleTitle}>{post.title}</h1>
         {post.cover_asset_id ? (
           <img
@@ -215,6 +233,24 @@ export async function PublicPost({ request, params }: { request: Request; params
       </article>
     </main>
   );
+}
+
+export async function PublicPost({ request, params }: { request: Request; params: { slug?: string } }) {
+  const site = await resolveSite(request);
+  if (!site) return notFound();
+  return renderPublicPost(request, site, "", params.slug);
+}
+
+export async function PublicIndexBySlug({ request, params }: { request: Request; params: { siteSlug?: string } }) {
+  const site = await resolveSiteBySlug(params.siteSlug);
+  if (!site) return notFound();
+  return renderPublicIndex(site, `/blog/${site.slug}`);
+}
+
+export async function PublicPostBySlug({ request, params }: { request: Request; params: { siteSlug?: string; postSlug?: string } }) {
+  const site = await resolveSiteBySlug(params.siteSlug);
+  if (!site) return notFound();
+  return renderPublicPost(request, site, `/blog/${site.slug}`, params.postSlug);
 }
 
 export async function shouldRenderPublic(request: Request) {

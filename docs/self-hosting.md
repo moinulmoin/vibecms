@@ -55,6 +55,8 @@ PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
+When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>` on the Worker. If you set `PUBLIC_BLOG_DOMAIN` to a separate domain, route `*.PUBLIC_BLOG_DOMAIN` to the Worker and add matching DNS so default blog hostnames can use `<site-slug>.PUBLIC_BLOG_DOMAIN`. `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
+
 Wrangler secrets:
 
 ```txt
@@ -81,7 +83,7 @@ Do not set Polar secrets for self-hosted mode unless you intentionally want to t
 
 1. Fork/clone the repo.
 2. Create or select a Cloudflare D1 database and R2 bucket.
-3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, and public URL vars above.
+3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, public URL vars above, and wildcard DNS/Worker routing for `*.PUBLIC_BLOG_DOMAIN`.
 4. Set secrets:
 
 ```sh

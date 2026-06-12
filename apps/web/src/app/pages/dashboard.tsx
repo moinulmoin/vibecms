@@ -17,7 +17,7 @@ type DashboardProps = { request: Request; ctx: { app?: AppUserContext; authUrl?:
 
 export const Dashboard = async ({ request, ctx }: DashboardProps) => {
   if (!ctx.app) return new Response(null, { status: 302, headers: { Location: "/login" } });
-  const { site, publicUrl, billing, counts, media, tokenCount, versionCount, recentPosts, recentActivity } = await getDashboardData(ctx.app);
+  const { site, publicUrl, publicUrlLocal, billing, counts, media, tokenCount, versionCount, recentPosts, recentActivity } = await getDashboardData(ctx.app);
   const status = readFormStatus(new URL(request.url).searchParams);
   const siteName = site?.name ?? BRAND.name;
   const quotaLabel = billing.trialing ? MEDIA.trialStorageLabel : MEDIA.paidStorageLabel;
@@ -36,7 +36,7 @@ export const Dashboard = async ({ request, ctx }: DashboardProps) => {
           <div className="min-w-0">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Blog status</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{publicUrl ? "Live" : "Default domain pending"}</Badge>
+              <Badge variant="outline">{publicUrl ? (publicUrlLocal ? "Local only" : "Live") : "Default domain pending"}</Badge>
               {billing.trialing ? <Badge variant="secondary">Trial - not indexed</Badge> : null}
             </div>
           </div>
@@ -44,7 +44,7 @@ export const Dashboard = async ({ request, ctx }: DashboardProps) => {
             <a className="break-all text-sm font-medium text-foreground underline-offset-4 hover:underline" href={publicUrl} target="_blank" rel="noreferrer">
               {publicUrl}
             </a>
-          ) : <p className="text-sm text-muted-foreground">Public blog URL will appear after the default domain is active.</p>}
+          ) : <p className="text-sm text-muted-foreground">Public blog URL will appear after a deployable default domain is active.</p>}
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

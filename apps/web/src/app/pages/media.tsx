@@ -14,10 +14,10 @@ export const Media = async ({ request, ctx }: { request: Request; ctx: { app?: A
       <StatusAlert status={status} />
       <Panel title="Upload Image" meta={`${MEDIA.formatsLabel} · ${MEDIA.maxImageLabel} max`}>
         <form className="grid gap-4 md:grid-cols-[1fr_18rem] md:items-end" method="post" action="/app/media/upload" encType="multipart/form-data">
-          <Field className="min-h-40 place-items-center rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
+          <Field className="min-h-40 place-items-center rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
             <FieldLabel htmlFor="media-file" className="text-sm font-medium text-foreground">Drop in a blog image</FieldLabel>
-            <FieldDescription>Upload cover art or inline post images. Video and arbitrary files are intentionally blocked.</FieldDescription>
-            <Input id="media-file" className="max-w-sm bg-background" type="file" name="file" accept={MEDIA.mimeTypes.join(",")} required />
+            <FieldDescription id="media-file-help">Upload cover art or inline post images. Video and arbitrary files are intentionally blocked.</FieldDescription>
+            <Input id="media-file" className="max-w-sm bg-background" type="file" name="file" accept={MEDIA.mimeTypes.join(",")} required aria-describedby="media-file-help" />
           </Field>
           <div className="grid gap-3">
             <Field>
@@ -32,13 +32,13 @@ export const Media = async ({ request, ctx }: { request: Request; ctx: { app?: A
         {assets.length ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {assets.map((asset) => (
-              <article className="grid gap-3 rounded-xl border border-border bg-card p-3" key={asset.id}>
-                <img className="aspect-[4/3] w-full rounded-lg bg-muted object-cover" src={`/media-assets/${asset.id}`} alt={asset.altText ?? asset.filename} loading="lazy" />
-                <div>
+              <article className="grid min-w-0 gap-3 overflow-hidden rounded-xl border border-border bg-card p-3" key={asset.id}>
+                <img className="aspect-[4/3] w-full rounded-lg bg-muted object-cover" width={640} height={480} src={`/media-assets/${asset.id}`} alt={asset.altText ?? asset.filename} loading="lazy" />
+                <div className="min-w-0">
                   <strong className="block truncate text-sm">{asset.filename}</strong>
-                  <p className="mt-1 text-xs text-muted-foreground">{asset.altText || "No alt text"}</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{asset.altText || "No alt text"}</p>
                 </div>
-                <code className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">/media-assets/{asset.id}</code>
+                <code className="block truncate rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">/media-assets/{asset.id}</code>
               </article>
             ))}
           </div>

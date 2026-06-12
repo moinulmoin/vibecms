@@ -11,3 +11,6 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - workerd
+
+overrides:
+  tmp: ">=0.2.6"

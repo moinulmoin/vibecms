@@ -54,10 +54,10 @@ curl https://your-vibecms-domain.com/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-Use REST only for read/list access:
+Use REST only for bounded read/list access. Lists return summaries without full Markdown; fetch a single post through MCP `posts.get` when an agent needs the body:
 
 ```sh
-curl https://your-vibecms-domain.com/api/posts \
+curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
@@ -107,7 +107,7 @@ Deploy button shape, once this repo is public:
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
-During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL:
+During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL. `PUBLIC_BLOG_DOMAIN` can be the same host as `APP_URL` for path-based public blogs, or a separate wildcard-routed domain when you have DNS for it:
 
 ```txt
 APP_URL=https://<your-worker>.<your-subdomain>.workers.dev
@@ -116,6 +116,8 @@ PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
+When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>`. With a separate wildcard-routed domain, default blog URLs are created as `<site-slug>.PUBLIC_BLOG_DOMAIN`. `PUBLIC_BLOG_DOMAIN=localhost` is only a local development fallback.
+
 The only required self-host secrets are listed in `.dev.vars.example`:
 
 ```txt
@@ -123,7 +125,7 @@ BETTER_AUTH_SECRET=<generate with openssl rand -hex 32>
 TOKEN_PEPPER=<generate with openssl rand -hex 32>
 ```
 
-Minimal local/self-host env shape:
+Minimal local/self-host env shape (local URLs are not public hosted URLs):
 
 ```txt
 APP_URL=http://localhost:5173

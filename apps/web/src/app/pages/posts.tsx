@@ -41,35 +41,56 @@ export const Posts = async ({ request, ctx }: PostsProps) => {
           <Button className="h-9" type="submit">Filter</Button>
         </form>
         {posts.length ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Post</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {posts.map((post) => (
-                <TableRow key={post.id}>
-                  <TableCell>
+                <article className="grid gap-3 rounded-xl border border-border bg-background p-4" key={post.id}>
+                  <div className="min-w-0">
                     <a className="font-medium text-foreground no-underline hover:underline" href={`/app/posts/${post.id}/edit`}>{post.title}</a>
-                    <p className="mt-1 max-w-xl truncate text-xs text-muted-foreground">/{post.slug} · {post.excerpt || "No excerpt yet"}</p>
-                  </TableCell>
-                  <TableCell><Badge variant="outline" className="capitalize">{post.status}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(post.updatedAt)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button asChild size="sm" variant="outline"><a href={`/app/posts/${post.id}/edit`}>Edit</a></Button>
-                      {post.status !== "published" ? <form method="post" action={`/app/posts/${post.id}/publish`}><SubmitButton size="sm" pendingText="Publishing…">Publish</SubmitButton></form> : null}
-                      {post.status !== "archived" ? <form method="post" action={`/app/posts/${post.id}/archive`}><ConfirmSubmit size="sm" confirmLabel="Confirm archive" helperText="Archiving hides this post from the public blog.">Archive</ConfirmSubmit></form> : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">/{post.slug} · {post.excerpt || "No excerpt yet"}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="capitalize">{post.status}</Badge>
+                    <span>Updated {formatDate(post.updatedAt)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline"><a href={`/app/posts/${post.id}/edit`}>Edit</a></Button>
+                    {post.status !== "published" ? <form method="post" action={`/app/posts/${post.id}/publish`}><SubmitButton size="sm" pendingText="Publishing…">Publish</SubmitButton></form> : null}
+                    {post.status !== "archived" ? <form method="post" action={`/app/posts/${post.id}/archive`}><ConfirmSubmit size="sm" confirmLabel="Confirm archive" helperText="Archiving hides this post from the public blog.">Archive</ConfirmSubmit></form> : null}
+                  </div>
+                </article>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+            <Table className="hidden md:table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Post</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {posts.map((post) => (
+                  <TableRow key={post.id}>
+                    <TableCell>
+                      <a className="font-medium text-foreground no-underline hover:underline" href={`/app/posts/${post.id}/edit`}>{post.title}</a>
+                      <p className="mt-1 max-w-xl truncate text-xs text-muted-foreground">/{post.slug} · {post.excerpt || "No excerpt yet"}</p>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="capitalize">{post.status}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(post.updatedAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button asChild size="sm" variant="outline"><a href={`/app/posts/${post.id}/edit`}>Edit</a></Button>
+                        {post.status !== "published" ? <form method="post" action={`/app/posts/${post.id}/publish`}><SubmitButton size="sm" pendingText="Publishing…">Publish</SubmitButton></form> : null}
+                        {post.status !== "archived" ? <form method="post" action={`/app/posts/${post.id}/archive`}><ConfirmSubmit size="sm" confirmLabel="Confirm archive" helperText="Archiving hides this post from the public blog.">Archive</ConfirmSubmit></form> : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         ) : <EmptyState title={hasFilters ? "No posts match" : "No posts yet"} description={hasFilters ? "Clear the filters or try a different search to review existing drafts and published posts." : "Create the first post manually, then connect an agent token when you are ready for trusted agents to help."} action={hasFilters ? <Button asChild variant="outline"><a href="/app/posts">Clear filters</a></Button> : <Button asChild><a href="/app/posts/new">New post</a></Button>} />}
       </Panel>
     </AppShell>

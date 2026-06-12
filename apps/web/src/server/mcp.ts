@@ -1,5 +1,8 @@
 import { AppError, archivePost, can, createPost, getPost, listPosts, publishPost, requireScope, updatePost, type Actor, type Post } from "@vc/core";
+import { MEDIA } from "@vc/config";
 import { createD1PostRepository } from "@vc/db";
+import { mcpTools } from "@vc/mcp";
+import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "./api-keys";
 import { getBillingStatusForSite } from "./billing";
@@ -10,18 +13,7 @@ type ToolContent = { type: "text"; text: string };
 type SiteRow = { id: string; name: string; slug: string; description: string | null; created_at: number; updated_at: number };
 type ActivityRow = { id: string; action: string; entity_type: string; entity_id: string; summary: string; actor_type: string; actor_id: string; actor_name: string; created_at: number };
 
-const tools = [
-  { name: "sites.get", description: "Get the current site for this token", inputSchema: { type: "object", properties: {} } },
-  { name: "posts.list", description: "List posts for the current site", inputSchema: { type: "object", properties: { status: { type: "string" }, search: { type: "string" } } } },
-  { name: "posts.search", description: "Search posts by title, slug, or excerpt", inputSchema: { type: "object", properties: { search: { type: "string" } }, required: ["search"] } },
-  { name: "posts.get", description: "Get one post by id", inputSchema: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
-  { name: "posts.create", description: "Create a draft post", inputSchema: { type: "object", properties: { title: { type: "string" }, slug: { type: "string" }, excerpt: { type: "string" }, contentMarkdown: { type: "string" }, tags: { type: "array", items: { type: "string" } } }, required: ["title", "slug", "contentMarkdown"] } },
-  { name: "posts.update", description: "Update a post", inputSchema: { type: "object", properties: { postId: { type: "string" }, title: { type: "string" }, slug: { type: "string" }, excerpt: { type: "string" }, contentMarkdown: { type: "string" }, tags: { type: "array", items: { type: "string" } } }, required: ["postId"] } },
-  { name: "posts.publish", description: "Publish a post", inputSchema: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
-  { name: "posts.archive", description: "Archive a post", inputSchema: { type: "object", properties: { postId: { type: "string" } }, required: ["postId"] } },
-  { name: "assets.upload", description: "Upload an image from base64 data", inputSchema: { type: "object", properties: { filename: { type: "string" }, mimeType: { type: "string" }, dataBase64: { type: "string" }, altText: { type: "string" } }, required: ["filename", "mimeType", "dataBase64"] } },
-  { name: "activity.list", description: "List recent activity", inputSchema: { type: "object", properties: { limit: { type: "number" } } } },
-];
+const tools = mcpTools;
 
 function repository() {
   return createD1PostRepository(env.DB);
@@ -36,17 +28,43 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function numberParam(params: Record<string, unknown>, name: string) {
+  const value = params[name];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
 function tagsParam(params: Record<string, unknown>) {
   return Array.isArray(params.tags) ? params.tags.filter((tag): tag is string => typeof tag === "string") : undefined;
+}
+
+function decodedBase64Length(dataBase64: string) {
+  const normalized = dataBase64.replace(/\\s/g, "");
+  const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
+  return Math.floor((normalized.length * 3) / 4) - padding;
+}
+
+function isAllowedMimeType(type: string): type is typeof allowedImageMimeTypes[number] {
+  return allowedImageMimeTypes.includes(type as typeof allowedImageMimeTypes[number]);
 }
 
 function base64File(args: Record<string, unknown>) {
   const filename = stringParam(args, "filename");
   const mimeType = stringParam(args, "mimeType");
   const dataBase64 = stringParam(args, "dataBase64");
-  if (!filename || !mimeType || !dataBase64) throw new Error("filename, mimeType, and dataBase64 are required");
-  const bytes = Uint8Array.from(atob(dataBase64), (char) => char.charCodeAt(0));
-  return new File([bytes], filename, { type: mimeType });
+  if (!filename || !mimeType || !dataBase64) throw new AppError("VALIDATION_ERROR", "filename, mimeType, and dataBase64 are required", 400);
+  if (!isAllowedMimeType(mimeType)) throw new AppError("VALIDATION_ERROR", "Unsupported image MIME type", 400);
+  if (decodedBase64Length(dataBase64) > MEDIA.maxImageBytes) throw new AppError("VALIDATION_ERROR", "Asset payload exceeds 10 MB", 400);
+  try {
+    const bytes = Uint8Array.from(atob(dataBase64), (char) => char.charCodeAt(0));
+    return new File([bytes], filename, { type: mimeType });
+  } catch {
+    throw new AppError("VALIDATION_ERROR", "Invalid base64 asset payload", 400);
+  }
 }
 
 function result(id: JsonRpcRequest["id"], value: unknown) {
@@ -89,12 +107,12 @@ async function callTool(name: string, actor: Actor, siteId: string, rawArguments
       requireScope(actor, "sites:read");
       return textResult(await currentSite(siteId));
     case "posts.list":
-      return textResult(await listPosts(repo, actor, { siteId, status: stringParam(args, "status") as Post["status"] | undefined, search: stringParam(args, "search") }));
+      return textResult(await listPosts(repo, actor, { siteId, status: stringParam(args, "status") as Post["status"] | undefined, search: stringParam(args, "search"), limit: numberParam(args, "limit"), offset: numberParam(args, "offset") }));
     case "posts.search":
-      return textResult(await listPosts(repo, actor, { siteId, search: stringParam(args, "search") ?? "" }));
+      return textResult(await listPosts(repo, actor, { siteId, search: stringParam(args, "search") ?? "", limit: numberParam(args, "limit"), offset: numberParam(args, "offset") }));
     case "posts.get": {
       const postId = stringParam(args, "postId");
-      if (!postId) throw new Error("postId is required");
+      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
       return textResult(await getPost(repo, actor, siteId, postId));
     }
     case "posts.create":
@@ -102,18 +120,18 @@ async function callTool(name: string, actor: Actor, siteId: string, rawArguments
       return textResult(await createPost(repo, actor, { siteId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
     case "posts.update": {
       const postId = stringParam(args, "postId");
-      if (!postId) throw new Error("postId is required");
+      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
       await requireBillableSite(siteId);
       return textResult(await updatePost(repo, actor, { siteId, postId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
     }
     case "posts.publish": {
       const postId = stringParam(args, "postId");
-      if (!postId) throw new Error("postId is required");
+      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
       return textResult(await publishPost(repo, actor, { siteId, postId, billingStatus: await requireBillableSite(siteId) }));
     }
     case "posts.archive": {
       const postId = stringParam(args, "postId");
-      if (!postId) throw new Error("postId is required");
+      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
       await requireBillableSite(siteId);
       return textResult(await archivePost(repo, actor, { siteId, postId }));
     }
@@ -122,9 +140,51 @@ async function callTool(name: string, actor: Actor, siteId: string, rawArguments
       return textResult(await uploadAsset({ user: { id: actor.id, name: actor.name, email: "api" }, workspaceId: "api", siteId, actor }, base64File(args), stringParam(args, "altText")));
     case "activity.list":
       requireScope(actor, "activity:read");
-      return textResult(await recentActivity(siteId, typeof args.limit === "number" ? args.limit : 20));
+      return textResult(await recentActivity(siteId, numberParam(args, "limit") ?? 20));
     default:
-      throw new Error(`Unknown tool: ${name}`);
+      throw new AppError("VALIDATION_ERROR", "Unknown tool", 400);
+  }
+}
+
+
+function listedTools(actor?: Actor) {
+  return {
+    tools: tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      requiredScope: tool.requiredScope,
+      ...(actor ? { available: can(actor, tool.requiredScope) } : {}),
+    })),
+  };
+}
+
+function zodValidationMessage(error: unknown) {
+  if (!(error instanceof Error) || error.name !== "ZodError") return null;
+  const issues = (error as Error & { issues?: Array<{ path?: Array<string | number>; message?: string }> }).issues;
+  if (!Array.isArray(issues) || issues.length === 0) return "Invalid params";
+  return issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path?.join(".") || "input"}: ${issue.message || "Invalid value"}`)
+    .join("; ");
+}
+
+function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
+  switch (error.code) {
+    case "UNAUTHORIZED":
+      return rpcError(id, -32001, "Unauthorized", 401);
+    case "FORBIDDEN":
+      return rpcError(id, -32003, error.message, 403);
+    case "BILLING_REQUIRED":
+      return rpcError(id, -32004, error.message, 402);
+    case "NOT_FOUND":
+      return rpcError(id, -32005, error.message, 404);
+    case "CONFLICT":
+      return rpcError(id, -32009, error.message, 409);
+    case "VALIDATION_ERROR":
+      return rpcError(id, -32602, error.message, 400);
+    default:
+      return rpcError(id, -32000, "Tool failed", error.status >= 400 && error.status < 600 ? error.status : 500);
   }
 }
 
@@ -139,19 +199,22 @@ export async function handleMcpRequest(request: Request) {
   }
   if (body.method === "initialize") return result(body.id, { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "vibecms", version: "0.1.0" } });
   if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
-  if (body.method === "tools/list") return result(body.id, { tools });
+  if (body.method === "tools/list") {
+    const auth = await authenticateBearerToken(request);
+    return result(body.id, listedTools(auth?.actor));
+  }
   if (body.method !== "tools/call") return rpcError(body.id, -32601, "Method not found");
   const auth = await authenticateBearerToken(request);
   if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
   const params = asObject(body.params);
   const name = stringParam(params, "name");
-  if (!name) return rpcError(body.id, -32602, "Tool name is required");
+  if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);
   try {
     return result(body.id, await callTool(name, auth.actor, auth.siteId, params.arguments));
   } catch (error) {
-    if (error instanceof AppError) return rpcError(body.id, error.code === "BILLING_REQUIRED" ? -32004 : -32000, error.message, error.status);
-    const message = error instanceof Error ? error.message : "Tool failed";
-    if (message.startsWith("Missing required scope") || !can(auth.actor, "posts:read") && name.startsWith("posts.")) return rpcError(body.id, -32003, message, 403);
-    return rpcError(body.id, -32000, message);
+    const validationMessage = zodValidationMessage(error);
+    if (validationMessage) return rpcError(body.id, -32602, validationMessage, 400);
+    if (error instanceof AppError) return appRpcError(body.id, error);
+    return rpcError(body.id, -32000, "Tool failed", 500);
   }
 }

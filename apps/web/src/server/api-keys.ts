@@ -1,4 +1,4 @@
-import { DEFAULT_SCOPES, type Actor, type Scope } from "@vc/core";
+import { DEFAULT_SCOPES, ForbiddenError, type Actor, type Scope } from "@vc/core";
 import { env } from "cloudflare:workers";
 import type { AppUserContext } from "./onboarding";
 
@@ -40,6 +40,15 @@ const allScopes: Scope[] = [
 function now() {
   return Math.floor(Date.now() / 1000);
 }
+
+export function canManageApiKeys(app: AppUserContext) {
+  return app.actor.type === "human" && app.actor.role === "owner";
+}
+
+function requireApiKeyManager(app: AppUserContext) {
+  if (!canManageApiKeys(app)) throw new ForbiddenError("Only workspace owners can manage API tokens");
+}
+
 
 function base64Url(bytes: ArrayBuffer | Uint8Array) {
   const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -85,14 +94,16 @@ function mapRow(row: ApiKeyRow): ApiKeyListItem {
 export { allScopes };
 
 export async function listApiKeys(app: AppUserContext) {
+  if (!canManageApiKeys(app)) return [];
   const result = await env.DB.prepare(
     `SELECT id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, last_used_at, revoked_at, created_at
-     FROM api_keys WHERE site_id = ? ORDER BY created_at DESC`,
+     FROM api_keys WHERE site_id = ? ORDER BY created_at DESC LIMIT 100`,
   ).bind(app.siteId).all<ApiKeyRow>();
   return result.results.map(mapRow);
 }
 
 export async function createApiKeyFromRequest(app: AppUserContext, request: Request) {
+  requireApiKeyManager(app);
   const form = await request.formData();
   const timestamp = now();
   const token = randomToken("test");
@@ -112,6 +123,7 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
 }
 
 export async function revokeApiKey(app: AppUserContext, keyId: string) {
+  requireApiKeyManager(app);
   const timestamp = now();
   await env.DB.prepare("UPDATE api_keys SET revoked_at = ?, updated_at = ? WHERE id = ? AND site_id = ?")
     .bind(timestamp, timestamp, keyId, app.siteId).run();

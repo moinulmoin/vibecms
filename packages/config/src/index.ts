@@ -115,6 +115,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
+  slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   token_expired: { variant: "error", title: "Token unavailable", message: "The token could not be shown. Create a new one." },
   unknown: { variant: "error", title: "Something went wrong", message: "Please try again." },
 };

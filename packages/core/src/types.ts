@@ -33,6 +33,8 @@ export type Post = {
   createdAt: number;
   updatedAt: number;
 };
+export type PostSummary = Omit<Post, "contentMarkdown">;
+
 
 export type Asset = {
   id: string;

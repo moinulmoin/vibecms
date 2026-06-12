@@ -1,16 +1,20 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
 import { BillingRequiredError, NotFoundError } from "../errors";
 import { requireScope } from "../policies";
-import type { ActivityInput, Actor, BillingStatus, Post } from "../types";
+import type { Actor, BillingStatus, Post, PostSummary } from "../types";
+
+export type PostMutationHistory = {
+  changeSummary: string;
+  activityAction: string;
+  activitySummary: string;
+};
 
 export type PostRepository = {
-  createPost(input: Omit<Post, "createdAt" | "updatedAt">, actor: Actor): Promise<Post>;
-  updatePost(siteId: string, postId: string, patch: Partial<Post>, actor: Actor): Promise<Post | null>;
+  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt">, actor: Actor, history: PostMutationHistory): Promise<Post>;
+  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory): Promise<Post | null>;
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
-  listPosts(input: { siteId: string; status?: Post["status"]; search?: string }): Promise<Post[]>;
-  createPostVersion(post: Post, actor: Actor, changeSummary: string): Promise<void>;
-  createActivity(input: ActivityInput): Promise<void>;
+  listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
 };
 
 function requirePublishBilling(status: BillingStatus) {
@@ -21,24 +25,23 @@ function requirePublishBilling(status: BillingStatus) {
 export async function createPost(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:create");
   const data = createPostInput.parse(input);
-  const post = await repo.createPost(
-    {
-      id: crypto.randomUUID(),
-      siteId: data.siteId,
-      title: data.title,
-      slug: data.slug,
-      excerpt: data.excerpt ?? null,
-      contentMarkdown: data.contentMarkdown,
-      coverAssetId: data.coverAssetId ?? null,
-      status: "draft",
-      publishedAt: null,
-      tags: data.tags ?? [],
-    },
-    actor,
-  );
-  await repo.createPostVersion(post, actor, "Created post");
-  await repo.createActivity({ siteId: post.siteId, actor, action: "post.created", entityType: "post", entityId: post.id, summary: `Created ${post.title}`, after: post });
-  return post;
+  const postInput = {
+    id: crypto.randomUUID(),
+    siteId: data.siteId,
+    title: data.title,
+    slug: data.slug,
+    excerpt: data.excerpt ?? null,
+    contentMarkdown: data.contentMarkdown,
+    coverAssetId: data.coverAssetId ?? null,
+    status: "draft" as const,
+    publishedAt: null,
+    tags: data.tags ?? [],
+  };
+  return repo.createPostWithHistory(postInput, actor, {
+    changeSummary: "Created post",
+    activityAction: "post.created",
+    activitySummary: `Created ${postInput.title}`,
+  });
 }
 
 export async function updatePost(repo: PostRepository, actor: Actor, input: unknown) {
@@ -46,22 +49,20 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
   const data = updatePostInput.parse(input);
   const before = await repo.getPost(data.siteId, data.postId);
   if (!before) throw new NotFoundError("Post not found");
-  const after = await repo.updatePost(
-    data.siteId,
-    data.postId,
-    {
-      title: data.title ?? before.title,
-      slug: data.slug ?? before.slug,
-      excerpt: data.excerpt ?? before.excerpt,
-      contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
-      coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
-      tags: data.tags ?? before.tags,
-    },
-    actor,
-  );
+  const patch = {
+    title: data.title ?? before.title,
+    slug: data.slug ?? before.slug,
+    excerpt: data.excerpt ?? before.excerpt,
+    contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
+    coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
+    tags: data.tags ?? before.tags,
+  };
+  const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {
+    changeSummary: "Updated post",
+    activityAction: "post.updated",
+    activitySummary: `Updated ${patch.title}`,
+  });
   if (!after) throw new NotFoundError("Post not found");
-  await repo.createPostVersion(after, actor, "Updated post");
-  await repo.createActivity({ siteId: after.siteId, actor, action: "post.updated", entityType: "post", entityId: after.id, summary: `Updated ${after.title}`, before, after });
   return after;
 }
 
@@ -70,10 +71,12 @@ export async function publishPost(repo: PostRepository, actor: Actor, input: { s
   requirePublishBilling(input.billingStatus);
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  const after = await repo.updatePost(input.siteId, input.postId, { status: "published", publishedAt: Math.floor(Date.now() / 1000) }, actor);
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "published", publishedAt: Math.floor(Date.now() / 1000) }, actor, {
+    changeSummary: "Published post",
+    activityAction: "post.published",
+    activitySummary: `Published ${before.title}`,
+  });
   if (!after) throw new NotFoundError("Post not found");
-  await repo.createPostVersion(after, actor, "Published post");
-  await repo.createActivity({ siteId: after.siteId, actor, action: "post.published", entityType: "post", entityId: after.id, summary: `Published ${after.title}`, before, after });
   return after;
 }
 
@@ -81,10 +84,12 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
   requireScope(actor, "posts:archive");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  const after = await repo.updatePost(input.siteId, input.postId, { status: "archived" }, actor);
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
+    changeSummary: "Archived post",
+    activityAction: "post.archived",
+    activitySummary: `Archived ${before.title}`,
+  });
   if (!after) throw new NotFoundError("Post not found");
-  await repo.createPostVersion(after, actor, "Archived post");
-  await repo.createActivity({ siteId: after.siteId, actor, action: "post.archived", entityType: "post", entityId: after.id, summary: `Archived ${after.title}`, before, after });
   return after;
 }
 

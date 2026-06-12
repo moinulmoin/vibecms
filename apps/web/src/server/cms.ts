@@ -2,6 +2,7 @@ import { createD1PostRepository } from "@vc/db";
 import {
   AppError,
   BillingRequiredError,
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
@@ -15,11 +16,12 @@ import {
 } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { getBillingStatus } from "./billing";
-import type { AppUserContext } from "./onboarding";
+import { defaultHostname, isLocalDefaultHostname, publicBlogBaseDomain, type AppUserContext } from "./onboarding";
 
 export const DEMO_SITE_ID = "demo_site";
 
 type SiteRow = { id: string; name: string; slug: string; description: string | null };
+type DomainRow = { hostname: string };
 type ActivityRow = { action: string; summary: string; actor_name: string; created_at: number };
 type CountRow = { count: number };
 type AssetSiteRow = { id: string };
@@ -27,6 +29,7 @@ type AssetSiteRow = { id: string };
 export type DashboardData = {
   site: { name: string; slug: string } | null;
   publicUrl: string | null;
+  publicUrlLocal: boolean;
   billing: { status: BillingStatus; trialing: boolean };
   counts: { published: number; draft: number; archived: number };
   media: { bytes: number; count: number };
@@ -84,11 +87,13 @@ function errorCode(error: unknown) {
   if (error instanceof BillingRequiredError) return "billing_required";
   if (error instanceof NotFoundError) return "not_found";
   if (error instanceof ForbiddenError) return "owner_required";
+  if (error instanceof ConflictError) return "slug_conflict";
   if (error instanceof ValidationError) return "unknown";
   if (error instanceof AppError && error.code === "INVALID_COVER_ASSET") return "invalid_cover_asset";
   if (error instanceof AppError && error.code === "BILLING_REQUIRED") return "billing_required";
   if (error instanceof AppError && error.code === "NOT_FOUND") return "not_found";
   if (error instanceof AppError && error.code === "FORBIDDEN") return "owner_required";
+  if (error instanceof AppError && error.code === "CONFLICT") return "slug_conflict";
   return "unknown";
 }
 
@@ -100,11 +105,42 @@ async function coverAssetIdForSite(app: AppUserContext, form: FormData) {
   return coverAssetId;
 }
 
+async function activeDefaultHostname(site: SiteRow | undefined, domain: DomainRow | undefined, siteId: string) {
+  if (!site || !domain) return null;
+  if (!isLocalDefaultHostname(domain.hostname) || !publicBlogBaseDomain()) return domain.hostname;
+  const hostname = defaultHostname(site.slug);
+  await env.DB.prepare("UPDATE domains SET hostname = ?, updated_at = ? WHERE site_id = ? AND type = 'default' AND hostname = ?")
+    .bind(hostname, Math.floor(Date.now() / 1000), siteId, domain.hostname)
+    .run();
+  return hostname;
+}
+
+function publicUrlForHostname(hostname: string | null) {
+  if (!hostname) return null;
+  if (publicBlogUsesAppPath()) return null;
+  return `${isLocalDefaultHostname(hostname) ? "http" : "https"}://${hostname}`;
+}
+
+function publicBlogUsesAppPath() {
+  const baseDomain = publicBlogBaseDomain();
+  if (!baseDomain) return false;
+  try {
+    return baseDomain === new URL(env.APP_URL).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function appPublicBlogUrl(slug: string) {
+  const appUrl = env.APP_URL || "http://localhost:5173";
+  return new URL(`/blog/${slug}`, appUrl).href;
+}
+
+
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {
   type StatusCountRow = { status: Post["status"] | "scheduled"; count: number };
   type RecentPostRow = { id: string; title: string; slug: string; status: Post["status"] | "scheduled"; updated_at: number; published_at: number | null };
   type MediaAggregateRow = { bytes: number; count: number };
-  type DomainRow = { hostname: string };
   const [siteResult, statusResult, recentPostsResult, mediaResult, tokensResult, versionsResult, activityResult, domainResult] = await env.DB.batch([
     env.DB.prepare("SELECT id, name, slug, description FROM sites WHERE id = ? LIMIT 1").bind(app.siteId),
     env.DB.prepare("SELECT status, COUNT(*) AS count FROM posts WHERE site_id = ? GROUP BY status").bind(app.siteId),
@@ -135,10 +171,12 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
   }
   const site = siteResult.results?.[0];
   const domain = domainResult.results?.[0];
+  const hostname = await activeDefaultHostname(site, domain, app.siteId);
   const media = mediaResult.results?.[0];
   return {
     site: site ? { name: site.name, slug: site.slug } : null,
-    publicUrl: domain ? `https://${domain.hostname}` : null,
+    publicUrl: site && publicBlogUsesAppPath() ? appPublicBlogUrl(site.slug) : publicUrlForHostname(hostname),
+    publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
     billing: { status: billingStatus, trialing: billingStatus === "trialing" },
     counts,
     media: { bytes: media?.bytes ?? 0, count: media?.count ?? 0 },
@@ -164,8 +202,8 @@ export async function getActivity(app: AppUserContext, limit = 50) {
   return activity.results;
 }
 
-export async function getPosts(app: AppUserContext, status?: Post["status"], search?: string) {
-  return listPosts(repository(), app.actor, { siteId: app.siteId, status, search });
+export async function getPosts(app: AppUserContext, status?: Post["status"], search?: string, limit = 100, offset = 0) {
+  return listPosts(repository(), app.actor, { siteId: app.siteId, status, search, limit, offset });
 }
 
 export async function getPostForEditing(app: AppUserContext, postId: string) {

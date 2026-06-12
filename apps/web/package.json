@@ -29,6 +29,7 @@
     "@radix-ui/react-icons": "^1.3.2",
     "@vc/config": "workspace:*",
     "@vc/core": "workspace:*",
+    "@vc/mcp": "workspace:*",
     "@vc/db": "workspace:*",
     "@vc/ui": "workspace:*",
     "@vc/validators": "workspace:*",

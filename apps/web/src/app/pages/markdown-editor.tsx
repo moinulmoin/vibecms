@@ -67,12 +67,12 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   return (
     <div className="grid gap-3">
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex rounded-md bg-muted p-1">
+        <div className="flex w-full rounded-md bg-muted p-1 sm:w-auto">
           <Button
             type="button"
             variant={mode === "write" ? "default" : "ghost"}
             size="sm"
-            className="h-8 rounded-sm"
+            className="h-8 flex-1 rounded-sm sm:flex-none"
             aria-pressed={mode === "write"}
             onClick={showWrite}
           >
@@ -83,7 +83,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
             type="button"
             variant={mode === "preview" ? "default" : "ghost"}
             size="sm"
-            className="h-8 rounded-sm"
+            className="h-8 flex-1 rounded-sm sm:flex-none"
             aria-pressed={mode === "preview"}
             onClick={showPreview}
           >
@@ -103,7 +103,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
                 <option key={asset.id} value={asset.id}>{asset.filename}</option>
               ))}
             </Select>
-            <Button type="button" variant="outline" size="sm" className="h-9" onClick={insertImage}>
+            <Button type="button" variant="outline" size="sm" className="h-9 justify-center" onClick={insertImage}>
               <ImageIcon className="size-4" aria-hidden="true" />
               Insert image
             </Button>
@@ -124,7 +124,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           ref={textareaRef}
           id="post-markdown"
           name="contentMarkdown"
-          className="min-h-[32rem] font-mono leading-6"
+          className="min-h-[22rem] font-mono leading-6 sm:min-h-[32rem]"
           maxLength={500000}
           defaultValue={defaultValue}
           onChange={rememberSelection}
@@ -135,7 +135,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
       </div>
 
       {mode === "preview" ? (
-        <div className="min-h-[32rem] rounded-lg border border-border bg-card p-5 text-sm leading-7 text-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:text-xl [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_ul]:list-disc">
+        <div className="min-h-[22rem] overflow-x-auto rounded-lg border border-border bg-card p-4 text-sm leading-7 text-foreground sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_hr]:border-border [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_ul]:list-disc">
           {preview.length > 0 ? preview : <p className="text-muted-foreground">Nothing to preview yet.</p>}
         </div>
       ) : null}

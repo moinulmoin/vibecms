@@ -59,11 +59,12 @@ export function StatusAlert({ status }: { status: FormStatus | null }) {
 
 export function AppFrame({ children, maxWidth = "dashboard" }: { children: ReactNode; maxWidth?: MaxWidth }) {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="min-h-dvh overflow-x-hidden bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-primary/5 blur-3xl" aria-hidden="true" />
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg" href="#main">
         Skip to main content
       </a>
-      <main id="main" tabIndex={-1} className="min-h-dvh scroll-mt-4 focus:outline-none">
+      <main id="main" tabIndex={-1} className="relative min-h-dvh scroll-mt-4 focus:outline-none">
         <div className={cn("mx-auto w-full px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8", maxWidths[maxWidth])}>
           {children}
         </div>
@@ -118,13 +119,9 @@ export function DashboardShell({ children, current = "/app", siteName, userEmail
             <SeparatorLine />
             <div className="px-3 pb-2 font-mono text-[0.68rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">Workspace</div>
             <NavLinks current={current} />
-            <div className="mt-auto rounded-xl border border-border bg-background p-3">
-              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Launch Path</p>
-              <div className="mt-3 grid gap-2 text-sm leading-5 text-foreground">
-                <span>Create first post</span>
-                <span>Upload cover image</span>
-                <span>Connect agent token</span>
-              </div>
+            <div className="mt-auto rounded-xl border border-border bg-background/80 p-3">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Markdown-first</p>
+              <p className="mt-2 text-sm leading-5 text-foreground">Posts, media, versions, and scoped agent access stay in one calm workspace.</p>
             </div>
             {userEmail ? <p className="mt-3 truncate px-1 font-mono text-[11px] leading-5 text-muted-foreground">{userEmail}</p> : null}
           </div>
@@ -176,9 +173,9 @@ function SeparatorLine() {
 
 export function PageHeader({ kicker, title, description, action }: { kicker: string; title: string; description?: string; action?: ReactNode }) {
   return (
-    <header className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
+    <header className="rounded-2xl border border-border bg-card/90 p-5 shadow-sm shadow-primary/5 md:p-6">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{kicker}</p>
           <h1 className="max-w-4xl text-balance text-2xl font-semibold tracking-[-0.035em] md:text-3xl">{title}</h1>
           {description ? <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted-foreground">{description}</p> : null}
@@ -200,8 +197,8 @@ export function StatCard({ label, value, detail }: { label: string; value: strin
 
 export function Panel({ title, meta, children, className }: { title: string; meta?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <Card className={cn("overflow-hidden rounded-2xl border-border shadow-sm", className)}>
-      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0 border-b border-border bg-muted/40 px-4 py-3 md:px-5">
+    <Card className={cn("overflow-hidden rounded-2xl border-border bg-card/90 shadow-sm shadow-primary/5", className)}>
+      <CardHeader className="flex-col items-start justify-between gap-2 space-y-0 border-b border-border bg-muted/35 px-4 py-3 sm:flex-row sm:items-center md:px-5">
         <CardTitle className="text-base font-semibold tracking-[-0.01em]">{title}</CardTitle>
         {meta ? <div className="flex items-center font-mono text-xs leading-none text-muted-foreground">{meta}</div> : null}
       </CardHeader>
@@ -211,7 +208,7 @@ export function Panel({ title, meta, children, className }: { title: string; met
 }
 
 export function DataRow({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("grid items-center gap-3 border-b border-border px-3 py-3.5 text-sm text-muted-foreground last:border-b-0 odd:bg-muted/25", className)}>{children}</div>;
+  return <div className={cn("grid gap-2 border-b border-border px-3 py-3.5 text-sm text-muted-foreground last:border-b-0 odd:bg-muted/25 md:items-center md:gap-3", className)}>{children}</div>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
