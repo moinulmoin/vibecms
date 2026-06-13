@@ -22,6 +22,8 @@ All notable changes to VibeCMS will be documented in this file.
 - Post editor now auto-derives the slug from the title for new posts, without overwriting a manually edited slug.
 - Dashboard splits the conflated tokens/versions stat into distinct "Active tokens" and "Saved versions" cards.
 - Agent-ready by default: every public blog serves `llms.txt` (content index linking to clean markdown) and per-post markdown via `Accept: text/markdown`, a `.md` suffix, or `?format=md` - the post's own source, zero-loss, with YAML frontmatter - on both custom-domain and `/blog/:siteSlug` paths. The product host also serves a `llms.txt`, `sitemap.xml`, and a sitemap-referencing `robots.txt`. Combined with the MCP endpoint, this covers the standard AI Agent Readiness checks (robots, sitemap, llms.txt, markdown, MCP).
+- Fixed a data-loss bug where a partial `posts.update` (e.g. changing only the excerpt or title via MCP/REST) wiped the post body and tags: the shared zod schema's `.default("")`/`.default([])` survived `.partial()`, so omitted fields parsed to empty values instead of `undefined`. `updatePostInput` is now a true patch (all fields optional, no defaults); unspecified fields are preserved. Create-time defaults are unchanged.
+- Checkout failures now surface a distinct `checkout_failed` status (and log the underlying Polar error) instead of the misleading `polar_unconfigured`, which implied missing secrets when the real cause was elsewhere (e.g. a customer email Polar rejects).
 
 ## 0.1.0-alpha
 
