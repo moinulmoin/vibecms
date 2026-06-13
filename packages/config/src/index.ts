@@ -126,6 +126,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to use this feature." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
+  checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   token_expired: { variant: "error", title: "Token unavailable", message: "The token could not be shown. Create a new one." },

@@ -86,8 +86,9 @@ export async function createCheckoutSession(app: AppUserContext, request?: Reque
       customerMetadata: { workspaceId: app.workspaceId },
     });
     return redirect(session.url);
-  } catch {
-    return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
+  } catch (error) {
+    console.error("polar checkout failed", error);
+    return redirectWithStatus("/app/billing", "error", "checkout_failed");
   }
 }
 
