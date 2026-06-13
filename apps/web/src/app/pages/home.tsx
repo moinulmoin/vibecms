@@ -151,7 +151,7 @@ export const Home = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button asChild size="sm" variant="ghost"><a href="/login">Sign in</a></Button>
-            <Button asChild size="sm"><a href="/login">Start free trial</a></Button>
+            <Button asChild size="sm"><a href="/login">Get started</a></Button>
           </div>
         </div>
       </nav>
@@ -169,7 +169,7 @@ export const Home = () => {
             {BRAND.description}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
+            <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Get started</a></Button>
             <Button asChild className="rounded-lg active:translate-y-px" size="lg" variant="outline"><a href="#self-host">Self-host</a></Button>
           </div>
         </div>
@@ -343,14 +343,14 @@ export const Home = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-medium tracking-[-0.03em]">{PRICING.planName}</h3>
-                <p className="mt-2 text-sm text-primary-foreground/75">{PRICING.trialLabel}</p>
+                <p className="mt-2 text-sm text-primary-foreground/75">Self-host free, or go hosted. Cancel anytime.</p>
               </div>
               <div className="text-right">
                 <p className="text-6xl font-medium tracking-[-0.05em]">${PRICING.monthlyUsd}</p>
                 <p className="text-sm text-primary-foreground/75">{PRICING.monthlyLabel}, or {PRICING.annualLabel}</p>
               </div>
             </div>
-            <Button asChild className="mt-7 w-full rounded-lg" size="lg" variant="secondary"><a href="/login">Start free trial</a></Button>
+            <Button asChild className="mt-7 w-full rounded-lg" size="lg" variant="secondary"><a href="/login">Get started</a></Button>
             <ul className="mt-7 grid gap-x-6 gap-y-3 border-y border-primary-foreground/20 py-6 sm:grid-cols-2">
               {pricingFeatures.map((item) => (
                 <li className="flex gap-3 text-sm leading-6" key={item}>
@@ -400,7 +400,7 @@ export const Home = () => {
                 Write in Markdown, keep versions, and let trusted agents publish through scoped MCP.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Start free trial</a></Button>
+                <Button asChild className="rounded-lg active:translate-y-px" size="lg"><a href="/login">Get started</a></Button>
                 <Button asChild className="rounded-lg active:translate-y-px" size="lg" variant="outline"><a href="#self-host">Self-host</a></Button>
               </div>
             </div>

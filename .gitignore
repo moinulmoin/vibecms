@@ -11,3 +11,4 @@ node_modules/
 dist/
 apps/*/dist/
 *.log
+dogfood-output/

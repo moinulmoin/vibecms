@@ -40,14 +40,9 @@ function appHost() {
   }
 }
 
-function now() {
-  return Math.floor(Date.now() / 1000);
-}
 
 function canRenderPublic(site: SiteRow) {
-  if (env.SELF_HOSTED === "true") return true;
-  if (site.billing_status === "active") return true;
-  return site.billing_status === "trialing" && (!site.current_period_end || site.current_period_end >= now());
+  return env.SELF_HOSTED === "true" || site.billing_status === "active";
 }
 
 export async function resolveSite(request: Request) {

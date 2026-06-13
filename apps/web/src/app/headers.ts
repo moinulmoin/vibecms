@@ -1,30 +1,8 @@
 import { RouteMiddleware } from "rwsdk/router";
-import { env } from "cloudflare:workers";
-
-type PublicBillingRow = { status: string | null; current_period_end: number | null };
-
-function now() {
-  return Math.floor(Date.now() / 1000);
-}
-
-async function shouldNoindexPublicBlog(request: Request) {
-  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
-  const appHost = env.APP_URL ? new URL(env.APP_URL).host : "";
-  if (!host || host === "localhost" || host.startsWith("app.") || host === appHost) return false;
-  const row = await env.DB.prepare(
-    `SELECT billing_customers.status, billing_customers.current_period_end
-     FROM domains
-     INNER JOIN sites ON sites.id = domains.site_id
-     LEFT JOIN billing_customers ON billing_customers.workspace_id = sites.workspace_id
-     WHERE domains.hostname = ? AND domains.status = 'active' AND sites.status = 'active'
-     LIMIT 1`,
-  ).bind(host).first<PublicBillingRow>();
-  return row?.status === "trialing" && (!row.current_period_end || row.current_period_end >= now());
-}
 
 export const setCommonHeaders =
   (): RouteMiddleware =>
-  async ({ request, response, rw: { nonce } }) => {
+  async ({ response, rw: { nonce } }) => {
     if (!import.meta.env.VITE_IS_DEV_SERVER) {
       // Forces browsers to always use HTTPS for a specified time period (2 years)
       response.headers.set(
@@ -51,8 +29,4 @@ export const setCommonHeaders =
       "Content-Security-Policy",
       `default-src 'self'; script-src 'self' 'unsafe-eval' 'nonce-${nonce}' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'self'; frame-src 'self' https://challenges.cloudflare.com; object-src 'none';`,
     );
-
-    if (await shouldNoindexPublicBlog(request)) {
-      response.headers.set("X-Robots-Tag", "noindex, nofollow");
-    }
   };

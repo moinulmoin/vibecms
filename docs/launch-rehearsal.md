@@ -34,12 +34,11 @@ Confirm Polar sandbox product settings:
 
 - monthly product: $9/month
 - yearly product: $99/year, if separate
-- 7-day trial
 - card required
 - webhook endpoint: `/polar/webhook`
 - webhook events include subscription lifecycle events and `checkout.updated`
 
-The app uses product IDs from Worker secrets/vars. It does not verify prices or trial settings at runtime.
+The app uses product IDs from Worker secrets/vars. It does not verify prices at runtime.
 
 ## 4. Deploy-to-Cloudflare rehearsal
 

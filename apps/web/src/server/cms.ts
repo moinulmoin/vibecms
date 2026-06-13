@@ -17,6 +17,7 @@ import {
 import { env } from "cloudflare:workers";
 import { getBillingStatus } from "./billing";
 import { defaultHostname, isLocalDefaultHostname, publicBlogBaseDomain, type AppUserContext } from "./onboarding";
+import { getApiUsageSummary, type ApiUsageSummary } from "./usage";
 
 export const DEMO_SITE_ID = "demo_site";
 
@@ -30,7 +31,8 @@ export type DashboardData = {
   site: { name: string; slug: string } | null;
   publicUrl: string | null;
   publicUrlLocal: boolean;
-  billing: { status: BillingStatus; trialing: boolean };
+  billing: { status: BillingStatus };
+  apiUsage: ApiUsageSummary;
   counts: { published: number; draft: number; archived: number };
   media: { bytes: number; count: number };
   tokenCount: number;
@@ -163,7 +165,10 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     D1Result<ActivityRow>,
     D1Result<DomainRow>,
   ];
-  const billingStatus = await getBillingStatus(app.workspaceId);
+  const [billingStatus, apiUsage] = await Promise.all([
+    getBillingStatus(app.workspaceId),
+    getApiUsageSummary({ workspaceId: app.workspaceId, siteId: app.siteId }),
+  ]);
   const counts: DashboardData["counts"] = { published: 0, draft: 0, archived: 0 };
   for (const row of statusResult.results ?? []) {
     const status = row.status === "scheduled" ? "draft" : row.status;
@@ -177,7 +182,8 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     site: site ? { name: site.name, slug: site.slug } : null,
     publicUrl: site && publicBlogUsesAppPath() ? appPublicBlogUrl(site.slug) : publicUrlForHostname(hostname),
     publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
-    billing: { status: billingStatus, trialing: billingStatus === "trialing" },
+    billing: { status: billingStatus },
+    apiUsage,
     counts,
     media: { bytes: media?.bytes ?? 0, count: media?.count ?? 0 },
     tokenCount: tokensResult.results?.[0]?.count ?? 0,

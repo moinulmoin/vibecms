@@ -5,7 +5,7 @@ import { getMedia } from "@/server/media";
 import type { AppUserContext } from "@/server/onboarding";
 import { Button, ConfirmSubmit, Field, FieldDescription, FieldLabel, Input, Select, SubmitButton, Textarea } from "@vc/ui";
 import { AppShell, PageHeader, Panel, StatusAlert } from "./app-layout";
-import { MarkdownEditor, UnsavedChangesGuard } from "./markdown-editor";
+import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from "./markdown-editor";
 
 type EditorProps = { request: Request; params: { postId?: string }; ctx: { app?: AppUserContext } };
 
@@ -44,6 +44,7 @@ function PostEditor({ app, post, assets = [], missing, formStatus }: PostEditorP
       ) : (
         <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start" method="post" action={action}>
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" />
+          <PostSlugFromTitle enabled={!post} />
           <Panel title="Draft">
             <div className="grid gap-4">
               <Field>

@@ -1,4 +1,4 @@
-import { BRAND, MEDIA, PRICING, readFormStatus } from "@vc/config";
+import { BRAND, MEDIA, readFormStatus } from "@vc/config";
 import { getSiteSetup } from "@/server/onboarding";
 import type { AppUserContext } from "@/server/onboarding";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Field, FieldDescription, FieldGroup, FieldLabel, Input, SubmitButton, Textarea } from "@vc/ui";
@@ -15,8 +15,7 @@ export const Setup = async ({ request, ctx }: { request: Request; ctx: { app?: A
         <StatusAlert status={status} />
         <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-4"><strong className="block text-foreground">1 blog</strong>per subscription</div>
-          <div className="rounded-2xl border border-border bg-card p-4"><strong className="block text-foreground">{PRICING.trialDays} days</strong>{PRICING.trialLabel}</div>
-          <div className="rounded-2xl border border-border bg-card p-4"><strong className="block text-foreground">{MEDIA.trialStorageLabel}</strong>trial media cap</div>
+          <div className="rounded-2xl border border-border bg-card p-4"><strong className="block text-foreground">{MEDIA.paidStorageLabel}</strong>media storage</div>
         </div>
         <Card className="rounded-2xl border-border shadow-sm">
           <CardHeader className="border-b border-border">
@@ -43,7 +42,7 @@ export const Setup = async ({ request, ctx }: { request: Request; ctx: { app?: A
                 </Field>
               </FieldGroup>
               <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-muted-foreground">Trial sites are noindexed until paid. You still get the full dashboard and scoped agent access.</p>
+                <p className="text-xs leading-5 text-muted-foreground">Sites stay private until you subscribe. You still get the full dashboard and scoped agent access.</p>
                 <SubmitButton className="h-11 rounded-xl px-6" pendingText="Saving…">Open dashboard</SubmitButton>
               </div>
             </form>

@@ -1,6 +1,6 @@
 # Self-host VibeCMS on Cloudflare
 
-VibeCMS can run without Polar in `SELF_HOSTED=true` mode. In this mode the app uses your Cloudflare Worker, D1 database, and R2 bucket, and billing gates are disabled.
+VibeCMS can run without Polar in `SELF_HOSTED=true` mode. In this mode the app uses your Cloudflare Worker, D1 database, and R2 bucket; billing gates and hosted workspace API quotas are not enforced by default.
 
 ## What self-hosted mode changes
 
@@ -10,7 +10,7 @@ SELF_HOSTED=true
 
 - skips the Polar billing gate after onboarding
 - treats the workspace as effectively active
-- allows publishing, media uploads, MCP agent access, REST reads, activity history, and post versions
+- allows publishing, media uploads, MCP agent access, REST reads, activity history, and post versions without hosted quota enforcement
 - hides hosted checkout/customer-portal controls in settings
 - ignores `/polar/webhook` payloads
 - keeps image safety limits: JPEG/PNG/WebP/GIF only, 10MB max per image
@@ -138,5 +138,7 @@ Self-hosted MCP uses the same remote HTTP endpoint as hosted VibeCMS:
 https://<your-worker>.<your-subdomain>.workers.dev/mcp
 Authorization: Bearer vc_...
 ```
+
+Hosted VibeCMS Cloud counts MCP and REST against the same workspace API quota. Self-hosted deployments can add their own limits, but VibeCMS does not enforce hosted quotas when `SELF_HOSTED=true`.
 
 Create the token in Settings, copy it once, and pass it as the bearer token. Agents can write, draft, publish, upload media, and inspect activity only when the token has the matching scopes.

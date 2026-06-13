@@ -21,18 +21,18 @@ export const BillingRequired = async ({ request, ctx }: { request: Request; ctx:
               <Badge variant="outline">{billing?.status ?? "none"}</Badge>
             </div>
             <CardTitle className="text-3xl font-semibold tracking-[-0.04em]">{PRICING.monthlyLabel}</CardTitle>
-            <CardDescription>or {PRICING.annualLabel} after a {PRICING.trialLabel}. Cancel anytime from the customer portal.</CardDescription>
+            <CardDescription>or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5 p-6">
             <ul className="grid gap-3 text-sm text-muted-foreground">
               {ENTITLEMENTS.map((entitlement) => <li key={entitlement}>✓ {entitlement}</li>)}
-              <li>✓ {MEDIA.paidStorageLabel} paid media storage</li>
+              <li>✓ {MEDIA.paidStorageLabel} media storage</li>
             </ul>
             <div className="grid gap-2 sm:grid-cols-2">
-              <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="monthly" pendingText="Starting checkout…">Start monthly trial</SubmitButton></form>
-              <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Start yearly trial</SubmitButton></form>
+              <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="monthly" pendingText="Starting checkout…">Subscribe monthly</SubmitButton></form>
+              <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Subscribe yearly</SubmitButton></form>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">Trial sites are noindexed until paid. Publishing, media uploads, and agent access require an active trial or subscription.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Sites stay private until you subscribe. Publishing, media uploads, and agent access require an active subscription. Cancel anytime from the customer portal.</p>
           </CardContent>
         </Card>
       </div>

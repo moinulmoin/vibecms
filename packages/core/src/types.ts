@@ -17,7 +17,7 @@ export type Actor =
   | { type: "system"; id: "system"; name: "System" };
 
 export type PostStatus = "draft" | "published" | "archived";
-export type BillingStatus = "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "none";
+export type BillingStatus = "active" | "past_due" | "canceled" | "unpaid" | "none";
 
 export type Post = {
   id: string;

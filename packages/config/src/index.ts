@@ -14,6 +14,7 @@ export type RuntimeEnv = {
   POLAR_YEARLY_PRODUCT_ID?: string;
   POLAR_SERVER?: "sandbox" | "production";
   TOKEN_PEPPER?: string;
+  API_USAGE_TEST_LIMIT?: string;
 };
 
 const productionOnly = [
@@ -55,8 +56,6 @@ export const BRAND = {
 export const MEDIA = {
   maxImageBytes: 10 * 1024 * 1024,
   maxImageLabel: "10\u00a0MB",
-  trialStorageBytes: 500 * 1024 * 1024,
-  trialStorageLabel: "500\u00a0MB",
   paidStorageBytes: 5 * 1024 * 1024 * 1024,
   paidStorageLabel: "5\u00a0GB",
   formats: ["JPEG", "PNG", "WebP", "GIF"] as const,
@@ -64,14 +63,28 @@ export const MEDIA = {
   mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as const,
 } as const;
 
+export const API_USAGE_LIMITS = {
+  paid: {
+    calls: { minute: 120, day: 5_000, month: 25_000 },
+    writes: { day: 500, month: 2_000 },
+    token: { minute: 60 },
+  },
+  dev: {
+    calls: { minute: 1_000, day: 100_000, month: 1_000_000 },
+    writes: { day: 10_000, month: 100_000 },
+    token: { minute: 1_000 },
+  },
+} as const;
+
+/** Max active (non-revoked) API tokens per workspace. Leak/abuse guard; owners revoke to free slots. */
+export const API_TOKENS_MAX = 10;
+
 export const PRICING = {
   planName: "VibeCMS Cloud",
   monthlyUsd: 9,
   annualUsd: 99,
   monthlyLabel: "$9/month",
   annualLabel: "$99/year",
-  trialDays: 7,
-  trialLabel: "7-day free trial, card required",
 } as const;
 
 export const ENTITLEMENTS = [
@@ -109,14 +122,15 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
-  media_quota_trial: { variant: "error", title: "Trial storage full", message: "Trial media is capped at 500\u00a0MB. Subscribe for 5\u00a0GB." },
   media_quota_paid: { variant: "error", title: "Storage full", message: "You have reached the 5\u00a0GB media limit." },
-  billing_required: { variant: "error", title: "Subscription required", message: "Start a trial or subscribe to use this feature." },
+  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to use this feature." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   token_expired: { variant: "error", title: "Token unavailable", message: "The token could not be shown. Create a new one." },
+  token_limit: { variant: "error", title: "Token limit reached", message: `Revoke an unused token first. Up to ${API_TOKENS_MAX} active tokens are allowed.` },
+  yearly_unavailable: { variant: "error", title: "Yearly plan unavailable", message: "Yearly billing is not configured yet. Choose monthly for now." },
   unknown: { variant: "error", title: "Something went wrong", message: "Please try again." },
 };
 

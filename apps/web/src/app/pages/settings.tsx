@@ -23,7 +23,7 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
   const selfHosted = isSelfHosted();
   const isOwner = ctx.app.actor.type === "human" && ctx.app.actor.role === "owner";
   const canManageTokens = canManageApiKeys(ctx.app);
-  const canUseBillableFeatures = selfHosted || billing?.status === "trialing" || billing?.status === "active";
+  const canUseBillableFeatures = selfHosted || billing?.status === "active";
   const canCreateTokens = canManageTokens && canUseBillableFeatures;
   const apiKeys = await listApiKeys(ctx.app);
   const status = readFormStatus(new URL(request.url).searchParams);
@@ -59,13 +59,13 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           <div>
             <p className="text-sm font-medium text-foreground">{selfHosted ? "Billing is disabled for this self-hosted workspace" : `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {selfHosted ? "Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `${PRICING.trialLabel}. Trial media is capped at ${MEDIA.trialStorageLabel}; paid media is capped at ${MEDIA.paidStorageLabel}.`}
+              {selfHosted ? "Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `Media storage is capped at ${MEDIA.paidStorageLabel}. Subscribe to publish, upload media, and create agent tokens.`}
             </p>
           </div>
           {selfHosted ? <Badge variant="outline" className="w-fit lg:justify-self-end">SELF_HOSTED=true</Badge> : isOwner ? (
             <div className="flex flex-wrap gap-2 lg:justify-end">
-              <form method="post" action="/app/billing/checkout"><SubmitButton name="interval" value="monthly" pendingText="Starting checkout…">Start monthly trial</SubmitButton></form>
-              <form method="post" action="/app/billing/checkout"><SubmitButton name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Start yearly trial</SubmitButton></form>
+              <form method="post" action="/app/billing/checkout"><SubmitButton name="interval" value="monthly" pendingText="Starting checkout…">Subscribe monthly</SubmitButton></form>
+              <form method="post" action="/app/billing/checkout"><SubmitButton name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Subscribe yearly</SubmitButton></form>
               <form method="post" action="/app/billing/portal"><SubmitButton variant="outline" pendingText="Opening portal…">Customer portal</SubmitButton></form>
             </div>
           ) : <p className="mt-4 text-sm text-muted-foreground">Only workspace owners can manage billing.</p>}
@@ -101,7 +101,7 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
             </FieldSet>
             <SubmitButton className="w-fit" pendingText="Creating token…">Create token</SubmitButton>
           </form>
-        ) : canManageTokens ? <p className="text-sm text-muted-foreground">Reactivate billing to create new agent access tokens. Existing tokens can still be revoked below.</p> : <p className="text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>}
+        ) : canManageTokens ? <p className="text-sm text-muted-foreground">Subscribe to create new agent access tokens. Existing tokens can still be revoked below.</p> : <p className="text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>}
       </Panel>
       <Panel title="Existing Tokens" meta={`${apiKeys.length} total`}>
         {apiKeys.length ? (

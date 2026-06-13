@@ -18,8 +18,8 @@ export type PostRepository = {
 };
 
 function requirePublishBilling(status: BillingStatus) {
-  if (status === "trialing" || status === "active") return;
-  throw new BillingRequiredError("An active or trialing subscription is required to publish posts");
+  if (status === "active") return;
+  throw new BillingRequiredError("An active subscription is required to publish posts");
 }
 
 export async function createPost(repo: PostRepository, actor: Actor, input: unknown) {

@@ -1,4 +1,5 @@
-import { DEFAULT_SCOPES, ForbiddenError, type Actor, type Scope } from "@vc/core";
+import { ConflictError, DEFAULT_SCOPES, ForbiddenError, type Actor, type Scope } from "@vc/core";
+import { API_TOKENS_MAX } from "@vc/config";
 import { env } from "cloudflare:workers";
 import type { AppUserContext } from "./onboarding";
 
@@ -13,6 +14,10 @@ type ApiKeyRow = {
   last_used_at: number | null;
   revoked_at: number | null;
   created_at: number;
+};
+
+type ApiKeyAuthRow = ApiKeyRow & {
+  workspace_id: string;
 };
 
 export type ApiKeyListItem = {
@@ -104,6 +109,10 @@ export async function listApiKeys(app: AppUserContext) {
 
 export async function createApiKeyFromRequest(app: AppUserContext, request: Request) {
   requireApiKeyManager(app);
+  const active = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM api_keys WHERE site_id = ? AND revoked_at IS NULL",
+  ).bind(app.siteId).first<{ count: number }>();
+  if (active && active.count >= API_TOKENS_MAX) throw new ConflictError("Token limit reached");
   const form = await request.formData();
   const timestamp = now();
   const token = randomToken("test");
@@ -134,19 +143,22 @@ export async function revokeApiKey(app: AppUserContext, keyId: string) {
   return new Response(null, { status: 303, headers: { Location: "/app/settings?ok=token_revoked" } });
 }
 
-export async function authenticateBearerToken(request: Request): Promise<{ actor: Actor; siteId: string } | null> {
+export async function authenticateBearerToken(request: Request): Promise<{ actor: Actor; siteId: string; workspaceId: string; tokenId: string } | null> {
   const header = request.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return null;
   const token = header.slice("Bearer ".length).trim();
   const hash = await tokenHash(token);
   const row = await env.DB.prepare(
-    `SELECT id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, last_used_at, revoked_at, created_at
-     FROM api_keys WHERE token_hash = ? LIMIT 1`,
-  ).bind(hash).first<ApiKeyRow>();
+    `SELECT api_keys.id, api_keys.site_id, sites.workspace_id, api_keys.name, api_keys.token_prefix, api_keys.token_hash, api_keys.scopes_json, api_keys.actor_name, api_keys.last_used_at, api_keys.revoked_at, api_keys.created_at
+     FROM api_keys JOIN sites ON sites.id = api_keys.site_id
+     WHERE api_keys.token_hash = ? LIMIT 1`,
+  ).bind(hash).first<ApiKeyAuthRow>();
   if (!row || row.revoked_at) return null;
   await env.DB.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").bind(now(), row.id).run();
   return {
     siteId: row.site_id,
+    workspaceId: row.workspace_id,
+    tokenId: row.id,
     actor: { type: "api_key", id: row.id, name: row.actor_name, scopes: JSON.parse(row.scopes_json) as Scope[] },
   };
 }

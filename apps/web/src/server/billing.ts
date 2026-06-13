@@ -8,7 +8,6 @@ import type { AppUserContext } from "./onboarding";
 type BillingRow = { id: string; workspace_id: string; polar_customer_id: string | null; polar_subscription_id: string | null; status: BillingStatus; current_period_end: number | null };
 type SiteWorkspaceRow = { workspace_id: string };
 type PolarWebhookEvent = { type: string; data?: Record<string, unknown> };
-export const DEFAULT_TRIAL_DAYS = 7;
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -32,11 +31,10 @@ function requireOwner(app: AppUserContext) {
 
 export async function ensureBillingRow(workspaceId: string, status: BillingStatus = "none") {
   const timestamp = now();
-  const periodEnd = status === "trialing" ? timestamp + DEFAULT_TRIAL_DAYS * 24 * 60 * 60 : null;
   await env.DB.prepare(
     `INSERT OR IGNORE INTO billing_customers (id, workspace_id, status, current_period_end, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
-  ).bind(`billing_${workspaceId}`, workspaceId, status, periodEnd, timestamp, timestamp).run();
+  ).bind(`billing_${workspaceId}`, workspaceId, status, null, timestamp, timestamp).run();
 }
 
 export async function getBilling(workspaceId: string) {
@@ -49,7 +47,6 @@ export async function getBillingStatus(workspaceId: string): Promise<BillingStat
   if (isSelfHosted()) return "active";
   const row = await getBilling(workspaceId);
   if (!row) return "none";
-  if (row.status === "trialing" && row.current_period_end && row.current_period_end < now()) return "unpaid";
   return row.status;
 }
 
@@ -73,8 +70,8 @@ export async function createCheckoutSession(app: AppUserContext, request?: Reque
   const form = request ? await request.formData().catch(() => null) : null;
   const interval = form?.get("interval") === "yearly" ? "yearly" : "monthly";
   const monthlyProductId = env.POLAR_MONTHLY_PRODUCT_ID ?? env.POLAR_PRODUCT_ID;
-  const productId = interval === "yearly" ? env.POLAR_YEARLY_PRODUCT_ID ?? monthlyProductId : monthlyProductId;
-  if (!productId) return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
+  const productId = interval === "yearly" ? env.POLAR_YEARLY_PRODUCT_ID : monthlyProductId;
+  if (!productId) return redirectWithStatus("/app/billing", "error", interval === "yearly" ? "yearly_unavailable" : "polar_unconfigured");
   const client = polar();
   if (!client) return redirectWithStatus("/app/billing", "error", "polar_unconfigured");
   try {
@@ -114,7 +111,8 @@ export async function createPortalSession(app: AppUserContext) {
 }
 
 function subscriptionStatus(value: unknown): BillingStatus {
-  if (value === "trialing" || value === "active" || value === "past_due" || value === "canceled" || value === "unpaid") return value;
+  if (value === "trialing") return "active";
+  if (value === "active" || value === "past_due" || value === "canceled" || value === "unpaid") return value;
   if (value === "incomplete" || value === "incomplete_expired") return "unpaid";
   return "none";
 }

@@ -144,6 +144,56 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
 }
 
 
+export function slugifyPostTitle(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+type PostSlugFromTitleProps = {
+  enabled?: boolean;
+};
+
+export function PostSlugFromTitle({ enabled = true }: PostSlugFromTitleProps) {
+  const lastAutoSlugRef = useRef("");
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const titleInput = document.getElementById("post-title");
+    const slugInput = document.getElementById("post-slug");
+    if (!(titleInput instanceof HTMLInputElement) || !(slugInput instanceof HTMLInputElement)) return;
+
+    const syncSlug = () => {
+      const nextSlug = slugifyPostTitle(titleInput.value);
+      const currentSlug = slugInput.value;
+      if (currentSlug !== "" && currentSlug !== lastAutoSlugRef.current) return;
+      lastAutoSlugRef.current = nextSlug;
+      if (slugInput.value !== nextSlug) slugInput.value = nextSlug;
+    };
+
+    const handleSlugInput = () => {
+      const currentSlug = slugInput.value;
+      if (currentSlug === "" || currentSlug === lastAutoSlugRef.current) return;
+      lastAutoSlugRef.current = "";
+    };
+
+    titleInput.addEventListener("input", syncSlug);
+    slugInput.addEventListener("input", handleSlugInput);
+    return () => {
+      titleInput.removeEventListener("input", syncSlug);
+      slugInput.removeEventListener("input", handleSlugInput);
+    };
+  }, [enabled]);
+
+  return null;
+}
+
+
+
 export function UnsavedChangesGuard({ message = "You have unsaved changes." }: { message?: string }) {
   const markerRef = useRef<HTMLParagraphElement>(null);
   const [warning, setWarning] = useState(false);

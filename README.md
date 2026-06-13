@@ -61,6 +61,8 @@ curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
+Hosted VibeCMS Cloud counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
+
 Some older MCP clients only accept local stdio servers. Use an HTTP-to-stdio bridge for those clients only; the VibeCMS integration itself is just HTTPS plus the bearer token.
 
 ## License
@@ -93,7 +95,7 @@ VibeCMS now has a real self-host switch:
 SELF_HOSTED=true
 ```
 
-In self-host mode, Polar is optional and billing gates are disabled. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
+In self-host mode, Polar is optional, billing gates are disabled, and hosted workspace API quotas are not enforced by default. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
 
 The repo is intentionally set up as **one repository** for both VibeCMS Cloud development and self-hosted deploys:
 
@@ -185,10 +187,9 @@ Recommended sandbox product setup:
 
 - Recurring subscription product.
 - Price: $9/month, or $99/year if you create a yearly product/price in Polar.
-- 7-day free trial in Polar, card required.
 - Use the monthly product for `POLAR_MONTHLY_PRODUCT_ID` or the legacy `POLAR_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`; otherwise yearly checkout falls back to the monthly product.
 - In hosted mode, new workspaces stay behind the Polar checkout gate until checkout/webhooks mark billing active. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
-- Launch entitlement: 1 hosted blog, unlimited posts, 500MB media during trial, 5GB media after subscription, scoped agent access, activity history, and post version history.
+- Launch entitlement: 1 hosted blog, unlimited posts, 5GB media, scoped agent access, activity history, and post version history.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 
 Recommended minimum Polar organization access token scopes:

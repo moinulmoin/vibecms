@@ -1,12 +1,13 @@
-import { AppError, archivePost, can, createPost, getPost, listPosts, publishPost, requireScope, updatePost, type Actor, type Post } from "@vc/core";
-import { MEDIA } from "@vc/config";
+import { AppError, RateLimitError, archivePost, can, createPost, getPost, listPosts, publishPost, requireScope, updatePost, type Actor, type Post } from "@vc/core";
+import { FORM_STATUS, MEDIA } from "@vc/config";
 import { createD1PostRepository } from "@vc/db";
-import { mcpTools } from "@vc/mcp";
+import { mcpInstructions, mcpToolNames, mcpTools } from "@vc/mcp";
 import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "./api-keys";
+import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
 import { getBillingStatusForSite } from "./billing";
-import { uploadAsset } from "./media";
+import { UploadError, uploadAsset } from "./media";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
 type ToolContent = { type: "text"; text: string };
@@ -67,16 +68,38 @@ function base64File(args: Record<string, unknown>) {
   }
 }
 
+const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "assets.upload"]);
+
+function apiUsageKind(toolName: string): ApiUsageKind {
+  return writeTools.has(toolName) ? "write" : "read";
+}
+function forceQuotaForSmoke(request: Request) {
+  return env.APP_ENV !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
+}
+
+const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
+const LATEST_PROTOCOL_VERSION = "2025-06-18";
+const recoverableToolErrorCodes = new Set(["VALIDATION_ERROR", "CONFLICT", "NOT_FOUND"]);
+
+function negotiateProtocolVersion(params: unknown): string {
+  const requested = stringParam(asObject(params), "protocolVersion");
+  return requested && (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(requested) ? requested : LATEST_PROTOCOL_VERSION;
+}
+
 function result(id: JsonRpcRequest["id"], value: unknown) {
   return Response.json({ jsonrpc: "2.0", id: id ?? null, result: value });
 }
 
-function rpcError(id: JsonRpcRequest["id"], code: number, message: string, status = 200) {
-  return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status });
+function rpcError(id: JsonRpcRequest["id"], code: number, message: string, status = 200, headers?: HeadersInit) {
+  return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers });
 }
 
 function textResult(value: unknown): { content: ToolContent[] } {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+function toolError(message: string): { content: ToolContent[]; isError: true } {
+  return { content: [{ type: "text", text: message }], isError: true };
 }
 
 async function currentSite(siteId: string) {
@@ -93,13 +116,13 @@ async function recentActivity(siteId: string, limit: number) {
 
 async function requireBillableSite(siteId: string) {
   const billingStatus = await getBillingStatusForSite(siteId);
-  if (billingStatus !== "trialing" && billingStatus !== "active") {
-    throw new AppError("BILLING_REQUIRED", "An active trial or subscription is required for MCP writes", 402);
+  if (billingStatus !== "active") {
+    throw new AppError("BILLING_REQUIRED", "An active subscription is required for MCP writes", 402);
   }
   return billingStatus;
 }
 
-async function callTool(name: string, actor: Actor, siteId: string, rawArguments: unknown) {
+async function callTool(name: string, actor: Actor, siteId: string, workspaceId: string, rawArguments: unknown) {
   const args = asObject(rawArguments);
   const repo = repository();
   switch (name) {
@@ -137,7 +160,7 @@ async function callTool(name: string, actor: Actor, siteId: string, rawArguments
     }
     case "assets.upload":
       await requireBillableSite(siteId);
-      return textResult(await uploadAsset({ user: { id: actor.id, name: actor.name, email: "api" }, workspaceId: "api", siteId, actor }, base64File(args), stringParam(args, "altText")));
+      return textResult(await uploadAsset({ user: { id: actor.id, name: actor.name, email: "api" }, workspaceId, siteId, actor }, base64File(args), stringParam(args, "altText")));
     case "activity.list":
       requireScope(actor, "activity:read");
       return textResult(await recentActivity(siteId, numberParam(args, "limit") ?? 20));
@@ -153,8 +176,10 @@ function listedTools(actor?: Actor) {
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
-      requiredScope: tool.requiredScope,
-      ...(actor ? { available: can(actor, tool.requiredScope) } : {}),
+      _meta: {
+        "vibecms.com/requiredScope": tool.requiredScope,
+        ...(actor ? { "vibecms.com/available": can(actor, tool.requiredScope) } : {}),
+      },
     })),
   };
 }
@@ -181,6 +206,8 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
       return rpcError(id, -32005, error.message, 404);
     case "CONFLICT":
       return rpcError(id, -32009, error.message, 409);
+    case "RATE_LIMIT":
+      return rpcError(id, -32010, "Rate limit exceeded", 429, apiRateLimitHeaders(error));
     case "VALIDATION_ERROR":
       return rpcError(id, -32602, error.message, 400);
     default:
@@ -189,7 +216,7 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
 }
 
 export async function handleMcpRequest(request: Request) {
-  if (request.method === "GET") return Response.json({ ok: true, endpoint: "/mcp" });
+  if (request.method === "GET") return new Response(null, { status: 405, headers: { Allow: "POST" } });
   if (request.method !== "POST") return new Response(null, { status: 405 });
   let body: JsonRpcRequest;
   try {
@@ -197,11 +224,20 @@ export async function handleMcpRequest(request: Request) {
   } catch {
     return rpcError(null, -32700, "Parse error", 400);
   }
-  if (body.method === "initialize") return result(body.id, { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "vibecms", version: "0.1.0" } });
+  const protocolHeader = request.headers.get("MCP-Protocol-Version");
+  if (protocolHeader && !(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(protocolHeader)) return rpcError(body.id, -32600, `Unsupported MCP-Protocol-Version: ${protocolHeader}`, 400);
+  if (body.method === "initialize") return result(body.id, { protocolVersion: negotiateProtocolVersion(body.params), capabilities: { tools: {} }, serverInfo: { name: "vibecms", title: "VibeCMS", version: "0.1.0" }, instructions: mcpInstructions });
   if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
   if (body.method === "tools/list") {
     const auth = await authenticateBearerToken(request);
-    return result(body.id, listedTools(auth?.actor));
+    if (!auth) return result(body.id, listedTools());
+    try {
+      await enforceApiBudget({ workspaceId: auth.workspaceId, siteId: auth.siteId, tokenId: auth.tokenId, kind: "read", force: forceQuotaForSmoke(request) });
+      return result(body.id, listedTools(auth.actor));
+    } catch (error) {
+      if (error instanceof RateLimitError) return appRpcError(body.id, error);
+      return rpcError(body.id, -32000, "Tool failed", 500);
+    }
   }
   if (body.method !== "tools/call") return rpcError(body.id, -32601, "Method not found");
   const auth = await authenticateBearerToken(request);
@@ -209,12 +245,18 @@ export async function handleMcpRequest(request: Request) {
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);
+  if (!(mcpToolNames as readonly string[]).includes(name)) return rpcError(body.id, -32602, `Unknown tool: ${name}`, 400);
   try {
-    return result(body.id, await callTool(name, auth.actor, auth.siteId, params.arguments));
+    await enforceApiBudget({ workspaceId: auth.workspaceId, siteId: auth.siteId, tokenId: auth.tokenId, kind: apiUsageKind(name), force: forceQuotaForSmoke(request) });
+    return result(body.id, await callTool(name, auth.actor, auth.siteId, auth.workspaceId, params.arguments));
   } catch (error) {
     const validationMessage = zodValidationMessage(error);
-    if (validationMessage) return rpcError(body.id, -32602, validationMessage, 400);
-    if (error instanceof AppError) return appRpcError(body.id, error);
+    if (validationMessage) return result(body.id, toolError(validationMessage));
+    if (error instanceof UploadError) return result(body.id, toolError(FORM_STATUS[error.code]?.message ?? "Upload failed."));
+    if (error instanceof AppError) {
+      if (recoverableToolErrorCodes.has(error.code)) return result(body.id, toolError(error.message));
+      return appRpcError(body.id, error);
+    }
     return rpcError(body.id, -32000, "Tool failed", 500);
   }
 }

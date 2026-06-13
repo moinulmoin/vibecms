@@ -1,6 +1,6 @@
 import { render, route } from "rwsdk/router";
 import { defineApp } from "rwsdk/worker";
-import { AppError, can } from "@vc/core";
+import { AppError, RateLimitError, can } from "@vc/core";
 
 import { Document } from "@/app/document";
 import { setCommonHeaders } from "@/app/headers";
@@ -18,6 +18,7 @@ import { TokenCreated } from "@/app/pages/token-created";
 import { auth } from "@/lib/auth";
 import { PublicIndexBySlug, PublicPost, PublicPostBySlug } from "@/server/public-blog";
 import { authenticateBearerToken, createApiKeyFromRequest, revokeApiKey } from "@/server/api-keys";
+import { apiRateLimitHeaders, enforceApiBudget } from "@/server/usage";
 import { createCheckoutSession, createPortalSession, getBillingStatus, handlePolarWebhook } from "@/server/billing";
 import { serveAsset, uploadAssetFromRequest } from "@/server/media";
 import { handleMcpRequest } from "@/server/mcp";
@@ -54,7 +55,7 @@ const requireBilling = async ({ ctx, request }: { ctx: AppContext; request: Requ
   if (pathname === "/app/billing" || pathname === "/app/billing/checkout") return;
   if (!ctx.app) return new Response(null, { status: 302, headers: { Location: "/login" } });
   const billingStatus = await getBillingStatus(ctx.app.workspaceId);
-  if (billingStatus !== "trialing" && billingStatus !== "active") return new Response(null, { status: 302, headers: { Location: "/app/billing?error=billing_required" } });
+  if (billingStatus !== "active") return new Response(null, { status: 302, headers: { Location: "/app/billing?error=billing_required" } });
 };
 
 const requireApp = (ctx: AppContext) => {
@@ -65,7 +66,7 @@ const requireApp = (ctx: AppContext) => {
 const requireBillableApp = async (ctx: AppContext) => {
   const app = requireApp(ctx);
   const billingStatus = await getBillingStatus(app.workspaceId);
-  if (billingStatus !== "trialing" && billingStatus !== "active") throw new Response(null, { status: 303, headers: { Location: "/app/billing?error=billing_required" } });
+  if (billingStatus !== "active") throw new Response(null, { status: 303, headers: { Location: "/app/billing?error=billing_required" } });
   return app;
 };
 
@@ -105,8 +106,8 @@ function parseTokenFlashCookie(request: Request) {
 function apiError(error: unknown) {
   if (error instanceof AppError) {
     const status = error.status >= 400 && error.status < 600 ? error.status : 500;
-    const safeCode = ["UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "VALIDATION_ERROR", "BILLING_REQUIRED"].includes(error.code) ? error.code : "INTERNAL_ERROR";
-    return Response.json({ error: safeCode }, { status });
+    const safeCode = ["UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "VALIDATION_ERROR", "BILLING_REQUIRED", "RATE_LIMIT"].includes(error.code) ? error.code : "INTERNAL_ERROR";
+    return Response.json({ error: safeCode }, { status, headers: error instanceof RateLimitError ? apiRateLimitHeaders(error) : undefined });
   }
   return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 });
 }
@@ -121,6 +122,10 @@ function boundedIntegerParam(value: string | null, fallback: number, min: number
   if (!Number.isInteger(parsed)) return fallback;
   return Math.min(Math.max(parsed, min), max);
 }
+function forceQuotaForSmoke(request: Request) {
+  return env.APP_ENV !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
+}
+
 
 
 export default defineApp([
@@ -155,11 +160,12 @@ export default defineApp([
       if (!authResult) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
       if (!can(authResult.actor, "posts:read")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
       try {
+        await enforceApiBudget({ workspaceId: authResult.workspaceId, siteId: authResult.siteId, tokenId: authResult.tokenId, kind: "read", force: forceQuotaForSmoke(request) });
         const url = new URL(request.url);
         const limit = boundedIntegerParam(url.searchParams.get("limit"), 20, 1, 100);
         const offset = boundedIntegerParam(url.searchParams.get("offset"), 0, 0, 10_000);
         const posts = await getPosts(
-          { user: { id: "api", name: authResult.actor.name, email: "api" }, workspaceId: "api", siteId: authResult.siteId, actor: authResult.actor },
+          { user: { id: "api", name: authResult.actor.name, email: "api" }, workspaceId: authResult.workspaceId, siteId: authResult.siteId, actor: authResult.actor },
           postStatusParam(url.searchParams.get("status")),
           url.searchParams.get("search") || undefined,
           limit,
@@ -202,6 +208,7 @@ export default defineApp([
           return redirect("/app/settings/token-created", { "Set-Cookie": tokenFlashCookieHeader(created.token, created.name) });
         } catch (error) {
           if (error instanceof Response) throw error;
+          if (error instanceof AppError && error.code === "CONFLICT") return redirect("/app/settings?error=token_limit");
           if (error instanceof AppError && error.code === "FORBIDDEN") return redirect("/app/settings?error=owner_required");
           return redirect("/app/settings?error=unknown");
         }

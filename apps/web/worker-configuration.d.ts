@@ -21,6 +21,7 @@ declare namespace Cloudflare {
 		POLAR_YEARLY_PRODUCT_ID?: string;
 		POLAR_SERVER?: "sandbox" | "production";
 		TOKEN_PEPPER: string;
+		API_USAGE_TEST_LIMIT?: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

@@ -158,7 +158,7 @@ export function OnboardingFrame({ children, phase = "Setup" }: { children: React
           <div>
             <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{BRAND.tagline}</p>
             <h1 className="mt-4 max-w-xl text-balance text-4xl font-semibold tracking-[-0.05em] md:text-6xl">Set up a calm publishing system for humans and AI agents.</h1>
-            <p className="mt-5 max-w-lg text-pretty text-sm leading-6 text-muted-foreground md:text-base">Configure the hosted blog, start the trial when needed, then manage posts, media, activity, and scoped agent access from one dashboard.</p>
+            <p className="mt-5 max-w-lg text-pretty text-sm leading-6 text-muted-foreground md:text-base">Configure the hosted blog, then manage posts, media, activity, and scoped agent access from one dashboard.</p>
           </div>
         </section>
         {children}

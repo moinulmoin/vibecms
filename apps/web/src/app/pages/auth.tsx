@@ -22,7 +22,7 @@ export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
           <Card className="relative z-10 grid gap-3 rounded-xl border-white/15 bg-white/10 p-5 text-sm text-white/80 shadow-none backdrop-blur">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <span>Launch plan</span>
-              <strong className="text-white">{PRICING.monthlyLabel} &middot; {PRICING.trialDays}-day trial</strong>
+              <strong className="text-white">{PRICING.monthlyLabel}</strong>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-black/15 p-4">
@@ -51,7 +51,7 @@ export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
             <CardContent className="p-0">
               <AuthForm authUrl={ctx.authUrl ?? "/"} />
               <p className="mt-8 text-xs leading-5 text-muted-foreground">
-                Trial sites are noindexed. Publishing and media uploads require an active trial or subscription.
+                Publishing and media uploads require an active subscription. Self-host is free.
               </p>
             </CardContent>
           </Card>

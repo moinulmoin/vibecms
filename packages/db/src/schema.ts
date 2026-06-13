@@ -146,7 +146,7 @@ export const billingCustomers = sqliteTable("billing_customers", {
   workspaceId: text("workspace_id").notNull().unique().references(() => workspaces.id, { onDelete: "cascade" }),
   polarCustomerId: text("polar_customer_id").unique(),
   polarSubscriptionId: text("polar_subscription_id").unique(),
-  status: text("status", { enum: ["trialing", "active", "past_due", "canceled", "unpaid", "none"] }).notNull().default("none"),
+  status: text("status", { enum: ["active", "past_due", "canceled", "unpaid", "none"] }).notNull().default("none"),
   currentPeriodEnd: integer("current_period_end"),
   ...timestamps,
 });

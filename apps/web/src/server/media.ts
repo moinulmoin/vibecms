@@ -7,9 +7,9 @@ import { getBillingStatusForSite, isSelfHosted } from "./billing";
 import type { AppUserContext } from "./onboarding";
 
 type AssetRow = { id: string; site_id: string; r2_key: string; filename: string; mime_type: string; size_bytes: number; alt_text: string | null };
-type UploadErrorCode = "upload_missing_file" | "upload_type" | "upload_too_large" | "media_quota_trial" | "media_quota_paid" | "billing_required" | "unknown";
+type UploadErrorCode = "upload_missing_file" | "upload_type" | "upload_too_large" | "media_quota_paid" | "billing_required" | "unknown";
 
-class UploadError extends Error {
+export class UploadError extends Error {
   constructor(readonly code: UploadErrorCode) {
     super(code);
   }
@@ -44,10 +44,9 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
   if (file.size <= 0 || file.size > MEDIA.maxImageBytes) throw new UploadError("upload_too_large");
   if (!isSelfHosted()) {
     const billingStatus = await getBillingStatusForSite(app.siteId);
-    if (billingStatus !== "trialing" && billingStatus !== "active") throw new UploadError("billing_required");
-    const limit = billingStatus === "trialing" ? MEDIA.trialStorageBytes : MEDIA.paidStorageBytes;
+    if (billingStatus !== "active") throw new UploadError("billing_required");
     const usage = await env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS total FROM assets WHERE site_id = ?").bind(app.siteId).first<{ total: number }>();
-    if ((usage?.total ?? 0) + file.size > limit) throw new UploadError(billingStatus === "trialing" ? "media_quota_trial" : "media_quota_paid");
+    if ((usage?.total ?? 0) + file.size > MEDIA.paidStorageBytes) throw new UploadError("media_quota_paid");
   }
   const filename = safeFilename(file.name);
   const r2Key = `${app.siteId}/${crypto.randomUUID()}-${filename}`;
