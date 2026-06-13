@@ -21,7 +21,7 @@ All notable changes to VibeCMS will be documented in this file.
 - Removed the hosted free trial. Hosted billing is now subscribe-to-publish only (a single 5 GB media tier, no trial storage cap); self-host stays free and fully unblocked. Dropped the `trialing` status, trial quota tier, trial-expiry handling, and all trial copy/CTAs; public blogs are indexable once active (or self-hosted). Migration `0006_remove_trial.sql` normalizes any legacy trialing rows.
 - Post editor now auto-derives the slug from the title for new posts, without overwriting a manually edited slug.
 - Dashboard splits the conflated tokens/versions stat into distinct "Active tokens" and "Saved versions" cards.
-- Agent-ready public blogs: every blog serves `llms.txt` (content index linking to clean markdown) and per-post markdown via `Accept: text/markdown`, a `.md` suffix, or `?format=md`. Markdown is the post's own source (zero-loss, YAML frontmatter) on both custom-domain and `/blog/:siteSlug` paths. Combined with the existing sitemap, robots, and MCP endpoint, this covers the standard AI Agent Readiness checks.
+- Agent-ready by default: every public blog serves `llms.txt` (content index linking to clean markdown) and per-post markdown via `Accept: text/markdown`, a `.md` suffix, or `?format=md` - the post's own source, zero-loss, with YAML frontmatter - on both custom-domain and `/blog/:siteSlug` paths. The product host also serves a `llms.txt`, `sitemap.xml`, and a sitemap-referencing `robots.txt`. Combined with the MCP endpoint, this covers the standard AI Agent Readiness checks (robots, sitemap, llms.txt, markdown, MCP).
 
 ## 0.1.0-alpha
 
