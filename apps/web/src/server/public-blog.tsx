@@ -63,7 +63,7 @@ export async function resolveSite(request: Request) {
   return site;
 }
 
-async function resolveSiteBySlug(slug: string | undefined) {
+export async function resolveSiteBySlug(slug: string | undefined) {
   if (!slug) return null;
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
@@ -102,6 +102,49 @@ export async function getPublishedPost(siteId: string, slug: string) {
 
 function notFound() {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+const publicCacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
+
+function markdownRequested(request: Request) {
+  const accept = request.headers.get("accept") ?? "";
+  return accept.includes("text/markdown") || new URL(request.url).searchParams.get("format") === "md";
+}
+
+function stripMarkdownSuffix(slug: string | undefined): { slug: string | undefined; markdown: boolean } {
+  if (slug && slug.endsWith(".md")) return { slug: slug.slice(0, -3), markdown: true };
+  return { slug, markdown: false };
+}
+
+function buildPostMarkdown(post: PostRow, canonicalUrl: string) {
+  const description = post.seo_description || post.excerpt || "";
+  const date = post.published_at ? new Date(post.published_at * 1000).toISOString() : "";
+  let tags: string[] = [];
+  try {
+    const parsed = JSON.parse(post.tags_json) as unknown;
+    if (Array.isArray(parsed)) tags = parsed.filter((tag): tag is string => typeof tag === "string");
+  } catch {}
+  const frontmatter = [
+    "---",
+    `title: ${JSON.stringify(post.title)}`,
+    description ? `description: ${JSON.stringify(description)}` : null,
+    date ? `date: ${date}` : null,
+    tags.length ? `tags: [${tags.map((tag) => JSON.stringify(tag)).join(", ")}]` : null,
+    `canonical: ${canonicalUrl}`,
+    "---",
+  ].filter((line): line is string => line !== null).join("\n");
+  return `${frontmatter}\n\n# ${post.title}\n\n${post.content_markdown}\n`;
+}
+
+async function publicPostMarkdownResponse(site: SiteRow, slug: string, canonicalUrl: string) {
+  const post = await getPublishedPost(site.id, slug);
+  if (!post) return notFound();
+  return new Response(buildPostMarkdown(post, canonicalUrl), {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "cache-control": publicCacheControl,
+      "content-signal": "ai-train=yes, search=yes, ai-input=yes",
+    },
+  });
 }
 
 function Markdown({ source }: { source: string }) {
@@ -240,7 +283,12 @@ async function renderPublicPost(request: Request, site: SiteRow, basePath: strin
 export async function PublicPost({ request, params }: { request: Request; params: { slug?: string } }) {
   const site = await resolveSite(request);
   if (!site) return notFound();
-  return renderPublicPost(request, site, "", params.slug);
+  const { slug, markdown } = stripMarkdownSuffix(params.slug);
+  if (markdown || markdownRequested(request)) {
+    if (!slug) return notFound();
+    return publicPostMarkdownResponse(site, slug, new URL(`/${slug}`, request.url).href);
+  }
+  return renderPublicPost(request, site, "", slug);
 }
 
 export async function PublicIndexBySlug({ params }: { request: Request; params: { siteSlug?: string } }) {
@@ -252,7 +300,12 @@ export async function PublicIndexBySlug({ params }: { request: Request; params: 
 export async function PublicPostBySlug({ request, params }: { request: Request; params: { siteSlug?: string; postSlug?: string } }) {
   const site = await resolveSiteBySlug(params.siteSlug);
   if (!site) return notFound();
-  return renderPublicPost(request, site, `/blog/${site.slug}`, params.postSlug);
+  const { slug, markdown } = stripMarkdownSuffix(params.postSlug);
+  if (markdown || markdownRequested(request)) {
+    if (!slug) return notFound();
+    return publicPostMarkdownResponse(site, slug, new URL(`/blog/${site.slug}/${slug}`, request.url).href);
+  }
+  return renderPublicPost(request, site, `/blog/${site.slug}`, slug);
 }
 
 export async function shouldRenderPublic(request: Request) {

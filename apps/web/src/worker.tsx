@@ -22,7 +22,7 @@ import { apiRateLimitHeaders, enforceApiBudget } from "@/server/usage";
 import { createCheckoutSession, createPortalSession, getBillingStatus, handlePolarWebhook } from "@/server/billing";
 import { serveAsset, uploadAssetFromRequest } from "@/server/media";
 import { handleMcpRequest } from "@/server/mcp";
-import { handleFeed, handleRobots, handleSitemap } from "@/server/public-feeds";
+import { handleFeed, handleLlmsTxt, handleLlmsTxtBySlug, handleRobots, handleSitemap } from "@/server/public-feeds";
 import { handleExport } from "@/server/export";
 import { rejectCrossOriginBrowserPost } from "@/server/csrf";
 import {
@@ -180,6 +180,8 @@ export default defineApp([
   route("/feed.xml", ({ request }) => handleFeed(request)),
   route("/sitemap.xml", ({ request }) => handleSitemap(request)),
   route("/robots.txt", ({ request }) => handleRobots(request)),
+  route("/llms.txt", ({ request }) => handleLlmsTxt(request)),
+  route("/blog/:siteSlug/llms.txt", ({ request, params }) => handleLlmsTxtBySlug(request, params.siteSlug)),
   route("/app/export.json", { get: ({ ctx }) => handleExport(requireApp(ctx)) }),
   render(Document, [
     route("/", HostHome),

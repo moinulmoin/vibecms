@@ -1,4 +1,4 @@
-import { listPublishedPosts, resolveSite } from "./public-blog";
+import { listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog";
 
 function xmlEscape(value: string): string {
   return value
@@ -82,4 +82,37 @@ export async function handleRobots(request: Request): Promise<Response> {
   return new Response(body, {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": cacheControl },
   });
+}
+
+/** Shared llms.txt renderer: H1 name, blockquote summary, and post links to clean markdown. */
+function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: PostRow[]): Response {
+  const summary = site.description || site.default_seo_description || "";
+  const lines = [`# ${site.name}`, ""];
+  if (summary) lines.push(`> ${summary}`, "");
+  lines.push("## Posts", "");
+  if (posts.length === 0) {
+    lines.push("No published posts yet.");
+  } else {
+    for (const post of posts) {
+      const description = post.excerpt || post.seo_description || "";
+      lines.push(`- [${post.title}](${origin}${basePath}/${post.slug}.md)${description ? `: ${description}` : ""}`);
+    }
+  }
+  return new Response(`${lines.join("\n")}\n`, {
+    headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": cacheControl },
+  });
+}
+
+/** llms.txt for a custom-domain blog host so AI agents can discover posts and fetch clean markdown. */
+export async function handleLlmsTxt(request: Request): Promise<Response> {
+  const site = await resolveSite(request);
+  if (!site) return notFound();
+  return renderLlmsTxt(site, new URL(request.url).origin, "", await listPublishedPosts(site.id));
+}
+
+/** llms.txt for a path-based blog at /blog/:siteSlug. */
+export async function handleLlmsTxtBySlug(request: Request, siteSlug: string | undefined): Promise<Response> {
+  const site = await resolveSiteBySlug(siteSlug);
+  if (!site) return notFound();
+  return renderLlmsTxt(site, new URL(request.url).origin, `/blog/${site.slug}`, await listPublishedPosts(site.id));
 }
