@@ -12,9 +12,26 @@ POST_SLUG="smoke-post-$RUN_ID"
 COOKIE_JAR=$(mktemp)
 
 curl -fsS "$BASE_URL/login" >/dev/null
+# Passwordless sign-in: request a code, read it back from the disposable local
+# D1 (emailOTP stores it plain), then verify - the same flow real users get.
+curl -fsS -H 'content-type: application/json' -H "origin: $BASE_URL" \
+  -d "{\"email\":\"$EMAIL\",\"type\":\"sign-in\"}" \
+  "$BASE_URL/api/auth/email-otp/send-verification-otp" >/dev/null
+OTP_DB_NAME="${LOCAL_D1_NAME:-vibecms_dev}"
+otp_row=$(pnpm --filter @vc/web exec wrangler d1 execute "$OTP_DB_NAME" --local --json --command \
+  "SELECT value FROM verification WHERE identifier = 'sign-in-otp-$EMAIL' ORDER BY expires_at DESC LIMIT 1")
+SMOKE_OTP=$(ROW_JSON="$otp_row" python3 - <<'PY'
+import json, os, re
+payload = json.loads(os.environ["ROW_JSON"])
+results = payload[0]["results"]
+if not results:
+    raise SystemExit("no OTP row found in verification table")
+print(re.sub(r"[^0-9]", "", results[0]["value"])[:6])
+PY
+)
 curl -fsS -c "$COOKIE_JAR" -H 'content-type: application/json' -H "origin: $BASE_URL" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"Password123!\",\"name\":\"Smoke Test\"}" \
-  "$BASE_URL/api/auth/sign-up/email" >/dev/null
+  -d "{\"email\":\"$EMAIL\",\"otp\":\"$SMOKE_OTP\"}" \
+  "$BASE_URL/api/auth/sign-in/email-otp" >/dev/null
 curl -fsS -b "$COOKIE_JAR" -H "origin: $BASE_URL" -X POST "$BASE_URL/api/onboarding/ensure" >/dev/null
 curl -fsS -b "$COOKIE_JAR" -H "origin: $BASE_URL" \
   -d "name=Smoke+Blog&slug=$SITE_SLUG&description=Smoke+test+blog" \

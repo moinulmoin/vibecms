@@ -79,6 +79,27 @@ pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
 
 Do not set Polar secrets for self-hosted mode unless you intentionally want to test the hosted billing adapter.
 
+## Sign-in (passwordless email + optional Google)
+
+Sign-in is passwordless: users enter their email and receive a 6-digit code. Verifying the code creates the account on first use, so the email is always confirmed - there is no separate password to manage or reset.
+
+To deliver codes by email in production, set a [Resend](https://resend.com) API key as a secret:
+
+```sh
+pnpm --filter @vc/web exec wrangler secret put RESEND_API_KEY
+```
+
+Optionally set `EMAIL_FROM` (a var) to a verified sender, e.g. `VibeCMS <login@yourdomain.com>`. If `RESEND_API_KEY` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
+
+To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
+
+```sh
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+In the Google Cloud Console, set the authorized redirect URI to `<APP_URL>/api/auth/callback/google`. When the credentials are absent, the button is hidden and email sign-in is the only option.
+
 ## Manual deploy flow
 
 1. Fork/clone the repo.

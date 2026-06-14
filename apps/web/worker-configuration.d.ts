@@ -22,6 +22,10 @@ declare namespace Cloudflare {
 		POLAR_SERVER?: "sandbox" | "production";
 		TOKEN_PEPPER: string;
 		API_USAGE_TEST_LIMIT?: string;
+		GOOGLE_CLIENT_ID?: string;
+		GOOGLE_CLIENT_SECRET?: string;
+		RESEND_API_KEY?: string;
+		EMAIL_FROM?: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

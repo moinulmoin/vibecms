@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardDescription } from "@vc/ui";
 import { AuthForm } from "./auth-form";
 import { PRICING, BRAND, MEDIA } from "@vc/config";
 
-export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
+export const AuthPage = ({ ctx }: { ctx: { authUrl?: string; googleEnabled?: boolean } }) => {
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 lg:p-8">
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl overflow-hidden rounded-2xl border border-border bg-card shadow-lg lg:grid-cols-[1.05fr_.95fr]">
@@ -49,7 +49,7 @@ export const AuthPage = ({ ctx }: { ctx: { authUrl?: string } }) => {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <AuthForm authUrl={ctx.authUrl ?? "/"} />
+              <AuthForm authUrl={ctx.authUrl ?? "/"} googleEnabled={ctx.googleEnabled ?? false} />
               <p className="mt-8 text-xs leading-5 text-muted-foreground">
                 Publishing and media uploads require an active subscription. Self-host is free.
               </p>

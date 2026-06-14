@@ -5,3 +5,10 @@ PUBLIC_BLOG_DOMAIN=localhost
 SELF_HOSTED=true
 BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
 TOKEN_PEPPER=generate_with_openssl_rand_hex_32
+# Optional: passwordless sign-in emails the 6-digit code via Resend in production.
+# Leave RESEND_API_KEY unset in dev to log the code to the worker console instead.
+RESEND_API_KEY=
+EMAIL_FROM=VibeCMS <onboarding@resend.dev>
+# Optional: enables the "Continue with Google" button (set both, or omit both).
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

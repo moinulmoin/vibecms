@@ -36,7 +36,7 @@ import {
 import { completeSiteSetup, ensureOnboarding, getSiteSetup, type AppUserContext } from "@/server/onboarding";
 import { env } from "cloudflare:workers";
 
-export type AppContext = { authUrl?: string; app?: AppUserContext };
+export type AppContext = { authUrl?: string; googleEnabled?: boolean; app?: AppUserContext };
 
 const requireUser = ({ ctx }: { ctx: AppContext }) => {
   if (!ctx.app) return new Response(null, { status: 302, headers: { Location: "/login" } });
@@ -122,6 +122,7 @@ export default defineApp([
   },
   async ({ ctx, request }) => {
     ctx.authUrl = env.BETTER_AUTH_URL;
+    ctx.googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
     const session = await auth.api.getSession({ headers: request.headers });
     if (session?.user) {
       ctx.app = await ensureOnboarding({ id: session.user.id, name: session.user.name, email: session.user.email });
