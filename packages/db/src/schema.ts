@@ -161,6 +161,13 @@ export const usageCounters = sqliteTable("usage_counters", {
   ...timestamps,
 }, (table) => [uniqueIndex("idx_usage_unique").on(table.workspaceId, table.siteId, table.period, table.metric)]);
 
+export const rateLimits = sqliteTable("rate_limits", {
+  id: text("id").primaryKey(),
+  count: integer("count").notNull().default(0),
+  expiresAt: integer("expires_at").notNull(),
+  ...timestamps,
+}, (table) => [index("idx_rate_limits_expires").on(table.expiresAt)]);
+
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

@@ -27,7 +27,11 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
     const { error: sendError } = await authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" });
     setLoading(false);
     if (sendError) {
-      setError(sendError.message ?? "Could not send a code. Check the address and try again.");
+      const message =
+        (sendError as { status?: number }).status === 429
+          ? "Too many codes requested for this email. Please wait a bit and try again."
+          : (sendError.message ?? "Could not send a code. Check the address and try again.");
+      setError(message);
       return;
     }
     setStep("otp");

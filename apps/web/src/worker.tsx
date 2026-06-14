@@ -34,6 +34,7 @@ import {
   updatePostFromRequest,
 } from "@/server/cms";
 import { completeSiteSetup, ensureOnboarding, getSiteSetup, type AppUserContext } from "@/server/onboarding";
+import { checkOtpSendBudget } from "@/server/auth-rate-limit";
 import { env } from "cloudflare:workers";
 
 export type AppContext = { authUrl?: string; googleEnabled?: boolean; app?: AppUserContext };
@@ -119,6 +120,31 @@ export default defineApp([
     if (request.method !== "POST") return;
     if (pathname !== "/api/onboarding/ensure" && !pathname.startsWith("/app/")) return;
     return rejectCrossOriginBrowserPost(request);
+  },
+  async ({ request }) => {
+    if (request.method !== "POST") return;
+    if (new URL(request.url).pathname !== "/api/auth/email-otp/send-verification-otp") return;
+    // Only meter requests Better Auth will actually accept (and therefore send an email for).
+    // A request it would reject - wrong content type or a malformed address - must not debit a
+    // victim's budget, or an attacker could lock them out without any code ever being sent.
+    if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) return;
+    let email = "";
+    try {
+      const body = (await request.clone().json()) as { email?: unknown };
+      if (typeof body.email === "string") email = body.email;
+    } catch {
+      return; // malformed body - let Better Auth reject it
+    }
+    // Skip anything that is not a plausible address (surrounding whitespace included) so only
+    // sendable requests count against the cap.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    const decision = await checkOtpSendBudget(email);
+    if (!decision.allowed) {
+      return Response.json(
+        { error: "RATE_LIMIT" },
+        { status: 429, headers: { "retry-after": String(decision.retryAfter) } },
+      );
+    }
   },
   async ({ ctx, request }) => {
     ctx.authUrl = env.BETTER_AUTH_URL;
