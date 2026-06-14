@@ -20,7 +20,7 @@ import { auth } from "@/lib/auth";
 import { PublicIndexBySlug, PublicPost, PublicPostBySlug } from "@/server/public-blog";
 import { authenticateBearerToken, createApiKeyFromRequest, revokeApiKey } from "@/server/api-keys";
 import { apiRateLimitHeaders, enforceApiBudget } from "@/server/usage";
-import { createCheckoutSession, createPortalSession, getBillingStatus, handlePolarWebhook } from "@/server/billing";
+import { createCheckoutSession, createPortalSession, handlePolarWebhook } from "@/server/billing";
 import { serveAsset, uploadAssetFromRequest } from "@/server/media";
 import { handleMcpRequest } from "@/server/mcp";
 import { handleFeed, handleLlmsTxt, handleLlmsTxtBySlug, handleRobots, handleSitemap } from "@/server/public-feeds";
@@ -52,13 +52,6 @@ const requireSetup = async ({ ctx, request }: { ctx: AppContext; request: Reques
 const requireApp = (ctx: AppContext) => {
   if (!ctx.app) throw new Response(null, { status: 401 });
   return ctx.app;
-};
-
-const requireBillableApp = async (ctx: AppContext) => {
-  const app = requireApp(ctx);
-  const billingStatus = await getBillingStatus(app.workspaceId);
-  if (billingStatus !== "active") throw new Response(null, { status: 303, headers: { Location: "/app/billing?error=billing_required" } });
-  return app;
 };
 
 const TOKEN_FLASH_COOKIE = "vc_token_flash";
@@ -186,7 +179,7 @@ export default defineApp([
     route("/app/posts/create", { post: ({ ctx, request }) => createPostFromRequest(requireApp(ctx), request) }),
     route("/app/posts/:postId/edit", [requireSetup, EditPost]),
     route("/app/posts/:postId/update", { post: ({ ctx, request, params }) => updatePostFromRequest(requireApp(ctx), request, params.postId) }),
-    route("/app/posts/:postId/publish", { post: async ({ ctx, request, params }) => publishPostFromRequest(await requireBillableApp(ctx), params.postId, request) }),
+    route("/app/posts/:postId/publish", { post: ({ ctx, request, params }) => publishPostFromRequest(requireApp(ctx), params.postId, request) }),
     route("/app/posts/:postId/archive", { post: ({ ctx, request, params }) => archivePostFromRequest(requireApp(ctx), params.postId, request) }),
     route("/app/media", [requireSetup, Media]),
     route("/app/media/upload", { post: ({ ctx, request }) => uploadAssetFromRequest(requireApp(ctx), request) }),

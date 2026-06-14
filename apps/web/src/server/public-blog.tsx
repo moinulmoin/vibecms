@@ -13,6 +13,7 @@ export type SiteRow = {
   default_seo_description: string | null;
   billing_status: string | null;
   current_period_end: number | null;
+  published_count: number | null;
 };
 
 export type PostRow = {
@@ -42,7 +43,9 @@ function appHost() {
 
 
 function canRenderPublic(site: SiteRow) {
-  return env.SELF_HOSTED === "true" || site.billing_status === "active";
+  // A blog has a public presence when paid, self-hosted, or it has used its free
+  // published post (the "publish one to try" allowance). Free posts are noindex.
+  return env.SELF_HOSTED === "true" || site.billing_status === "active" || (site.published_count ?? 0) > 0;
 }
 
 export async function resolveSite(request: Request) {
@@ -52,7 +55,8 @@ export async function resolveSite(request: Request) {
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
       sites.default_seo_title, sites.default_seo_description,
-      billing_customers.status AS billing_status, billing_customers.current_period_end
+      billing_customers.status AS billing_status, billing_customers.current_period_end,
+      (SELECT COUNT(*) FROM posts WHERE posts.site_id = sites.id AND posts.status = 'published') AS published_count
      FROM domains
      INNER JOIN sites ON sites.id = domains.site_id
      LEFT JOIN billing_customers ON billing_customers.workspace_id = sites.workspace_id
@@ -68,7 +72,8 @@ export async function resolveSiteBySlug(slug: string | undefined) {
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
       sites.default_seo_title, sites.default_seo_description,
-      billing_customers.status AS billing_status, billing_customers.current_period_end
+      billing_customers.status AS billing_status, billing_customers.current_period_end,
+      (SELECT COUNT(*) FROM posts WHERE posts.site_id = sites.id AND posts.status = 'published') AS published_count
      FROM sites
      LEFT JOIN billing_customers ON billing_customers.workspace_id = sites.workspace_id
      WHERE sites.slug = ? AND sites.status = 'active'

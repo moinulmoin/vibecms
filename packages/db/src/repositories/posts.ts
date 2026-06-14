@@ -254,5 +254,12 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             ).bind(input.siteId, input.limit, input.offset).all<PostSummaryRow>();
       return result.results.map(mapPostSummary);
     },
+
+    async countPublishedPosts(siteId) {
+      const row = await db.prepare(
+        `SELECT COUNT(*) AS count FROM posts WHERE site_id = ? AND status = 'published'`,
+      ).bind(siteId).first<{ count: number }>();
+      return row?.count ?? 0;
+    },
   };
 }

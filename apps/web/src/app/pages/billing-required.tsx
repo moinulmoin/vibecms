@@ -32,7 +32,7 @@ export const BillingRequired = async ({ request, ctx }: { request: Request; ctx:
               <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="monthly" pendingText="Starting checkout…">Subscribe monthly</SubmitButton></form>
               <form method="post" action="/app/billing/checkout"><SubmitButton className="w-full" name="interval" value="yearly" variant="outline" pendingText="Starting checkout…">Subscribe yearly</SubmitButton></form>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">Sites stay private until you subscribe. Publishing, media uploads, and agent access require an active subscription. Cancel anytime from the customer portal.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload media, and make your blog search-indexable. Cancel anytime from the customer portal.</p>
           </CardContent>
         </Card>
       </div>

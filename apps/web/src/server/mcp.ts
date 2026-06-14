@@ -148,7 +148,7 @@ async function callTool(name: string, actor: Actor, siteId: string, workspaceId:
     case "posts.publish": {
       const postId = stringParam(args, "postId");
       if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await publishPost(repo, actor, { siteId, postId, billingStatus: await requireBillableSite(siteId) }));
+      return textResult(await publishPost(repo, actor, { siteId, postId, billingStatus: await getBillingStatusForSite(siteId) }));
     }
     case "posts.archive": {
       const postId = stringParam(args, "postId");

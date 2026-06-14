@@ -27,7 +27,7 @@ export const Settings = async ({ request, ctx }: { request: Request; ctx: { app?
           <div>
             <p className="text-sm font-medium text-foreground">{selfHosted ? "Billing is disabled for this self-hosted workspace" : `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {selfHosted ? "Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `Drafting and scoped agent tokens are free. Subscribe to publish to your public blog. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
+              {selfHosted ? "Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout." : `Drafting, agent tokens, and your first published post are free. Subscribe to publish more, upload media, and make posts search-indexable. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
             </p>
           </div>
           {selfHosted ? <Badge variant="outline" className="w-fit lg:justify-self-end">SELF_HOSTED=true</Badge> : isOwner ? (

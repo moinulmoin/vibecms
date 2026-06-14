@@ -4,7 +4,7 @@ All notable changes to VibeCMS will be documented in this file.
 
 ## Unreleased
 
-- Draft-free, publish-paid hosted model: signing up, naming a blog, drafting and editing posts, creating agent tokens, and connecting agents over MCP are now free. A subscription is required only to publish to the public blog and to upload media. Unpaid drafting is bounded by a new free API usage tier; self-host stays fully free.
+- Draft-free, publish-one-free hosted model: signing up, naming a blog, drafting/editing posts, creating agent tokens, and connecting agents over MCP are free. Each workspace can publish ONE post free to try the full loop end to end - it renders live but `noindex,nofollow` - and a subscription is required to publish more, upload media, and make posts search-indexable. Enforced for both the dashboard and the agent (MCP) path; unpaid usage is bounded by a new free API tier; self-host stays fully free.
 - New "Connect your agent" onboarding step (`/app/connect`): after blog setup you land here, generate a safe draft-only token in one click, and get ready-to-paste setup for Claude Code, Codex, Cursor, and any MCP client (plus an `mcp-remote` bridge for stdio-only clients) with the token baked in, followed by a starter prompt to hand the agent its first task. Skippable, and always reachable from Settings.
 - Agent token scopes simplified to two presets - Draft assistant (default, no publish) and Full publisher - replacing the per-scope checkbox grid.
 - The one-time token reveal now also drives the connect step (cookie scoped to `/app`), so the freshly minted token appears inline in every client snippet.

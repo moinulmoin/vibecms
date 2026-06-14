@@ -15,12 +15,12 @@ export type PostRepository = {
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
+  countPublishedPosts(siteId: string): Promise<number>;
 };
 
-function requirePublishBilling(status: BillingStatus) {
-  if (status === "active") return;
-  throw new BillingRequiredError("An active subscription is required to publish posts");
-}
+// Draft-free model: a workspace may keep up to this many published posts without
+// an active subscription, so new users can try the full publish loop once.
+const FREE_PUBLISHED_LIMIT = 1;
 
 export async function createPost(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:create");
@@ -68,9 +68,14 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
 
 export async function publishPost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; billingStatus: BillingStatus }) {
   requireScope(actor, "posts:publish");
-  requirePublishBilling(input.billingStatus);
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
+  if (input.billingStatus !== "active" && before.status !== "published") {
+    const published = await repo.countPublishedPosts(input.siteId);
+    if (published >= FREE_PUBLISHED_LIMIT) {
+      throw new BillingRequiredError("Subscribe to publish more than one post");
+    }
+  }
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "published", publishedAt: Math.floor(Date.now() / 1000) }, actor, {
     changeSummary: "Published post",
     activityAction: "post.published",

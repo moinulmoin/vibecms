@@ -42,7 +42,7 @@ export const Setup = async ({ request, ctx }: { request: Request; ctx: { app?: A
                 </Field>
               </FieldGroup>
               <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-muted-foreground">Sites stay private until you subscribe. You still get the full dashboard and scoped agent access.</p>
+                <p className="text-xs leading-5 text-muted-foreground">Draft for free and publish your first post to try it live. Subscribe to publish more and upload media.</p>
                 <SubmitButton className="h-11 rounded-xl px-6" pendingText="Saving…">Continue</SubmitButton>
               </div>
             </form>
