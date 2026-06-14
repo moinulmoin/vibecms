@@ -68,3 +68,8 @@ export const DEFAULT_SCOPES: Scope[] = [
   "assets:write",
   "activity:read",
 ];
+
+export const AGENT_TOKEN_PRESETS: Record<"draft" | "full", Scope[]> = {
+  draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
+  full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
+};

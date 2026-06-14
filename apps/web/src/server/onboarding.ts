@@ -1,6 +1,6 @@
 import type { Actor } from "@vc/core";
 import { env } from "cloudflare:workers";
-import { ensureBillingRow, isSelfHosted } from "./billing";
+import { ensureBillingRow } from "./billing";
 
 type AuthSessionUser = { id: string; name: string; email: string };
 export type AppUserContext = {
@@ -104,5 +104,5 @@ export async function completeSiteSetup(app: AppUserContext, request: Request) {
       .bind(`activity_site_setup_${app.user.id}_${timestamp}`, app.siteId, app.actor.type, app.actor.id, app.actor.name, app.siteId, `Configured ${name}`, timestamp),
   ]);
 
-  return new Response(null, { status: 303, headers: { Location: isSelfHosted() ? "/app?ok=setup_complete" : "/app/billing?ok=setup_complete" } });
+  return new Response(null, { status: 303, headers: { Location: "/app/connect?ok=setup_complete" } });
 }

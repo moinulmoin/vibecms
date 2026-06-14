@@ -69,6 +69,11 @@ export const API_USAGE_LIMITS = {
     writes: { day: 500, month: 2_000 },
     token: { minute: 60 },
   },
+  free: {
+    calls: { minute: 30, day: 300, month: 1_000 },
+    writes: { day: 50, month: 200 },
+    token: { minute: 20 },
+  },
   dev: {
     calls: { minute: 1_000, day: 100_000, month: 1_000_000 },
     writes: { day: 10_000, month: 100_000 },
@@ -123,7 +128,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
   media_quota_paid: { variant: "error", title: "Storage full", message: "You have reached the 5\u00a0GB media limit." },
-  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to use this feature." },
+  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to publish posts and upload media. Drafting stays free." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },

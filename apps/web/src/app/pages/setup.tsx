@@ -43,7 +43,7 @@ export const Setup = async ({ request, ctx }: { request: Request; ctx: { app?: A
               </FieldGroup>
               <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-5 text-muted-foreground">Sites stay private until you subscribe. You still get the full dashboard and scoped agent access.</p>
-                <SubmitButton className="h-11 rounded-xl px-6" pendingText="Saving…">Open dashboard</SubmitButton>
+                <SubmitButton className="h-11 rounded-xl px-6" pendingText="Saving…">Continue</SubmitButton>
               </div>
             </form>
           </CardContent>

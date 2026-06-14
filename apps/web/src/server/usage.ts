@@ -66,11 +66,11 @@ function testLimitPlan(): LimitPlan | null {
   };
 }
 
-function planFor(): LimitPlan {
+function planFor(status?: BillingStatus): LimitPlan {
   const testPlan = testLimitPlan();
   if (testPlan) return testPlan;
   if (env.APP_ENV === "development" || env.APP_ENV === "test") return API_USAGE_LIMITS.dev;
-  return API_USAGE_LIMITS.paid;
+  return status === "active" ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
 }
 
 function workspaceCounterId(workspaceId: string, metric: string, period: string) {
@@ -152,7 +152,7 @@ export function apiRateLimitHeaders(error: unknown): HeadersInit | undefined {
 
 export async function enforceApiBudget(input: { workspaceId: string; siteId: string; tokenId: string; kind: ApiUsageKind; force?: boolean }): Promise<void> {
   if (isSelfHosted() && !input.force) return;
-  const limits = planFor();
+  const limits = planFor(await getBillingStatus(input.workspaceId));
   const period = windows();
   const counters: UsageCounter[] = [
     { id: workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), workspaceId: input.workspaceId, siteId: null, metric: CALLS_METRIC, period: period.minute, limit: limits.calls.minute },
@@ -169,7 +169,7 @@ export async function enforceApiBudget(input: { workspaceId: string; siteId: str
 
 export async function getApiUsageSummary(input: { workspaceId: string; siteId: string; tokenId?: string | null }): Promise<ApiUsageSummary> {
   const billingStatus = await getBillingStatus(input.workspaceId);
-  const limits = planFor();
+  const limits = planFor(billingStatus);
   const period = windows();
   const enforced = !isSelfHosted();
   return {

@@ -139,12 +139,10 @@ async function callTool(name: string, actor: Actor, siteId: string, workspaceId:
       return textResult(await getPost(repo, actor, siteId, postId));
     }
     case "posts.create":
-      await requireBillableSite(siteId);
       return textResult(await createPost(repo, actor, { siteId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
     case "posts.update": {
       const postId = stringParam(args, "postId");
       if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      await requireBillableSite(siteId);
       return textResult(await updatePost(repo, actor, { siteId, postId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
     }
     case "posts.publish": {
@@ -155,7 +153,6 @@ async function callTool(name: string, actor: Actor, siteId: string, workspaceId:
     case "posts.archive": {
       const postId = stringParam(args, "postId");
       if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      await requireBillableSite(siteId);
       return textResult(await archivePost(repo, actor, { siteId, postId }));
     }
     case "assets.upload":

@@ -1,4 +1,4 @@
-import { ConflictError, DEFAULT_SCOPES, ForbiddenError, type Actor, type Scope } from "@vc/core";
+import { AGENT_TOKEN_PRESETS, ConflictError, DEFAULT_SCOPES, ForbiddenError, type Actor, type Scope } from "@vc/core";
 import { API_TOKENS_MAX } from "@vc/config";
 import { env } from "cloudflare:workers";
 import type { AppUserContext } from "./onboarding";
@@ -79,6 +79,9 @@ function randomToken(envName: "live" | "test" = "test") {
 }
 
 function parseScopes(form: FormData) {
+  const preset = form.get("preset");
+  if (preset === "full") return AGENT_TOKEN_PRESETS.full;
+  if (preset === "draft") return AGENT_TOKEN_PRESETS.draft;
   const requested = form.getAll("scopes").filter((value): value is Scope => typeof value === "string" && allScopes.includes(value as Scope));
   return requested.length > 0 ? requested : DEFAULT_SCOPES;
 }
