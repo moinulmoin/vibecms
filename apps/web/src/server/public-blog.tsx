@@ -143,13 +143,15 @@ function buildPostMarkdown(post: PostRow, canonicalUrl: string) {
 async function publicPostMarkdownResponse(site: SiteRow, slug: string, canonicalUrl: string) {
   const post = await getPublishedPost(site.id, slug);
   if (!post) return notFound();
-  return new Response(buildPostMarkdown(post, canonicalUrl), {
-    headers: {
-      "content-type": "text/markdown; charset=utf-8",
-      "cache-control": publicCacheControl,
-      "content-signal": "ai-train=yes, search=yes, ai-input=yes",
-    },
-  });
+  const indexable = isPublicBlogIndexable(site);
+  const headers: Record<string, string> = {
+    "content-type": "text/markdown; charset=utf-8",
+    "cache-control": publicCacheControl,
+    "content-signal": indexable ? "ai-train=yes, search=yes, ai-input=yes" : "ai-train=no, search=no, ai-input=yes",
+  };
+  // Free/unpaid posts render but stay out of search and training corpora.
+  if (!indexable) headers["x-robots-tag"] = "noindex, nofollow";
+  return new Response(buildPostMarkdown(post, canonicalUrl), { headers });
 }
 
 function Markdown({ source }: { source: string }) {

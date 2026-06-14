@@ -255,11 +255,27 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       return result.results.map(mapPostSummary);
     },
 
-    async countPublishedPosts(siteId) {
-      const row = await db.prepare(
-        `SELECT COUNT(*) AS count FROM posts WHERE site_id = ? AND status = 'published'`,
-      ).bind(siteId).first<{ count: number }>();
-      return row?.count ?? 0;
+    async publishPostWithHistory(siteId, postId, actor, history, options) {
+      const before = await getPost(siteId, postId);
+      if (!before) return { post: null, capReached: false };
+      if (before.status === "published") return { post: before, capReached: false };
+      const timestamp = now();
+      // Atomic free-publish cap: the COUNT subquery is evaluated inside this write
+      // and D1 serializes writes, so concurrent publishes cannot both pass the guard.
+      const [claim] = await runHistoryBatch([
+        db.prepare(
+          `UPDATE posts SET status = 'published', published_at = ?, updated_at = ?, updated_by_type = ?, updated_by_id = ?
+           WHERE site_id = ? AND id = ? AND status != 'published'
+             AND (? = 1 OR (SELECT COUNT(*) FROM posts WHERE site_id = ? AND status = 'published') < ?)`,
+        ).bind(timestamp, timestamp, actor.type, actorId(actor), siteId, postId, options.billingActive ? 1 : 0, siteId, options.freeLimit),
+      ]);
+      if (claim.meta.changes === 0) return { post: null, capReached: true };
+      const after: Post = { ...before, status: "published", publishedAt: timestamp, updatedAt: timestamp };
+      await runHistoryBatch([
+        postVersionStatement(after, actor, history.changeSummary, timestamp),
+        activityStatement({ siteId: after.siteId, actor, action: history.activityAction, entityType: "post", entityId: after.id, summary: history.activitySummary, before, after }, timestamp),
+      ]);
+      return { post: after, capReached: false };
     },
   };
 }

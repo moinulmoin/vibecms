@@ -15,7 +15,7 @@ export type PostRepository = {
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  countPublishedPosts(siteId: string): Promise<number>;
+  publishPostWithHistory(siteId: string, postId: string, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean }>;
 };
 
 // Draft-free model: a workspace may keep up to this many published posts without
@@ -70,19 +70,16 @@ export async function publishPost(repo: PostRepository, actor: Actor, input: { s
   requireScope(actor, "posts:publish");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  if (input.billingStatus !== "active" && before.status !== "published") {
-    const published = await repo.countPublishedPosts(input.siteId);
-    if (published >= FREE_PUBLISHED_LIMIT) {
-      throw new BillingRequiredError("Subscribe to publish more than one post");
-    }
-  }
-  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "published", publishedAt: Math.floor(Date.now() / 1000) }, actor, {
+  // The free-publish cap is enforced atomically in the repository's conditional
+  // write (D1 serializes the statement), closing the read-then-write race.
+  const { post, capReached } = await repo.publishPostWithHistory(input.siteId, input.postId, actor, {
     changeSummary: "Published post",
     activityAction: "post.published",
     activitySummary: `Published ${before.title}`,
-  });
-  if (!after) throw new NotFoundError("Post not found");
-  return after;
+  }, { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT });
+  if (capReached) throw new BillingRequiredError("Subscribe to publish more than one post");
+  if (!post) throw new NotFoundError("Post not found");
+  return post;
 }
 
 export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
