@@ -1,0 +1,7 @@
+These font files are licensed under the SIL Open Font License 1.1 (OFL-1.1).
+
+- Space Grotesk: upstream https://github.com/floriankarsten/space-grotesk (Fontsource)
+- Hanken Grotesk: upstream https://github.com/marcologous/hanken-grotesk (Fontsource)
+- JetBrains Mono: upstream https://github.com/JetBrains/JetBrainsMono (Fontsource)
+
+You may use, study, modify, and redistribute them under the terms of OFL-1.1.
