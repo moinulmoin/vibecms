@@ -9,38 +9,220 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
+import { Route as ApiPostsRouteImport } from './routes/api/posts'
+import { Route as ApiEnvProbeRouteImport } from './routes/api/env-probe'
+import { Route as ApiD1ProbeRouteImport } from './routes/api/d1-probe'
+import { Route as ApiAuthProbeRouteImport } from './routes/api/auth-probe'
+import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
+  id: '/feed.xml',
+  path: '/feed.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MediaAssetsAssetIdRoute = MediaAssetsAssetIdRouteImport.update({
+  id: '/media-assets/$assetId',
+  path: '/media-assets/$assetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPostsRoute = ApiPostsRouteImport.update({
+  id: '/api/posts',
+  path: '/api/posts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEnvProbeRoute = ApiEnvProbeRouteImport.update({
+  id: '/api/env-probe',
+  path: '/api/env-probe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiD1ProbeRoute = ApiD1ProbeRouteImport.update({
+  id: '/api/d1-probe',
+  path: '/api/d1-probe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthProbeRoute = ApiAuthProbeRouteImport.update({
+  id: '/api/auth-probe',
+  path: '/api/auth-probe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
+  id: '/blog/$siteSlug/llms.txt',
+  path: '/blog/$siteSlug/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/feed.xml': typeof FeedDotxmlRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/mcp': typeof McpRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/auth-probe': typeof ApiAuthProbeRoute
+  '/api/d1-probe': typeof ApiD1ProbeRoute
+  '/api/env-probe': typeof ApiEnvProbeRoute
+  '/api/posts': typeof ApiPostsRoute
+  '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/feed.xml': typeof FeedDotxmlRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/mcp': typeof McpRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/auth-probe': typeof ApiAuthProbeRoute
+  '/api/d1-probe': typeof ApiD1ProbeRoute
+  '/api/env-probe': typeof ApiEnvProbeRoute
+  '/api/posts': typeof ApiPostsRoute
+  '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/feed.xml': typeof FeedDotxmlRoute
+  '/llms.txt': typeof LlmsDottxtRoute
+  '/mcp': typeof McpRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/auth-probe': typeof ApiAuthProbeRoute
+  '/api/d1-probe': typeof ApiD1ProbeRoute
+  '/api/env-probe': typeof ApiEnvProbeRoute
+  '/api/posts': typeof ApiPostsRoute
+  '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/feed.xml'
+    | '/llms.txt'
+    | '/mcp'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/auth-probe'
+    | '/api/d1-probe'
+    | '/api/env-probe'
+    | '/api/posts'
+    | '/media-assets/$assetId'
+    | '/blog/$siteSlug/llms.txt'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/feed.xml'
+    | '/llms.txt'
+    | '/mcp'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/auth-probe'
+    | '/api/d1-probe'
+    | '/api/env-probe'
+    | '/api/posts'
+    | '/media-assets/$assetId'
+    | '/blog/$siteSlug/llms.txt'
+  id:
+    | '__root__'
+    | '/'
+    | '/feed.xml'
+    | '/llms.txt'
+    | '/mcp'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/api/auth-probe'
+    | '/api/d1-probe'
+    | '/api/env-probe'
+    | '/api/posts'
+    | '/media-assets/$assetId'
+    | '/blog/$siteSlug/llms.txt'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FeedDotxmlRoute: typeof FeedDotxmlRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
+  McpRoute: typeof McpRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiAuthProbeRoute: typeof ApiAuthProbeRoute
+  ApiD1ProbeRoute: typeof ApiD1ProbeRoute
+  ApiEnvProbeRoute: typeof ApiEnvProbeRoute
+  ApiPostsRoute: typeof ApiPostsRoute
+  MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
+  BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed.xml': {
+      id: '/feed.xml'
+      path: '/feed.xml'
+      fullPath: '/feed.xml'
+      preLoaderRoute: typeof FeedDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +230,64 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/media-assets/$assetId': {
+      id: '/media-assets/$assetId'
+      path: '/media-assets/$assetId'
+      fullPath: '/media-assets/$assetId'
+      preLoaderRoute: typeof MediaAssetsAssetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/posts': {
+      id: '/api/posts'
+      path: '/api/posts'
+      fullPath: '/api/posts'
+      preLoaderRoute: typeof ApiPostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/env-probe': {
+      id: '/api/env-probe'
+      path: '/api/env-probe'
+      fullPath: '/api/env-probe'
+      preLoaderRoute: typeof ApiEnvProbeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/d1-probe': {
+      id: '/api/d1-probe'
+      path: '/api/d1-probe'
+      fullPath: '/api/d1-probe'
+      preLoaderRoute: typeof ApiD1ProbeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth-probe': {
+      id: '/api/auth-probe'
+      path: '/api/auth-probe'
+      fullPath: '/api/auth-probe'
+      preLoaderRoute: typeof ApiAuthProbeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$siteSlug/llms.txt': {
+      id: '/blog/$siteSlug/llms.txt'
+      path: '/blog/$siteSlug/llms.txt'
+      fullPath: '/blog/$siteSlug/llms.txt'
+      preLoaderRoute: typeof BlogSiteSlugLlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FeedDotxmlRoute: FeedDotxmlRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
+  McpRoute: McpRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiAuthProbeRoute: ApiAuthProbeRoute,
+  ApiD1ProbeRoute: ApiD1ProbeRoute,
+  ApiEnvProbeRoute: ApiEnvProbeRoute,
+  ApiPostsRoute: ApiPostsRoute,
+  MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
+  BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

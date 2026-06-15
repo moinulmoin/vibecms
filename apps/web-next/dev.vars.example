@@ -1,0 +1,3 @@
+# Copy to .dev.vars for local vite dev (secrets are not in wrangler.jsonc vars).
+TOKEN_PEPPER=generate_with_openssl_rand_hex_32
+BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
