@@ -50,5 +50,8 @@
     "release:dev": "pnpm --filter @vc/web release",
     "public:audit": "bash scripts/public-release-audit.sh",
     "test:smoke": "bash scripts/smoke-local.sh"
+  },
+  "devDependencies": {
+    "lefthook": "^2.1.9"
   }
 }

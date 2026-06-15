@@ -1,0 +1,22 @@
+# Git hooks for VibeCMS, managed by lefthook (https://lefthook.dev).
+# Re-wire after editing with: pnpm exec lefthook install
+#
+# pre-commit: fast guards on staged files (no secrets, no em-dashes).
+# pre-push:   the real gates - typecheck + build run before code leaves your
+#             machine and triggers the dev auto-deploy (Workers Builds builds
+#             on every push to dev). This repo has no test runner; these gates
+#             ARE the verification.
+
+pre-commit:
+  parallel: true
+  commands:
+    audit:
+      run: pnpm public:audit
+    no-em-dash:
+      glob: "*.{ts,tsx,css,md,mjs,cjs,js,html}"
+      run: "! grep -l '—' {staged_files}"
+
+pre-push:
+  commands:
+    gates:
+      run: pnpm typecheck && pnpm build
