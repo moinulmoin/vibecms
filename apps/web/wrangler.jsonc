@@ -2,7 +2,7 @@
   // Schema reference for wrangler configuration
   "$schema": "node_modules/wrangler/config-schema.json",
 
-  // Name of your worker
+  // Worker name (dev worker)
   "name": "vibecms",
 
   // Entry point for your worker
@@ -38,12 +38,19 @@
     "enabled": true
   },
 
-  // Environment variables
+  // Top level = the DEVELOPMENT environment (worker "vibecms", deployed from the `dev`
+  // branch with `wrangler deploy`). These live in code, not the dashboard, because
+  // `wrangler deploy` overwrites the worker's remote config on every deploy.
+  // Production overrides go under `env.production` (added at launch) and deploy with
+  // `wrangler deploy --env production`, so dev and prod never diverge per branch.
+  "routes": [{ "pattern": "dev.vibecms.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "vars": {
     "APP_ENV": "development",
-    "APP_URL": "https://vibecms.moinulislammoin2019.workers.dev",
-    "BETTER_AUTH_URL": "https://vibecms.moinulislammoin2019.workers.dev",
-    "PUBLIC_BLOG_DOMAIN": "vibecms.moinulislammoin2019.workers.dev",
+    "APP_URL": "https://dev.vibecms.dev",
+    "BETTER_AUTH_URL": "https://dev.vibecms.dev",
+    "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "SELF_HOSTED": "false",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
     "POLAR_SERVER": "sandbox"
