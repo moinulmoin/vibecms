@@ -17,9 +17,6 @@ import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
-import { Route as ApiEnvProbeRouteImport } from './routes/api/env-probe'
-import { Route as ApiD1ProbeRouteImport } from './routes/api/d1-probe'
-import { Route as ApiAuthProbeRouteImport } from './routes/api/auth-probe'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -62,21 +59,6 @@ const ApiPostsRoute = ApiPostsRouteImport.update({
   path: '/api/posts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiEnvProbeRoute = ApiEnvProbeRouteImport.update({
-  id: '/api/env-probe',
-  path: '/api/env-probe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiD1ProbeRoute = ApiD1ProbeRouteImport.update({
-  id: '/api/d1-probe',
-  path: '/api/d1-probe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthProbeRoute = ApiAuthProbeRouteImport.update({
-  id: '/api/auth-probe',
-  path: '/api/auth-probe',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
   id: '/blog/$siteSlug/llms.txt',
   path: '/blog/$siteSlug/llms.txt',
@@ -90,9 +72,6 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/auth-probe': typeof ApiAuthProbeRoute
-  '/api/d1-probe': typeof ApiD1ProbeRoute
-  '/api/env-probe': typeof ApiEnvProbeRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
@@ -104,9 +83,6 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/auth-probe': typeof ApiAuthProbeRoute
-  '/api/d1-probe': typeof ApiD1ProbeRoute
-  '/api/env-probe': typeof ApiEnvProbeRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
@@ -119,9 +95,6 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/auth-probe': typeof ApiAuthProbeRoute
-  '/api/d1-probe': typeof ApiD1ProbeRoute
-  '/api/env-probe': typeof ApiEnvProbeRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
@@ -135,9 +108,6 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/api/auth-probe'
-    | '/api/d1-probe'
-    | '/api/env-probe'
     | '/api/posts'
     | '/media-assets/$assetId'
     | '/blog/$siteSlug/llms.txt'
@@ -149,9 +119,6 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/api/auth-probe'
-    | '/api/d1-probe'
-    | '/api/env-probe'
     | '/api/posts'
     | '/media-assets/$assetId'
     | '/blog/$siteSlug/llms.txt'
@@ -163,9 +130,6 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/api/auth-probe'
-    | '/api/d1-probe'
-    | '/api/env-probe'
     | '/api/posts'
     | '/media-assets/$assetId'
     | '/blog/$siteSlug/llms.txt'
@@ -178,9 +142,6 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  ApiAuthProbeRoute: typeof ApiAuthProbeRoute
-  ApiD1ProbeRoute: typeof ApiD1ProbeRoute
-  ApiEnvProbeRoute: typeof ApiEnvProbeRoute
   ApiPostsRoute: typeof ApiPostsRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
@@ -244,27 +205,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPostsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/env-probe': {
-      id: '/api/env-probe'
-      path: '/api/env-probe'
-      fullPath: '/api/env-probe'
-      preLoaderRoute: typeof ApiEnvProbeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/d1-probe': {
-      id: '/api/d1-probe'
-      path: '/api/d1-probe'
-      fullPath: '/api/d1-probe'
-      preLoaderRoute: typeof ApiD1ProbeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth-probe': {
-      id: '/api/auth-probe'
-      path: '/api/auth-probe'
-      fullPath: '/api/auth-probe'
-      preLoaderRoute: typeof ApiAuthProbeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/blog/$siteSlug/llms.txt': {
       id: '/blog/$siteSlug/llms.txt'
       path: '/blog/$siteSlug/llms.txt'
@@ -282,9 +222,6 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  ApiAuthProbeRoute: ApiAuthProbeRoute,
-  ApiD1ProbeRoute: ApiD1ProbeRoute,
-  ApiEnvProbeRoute: ApiEnvProbeRoute,
   ApiPostsRoute: ApiPostsRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
