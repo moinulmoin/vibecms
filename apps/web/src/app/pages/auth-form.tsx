@@ -67,7 +67,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
   }
 
   return (
-    <div className="mt-8">
+    <div className="mt-8 font-sans">
       {error ? (
         <Alert variant="error" className="mb-4">{error}</Alert>
       ) : info ? (
@@ -79,13 +79,13 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full rounded-lg"
+            className="h-11 w-full rounded-xl"
             disabled={loading}
             onClick={() => void continueWithGoogle()}
           >
             Continue with Google
           </Button>
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="my-6 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
             or
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
@@ -97,7 +97,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
         <form onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
           <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Email</FieldLabel>
               <Input
                 id="email"
                 name="email"
@@ -111,7 +111,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               />
             </Field>
             <Field>
-              <Button className="h-11 w-full rounded-lg" type="submit" disabled={loading} aria-busy={loading || undefined}>
+              <Button className="h-11 w-full rounded-xl" type="submit" disabled={loading} aria-busy={loading || undefined}>
                 {loading ? (
                   <>
                     <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
@@ -131,7 +131,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
         <form onSubmit={(event) => { event.preventDefault(); verifyCode(); }}>
           <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel htmlFor="otp">6-digit code</FieldLabel>
+              <FieldLabel htmlFor="otp" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">6-digit code</FieldLabel>
               <Input
                 id="otp"
                 name="otp"
@@ -147,7 +147,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
             </Field>
             <Field>
               <Button
-                className="h-11 w-full rounded-lg"
+                className="h-11 w-full rounded-xl"
                 type="submit"
                 disabled={loading || otp.length < 6}
                 aria-busy={loading || undefined}
@@ -166,7 +166,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               <Button
                 type="button"
                 variant="link"
-                className="h-auto justify-start px-0 font-semibold underline"
+                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-brand-bright underline"
                 disabled={loading}
                 onClick={() => void sendCode()}
               >
@@ -175,7 +175,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               <Button
                 type="button"
                 variant="link"
-                className="h-auto justify-start px-0 font-semibold underline"
+                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-brand-bright underline"
                 disabled={loading}
                 onClick={() => { setStep("email"); setOtp(""); setError(null); setInfo(null); }}
               >

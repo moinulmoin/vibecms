@@ -35,12 +35,24 @@ type PostEditorProps = {
 
 function PostEditor({ app, post, assets = [], missing, formStatus }: PostEditorProps) {
   const action = post ? `/app/posts/${post.id}/update` : "/app/posts/create";
+  const statusKicker = post ? post.status : "New post";
   return (
     <AppShell current="/app/posts" userEmail={app.user.email}>
-      <PageHeader kicker={post ? post.status : "New post"} title={post ? "Edit Post" : "Create Post"} description="Write in Markdown, attach a cover image, and keep every save versioned for rollback and audit history." action={<Button asChild variant="outline"><a href="/app/posts">Back to posts</a></Button>} />
+      <PageHeader
+        kicker={statusKicker}
+        title={post ? "Edit Post" : "Create Post"}
+        description="Write in Markdown, attach a cover image, and keep every save versioned for rollback and audit history."
+        action={
+          <Button asChild variant="outline">
+            <a href="/app/posts">Back to posts</a>
+          </Button>
+        }
+      />
       <StatusAlert status={formStatus} />
       {missing ? (
-        <Panel title="Post Not Found"><p className="text-sm text-muted-foreground">Post not found.</p></Panel>
+        <Panel title="Post Not Found">
+          <p className="font-sans text-sm text-muted-foreground">Post not found.</p>
+        </Panel>
       ) : (
         <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start" method="post" action={action}>
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" />
@@ -48,47 +60,89 @@ function PostEditor({ app, post, assets = [], missing, formStatus }: PostEditorP
           <Panel title="Draft">
             <div className="grid gap-4">
               <Field>
-                <FieldLabel htmlFor="post-title">Title</FieldLabel>
-                <Input id="post-title" className="h-11 text-lg font-medium" name="title" required maxLength={160} defaultValue={post?.title ?? ""} />
+                <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-title">
+                  Title
+                </FieldLabel>
+                <Input id="post-title" className="h-11 font-display text-lg font-semibold tracking-[-0.02em]" name="title" required maxLength={160} defaultValue={post?.title ?? ""} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="post-markdown">Markdown</FieldLabel>
+                <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-markdown">
+                  Markdown
+                </FieldLabel>
                 <MarkdownEditor assets={assets} defaultValue={post?.contentMarkdown ?? ""} />
-                <FieldDescription>Markdown is rendered with the same safe renderer as the public blog.</FieldDescription>
+                <FieldDescription className="font-sans">Markdown is rendered with the same safe renderer as the public blog.</FieldDescription>
               </Field>
             </div>
           </Panel>
           <aside className="grid gap-3 lg:sticky lg:top-6">
-            <Panel title="Publish Settings" meta={post?.status ?? "draft"}>
+            <Panel
+              title="Publish Settings"
+              meta={<span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-brand-bright">{post?.status ?? "draft"}</span>}
+            >
               <div className="grid gap-4">
                 <Field>
-                  <FieldLabel htmlFor="post-slug">Slug</FieldLabel>
-                  <Input id="post-slug" name="slug" required maxLength={120} pattern="[a-z0-9]+(-[a-z0-9]+)*" aria-describedby="post-slug-help" defaultValue={post?.slug ?? ""} />
-                  <FieldDescription id="post-slug-help">Lowercase letters, numbers, and hyphens.</FieldDescription>
+                  <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-slug">
+                    Slug
+                  </FieldLabel>
+                  <Input
+                    id="post-slug"
+                    className="font-mono text-sm"
+                    name="slug"
+                    required
+                    maxLength={120}
+                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                    aria-describedby="post-slug-help"
+                    defaultValue={post?.slug ?? ""}
+                  />
+                  <FieldDescription id="post-slug-help" className="font-sans">
+                    Lowercase letters, numbers, and hyphens.
+                  </FieldDescription>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="post-excerpt">Excerpt</FieldLabel>
+                  <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-excerpt">
+                    Excerpt
+                  </FieldLabel>
                   <Textarea id="post-excerpt" name="excerpt" maxLength={500} rows={4} defaultValue={post?.excerpt ?? ""} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="post-tags">Tags</FieldLabel>
+                  <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-tags">
+                    Tags
+                  </FieldLabel>
                   <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(", ") ?? ""} />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="post-cover">Cover Image</FieldLabel>
-                  <Select id="post-cover" name="coverAssetId" defaultValue={post?.coverAssetId ?? ""}>
-                    <option value="">No cover image</option>
-                    {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.filename}</option>)}
-                  </Select>
+                  <FieldLabel className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground" htmlFor="post-cover">
+                    Cover Image
+                  </FieldLabel>
+                  <div className="rounded-xl p-3 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+                    <Select id="post-cover" name="coverAssetId" defaultValue={post?.coverAssetId ?? ""}>
+                      <option value="">No cover image</option>
+                      {assets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.filename}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 </Field>
-                <p className="rounded-lg bg-muted p-3 text-sm leading-6 text-muted-foreground">Every save creates a post version and activity event, whether the change comes from a human, API token, or agent.</p>
+                <p className="rounded-xl p-3 font-sans text-sm leading-6 text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+                  Every save creates a post version and activity event, whether the change comes from a human, API token, or agent.
+                </p>
               </div>
             </Panel>
             <Panel title="Actions">
               <div className="grid gap-2">
                 <SubmitButton pendingText="Saving…">Save draft</SubmitButton>
-                {post && post.status !== "published" ? <SubmitButton formAction={`/app/posts/${post.id}/publish`} pendingText="Publishing…">Publish</SubmitButton> : null}
-                {post && post.status !== "archived" ? <ConfirmSubmit variant="destructive" formAction={`/app/posts/${post.id}/archive`} confirmLabel="Confirm archive" helperText="Archiving hides this post from the public blog.">Archive</ConfirmSubmit> : null}
+                {post && post.status !== "published" ? (
+                  <SubmitButton formAction={`/app/posts/${post.id}/publish`} pendingText="Publishing…">
+                    Publish
+                  </SubmitButton>
+                ) : null}
+                {post && post.status !== "archived" ? (
+                  <ConfirmSubmit variant="destructive" formAction={`/app/posts/${post.id}/archive`} confirmLabel="Confirm archive" helperText="Archiving hides this post from the public blog.">
+                    Archive
+                  </ConfirmSubmit>
+                ) : null}
               </div>
             </Panel>
           </aside>

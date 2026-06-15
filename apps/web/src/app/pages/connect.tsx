@@ -28,27 +28,27 @@ export function Connect({ app, request, mcpUrl, token, tokenName }: { app: AppUs
           canManage ? (
             <Panel title="1. Create an agent token" meta="Draft-only">
               <div className="grid gap-3">
-                <p className="text-sm text-muted-foreground">Starts as a safe draft-only assistant. You can let it publish later from Settings.</p>
+                <p className="font-sans text-sm leading-6 text-muted-foreground">Starts as a safe draft-only assistant. You can let it publish later from Settings.</p>
                 <form method="post" action="/app/settings/api-keys/create?flow=connect" className="flex flex-wrap items-center gap-3">
                   <input type="hidden" name="name" value="My agent" />
                   <input type="hidden" name="actorName" value="My agent" />
                   <input type="hidden" name="preset" value="draft" />
                   <SubmitButton pendingText="Creating token…">Generate agent token</SubmitButton>
-                  <span className="text-sm text-muted-foreground">Shown once - keep it somewhere safe.</span>
+                  <span className="font-mono text-xs text-muted-foreground">Shown once - keep it somewhere safe.</span>
                 </form>
               </div>
             </Panel>
           ) : (
             <Panel title="Create an agent token">
-              <p className="text-sm text-muted-foreground">Only the workspace owner can create agent tokens. Ask the owner to connect an agent.</p>
+              <p className="font-sans text-sm leading-6 text-muted-foreground">Only the workspace owner can create agent tokens. Ask the owner to connect an agent.</p>
             </Panel>
           )
         ) : null}
         <Panel title={justCreated ? "Connect and start" : "2. Connect your agent"}>
           <ConnectAgent mcpUrl={mcpUrl} token={token} tokenName={tokenName} />
         </Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">You can revisit this and manage tokens anytime in Settings.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+          <p className="font-sans text-sm leading-6 text-muted-foreground">You can revisit this and manage tokens anytime in Settings.</p>
           <Button asChild variant="outline"><a href="/app">{justCreated ? "Go to dashboard" : "Skip for now"}</a></Button>
         </div>
       </div>

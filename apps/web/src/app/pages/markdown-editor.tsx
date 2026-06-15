@@ -66,13 +66,13 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex w-full rounded-md bg-muted p-1 sm:w-auto">
+      <div className="flex flex-col gap-3 rounded-2xl p-3 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex w-full rounded-xl bg-muted/60 p-1 ring-1 ring-[color:var(--hairline)] sm:w-auto" role="group" aria-label="Editor mode">
           <Button
             type="button"
             variant={mode === "write" ? "default" : "ghost"}
             size="sm"
-            className="h-8 flex-1 rounded-sm sm:flex-none"
+            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] uppercase tracking-[0.1em] sm:flex-none"
             aria-pressed={mode === "write"}
             onClick={showWrite}
           >
@@ -83,7 +83,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
             type="button"
             variant={mode === "preview" ? "default" : "ghost"}
             size="sm"
-            className="h-8 flex-1 rounded-sm sm:flex-none"
+            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] uppercase tracking-[0.1em] sm:flex-none"
             aria-pressed={mode === "preview"}
             onClick={showPreview}
           >
@@ -95,27 +95,33 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select
               aria-label="Image to insert"
-              className="h-9 min-w-0 sm:w-56"
+              className="h-9 min-w-0 font-mono text-xs sm:w-56"
               value={selectedAssetId}
               onChange={(event) => setSelectedAssetId(event.currentTarget.value)}
             >
               {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>{asset.filename}</option>
+                <option key={asset.id} value={asset.id}>
+                  {asset.filename}
+                </option>
               ))}
             </Select>
-            <Button type="button" variant="outline" size="sm" className="h-9 justify-center" onClick={insertImage}>
+            <Button type="button" variant="outline" size="sm" className="h-9 justify-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em]" onClick={insertImage}>
               <ImageIcon className="size-4" aria-hidden="true" />
               Insert image
             </Button>
           </div>
         ) : (
-          <FieldDescription>
-            No image assets yet. <a className="font-medium text-primary underline underline-offset-4" href="/app/media">Upload images</a> to insert them here.
+          <FieldDescription className="font-sans">
+            No image assets yet.{" "}
+            <a className="font-medium text-brand-bright underline underline-offset-4" href="/app/media">
+              Upload images
+            </a>{" "}
+            to insert them here.
           </FieldDescription>
         )}
       </div>
 
-      <FieldDescription>
+      <FieldDescription className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
         Supports headings, bold, italic, links, lists, code, and quotes.
       </FieldDescription>
 
@@ -124,7 +130,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           ref={textareaRef}
           id="post-markdown"
           name="contentMarkdown"
-          className="min-h-[22rem] font-mono leading-6 sm:min-h-[32rem]"
+          className="min-h-[22rem] font-mono text-sm leading-6 ring-1 ring-[color:var(--hairline)] sm:min-h-[32rem]"
           maxLength={500000}
           defaultValue={defaultValue}
           onChange={rememberSelection}
@@ -135,14 +141,16 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
       </div>
 
       {mode === "preview" ? (
-        <div className="min-h-[22rem] overflow-x-auto rounded-lg border border-border bg-card p-4 text-sm leading-7 text-foreground sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_hr]:border-border [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_ul]:list-disc">
-          {preview.length > 0 ? preview : <p className="text-muted-foreground">Nothing to preview yet.</p>}
+        <div
+          className="min-h-[22rem] overflow-x-auto rounded-2xl p-4 font-sans text-sm leading-7 text-foreground ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-brand-bright [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_hr]:border-border [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:font-mono [&_ul]:list-disc"
+          aria-label="Markdown preview"
+        >
+          {preview.length > 0 ? preview : <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>}
         </div>
       ) : null}
     </div>
   );
 }
-
 
 export function slugifyPostTitle(title: string) {
   return title
@@ -191,8 +199,6 @@ export function PostSlugFromTitle({ enabled = true }: PostSlugFromTitleProps) {
 
   return null;
 }
-
-
 
 export function UnsavedChangesGuard({ message = "You have unsaved changes." }: { message?: string }) {
   const markerRef = useRef<HTMLParagraphElement>(null);
@@ -250,7 +256,16 @@ export function UnsavedChangesGuard({ message = "You have unsaved changes." }: {
   }, [message]);
 
   return (
-    <p ref={markerRef} role="status" aria-live="polite" className={warning ? "rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:col-span-2" : "hidden"}>
+    <p
+      ref={markerRef}
+      role="status"
+      aria-live="polite"
+      className={
+        warning
+          ? "rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 font-sans text-sm text-destructive ring-1 ring-[color:var(--hairline)] lg:col-span-2"
+          : "hidden"
+      }
+    >
       Save the draft before publishing or archiving unsaved changes.
     </p>
   );

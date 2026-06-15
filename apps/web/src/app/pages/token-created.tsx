@@ -12,7 +12,10 @@ export function TokenCreated({ token, name, mcpUrl, app }: { token: string; name
         description="Copy this token now - it is shown only once - then drop the config into your agent."
         action={<Button asChild variant="outline"><a href="/app/settings">Back to settings</a></Button>}
       />
-      <Panel title="Connect your agent">
+      <Panel title="Connect your agent" meta="One-time token">
+        <p className="mb-4 font-mono text-xs leading-5 text-muted-foreground">
+          Copy the token and client snippets below. Each block includes a copy action for your agent setup.
+        </p>
         <ConnectAgent mcpUrl={mcpUrl} token={token} tokenName={name} />
       </Panel>
     </AppShell>
