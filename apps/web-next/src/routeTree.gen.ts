@@ -18,7 +18,9 @@ import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
+import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
+import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -67,9 +69,19 @@ const ApiPostsRoute = ApiPostsRouteImport.update({
   path: '/api/posts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogSiteSlugIndexRoute = BlogSiteSlugIndexRouteImport.update({
+  id: '/blog/$siteSlug/',
+  path: '/blog/$siteSlug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
   id: '/blog/$siteSlug/llms.txt',
   path: '/blog/$siteSlug/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
+  id: '/blog/$siteSlug/$postSlug',
+  path: '/blog/$siteSlug/$postSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
@@ -95,7 +107,9 @@ export interface FileRoutesByFullPath {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -109,7 +123,9 @@ export interface FileRoutesByTo {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -124,7 +140,9 @@ export interface FileRoutesById {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -140,7 +158,9 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/blog/$siteSlug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -154,7 +174,9 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/blog/$siteSlug'
   id:
     | '__root__'
     | '/'
@@ -168,7 +190,9 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/blog/$siteSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -183,7 +207,9 @@ export interface RootRouteChildren {
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
+  BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
+  BlogSiteSlugIndexRoute: typeof BlogSiteSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -251,11 +277,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPostsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/$siteSlug/': {
+      id: '/blog/$siteSlug/'
+      path: '/blog/$siteSlug'
+      fullPath: '/blog/$siteSlug/'
+      preLoaderRoute: typeof BlogSiteSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/$siteSlug/llms.txt': {
       id: '/blog/$siteSlug/llms.txt'
       path: '/blog/$siteSlug/llms.txt'
       fullPath: '/blog/$siteSlug/llms.txt'
       preLoaderRoute: typeof BlogSiteSlugLlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$siteSlug/$postSlug': {
+      id: '/blog/$siteSlug/$postSlug'
+      path: '/blog/$siteSlug/$postSlug'
+      fullPath: '/blog/$siteSlug/$postSlug'
+      preLoaderRoute: typeof BlogSiteSlugPostSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/onboarding/ensure': {
@@ -287,7 +327,9 @@ const rootRouteChildren: RootRouteChildren = {
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
+  BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
+  BlogSiteSlugIndexRoute: BlogSiteSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

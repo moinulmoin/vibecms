@@ -83,6 +83,18 @@ export async function resolveSiteBySlug(slug: string | undefined) {
   return site;
 }
 
+export async function getPublishedPost(siteId: string, slug: string) {
+  const now = Math.floor(Date.now() / 1000);
+  return env.DB.prepare(
+    `SELECT id, title, slug, excerpt, content_markdown, cover_asset_id, published_at, seo_title, seo_description, tags_json
+     FROM posts
+     WHERE site_id = ? AND slug = ? AND status = 'published' AND published_at IS NOT NULL AND published_at <= ?
+     LIMIT 1`,
+  )
+    .bind(siteId, slug, now)
+    .first<PostRow>();
+}
+
 export async function listPublishedPosts(siteId: string) {
   const now = Math.floor(Date.now() / 1000);
   const result = await env.DB.prepare(

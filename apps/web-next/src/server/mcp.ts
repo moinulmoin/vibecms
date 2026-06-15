@@ -8,6 +8,7 @@ import { authenticateBearerToken } from "./api-keys";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
 import { getBillingStatusForSite } from "./billing";
 import { UploadError, uploadAsset } from "./media";
+import { purgeArticleCache } from "./public-blog-cache";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
 type ToolContent = { type: "text"; text: string };
@@ -148,7 +149,10 @@ async function callTool(name: string, actor: Actor, siteId: string, workspaceId:
     case "posts.publish": {
       const postId = stringParam(args, "postId");
       if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await publishPost(repo, actor, { siteId, postId, billingStatus: await getBillingStatusForSite(siteId) }));
+      const published = await publishPost(repo, actor, { siteId, postId, billingStatus: await getBillingStatusForSite(siteId) });
+      const siteRow = await env.DB.prepare("SELECT slug FROM sites WHERE id = ? LIMIT 1").bind(siteId).first<{ slug: string }>();
+      if (siteRow?.slug) void purgeArticleCache(siteId, siteRow.slug, published.slug);
+      return textResult(published);
     }
     case "posts.archive": {
       const postId = stringParam(args, "postId");
