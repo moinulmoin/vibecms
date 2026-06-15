@@ -11,7 +11,7 @@ function validatePostsSearch(search: Record<string, unknown>): PostsListSearch {
   }
 }
 
-export const Route = createFileRoute('/app/posts')({
+export const Route = createFileRoute('/app/posts/')({
   validateSearch: validatePostsSearch,
   component: PostsRoute,
 })

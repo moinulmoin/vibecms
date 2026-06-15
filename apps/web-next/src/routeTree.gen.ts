@@ -21,11 +21,11 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
 import { Route as AppSetupRouteImport } from './routes/app/setup'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
-import { Route as AppPostsRouteImport } from './routes/app/posts'
 import { Route as AppMediaRouteImport } from './routes/app/media'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
+import { Route as AppPostsIndexRouteImport } from './routes/app/posts/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
 import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
@@ -93,11 +93,6 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppPostsRoute = AppPostsRouteImport.update({
-  id: '/posts',
-  path: '/posts',
-  getParentRoute: () => AppRouteRoute,
-} as any)
 const AppMediaRoute = AppMediaRouteImport.update({
   id: '/media',
   path: '/media',
@@ -118,6 +113,11 @@ const BlogSiteSlugIndexRoute = BlogSiteSlugIndexRouteImport.update({
   path: '/blog/$siteSlug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppPostsIndexRoute = AppPostsIndexRouteImport.update({
+  id: '/posts/',
+  path: '/posts/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
   id: '/blog/$siteSlug/llms.txt',
   path: '/blog/$siteSlug/llms.txt',
@@ -129,9 +129,9 @@ const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppPostsNewRoute = AppPostsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AppPostsRoute,
+  id: '/posts/new',
+  path: '/posts/new',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
   id: '/api/onboarding/ensure',
@@ -144,9 +144,9 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppPostsPostIdEditRoute = AppPostsPostIdEditRouteImport.update({
-  id: '/$postId/edit',
-  path: '/$postId/edit',
-  getParentRoute: () => AppPostsRoute,
+  id: '/posts/$postId/edit',
+  path: '/posts/$postId/edit',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -161,7 +161,6 @@ export interface FileRoutesByFullPath {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
@@ -171,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/app/posts/': typeof AppPostsIndexRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
@@ -185,7 +185,6 @@ export interface FileRoutesByTo {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
@@ -195,6 +194,7 @@ export interface FileRoutesByTo {
   '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/app/posts': typeof AppPostsIndexRoute
   '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
@@ -211,7 +211,6 @@ export interface FileRoutesById {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
@@ -221,6 +220,7 @@ export interface FileRoutesById {
   '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
+  '/app/posts/': typeof AppPostsIndexRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
@@ -238,7 +238,6 @@ export interface FileRouteTypes {
     | '/api/posts'
     | '/app/activity'
     | '/app/media'
-    | '/app/posts'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
@@ -248,6 +247,7 @@ export interface FileRouteTypes {
     | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/app/posts/'
     | '/blog/$siteSlug/'
     | '/app/posts/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -262,7 +262,6 @@ export interface FileRouteTypes {
     | '/api/posts'
     | '/app/activity'
     | '/app/media'
-    | '/app/posts'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
@@ -272,6 +271,7 @@ export interface FileRouteTypes {
     | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/app/posts'
     | '/blog/$siteSlug'
     | '/app/posts/$postId/edit'
   id:
@@ -287,7 +287,6 @@ export interface FileRouteTypes {
     | '/api/posts'
     | '/app/activity'
     | '/app/media'
-    | '/app/posts'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
@@ -297,6 +296,7 @@ export interface FileRouteTypes {
     | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
+    | '/app/posts/'
     | '/blog/$siteSlug/'
     | '/app/posts/$postId/edit'
   fileRoutesById: FileRoutesById
@@ -405,13 +405,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/app/posts': {
-      id: '/app/posts'
-      path: '/posts'
-      fullPath: '/app/posts'
-      preLoaderRoute: typeof AppPostsRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
     '/app/media': {
       id: '/app/media'
       path: '/media'
@@ -440,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/posts/': {
+      id: '/app/posts/'
+      path: '/posts'
+      fullPath: '/app/posts/'
+      preLoaderRoute: typeof AppPostsIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/blog/$siteSlug/llms.txt': {
       id: '/blog/$siteSlug/llms.txt'
       path: '/blog/$siteSlug/llms.txt'
@@ -456,10 +456,10 @@ declare module '@tanstack/react-router' {
     }
     '/app/posts/new': {
       id: '/app/posts/new'
-      path: '/new'
+      path: '/posts/new'
       fullPath: '/app/posts/new'
       preLoaderRoute: typeof AppPostsNewRouteImport
-      parentRoute: typeof AppPostsRoute
+      parentRoute: typeof AppRouteRoute
     }
     '/api/onboarding/ensure': {
       id: '/api/onboarding/ensure'
@@ -477,44 +477,34 @@ declare module '@tanstack/react-router' {
     }
     '/app/posts/$postId/edit': {
       id: '/app/posts/$postId/edit'
-      path: '/$postId/edit'
+      path: '/posts/$postId/edit'
       fullPath: '/app/posts/$postId/edit'
       preLoaderRoute: typeof AppPostsPostIdEditRouteImport
-      parentRoute: typeof AppPostsRoute
+      parentRoute: typeof AppRouteRoute
     }
   }
 }
 
-interface AppPostsRouteChildren {
-  AppPostsNewRoute: typeof AppPostsNewRoute
-  AppPostsPostIdEditRoute: typeof AppPostsPostIdEditRoute
-}
-
-const AppPostsRouteChildren: AppPostsRouteChildren = {
-  AppPostsNewRoute: AppPostsNewRoute,
-  AppPostsPostIdEditRoute: AppPostsPostIdEditRoute,
-}
-
-const AppPostsRouteWithChildren = AppPostsRoute._addFileChildren(
-  AppPostsRouteChildren,
-)
-
 interface AppRouteRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppMediaRoute: typeof AppMediaRoute
-  AppPostsRoute: typeof AppPostsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppSetupRoute: typeof AppSetupRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppPostsNewRoute: typeof AppPostsNewRoute
+  AppPostsIndexRoute: typeof AppPostsIndexRoute
+  AppPostsPostIdEditRoute: typeof AppPostsPostIdEditRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppMediaRoute: AppMediaRoute,
-  AppPostsRoute: AppPostsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppSetupRoute: AppSetupRoute,
   AppIndexRoute: AppIndexRoute,
+  AppPostsNewRoute: AppPostsNewRoute,
+  AppPostsIndexRoute: AppPostsIndexRoute,
+  AppPostsPostIdEditRoute: AppPostsPostIdEditRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
