@@ -1,0 +1,30 @@
+import { AgentsDemo } from '~/components/landing/agents-demo'
+import { CtaFooter } from '~/components/landing/cta-footer'
+import { EssentialsBento } from '~/components/landing/essentials-bento'
+import { FaqAccordion } from '~/components/landing/faq-accordion'
+import { FeatureStrip } from '~/components/landing/feature-strip'
+import { HeaderHero } from '~/components/landing/header-hero'
+import { HostingPricing } from '~/components/landing/hosting-pricing'
+import { DotGrid, Glow } from '~/components/landing/primitives'
+import { PublishingFlow } from '~/components/landing/publishing-flow'
+import { SmoothAnchors } from '~/components/landing/smooth-anchors'
+
+export function LandingHome() {
+  return (
+    <main className="dark relative min-h-dvh overflow-hidden bg-background text-foreground">
+      <SmoothAnchors />
+      <DotGrid className="pointer-events-none fixed inset-0 z-0 opacity-90" />
+      <Glow className="pointer-events-none fixed -top-[28%] left-1/2 z-0 size-[min(900px,120vw)] -translate-x-1/2 opacity-70" />
+      <div className="relative z-[1]">
+        <HeaderHero />
+        <FeatureStrip />
+        <EssentialsBento />
+        <AgentsDemo />
+        <PublishingFlow />
+        <HostingPricing />
+        <FaqAccordion />
+        <CtaFooter />
+      </div>
+    </main>
+  )
+}
