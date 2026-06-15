@@ -201,16 +201,12 @@ function workspaceIdFrom(data: Record<string, unknown>) {
 export async function handlePolarWebhook(request: Request) {
   if (isSelfHosted()) return Response.json({ received: true, ignored: true })
   const payload = await request.text()
-  if (!env.POLAR_WEBHOOK_SECRET && String(env.APP_ENV) === 'production') {
+  if (!env.POLAR_WEBHOOK_SECRET) {
     return new Response('Missing webhook secret', { status: 500 })
   }
   let event: PolarWebhookEvent
   try {
-    if (env.POLAR_WEBHOOK_SECRET) {
-      event = validateEvent(payload, headerRecord(request.headers), env.POLAR_WEBHOOK_SECRET) as PolarWebhookEvent
-    } else {
-      event = JSON.parse(payload) as PolarWebhookEvent
-    }
+    event = validateEvent(payload, headerRecord(request.headers), env.POLAR_WEBHOOK_SECRET) as PolarWebhookEvent
   } catch {
     return new Response('Invalid signature', { status: 401 })
   }
