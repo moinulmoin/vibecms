@@ -157,11 +157,13 @@
 
 /* The landing forces a dark theme on its <main>. Mirror that dark surface
    onto the page canvas (html/body) so instant in-page anchor jumps from the
-   nav never flash the light canvas behind the dark page. Scoped via :has so
-   the theme-adaptive dashboard and public blog keep their own canvas. */
+   nav never flash the light canvas behind the dark page, and offset anchor
+   targets so section headings clear the sticky header (~73px). Scoped via
+   :has so the theme-adaptive dashboard and public blog keep their own canvas. */
 :root:has(main.dark) {
   color-scheme: dark;
   --background: oklch(0.1326 0.0064 244.3);
+  scroll-padding-top: 5.5rem;
 }
 
 @media (prefers-color-scheme: dark) {
