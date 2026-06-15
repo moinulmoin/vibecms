@@ -155,11 +155,13 @@
   --dot-grid-fill: oklch(1 0 0 / 0.025);
 }
 
-/* The landing forces a dark theme on its <main>. Mirror that dark surface
-   onto the page canvas (html/body) so instant in-page anchor jumps from the
-   nav never flash the light canvas behind the dark page, and offset anchor
-   targets so section headings clear the sticky header (~73px). Scoped via
-   :has so the theme-adaptive dashboard and public blog keep their own canvas. */
+/* The landing forces a dark theme on its <main>. Mirror that dark surface onto
+   the page canvas (html/body) so anchor jumps never flash the light canvas, and
+   offset anchor targets so section headings clear the sticky header (~73px) for
+   the no-JS native jump. Smooth in-page scrolling is handled by the SmoothAnchors
+   island (window.scrollTo) - CSS scroll-behavior:smooth is avoided here because
+   rwsdk's manual scrollRestoration suppresses the native smooth fragment scroll.
+   Scoped via :has so the theme-adaptive dashboard and public blog are untouched. */
 :root:has(main.dark) {
   color-scheme: dark;
   --background: oklch(0.1326 0.0064 244.3);
