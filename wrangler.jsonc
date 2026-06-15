@@ -2,7 +2,7 @@
   // Root Deploy-to-Cloudflare config for self-hosted VibeCMS.
   // The hosted/dev Worker keeps its private Cloudflare IDs in apps/web/wrangler.jsonc.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vibecms",
+  "name": "vibecms-dev",
   "main": "apps/web/src/worker.tsx",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
