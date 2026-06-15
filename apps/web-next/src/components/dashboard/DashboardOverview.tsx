@@ -15,7 +15,7 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { emptyPostsListSearch } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch, emptyPostsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -157,10 +157,10 @@ export function DashboardOverview() {
             <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/app/media">Upload media</Link>
+            <Link to="/app/media" search={emptyDashboardStatusSearch}>Upload media</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/app/settings">Create token</Link>
+            <Link to="/app/settings" search={emptyDashboardStatusSearch}>Create token</Link>
           </Button>
           {data.publicUrl ? (
             <Button asChild variant="outline">

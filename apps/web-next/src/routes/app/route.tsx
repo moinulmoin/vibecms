@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { AppShell } from '~/components/dashboard/DashboardLayout'
+import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 
 export const Route = createFileRoute('/app')({
   ssr: false,
@@ -8,7 +9,7 @@ export const Route = createFileRoute('/app')({
       throw redirect({ to: '/login' })
     }
     if (location.pathname !== '/app/setup' && !context.siteSetupComplete) {
-      throw redirect({ to: '/app/setup' })
+      throw redirect({ to: '/app/setup', search: emptyDashboardStatusSearch })
     }
   },
   component: AppLayout,

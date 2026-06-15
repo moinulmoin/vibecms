@@ -22,14 +22,18 @@ import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$a
 import { Route as AppSetupRouteImport } from './routes/app/setup'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppMediaRouteImport } from './routes/app/media'
+import { Route as AppConnectRouteImport } from './routes/app/connect'
+import { Route as AppBillingRouteImport } from './routes/app/billing'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as AppPostsIndexRouteImport } from './routes/app/posts/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
+import { Route as AppSettingsTokenCreatedRouteImport } from './routes/app/settings/token-created'
 import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
+import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppPostsPostIdEditRouteImport } from './routes/app/posts/$postId/edit'
 
@@ -98,6 +102,16 @@ const AppMediaRoute = AppMediaRouteImport.update({
   path: '/media',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppConnectRoute = AppConnectRouteImport.update({
+  id: '/connect',
+  path: '/connect',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppActivityRoute = AppActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -128,6 +142,11 @@ const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
   path: '/blog/$siteSlug/$postSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppSettingsTokenCreatedRoute = AppSettingsTokenCreatedRouteImport.update({
+  id: '/token-created',
+  path: '/token-created',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppPostsNewRoute = AppPostsNewRouteImport.update({
   id: '/posts/new',
   path: '/posts/new',
@@ -136,6 +155,11 @@ const AppPostsNewRoute = AppPostsNewRouteImport.update({
 const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
   id: '/api/onboarding/ensure',
   path: '/api/onboarding/ensure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
+  id: '/api/media/upload',
+  path: '/api/media/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -160,14 +184,18 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/connect': typeof AppConnectRoute
   '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/app/posts/new': typeof AppPostsNewRoute
+  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/app/posts/': typeof AppPostsIndexRoute
@@ -184,14 +212,18 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/connect': typeof AppConnectRoute
   '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/app/posts/new': typeof AppPostsNewRoute
+  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/app/posts': typeof AppPostsIndexRoute
@@ -210,14 +242,18 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/connect': typeof AppConnectRoute
   '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/app/posts/new': typeof AppPostsNewRoute
+  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/app/posts/': typeof AppPostsIndexRoute
@@ -237,14 +273,18 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/posts'
     | '/app/activity'
+    | '/app/billing'
+    | '/app/connect'
     | '/app/media'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
     | '/app/'
     | '/api/auth/$'
+    | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/app/posts/new'
+    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/app/posts/'
@@ -261,14 +301,18 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/posts'
     | '/app/activity'
+    | '/app/billing'
+    | '/app/connect'
     | '/app/media'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
     | '/app'
     | '/api/auth/$'
+    | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/app/posts/new'
+    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/app/posts'
@@ -286,14 +330,18 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/posts'
     | '/app/activity'
+    | '/app/billing'
+    | '/app/connect'
     | '/app/media'
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
     | '/app/'
     | '/api/auth/$'
+    | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/app/posts/new'
+    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/app/posts/'
@@ -313,6 +361,7 @@ export interface RootRouteChildren {
   ApiPostsRoute: typeof ApiPostsRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
   BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
@@ -412,6 +461,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMediaRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/connect': {
+      id: '/app/connect'
+      path: '/connect'
+      fullPath: '/app/connect'
+      preLoaderRoute: typeof AppConnectRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/billing': {
+      id: '/app/billing'
+      path: '/billing'
+      fullPath: '/app/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/activity': {
       id: '/app/activity'
       path: '/activity'
@@ -454,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugPostSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/settings/token-created': {
+      id: '/app/settings/token-created'
+      path: '/token-created'
+      fullPath: '/app/settings/token-created'
+      preLoaderRoute: typeof AppSettingsTokenCreatedRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/posts/new': {
       id: '/app/posts/new'
       path: '/posts/new'
@@ -466,6 +536,13 @@ declare module '@tanstack/react-router' {
       path: '/api/onboarding/ensure'
       fullPath: '/api/onboarding/ensure'
       preLoaderRoute: typeof ApiOnboardingEnsureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/upload': {
+      id: '/api/media/upload'
+      path: '/api/media/upload'
+      fullPath: '/api/media/upload'
+      preLoaderRoute: typeof ApiMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -485,10 +562,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsTokenCreatedRoute: typeof AppSettingsTokenCreatedRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsTokenCreatedRoute: AppSettingsTokenCreatedRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppRouteRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
+  AppBillingRoute: typeof AppBillingRoute
+  AppConnectRoute: typeof AppConnectRoute
   AppMediaRoute: typeof AppMediaRoute
-  AppSettingsRoute: typeof AppSettingsRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppSetupRoute: typeof AppSetupRoute
   AppIndexRoute: typeof AppIndexRoute
   AppPostsNewRoute: typeof AppPostsNewRoute
@@ -498,8 +589,10 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppActivityRoute: AppActivityRoute,
+  AppBillingRoute: AppBillingRoute,
+  AppConnectRoute: AppConnectRoute,
   AppMediaRoute: AppMediaRoute,
-  AppSettingsRoute: AppSettingsRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppSetupRoute: AppSetupRoute,
   AppIndexRoute: AppIndexRoute,
   AppPostsNewRoute: AppPostsNewRoute,
@@ -523,6 +616,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPostsRoute: ApiPostsRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
   BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,

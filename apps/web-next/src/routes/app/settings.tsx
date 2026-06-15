@@ -1,16 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PageHeader } from '~/components/dashboard/DashboardLayout'
+import { SettingsPage } from '~/components/dashboard/SettingsPage'
+import { validateDashboardSearch } from '~/lib/dashboard-search'
 
 export const Route = createFileRoute('/app/settings')({
-  component: SettingsPlaceholder,
+  validateSearch: validateDashboardSearch,
+  component: SettingsPage,
 })
-
-function SettingsPlaceholder() {
-  return (
-    <PageHeader
-      kicker="Settings"
-      title="Settings"
-      description="Tokens, billing, and site settings will be ported in the next migration step."
-    />
-  )
-}

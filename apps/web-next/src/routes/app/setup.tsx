@@ -1,16 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PageHeader } from '~/components/dashboard/DashboardLayout'
+import { SetupPage } from '~/components/dashboard/SetupPage'
+import { validateDashboardSearch } from '~/lib/dashboard-search'
 
 export const Route = createFileRoute('/app/setup')({
-  component: SetupPlaceholder,
+  validateSearch: validateDashboardSearch,
+  component: SetupPage,
 })
-
-function SetupPlaceholder() {
-  return (
-    <PageHeader
-      kicker="Setup"
-      title="Site setup"
-      description="Onboarding form will be ported in the auth/setup migration step."
-    />
-  )
-}

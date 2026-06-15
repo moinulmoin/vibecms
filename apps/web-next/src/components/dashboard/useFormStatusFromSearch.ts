@@ -1,5 +1,13 @@
-import { readFormStatus, type FormStatus } from '@vc/config'
+import { FORM_STATUS, readFormStatus, type FormStatus } from '@vc/config'
 import { useSearch } from '@tanstack/react-router'
+
+const EXTRA_OK: Record<string, FormStatus> = {
+  site_saved: {
+    variant: 'success',
+    title: 'Settings saved',
+    message: 'Your site details and SEO defaults are updated.',
+  },
+}
 
 /** Maps allowlisted `?ok=` / `?error=` search params to {@link StatusAlert} input. */
 export function useFormStatusFromSearch(): FormStatus | null {
@@ -7,5 +15,9 @@ export function useFormStatusFromSearch(): FormStatus | null {
   const params = new URLSearchParams()
   if (search.error) params.set('error', search.error)
   else if (search.ok) params.set('ok', search.ok)
-  return readFormStatus(params)
+  const fromConfig = readFormStatus(params)
+  if (fromConfig) return fromConfig
+  if (search.ok && EXTRA_OK[search.ok]) return EXTRA_OK[search.ok]
+  if (search.error) return FORM_STATUS[search.error] ?? FORM_STATUS.unknown
+  return null
 }

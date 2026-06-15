@@ -80,12 +80,6 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   ])
   await ensureBillingRow(workspaceId, 'none')
 
-  await env.DB.prepare(
-    'UPDATE sites SET default_seo_title = COALESCE(default_seo_title, name), default_seo_description = COALESCE(default_seo_description, description) WHERE id = ?',
-  )
-    .bind(siteId)
-    .run()
-
   const membership = await env.DB.prepare(
     'SELECT role FROM memberships WHERE workspace_id = ? AND user_id = ? LIMIT 1',
   )
@@ -113,4 +107,109 @@ export async function getSiteSetup(app: AppUserContext) {
     description: site?.description ?? '',
     isComplete: Boolean(site?.default_seo_title),
   }
+}
+
+export type CompleteSiteSetupPayload = {
+  name: string
+  slug: string
+  description?: string
+}
+
+export type SiteSettingsPayload = {
+  name: string
+  description?: string
+  defaultSeoTitle: string
+  defaultSeoDescription?: string
+}
+
+export async function getSiteSettings(app: AppUserContext) {
+  const site = await env.DB.prepare(
+    'SELECT name, description, default_seo_title, default_seo_description FROM sites WHERE id = ? LIMIT 1',
+  )
+    .bind(app.siteId)
+    .first<{
+      name: string
+      description: string | null
+      default_seo_title: string | null
+      default_seo_description: string | null
+    }>()
+  return {
+    name: site?.name ?? 'My Blog',
+    description: site?.description ?? '',
+    defaultSeoTitle: site?.default_seo_title ?? '',
+    defaultSeoDescription: site?.default_seo_description ?? '',
+  }
+}
+
+export async function completeSiteSetupForApp(
+  app: AppUserContext,
+  payload: CompleteSiteSetupPayload,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  const timestamp = now()
+  const name = payload.name.trim().slice(0, 80) || 'My Blog'
+  const slug = slugify(payload.slug || name).slice(0, 42)
+  const description =
+    payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
+
+  await env.DB.batch([
+    env.DB.prepare(
+      'UPDATE sites SET name = ?, slug = ?, description = ?, default_seo_title = ?, default_seo_description = ?, updated_at = ? WHERE id = ?',
+    ).bind(name, slug, description, name, description, timestamp, app.siteId),
+    env.DB.prepare('UPDATE domains SET hostname = ?, updated_at = ? WHERE site_id = ? AND type = ?')
+      .bind(defaultHostname(slug), timestamp, app.siteId, 'default'),
+    env.DB.prepare(
+      'INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(
+      `activity_site_setup_${app.user.id}_${timestamp}`,
+      app.siteId,
+      app.actor.type,
+      app.actor.id,
+      app.actor.name,
+      'site.updated',
+      'site',
+      app.siteId,
+      `Configured ${name}`,
+      timestamp,
+    ),
+  ])
+
+  return { kind: 'ok', code: 'setup_complete' }
+}
+
+export async function updateSiteSettingsForApp(
+  app: AppUserContext,
+  payload: SiteSettingsPayload,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  const timestamp = now()
+  const name = payload.name.trim().slice(0, 80) || 'My Blog'
+  const description = payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
+  const defaultSeoTitle = payload.defaultSeoTitle.trim().slice(0, 120) || name
+  const defaultSeoDescription = payload.defaultSeoDescription?.trim()
+    ? payload.defaultSeoDescription.trim().slice(0, 220)
+    : null
+
+  await env.DB.prepare(
+    'UPDATE sites SET name = ?, description = ?, default_seo_title = ?, default_seo_description = ?, updated_at = ? WHERE id = ?',
+  )
+    .bind(name, description, defaultSeoTitle, defaultSeoDescription, timestamp, app.siteId)
+    .run()
+
+  await env.DB.prepare(
+    'INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  )
+    .bind(
+      crypto.randomUUID(),
+      app.siteId,
+      app.actor.type,
+      app.actor.id,
+      app.actor.name,
+      'site.updated',
+      'site',
+      app.siteId,
+      'Updated site settings',
+      timestamp,
+    )
+    .run()
+
+  return { kind: 'ok', code: 'site_saved' }
 }
