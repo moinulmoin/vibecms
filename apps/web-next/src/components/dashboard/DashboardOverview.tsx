@@ -15,6 +15,7 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
+import { emptyPostsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -105,7 +106,7 @@ export function DashboardOverview() {
         description="At a glance: publishing status, media usage, agent access, recent edits, and audit activity."
         action={
           <Button asChild>
-            <Link to="/app/posts">New post</Link>
+            <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
           </Button>
         }
       />
@@ -153,7 +154,7 @@ export function DashboardOverview() {
       <Panel title="Quick Actions" meta="Common tasks">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <Button asChild>
-            <Link to="/app/posts">New post</Link>
+            <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
           </Button>
           <Button asChild variant="outline">
             <Link to="/app/media">Upload media</Link>
@@ -179,7 +180,7 @@ export function DashboardOverview() {
           title="Recent Posts"
           meta={
             <Button asChild variant="link">
-              <Link to="/app/posts">View all</Link>
+              <Link to="/app/posts" search={emptyPostsListSearch}>View all</Link>
             </Button>
           }
         >
@@ -188,7 +189,7 @@ export function DashboardOverview() {
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                   <strong className="font-display font-semibold text-foreground">
-                    <Link className="no-underline hover:underline" to="/app/posts">
+                    <Link className="no-underline hover:underline" to="/app/posts" search={emptyPostsListSearch}>
                       {post.title}
                     </Link>
                   </strong>
@@ -205,7 +206,7 @@ export function DashboardOverview() {
               description="Create the first post manually, then connect an agent token when you are ready for trusted agents to help."
               action={
                 <Button asChild>
-                  <Link to="/app/posts">New post</Link>
+                  <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
                 </Button>
               }
             />

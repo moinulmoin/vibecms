@@ -1,0 +1,131 @@
+import {
+  AppError,
+  BillingRequiredError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  archivePost,
+  createPost,
+  publishPost,
+  updatePost,
+} from '@vc/core'
+import { createD1PostRepository } from '@vc/db'
+import { env } from 'cloudflare:workers'
+import { getBillingStatus } from '~/server/billing'
+import type { AppUserContext } from '~/server/onboarding'
+import { purgeArticleCache } from '~/server/public-blog-cache'
+
+export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string }
+
+function repository() {
+  return createD1PostRepository(env.DB)
+}
+
+export function postMutationErrorCode(error: unknown): string {
+  if (error instanceof BillingRequiredError) return 'billing_required'
+  if (error instanceof NotFoundError) return 'not_found'
+  if (error instanceof ForbiddenError) return 'owner_required'
+  if (error instanceof ConflictError) return 'slug_conflict'
+  if (error instanceof ValidationError) return 'unknown'
+  if (error instanceof AppError && error.code === 'INVALID_COVER_ASSET') return 'invalid_cover_asset'
+  if (error instanceof AppError && error.code === 'BILLING_REQUIRED') return 'billing_required'
+  if (error instanceof AppError && error.code === 'NOT_FOUND') return 'not_found'
+  if (error instanceof AppError && error.code === 'FORBIDDEN') return 'owner_required'
+  if (error instanceof AppError && error.code === 'CONFLICT') return 'slug_conflict'
+  return 'unknown'
+}
+
+async function coverAssetIdForSite(app: AppUserContext, coverAssetId: string | null | undefined) {
+  if (!coverAssetId) return null
+  const asset = await env.DB.prepare('SELECT id FROM assets WHERE id = ? AND site_id = ? LIMIT 1')
+    .bind(coverAssetId, app.siteId)
+    .first<{ id: string }>()
+  if (!asset) throw new AppError('INVALID_COVER_ASSET', 'Cover image must belong to this site', 400)
+  return coverAssetId
+}
+
+async function purgeIfPublished(app: AppUserContext, slug: string, status: string) {
+  if (status !== 'published') return
+  const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
+    .bind(app.siteId)
+    .first<{ slug: string }>()
+  if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, slug)
+}
+
+export type PostFormPayload = {
+  title: string
+  slug: string
+  excerpt?: string
+  contentMarkdown: string
+  coverAssetId?: string | null
+  tags: string[]
+}
+
+export async function createPostForApp(app: AppUserContext, payload: PostFormPayload): Promise<MutationResult> {
+  try {
+    const coverAssetId = await coverAssetIdForSite(app, payload.coverAssetId || null)
+    const post = await createPost(repository(), app.actor, {
+      siteId: app.siteId,
+      title: payload.title,
+      slug: payload.slug,
+      excerpt: payload.excerpt,
+      contentMarkdown: payload.contentMarkdown,
+      coverAssetId: coverAssetId ?? undefined,
+      tags: payload.tags,
+    })
+    return { kind: 'ok', code: 'post_created', postId: post.id }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error) }
+  }
+}
+
+export async function updatePostForApp(
+  app: AppUserContext,
+  postId: string,
+  payload: PostFormPayload,
+): Promise<MutationResult> {
+  try {
+    const coverAssetId = await coverAssetIdForSite(app, payload.coverAssetId || null)
+    const post = await updatePost(repository(), app.actor, {
+      siteId: app.siteId,
+      postId,
+      title: payload.title,
+      slug: payload.slug,
+      excerpt: payload.excerpt,
+      contentMarkdown: payload.contentMarkdown,
+      coverAssetId: coverAssetId ?? undefined,
+      tags: payload.tags,
+    })
+    await purgeIfPublished(app, post.slug, post.status)
+    return { kind: 'ok', code: 'post_saved', postId }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function publishPostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
+  try {
+    const published = await publishPost(repository(), app.actor, {
+      siteId: app.siteId,
+      postId,
+      billingStatus: await getBillingStatus(app.workspaceId),
+    })
+    const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
+      .bind(app.siteId)
+      .first<{ slug: string }>()
+    if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, published.slug)
+    return { kind: 'ok', code: 'post_published', postId }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function archivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
+  try {
+    await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
+    return { kind: 'ok', code: 'post_archived', postId }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}

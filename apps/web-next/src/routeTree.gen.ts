@@ -28,8 +28,10 @@ import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
+import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AppPostsPostIdEditRouteImport } from './routes/app/posts/$postId/edit'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -126,6 +128,11 @@ const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
   path: '/blog/$siteSlug/$postSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppPostsNewRoute = AppPostsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppPostsRoute,
+} as any)
 const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
   id: '/api/onboarding/ensure',
   path: '/api/onboarding/ensure',
@@ -135,6 +142,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppPostsPostIdEditRoute = AppPostsPostIdEditRouteImport.update({
+  id: '/$postId/edit',
+  path: '/$postId/edit',
+  getParentRoute: () => AppPostsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -149,16 +161,18 @@ export interface FileRoutesByFullPath {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRoute
+  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
+  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -171,16 +185,18 @@ export interface FileRoutesByTo {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRoute
+  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
+  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,16 +211,18 @@ export interface FileRoutesById {
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/media': typeof AppMediaRoute
-  '/app/posts': typeof AppPostsRoute
+  '/app/posts': typeof AppPostsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/app/posts/new': typeof AppPostsNewRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
+  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -227,9 +245,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/blog/$siteSlug/'
+    | '/app/posts/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -249,9 +269,11 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/blog/$siteSlug'
+    | '/app/posts/$postId/edit'
   id:
     | '__root__'
     | '/'
@@ -272,9 +294,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
+    | '/app/posts/new'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
     | '/blog/$siteSlug/'
+    | '/app/posts/$postId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -430,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugPostSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/posts/new': {
+      id: '/app/posts/new'
+      path: '/new'
+      fullPath: '/app/posts/new'
+      preLoaderRoute: typeof AppPostsNewRouteImport
+      parentRoute: typeof AppPostsRoute
+    }
     '/api/onboarding/ensure': {
       id: '/api/onboarding/ensure'
       path: '/api/onboarding/ensure'
@@ -444,13 +475,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/posts/$postId/edit': {
+      id: '/app/posts/$postId/edit'
+      path: '/$postId/edit'
+      fullPath: '/app/posts/$postId/edit'
+      preLoaderRoute: typeof AppPostsPostIdEditRouteImport
+      parentRoute: typeof AppPostsRoute
+    }
   }
 }
+
+interface AppPostsRouteChildren {
+  AppPostsNewRoute: typeof AppPostsNewRoute
+  AppPostsPostIdEditRoute: typeof AppPostsPostIdEditRoute
+}
+
+const AppPostsRouteChildren: AppPostsRouteChildren = {
+  AppPostsNewRoute: AppPostsNewRoute,
+  AppPostsPostIdEditRoute: AppPostsPostIdEditRoute,
+}
+
+const AppPostsRouteWithChildren = AppPostsRoute._addFileChildren(
+  AppPostsRouteChildren,
+)
 
 interface AppRouteRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppMediaRoute: typeof AppMediaRoute
-  AppPostsRoute: typeof AppPostsRoute
+  AppPostsRoute: typeof AppPostsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppSetupRoute: typeof AppSetupRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -459,7 +511,7 @@ interface AppRouteRouteChildren {
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppMediaRoute: AppMediaRoute,
-  AppPostsRoute: AppPostsRoute,
+  AppPostsRoute: AppPostsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppSetupRoute: AppSetupRoute,
   AppIndexRoute: AppIndexRoute,
