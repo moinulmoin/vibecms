@@ -1,6 +1,6 @@
 import { Button } from "@vc/ui";
 import { ENTITLEMENTS, MEDIA, PRICING } from "@vc/config";
-import { ArrowRightIcon, CheckIcon, GlobeIcon } from "@radix-ui/react-icons";
+import { ArrowRightIcon, CheckIcon, LightningBoltIcon } from "@radix-ui/react-icons";
 import { GreenCard, GlassCard, MonoEyebrow, SectionShell } from "./primitives";
 
 const cloudChecks = [
@@ -28,37 +28,39 @@ export function HostingPricing() {
     <>
       <section id="self-host">
         <SectionShell className="pb-0 md:pb-0">
-          <div className="grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-8" data-reveal>
-            <div>
-              <MonoEyebrow label="Hosting" />
-              <h2 className="mt-4 max-w-xl font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-                Hosted for speed.
-                <br />
-                Self-hosted for control.
-              </h2>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <GreenCard className="p-7" data-reveal data-d="1">
-                <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-brand-bright-foreground/10 ring-1 ring-brand-bright-foreground/15">
-                  <GlobeIcon className="size-5 text-brand-bright-foreground" aria-hidden />
+          <div data-reveal>
+            <MonoEyebrow label="Hosting" />
+            <h2 className="mt-4 max-w-xl font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+              Hosted for speed.
+              <br />
+              Self-hosted for control.
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2">
+            <div data-reveal data-d="1">
+              <GlassCard className="h-full p-7">
+                <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-brand-bright/10 ring-1 ring-brand-bright/20">
+                  <LightningBoltIcon className="size-5 text-brand-bright" aria-hidden />
                 </div>
-                <h3 className="font-display text-[1.375rem] font-semibold tracking-[-0.02em]">
+                <h3 className="font-display text-[1.375rem] font-semibold tracking-[-0.02em] text-foreground">
                   {PRICING.planName}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-brand-bright-foreground/75">
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   We run the Workers setup, scaling, updates, and storage - so you focus on the
                   publication.
                 </p>
-                <ul className="mt-6 space-y-3 text-sm leading-6 text-brand-bright-foreground/85">
+                <ul className="mt-6 space-y-3 text-sm leading-6 text-muted-foreground">
                   {cloudChecks.map((item) => (
                     <li className="flex gap-3" key={item}>
-                      <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright-foreground" aria-hidden />
+                      <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden />
                       <span>{item}</span>
                     </li>
                   ))}
                 </ul>
-              </GreenCard>
-              <GlassCard className="p-7" data-reveal data-d="2">
+              </GlassCard>
+            </div>
+            <div data-reveal data-d="2">
+              <GlassCard className="h-full p-7">
                 <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-brand-bright/10 ring-1 ring-brand-bright/20">
                   <ArrowRightIcon className="size-5 text-brand-bright" aria-hidden />
                 </div>

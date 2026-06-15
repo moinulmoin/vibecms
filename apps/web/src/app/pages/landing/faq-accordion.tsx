@@ -45,7 +45,7 @@ export function FaqAccordion() {
                 data-d={String(Math.min(index + 2, 5))}
               >
                 <GlassCard className="overflow-hidden p-0">
-                  <details className="group [&_summary::-webkit-details-marker]:hidden">
+                  <details open={index === 0} className="group [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-display text-lg font-medium tracking-[-0.01em] text-foreground marker:content-none">
                       <span>{item.question}</span>
                       <PlusIcon
