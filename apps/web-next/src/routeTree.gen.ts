@@ -32,6 +32,7 @@ import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteS
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
 import { Route as AppSettingsTokenCreatedRouteImport } from './routes/app/settings/token-created'
 import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
+import { Route as ApiPolarWebhookRouteImport } from './routes/api/polar/webhook'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -152,6 +153,11 @@ const AppPostsNewRoute = AppPostsNewRouteImport.update({
   path: '/posts/new',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const ApiPolarWebhookRoute = ApiPolarWebhookRouteImport.update({
+  id: '/api/polar/webhook',
+  path: '/api/polar/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
   id: '/api/onboarding/ensure',
   path: '/api/onboarding/ensure',
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
+  '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
+    | '/api/polar/webhook'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
+    | '/api/polar/webhook'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -340,6 +351,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
+    | '/api/polar/webhook'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -363,6 +375,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
+  ApiPolarWebhookRoute: typeof ApiPolarWebhookRoute
   BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
   BlogSiteSlugIndexRoute: typeof BlogSiteSlugIndexRoute
@@ -531,6 +544,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPostsNewRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/api/polar/webhook': {
+      id: '/api/polar/webhook'
+      path: '/api/polar/webhook'
+      fullPath: '/api/polar/webhook'
+      preLoaderRoute: typeof ApiPolarWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/onboarding/ensure': {
       id: '/api/onboarding/ensure'
       path: '/api/onboarding/ensure'
@@ -618,6 +638,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
+  ApiPolarWebhookRoute: ApiPolarWebhookRoute,
   BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
   BlogSiteSlugIndexRoute: BlogSiteSlugIndexRoute,

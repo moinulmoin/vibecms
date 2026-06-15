@@ -99,7 +99,8 @@ export const loadConnectPage = createServerFn({ method: 'GET' }).handler(async (
 
 export const loadBillingRequiredPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()
-  if (isSelfHosted()) return { redirectToApp: true as const, billingStatus: 'active' as const }
+  const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
+  if (isSelfHosted()) return { redirectToApp: true as const, billingStatus: 'active' as const, isOwner }
   const billingStatus = await getBillingStatus(app.workspaceId)
-  return { redirectToApp: false as const, billingStatus }
+  return { redirectToApp: false as const, billingStatus, isOwner }
 })
