@@ -56,7 +56,7 @@ function windows(at = new Date()): Record<PeriodName, PeriodWindow> {
 }
 
 function testLimitPlan(): LimitPlan | null {
-  if (env.APP_ENV === "production") return null;
+  if (String(env.APP_ENV) === "production") return null;
   const limit = Number(env.API_USAGE_TEST_LIMIT);
   if (!Number.isInteger(limit) || limit < 1) return null;
   return {
@@ -69,7 +69,7 @@ function testLimitPlan(): LimitPlan | null {
 function planFor(status?: BillingStatus): LimitPlan {
   const testPlan = testLimitPlan();
   if (testPlan) return testPlan;
-  if (env.APP_ENV === "development" || env.APP_ENV === "test") return API_USAGE_LIMITS.dev;
+  if (String(env.APP_ENV) === "development" || String(env.APP_ENV) === "test") return API_USAGE_LIMITS.dev;
   return status === "active" ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
 }
 

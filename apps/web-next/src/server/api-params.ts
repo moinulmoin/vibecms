@@ -36,5 +36,5 @@ export function boundedIntegerParam(value: string | null, fallback: number, min:
 }
 
 export function forceQuotaForSmoke(request: Request) {
-  return env.APP_ENV !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
+  return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
 }

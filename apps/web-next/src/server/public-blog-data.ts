@@ -40,7 +40,7 @@ function appHost() {
 }
 
 function canRenderPublic(site: SiteRow) {
-  return env.SELF_HOSTED === "true" || site.billing_status === "active" || (site.published_count ?? 0) > 0;
+  return String(env.SELF_HOSTED) === "true" || site.billing_status === "active" || (site.published_count ?? 0) > 0;
 }
 
 export async function resolveSite(request: Request) {
@@ -97,5 +97,5 @@ export async function listPublishedPosts(siteId: string) {
 }
 
 export function isPublicBlogIndexable(site: SiteRow) {
-  return env.SELF_HOSTED === "true" || site.billing_status === "active";
+  return String(env.SELF_HOSTED) === "true" || site.billing_status === "active";
 }

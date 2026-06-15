@@ -5,7 +5,7 @@ type BillingRow = { status: BillingStatus };
 type SiteWorkspaceRow = { workspace_id: string };
 
 export function isSelfHosted() {
-  return env.SELF_HOSTED === "true";
+  return String(env.SELF_HOSTED) === "true";
 }
 
 export async function ensureBillingRow(workspaceId: string, status: BillingStatus = "none") {

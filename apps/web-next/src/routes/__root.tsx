@@ -2,7 +2,7 @@
 import {
   HeadContent,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
 } from '@tanstack/react-router'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
@@ -10,8 +10,10 @@ import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles.css?url'
 import { BRAND } from '@vc/config'
 import { seo } from '~/utils/seo'
+import { loadAppRouterContext, type AppRouterContext } from '~/server/auth-context'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<AppRouterContext>()({
+  beforeLoad: async () => loadAppRouterContext(),
   head: () => ({
     meta: [
       {

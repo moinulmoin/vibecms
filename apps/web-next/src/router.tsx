@@ -1,14 +1,20 @@
-import {
-  createRouter,
-  type RegisteredRouter,
-} from '@tanstack/react-router'
+import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
+import type { AppRouterContext } from '~/server/auth-context-types'
+
+const emptyRouterContext: AppRouterContext = {
+  authUrl: '',
+  googleEnabled: false,
+  user: null,
+  app: null,
+}
 
 export function getRouter() {
   const router = createRouter({
     routeTree,
+    context: emptyRouterContext,
     defaultPreload: 'intent',
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
@@ -17,6 +23,3 @@ export function getRouter() {
 
   return router
 }
-
-/** Router instance type for TanStack Start `Register` and app-wide typing. */
-export type AppRouter = RegisteredRouter

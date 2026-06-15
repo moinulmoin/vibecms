@@ -12,12 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
+import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -32,6 +35,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
@@ -64,27 +72,43 @@ const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
   path: '/blog/$siteSlug/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOnboardingEnsureRoute = ApiOnboardingEnsureRouteImport.update({
+  id: '/api/onboarding/ensure',
+  path: '/api/onboarding/ensure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRoutesById {
@@ -92,11 +116,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
 }
 export interface FileRouteTypes {
@@ -105,33 +132,42 @@ export interface FileRouteTypes {
     | '/'
     | '/feed.xml'
     | '/llms.txt'
+    | '/login'
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
     | '/media-assets/$assetId'
+    | '/api/auth/$'
+    | '/api/onboarding/ensure'
     | '/blog/$siteSlug/llms.txt'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/feed.xml'
     | '/llms.txt'
+    | '/login'
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
     | '/media-assets/$assetId'
+    | '/api/auth/$'
+    | '/api/onboarding/ensure'
     | '/blog/$siteSlug/llms.txt'
   id:
     | '__root__'
     | '/'
     | '/feed.xml'
     | '/llms.txt'
+    | '/login'
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
     | '/media-assets/$assetId'
+    | '/api/auth/$'
+    | '/api/onboarding/ensure'
     | '/blog/$siteSlug/llms.txt'
   fileRoutesById: FileRoutesById
 }
@@ -139,11 +175,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FeedDotxmlRoute: typeof FeedDotxmlRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
+  LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiPostsRoute: typeof ApiPostsRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
 }
 
@@ -168,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/llms.txt': {
@@ -212,6 +258,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugLlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/onboarding/ensure': {
+      id: '/api/onboarding/ensure'
+      path: '/api/onboarding/ensure'
+      fullPath: '/api/onboarding/ensure'
+      preLoaderRoute: typeof ApiOnboardingEnsureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -219,11 +279,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FeedDotxmlRoute: FeedDotxmlRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
+  LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiPostsRoute: ApiPostsRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
 }
 export const routeTree = rootRouteImport

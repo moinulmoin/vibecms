@@ -74,7 +74,7 @@ function apiUsageKind(toolName: string): ApiUsageKind {
   return writeTools.has(toolName) ? "write" : "read";
 }
 function forceQuotaForSmoke(request: Request) {
-  return env.APP_ENV !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
+  return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
 }
 
 const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
