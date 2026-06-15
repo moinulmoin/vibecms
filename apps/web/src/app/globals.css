@@ -155,6 +155,15 @@
   --dot-grid-fill: oklch(1 0 0 / 0.025);
 }
 
+/* The landing forces a dark theme on its <main>. Mirror that dark surface
+   onto the page canvas (html/body) so instant in-page anchor jumps from the
+   nav never flash the light canvas behind the dark page. Scoped via :has so
+   the theme-adaptive dashboard and public blog keep their own canvas. */
+:root:has(main.dark) {
+  color-scheme: dark;
+  --background: oklch(0.1326 0.0064 244.3);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
