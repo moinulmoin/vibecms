@@ -9,6 +9,8 @@ const emptyRouterContext: AppRouterContext = {
   googleEnabled: false,
   user: null,
   app: null,
+  siteSetupComplete: false,
+  siteDisplayName: null,
 }
 
 export function getRouter() {

@@ -15,8 +15,15 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
+import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
+import { Route as AppSetupRouteImport } from './routes/app/setup'
+import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppPostsRouteImport } from './routes/app/posts'
+import { Route as AppMediaRouteImport } from './routes/app/media'
+import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
@@ -54,15 +61,50 @@ const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
   path: '/feed.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRouteRoute = AppRouteRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const MediaAssetsAssetIdRoute = MediaAssetsAssetIdRouteImport.update({
   id: '/media-assets/$assetId',
   path: '/media-assets/$assetId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSetupRoute = AppSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppPostsRoute = AppPostsRouteImport.update({
+  id: '/posts',
+  path: '/posts',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppMediaRoute = AppMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const ApiPostsRoute = ApiPostsRouteImport.update({
   id: '/api/posts',
@@ -97,6 +139,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteRouteWithChildren
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -104,7 +147,13 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/media': typeof AppMediaRoute
+  '/app/posts': typeof AppPostsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -120,7 +169,13 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/media': typeof AppMediaRoute
+  '/app/posts': typeof AppPostsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -130,6 +185,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteRouteWithChildren
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -137,7 +193,13 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/posts': typeof ApiPostsRoute
+  '/app/activity': typeof AppActivityRoute
+  '/app/media': typeof AppMediaRoute
+  '/app/posts': typeof AppPostsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -148,6 +210,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/feed.xml'
     | '/llms.txt'
     | '/login'
@@ -155,7 +218,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
+    | '/app/activity'
+    | '/app/media'
+    | '/app/posts'
+    | '/app/settings'
+    | '/app/setup'
     | '/media-assets/$assetId'
+    | '/app/'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
     | '/blog/$siteSlug/$postSlug'
@@ -171,7 +240,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
+    | '/app/activity'
+    | '/app/media'
+    | '/app/posts'
+    | '/app/settings'
+    | '/app/setup'
     | '/media-assets/$assetId'
+    | '/app'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
     | '/blog/$siteSlug/$postSlug'
@@ -180,6 +255,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/app'
     | '/feed.xml'
     | '/llms.txt'
     | '/login'
@@ -187,7 +263,13 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/api/posts'
+    | '/app/activity'
+    | '/app/media'
+    | '/app/posts'
+    | '/app/settings'
+    | '/app/setup'
     | '/media-assets/$assetId'
+    | '/app/'
     | '/api/auth/$'
     | '/api/onboarding/ensure'
     | '/blog/$siteSlug/$postSlug'
@@ -197,6 +279,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRouteRoute: typeof AppRouteRouteWithChildren
   FeedDotxmlRoute: typeof FeedDotxmlRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
@@ -256,6 +339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -263,12 +353,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/media-assets/$assetId': {
       id: '/media-assets/$assetId'
       path: '/media-assets/$assetId'
       fullPath: '/media-assets/$assetId'
       preLoaderRoute: typeof MediaAssetsAssetIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/setup': {
+      id: '/app/setup'
+      path: '/setup'
+      fullPath: '/app/setup'
+      preLoaderRoute: typeof AppSetupRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/posts': {
+      id: '/app/posts'
+      path: '/posts'
+      fullPath: '/app/posts'
+      preLoaderRoute: typeof AppPostsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/media': {
+      id: '/app/media'
+      path: '/media'
+      fullPath: '/app/media'
+      preLoaderRoute: typeof AppMediaRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/activity': {
+      id: '/app/activity'
+      path: '/activity'
+      fullPath: '/app/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/api/posts': {
       id: '/api/posts'
@@ -315,8 +447,31 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
+  AppMediaRoute: typeof AppMediaRoute
+  AppPostsRoute: typeof AppPostsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppSetupRoute: typeof AppSetupRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
+  AppMediaRoute: AppMediaRoute,
+  AppPostsRoute: AppPostsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppSetupRoute: AppSetupRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRouteRoute: AppRouteRouteWithChildren,
   FeedDotxmlRoute: FeedDotxmlRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,

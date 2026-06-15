@@ -12,6 +12,7 @@ export type AppUserContext = {
 }
 
 type RoleRow = { role: 'owner' | 'editor' | 'viewer' }
+type SiteSetupRow = { name: string; slug: string; description: string | null; default_seo_title: string | null }
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -79,6 +80,12 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   ])
   await ensureBillingRow(workspaceId, 'none')
 
+  await env.DB.prepare(
+    'UPDATE sites SET default_seo_title = COALESCE(default_seo_title, name), default_seo_description = COALESCE(default_seo_description, description) WHERE id = ?',
+  )
+    .bind(siteId)
+    .run()
+
   const membership = await env.DB.prepare(
     'SELECT role FROM memberships WHERE workspace_id = ? AND user_id = ? LIMIT 1',
   )
@@ -92,4 +99,18 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   }
 
   return { user, siteId, workspaceId, actor }
+}
+
+export async function getSiteSetup(app: AppUserContext) {
+  const site = await env.DB.prepare(
+    'SELECT name, slug, description, default_seo_title FROM sites WHERE id = ? LIMIT 1',
+  )
+    .bind(app.siteId)
+    .first<SiteSetupRow>()
+  return {
+    name: site?.name ?? 'My Blog',
+    slug: site?.slug ?? 'my-blog',
+    description: site?.description ?? '',
+    isComplete: Boolean(site?.default_seo_title),
+  }
 }
