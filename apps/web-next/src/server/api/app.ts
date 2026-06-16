@@ -1,23 +1,6 @@
-import {
-  activityDtoSchema,
-  apiErrorEnvelopeSchema,
-  archivePostRequestSchema,
-  assetDtoSchema,
-  createPostRequestSchema,
-  getPostRequestSchema,
-  listActivityRequestSchema,
-  listPostsRequestSchema,
-  operationsByToolName,
-  paginationMetaSchema,
-  postDtoSchema,
-  postSummaryDtoSchema,
-  publishPostRequestSchema,
-  siteDtoSchema,
-  updatePostRequestSchema,
-  uploadAssetRequestSchema,
-} from "@vc/api-contract";
 import { AppError, RateLimitError } from "@vc/core";
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { apiReference } from "@scalar/hono-api-reference";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "~/server/api-keys";
 import {
@@ -33,228 +16,25 @@ import {
   type OperationContext,
 } from "~/server/operations";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "~/server/usage";
+import {
+  archivePostRoute,
+  bearerAuthSecurityScheme,
+  createPostRoute,
+  getPostRoute,
+  getSiteRoute,
+  listActivityRoute,
+  listPostsRoute,
+  openApiInfo,
+  publishPostRoute,
+  updatePostRoute,
+  uploadAssetRoute,
+} from "~/server/api/routes";
 
 type ApiEnv = {
   Variables: {
     ctx: OperationContext;
   };
 };
-
-const bearerSecurity = [{ bearerAuth: [] }];
-
-const getSiteOpDef = operationsByToolName["sites.get"];
-const listPostsOpDef = operationsByToolName["posts.list"];
-const getPostOpDef = operationsByToolName["posts.get"];
-const createPostOpDef = operationsByToolName["posts.create"];
-const updatePostOpDef = operationsByToolName["posts.update"];
-const publishPostOpDef = operationsByToolName["posts.publish"];
-const archivePostOpDef = operationsByToolName["posts.archive"];
-const uploadAssetOpDef = operationsByToolName["assets.upload"];
-const listActivityOpDef = operationsByToolName["activity.list"];
-
-const listPostsResponseSchema = z.object({
-  posts: z.array(postSummaryDtoSchema),
-  pagination: paginationMetaSchema,
-});
-
-const getSiteRoute = createRoute({
-  method: "get",
-  path: "/site",
-  operationId: getSiteOpDef.operationId,
-  description: getSiteOpDef.description,
-  security: bearerSecurity,
-  responses: {
-    200: {
-      description: "Current site",
-      content: { "application/json": { schema: siteDtoSchema.nullable() } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const listPostsRoute = createRoute({
-  method: "get",
-  path: "/posts",
-  operationId: listPostsOpDef.operationId,
-  description: listPostsOpDef.description,
-  security: bearerSecurity,
-  request: {
-    query: listPostsRequestSchema,
-  },
-  responses: {
-    200: {
-      description: "Bounded post summaries",
-      content: { "application/json": { schema: listPostsResponseSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const postIdParamsSchema = getPostRequestSchema;
-const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
-
-const getPostRoute = createRoute({
-  method: "get",
-  path: "/posts/{postId}",
-  operationId: getPostOpDef.operationId,
-  description: getPostOpDef.description,
-  security: bearerSecurity,
-  request: {
-    params: postIdParamsSchema,
-  },
-  responses: {
-    200: {
-      description: "Post with full Markdown",
-      content: { "application/json": { schema: postDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const createPostRoute = createRoute({
-  method: "post",
-  path: "/posts",
-  operationId: createPostOpDef.operationId,
-  description: createPostOpDef.description,
-  security: bearerSecurity,
-  request: {
-    body: {
-      content: { "application/json": { schema: createPostRequestSchema } },
-      required: true,
-    },
-  },
-  responses: {
-    201: {
-      description: "Created post",
-      content: { "application/json": { schema: postDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const updatePostRoute = createRoute({
-  method: "patch",
-  path: "/posts/{postId}",
-  operationId: updatePostOpDef.operationId,
-  description: updatePostOpDef.description,
-  security: bearerSecurity,
-  request: {
-    params: postIdParamsSchema,
-    body: {
-      content: { "application/json": { schema: updatePostBodySchema } },
-      required: true,
-    },
-  },
-  responses: {
-    200: {
-      description: "Updated post",
-      content: { "application/json": { schema: postDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const publishPostRoute = createRoute({
-  method: "post",
-  path: "/posts/{postId}/publish",
-  operationId: publishPostOpDef.operationId,
-  description: publishPostOpDef.description,
-  security: bearerSecurity,
-  request: {
-    params: publishPostRequestSchema,
-  },
-  responses: {
-    200: {
-      description: "Published post",
-      content: { "application/json": { schema: postDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const archivePostRoute = createRoute({
-  method: "post",
-  path: "/posts/{postId}/archive",
-  operationId: archivePostOpDef.operationId,
-  description: archivePostOpDef.description,
-  security: bearerSecurity,
-  request: {
-    params: archivePostRequestSchema,
-  },
-  responses: {
-    200: {
-      description: "Archived post",
-      content: { "application/json": { schema: postDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const uploadAssetRoute = createRoute({
-  method: "post",
-  path: "/assets",
-  operationId: uploadAssetOpDef.operationId,
-  description: uploadAssetOpDef.description,
-  security: bearerSecurity,
-  request: {
-    body: {
-      content: { "application/json": { schema: uploadAssetRequestSchema } },
-      required: true,
-    },
-  },
-  responses: {
-    201: {
-      description: "Uploaded asset",
-      content: { "application/json": { schema: assetDtoSchema } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
-
-const listActivityRoute = createRoute({
-  method: "get",
-  path: "/activity",
-  operationId: listActivityOpDef.operationId,
-  description: listActivityOpDef.description,
-  security: bearerSecurity,
-  request: {
-    query: listActivityRequestSchema,
-  },
-  responses: {
-    200: {
-      description: "Recent activity",
-      content: { "application/json": { schema: z.array(activityDtoSchema) } },
-    },
-    401: {
-      description: "Missing or invalid bearer token",
-      content: { "application/json": { schema: apiErrorEnvelopeSchema } },
-    },
-  },
-});
 
 function forceQuotaForSmoke(request: Request) {
   return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
@@ -299,6 +79,15 @@ function statusForAppError(error: AppError) {
   }
 }
 
+function isPublicApiDocPath(path: string) {
+  return (
+    path === "/api/v1/openapi.json" ||
+    path.endsWith("/openapi.json") ||
+    path === "/api/v1/docs" ||
+    path.endsWith("/docs")
+  );
+}
+
 export const apiV1App = new OpenAPIHono<ApiEnv>({
   defaultHook: (result, c) => {
     if (!result.success) {
@@ -308,20 +97,19 @@ export const apiV1App = new OpenAPIHono<ApiEnv>({
   },
 }).basePath("/api/v1");
 
-apiV1App.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
-  type: "http",
-  scheme: "bearer",
-  description: "Workspace API token (vc_…)",
-});
+apiV1App.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", bearerAuthSecurityScheme);
 
-apiV1App.doc31("/openapi.json", {
-  openapi: "3.1.0",
-  info: { title: "VibeCMS API", version: "1.0.0" },
-  security: bearerSecurity,
-});
+apiV1App.doc31("/openapi.json", openApiInfo);
+
+apiV1App.get(
+  "/docs",
+  apiReference({
+    url: "/api/v1/openapi.json",
+  }),
+);
 
 apiV1App.use("*", async (c, next) => {
-  if (c.req.path === "/api/v1/openapi.json" || c.req.path.endsWith("/openapi.json")) {
+  if (isPublicApiDocPath(c.req.path)) {
     return next();
   }
 
