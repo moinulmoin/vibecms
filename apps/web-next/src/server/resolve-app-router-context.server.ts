@@ -31,13 +31,3 @@ export async function resolveAppRouterContext(): Promise<AppRouterContext> {
   }
 }
 
-export async function getAuthSessionSmokePayload() {
-  const ctx = await resolveAppRouterContext()
-  if (!ctx.user) return { signedIn: false as const }
-  return {
-    signedIn: true as const,
-    user: ctx.user,
-    workspaceId: ctx.app?.workspaceId,
-    siteId: ctx.app?.siteId,
-  }
-}

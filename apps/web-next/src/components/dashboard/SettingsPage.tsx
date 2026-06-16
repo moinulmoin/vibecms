@@ -355,7 +355,7 @@ export function SettingsPage() {
               </p>
             </div>
             <Button asChild variant="outline" className="shrink-0">
-              <a href="/app/export.json">Export posts</a>
+              <a href="/api/export.json">Export posts</a>
             </Button>
           </div>
         </Panel>

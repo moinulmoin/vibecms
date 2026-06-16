@@ -26,6 +26,7 @@ import { Route as AppConnectRouteImport } from './routes/app/connect'
 import { Route as AppBillingRouteImport } from './routes/app/billing'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
+import { Route as ApiExportDotjsonRouteImport } from './routes/api/export[.]json'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as AppPostsIndexRouteImport } from './routes/app/posts/index'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
@@ -123,6 +124,11 @@ const ApiPostsRoute = ApiPostsRouteImport.update({
   path: '/api/posts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExportDotjsonRoute = ApiExportDotjsonRouteImport.update({
+  id: '/api/export.json',
+  path: '/api/export.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogSiteSlugIndexRoute = BlogSiteSlugIndexRouteImport.update({
   id: '/blog/$siteSlug/',
   path: '/blog/$siteSlug/',
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/export.json'
     | '/api/posts'
     | '/app/activity'
     | '/app/billing'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/export.json'
     | '/api/posts'
     | '/app/activity'
     | '/app/billing'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/api/export.json'
     | '/api/posts'
     | '/app/activity'
     | '/app/billing'
@@ -370,6 +382,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiExportDotjsonRoute: typeof ApiExportDotjsonRoute
   ApiPostsRoute: typeof ApiPostsRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -500,6 +513,13 @@ declare module '@tanstack/react-router' {
       path: '/api/posts'
       fullPath: '/api/posts'
       preLoaderRoute: typeof ApiPostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export.json': {
+      id: '/api/export.json'
+      path: '/api/export.json'
+      fullPath: '/api/export.json'
+      preLoaderRoute: typeof ApiExportDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/$siteSlug/': {
@@ -633,6 +653,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiExportDotjsonRoute: ApiExportDotjsonRoute,
   ApiPostsRoute: ApiPostsRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
