@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vibecms-next",
+  "name": "vibecms",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
@@ -21,12 +21,16 @@
       "bucket_name": "vibecms-assets"
     }
   ],
+  "routes": [{ "pattern": "dev.vibecms.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "vars": {
     "APP_ENV": "development",
     "APP_URL": "https://dev.vibecms.dev",
     "BETTER_AUTH_URL": "https://dev.vibecms.dev",
     "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "SELF_HOSTED": "false",
+    "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
     "POLAR_SERVER": "sandbox"
   }
