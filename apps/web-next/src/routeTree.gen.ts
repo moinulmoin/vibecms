@@ -33,6 +33,7 @@ import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteS
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
 import { Route as AppSettingsTokenCreatedRouteImport } from './routes/app/settings/token-created'
 import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
+import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiPolarWebhookRouteImport } from './routes/api/polar/webhook'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
@@ -159,6 +160,11 @@ const AppPostsNewRoute = AppPostsNewRouteImport.update({
   path: '/posts/new',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPolarWebhookRoute = ApiPolarWebhookRouteImport.update({
   id: '/api/polar/webhook',
   path: '/api/polar/webhook',
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/app/posts/new': typeof AppPostsNewRoute
   '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
+    | '/api/v1/$'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
+    | '/api/v1/$'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -364,6 +375,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
+    | '/api/v1/$'
     | '/app/posts/new'
     | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
@@ -389,6 +401,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
   ApiPolarWebhookRoute: typeof ApiPolarWebhookRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
   BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
   BlogSiteSlugIndexRoute: typeof BlogSiteSlugIndexRoute
@@ -564,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPostsNewRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/polar/webhook': {
       id: '/api/polar/webhook'
       path: '/api/polar/webhook'
@@ -660,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
   ApiPolarWebhookRoute: ApiPolarWebhookRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
   BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
   BlogSiteSlugIndexRoute: BlogSiteSlugIndexRoute,
@@ -669,11 +690,10 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
