@@ -1,0 +1,19 @@
+{
+  "name": "@vc/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "tsc"
+  },
+  "dependencies": {
+    "@vc/core": "workspace:*",
+    "@vc/validators": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,84 @@
+import { z } from "zod";
+import {
+  DEFAULT_POST_LIST_LIMIT,
+  MAX_POST_LIST_LIMIT,
+  allowedImageMimeTypes,
+  postStatus,
+} from "@vc/validators";
+
+const slug = z
+  .string()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens");
+
+const titleField = z.string().trim().min(1).max(160);
+const excerptField = z.string().trim().max(500);
+const contentField = z.string().max(500_000);
+const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
+
+export const getSiteRequestSchema = z.object({}).strict();
+
+export const listPostsRequestSchema = z.object({
+  status: postStatus.optional(),
+  search: z.string().trim().max(160).optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_POST_LIST_LIMIT).default(DEFAULT_POST_LIST_LIMIT),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+}).strict();
+
+export const searchPostsRequestSchema = z.object({
+  search: z.string().trim().min(1).max(160),
+  limit: z.coerce.number().int().min(1).max(MAX_POST_LIST_LIMIT).default(DEFAULT_POST_LIST_LIMIT),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+}).strict();
+
+export const getPostRequestSchema = z.object({
+  postId: z.string().min(1),
+}).strict();
+
+export const createPostRequestSchema = z.object({
+  title: titleField,
+  slug,
+  excerpt: excerptField.optional(),
+  contentMarkdown: contentField,
+  tags: tagsField.default([]),
+}).strict();
+
+export const updatePostRequestSchema = z.object({
+  postId: z.string().min(1),
+  title: titleField.optional(),
+  slug: slug.optional(),
+  excerpt: excerptField.optional(),
+  contentMarkdown: contentField.optional(),
+  tags: tagsField.optional(),
+}).strict();
+
+export const publishPostRequestSchema = z.object({
+  postId: z.string().min(1),
+}).strict();
+
+export const archivePostRequestSchema = publishPostRequestSchema;
+
+const imageMimeEnum = z.enum(allowedImageMimeTypes);
+
+export const uploadAssetRequestSchema = z.object({
+  filename: z.string().trim().min(1).max(180),
+  mimeType: imageMimeEnum,
+  dataBase64: z.string().min(1),
+  altText: z.string().trim().max(180).optional(),
+}).strict();
+
+export const listActivityRequestSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+}).strict();
+
+export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
+export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;
+export type SearchPostsRequest = z.infer<typeof searchPostsRequestSchema>;
+export type GetPostRequest = z.infer<typeof getPostRequestSchema>;
+export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
+export type UpdatePostRequest = z.infer<typeof updatePostRequestSchema>;
+export type PublishPostRequest = z.infer<typeof publishPostRequestSchema>;
+export type ArchivePostRequest = z.infer<typeof archivePostRequestSchema>;
+export type UploadAssetRequest = z.infer<typeof uploadAssetRequestSchema>;
+export type ListActivityRequest = z.infer<typeof listActivityRequestSchema>;

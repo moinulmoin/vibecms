@@ -1,0 +1,195 @@
+import type { Scope } from "@vc/core";
+import { z } from "zod";
+import {
+  activityDtoSchema,
+  assetDtoSchema,
+  postDtoSchema,
+  postSummaryDtoSchema,
+  siteDtoSchema,
+} from "./dto";
+import {
+  archivePostRequestSchema,
+  createPostRequestSchema,
+  getPostRequestSchema,
+  getSiteRequestSchema,
+  listActivityRequestSchema,
+  listPostsRequestSchema,
+  publishPostRequestSchema,
+  searchPostsRequestSchema,
+  updatePostRequestSchema,
+  uploadAssetRequestSchema,
+} from "./requests";
+
+export type OperationAnnotations = {
+  readOnly?: boolean;
+  destructive?: boolean;
+  idempotent?: boolean;
+};
+
+export type OperationDefinition = {
+  /** MCP tool name (stable). */
+  toolName: string;
+  /** OpenAPI-style operation id. */
+  operationId: string;
+  requiredScope: Scope;
+  description: string;
+  requestSchema: z.ZodTypeAny;
+  responseSchema: z.ZodTypeAny;
+  annotations: OperationAnnotations;
+};
+
+const scopeSuffix = (scope: Scope) => ` Requires scope: ${scope}.`;
+
+function opDescription(body: string, scope: Scope, errors: string) {
+  return `${body}${scopeSuffix(scope)} ${errors}`.trim();
+}
+
+const readErrors =
+  "Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.";
+const writeErrors =
+  `${readErrors} CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.`;
+
+export const operations = [
+  {
+    toolName: "sites.get",
+    operationId: "getSite",
+    requiredScope: "sites:read",
+    description: opDescription(
+      "Get the current site for this token.",
+      "sites:read",
+      readErrors,
+    ),
+    requestSchema: getSiteRequestSchema,
+    responseSchema: siteDtoSchema.nullable(),
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.list",
+    operationId: "listPosts",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "List bounded post summaries for the current site. Use posts.get for full Markdown.",
+      "posts:read",
+      readErrors,
+    ),
+    requestSchema: listPostsRequestSchema,
+    responseSchema: z.array(postSummaryDtoSchema),
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.search",
+    operationId: "searchPosts",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Search bounded post summaries by title, slug, or excerpt. Use posts.get for full Markdown.",
+      "posts:read",
+      readErrors,
+    ),
+    requestSchema: searchPostsRequestSchema,
+    responseSchema: z.array(postSummaryDtoSchema),
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.get",
+    operationId: "getPost",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Get one post by id, including full Markdown.",
+      "posts:read",
+      readErrors,
+    ),
+    requestSchema: getPostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.create",
+    operationId: "createPost",
+    requiredScope: "posts:create",
+    description: opDescription(
+      "Create a draft post from a Markdown body. Returns the new post id; make it live with posts.publish.",
+      "posts:create",
+      writeErrors,
+    ),
+    requestSchema: createPostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: {},
+  },
+  {
+    toolName: "posts.update",
+    operationId: "updatePost",
+    requiredScope: "posts:update",
+    description: opDescription(
+      "Update a post. Provide postId plus only the fields to change; contentMarkdown is the full Markdown body.",
+      "posts:update",
+      writeErrors,
+    ),
+    requestSchema: updatePostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: { idempotent: true },
+  },
+  {
+    toolName: "posts.publish",
+    operationId: "publishPost",
+    requiredScope: "posts:publish",
+    description: opDescription(
+      "Publish a draft so it appears on the public blog.",
+      "posts:publish",
+      writeErrors,
+    ),
+    requestSchema: publishPostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: {},
+  },
+  {
+    toolName: "posts.archive",
+    operationId: "archivePost",
+    requiredScope: "posts:archive",
+    description: opDescription(
+      "Archive a post.",
+      "posts:archive",
+      writeErrors,
+    ),
+    requestSchema: archivePostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: { destructive: true },
+  },
+  {
+    toolName: "assets.upload",
+    operationId: "uploadAsset",
+    requiredScope: "assets:write",
+    description: opDescription(
+      "Upload an image from base64 data. Decoded image must be 10 MB or smaller. Returns asset metadata and a public URL for Markdown.",
+      "assets:write",
+      `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
+    ),
+    requestSchema: uploadAssetRequestSchema,
+    responseSchema: assetDtoSchema,
+    annotations: {},
+  },
+  {
+    toolName: "activity.list",
+    operationId: "listActivity",
+    requiredScope: "activity:read",
+    description: opDescription(
+      "List recent activity for the current site.",
+      "activity:read",
+      readErrors,
+    ),
+    requestSchema: listActivityRequestSchema,
+    responseSchema: z.array(activityDtoSchema),
+    annotations: { readOnly: true },
+  },
+] as const satisfies readonly OperationDefinition[];
+
+export type McpToolName = (typeof operations)[number]["toolName"];
+
+export const operationsByToolName = operations.reduce(
+  (acc, op) => {
+    acc[op.toolName] = op;
+    return acc;
+  },
+  {} as Record<McpToolName, (typeof operations)[number]>,
+);
+
+export const mcpToolNames = operations.map((op) => op.toolName) as McpToolName[];
