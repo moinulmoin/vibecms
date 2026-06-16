@@ -68,3 +68,13 @@ No OAuth, no published SDK, no custom npm MCP package, no separate API worker, n
 
 - Per phase: build the touched package/app green + the phase's behavioral smoke.
 - Final (deployed dev): authed REST CRUD across the 10 ops with tenant-isolation + scope checks; `openapi.json` served and valid 3.1; Scalar docs load; `/mcp` still 10 tools (no drift); `@vibecms/cli` create+publish against dev; CI spec-diff gate green.
+
+## Outcome
+
+All six phases completed and verified (2026-06-16). The public API is live on `dev.vibecms.dev`: REST `/api/v1` (9 operations across 7 paths), OpenAPI 3.1 at `/api/v1/openapi.json` with per-route error responses, Scalar docs at `/api/v1/docs`, and a CI drift gate (`openapi:check`). All 10 MCP tools gained `outputSchema` + `structuredContent` + behavior annotations with no behavior regression. `@vc/api-contract` plus the shared operation layer (`apps/web-next/src/server/operations.ts`) are the single dispatch both REST and `/mcp` route through, so they cannot drift; bearer auth, scopes, quotas, and tenant isolation are reused unchanged.
+
+Verified: deployed unauthed checks (openapi 200/3.1, docs 200, endpoints 401, MCP 10 tools with outputSchema), and the authed REST happy path against local D1 (identical handler/op code, token minted directly into D1) - create 201, get 200, patch 200 (path-param + body merge), publish 200 (402 when the free-publish cap is hit), archive 200, activity 200, 404/401 envelopes - plus `@vibecms/cli` running live (site + create).
+
+`@vibecms/cli` shipped zero-dependency (`node:util` parseArgs + global fetch; chosen partly because the npm registry was unreachable mid-build, but a sound design): `--json`/`--ndjson`, `--dry-run`, stable exit codes, `VIBECMS_*` env, and a `schema` introspection command. The changesets release pipeline is set up but dormant until an `NPM_TOKEN` secret is added.
+
+All work landed on `dev` (pushed) and deployed to `dev.vibecms.dev`. The npm publish and the `main`/prod cutover remain the operator's call. Deferred as planned: no published SDK (the OpenAPI spec is the contract), no custom npm MCP package (in-worker HTTP `/mcp` + `mcp-remote` cover stdio clients).
