@@ -47,8 +47,7 @@
     "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json",
     "deploy:dev": "pnpm --filter @vc/web-next exec wrangler d1 migrations apply DB --remote && pnpm --filter @vc/web-next build && pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json",
     "deploy:prod": "pnpm --filter @vc/web-next exec wrangler d1 migrations apply DB --remote && pnpm --filter @vc/web-next build && pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json",
-    "public:audit": "bash scripts/public-release-audit.sh",
-    "test:smoke": "bash scripts/smoke-local.sh"
+    "public:audit": "bash scripts/public-release-audit.sh"
   },
   "devDependencies": {
     "lefthook": "^2.1.9"

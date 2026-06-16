@@ -1,6 +1,7 @@
 # VibeCMS
 
-![VibeCMS social preview](apps/web/public/brand/github-social.png)
+<!-- TODO: add apps/web-next/public/brand/github-social.png (missing after TanStack migration) -->
+![VibeCMS social preview](apps/web-next/public/brand/github-social.png)
 
 CMS for humans and AI agents.
 
@@ -83,7 +84,7 @@ pnpm db:seed:local
 pnpm dev
 ```
 
-Database migration SQL lives in `packages/db/drizzle/0001_initial.sql` and is wired to the web worker's D1 binding.
+Database migration SQL lives in `packages/db/drizzle/0001_initial.sql` and is wired to the TanStack worker's D1 binding.
 
 See `MILESTONES.md` for the milestone-by-milestone build plan and acceptance checks.
 
@@ -99,7 +100,7 @@ In self-host mode, Polar is optional, billing gates are disabled, and hosted wor
 
 The repo is intentionally set up as **one repository** for both VibeCMS Cloud development and self-hosted deploys:
 
-- `apps/web/wrangler.jsonc` is the private/dev hosted Worker config.
+- `apps/web-next/wrangler.jsonc` is the private/dev hosted Worker config.
 - `wrangler.jsonc` at the repo root is the public self-host Deploy-to-Cloudflare config.
 - `pnpm deploy` uses the root self-host config, applies D1 migrations by binding name (`DB`), and deploys the built Worker.
 
@@ -142,20 +143,20 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 
 ## Launch notes
 
-- Configure Cloudflare D1/R2 IDs in `apps/web/wrangler.jsonc` before production deploy.
+- Configure Cloudflare D1/R2 IDs in `apps/web-next/wrangler.jsonc` before production deploy.
 - Set secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
 - Set `POLAR_PRODUCT_ID`, `POLAR_SERVER`, `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` for the deployed environment.
-- Apply D1 migrations before deploy: `pnpm --filter @vc/web exec wrangler d1 migrations apply vibecms_dev --remote`.
+- Apply D1 migrations before deploy: `pnpm db:migrate:dev`.
 - Custom domains are intentionally deferred from the MVP; the schema supports domain rows, but hostname provisioning/status checks should ship as a dedicated follow-up.
 
 For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET` plus `TOKEN_PEPPER` are required as secrets; Polar access token/product/webhook secrets are hosted-SaaS only.
 
 ## Dev deployment
 
-Current Cloudflare dev resources are wired in `apps/web/wrangler.jsonc`:
+Current Cloudflare dev resources are wired in `apps/web-next/wrangler.jsonc`:
 
 - Worker: `vibecms`
-- URL: `https://vibecms.moinulislammoin2019.workers.dev`
+- URL: `https://dev.vibecms.dev`
 - D1 database: `vibecms_dev`
 - R2 bucket: `vibecms-assets`
 
@@ -167,19 +168,18 @@ pnpm typecheck
 pnpm lint
 pnpm db:seed:dev
 pnpm deploy:dev
-BASE_URL=https://vibecms.moinulislammoin2019.workers.dev pnpm test:smoke
 ```
 
-`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the RedwoodSDK worker, and deploys it. `pnpm release:dev` is also available when you want RedwoodSDK's interactive `rw-scripts ensure-deploy-env` release flow.
+`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the TanStack Start worker, and deploys it (`dist/server/wrangler.json`).
 
 For Polar billing, create a sandbox product in Polar and update:
 
 ```sh
-# In apps/web/wrangler.jsonc, replace product_dev_placeholder:
+# In apps/web-next/wrangler.jsonc, replace product_dev_placeholder:
 # "POLAR_PRODUCT_ID": "<your Polar sandbox product id>"
 
-pnpm --filter @vc/web exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/web exec wrangler secret put POLAR_WEBHOOK_SECRET
+pnpm --filter @vc/web-next exec wrangler secret put POLAR_ACCESS_TOKEN
+pnpm --filter @vc/web-next exec wrangler secret put POLAR_WEBHOOK_SECRET
 pnpm deploy:dev
 ```
 
@@ -202,7 +202,7 @@ You do not need product, order, refund, file, meter, webhook, or subscription wr
 In Polar, set the webhook endpoint to:
 
 ```text
-https://vibecms.moinulislammoin2019.workers.dev/polar/webhook
+https://dev.vibecms.dev/polar/webhook
 ```
 
 Subscribe to these webhook events:
@@ -212,3 +212,4 @@ Subscribe to these webhook events:
 - Optional but useful for analytics later: `order.paid`.
 
 The app currently updates billing state from `subscription.*` payloads and from successful `checkout.updated` payloads. Keep the webhook delivery format as raw JSON and copy the endpoint signing secret into `POLAR_WEBHOOK_SECRET`.
+

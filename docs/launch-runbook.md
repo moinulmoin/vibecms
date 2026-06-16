@@ -1,16 +1,16 @@
 # VibeCMS Cloud - production launch runbook
 
-Promotes the hosted worker (`apps/web/wrangler.jsonc`, worker name `vibecms`) from
+Promotes the hosted worker (`apps/web-next/wrangler.jsonc`, worker name `vibecms`) from
 the current dev/sandbox state to production. Self-hosting has its own path in
 [`self-hosting.md`](./self-hosting.md) and is unaffected.
 
 Each step is copy-paste. Replace every `<...>` placeholder. All `wrangler` commands
-run from the repo root and target the worker in `apps/web/wrangler.jsonc` via the
-`@vc/web` filter. Secrets are stored by Cloudflare (`wrangler secret put`); vars live
-in `apps/web/wrangler.jsonc`.
+run from the repo root and target the worker in `apps/web-next/wrangler.jsonc` via the
+`@vc/web-next` filter. Secrets are stored by Cloudflare (`wrangler secret put`); vars live
+in `apps/web-next/wrangler.jsonc`.
 
 > Heads up: `pnpm deploy:prod` is the production deploy used here (it applies D1
-> migrations to the remote DB bound as `DB`, builds, and runs `wrangler deploy`). It is
+> migrations to the remote DB bound as `DB`, builds, and runs `wrangler deploy --config dist/server/wrangler.json`). It is
 > deliberately self-contained, not an alias of `deploy:dev`, because after this first
 > release `deploy:dev` becomes the dev-branch deploy - keeping them independent avoids
 > a prod deploy silently shipping to dev later.
@@ -19,7 +19,7 @@ in `apps/web/wrangler.jsonc`.
 
 - `wrangler login` done, on the Cloudflare account that will own production.
 - A domain already added to that Cloudflare account (zone active).
-- A [Resend](https://resend.com) account (for OTP email).
+- A [Plunk](https://www.useplunk.com/) account (for OTP email).
 - A **production** [Polar](https://polar.sh) organization - production and sandbox are
   fully isolated (separate org, token, products, webhook secret), so the sandbox org
   used for testing cannot be reused.
@@ -37,11 +37,11 @@ Clean data, isolated from anything you tested with.
 
 ```bash
 # create prod D1 + R2
-pnpm --filter @vc/web exec wrangler d1 create vibecms-prod
-pnpm --filter @vc/web exec wrangler r2 bucket create vibecms-assets-prod
+pnpm --filter @vc/web-next exec wrangler d1 create vibecms-prod
+pnpm --filter @vc/web-next exec wrangler r2 bucket create vibecms-assets-prod
 ```
 
-Then edit `apps/web/wrangler.jsonc`:
+Then edit `apps/web-next/wrangler.jsonc`:
 
 - `d1_databases[0].database_name` -> `vibecms-prod`
 - `d1_databases[0].database_id` -> the id printed by `d1 create`
@@ -54,7 +54,7 @@ Keep the bindings named `DB` and `ASSETS_BUCKET` (the code depends on them).
 Faster, but production keeps the `vibecms_dev` DB name and you must clear test rows:
 
 ```bash
-pnpm --filter @vc/web exec wrangler d1 execute DB --remote --command \
+pnpm --filter @vc/web-next exec wrangler d1 execute DB --remote --command \
   "DELETE FROM activity_events; DELETE FROM post_versions; DELETE FROM posts; DELETE FROM assets; DELETE FROM api_keys; DELETE FROM usage_counters; DELETE FROM rate_limits; DELETE FROM domains; DELETE FROM billing_customers; DELETE FROM memberships; DELETE FROM sites; DELETE FROM workspaces; DELETE FROM session; DELETE FROM account; DELETE FROM verification; DELETE FROM \"user\";"
 ```
 
@@ -69,8 +69,8 @@ Never reuse the dev `BETTER_AUTH_SECRET` / `TOKEN_PEPPER`.
 openssl rand -hex 32   # -> BETTER_AUTH_SECRET
 openssl rand -hex 32   # -> TOKEN_PEPPER
 
-pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET
-pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
+pnpm --filter @vc/web-next exec wrangler secret put BETTER_AUTH_SECRET
+pnpm --filter @vc/web-next exec wrangler secret put TOKEN_PEPPER
 ```
 
 > Rotating `TOKEN_PEPPER` invalidates every previously issued agent API token. That is
@@ -78,28 +78,26 @@ pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
 
 ---
 
-## 2. Email delivery (Resend) - required for real OTP
+## 2. Email delivery (Plunk) - required for real OTP
 
-Without `RESEND_API_KEY` the worker only logs codes to `wrangler tail`; real users get
+Without `PLUNK_API_KEY` the worker only logs codes to `wrangler tail`; real users get
 nothing. Sign-in is impossible without this in production.
 
-1. In Resend, **verify your sending domain** (Domains -> Add domain -> add the DNS records).
-   The shared `onboarding@resend.dev` sender only delivers to your own Resend account
-   address, so it is not usable for real users.
-2. Create an API key (Resend -> API Keys).
-3. Set them:
+1. In Plunk, **verify your sending domain** (add the DNS records Plunk requires).
+2. Create an API key (Plunk dashboard).
+3. Set the secret and a verified sender var:
 
 ```bash
-pnpm --filter @vc/web exec wrangler secret put RESEND_API_KEY
+pnpm --filter @vc/web-next exec wrangler secret put PLUNK_API_KEY
 ```
 
-Add to `apps/web/wrangler.jsonc` `vars` (not sensitive):
+Add to `apps/web-next/wrangler.jsonc` `vars` (not sensitive):
 
 ```jsonc
 "EMAIL_FROM": "VibeCMS <login@<your-domain>>"
 ```
 
-The `EMAIL_FROM` address must be on the domain you verified in Resend.
+The `EMAIL_FROM` address must be on the domain you verified in Plunk. OTP sends use `https://next-api.useplunk.com/v1/send`.
 
 ---
 
@@ -119,11 +117,11 @@ In your **production** Polar organization (`https://polar.sh/dashboard/<org_slug
 Set the secrets:
 
 ```bash
-pnpm --filter @vc/web exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/web exec wrangler secret put POLAR_WEBHOOK_SECRET
+pnpm --filter @vc/web-next exec wrangler secret put POLAR_ACCESS_TOKEN
+pnpm --filter @vc/web-next exec wrangler secret put POLAR_WEBHOOK_SECRET
 ```
 
-Update `apps/web/wrangler.jsonc` `vars`:
+Update `apps/web-next/wrangler.jsonc` `vars`:
 
 ```jsonc
 "POLAR_SERVER": "production",
@@ -150,8 +148,8 @@ Skip to leave email-only sign-in (the button hides itself when unset).
 3. Set both (the button only appears when both exist):
 
 ```bash
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET
+pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_ID
+pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
 ---
@@ -161,7 +159,7 @@ pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET
 Simplest topology (recommended): app and public blogs share one hostname, blogs served
 at `/blog/<slug>`. This avoids wildcard DNS.
 
-1. Add the custom domain to the worker. In `apps/web/wrangler.jsonc`:
+1. Add the custom domain to the worker. In `apps/web-next/wrangler.jsonc`:
 
 ```jsonc
 "routes": [
@@ -173,7 +171,7 @@ at `/blog/<slug>`. This avoids wildcard DNS.
    (Or add it via the dashboard: Workers & Pages -> `vibecms` -> Settings -> Domains & Routes
    -> Add Custom Domain. Cloudflare creates the proxied DNS record automatically.)
 
-2. Point the three URL vars in `apps/web/wrangler.jsonc` `vars` at it:
+2. Point the three URL vars in `apps/web-next/wrangler.jsonc` `vars` at it:
 
 ```jsonc
 "APP_URL": "https://<your-domain>",
@@ -184,16 +182,15 @@ at `/blog/<slug>`. This avoids wildcard DNS.
    With `PUBLIC_BLOG_DOMAIN` equal to the app host, blogs render at
    `https://<your-domain>/blog/<site-slug>`.
 
-> Per-blog subdomains (`<slug>.blog.<your-domain>`) are possible but advanced: set
-> `PUBLIC_BLOG_DOMAIN` to the blog base, add a **route** (not a `custom_domain`) for
-> `*.blog.<your-domain>`, and a proxied wildcard DNS record. Start with the path-based
-> layout unless you specifically need subdomains.
+> Per-blog subdomains (`<slug>.blog.<your-domain>`) and host-based public blogs on
+> `*.vibecms.dev` are deferred follow-ups. Start with the path-based layout unless you
+> specifically need subdomains.
 
 ---
 
 ## 6. Flip to production
 
-In `apps/web/wrangler.jsonc` `vars`:
+In `apps/web-next/wrangler.jsonc` `vars`:
 
 ```jsonc
 "APP_ENV": "production"
@@ -243,7 +240,7 @@ Run the same checks the dev dogfood covered, now against `https://<your-domain>`
 
 ## Rollback
 
-- Vars/domain: revert the `apps/web/wrangler.jsonc` changes and `pnpm deploy:prod`.
+- Vars/domain: revert the `apps/web-next/wrangler.jsonc` changes and `pnpm deploy:prod`.
 - Secrets: re-`put` the previous value, or `wrangler secret delete <NAME>`.
 - D1 migrations are additive; there is no auto-downgrade. Restore from a D1 export
   (`wrangler d1 export`) taken before launch if needed.

@@ -14,7 +14,7 @@ pnpm build
 For self-host development, copy the example env file and generate local secrets:
 
 ```sh
-cp apps/web/dev.vars.example apps/web/.dev.vars
+cp apps/web-next/dev.vars.example apps/web-next/.dev.vars
 openssl rand -hex 32
 ```
 

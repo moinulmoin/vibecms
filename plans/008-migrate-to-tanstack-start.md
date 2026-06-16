@@ -51,3 +51,9 @@ rwsdk 1.2.9 is SSR/RSC-only (source-verified): no prerender, SSG, ISR, or SPA mo
 
 - Per phase: build the touched app green (`vite build && tsc --noEmit`) + the phase's behavioral smoke above.
 - Final: deployed-dev smoke (human flow + 10 MCP tools + REST), confirm zero 1102 on Workers Free, light + dark UI, then cutover.
+
+## Outcome
+
+All eight phases completed. `dev.vibecms.dev` was cut over to TanStack Start on the `vibecms` worker. Live verification on that deployment included: real Plunk email OTP sign-in, authed owner export, public blog SSR (HTML and markdown), MCP with 10 tools, and dashboard use on Workers Free with no Error 1102. The legacy RedwoodSDK app at `apps/web` was deleted. Root tooling targets `@vc/web-next` only. `tokenHash` (HMAC-SHA256 + base64url with `TOKEN_PEPPER`) was preserved so existing API tokens remain valid.
+
+**Deferred:** host-based public-blog subdomains (`/:slug` on `*.vibecms.dev` plus wildcard DNS), the subdomain half of plan 007. Path mode (`/blog/<siteSlug>/<postSlug>`) works today on dev.
