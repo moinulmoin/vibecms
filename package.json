@@ -49,9 +49,13 @@
     "deploy:prod": "pnpm --filter @vc/web-next exec wrangler d1 migrations apply DB --remote && pnpm --filter @vc/web-next build && pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json",
     "public:audit": "bash scripts/public-release-audit.sh",
     "openapi:gen": "tsx scripts/gen-openapi.ts",
-    "openapi:check": "pnpm openapi:gen && git diff --exit-code apps/web-next/openapi.json"
+    "openapi:check": "pnpm openapi:gen && git diff --exit-code apps/web-next/openapi.json",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@types/node": "~25.6.0",
     "lefthook": "^2.1.9",
     "tsx": "^4.21.0"
