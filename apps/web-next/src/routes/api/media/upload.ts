@@ -1,11 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { resolveAppRouterContext } from '~/server/resolve-app-router-context.server'
 import { uploadAssetForApp } from '~/server/media'
+import { rejectCrossOriginBrowserPost } from '~/server/csrf'
 
 export const Route = createFileRoute('/api/media/upload')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const csrf = rejectCrossOriginBrowserPost(request)
+        if (csrf) return csrf
         const ctx = await resolveAppRouterContext()
         if (!ctx.app) return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 })
         const form = await request.formData()
