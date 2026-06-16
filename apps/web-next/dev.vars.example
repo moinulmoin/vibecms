@@ -1,6 +1,9 @@
 # Copy to .dev.vars for local vite dev (secrets are not in wrangler.jsonc vars).
 TOKEN_PEPPER=generate_with_openssl_rand_hex_32
 BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
+# Email OTP delivery via Plunk (omit both to log codes to the console in dev):
+# PLUNK_API_KEY=
+# EMAIL_FROM=VibeCMS <noreply@yourdomain.com>   # sender on a Plunk-verified domain
 # Polar sandbox (hosted mode billing):
 # POLAR_ACCESS_TOKEN=
 # POLAR_WEBHOOK_SECRET=
