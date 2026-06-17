@@ -81,6 +81,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const indexHref = publicIndexHref(basePath);
+  const ogImage = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : "/brand/og.png";
 
   return (
     <main className={styles.publicPage}>
@@ -90,6 +91,9 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
       <meta property="og:title" content={seoTitle} />
       {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
       <meta property="og:type" content="article" />
+      <meta property="og:image" content={ogImage} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:image" content={ogImage} />
       <link rel="canonical" href={canonicalUrl} />
       <header className={styles.publicHeader}>
         <a href={indexHref} className={styles.publicBrand}>

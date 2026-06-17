@@ -12,3 +12,5 @@ dist/
 apps/*/dist/
 *.log
 dogfood-output/
+.agents/
+.DS_Store
