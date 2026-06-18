@@ -92,34 +92,35 @@
   color-scheme: light;
   --radius: 0.9375rem;
 
-  --background: oklch(0.985 0.004 152);
-  --foreground: oklch(0.17 0.012 152);
+  /* monochrome neutrals (zero chroma) + green accent */
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.18 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.012 152);
+  --card-foreground: oklch(0.18 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.012 152);
+  --popover-foreground: oklch(0.18 0 0);
   --primary: oklch(0.32 0.095 152);
-  --primary-foreground: oklch(0.985 0.004 152);
-  --secondary: oklch(0.94 0.01 152);
-  --secondary-foreground: oklch(0.24 0.018 152);
-  --muted: oklch(0.95 0.006 152);
-  --muted-foreground: oklch(0.42 0.018 152);
-  --accent: oklch(0.91 0.04 152);
-  --accent-foreground: oklch(0.24 0.065 152);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.24 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.46 0 0);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0.24 0 0);
   --destructive: oklch(0.54 0.2 25);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.66 0.012 152);
-  --input: oklch(0.64 0.014 152);
-  --ring: oklch(0.54 0.11 152);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.88 0 0);
+  --ring: oklch(0.62 0.13 152);
 
   --brand-bright: oklch(0.7423 0.1585 154.53);
   --brand-bright-foreground: oklch(0.1823 0.0294 157.92);
   --surface-glass: oklch(1 0 0 / 0.012);
   --surface-glass-strong: oklch(1 0 0 / 0.04);
-  --surface-panel-from: oklch(0.97 0.006 152);
-  --surface-panel-to: oklch(0.94 0.008 152);
+  --surface-panel-from: oklch(0.975 0 0);
+  --surface-panel-to: oklch(0.95 0 0);
   --glow-primary: oklch(0.7423 0.1585 154.53 / 0.12);
-  --hairline: oklch(0 0 0 / 0.1);
+  --hairline: oklch(0 0 0 / 0.08);
   --dot-grid-fill: oklch(0 0 0 / 0.04);
 
   --duration-fast: 120ms;
@@ -128,11 +129,11 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
-  --sidebar: oklch(0.975 0.005 152);
+  --sidebar: oklch(0.975 0 0);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--brand-bright);
   --sidebar-primary-foreground: var(--brand-bright-foreground);
-  --sidebar-accent: oklch(0.93 0.022 152);
+  --sidebar-accent: oklch(0.94 0 0);
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--hairline);
   --sidebar-ring: var(--ring);

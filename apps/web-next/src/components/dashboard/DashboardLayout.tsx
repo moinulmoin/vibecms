@@ -213,7 +213,12 @@ export function AppShell({
                   const active = current === to || (to !== '/app' && current.startsWith(to))
                   return (
                     <SidebarMenuItem key={to}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={label}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={label}
+                        className="[&[data-active=true]_svg]:text-brand-bright"
+                      >
                         <Link to={to}>
                           <Icon aria-hidden="true" />
                           <span>{label}</span>
