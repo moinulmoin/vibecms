@@ -1,17 +1,38 @@
 'use client'
 
-import { Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@vc/ui'
+import { Badge } from '@vc/ui'
 import { useEffect, useState } from 'react'
 import {
+  DataRow,
   EmptyState,
   PageHeader,
   Panel,
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { loadActivityPage } from '~/server/dashboard-pages-fn'
 
 type ActivityEvent = { action: string; summary: string; actor_name: string; created_at: number }
+
+function ActivitySkeleton() {
+  return (
+    <>
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+      <Panel title="Recent events">
+        <div className="grid gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
+      </Panel>
+    </>
+  )
+}
 
 export function ActivityPage() {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
@@ -32,7 +53,7 @@ export function ActivityPage() {
   }, [])
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
-  if (!events) return <p className="font-mono text-sm text-muted-foreground">Loading activity…</p>
+  if (!events) return <ActivitySkeleton />
 
   return (
     <>
@@ -41,62 +62,34 @@ export function ActivityPage() {
         title="Activity"
         description="Every meaningful action - yours, an API token's, or an agent's - is logged here for trust and debugging."
       />
-      <Panel title="Recent Events" meta={`${events.length} shown`}>
+      <Panel title="Recent events" meta={<Badge variant="outline">{events.length} shown</Badge>}>
         {events.length ? (
-          <>
-            <div className="relative grid gap-0 md:hidden">
-              <div aria-hidden className="pointer-events-none absolute bottom-3 left-[11px] top-3 w-px bg-[color:var(--hairline)]" />
-              {events.map((event) => (
-                <article
-                  className="relative grid grid-cols-[auto_1fr] gap-3 py-3 first:pt-0 last:pb-0"
-                  key={`${event.action}-${event.created_at}-${event.summary}`}
-                >
-                  <div
-                    aria-hidden
-                    className="relative z-[1] mt-1.5 size-[9px] shrink-0 rounded-full bg-brand-bright ring-2 ring-background"
-                  />
-                  <div className="min-w-0 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
-                    <p className="font-sans text-sm font-medium leading-6 text-foreground">{event.summary}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.06em]">
-                        {labelAction(event.action)}
-                      </Badge>
-                      <span className="font-mono text-xs text-brand-bright">{event.actor_name}</span>
-                    </div>
-                    <time className="mt-2 block font-mono text-[11px] text-muted-foreground">
-                      {formatDateTime(event.created_at)}
-                    </time>
+          <div className="grid gap-2">
+            {events.map((event) => (
+              <DataRow
+                className="md:grid-cols-[1fr_auto] md:items-start"
+                key={`${event.action}-${event.created_at}-${event.summary}`}
+              >
+                <div className="min-w-0 space-y-1.5">
+                  <p className="text-pretty font-sans text-sm font-medium leading-6 text-foreground">
+                    {event.summary}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+                      {labelAction(event.action)}
+                    </span>
+                    <span aria-hidden className="text-muted-foreground/40">
+                      ·
+                    </span>
+                    <span className="truncate font-mono text-xs text-muted-foreground">{event.actor_name}</span>
                   </div>
-                </article>
-              ))}
-            </div>
-            <Table className="hidden md:table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em]">Event</TableHead>
-                  <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em]">Action</TableHead>
-                  <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em]">Actor</TableHead>
-                  <TableHead className="font-mono text-[11px] uppercase tracking-[0.1em]">Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow key={`${event.action}-${event.created_at}-${event.summary}`}>
-                    <TableCell className="font-sans text-sm font-medium text-foreground">{event.summary}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.06em]">
-                        {labelAction(event.action)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-brand-bright">{event.actor_name}</TableCell>
-                    <TableCell className="font-mono text-[11px] text-muted-foreground">
-                      {formatDateTime(event.created_at)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </>
+                </div>
+                <time className="font-mono text-[11px] tabular-nums text-muted-foreground md:text-right">
+                  {formatDateTime(event.created_at)}
+                </time>
+              </DataRow>
+            ))}
+          </div>
         ) : (
           <EmptyState
             title="No activity yet"

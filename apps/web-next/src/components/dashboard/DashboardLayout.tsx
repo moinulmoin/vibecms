@@ -1,13 +1,45 @@
 import { BRAND } from '@vc/config'
 import type { FormStatus } from '@vc/config'
-import { ActivityLogIcon, DashboardIcon, FileTextIcon, GearIcon, ImageIcon } from '@radix-ui/react-icons'
+import {
+  ActivityLogIcon,
+  CaretSortIcon,
+  DashboardIcon,
+  ExitIcon,
+  FileTextIcon,
+  GearIcon,
+  ImageIcon,
+} from '@radix-ui/react-icons'
 import { Alert, Button, cn } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
-import { DotGrid, Glow } from '~/components/dashboard/DashboardPrimitives'
-import { LogoutButton } from '~/components/dashboard/LogoutButton'
-
-type MaxWidth = 'md' | 'lg' | 'xl' | 'dashboard'
+import { useTransition, type ReactNode } from 'react'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from '~/components/ui/sidebar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '~/components/ui/avatar'
+import { Card } from '~/components/ui/card'
+import { Separator } from '~/components/ui/separator'
+import { TooltipProvider } from '~/components/ui/tooltip'
+import { setupAuthClient } from '~/lib/auth-client'
 
 type NavItem = { label: string; to: string; Icon: typeof DashboardIcon }
 
@@ -18,13 +50,6 @@ const navItems: NavItem[] = [
   { label: 'Activity', to: '/app/activity', Icon: ActivityLogIcon },
   { label: 'Settings', to: '/app/settings', Icon: GearIcon },
 ]
-
-const maxWidths: Record<MaxWidth, string> = {
-  md: 'max-w-2xl',
-  lg: 'max-w-4xl',
-  xl: 'max-w-6xl',
-  dashboard: 'max-w-7xl',
-}
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en', {
@@ -62,88 +87,82 @@ export function StatusAlert({ status }: { status: FormStatus | null }) {
   )
 }
 
-function AppFrame({ children, maxWidth = 'dashboard' }: { children: ReactNode; maxWidth?: MaxWidth }) {
-  return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-background text-foreground">
-      <DotGrid className="fixed inset-0 z-0" />
-      <Glow className="fixed z-0 opacity-70" />
-      <a
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:ring-2 focus:ring-ring"
-        href="#main"
-      >
-        Skip to main content
-      </a>
-      <main
-        id="main"
-        tabIndex={-1}
-        className="relative z-10 min-h-dvh scroll-mt-4 focus:outline-none"
-      >
-        <div
-          className={cn(
-            'mx-auto w-full px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8',
-            maxWidths[maxWidth],
-          )}
-        >
-          {children}
-        </div>
-      </main>
-    </div>
-  )
+function pageTitle(current: string) {
+  const match = [...navItems]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((item) => current === item.to || (item.to !== '/app' && current.startsWith(item.to)))
+  return match?.label ?? 'Overview'
 }
 
-function BrandLockup({ siteName, compact = false }: { siteName?: string; compact?: boolean }) {
-  return (
-    <Link
-      to="/app"
-      className={cn(
-        'flex items-center gap-3 rounded-xl p-3 text-foreground no-underline ring-1 ring-[color:var(--hairline)] transition-colors [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] hover:ring-primary/30',
-        compact && 'p-2.5',
-      )}
-    >
-      <img
-        src="/brand/icon.svg"
-        alt=""
-        className="size-9 rounded-lg shadow-sm"
-        aria-hidden="true"
-      />
-      <span className="min-w-0">
-        <span className="block truncate font-display text-sm font-semibold tracking-[-0.01em]">
-          {siteName ?? BRAND.name}
-        </span>
-        <span className="block truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
-          vibecms<span className="text-brand-bright">.</span>
-        </span>
-      </span>
-    </Link>
-  )
-}
+function UserMenu({ userEmail, authUrl }: { userEmail?: string; authUrl: string }) {
+  const [isPending, startTransition] = useTransition()
+  const initials = (userEmail?.[0] ?? 'U').toUpperCase()
 
-function NavLinks({ current }: { current: string }) {
+  const signOut = () => {
+    const authClient = setupAuthClient(authUrl)
+    startTransition(() => {
+      void authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            window.location.href = '/login'
+          },
+        },
+      })
+    })
+  }
+
   return (
-    <nav className="grid gap-1" aria-label="Dashboard navigation">
-      {navItems.map(({ label, to, Icon }) => {
-        const active = current === to || (to !== '/app' && current.startsWith(to))
-        return (
-          <Link
-            key={to}
-            to={to}
-            aria-current={active ? 'page' : undefined}
-            data-active={active}
-            className="group flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium text-muted-foreground no-underline transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground data-[active=true]:border-border data-[active=true]:text-foreground data-[active=true]:[background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] data-[active=true]:ring-1 data-[active=true]:ring-[color:var(--hairline)]"
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar className="size-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-primary font-mono text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  Signed in
+                </span>
+                <span className="truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
+              </div>
+              <CaretSortIcon className="ml-auto size-4 text-muted-foreground" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
           >
-            <span className="grid size-7 place-items-center rounded-md bg-muted text-muted-foreground group-data-[active=true]:bg-brand-bright group-data-[active=true]:text-brand-bright-foreground">
-              <Icon className="size-4" aria-hidden="true" />
-            </span>
-            <span>{label}</span>
-          </Link>
-        )
-      })}
-    </nav>
+            <DropdownMenuLabel className="font-normal">
+              <span className="block truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
+              <span className="block truncate font-mono text-xs text-muted-foreground">
+                vibecms<span className="text-brand-bright">.</span>
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={isPending}
+              onSelect={(event) => {
+                event.preventDefault()
+                signOut()
+              }}
+            >
+              <ExitIcon />
+              {isPending ? 'Signing out…' : 'Sign out'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
-}
-
-function SeparatorLine() {
-  return <div className="my-4 h-px bg-[color:var(--hairline)]" />
 }
 
 export function AppShell({
@@ -163,54 +182,66 @@ export function AppShell({
   const current = currentProp ?? pathname
 
   return (
-    <AppFrame maxWidth="dashboard">
-      <div className="grid gap-4 md:grid-cols-[15.5rem_minmax(0,1fr)] md:gap-6">
-        <aside className="md:sticky md:top-4 md:h-[calc(100dvh-2rem)]">
-          <div className="hidden h-full flex-col rounded-2xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] md:flex">
-            <BrandLockup siteName={siteName} />
-            <SeparatorLine />
-            <div className="px-3 pb-2 font-mono text-[0.68rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Workspace
-            </div>
-            <NavLinks current={current} />
-            <div className="mt-auto rounded-xl p-3 ring-1 ring-[color:var(--hairline)] bg-background/80">
-              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Markdown-first
-              </p>
-              <p className="mt-2 text-sm leading-5 text-foreground">
-                Posts, media, versions, and scoped agent access stay in one calm workspace.
-              </p>
-            </div>
-            <div className="mt-3 flex flex-col gap-2 px-1">
-              {userEmail ? (
-                <p className="truncate font-mono text-[11px] leading-5 text-muted-foreground">{userEmail}</p>
-              ) : null}
-              <LogoutButton authUrl={authUrl} />
-            </div>
-          </div>
-          <details className="rounded-2xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] md:hidden">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-              <BrandLockup siteName={siteName} compact />
-              <span className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground">
-                Menu
-              </span>
-            </summary>
-            <div className="mt-3 border-t border-border pt-3">
-              <NavLinks current={current} />
-              {userEmail ? (
-                <p className="mt-3 truncate px-3 font-mono text-[11px] leading-5 text-muted-foreground">{userEmail}</p>
-              ) : null}
-              <div className="mt-2 px-3">
-                <LogoutButton authUrl={authUrl} />
-              </div>
-            </div>
-          </details>
-        </aside>
-        <section className="min-w-0">
-          <div className="grid gap-4">{children}</div>
-        </section>
-      </div>
-    </AppFrame>
+    <TooltipProvider delayDuration={0}>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild size="lg">
+                  <Link to="/app">
+                    <img src="/brand/icon.svg" alt="" className="size-8 shrink-0 rounded-lg" aria-hidden="true" />
+                    <div className="grid flex-1 text-left leading-tight">
+                      <span className="truncate text-sm font-semibold tracking-[-0.01em]">
+                        {siteName ?? BRAND.name}
+                      </span>
+                      <span className="truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
+                        vibecms<span className="text-brand-bright">.</span>
+                      </span>
+                    </div>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+              <SidebarMenu>
+                {navItems.map(({ label, to, Icon }) => {
+                  const active = current === to || (to !== '/app' && current.startsWith(to))
+                  return (
+                    <SidebarMenuItem key={to}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={label}>
+                        <Link to={to}>
+                          <Icon aria-hidden="true" />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter>
+            <UserMenu userEmail={userEmail} authUrl={authUrl} />
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
+
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+            <h1 className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</h1>
+          </header>
+          <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   )
 }
 
@@ -229,8 +260,10 @@ export function PageHeader({
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-2">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-bright">{kicker}</p>
-        <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl">{title}</h1>
-        {description ? <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p> : null}
+        <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl">{title}</h2>
+        {description ? (
+          <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>
+        ) : null}
       </div>
       {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
     </header>
@@ -239,11 +272,11 @@ export function PageHeader({
 
 export function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
   return (
-    <div className="rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+    <Card className="gap-0 p-4">
       <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
       <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</p>
       {detail ? <p className="mt-1 font-sans text-xs text-muted-foreground">{detail}</p> : null}
-    </div>
+    </Card>
   )
 }
 
@@ -259,18 +292,13 @@ export function Panel({
   className?: string
 }) {
   return (
-    <section
-      className={cn(
-        'rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]',
-        className,
-      )}
-    >
+    <Card className={cn('gap-0 p-4', className)}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-base font-semibold text-foreground">{title}</h2>
         {meta}
       </div>
       {children}
-    </section>
+    </Card>
   )
 }
 
@@ -278,7 +306,7 @@ export function DataRow({ children, className }: { children: ReactNode; classNam
   return (
     <div
       className={cn(
-        'grid gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2.5 text-sm sm:items-center',
+        'grid gap-2 rounded-xl bg-muted/50 px-3 py-2.5 text-sm sm:items-center',
         className,
       )}
     >
@@ -297,7 +325,7 @@ export function EmptyState({
   action?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+    <div className="rounded-xl border border-dashed border-[color:var(--hairline)] px-4 py-8 text-center">
       <p className="font-display text-base font-semibold text-foreground">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}

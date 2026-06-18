@@ -1,7 +1,7 @@
 'use client'
 
 import type { Asset, Post } from '@vc/core'
-import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
+import { Field, FieldDescription, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
@@ -12,6 +12,7 @@ import {
   updatePostMutation,
 } from '~/server/posts-page-fn'
 import { Button, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from '~/components/dashboard/MarkdownEditor'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -45,6 +46,28 @@ export function NewPostEditorPage() {
 
 export function EditPostEditorPage({ postId }: { postId: string }) {
   return <PostEditorShell postId={postId} />
+}
+
+function EditorSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <Skeleton className="h-9 w-32" />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <Skeleton className="h-[34rem] rounded-2xl" />
+        <div className="grid gap-3">
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="h-32 rounded-2xl" />
+        </div>
+      </div>
+    </>
+  )
 }
 
 function PostEditorShell({ postId }: { postId?: string }) {
@@ -144,7 +167,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
 
   if (loading) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading editor…</p>
+    return <EditorSkeleton />
   }
 
   const statusKicker = post ? post.status : 'New post'
@@ -209,7 +232,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
             <Panel
               title="Publish Settings"
               meta={
-                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-brand-bright">
+                <span
+                  className={cn(
+                    'font-mono text-[10px] font-medium uppercase tracking-[0.14em]',
+                    post?.status === 'published' ? 'text-brand-bright' : 'text-muted-foreground',
+                  )}
+                >
                   {post?.status ?? 'draft'}
                 </span>
               }
@@ -261,18 +289,16 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   >
                     Cover Image
                   </FieldLabel>
-                  <div className="rounded-xl p-3 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
-                    <Select id="post-cover" name="coverAssetId" defaultValue={post?.coverAssetId ?? ''}>
-                      <option value="">No cover image</option>
-                      {assets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.filename}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
+                  <Select id="post-cover" name="coverAssetId" defaultValue={post?.coverAssetId ?? ''}>
+                    <option value="">No cover image</option>
+                    {assets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.filename}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
-                <p className="rounded-xl p-3 font-sans text-sm leading-6 text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+                <p className="rounded-xl bg-muted/50 p-3 font-sans text-sm leading-6 text-muted-foreground">
                   Every save creates a post version and activity event, whether the change comes from you, an API token, or
                   an agent.
                 </p>

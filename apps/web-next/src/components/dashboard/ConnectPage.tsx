@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@vc/ui'
+import { Button, Skeleton } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
@@ -54,7 +54,19 @@ export function ConnectPage() {
   }
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
-  if (!data) return <p className="font-mono text-sm text-muted-foreground">Loading…</p>
+  if (!data) {
+    return (
+      <>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-full max-w-2xl" />
+        </div>
+        <Skeleton className="h-32 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl" />
+      </>
+    )
+  }
 
   const justCreated = Boolean(flash?.token)
 
@@ -100,7 +112,7 @@ export function ConnectPage() {
         <Panel title={justCreated ? 'Connect and start' : '2. Connect your agent'}>
           <ConnectAgent mcpUrl={data.mcpUrl} token={flash?.token} tokenName={flash?.name} />
         </Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/50 p-4">
           <p className="font-sans text-sm leading-6 text-muted-foreground">
             You can revisit this and manage tokens anytime in Settings.
           </p>

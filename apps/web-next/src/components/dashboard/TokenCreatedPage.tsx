@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@vc/ui'
+import { Badge, Button, Skeleton } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
@@ -25,7 +25,16 @@ export function TokenCreatedPage() {
   }, [navigate])
 
   if (!flash || !mcpUrl) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading token…</p>
+    return (
+      <>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-full max-w-xl" />
+        </div>
+        <Skeleton className="h-80 rounded-2xl" />
+      </>
+    )
   }
 
   return (
@@ -40,8 +49,8 @@ export function TokenCreatedPage() {
           </Button>
         }
       />
-      <Panel title="Connect your agent" meta="One-time token">
-        <p className="mb-4 font-mono text-xs leading-5 text-muted-foreground">
+      <Panel title="Connect your agent" meta={<Badge variant="outline">One-time token</Badge>}>
+        <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
           Copy the token and client snippets below. Each block includes a copy action for your agent setup.
         </p>
         <ConnectAgent mcpUrl={mcpUrl} token={flash.token} tokenName={flash.name} />

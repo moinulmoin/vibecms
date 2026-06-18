@@ -5,23 +5,29 @@ import type { ReactNode } from 'react'
 
 export function OnboardingFrame({ children, phase = 'Setup' }: { children: ReactNode; phase?: string }) {
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <div className="mb-6 grid gap-3">
-        <Link to="/" className="w-fit text-sm font-semibold tracking-[-0.02em] text-foreground no-underline">
-          {BRAND.name}
-        </Link>
-        <Badge variant="outline" className="w-fit font-mono text-[10px] uppercase tracking-[0.08em]">
-          {phase}
-        </Badge>
-        <div>
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center px-4 py-10 sm:py-16">
+      <header className="mb-8 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
+          >
+            <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
+            {BRAND.name}
+          </Link>
+          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.1em]">
+            {phase}
+          </Badge>
+        </div>
+        <div className="space-y-3">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-brand-bright">
             {BRAND.tagline}
           </p>
-          <h1 className="mt-3 text-balance font-display text-3xl font-semibold tracking-[-0.05em] text-foreground">
+          <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">
             Set up a calm publishing system for you and your AI agents.
           </h1>
         </div>
-      </div>
+      </header>
       {children}
     </div>
   )

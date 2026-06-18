@@ -7,6 +7,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
@@ -53,7 +54,11 @@ export function BillingRequiredPage() {
   }
 
   if (!billingStatus) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading…</p>
+    return (
+      <OnboardingFrame phase="Billing">
+        <Skeleton className="h-[28rem] rounded-xl" />
+      </OnboardingFrame>
+    )
   }
 
   return (
@@ -64,7 +69,9 @@ export function BillingRequiredPage() {
           title={PRICING.monthlyLabel}
           meta={
             <span className="flex items-center gap-2">
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em]">{PRICING.planName}</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                {PRICING.planName}
+              </span>
               <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.08em]">
                 {billingStatus}
               </Badge>
@@ -74,20 +81,20 @@ export function BillingRequiredPage() {
           <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
             or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
           </p>
-          <ul className="grid gap-3 text-sm text-muted-foreground">
+          <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
             {ENTITLEMENTS.map((entitlement) => (
               <li key={entitlement} className="flex items-start gap-2.5">
                 <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
-                <span className="font-sans">{entitlement}</span>
+                <span className="font-sans text-foreground">{entitlement}</span>
               </li>
             ))}
             <li className="flex items-start gap-2.5">
               <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
-              <span className="font-sans">{MEDIA.paidStorageLabel} media storage</span>
+              <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
             </li>
           </ul>
           {isOwner ? (
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <PendingSubmitButton
                 type="button"
                 className="h-11 w-full rounded-xl"
@@ -109,21 +116,21 @@ export function BillingRequiredPage() {
               </PendingSubmitButton>
             </div>
           ) : (
-            <p className="mt-6 font-sans text-sm text-muted-foreground">Only workspace owners can subscribe.</p>
+            <p className="mt-5 font-sans text-sm text-muted-foreground">Only workspace owners can subscribe.</p>
           )}
-          <div className="mt-4">
-            <Link
-              to="/app/billing"
-              search={emptyDashboardStatusSearch}
-              className="font-mono text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-            >
-              Full billing & customer portal
-            </Link>
-          </div>
           <p className="mt-5 font-mono text-[11px] leading-5 text-muted-foreground">
             Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload
             media, and make your blog search-indexable. Cancel anytime from the customer portal.
           </p>
+          <div className="mt-4 border-t border-[color:var(--hairline)] pt-4">
+            <Link
+              to="/app/billing"
+              search={emptyDashboardStatusSearch}
+              className="font-mono text-[11px] text-brand-bright underline-offset-4 hover:underline"
+            >
+              Full billing &amp; customer portal &rarr;
+            </Link>
+          </div>
         </Panel>
       </div>
     </OnboardingFrame>

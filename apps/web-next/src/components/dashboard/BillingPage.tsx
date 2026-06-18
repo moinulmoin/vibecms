@@ -7,6 +7,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
@@ -69,7 +70,11 @@ export function BillingPage() {
   }
 
   if (!data) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading…</p>
+    return (
+      <OnboardingFrame phase="Billing">
+        <Skeleton className="h-[30rem] rounded-xl" />
+      </OnboardingFrame>
+    )
   }
 
   if (data.selfHosted) {
@@ -106,7 +111,9 @@ export function BillingPage() {
             title={PRICING.monthlyLabel}
             meta={
               <span className="flex items-center gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-[0.1em]">{PRICING.planName}</span>
+                <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                  {PRICING.planName}
+                </span>
                 <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.08em]">
                   {billing.status}
                 </Badge>
@@ -116,20 +123,20 @@ export function BillingPage() {
             <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
               or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
             </p>
-            <ul className="grid gap-3 text-sm text-muted-foreground">
+            <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
               {ENTITLEMENTS.map((entitlement) => (
                 <li key={entitlement} className="flex items-start gap-2.5">
                   <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
-                  <span className="font-sans">{entitlement}</span>
+                  <span className="font-sans text-foreground">{entitlement}</span>
                 </li>
               ))}
               <li className="flex items-start gap-2.5">
                 <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
-                <span className="font-sans">{MEDIA.paidStorageLabel} media storage</span>
+                <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
               </li>
             </ul>
             {isOwner ? (
-              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
                 <PendingSubmitButton
                   type="button"
                   className="h-11 w-full rounded-xl"
@@ -161,7 +168,7 @@ export function BillingPage() {
                 </PendingSubmitButton>
               </div>
             ) : (
-              <p className="mt-6 font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
+              <p className="mt-5 font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
             )}
             <p className="mt-5 font-mono text-[11px] leading-5 text-muted-foreground">
               Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload

@@ -5,6 +5,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -48,27 +49,40 @@ export function SetupPage() {
   }
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
-  if (!site) return <p className="font-mono text-sm text-muted-foreground">Loading setup…</p>
+  if (!site)
+    return (
+      <OnboardingFrame phase="Step 1 of 1">
+        <div className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-[68px] rounded-xl" />
+            <Skeleton className="h-[68px] rounded-xl" />
+          </div>
+          <Skeleton className="h-[28rem] rounded-xl" />
+        </div>
+      </OnboardingFrame>
+    )
 
   return (
     <OnboardingFrame phase="Step 1 of 1">
       <div className="grid gap-4">
         <StatusAlert status={formStatus} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
-            <strong className="block font-display text-sm font-semibold text-foreground">1 blog</strong>
-            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+          <div className="rounded-xl bg-muted/50 p-4">
+            <strong className="block font-display text-base font-semibold tabular-nums text-foreground">1 blog</strong>
+            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               per subscription
             </span>
           </div>
-          <div className="rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
-            <strong className="block font-display text-sm font-semibold text-brand-bright">{MEDIA.paidStorageLabel}</strong>
-            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+          <div className="rounded-xl bg-muted/50 p-4">
+            <strong className="block font-display text-base font-semibold text-brand-bright">
+              {MEDIA.paidStorageLabel}
+            </strong>
+            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               media storage
             </span>
           </div>
         </div>
-        <Panel title="Create your hosted blog" meta="Blog setup">
+        <Panel title="Create your hosted blog" meta={<span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Blog setup</span>}>
           <p className="mb-6 font-sans text-sm leading-6 text-muted-foreground">
             Only the essentials. You can edit posts, media, tokens, and billing after this.
           </p>
@@ -110,11 +124,11 @@ export function SetupPage() {
                 />
               </Field>
             </FieldGroup>
-            <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-xl bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-mono text-[11px] leading-5 text-muted-foreground">
                 Draft for free and publish your first post to try it live. Subscribe to publish more and upload media.
               </p>
-              <PendingSubmitButton className="h-11 rounded-xl px-6" pendingText="Saving…">
+              <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pendingText="Saving…">
                 Continue
               </PendingSubmitButton>
             </div>

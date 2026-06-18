@@ -1,6 +1,6 @@
 'use client'
 
-import { Badge, Field, FieldLabel, Input, Select } from '@vc/ui'
+import { Badge, Field, FieldLabel, Input, Select, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { PostSummary } from '@vc/core'
@@ -18,10 +18,48 @@ import {
   StatusAlert,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+
+function StatusBadge({ status, className }: { status: string; className?: string }) {
+  if (status === 'published') {
+    return (
+      <Badge
+        className={cn(
+          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 font-mono text-[10px] capitalize text-brand-bright',
+          className,
+        )}
+      >
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        {status}
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className={cn('font-mono text-[10px] capitalize', className)}>
+      {status}
+    </Badge>
+  )
+}
+
+function PostsSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <Skeleton className="h-64 rounded-2xl" />
+    </>
+  )
+}
 
 export function PostsPage({ search }: { search: PostsListSearch }) {
   const navigate = useNavigate()
@@ -75,7 +113,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
     return <p className="text-sm text-destructive">{loadError}</p>
   }
   if (!posts) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading posts…</p>
+    return <PostsSkeleton />
   }
 
   return (
@@ -93,7 +131,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
       <StatusAlert status={formStatus} />
       <Panel title="All Posts">
         <form
-          className="mb-5 flex flex-wrap items-end gap-3 rounded-xl p-4 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]"
+          className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-muted/50 p-3"
           method="get"
           onSubmit={(event) => {
             event.preventDefault()
@@ -129,12 +167,9 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
         </form>
         {posts.length ? (
           <>
-            <div className="grid gap-3 md:hidden">
+            <div className="grid gap-2 md:hidden">
               {posts.map((post) => (
-                <article
-                  className="relative grid gap-3 overflow-hidden rounded-2xl p-4 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]"
-                  key={post.id}
-                >
+                <article className="grid gap-3 rounded-xl bg-muted/50 p-4" key={post.id}>
                   <div className="min-w-0">
                     <Link
                       className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-brand-bright hover:underline"
@@ -150,13 +185,11 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       {post.excerpt || 'No excerpt yet'}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                    <Badge variant="outline" className="font-mono text-[10px] normal-case tracking-normal">
-                      {post.status}
-                    </Badge>
-                    <span>Updated {formatDate(post.updatedAt)}</span>
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                    <StatusBadge status={post.status} />
+                    <span className="tabular-nums">Updated {formatDate(post.updatedAt)}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/app/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
                         Edit
@@ -195,8 +228,8 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 </article>
               ))}
             </div>
-            <div className="hidden overflow-hidden rounded-2xl ring-1 ring-[color:var(--hairline)] md:block">
-              <div className="hidden border-b border-border bg-muted/35 px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground md:grid md:grid-cols-[1.5fr_.55fr_.7fr_1fr] md:gap-3">
+            <div className="hidden md:grid md:gap-1.5">
+              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-3 pb-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 <span>Post</span>
                 <span>Status</span>
                 <span>Updated</span>
@@ -220,10 +253,8 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       {post.excerpt || 'No excerpt yet'}
                     </p>
                   </div>
-                  <Badge variant="outline" className="w-fit font-mono text-[10px] capitalize">
-                    {post.status}
-                  </Badge>
-                  <span className="font-mono text-xs text-muted-foreground">{formatDate(post.updatedAt)}</span>
+                  <StatusBadge status={post.status} className="w-fit" />
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDate(post.updatedAt)}</span>
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/app/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>

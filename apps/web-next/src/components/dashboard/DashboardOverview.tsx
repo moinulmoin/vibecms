@@ -1,5 +1,4 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { Badge } from '@vc/ui'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '~/server/cms-dashboard'
@@ -15,6 +14,10 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
+import { Card } from '~/components/ui/card'
+import { Progress } from '~/components/ui/progress'
+import { Skeleton } from '~/components/ui/skeleton'
 import { emptyDashboardStatusSearch, emptyPostsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -35,16 +38,17 @@ function UsageMeter({
 }) {
   const percent = status.limit > 0 ? Math.min(100, Math.round((status.used / status.limit) * 100)) : 0
   return (
-    <div className="rounded-xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+    <div className="rounded-xl bg-muted/50 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
         <p className="font-mono text-xs tabular-nums text-foreground">
           {status.used}/{status.limit}
         </p>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-brand-bright transition-[width]" style={{ width: `${percent}%` }} />
-      </div>
+      <Progress
+        value={percent}
+        className="mt-2 h-1.5 [&_[data-slot=progress-indicator]]:bg-brand-bright"
+      />
     </div>
   )
 }
@@ -52,20 +56,44 @@ function UsageMeter({
 function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   if (!usage.enforced) {
     return (
-      <Panel title="API and MCP usage" meta="Self-hosted">
+      <Panel title="API and MCP usage" meta={<Badge variant="outline">Self-hosted</Badge>}>
         <p className="text-sm text-muted-foreground">Usage limits are not enforced in self-hosted mode.</p>
       </Panel>
     )
   }
 
   return (
-    <Panel title="API and MCP usage" meta="Workspace budget">
+    <Panel title="API and MCP usage" meta={<Badge variant="outline">Workspace budget</Badge>}>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <UsageMeter label="Calls / minute" status={usage.calls.minute} />
         <UsageMeter label="Calls / day" status={usage.calls.day} />
         <UsageMeter label="Writes / day" status={usage.writes.day} />
       </div>
     </Panel>
+  )
+}
+
+function OverviewSkeleton() {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-40 rounded-2xl" />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-56 rounded-2xl" />
+      </div>
+    </>
   )
 }
 
@@ -91,35 +119,44 @@ export function DashboardOverview() {
     return <p className="text-sm text-destructive">{error}</p>
   }
   if (!data) {
-    return <p className="font-mono text-sm text-muted-foreground">Loading workspace…</p>
+    return <OverviewSkeleton />
   }
 
   const siteName = data.site?.name ?? BRAND.name
   const quotaLabel = MEDIA.paidStorageLabel
   const showSubscribeHint = data.apiUsage.enforced && data.billing.status !== 'active'
+  const isLive = Boolean(data.publicUrl) && !data.publicUrlLocal
 
   return (
     <>
       <PageHeader
         kicker="Overview"
         title={siteName}
-        description="At a glance: publishing status, media usage, agent access, recent edits, and audit activity."
+        description="Publishing status, media usage, agent access, and recent activity at a glance."
         action={
           <Button asChild>
-            <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
+            <Link to="/app/posts" search={emptyPostsListSearch}>
+              New post
+            </Link>
           </Button>
         }
       />
-      <div className="rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
+
+      <Card className="gap-0 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-2">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Blog status
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline">
-                {data.publicUrl ? (data.publicUrlLocal ? 'Local only' : 'Live') : 'Default domain pending'}
-              </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              {isLive ? (
+                <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+                  <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
+              )}
               {showSubscribeHint ? <Badge variant="secondary">Subscribe to publish</Badge> : null}
             </div>
           </div>
@@ -134,11 +171,12 @@ export function DashboardOverview() {
             </a>
           ) : (
             <p className="font-sans text-sm text-muted-foreground">
-              Public blog URL will appear after a deployable default domain is active.
+              Public blog URL appears once a deployable default domain is active.
             </p>
           )}
         </div>
-      </div>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} />
         <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" />
@@ -148,39 +186,18 @@ export function DashboardOverview() {
           detail={`${data.media.count} images of ${quotaLabel}`}
         />
         <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" />
-        <StatCard label="Saved versions" value={data.versionCount} detail="Post history" />
       </div>
+
       <ApiUsagePanel usage={data.apiUsage} />
-      <Panel title="Quick Actions" meta="Common tasks">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <Button asChild>
-            <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/app/media" search={emptyDashboardStatusSearch}>Upload media</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/app/settings" search={emptyDashboardStatusSearch}>Create token</Link>
-          </Button>
-          {data.publicUrl ? (
-            <Button asChild variant="outline">
-              <a href={data.publicUrl} target="_blank" rel="noreferrer">
-                View public blog
-              </a>
-            </Button>
-          ) : (
-            <Button variant="outline" disabled>
-              View public blog
-            </Button>
-          )}
-        </div>
-      </Panel>
+
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel
-          title="Recent Posts"
+          title="Recent posts"
           meta={
             <Button asChild variant="link">
-              <Link to="/app/posts" search={emptyPostsListSearch}>View all</Link>
+              <Link to="/app/posts" search={emptyPostsListSearch}>
+                View all
+              </Link>
             </Button>
           }
         >
@@ -188,7 +205,7 @@ export function DashboardOverview() {
             <div className="grid gap-2">
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
-                  <strong className="font-display font-semibold text-foreground">
+                  <strong className="truncate font-display font-semibold text-foreground">
                     <Link className="no-underline hover:underline" to="/app/posts" search={emptyPostsListSearch}>
                       {post.title}
                     </Link>
@@ -196,24 +213,29 @@ export function DashboardOverview() {
                   <Badge variant="outline" className="w-fit capitalize">
                     {post.status}
                   </Badge>
-                  <span className="font-mono text-xs tabular-nums">{formatDate(post.updatedAt)}</span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {formatDate(post.updatedAt)}
+                  </span>
                 </DataRow>
               ))}
             </div>
           ) : (
             <EmptyState
               title="No posts yet"
-              description="Create the first post manually, then connect an agent token when you are ready for trusted agents to help."
+              description="Create the first post manually, then connect an agent token when you are ready for agents to help."
               action={
                 <Button asChild>
-                  <Link to="/app/posts" search={emptyPostsListSearch}>New post</Link>
+                  <Link to="/app/posts" search={emptyPostsListSearch}>
+                    New post
+                  </Link>
                 </Button>
               }
             />
           )}
         </Panel>
+
         <Panel
-          title="Recent Activity"
+          title="Recent activity"
           meta={
             <Button asChild variant="link">
               <Link to="/app/activity">View all</Link>
@@ -224,18 +246,20 @@ export function DashboardOverview() {
             <div className="grid gap-2">
               {data.recentActivity.map((event) => (
                 <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
-                  <strong className="font-display font-semibold text-foreground">{event.summary}</strong>
+                  <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
                   <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
                     {labelAction(event.action)}
                   </span>
-                  <span className="font-mono text-xs tabular-nums">{formatDateTime(event.created_at)}</span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {formatDateTime(event.created_at)}
+                  </span>
                 </DataRow>
               ))}
             </div>
           ) : (
             <EmptyState
               title="No activity yet"
-              description="Create a post, upload media, or issue an API token and this log will fill in automatically."
+              description="Create a post, upload media, or issue an API token and this log fills in automatically."
             />
           )}
         </Panel>

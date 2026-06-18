@@ -11,6 +11,7 @@ import {
   FieldLegend,
   FieldSet,
   Input,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -132,7 +133,20 @@ export function SettingsPage() {
   }
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
-  if (!data) return <p className="font-mono text-sm text-muted-foreground">Loading settings…</p>
+  if (!data) {
+    return (
+      <>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl" />
+      </>
+    )
+  }
 
   const { site, apiKeys, billingStatus, selfHosted, isOwner, canManageTokens, mcpUrl } = data
 
@@ -174,7 +188,7 @@ export function SettingsPage() {
         </form>
       </Panel>
       <Panel title="Billing" meta={<Badge variant="outline">{selfHosted ? 'self-hosted' : billingStatus}</Badge>}>
-        <div className="rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] md:p-5">
+        <div className="rounded-2xl bg-muted/50 p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="font-display text-sm font-medium text-foreground">
@@ -207,7 +221,7 @@ export function SettingsPage() {
       <Panel title="Agent Access Token" meta={canManageTokens ? 'Draft-only by default' : 'Owner access required'}>
         {canManageTokens ? (
           <form
-            className="grid max-w-3xl gap-4 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] md:p-5"
+            className="grid max-w-3xl gap-4 rounded-2xl bg-muted/50 p-4 md:p-5"
             onSubmit={(e) => void handleCreateToken(e)}
           >
             <div className="grid gap-4 sm:grid-cols-2">
@@ -226,7 +240,7 @@ export function SettingsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Field
                   orientation="horizontal"
-                  className="rounded-2xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] hover:ring-brand-bright/30 has-[:checked]:ring-2 has-[:checked]:ring-brand-bright/40"
+                  className="rounded-xl bg-background/60 p-3 ring-1 ring-transparent transition-colors hover:bg-background has-[:checked]:bg-background has-[:checked]:ring-brand-bright/40"
                 >
                   <input id="preset-draft" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="draft" defaultChecked />
                   <span>
@@ -240,7 +254,7 @@ export function SettingsPage() {
                 </Field>
                 <Field
                   orientation="horizontal"
-                  className="rounded-2xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] hover:ring-brand-bright/30 has-[:checked]:ring-2 has-[:checked]:ring-brand-bright/40"
+                  className="rounded-xl bg-background/60 p-3 ring-1 ring-transparent transition-colors hover:bg-background has-[:checked]:bg-background has-[:checked]:ring-brand-bright/40"
                 >
                   <input id="preset-full" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="full" />
                   <span>
@@ -267,10 +281,7 @@ export function SettingsPage() {
           <>
             <div className="grid gap-3 md:hidden">
               {apiKeys.map((key) => (
-                <article
-                  className="grid gap-3 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]"
-                  key={key.id}
-                >
+                <article className="grid gap-3 rounded-2xl bg-muted/50 p-4" key={key.id}>
                   <div className="min-w-0">
                     <strong className="font-display text-foreground">{key.name}</strong>
                     <p className="mt-1 font-mono text-xs text-brand-bright">{key.tokenPrefix}…</p>
@@ -347,7 +358,7 @@ export function SettingsPage() {
       </Panel>
       {isOwner ? (
         <Panel title="Your data" meta="Export">
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-4 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4 md:p-5">
             <div className="flex min-w-0 items-start gap-3">
               <DownloadIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-brand-bright" />
               <p className="font-sans text-sm leading-6 text-muted-foreground">
@@ -363,10 +374,7 @@ export function SettingsPage() {
       <Panel title="Plan Includes" meta={PRICING.planName}>
         <div className="grid gap-2 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
           {ENTITLEMENTS.map((entitlement) => (
-            <span
-              className="rounded-2xl p-3 shadow-sm ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]"
-              key={entitlement}
-            >
+            <span className="rounded-xl bg-muted/50 px-3 py-2.5 leading-5" key={entitlement}>
               {entitlement}
             </span>
           ))}

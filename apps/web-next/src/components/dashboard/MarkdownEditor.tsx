@@ -66,9 +66,9 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-col gap-3 rounded-2xl p-3 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-2 sm:flex-row sm:items-center sm:justify-between">
         <div
-          className="flex w-full rounded-xl bg-muted/60 p-1 ring-1 ring-[color:var(--hairline)] sm:w-auto"
+          className="flex w-full rounded-lg bg-background/70 p-1 sm:w-auto"
           role="group"
           aria-label="Editor mode"
         >
@@ -140,7 +140,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           ref={textareaRef}
           id="post-markdown"
           name="contentMarkdown"
-          className="min-h-[22rem] font-mono text-sm leading-6 ring-1 ring-[color:var(--hairline)] sm:min-h-[32rem]"
+          className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
           maxLength={500000}
           defaultValue={defaultValue}
           onChange={rememberSelection}
@@ -152,7 +152,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
 
       {mode === 'preview' ? (
         <div
-          className="min-h-[22rem] overflow-x-auto rounded-2xl p-4 font-sans text-sm leading-7 text-foreground ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-brand-bright [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-xs [&_ul]:list-disc [&_ul]:pl-6"
+          className="min-h-[22rem] overflow-x-auto rounded-xl bg-muted/50 p-4 font-sans text-sm leading-7 text-foreground sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-brand-bright [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-xs [&_ul]:list-disc [&_ul]:pl-6"
           aria-label="Markdown preview"
         >
           {preview.length > 0 ? preview : <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>}
@@ -267,7 +267,7 @@ export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: {
       aria-live="polite"
       className={
         warning
-          ? 'rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 font-sans text-sm text-destructive ring-1 ring-[color:var(--hairline)] lg:col-span-2'
+          ? 'rounded-xl bg-destructive/10 px-3 py-2.5 font-sans text-sm text-destructive lg:col-span-2'
           : 'hidden'
       }
     >
