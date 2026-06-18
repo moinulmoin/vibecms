@@ -23,3 +23,12 @@ Restore must respect the billing/publish gate semantics (restoring does not publ
 - Versions are listable/viewable/restorable from the dashboard, MCP, and REST; each restore creates a new version + a `post.restored` activity event.
 - Multi-tenant: version reads/restores are scoped by `siteId` (no cross-site access).
 - `pnpm -r typecheck` passes; deploy + verify a restore round-trip on dev.vibecms.dev.
+
+## Codex review resolutions (these supersede any ambiguity above)
+
+1. **Restore is content-only; it never changes status/published_at.** The restore patch contains exactly: `title, slug, excerpt, contentMarkdown, coverAssetId, seoTitle, seoDescription, tags` from the target version snapshot. It explicitly EXCLUDES `id`, `site_id`, `version_number`, `created_at`, `status`, and `published_at`. The live post keeps its current status. This removes the contradiction and the billing concern.
+2. **No billing-gate interaction.** Because restore never moves draft->published, the free-publish cap is never touched. Restore is strictly an `updatePost`-class operation (requires `posts:update`), never a publish.
+3. **Concurrency: reuse the existing contract.** `updatePostWithHistory` already creates the next version via `COALESCE(MAX(version_number))+1` guarded by the `idx_post_versions_post_number` unique index; `normalizeD1Error` maps the race to `ConflictError` ("Post changed concurrently; retry the save"). Restore inherits this - on a concurrent race it returns a 409/conflict and the client retries. No new locking needed.
+4. **Cross-tenant: enforce at the SQL level.** Every version query (`listPostVersions`, `getPostVersion`) and the restore read MUST include `AND site_id = ?` in the WHERE clause - not just a `siteId` parameter in the repo signature. Restore loads the version via `getPostVersion(siteId, postId, n)` and then writes via the existing site-scoped `updatePostWithHistory(siteId, postId, ...)`.
+5. **SEO round-trips.** `post_versions` now carries `seo_title`/`seo_description` (commit 674ee95). The version list/get DTOs (api-contract + dashboard) must expose them, and the restore patch (resolution 1) includes them so SEO is restored faithfully.
+6. **Version DTO**: add a `postVersionDtoSchema` (versionNumber, title, slug, status, changeSummary, actorType, actorName, createdAt) for list; full snapshot for get. Keep `siteId` out of the DTO (same as `mapPost`).

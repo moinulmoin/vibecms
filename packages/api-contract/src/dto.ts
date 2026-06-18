@@ -26,6 +26,8 @@ export const postSummaryDtoSchema = z.object({
 
 export const postDtoSchema = postSummaryDtoSchema.extend({
   contentMarkdown: z.string(),
+  seoTitle: z.string().nullable(),
+  seoDescription: z.string().nullable(),
 });
 
 export const assetDtoSchema = z.object({

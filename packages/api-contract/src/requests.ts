@@ -14,6 +14,8 @@ const slug = z
 
 const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);
+const seoTitleField = z.string().trim().max(70);
+const seoDescriptionField = z.string().trim().max(180);
 const contentField = z.string().max(500_000);
 const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
 
@@ -41,6 +43,8 @@ export const createPostRequestSchema = z.object({
   slug,
   excerpt: excerptField.optional(),
   contentMarkdown: contentField,
+  seoTitle: seoTitleField.optional(),
+  seoDescription: seoDescriptionField.optional(),
   tags: tagsField.default([]),
 }).strict();
 
@@ -50,6 +54,8 @@ export const updatePostRequestSchema = z.object({
   slug: slug.optional(),
   excerpt: excerptField.optional(),
   contentMarkdown: contentField.optional(),
+  seoTitle: seoTitleField.optional(),
+  seoDescription: seoDescriptionField.optional(),
   tags: tagsField.optional(),
 }).strict();
 

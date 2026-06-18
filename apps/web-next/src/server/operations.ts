@@ -120,6 +120,8 @@ export async function createPostOp(
     slug: string;
     excerpt?: string;
     contentMarkdown: string;
+    seoTitle?: string;
+    seoDescription?: string;
     tags?: string[];
   },
 ) {
@@ -130,6 +132,8 @@ export async function createPostOp(
       slug: input.slug,
       excerpt: input.excerpt,
       contentMarkdown: input.contentMarkdown,
+      seoTitle: input.seoTitle,
+      seoDescription: input.seoDescription,
       tags: input.tags,
     }),
   );
@@ -143,6 +147,8 @@ export async function updatePostOp(
     slug?: string;
     excerpt?: string;
     contentMarkdown?: string;
+    seoTitle?: string;
+    seoDescription?: string;
     tags?: string[];
   },
 ) {

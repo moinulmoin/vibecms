@@ -222,7 +222,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
 
     async findPostBySlug(siteId, slug) {
       const row = await db.prepare(
-        `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+        `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
           tags_json, created_at, updated_at
         FROM posts WHERE site_id = ? AND slug = ? LIMIT 1`,
       ).bind(siteId, slug).first<PostRow>();
