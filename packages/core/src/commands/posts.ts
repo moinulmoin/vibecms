@@ -33,6 +33,8 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     excerpt: data.excerpt ?? null,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId ?? null,
+    seoTitle: data.seoTitle ?? null,
+    seoDescription: data.seoDescription ?? null,
     status: "draft" as const,
     publishedAt: null,
     tags: data.tags ?? [],
@@ -55,6 +57,8 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     excerpt: data.excerpt ?? before.excerpt,
     contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
     coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
+    seoTitle: data.seoTitle === undefined ? before.seoTitle : data.seoTitle || null,
+    seoDescription: data.seoDescription === undefined ? before.seoDescription : data.seoDescription || null,
     tags: data.tags ?? before.tags,
   };
   const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {

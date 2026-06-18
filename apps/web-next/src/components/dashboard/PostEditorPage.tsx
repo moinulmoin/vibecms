@@ -37,6 +37,8 @@ function payloadFromForm(form: FormData) {
     excerpt: String(form.get('excerpt') ?? '').trim() || undefined,
     contentMarkdown: String(form.get('contentMarkdown') ?? ''),
     coverAssetId: typeof cover === 'string' && cover.length > 0 ? cover : null,
+    seoTitle: String(form.get('seoTitle') ?? '').trim() || undefined,
+    seoDescription: String(form.get('seoDescription') ?? '').trim() || undefined,
     tags: tagsFromForm(form).join(', '),
   }
 }
@@ -277,6 +279,37 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     Excerpt
                   </FieldLabel>
                   <Textarea id="post-excerpt" name="excerpt" maxLength={500} rows={4} defaultValue={post?.excerpt ?? ''} />
+                </Field>
+                <Field>
+                  <FieldLabel
+                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="post-seo-title"
+                  >
+                    SEO Title <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                  </FieldLabel>
+                  <Input
+                    id="post-seo-title"
+                    name="seoTitle"
+                    maxLength={70}
+                    defaultValue={post?.seoTitle ?? ''}
+                    placeholder="Falls back to the post title"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel
+                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="post-seo-description"
+                  >
+                    SEO Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                  </FieldLabel>
+                  <Textarea
+                    id="post-seo-description"
+                    name="seoDescription"
+                    maxLength={180}
+                    rows={3}
+                    defaultValue={post?.seoDescription ?? ''}
+                    placeholder="Falls back to the excerpt"
+                  />
                 </Field>
                 <Field>
                   <FieldLabel

@@ -33,6 +33,8 @@ function parsePostPayload(data: {
   excerpt?: string
   contentMarkdown: string
   coverAssetId?: string | null
+  seoTitle?: string
+  seoDescription?: string
   tags?: string
 }): PostFormPayload {
   return {
@@ -41,6 +43,8 @@ function parsePostPayload(data: {
     excerpt: data.excerpt?.trim() || undefined,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId && data.coverAssetId.length > 0 ? data.coverAssetId : null,
+    seoTitle: data.seoTitle?.trim() || undefined,
+    seoDescription: data.seoDescription?.trim() || undefined,
     tags: typeof data.tags === 'string' ? parseTags(data.tags) : [],
   }
 }
@@ -82,6 +86,8 @@ export const createPostMutation = createServerFn({ method: 'POST' })
     excerpt?: string
     contentMarkdown: string
     coverAssetId?: string | null
+    seoTitle?: string
+    seoDescription?: string
     tags?: string
   }) => data)
   .handler(async ({ data }) => {
@@ -97,6 +103,8 @@ export const updatePostMutation = createServerFn({ method: 'POST' })
     excerpt?: string
     contentMarkdown: string
     coverAssetId?: string | null
+    seoTitle?: string
+    seoDescription?: string
     tags?: string
   }) => data)
   .handler(async ({ data }) => {

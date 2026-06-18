@@ -8,6 +8,8 @@ type PostRow = {
   excerpt: string | null;
   content_markdown: string;
   cover_asset_id: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   status: string;
   published_at: number | null;
   tags_json: string;
@@ -41,6 +43,8 @@ function mapPost(row: PostRow): Post {
     excerpt: row.excerpt,
     contentMarkdown: row.content_markdown,
     coverAssetId: row.cover_asset_id,
+    seoTitle: row.seo_title,
+    seoDescription: row.seo_description,
     status: normalizePostStatus(row.status),
     publishedAt: row.published_at,
     tags: JSON.parse(row.tags_json) as string[],
@@ -49,7 +53,7 @@ function mapPost(row: PostRow): Post {
   };
 }
 
-type PostSummaryRow = Omit<PostRow, "content_markdown">;
+type PostSummaryRow = Omit<PostRow, "content_markdown" | "seo_title" | "seo_description">;
 
 function mapPostSummary(row: PostSummaryRow): PostSummary {
   return {
@@ -81,7 +85,7 @@ function normalizeD1Error(error: unknown): unknown {
 export function createD1PostRepository(db: D1Database): PostRepository {
   const getPost = async (siteId: string, postId: string) => {
     const row = await db.prepare(
-      `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+      `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
         tags_json, created_at, updated_at
       FROM posts WHERE site_id = ? AND id = ? LIMIT 1`,
     ).bind(siteId, postId).first<PostRow>();
@@ -91,8 +95,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
   const postVersionStatement = (post: Post, actor: Actor, changeSummary: string, timestamp: number) => db.prepare(
     `INSERT INTO post_versions (
       id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
-      cover_asset_id, status, tags_json, created_by_type, created_by_id, change_summary, created_at
-    ) VALUES (?, ?, ?, COALESCE((SELECT MAX(version_number) FROM post_versions WHERE post_id = ?), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      cover_asset_id, seo_title, seo_description, status, tags_json, created_by_type, created_by_id, change_summary, created_at
+    ) VALUES (?, ?, ?, COALESCE((SELECT MAX(version_number) FROM post_versions WHERE post_id = ?), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
     post.id,
@@ -103,6 +107,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     post.excerpt,
     post.contentMarkdown,
     post.coverAssetId,
+    post.seoTitle,
+    post.seoDescription,
     post.status,
     JSON.stringify(post.tags),
     actor.type,
@@ -148,10 +154,10 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       await runHistoryBatch([
         db.prepare(
           `INSERT INTO posts (
-            id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, status, published_at,
+            id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
             tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id,
             created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           post.id,
           post.siteId,
@@ -160,6 +166,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           post.excerpt,
           post.contentMarkdown,
           post.coverAssetId,
+          post.seoTitle,
+          post.seoDescription,
           post.status,
           post.publishedAt,
           JSON.stringify(post.tags),
@@ -184,7 +192,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       const [updateResult] = await runHistoryBatch([
         db.prepare(
           `UPDATE posts SET
-            title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?, status = ?, published_at = ?,
+            title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?, seo_title = ?, seo_description = ?, status = ?, published_at = ?,
             tags_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
           WHERE site_id = ? AND id = ?`,
         ).bind(
@@ -193,6 +201,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           after.excerpt,
           after.contentMarkdown,
           after.coverAssetId,
+          after.seoTitle,
+          after.seoDescription,
           after.status,
           after.publishedAt,
           JSON.stringify(after.tags),

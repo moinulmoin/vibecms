@@ -27,13 +27,15 @@ export type Post = {
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   status: PostStatus;
   publishedAt: number | null;
   tags: string[];
   createdAt: number;
   updatedAt: number;
 };
-export type PostSummary = Omit<Post, "contentMarkdown">;
+export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription">;
 
 
 export type Asset = {
