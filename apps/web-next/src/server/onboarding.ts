@@ -67,7 +67,7 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
       workspaceId,
       `${user.name || 'My'} Blog`,
       siteSlug,
-      'A clean blog for humans and agents.',
+      'A clean blog for you and your agents.',
       timestamp,
       timestamp,
     ),

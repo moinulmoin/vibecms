@@ -100,15 +100,18 @@ function BrandLockup({ siteName, compact = false }: { siteName?: string; compact
         compact && 'p-2.5',
       )}
     >
-      <span className="flex size-9 items-center justify-center rounded-lg bg-primary font-mono text-xs font-semibold text-primary-foreground shadow-sm">
-        vc
-      </span>
+      <img
+        src="/brand/icon.svg"
+        alt=""
+        className="size-9 rounded-lg shadow-sm"
+        aria-hidden="true"
+      />
       <span className="min-w-0">
         <span className="block truncate font-display text-sm font-semibold tracking-[-0.01em]">
           {siteName ?? BRAND.name}
         </span>
-        <span className="block truncate font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-          {BRAND.name}
+        <span className="block truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
+          vibecms<span className="text-brand-bright">.</span>
         </span>
       </span>
     </Link>

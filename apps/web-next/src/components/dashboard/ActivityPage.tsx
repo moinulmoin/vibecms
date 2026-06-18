@@ -39,7 +39,7 @@ export function ActivityPage() {
       <PageHeader
         kicker="Audit Log"
         title="Activity"
-        description="Every meaningful human, API, and agent action is logged here for trust and debugging."
+        description="Every meaningful action - yours, an API token's, or an agent's - is logged here for trust and debugging."
       />
       <Panel title="Recent Events" meta={`${events.length} shown`}>
         {events.length ? (

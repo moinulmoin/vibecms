@@ -18,7 +18,7 @@ export function OnboardingFrame({ children, phase = 'Setup' }: { children: React
             {BRAND.tagline}
           </p>
           <h1 className="mt-3 text-balance font-display text-3xl font-semibold tracking-[-0.05em] text-foreground">
-            Set up a calm publishing system for humans and AI agents.
+            Set up a calm publishing system for you and your AI agents.
           </h1>
         </div>
       </div>

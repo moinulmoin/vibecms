@@ -106,7 +106,7 @@ export function SetupPage() {
                   maxLength={220}
                   rows={4}
                   defaultValue={site.description}
-                  placeholder={`A short blog about building products with humans and AI agents on ${BRAND.name}.`}
+                  placeholder={`A short blog about building products with AI agents on ${BRAND.name}.`}
                 />
               </Field>
             </FieldGroup>

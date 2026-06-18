@@ -40,18 +40,12 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
-      {
-        rel: 'icon',
-        href: '/favicon-light.svg',
-        type: 'image/svg+xml',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        rel: 'icon',
-        href: '/favicon-dark.svg',
-        type: 'image/svg+xml',
-        media: '(prefers-color-scheme: dark)',
-      },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      { rel: 'icon', href: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { rel: 'icon', href: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
+      { rel: 'manifest', href: '/site.webmanifest' },
       {
         rel: 'preload',
         href: '/fonts/HankenGrotesk-Variable.woff2',

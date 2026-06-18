@@ -1,9 +1,8 @@
-# VibeCMS
+<div align="center">
+  <img src="apps/web-next/public/brand/wordmark.png" alt="VibeCMS" width="460" />
+  <p><strong>CMS for AI Agents.</strong></p>
+</div>
 
-<!-- TODO: add apps/web-next/public/brand/github-social.png (missing after TanStack migration) -->
-![VibeCMS social preview](apps/web-next/public/brand/github-social.png)
-
-CMS for humans and AI agents.
 
 Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP. REST stays read/list, every mutation creates activity, and meaningful post changes create versions.
 

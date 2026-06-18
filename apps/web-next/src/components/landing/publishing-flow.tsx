@@ -31,14 +31,14 @@ export function PublishingFlow() {
     <SectionShell className="pt-[110px]">
       <div data-reveal className="mb-11 max-w-[560px]">
         <MonoEyebrow label="The flow" className="mb-4" />
-        <h2 className="font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+        <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
           From draft to published,
           <br />
           with the trail intact.
         </h2>
         <p className="mt-4 text-[16.5px] leading-relaxed text-muted-foreground">
-          Humans and agents use different doors into the same command layer - so
-          the log always stays coherent.
+          You publish from the dashboard, agents publish through MCP - and every
+          change lands in the same trail.
         </p>
       </div>
 

@@ -273,8 +273,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   </div>
                 </Field>
                 <p className="rounded-xl p-3 font-sans text-sm leading-6 text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]">
-                  Every save creates a post version and activity event, whether the change comes from a human, API token, or
-                  agent.
+                  Every save creates a post version and activity event, whether the change comes from you, an API token, or
+                  an agent.
                 </p>
               </div>
             </Panel>

@@ -17,7 +17,7 @@ export function AgentsDemo() {
           left={
             <div data-reveal className="min-w-0">
               <MonoEyebrow label="Scoped access" className="mb-4" />
-              <h2 className="font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+              <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
                 Let agents publish
                 <br />
                 without your login.

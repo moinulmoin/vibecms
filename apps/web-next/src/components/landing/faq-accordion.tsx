@@ -5,7 +5,7 @@ const faqs = [
   {
     question: "Is VibeCMS an AI writer?",
     answer:
-      "No. It is the CMS that humans and trusted agents write into. Bring your own agent, ours, or no editor at all - VibeCMS is the publication layer underneath.",
+      "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; VibeCMS is the publication layer underneath.",
   },
   {
     question: "Who is this for?",
@@ -31,7 +31,7 @@ export function FaqAccordion() {
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-start">
           <div data-reveal>
             <MonoEyebrow label="FAQ" />
-            <h2 className="mt-4 max-w-md font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
+            <h2 className="mt-4 max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
               Questions
               <br />
               before launch.

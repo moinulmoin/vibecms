@@ -1,6 +1,11 @@
-import { Button } from "@vc/ui";
+import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { BRAND } from "@vc/config";
 import { Glow, SectionShell } from "./primitives";
+
+const greenCta =
+  "inline-flex items-center whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]";
+const greenBg =
+  "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
 
 const productLinks = [
   ["Features", "#features"],
@@ -9,7 +14,6 @@ const productLinks = [
 ] as const;
 
 const deployLinks = [
-  ["Self-host", "#self-host"],
   ["GitHub", BRAND.repoUrl],
   ["Docs", `${BRAND.repoUrl}#readme`],
 ] as const;
@@ -26,60 +30,41 @@ export function CtaFooter() {
     <>
       <SectionShell className="pb-10 md:pb-14">
         <div
-          className="relative overflow-hidden rounded-[18px] p-8 sm:p-10 md:p-12 ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]"
+          className="relative overflow-hidden rounded-[22px] px-6 py-14 text-center ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:px-10 md:py-[76px]"
           data-reveal
         >
-          <Glow className="pointer-events-none absolute -right-20 -top-24 size-[min(420px,70vw)] opacity-80" />
-          <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div>
-              <h2 className="max-w-xl font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
-                Start simple. Add
-                <br />
-                agents when you&apos;re ready.
-              </h2>
-              <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">
-                Write in Markdown, keep every version, and let trusted agents publish through scoped
-                MCP.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button
-                  asChild
-                  className="h-12 rounded-xl px-6 text-[15px] font-semibold active:translate-y-px"
-                  size="lg"
-                >
-                  <a className="no-underline" href="/login">
-                    Get started
-                  </a>
-                </Button>
-                <Button
-                  asChild
-                  className="h-12 rounded-xl border-[color:var(--hairline)] bg-transparent px-6 text-[15px] font-semibold active:translate-y-px"
-                  size="lg"
-                  variant="outline"
-                >
-                  <a className="no-underline" href="#self-host">
-                    Self-host
-                  </a>
-                </Button>
-              </div>
-            </div>
-            <div className="flex justify-center lg:justify-end" data-reveal data-d="2">
-              <div
-                className="flex size-28 items-center justify-center rounded-2xl font-display text-3xl font-bold tracking-[-0.04em] text-brand-bright-foreground shadow-[inset_0_1px_0_var(--hairline),0_40px_80px_-30px_var(--glow-primary)] animate-vc-float sm:size-32 sm:text-4xl"
-                style={{
-                  background:
-                    "linear-gradient(160deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
-                }}
-                aria-hidden
-              >
-                VC
-              </div>
-            </div>
+          <Glow className="pointer-events-none absolute left-1/2 -top-24 size-[min(560px,90vw)] -translate-x-1/2 opacity-60" />
+          <img
+            src="/brand/icon.svg"
+            alt=""
+            className="relative mx-auto mb-7 size-16 animate-vc-float sm:size-[68px]"
+            aria-hidden="true"
+          />
+          <h2 className="relative mx-auto max-w-[18ch] text-balance font-display text-[clamp(1.875rem,4.4vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+            Your agents. Your content.{" "}
+            <span className="text-brand-bright">Live in seconds.</span>
+          </h2>
+          <p className="relative mx-auto mt-4 max-w-[460px] text-balance text-base leading-7 text-muted-foreground">
+            Scoped MCP, a full version trail, and your login never leaves your hands.
+          </p>
+          <div className="relative mt-8 flex flex-wrap justify-center gap-3">
+            <a className={greenCta} style={{ background: greenBg }} href="/login">
+              Get started
+            </a>
+            <a
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)]"
+              href={BRAND.repoUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              View on GitHub
+              <ArrowRightIcon className="size-4" aria-hidden="true" />
+            </a>
           </div>
         </div>
       </SectionShell>
 
-      <footer className="border-t border-border py-12">
+      <footer className="py-12">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-7">
           <div
             className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4"
@@ -90,20 +75,18 @@ export function CtaFooter() {
                 className="mb-4 inline-flex items-center gap-2.5 font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline"
                 href="/"
               >
-                <span
-                  className="flex size-8 items-center justify-center rounded-lg text-sm font-bold text-brand-bright-foreground"
-                  style={{
-                    background:
-                      "linear-gradient(160deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
-                  }}
-                >
-                  VC
+                <img
+                  src="/brand/icon.svg"
+                  alt=""
+                  className="size-8 rounded-lg"
+                  aria-hidden="true"
+                />
+                <span className="font-mono text-[15px] font-medium lowercase tracking-tight text-foreground">
+                  vibecms<span className="text-brand-bright">.</span>
                 </span>
-                {BRAND.name}
               </a>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                A calm Markdown CMS with media, versions, and scoped MCP - for humans and the agents
-                they trust.
+                The CMS your agents publish into.
               </p>
             </div>
             <div>
@@ -120,7 +103,7 @@ export function CtaFooter() {
             </div>
             <div>
               <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
-                Deploy
+                Open source
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {deployLinks.map(([label, href]) => (
@@ -153,7 +136,7 @@ export function CtaFooter() {
             data-reveal
             data-d="1"
           >
-            © {year} {BRAND.name} · Markdown · Media · Versions · MCP
+            © {year} vibecms · Markdown · Media · Versions · MCP
           </p>
         </div>
       </footer>

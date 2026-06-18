@@ -8,7 +8,6 @@ import {
 import type { ReactNode } from "react";
 import {
   GlassCard,
-  GreenCard,
   MonoEyebrow,
   SectionShell,
 } from "./primitives";
@@ -83,7 +82,7 @@ export function EssentialsBento() {
     <SectionShell className="pt-14 md:pt-24">
       <div className="mb-10 max-w-[620px]" data-reveal>
         <MonoEyebrow label="// The essentials" className="mb-4" />
-        <h2 className="font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+        <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
           Everything one serious
           <br />
           blog needs. Nothing it doesn&apos;t.
@@ -99,33 +98,25 @@ export function EssentialsBento() {
         data-reveal
         data-d="1"
       >
-        <GreenCard className="relative overflow-hidden p-[26px] md:col-span-2 lg:col-span-3">
-          <div className="mb-11 inline-flex size-9 items-center justify-center rounded-[10px] bg-brand-bright-foreground/15 text-brand-bright-foreground">
+        <GlassCard className="relative overflow-hidden p-[26px] md:col-span-2 lg:col-span-3">
+          <div className="mb-11 grid size-9 place-items-center rounded-[10px] bg-brand-bright/10 text-brand-bright shadow-[inset_0_0_0_1px_oklch(0.8107_0.1705_152.72/0.16)]">
             <ReaderIcon className="size-[18px]" aria-hidden="true" />
           </div>
-          <h3 className="font-display text-[19px] font-semibold text-brand-bright-foreground">
+          <h3 className="font-display text-[19px] font-semibold text-foreground">
             Markdown editor
           </h3>
-          <p className="mt-1.5 max-w-[290px] text-sm leading-[1.55] text-brand-bright-foreground/70">
-            Write in Markdown with live preview, drafts, and instant publish -
-            keyboard-first, distraction-free.
+          <p className="mt-1.5 max-w-[300px] text-sm leading-[1.55] text-muted-foreground">
+            Live preview, drafts, and instant publish - keyboard-first and distraction-free.
           </p>
-          <div className="mt-[18px] rounded-t-[11px] bg-brand-bright-foreground/15 px-[15px] py-3 font-mono text-[11.5px] leading-[1.7] text-brand-bright-foreground/70">
+          <div className="mt-[18px] rounded-t-[11px] px-[15px] py-3 font-mono text-[11.5px] leading-[1.7] text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass-strong)]">
             <div>
-              <span className="font-semibold text-brand-bright-foreground">
-                ##{" "}
-              </span>
-              Section
+              <span className="font-semibold text-brand-bright">## </span>Section
             </div>
             <div>
-              Body with{" "}
-              <span className="font-semibold text-brand-bright-foreground">
-                **bold**
-              </span>{" "}
-              text
+              Body with <span className="font-semibold text-brand-bright">**bold**</span> text
             </div>
           </div>
-        </GreenCard>
+        </GlassCard>
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-2 lg:col-span-3">
           <GlassCard className="p-[22px]">
@@ -165,7 +156,7 @@ export function EssentialsBento() {
                 Activity log
               </h3>
               <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-                Every human and agent action lands in one audit trail.
+                Every action you or your agents take lands in one audit trail.
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-1.5 sm:max-w-[168px]">
