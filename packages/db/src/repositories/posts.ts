@@ -1,4 +1,4 @@
-import { ConflictError, type ActivityInput, type Actor, type Post, type PostRepository, type PostSummary } from "@vc/core";
+import { ConflictError, type ActivityInput, type Actor, type Post, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 
 type PostRow = {
   id: string;
@@ -68,6 +68,32 @@ function mapPostSummary(row: PostSummaryRow): PostSummary {
     tags: JSON.parse(row.tags_json) as string[],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+type PostVersionRow = {
+  version_number: number; title: string; slug: string; status: string;
+  change_summary: string | null; created_by_type: string; created_at: number; actor_name: string;
+};
+type PostVersionFullRow = PostVersionRow & {
+  excerpt: string | null; content_markdown: string; cover_asset_id: string | null;
+  seo_title: string | null; seo_description: string | null; tags_json: string;
+};
+function actorTypeOf(t: string): Actor["type"] {
+  return t === "human" || t === "api_key" || t === "agent" ? t : "system";
+}
+function mapPostVersionSummary(row: PostVersionRow): PostVersionSummary {
+  return {
+    versionNumber: row.version_number, title: row.title, slug: row.slug,
+    status: normalizePostStatus(row.status), changeSummary: row.change_summary,
+    actorType: actorTypeOf(row.created_by_type), actorName: row.actor_name, createdAt: row.created_at,
+  };
+}
+function mapPostVersion(row: PostVersionFullRow): PostVersion {
+  return {
+    ...mapPostVersionSummary(row),
+    excerpt: row.excerpt, contentMarkdown: row.content_markdown, coverAssetId: row.cover_asset_id,
+    seoTitle: row.seo_title, seoDescription: row.seo_description, tags: JSON.parse(row.tags_json) as string[],
   };
 }
 
@@ -286,6 +312,32 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         activityStatement({ siteId: after.siteId, actor, action: history.activityAction, entityType: "post", entityId: after.id, summary: history.activitySummary, before, after }, timestamp),
       ]);
       return { post: after, capReached: false };
+    },
+
+    async listPostVersions(siteId, postId) {
+      const result = await db.prepare(
+        `SELECT pv.version_number, pv.title, pv.slug, pv.status, pv.change_summary, pv.created_by_type, pv.created_at,
+          COALESCE((SELECT name FROM user WHERE id = pv.created_by_id),
+                   (SELECT actor_name FROM api_keys WHERE id = pv.created_by_id),
+                   pv.created_by_id) AS actor_name
+        FROM post_versions pv
+        WHERE pv.site_id = ? AND pv.post_id = ?
+        ORDER BY pv.version_number DESC`,
+      ).bind(siteId, postId).all<PostVersionRow>();
+      return result.results.map(mapPostVersionSummary);
+    },
+
+    async getPostVersion(siteId, postId, versionNumber) {
+      const row = await db.prepare(
+        `SELECT pv.version_number, pv.title, pv.slug, pv.status, pv.change_summary, pv.created_by_type, pv.created_at,
+          pv.excerpt, pv.content_markdown, pv.cover_asset_id, pv.seo_title, pv.seo_description, pv.tags_json,
+          COALESCE((SELECT name FROM user WHERE id = pv.created_by_id),
+                   (SELECT actor_name FROM api_keys WHERE id = pv.created_by_id),
+                   pv.created_by_id) AS actor_name
+        FROM post_versions pv
+        WHERE pv.site_id = ? AND pv.post_id = ? AND pv.version_number = ? LIMIT 1`,
+      ).bind(siteId, postId, versionNumber).first<PostVersionFullRow>();
+      return row ? mapPostVersion(row) : null;
     },
   };
 }

@@ -12,6 +12,7 @@ const noAdditionalProperties = { additionalProperties: false } as const;
 const postStatusEnum = ["draft", "published", "archived"] as const;
 const imageMimeEnum = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 const postIdProperty = { type: "string", minLength: 1 };
+const versionNumberProperty = { type: "integer", minimum: 1 };
 const titleProperty = { type: "string", minLength: 1, maxLength: 160 };
 const slugProperty = { type: "string", minLength: 1, maxLength: 120, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" };
 const excerptProperty = { type: "string", maxLength: 500 };
@@ -85,6 +86,24 @@ export const mcpTools: McpToolDefinition[] = [
     description: withScopeDescription("List recent activity.", "activity:read"),
     inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 50, default: 20 } }, ...noAdditionalProperties },
   },
+  {
+    name: "posts.versions.list",
+    requiredScope: "posts:read",
+    description: withScopeDescription("List version history for a post, newest first. Each entry shows versionNumber, actorType, actorName, changeSummary, and status.", "posts:read"),
+    inputSchema: { type: "object", properties: { postId: postIdProperty }, required: ["postId"], ...noAdditionalProperties },
+  },
+  {
+    name: "posts.versions.get",
+    requiredScope: "posts:read",
+    description: withScopeDescription("Get a specific version of a post by versionNumber, including full Markdown content.", "posts:read"),
+    inputSchema: { type: "object", properties: { postId: postIdProperty, versionNumber: versionNumberProperty }, required: ["postId", "versionNumber"], ...noAdditionalProperties },
+  },
+  {
+    name: "posts.versions.restore",
+    requiredScope: "posts:update",
+    description: withScopeDescription("Restore a post to a previous version. Content-only - never re-publishes. Creates a new version + post.restored activity. Returns the updated post.", "posts:update"),
+    inputSchema: { type: "object", properties: { postId: postIdProperty, versionNumber: versionNumberProperty }, required: ["postId", "versionNumber"], ...noAdditionalProperties },
+  },
 ];
 
 /**
@@ -107,6 +126,8 @@ Content rules:
 Reading: posts.list and posts.search return summaries without the body; use posts.get for the full Markdown.
 
 Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown.
+
+Version history: posts.versions.list returns all saved versions (newest first) with actorName and changeSummary. posts.versions.get fetches the full Markdown for any version. posts.versions.restore replaces the current content with the chosen version - it is content-only and never re-publishes, and it creates a new version entry marked post.restored. Requires posts:update scope.
 
 Limits and errors: calls share a workspace budget; on a rate-limit error, wait for the reset and retry. When a tool result is marked as an error, read its message and fix your input before retrying (for example, choose a different slug if one is already in use, or correct a field that failed validation).`;
 

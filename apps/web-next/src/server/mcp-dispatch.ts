@@ -3,10 +3,13 @@ import {
   archivePostRequestSchema,
   createPostRequestSchema,
   getPostRequestSchema,
+  getPostVersionRequestSchema,
   getSiteRequestSchema,
   listActivityRequestSchema,
   listPostsRequestSchema,
+  listPostVersionsRequestSchema,
   publishPostRequestSchema,
+  restorePostVersionRequestSchema,
   searchPostsRequestSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
@@ -16,10 +19,13 @@ import {
   archivePostOp,
   createPostOp,
   getPostOp,
+  getPostVersionOp,
   getSiteOp,
   listActivityOp,
   listPostsOp,
+  listPostVersionsOp,
   publishPostOp,
+  restorePostVersionOp,
   searchPostsOp,
   updatePostOp,
   uploadAssetOp,
@@ -48,6 +54,12 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return uploadAssetOp(ctx, uploadAssetRequestSchema.parse(rawArguments ?? {}));
     case "activity.list":
       return listActivityOp(ctx, listActivityRequestSchema.parse(rawArguments ?? {}));
+    case "posts.versions.list":
+      return listPostVersionsOp(ctx, listPostVersionsRequestSchema.parse(rawArguments ?? {}));
+    case "posts.versions.get":
+      return getPostVersionOp(ctx, getPostVersionRequestSchema.parse(rawArguments ?? {}));
+    case "posts.versions.restore":
+      return restorePostVersionOp(ctx, restorePostVersionRequestSchema.parse(rawArguments ?? {}));
     default:
       throw new Error(`Unknown tool: ${String(toolName)}`);
   }

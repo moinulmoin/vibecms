@@ -78,6 +78,20 @@ export const listActivityRequestSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 }).strict();
 
+export const listPostVersionsRequestSchema = z.object({
+  postId: z.string().min(1),
+}).strict();
+
+export const getPostVersionRequestSchema = z.object({
+  postId: z.string().min(1),
+  versionNumber: z.coerce.number().int().min(1),
+}).strict();
+
+export const restorePostVersionRequestSchema = z.object({
+  postId: z.string().min(1),
+  versionNumber: z.coerce.number().int().min(1),
+}).strict();
+
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;
 export type SearchPostsRequest = z.infer<typeof searchPostsRequestSchema>;
@@ -88,3 +102,6 @@ export type PublishPostRequest = z.infer<typeof publishPostRequestSchema>;
 export type ArchivePostRequest = z.infer<typeof archivePostRequestSchema>;
 export type UploadAssetRequest = z.infer<typeof uploadAssetRequestSchema>;
 export type ListActivityRequest = z.infer<typeof listActivityRequestSchema>;
+export type ListPostVersionsRequest = z.infer<typeof listPostVersionsRequestSchema>;
+export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
+export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;

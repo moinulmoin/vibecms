@@ -1,5 +1,5 @@
-import type { Asset, Post, PostSummary } from "@vc/core";
-import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, SiteDto } from "./dto";
+import type { Asset, Post, PostSummary, PostVersion, PostVersionSummary } from "@vc/core";
+import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, PostVersionDto, PostVersionSummaryDto, SiteDto } from "./dto";
 
 export type SiteRow = {
   id: string;
@@ -60,5 +60,30 @@ export function mapActivityRow(row: ActivityRow): ActivityDto {
     actorId: row.actor_id,
     actorName: row.actor_name,
     createdAt: row.created_at,
+  };
+}
+
+export function mapPostVersionSummary(version: PostVersionSummary): PostVersionSummaryDto {
+  return {
+    versionNumber: version.versionNumber,
+    title: version.title,
+    slug: version.slug,
+    status: version.status,
+    changeSummary: version.changeSummary,
+    actorType: version.actorType,
+    actorName: version.actorName,
+    createdAt: version.createdAt,
+  };
+}
+
+export function mapPostVersion(version: PostVersion): PostVersionDto {
+  return {
+    ...mapPostVersionSummary(version),
+    excerpt: version.excerpt,
+    contentMarkdown: version.contentMarkdown,
+    coverAssetId: version.coverAssetId,
+    seoTitle: version.seoTitle,
+    seoDescription: version.seoDescription,
+    tags: version.tags,
   };
 }

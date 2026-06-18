@@ -8,6 +8,7 @@ import {
   archivePost,
   createPost,
   publishPost,
+  restorePostVersion,
   updatePost,
 } from '@vc/core'
 import { createD1PostRepository } from '@vc/db'
@@ -131,6 +132,19 @@ export async function archivePostForApp(app: AppUserContext, postId: string): Pr
   try {
     await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
     return { kind: 'ok', code: 'post_archived', postId }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function restorePostVersionForApp(
+  app: AppUserContext,
+  postId: string,
+  versionNumber: number,
+): Promise<MutationResult> {
+  try {
+    await restorePostVersion(repository(), app.actor, { siteId: app.siteId, postId, versionNumber })
+    return { kind: 'ok', code: 'post_restored', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }
   }

@@ -7,6 +7,11 @@ const EXTRA_OK: Record<string, FormStatus> = {
     title: 'Settings saved',
     message: 'Your site details and SEO defaults are updated.',
   },
+  post_restored: {
+    variant: 'success',
+    title: 'Version restored',
+    message: 'The post has been rolled back to the selected version.',
+  },
 }
 
 /** Maps allowlisted `?ok=` / `?error=` search params to {@link StatusAlert} input. */

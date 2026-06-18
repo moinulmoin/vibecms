@@ -11,6 +11,8 @@ import {
   paginationMetaSchema,
   postDtoSchema,
   postSummaryDtoSchema,
+  postVersionDtoSchema,
+  postVersionSummaryDtoSchema,
   publishPostRequestSchema,
   siteDtoSchema,
   updatePostRequestSchema,
@@ -68,6 +70,9 @@ const publishPostOpDef = operationsByToolName["posts.publish"];
 const archivePostOpDef = operationsByToolName["posts.archive"];
 const uploadAssetOpDef = operationsByToolName["assets.upload"];
 const listActivityOpDef = operationsByToolName["activity.list"];
+const listPostVersionsOpDef = operationsByToolName["posts.versions.list"];
+const getPostVersionOpDef = operationsByToolName["posts.versions.get"];
+const restorePostVersionOpDef = operationsByToolName["posts.versions.restore"];
 
 const listPostsResponseSchema = z.object({
   posts: z.array(postSummaryDtoSchema),
@@ -76,6 +81,11 @@ const listPostsResponseSchema = z.object({
 
 const postIdParamsSchema = getPostRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
+
+const postVersionParamsSchema = z.object({
+  postId: z.string().min(1),
+  versionNumber: z.coerce.number().int().min(1),
+});
 
 export const getSiteRoute = createRoute({
   method: "get",
@@ -246,6 +256,60 @@ export const listActivityRoute = createRoute({
   },
 });
 
+export const listPostVersionsRoute = createRoute({
+  method: "get",
+  path: "/posts/{postId}/versions",
+  operationId: listPostVersionsOpDef.operationId,
+  description: listPostVersionsOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: postIdParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Post version history",
+      content: { "application/json": { schema: z.array(postVersionSummaryDtoSchema) } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
+export const getPostVersionRoute = createRoute({
+  method: "get",
+  path: "/posts/{postId}/versions/{versionNumber}",
+  operationId: getPostVersionOpDef.operationId,
+  description: getPostVersionOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: postVersionParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Post version with full Markdown",
+      content: { "application/json": { schema: postVersionDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
+export const restorePostVersionRoute = createRoute({
+  method: "post",
+  path: "/posts/{postId}/versions/{versionNumber}/restore",
+  operationId: restorePostVersionOpDef.operationId,
+  description: restorePostVersionOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: postVersionParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Updated post after restore",
+      content: { "application/json": { schema: postDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
 /** All REST operation route definitions (order is stable for spec generation). */
 export const apiV1OperationRoutes = [
   getSiteRoute,
@@ -257,6 +321,9 @@ export const apiV1OperationRoutes = [
   archivePostRoute,
   uploadAssetRoute,
   listActivityRoute,
+  listPostVersionsRoute,
+  getPostVersionRoute,
+  restorePostVersionRoute,
 ] as const;
 
 const noopHandler = async (c: { json: (body: unknown, status: number) => Response }) => c.json({}, 501);

@@ -37,6 +37,25 @@ export type Post = {
 };
 export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription">;
 
+export type PostVersionSummary = {
+  versionNumber: number;
+  title: string;
+  slug: string;
+  status: PostStatus;
+  changeSummary: string | null;
+  actorType: Actor["type"]; // "human" | "api_key" | "agent" | "system"
+  actorName: string;
+  createdAt: number;
+};
+export type PostVersion = PostVersionSummary & {
+  excerpt: string | null;
+  contentMarkdown: string;
+  coverAssetId: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  tags: string[];
+};
+
 
 export type Asset = {
   id: string;

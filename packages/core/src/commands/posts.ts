@@ -1,7 +1,7 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
 import { BillingRequiredError, NotFoundError } from "../errors";
 import { requireScope } from "../policies";
-import type { Actor, BillingStatus, Post, PostSummary } from "../types";
+import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
 export type PostMutationHistory = {
   changeSummary: string;
@@ -16,6 +16,8 @@ export type PostRepository = {
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
   publishPostWithHistory(siteId: string, postId: string, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean }>;
+  listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
+  getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
 
 // Draft-free model: a workspace may keep up to this many published posts without
@@ -109,4 +111,34 @@ export async function getPost(repo: PostRepository, actor: Actor, siteId: string
 export function listPosts(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:read");
   return repo.listPosts(listPostsInput.parse(input));
+}
+
+export async function listPostVersions(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+  requireScope(actor, "posts:read");
+  return repo.listPostVersions(input.siteId, input.postId);
+}
+
+export async function getPostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number }) {
+  requireScope(actor, "posts:read");
+  const version = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!version) throw new NotFoundError("Post version not found");
+  return version;
+}
+
+export async function restorePostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number }) {
+  requireScope(actor, "posts:update");
+  const target = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!target) throw new NotFoundError("Post version not found");
+  const patch: Partial<Post> = {
+    title: target.title, slug: target.slug, excerpt: target.excerpt,
+    contentMarkdown: target.contentMarkdown, coverAssetId: target.coverAssetId,
+    seoTitle: target.seoTitle, seoDescription: target.seoDescription, tags: target.tags,
+  };
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, patch, actor, {
+    changeSummary: `Restored to v${input.versionNumber}`,
+    activityAction: "post.restored",
+    activitySummary: `Restored "${target.title}" to v${input.versionNumber}`,
+  });
+  if (!after) throw new NotFoundError("Post not found");
+  return after;
 }

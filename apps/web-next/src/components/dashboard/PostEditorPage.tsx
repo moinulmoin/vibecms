@@ -1,17 +1,20 @@
 'use client'
 
-import type { Asset, Post } from '@vc/core'
+import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
 import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
   archivePostMutation,
   createPostMutation,
+  getPostVersionFn,
+  listPostVersionsFn,
   loadPostEditorPage,
   publishPostMutation,
+  restorePostVersionFn,
   updatePostMutation,
 } from '~/server/posts-page-fn'
-import { Button, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Button, PageHeader, Panel, StatusAlert, formatDateTime } from '~/components/dashboard/DashboardLayout'
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from '~/components/dashboard/MarkdownEditor'
@@ -19,6 +22,24 @@ import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFro
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+import { CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon } from '@radix-ui/react-icons'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '~/components/ui/sheet'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { Separator } from '~/components/ui/separator'
 
 function tagsFromForm(form: FormData) {
   const raw = form.get('tags')
@@ -89,6 +110,15 @@ function EditorSkeleton() {
   )
 }
 
+function relativeTime(tsSeconds: number): string {
+  const diffMs = Date.now() - tsSeconds * 1000
+  if (diffMs < 60_000) return 'just now'
+  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)}m ago`
+  if (diffMs < 86_400_000) return `${Math.floor(diffMs / 3_600_000)}h ago`
+  if (diffMs < 7 * 86_400_000) return `${Math.floor(diffMs / 86_400_000)}d ago`
+  return formatDateTime(tsSeconds)
+}
+
 function PostEditorShell({ postId }: { postId?: string }) {
   const navigate = useNavigate()
   const formStatus = useFormStatusFromSearch()
@@ -99,6 +129,14 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [savePending, setSavePending] = useState(false)
   const [publishPending, setPublishPending] = useState(false)
   const [archivePending, setArchivePending] = useState(false)
+  const [formKey, setFormKey] = useState(0)
+  const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
+  const [versions, setVersions] = useState<PostVersionSummary[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [viewingVersion, setViewingVersion] = useState<PostVersion | null>(null)
+  const [viewingVersionLoading, setViewingVersionLoading] = useState(false)
+  const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -185,6 +223,55 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
+  async function handleVersionDrawerOpenChange(open: boolean) {
+    setVersionDrawerOpen(open)
+    if (!open || !postId) return
+    setVersionsLoading(true)
+    setVersions([])
+    try {
+      const result = await listPostVersionsFn({ data: { postId } })
+      setVersions(result)
+    } finally {
+      setVersionsLoading(false)
+    }
+  }
+
+  async function handleViewVersion(versionNumber: number) {
+    if (!postId) return
+    setViewDialogOpen(true)
+    setViewingVersion(null)
+    setViewingVersionLoading(true)
+    try {
+      const v = await getPostVersionFn({ data: { postId, versionNumber } })
+      setViewingVersion(v)
+    } catch {
+      setViewDialogOpen(false)
+    } finally {
+      setViewingVersionLoading(false)
+    }
+  }
+
+  async function handleRestoreVersion(versionNumber: number) {
+    if (!postId) return
+    setRestoreVersionPending(versionNumber)
+    try {
+      const result = await restorePostVersionFn({ data: { postId, versionNumber } })
+      if (result.kind === 'ok') {
+        const refreshed = await loadPostEditorPage({ data: { postId } })
+        setPost(refreshed.post)
+        setFormKey((k) => k + 1)
+        setVersionDrawerOpen(false)
+        await navigate({
+          to: '/app/posts/$postId/edit',
+          params: { postId },
+          search: postEditorSearch({ ok: result.code }),
+        })
+      }
+    } finally {
+      setRestoreVersionPending(null)
+    }
+  }
+
   if (loading) {
     return <EditorSkeleton />
   }
@@ -210,6 +297,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </Panel>
       ) : (
         <form
+          key={formKey}
           className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >
@@ -367,11 +455,175 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     Archive
                   </SpaConfirmButton>
                 ) : null}
+                {postId ? (
+                  <Sheet
+                    open={versionDrawerOpen}
+                    onOpenChange={(open) => void handleVersionDrawerOpenChange(open)}
+                  >
+                    <SheetTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="justify-start gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <CounterClockwiseClockIcon className="size-4" aria-hidden="true" />
+                        Version history
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
+                      <SheetHeader>
+                        <SheetTitle>Version history</SheetTitle>
+                        <SheetDescription>
+                          Past saved versions of this post. Restore to roll back content to a previous state.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <Separator />
+                      <div className="flex-1 overflow-y-auto">
+                        {versionsLoading ? (
+                          <div className="grid gap-3 p-4">
+                            <Skeleton className="h-16 rounded-lg" />
+                            <Skeleton className="h-16 rounded-lg" />
+                            <Skeleton className="h-16 rounded-lg" />
+                          </div>
+                        ) : versions.length === 0 ? (
+                          <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
+                        ) : (
+                          <ul className="divide-y">
+                            {versions.map((v) => (
+                              <li key={v.versionNumber} className="flex flex-col gap-2 p-4">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="font-mono text-xs">
+                                    v{v.versionNumber}
+                                  </Badge>
+                                  <PostStatusBadge status={v.status} />
+                                </div>
+                                <p className="text-sm font-medium leading-snug">{v.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {v.actorName} &middot; {relativeTime(v.createdAt)}
+                                </p>
+                                {v.changeSummary ? (
+                                  <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
+                                ) : null}
+                                <div className="flex gap-1.5 pt-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() => void handleViewVersion(v.versionNumber)}
+                                    disabled={restoreVersionPending !== null}
+                                  >
+                                    <EyeOpenIcon className="size-3.5" aria-hidden="true" />
+                                    View
+                                  </Button>
+                                  <SpaConfirmButton
+                                    size="sm"
+                                    confirmLabel="Confirm restore"
+                                    helperText="This overwrites the current draft content with this version."
+                                    disabled={restoreVersionPending !== null}
+                                    onConfirm={() => void handleRestoreVersion(v.versionNumber)}
+                                  >
+                                    <ResetIcon className="size-3.5" aria-hidden="true" />
+                                    Restore
+                                  </SpaConfirmButton>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                ) : null}
               </div>
             </Panel>
           </aside>
         </form>
       )}
+      <Dialog
+        open={viewDialogOpen}
+        onOpenChange={(open) => {
+          setViewDialogOpen(open)
+          if (!open) setViewingVersion(null)
+        }}
+      >
+        <DialogContent className="flex max-h-[85dvh] flex-col sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {viewingVersionLoading
+                ? 'Loading...'
+                : viewingVersion
+                  ? `v${viewingVersion.versionNumber} - ${viewingVersion.title}`
+                  : 'Version'}
+            </DialogTitle>
+            {viewingVersion ? (
+              <DialogDescription>
+                Saved by {viewingVersion.actorName} on {formatDateTime(viewingVersion.createdAt)}
+                {viewingVersion.changeSummary ? ` - ${viewingVersion.changeSummary}` : ''}
+              </DialogDescription>
+            ) : null}
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {viewingVersionLoading ? (
+              <div className="grid gap-3 p-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-40" />
+              </div>
+            ) : viewingVersion ? (
+              <div className="grid gap-4 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <PostStatusBadge status={viewingVersion.status} />
+                  <span className="font-mono text-xs text-muted-foreground">{viewingVersion.slug}</span>
+                </div>
+                {viewingVersion.excerpt ? (
+                  <p className="text-sm italic text-muted-foreground">{viewingVersion.excerpt}</p>
+                ) : null}
+                <div>
+                  <p className="mb-1 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    Markdown
+                  </p>
+                  <pre className="max-h-64 overflow-y-auto rounded-lg bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap break-words">
+                    {viewingVersion.contentMarkdown}
+                  </pre>
+                </div>
+                {viewingVersion.seoTitle || viewingVersion.seoDescription ? (
+                  <div className="grid gap-1.5">
+                    {viewingVersion.seoTitle ? (
+                      <p className="text-sm">
+                        <span className="font-medium">SEO title: </span>
+                        {viewingVersion.seoTitle}
+                      </p>
+                    ) : null}
+                    {viewingVersion.seoDescription ? (
+                      <p className="text-sm">
+                        <span className="font-medium">SEO description: </span>
+                        {viewingVersion.seoDescription}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {viewingVersion.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewingVersion.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex justify-end border-t pt-3">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" size="sm">
+                Close
+              </Button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

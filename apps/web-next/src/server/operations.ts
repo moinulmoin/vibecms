@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, getPost, listPosts, publishPost, requireScope, updatePost, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getPost, getPostVersion, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
 import { MEDIA } from "@vc/config";
 import { createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -7,6 +7,8 @@ import {
   mapAsset,
   mapPost,
   mapPostSummary,
+  mapPostVersion,
+  mapPostVersionSummary,
   mapSiteRow,
   type ActivityRow,
   type SiteRow,
@@ -197,4 +199,17 @@ export async function listActivityOp(ctx: OperationContext, input: { limit?: num
   requireScope(ctx.actor, "activity:read");
   const rows = await recentActivity(ctx.siteId, input.limit ?? 20);
   return rows.map(mapActivityRow);
+}
+
+export async function listPostVersionsOp(ctx: OperationContext, input: { postId: string }) {
+  const versions = await listPostVersions(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId });
+  return versions.map(mapPostVersionSummary);
+}
+
+export async function getPostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number }) {
+  return mapPostVersion(await getPostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
+}
+
+export async function restorePostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number }) {
+  return mapPost(await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
 }

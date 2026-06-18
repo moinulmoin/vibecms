@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { Post } from '@vc/core'
+import { getPostVersion, listPostVersions } from '@vc/core'
 import { createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getMedia } from '~/server/media'
@@ -8,6 +9,7 @@ import {
   archivePostForApp,
   createPostForApp,
   publishPostForApp,
+  restorePostVersionForApp,
   updatePostForApp,
   type PostFormPayload,
 } from '~/server/post-mutations'
@@ -125,4 +127,32 @@ export const archivePostMutation = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const app = await requireApp()
     return archivePostForApp(app, data.postId)
+  })
+
+export const listPostVersionsFn = createServerFn({ method: 'GET' })
+  .validator((data: { postId: string }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return listPostVersions(createD1PostRepository(env.DB), app.actor, {
+      siteId: app.siteId,
+      postId: data.postId,
+    })
+  })
+
+export const getPostVersionFn = createServerFn({ method: 'GET' })
+  .validator((data: { postId: string; versionNumber: number }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return getPostVersion(createD1PostRepository(env.DB), app.actor, {
+      siteId: app.siteId,
+      postId: data.postId,
+      versionNumber: data.versionNumber,
+    })
+  })
+
+export const restorePostVersionFn = createServerFn({ method: 'POST' })
+  .validator((data: { postId: string; versionNumber: number }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return restorePostVersionForApp(app, data.postId, data.versionNumber)
   })

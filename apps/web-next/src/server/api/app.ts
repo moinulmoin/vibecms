@@ -7,10 +7,13 @@ import {
   archivePostOp,
   createPostOp,
   getPostOp,
+  getPostVersionOp,
   getSiteOp,
   listActivityOp,
   listPostsOp,
+  listPostVersionsOp,
   publishPostOp,
+  restorePostVersionOp,
   updatePostOp,
   uploadAssetOp,
   type OperationContext,
@@ -21,11 +24,14 @@ import {
   bearerAuthSecurityScheme,
   createPostRoute,
   getPostRoute,
+  getPostVersionRoute,
   getSiteRoute,
   listActivityRoute,
   listPostsRoute,
+  listPostVersionsRoute,
   openApiInfo,
   publishPostRoute,
+  restorePostVersionRoute,
   updatePostRoute,
   uploadAssetRoute,
 } from "~/server/api/routes";
@@ -194,6 +200,24 @@ apiV1App.openapi(listActivityRoute, async (c) => {
   const query = c.req.valid("query");
   const activity = await listActivityOp(c.get("ctx"), query);
   return c.json(activity, 200);
+});
+
+apiV1App.openapi(listPostVersionsRoute, async (c) => {
+  const { postId } = c.req.valid("param");
+  const versions = await listPostVersionsOp(c.get("ctx"), { postId });
+  return c.json(versions, 200);
+});
+
+apiV1App.openapi(getPostVersionRoute, async (c) => {
+  const { postId, versionNumber } = c.req.valid("param");
+  const version = await getPostVersionOp(c.get("ctx"), { postId, versionNumber });
+  return c.json(version, 200);
+});
+
+apiV1App.openapi(restorePostVersionRoute, async (c) => {
+  const { postId, versionNumber } = c.req.valid("param");
+  const post = await restorePostVersionOp(c.get("ctx"), { postId, versionNumber });
+  return c.json(post, 200);
 });
 
 apiV1App.onError((err, c) => {

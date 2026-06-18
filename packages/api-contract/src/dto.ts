@@ -55,8 +55,32 @@ export const activityDtoSchema = z.object({
   createdAt: z.number(),
 });
 
+export const actorTypeDtoSchema = z.enum(["human", "api_key", "agent", "system"]);
+
+export const postVersionSummaryDtoSchema = z.object({
+  versionNumber: z.number().int(),
+  title: z.string(),
+  slug: z.string(),
+  status: postStatusSchema,
+  changeSummary: z.string().nullable(),
+  actorType: actorTypeDtoSchema,
+  actorName: z.string(),
+  createdAt: z.number(),
+});
+
+export const postVersionDtoSchema = postVersionSummaryDtoSchema.extend({
+  excerpt: z.string().nullable(),
+  contentMarkdown: z.string(),
+  coverAssetId: z.string().nullable(),
+  seoTitle: z.string().nullable(),
+  seoDescription: z.string().nullable(),
+  tags: z.array(z.string()),
+});
+
 export type SiteDto = z.infer<typeof siteDtoSchema>;
 export type PostSummaryDto = z.infer<typeof postSummaryDtoSchema>;
 export type PostDto = z.infer<typeof postDtoSchema>;
 export type AssetDto = z.infer<typeof assetDtoSchema>;
 export type ActivityDto = z.infer<typeof activityDtoSchema>;
+export type PostVersionSummaryDto = z.infer<typeof postVersionSummaryDtoSchema>;
+export type PostVersionDto = z.infer<typeof postVersionDtoSchema>;
