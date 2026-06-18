@@ -1,6 +1,6 @@
 'use client'
 
-import { Badge, Field, FieldLabel, Input, Select, cn } from '@vc/ui'
+import { Field, FieldLabel, Input, Select, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { PostSummary } from '@vc/core'
@@ -18,6 +18,7 @@ import {
   StatusAlert,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -29,7 +30,7 @@ function StatusBadge({ status, className }: { status: string; className?: string
     return (
       <Badge
         className={cn(
-          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 font-mono text-[10px] capitalize text-brand-bright',
+          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-brand-bright',
           className,
         )}
       >
@@ -39,7 +40,7 @@ function StatusBadge({ status, className }: { status: string; className?: string
     )
   }
   return (
-    <Badge variant="outline" className={cn('font-mono text-[10px] capitalize', className)}>
+    <Badge variant="outline" className={cn('capitalize', className)}>
       {status}
     </Badge>
   )

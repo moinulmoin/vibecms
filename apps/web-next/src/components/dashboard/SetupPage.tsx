@@ -74,7 +74,7 @@ export function SetupPage() {
             </span>
           </div>
           <div className="rounded-xl bg-muted/50 p-4">
-            <strong className="block font-display text-base font-semibold text-brand-bright">
+            <strong className="block font-display text-base font-semibold tabular-nums text-foreground">
               {MEDIA.paidStorageLabel}
             </strong>
             <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -83,11 +83,11 @@ export function SetupPage() {
           </div>
         </div>
         <Panel title="Create your hosted blog" meta={<span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Blog setup</span>}>
-          <p className="mb-6 font-sans text-sm leading-6 text-muted-foreground">
+          <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
             Only the essentials. You can edit posts, media, tokens, and billing after this.
           </p>
-          <form className="grid gap-6" onSubmit={(e) => void handleSubmit(e)}>
-            <FieldGroup className="gap-5">
+          <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
+            <FieldGroup className="gap-4">
               <Field>
                 <FieldLabel htmlFor="name" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Blog Name

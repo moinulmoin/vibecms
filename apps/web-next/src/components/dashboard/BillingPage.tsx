@@ -2,11 +2,11 @@
 
 import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
 import { CheckIcon } from '@radix-ui/react-icons'
-import { Badge } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -18,6 +18,22 @@ import {
   portalBillingMutation,
   type BillingPageLoadResult,
 } from '~/server/billing-page-fn'
+
+function BillingStatusBadge({ status }: { status: string }) {
+  if (status === 'active') {
+    return (
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        Active
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  )
+}
 
 export function BillingPage() {
   const navigate = useNavigate()
@@ -114,9 +130,7 @@ export function BillingPage() {
                 <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                   {PRICING.planName}
                 </span>
-                <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.08em]">
-                  {billing.status}
-                </Badge>
+                <BillingStatusBadge status={billing.status} />
               </span>
             }
           >

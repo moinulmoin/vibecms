@@ -1,7 +1,7 @@
 import { BRAND } from '@vc/config'
-import { Badge } from '@vc/ui'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { Badge } from '~/components/ui/badge'
 
 export function OnboardingFrame({ children, phase = 'Setup' }: { children: ReactNode; phase?: string }) {
   return (

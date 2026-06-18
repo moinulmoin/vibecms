@@ -1,7 +1,7 @@
 'use client'
 
 import type { Asset, Post } from '@vc/core'
-import { Field, FieldDescription, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
+import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
@@ -12,6 +12,7 @@ import {
   updatePostMutation,
 } from '~/server/posts-page-fn'
 import { Button, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from '~/components/dashboard/MarkdownEditor'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -40,6 +41,22 @@ function payloadFromForm(form: FormData) {
   }
 }
 
+function PostStatusBadge({ status }: { status: string }) {
+  if (status === 'published') {
+    return (
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-brand-bright">
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        {status}
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  )
+}
+
 export function NewPostEditorPage() {
   return <PostEditorShell postId={undefined} />
 }
@@ -59,7 +76,7 @@ function EditorSkeleton() {
         </div>
         <Skeleton className="h-9 w-32" />
       </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <Skeleton className="h-[34rem] rounded-2xl" />
         <div className="grid gap-3">
           <Skeleton className="h-72 rounded-2xl" />
@@ -191,7 +208,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </Panel>
       ) : (
         <form
-          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+          className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" />
@@ -229,19 +246,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           </Panel>
           <aside className="grid gap-3 lg:sticky lg:top-6">
-            <Panel
-              title="Publish Settings"
-              meta={
-                <span
-                  className={cn(
-                    'font-mono text-[10px] font-medium uppercase tracking-[0.14em]',
-                    post?.status === 'published' ? 'text-brand-bright' : 'text-muted-foreground',
-                  )}
-                >
-                  {post?.status ?? 'draft'}
-                </span>
-              }
-            >
+            <Panel title="Publish Settings" meta={<PostStatusBadge status={post?.status ?? 'draft'} />}>
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel

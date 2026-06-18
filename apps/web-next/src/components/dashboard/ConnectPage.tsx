@@ -1,9 +1,9 @@
 'use client'
 
-import { Button, Skeleton } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Button, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '~/components/ui/skeleton'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { createApiKeyMutation, loadConnectPage } from '~/server/dashboard-pages-fn'
@@ -86,40 +86,38 @@ export function ConnectPage() {
           </Button>
         }
       />
-      <div className="grid gap-4">
-        <StatusAlert status={formStatus} />
-        {!justCreated ? (
-          data.canManage ? (
-            <Panel title="1. Create an agent token" meta="Draft-only">
-              <div className="grid gap-3">
-                <p className="font-sans text-sm leading-6 text-muted-foreground">
-                  Starts as a safe draft-only assistant. You can let it publish later from Settings.
-                </p>
-                <Button type="button" disabled={createPending} onClick={() => void handleQuickCreate()}>
-                  {createPending ? 'Creating token…' : 'Generate agent token'}
-                </Button>
-                <span className="font-mono text-xs text-muted-foreground">Shown once - keep it somewhere safe.</span>
-              </div>
-            </Panel>
-          ) : (
-            <Panel title="Create an agent token">
+      <StatusAlert status={formStatus} />
+      {!justCreated ? (
+        data.canManage ? (
+          <Panel title="1. Create an agent token" meta="Draft-only">
+            <div className="grid gap-3">
               <p className="font-sans text-sm leading-6 text-muted-foreground">
-                Only the workspace owner can create agent tokens. Ask the owner to connect an agent.
+                Starts as a safe draft-only assistant. You can let it publish later from Settings.
               </p>
-            </Panel>
-          )
-        ) : null}
-        <Panel title={justCreated ? 'Connect and start' : '2. Connect your agent'}>
-          <ConnectAgent mcpUrl={data.mcpUrl} token={flash?.token} tokenName={flash?.name} />
-        </Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/50 p-4">
-          <p className="font-sans text-sm leading-6 text-muted-foreground">
-            You can revisit this and manage tokens anytime in Settings.
-          </p>
-          <Button asChild variant="outline">
-            <Link to="/app">{justCreated ? 'Go to dashboard' : 'Skip for now'}</Link>
-          </Button>
-        </div>
+              <Button type="button" disabled={createPending} onClick={() => void handleQuickCreate()}>
+                {createPending ? 'Creating token…' : 'Generate agent token'}
+              </Button>
+              <span className="font-mono text-xs text-muted-foreground">Shown once - keep it somewhere safe.</span>
+            </div>
+          </Panel>
+        ) : (
+          <Panel title="Create an agent token">
+            <p className="font-sans text-sm leading-6 text-muted-foreground">
+              Only the workspace owner can create agent tokens. Ask the owner to connect an agent.
+            </p>
+          </Panel>
+        )
+      ) : null}
+      <Panel title={justCreated ? 'Connect and start' : '2. Connect your agent'}>
+        <ConnectAgent mcpUrl={data.mcpUrl} token={flash?.token} tokenName={flash?.name} />
+      </Panel>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/50 p-4">
+        <p className="font-sans text-sm leading-6 text-muted-foreground">
+          You can revisit this and manage tokens anytime in Settings.
+        </p>
+        <Button asChild variant="outline">
+          <Link to="/app">{justCreated ? 'Go to dashboard' : 'Skip for now'}</Link>
+        </Button>
       </div>
     </>
   )

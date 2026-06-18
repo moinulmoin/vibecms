@@ -1,6 +1,5 @@
 'use client'
 
-import { Badge } from '@vc/ui'
 import { useEffect, useState } from 'react'
 import {
   DataRow,
@@ -10,6 +9,7 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { loadActivityPage } from '~/server/dashboard-pages-fn'
 

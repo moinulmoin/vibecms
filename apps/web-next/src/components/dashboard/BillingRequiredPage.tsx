@@ -2,17 +2,33 @@
 
 import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
 import { CheckIcon } from '@radix-ui/react-icons'
-import { Badge } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { checkoutBillingMutation } from '~/server/billing-page-fn'
 import { loadBillingRequiredPage } from '~/server/dashboard-pages-fn'
+
+function BillingStatusBadge({ status }: { status: string }) {
+  if (status === 'active') {
+    return (
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        Active
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  )
+}
 
 export function BillingRequiredPage() {
   const navigate = useNavigate()
@@ -72,9 +88,7 @@ export function BillingRequiredPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                 {PRICING.planName}
               </span>
-              <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.08em]">
-                {billingStatus}
-              </Badge>
+              <BillingStatusBadge status={billingStatus} />
             </span>
           }
         >
@@ -122,7 +136,7 @@ export function BillingRequiredPage() {
             Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload
             media, and make your blog search-indexable. Cancel anytime from the customer portal.
           </p>
-          <div className="mt-4 border-t border-[color:var(--hairline)] pt-4">
+          <div className="mt-4">
             <Link
               to="/app/billing"
               search={emptyDashboardStatusSearch}

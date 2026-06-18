@@ -4,14 +4,12 @@ import { BRAND, ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
 import type { ApiKeyListItem } from '~/server/api-keys'
 import { DownloadIcon } from '@radix-ui/react-icons'
 import {
-  Badge,
   Field,
   FieldDescription,
   FieldLabel,
   FieldLegend,
   FieldSet,
   Input,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -30,6 +28,8 @@ import {
   StatusAlert,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
+import { Badge } from '~/components/ui/badge'
+import { Skeleton } from '~/components/ui/skeleton'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -58,6 +58,38 @@ type SettingsPageData = {
   isOwner: boolean
   canManageTokens: boolean
   mcpUrl: string
+}
+
+function TokenStatusBadge({ revoked }: { revoked: boolean }) {
+  if (revoked) {
+    return (
+      <Badge variant="outline" className="capitalize">
+        revoked
+      </Badge>
+    )
+  }
+  return (
+    <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+      <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+      Active
+    </Badge>
+  )
+}
+
+function BillingStatusBadge({ status }: { status: string }) {
+  if (status === 'active') {
+    return (
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        Active
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  )
 }
 
 export function SettingsPage() {
@@ -187,7 +219,10 @@ export function SettingsPage() {
           </PendingSubmitButton>
         </form>
       </Panel>
-      <Panel title="Billing" meta={<Badge variant="outline">{selfHosted ? 'self-hosted' : billingStatus}</Badge>}>
+      <Panel
+        title="Billing"
+        meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}
+      >
         <div className="rounded-2xl bg-muted/50 p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
@@ -240,7 +275,7 @@ export function SettingsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Field
                   orientation="horizontal"
-                  className="rounded-xl bg-background/60 p-3 ring-1 ring-transparent transition-colors hover:bg-background has-[:checked]:bg-background has-[:checked]:ring-brand-bright/40"
+                  className="rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted has-[:checked]:bg-muted"
                 >
                   <input id="preset-draft" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="draft" defaultChecked />
                   <span>
@@ -254,12 +289,12 @@ export function SettingsPage() {
                 </Field>
                 <Field
                   orientation="horizontal"
-                  className="rounded-xl bg-background/60 p-3 ring-1 ring-transparent transition-colors hover:bg-background has-[:checked]:bg-background has-[:checked]:ring-brand-bright/40"
+                  className="rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted has-[:checked]:bg-muted"
                 >
                   <input id="preset-full" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="full" />
                   <span>
                     <FieldLabel htmlFor="preset-full" className="flex items-center gap-2 font-display text-sm font-medium">
-                      Full publisher <Badge variant="destructive" className="font-mono text-[0.65rem] uppercase">can publish</Badge>
+                      Full publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">can publish</Badge>
                     </FieldLabel>
                     <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
                       Everything in Draft assistant plus publishing and archiving live posts.
@@ -288,8 +323,8 @@ export function SettingsPage() {
                     <p className="mt-1 break-words font-mono text-[11px] leading-5 text-muted-foreground">{key.scopes.join(', ')}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
-                    <Badge variant={key.revokedAt ? 'secondary' : 'outline'}>{key.revokedAt ? 'revoked' : 'active'}</Badge>
-                    <span>Last used {key.lastUsedAt ? formatDate(key.lastUsedAt) : 'never'}</span>
+                    <TokenStatusBadge revoked={Boolean(key.revokedAt)} />
+                    <span className="tabular-nums">Last used {key.lastUsedAt ? formatDate(key.lastUsedAt) : 'never'}</span>
                   </div>
                   {!key.revokedAt ? (
                     <SpaConfirmButton
@@ -323,7 +358,7 @@ export function SettingsPage() {
                       <p className="mt-1 max-w-2xl truncate font-mono text-[11px] text-muted-foreground">{key.scopes.join(', ')}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={key.revokedAt ? 'secondary' : 'outline'}>{key.revokedAt ? 'revoked' : 'active'}</Badge>
+                      <TokenStatusBadge revoked={Boolean(key.revokedAt)} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {key.lastUsedAt ? formatDate(key.lastUsedAt) : 'never used'}

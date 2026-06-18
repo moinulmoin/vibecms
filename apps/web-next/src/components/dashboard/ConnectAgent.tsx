@@ -84,7 +84,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
   const mcpRemote = `npx -y mcp-remote ${mcpUrl} --header "Authorization: Bearer ${tok}" --transport http-only`
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-3">
       {token ? (
         <div className="grid gap-3 rounded-2xl bg-muted/50 p-4">
           <div className="space-y-1">
@@ -95,7 +95,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
               Copy this token now. For security it is shown only once - it is already baked into the snippets below.
             </p>
           </div>
-          <pre className="overflow-auto rounded-xl bg-background/80 p-4 font-mono text-sm text-foreground ring-1 ring-brand-bright/20">
+          <pre className="overflow-auto rounded-xl bg-background/80 p-4 font-mono text-sm text-brand-bright">
             {token}
           </pre>
           <CopyButton value={token} label="Copy token" copiedLabel="Token copied" className="w-fit" />
@@ -113,14 +113,14 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
         title="Add it to your agent"
         description="Paste the snippet for your tool, then start a session. The server teaches the agent the rest."
       >
-        <div className="grid gap-5">
+        <div className="grid gap-3">
           <CodeBlock name="Claude Code" hint="Run this once in your terminal." code={claudeCode} />
           <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
           <details className="group rounded-xl bg-muted/50">
             <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground">
               More clients (Cursor, Claude Desktop, others)
             </summary>
-            <div className="grid gap-5 px-3 pb-3">
+            <div className="grid gap-3 px-3 pb-3">
               <CodeBlock
                 name="Cursor"
                 hint="Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project)."
