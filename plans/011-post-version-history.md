@@ -1,6 +1,6 @@
 # 011 - Post version history: list / view / restore
 
-Written against commit `92dbc42`. Status: PLANNED.
+Written against commit `92dbc42`. Status: DONE (shipped in `f3eb41b`; full list/view/restore round-trip verified on dev via the REST agent surface).
 
 ## Finding (validated)
 
