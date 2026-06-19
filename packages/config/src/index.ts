@@ -86,10 +86,10 @@ export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
   planName: "VibeCMS Cloud",
-  monthlyUsd: 9,
-  annualUsd: 99,
-  monthlyLabel: "$9/month",
-  annualLabel: "$99/year",
+  monthlyUsd: 19,
+  annualUsd: 190,
+  monthlyLabel: "$19/month",
+  annualLabel: "$190/year",
 } as const;
 
 export const ENTITLEMENTS = [
