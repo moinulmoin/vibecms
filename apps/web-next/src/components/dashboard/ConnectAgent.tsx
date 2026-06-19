@@ -2,14 +2,8 @@
 
 import { CopyButton } from '@vc/ui'
 
-const STARTER_PROMPT = [
-  'You\'re connected to my VibeCMS blog through the "vibecms" MCP server.',
-  'Use its tools to help me run the blog.',
-  'First, call sites.get to confirm access.',
-  'Then draft a short welcome post with posts.create and leave it as a draft for me to review (do not publish).',
-  'Write the body in Markdown.',
-  'Finally, tell me what you can do for the blog from here.',
-].join(' ')
+const STARTER_PROMPT =
+  'You\'re connected to my VibeCMS blog through the "vibecms" MCP server. First call sites.get to confirm access. Then create a short welcome post in Markdown with posts.create, and publish that same post with posts.publish. Use a clear title, a URL-safe slug, and 2 to 4 short paragraphs. When it is published, tell me the title and the URL if the tool returns one.'
 
 function CodeBlock({ name, hint, code }: { name: string; hint: string; code: string }) {
   return (
@@ -52,10 +46,13 @@ export function ConnectAgent({
   mcpUrl,
   token,
   tokenName,
+  promptOnly = false,
 }: {
   mcpUrl: string
   token?: string
   tokenName?: string
+  /** When true, show only the starter-prompt section (agent is already configured). */
+  promptOnly?: boolean
 }) {
   const tok = token ?? 'vc_YOUR_TOKEN'
   const claudeCode = `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${tok}"`
@@ -85,7 +82,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
 
   return (
     <div className="grid gap-3">
-      {token ? (
+      {!promptOnly && token ? (
         <div className="grid gap-3 rounded-2xl bg-muted/50 p-4">
           <div className="space-y-1">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-brand-bright">
@@ -102,52 +99,56 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
         </div>
       ) : null}
 
-      <Section title="MCP endpoint" description="Your blog speaks the Model Context Protocol over HTTP. Point any agent here.">
-        <div className="flex flex-wrap items-center gap-3">
-          <code className="rounded-xl bg-muted/50 px-3 py-2 font-mono text-sm text-foreground">{mcpUrl}</code>
-          <CopyButton value={mcpUrl} label="Copy URL" copiedLabel="Copied" />
-        </div>
-      </Section>
-
-      <Section
-        title="Add it to your agent"
-        description="Paste the snippet for your tool, then start a session. The server teaches the agent the rest."
-      >
-        <div className="grid gap-3">
-          <CodeBlock name="Claude Code" hint="Run this once in your terminal." code={claudeCode} />
-          <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
-          <details className="group rounded-xl bg-muted/50">
-            <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground">
-              More clients (Cursor, Claude Desktop, others)
-            </summary>
-            <div className="grid gap-3 px-3 pb-3">
-              <CodeBlock
-                name="Cursor"
-                hint="Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project)."
-                code={cursor}
-              />
-              <CodeBlock
-                name="Any HTTP-MCP client"
-                hint="Standard mcpServers JSON with a Streamable HTTP transport."
-                code={generic}
-              />
-              <CodeBlock
-                name="Stdio-only clients (Claude Desktop, etc.)"
-                hint="Bridge to the remote endpoint with mcp-remote."
-                code={mcpRemote}
-              />
+      {!promptOnly ? (
+        <>
+          <Section title="MCP endpoint" description="Your blog speaks the Model Context Protocol over HTTP. Point any agent here.">
+            <div className="flex flex-wrap items-center gap-3">
+              <code className="rounded-xl bg-muted/50 px-3 py-2 font-mono text-sm text-foreground">{mcpUrl}</code>
+              <CopyButton value={mcpUrl} label="Copy URL" copiedLabel="Copied" />
             </div>
-          </details>
-        </div>
-      </Section>
+          </Section>
+
+          <Section
+            title="Add it to your agent"
+            description="Paste the snippet for your tool, then start a session. The server teaches the agent the rest."
+          >
+            <div className="grid gap-3">
+              <CodeBlock name="Claude Code" hint="Run this once in your terminal." code={claudeCode} />
+              <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
+              <details className="group rounded-xl bg-muted/50">
+                <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground">
+                  More clients (Cursor, Claude Desktop, others)
+                </summary>
+                <div className="grid gap-3 px-3 pb-3">
+                  <CodeBlock
+                    name="Cursor"
+                    hint="Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project)."
+                    code={cursor}
+                  />
+                  <CodeBlock
+                    name="Any HTTP-MCP client"
+                    hint="Standard mcpServers JSON with a Streamable HTTP transport."
+                    code={generic}
+                  />
+                  <CodeBlock
+                    name="Stdio-only clients (Claude Desktop, etc.)"
+                    hint="Bridge to the remote endpoint with mcp-remote."
+                    code={mcpRemote}
+                  />
+                </div>
+              </details>
+            </div>
+          </Section>
+        </>
+      ) : null}
 
       <Section
         title="Hand it the first task"
-        description="After connecting, paste this into your agent and it will take it from there."
+        description="After connecting, paste this into your agent to create and publish your first post."
       >
         <CodeBlock
           name="Starter prompt"
-          hint="Confirms access and drafts a first post for your review."
+          hint="Confirms access, creates a post, and publishes it."
           code={STARTER_PROMPT}
         />
       </Section>

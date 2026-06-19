@@ -19,11 +19,26 @@ export function SetupPage() {
   const [site, setSite] = useState<{ name: string; slug: string; description: string } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  // Controlled values for the three prefillable fields
+  const [nameVal, setNameVal] = useState('')
+  const [slugVal, setSlugVal] = useState('')
+  const [descVal, setDescVal] = useState('')
+
+  // Touched tracking: once the user manually edits a field, URL changes must not overwrite it
+  const [nameTouched, setNameTouched] = useState(false)
+  const [slugTouched, setSlugTouched] = useState(false)
+  const [descTouched, setDescTouched] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     void loadSetupPage()
       .then((data) => {
-        if (!cancelled) setSite(data)
+        if (!cancelled) {
+          setSite(data)
+          setNameVal(data.name)
+          setSlugVal(data.slug)
+          setDescVal(data.description)
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load setup.')
@@ -32,6 +47,43 @@ export function SetupPage() {
       cancelled = true
     }
   }, [])
+
+  function handleUrlPrefill(raw: string) {
+    if (!raw.trim()) return
+    let url: URL
+    try {
+      url = new URL(raw.includes('://') ? raw : 'https://' + raw)
+    } catch {
+      return // invalid input - silently ignore
+    }
+
+    // Strip a leading www. only
+    let hostname = url.hostname
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.slice(4)
+    }
+
+    // Registrable domain label. Handle common multi-part public suffixes (co.uk, com.au, ...)
+    // so example.co.uk -> 'example', not 'co'. moin.com -> 'moin'; blog.acme.com -> 'acme'.
+    const parts = hostname.split('.')
+    const MULTI_PART_SUFFIXES = new Set(['co.uk', 'com.au', 'co.nz', 'co.jp', 'com.br', 'co.in', 'com.mx', 'org.uk', 'net.au'])
+    let labelIndex = parts.length - 2
+    if (parts.length >= 3 && MULTI_PART_SUFFIXES.has(`${parts[parts.length - 2]}.${parts[parts.length - 1]}`)) {
+      labelIndex = parts.length - 3
+    }
+    const label = labelIndex >= 0 ? parts[labelIndex] : parts[0]
+    if (!label) return
+
+    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 42)
+    if (!slug) return
+
+    const name = label.charAt(0).toUpperCase() + label.slice(1)
+    const description = `Notes and updates from ${name}.`
+
+    if (!nameTouched) setNameVal(name)
+    if (!slugTouched) setSlugVal(slug)
+    if (!descTouched) setDescVal(description)
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -89,10 +141,33 @@ export function SetupPage() {
           <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
             <FieldGroup className="gap-4">
               <Field>
+                <FieldLabel htmlFor="website-url" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Existing website URL{' '}
+                  <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                </FieldLabel>
+                <Input
+                  id="website-url"
+                  placeholder="https://example.com"
+                  onChange={(e) => handleUrlPrefill(e.target.value)}
+                  onBlur={(e) => handleUrlPrefill(e.target.value)}
+                />
+                <FieldDescription>
+                  Used only to prefill the fields below. VibeCMS will not scrape, import, or contact this site.
+                </FieldDescription>
+              </Field>
+              <Field>
                 <FieldLabel htmlFor="name" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Blog Name
                 </FieldLabel>
-                <Input id="name" name="name" required maxLength={80} defaultValue={site.name} placeholder="Moin's Notes" />
+                <Input
+                  id="name"
+                  name="name"
+                  required
+                  maxLength={80}
+                  value={nameVal}
+                  onChange={(e) => { setNameVal(e.target.value); setNameTouched(true) }}
+                  placeholder="Moin's Notes"
+                />
                 <FieldDescription>This appears in the dashboard and public blog header.</FieldDescription>
               </Field>
               <Field>
@@ -105,7 +180,8 @@ export function SetupPage() {
                   required
                   maxLength={42}
                   pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                  defaultValue={site.slug}
+                  value={slugVal}
+                  onChange={(e) => { setSlugVal(e.target.value); setSlugTouched(true) }}
                   placeholder="moins-notes"
                 />
                 <FieldDescription>Lowercase letters, numbers, and hyphens. Custom domains can come later.</FieldDescription>
@@ -119,7 +195,8 @@ export function SetupPage() {
                   name="description"
                   maxLength={220}
                   rows={4}
-                  defaultValue={site.description}
+                  value={descVal}
+                  onChange={(e) => { setDescVal(e.target.value); setDescTouched(true) }}
                   placeholder={`A short blog about building products with AI agents on ${BRAND.name}.`}
                 />
               </Field>

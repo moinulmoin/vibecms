@@ -133,7 +133,7 @@ export function SettingsPage() {
   async function handleCreateToken(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const preset = form.get('preset') === 'full' ? 'full' : 'draft'
+    const preset = form.get('preset') === 'full' ? 'full' : 'publish'
     const result = await createApiKeyMutation({
       data: {
         name: String(form.get('name') ?? 'My agent'),
@@ -277,13 +277,13 @@ export function SettingsPage() {
                   orientation="horizontal"
                   className="rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted has-[:checked]:bg-muted"
                 >
-                  <input id="preset-draft" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="draft" defaultChecked />
+                  <input id="preset-publish" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="publish" defaultChecked />
                   <span>
-                    <FieldLabel htmlFor="preset-draft" className="font-display text-sm font-medium">
-                      Draft assistant
+                    <FieldLabel htmlFor="preset-publish" className="flex items-center gap-2 font-display text-sm font-medium">
+                      Publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">default</Badge>
                     </FieldLabel>
                     <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                      Read, create, and edit drafts and upload media. You review and publish. Recommended.
+                      Read, create, edit, upload media, and publish live posts. Cannot archive. Recommended.
                     </span>
                   </span>
                 </Field>
@@ -294,10 +294,10 @@ export function SettingsPage() {
                   <input id="preset-full" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="full" />
                   <span>
                     <FieldLabel htmlFor="preset-full" className="flex items-center gap-2 font-display text-sm font-medium">
-                      Full publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">can publish</Badge>
+                      Full publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">can archive</Badge>
                     </FieldLabel>
                     <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                      Everything in Draft assistant plus publishing and archiving live posts.
+                      Everything in Publisher plus archiving live posts.
                     </span>
                   </span>
                 </Field>

@@ -82,15 +82,11 @@ export type ActivityInput = {
   after?: unknown;
 };
 
-export const DEFAULT_SCOPES: Scope[] = [
-  "posts:read",
-  "posts:create",
-  "posts:update",
-  "assets:write",
-  "activity:read",
-];
-
-export const AGENT_TOKEN_PRESETS: Record<"draft" | "full", Scope[]> = {
+export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full", Scope[]> = {
   draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
+  publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
   full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
 };
+
+// Default scopes for a token minted without an explicit preset: non-destructive publisher (publish, no archive).
+export const DEFAULT_SCOPES: Scope[] = AGENT_TOKEN_PRESETS.publish;

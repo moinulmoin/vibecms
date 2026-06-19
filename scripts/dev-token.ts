@@ -26,6 +26,7 @@ const MARKER = "dev-token";
 
 const SCOPE_PRESETS: Record<string, string[]> = {
   full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
+  publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
   draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
 };
 
@@ -45,6 +46,7 @@ if (hasFlag("--help") || hasFlag("-h")) {
       "  pnpm dev:token                 mint a full-scope token on LOCAL D1 (demo_site)",
       "  pnpm dev:token --remote        mint against the deployed dev D1 (dev.vibecms.dev)",
       "  pnpm dev:token --scopes draft  draft-only preset (no publish/archive)",
+      "  pnpm dev:token --scopes publish  publish preset (publish, no archive) - matches the app default",
       "  pnpm dev:token --site <id>     target a site other than demo_site",
       "  pnpm dev:token --name <label>  label the token (default: dev-token)",
       "  pnpm dev:token --revoke        delete tokens minted by this tool (add --remote for dev)",

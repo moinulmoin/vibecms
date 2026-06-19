@@ -71,7 +71,7 @@ async function tokenHash(token: string) {
   return base64Url(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)))
 }
 
-function randomToken(envName: 'live' | 'test' = 'test') {
+function randomToken(envName: 'live' | 'test' = 'live') {
   const bytes = new Uint8Array(32)
   crypto.getRandomValues(bytes)
   return `vc_${envName}_${base64Url(bytes)}`
@@ -81,6 +81,7 @@ function parseScopes(form: FormData) {
   const preset = form.get('preset')
   if (preset === 'full') return AGENT_TOKEN_PRESETS.full
   if (preset === 'draft') return AGENT_TOKEN_PRESETS.draft
+  if (preset === 'publish') return AGENT_TOKEN_PRESETS.publish
   const requested = form
     .getAll('scopes')
     .filter((value): value is Scope => typeof value === 'string' && allScopes.includes(value as Scope))
@@ -114,12 +115,12 @@ export async function listApiKeys(app: AppUserContext) {
 }
 
 export type ApiKeyMutationResult =
-  | { kind: 'ok'; code: string; token: string; name: string }
+  | { kind: 'ok'; code: string; token: string; name: string; id: string; createdAt: number }
   | { kind: 'error'; code: string }
 
 export async function createApiKeyForApp(
   app: AppUserContext,
-  input: { name: string; actorName: string; preset: 'draft' | 'full' },
+  input: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' },
 ): Promise<ApiKeyMutationResult> {
   try {
     requireApiKeyManager(app)
@@ -132,11 +133,11 @@ export async function createApiKeyForApp(
       return { kind: 'error', code: 'token_limit' }
     }
     const timestamp = now()
-    const token = randomToken('test')
+    const token = randomToken()
     const id = crypto.randomUUID()
     const name = input.name.trim().slice(0, 80) || 'API token'
     const actorName = input.actorName.trim().slice(0, 80) || name
-    const scopes = input.preset === 'full' ? AGENT_TOKEN_PRESETS.full : AGENT_TOKEN_PRESETS.draft
+    const scopes = AGENT_TOKEN_PRESETS[input.preset]
     await env.DB.prepare(
       `INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -169,7 +170,7 @@ export async function createApiKeyForApp(
         timestamp,
       )
       .run()
-    return { kind: 'ok', code: 'token_created', token, name }
+    return { kind: 'ok', code: 'token_created', token, name, id, createdAt: timestamp }
   } catch (error) {
     if (error instanceof ForbiddenError) return { kind: 'error', code: 'owner_required' }
     return { kind: 'error', code: 'unknown' }
@@ -217,7 +218,7 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
   if (active && active.count >= API_TOKENS_MAX) throw new ConflictError('Token limit reached')
   const form = await request.formData()
   const timestamp = now()
-  const token = randomToken('test')
+  const token = randomToken()
   const id = crypto.randomUUID()
   const name = String(form.get('name') || 'API token')
     .trim()
