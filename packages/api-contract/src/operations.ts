@@ -3,21 +3,25 @@ import { z } from "zod";
 import {
   activityDtoSchema,
   assetDtoSchema,
+  formatGuideDtoSchema,
   postDtoSchema,
   postSummaryDtoSchema,
   postVersionDtoSchema,
   postVersionSummaryDtoSchema,
+  previewPostDtoSchema,
   siteDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
   createPostRequestSchema,
+  getFormatGuideRequestSchema,
   getPostRequestSchema,
   getPostVersionRequestSchema,
   getSiteRequestSchema,
   listActivityRequestSchema,
   listPostsRequestSchema,
   listPostVersionsRequestSchema,
+  previewPostRequestSchema,
   publishPostRequestSchema,
   restorePostVersionRequestSchema,
   searchPostsRequestSchema,
@@ -223,6 +227,32 @@ export const operations = [
     requestSchema: restorePostVersionRequestSchema,
     responseSchema: postDtoSchema,
     annotations: { idempotent: false },
+  },
+  {
+    toolName: "posts.format_guide",
+    operationId: "getFormatGuide",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware.",
+      "posts:read",
+      readErrors,
+    ),
+    requestSchema: getFormatGuideRequestSchema,
+    responseSchema: formatGuideDtoSchema,
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.preview",
+    operationId: "previewPost",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Render markdown to HTML with the same renderer as the public blog; returns outline + warnings; call to self-check before publishing.",
+      "posts:read",
+      readErrors,
+    ),
+    requestSchema: previewPostRequestSchema,
+    responseSchema: previewPostDtoSchema,
+    annotations: { readOnly: true },
   },
 ] as const satisfies readonly OperationDefinition[];
 

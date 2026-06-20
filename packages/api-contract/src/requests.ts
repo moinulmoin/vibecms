@@ -92,6 +92,15 @@ export const restorePostVersionRequestSchema = z.object({
   versionNumber: z.coerce.number().int().min(1),
 }).strict();
 
+export const getFormatGuideRequestSchema = z.object({
+  presetId: z.string().optional(),
+}).strict();
+
+export const previewPostRequestSchema = z.object({
+  contentMarkdown: contentField,
+  presetId: z.string().optional(),
+}).strict();
+
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;
 export type SearchPostsRequest = z.infer<typeof searchPostsRequestSchema>;
@@ -105,3 +114,5 @@ export type ListActivityRequest = z.infer<typeof listActivityRequestSchema>;
 export type ListPostVersionsRequest = z.infer<typeof listPostVersionsRequestSchema>;
 export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
 export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;
+export type GetFormatGuideRequest = z.infer<typeof getFormatGuideRequestSchema>;
+export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;

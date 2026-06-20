@@ -4,6 +4,8 @@ import {
   archivePostRequestSchema,
   assetDtoSchema,
   createPostRequestSchema,
+  formatGuideDtoSchema,
+  getFormatGuideRequestSchema,
   getPostRequestSchema,
   listActivityRequestSchema,
   listPostsRequestSchema,
@@ -13,6 +15,8 @@ import {
   postSummaryDtoSchema,
   postVersionDtoSchema,
   postVersionSummaryDtoSchema,
+  previewPostDtoSchema,
+  previewPostRequestSchema,
   publishPostRequestSchema,
   siteDtoSchema,
   updatePostRequestSchema,
@@ -73,6 +77,9 @@ const listActivityOpDef = operationsByToolName["activity.list"];
 const listPostVersionsOpDef = operationsByToolName["posts.versions.list"];
 const getPostVersionOpDef = operationsByToolName["posts.versions.get"];
 const restorePostVersionOpDef = operationsByToolName["posts.versions.restore"];
+const getFormatGuideOpDef = operationsByToolName["posts.format_guide"];
+const previewPostOpDef = operationsByToolName["posts.preview"];
+
 
 const listPostsResponseSchema = z.object({
   posts: z.array(postSummaryDtoSchema),
@@ -310,6 +317,42 @@ export const restorePostVersionRoute = createRoute({
   },
 });
 
+export const getFormatGuideRoute = createRoute({
+  method: "get",
+  path: "/posts/format-guide",
+  operationId: getFormatGuideOpDef.operationId,
+  description: getFormatGuideOpDef.description,
+  security: bearerSecurity,
+  request: {
+    query: getFormatGuideRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Post formatting syntax guide",
+      content: { "application/json": { schema: formatGuideDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 429, 500),
+  },
+});
+
+export const previewPostRoute = createRoute({
+  method: "post",
+  path: "/posts/preview",
+  operationId: previewPostOpDef.operationId,
+  description: previewPostOpDef.description,
+  security: bearerSecurity,
+  request: {
+    body: { content: { "application/json": { schema: previewPostRequestSchema } } },
+  },
+  responses: {
+    200: {
+      description: "Rendered preview",
+      content: { "application/json": { schema: previewPostDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 429, 500),
+  },
+});
+
 /** All REST operation route definitions (order is stable for spec generation). */
 export const apiV1OperationRoutes = [
   getSiteRoute,
@@ -324,6 +367,8 @@ export const apiV1OperationRoutes = [
   listPostVersionsRoute,
   getPostVersionRoute,
   restorePostVersionRoute,
+  getFormatGuideRoute,
+  previewPostRoute,
 ] as const;
 
 const noopHandler = async (c: { json: (body: unknown, status: number) => Response }) => c.json({}, 501);

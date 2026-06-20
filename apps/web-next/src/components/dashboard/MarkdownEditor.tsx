@@ -1,6 +1,6 @@
 'use client'
 
-import { parseMarkdown } from '~/lib/markdown'
+import { renderRichContent, RichContentFrame } from '~/lib/markdown'
 import { Button, FieldDescription, Select, Textarea } from '@vc/ui'
 import { EyeOpenIcon, ImageIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -24,7 +24,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   const [previewSource, setPreviewSource] = useState(defaultValue)
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
 
-  const preview = useMemo(() => parseMarkdown(previewSource), [previewSource])
+  const { node: previewNode } = useMemo(() => renderRichContent(previewSource), [previewSource])
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? assets[0]
 
   function showWrite() {
@@ -152,10 +152,14 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
 
       {mode === 'preview' ? (
         <div
-          className="min-h-[22rem] overflow-x-auto rounded-xl bg-muted/50 p-4 font-sans text-sm leading-7 text-foreground sm:min-h-[32rem] sm:p-5 [&_a]:font-medium [&_a]:text-brand-bright [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-semibold sm:[&_h1]:text-3xl [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-semibold sm:[&_h2]:text-2xl [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-semibold sm:[&_h3]:text-xl [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-xs [&_ul]:list-disc [&_ul]:pl-6"
+          className="min-h-[22rem] overflow-x-auto rounded-xl bg-muted/50 p-4 sm:min-h-[32rem] sm:p-5"
           aria-label="Markdown preview"
         >
-          {preview.length > 0 ? preview : <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>}
+          {previewSource.trim() ? (
+            <RichContentFrame node={previewNode} />
+          ) : (
+            <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>
+          )}
         </div>
       ) : null}
     </div>

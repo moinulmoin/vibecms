@@ -104,6 +104,24 @@ export const mcpTools: McpToolDefinition[] = [
     description: withScopeDescription("Restore a post to a previous version. Content-only - never re-publishes. Creates a new version + post.restored activity. Returns the updated post.", "posts:update"),
     inputSchema: { type: "object", properties: { postId: postIdProperty, versionNumber: versionNumberProperty }, required: ["postId", "versionNumber"], ...noAdditionalProperties },
   },
+  {
+    name: "posts.format_guide",
+    requiredScope: "posts:read",
+    description: withScopeDescription(
+      "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware.",
+      "posts:read",
+    ),
+    inputSchema: { type: "object", properties: { presetId: { type: "string" } }, ...noAdditionalProperties },
+  },
+  {
+    name: "posts.preview",
+    requiredScope: "posts:read",
+    description: withScopeDescription(
+      "Render Markdown to HTML with the same renderer as the public blog; returns outline + warnings. Call to self-check a draft before publishing.",
+      "posts:read",
+    ),
+    inputSchema: { type: "object", properties: { contentMarkdown: { type: "string" }, presetId: { type: "string" } }, required: ["contentMarkdown"], ...noAdditionalProperties },
+  },
 ];
 
 /**
@@ -114,7 +132,8 @@ export const mcpTools: McpToolDefinition[] = [
 export const mcpInstructions = `VibeCMS is one calm blog shared by a person and their agents. Write posts in Markdown using these tools.
 
 Workflow:
-- posts.create makes a draft. Review it, then call posts.publish to make it live. There is no scheduling; publish on demand.
+- BEFORE drafting or publishing, call posts.format_guide to learn the supported syntax and active preset guidance.
+- posts.create makes a draft. Call posts.preview to render it and check warnings, then posts.publish to make it live. There is no scheduling; publish on demand.
 - Edit with posts.update. Hide a live post with posts.archive.
 
 Content rules:

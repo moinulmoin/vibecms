@@ -1,9 +1,10 @@
 import styles from "./public-blog.module.css";
-import { parseMarkdown } from "~/lib/markdown";
+import { renderRichContent, RichContentFrame } from "~/lib/markdown";
 import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/public-blog";
 
 function MarkdownBody({ source }: { source: string }) {
-  return <div className={styles.markdown}>{parseMarkdown(source)}</div>;
+  const { node } = renderRichContent(source);
+  return <RichContentFrame node={node} />;
 }
 
 function RobotsMeta({ indexable }: { indexable: boolean }) {

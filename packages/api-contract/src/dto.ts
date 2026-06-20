@@ -84,3 +84,28 @@ export type AssetDto = z.infer<typeof assetDtoSchema>;
 export type ActivityDto = z.infer<typeof activityDtoSchema>;
 export type PostVersionSummaryDto = z.infer<typeof postVersionSummaryDtoSchema>;
 export type PostVersionDto = z.infer<typeof postVersionDtoSchema>;
+
+export const formatGuideDtoSchema = z.object({
+  activePresetId: z.string(),
+  activePresetName: z.string(),
+  guideVersion: z.string(),
+  rendererVersion: z.string(),
+  recommendedComponents: z.array(z.string()),
+  presetGuidance: z.string(),
+  examples: z.string(),
+});
+
+export type FormatGuideDto = z.infer<typeof formatGuideDtoSchema>;
+
+export const previewPostDtoSchema = z.object({
+  html: z.string(),
+  outline: z.array(z.object({
+    depth: z.number(),
+    text: z.string(),
+    id: z.string(),
+  })),
+  warnings: z.array(z.string()),
+  rendererVersion: z.string(),
+});
+
+export type PreviewPostDto = z.infer<typeof previewPostDtoSchema>;

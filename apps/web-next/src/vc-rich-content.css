@@ -1,0 +1,299 @@
+/* vc-rich-content.css - VibeCMS rich-content design tokens + component styles
+   Plan 016 phase 2 (minimal preset). 015 adds preset switching on top.
+
+   Token vocabulary: --vc-* defined on [data-rich-content] globally.
+   Light defaults. Dark token values are staged for explicit [data-vc-mode='dark'];
+   015 wires system (prefers-color-scheme) + per-preset dark + a Light/Dark/System toggle.
+   Light values derived from existing --blog-* + page bg/fg (hue 106).
+   Dark values mirror the .dark palette in styles.css (teal-green family).
+*/
+
+@layer base {
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Light defaults
+   ───────────────────────────────────────────────────────────────────────── */
+[data-rich-content] {
+  /* Surface */
+  --vc-bg:              oklch(98.7% 0.004 106);
+  --vc-fg:              oklch(22%   0.006 106);
+  --vc-muted:           oklch(97%   0.006 106);  /* subtle bg tone */
+  --vc-muted-fg:        oklch(54%   0.012 106);  /* muted text */
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(22%   0.006 106);
+  --vc-border:          oklch(91%   0.006 106);
+  --vc-accent:          oklch(45%   0.11  154);
+  --vc-accent-fg:       oklch(98.7% 0.004 106);
+  --vc-link:            oklch(45%   0.11  154);
+  --vc-link-hover:      oklch(36%   0.1   154);
+
+  /* Callouts - note (blue) */
+  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note-fg:          oklch(35%  0.090 240);
+  --vc-callout-note-border:      oklch(65%  0.120 240);
+  /* tip (green, brand-aligned) */
+  --vc-callout-tip:              oklch(94%  0.040 154);
+  --vc-callout-tip-fg:           oklch(35%  0.100 154);
+  --vc-callout-tip-border:       oklch(55%  0.130 154);
+  /* important (purple) */
+  --vc-callout-important:        oklch(93%  0.030 285);
+  --vc-callout-important-fg:     oklch(35%  0.120 285);
+  --vc-callout-important-border: oklch(60%  0.150 285);
+  /* warning (amber) */
+  --vc-callout-warning:          oklch(95%  0.050  80);
+  --vc-callout-warning-fg:       oklch(35%  0.100  65);
+  --vc-callout-warning-border:   oklch(65%  0.140  75);
+  /* caution (red-orange) */
+  --vc-callout-caution:          oklch(94%  0.040  25);
+  --vc-callout-caution-fg:       oklch(35%  0.120  25);
+  --vc-callout-caution-border:   oklch(58%  0.180  25);
+
+  /* Code */
+  --vc-code-bg:         oklch(97%   0.006 106);  /* pre / fenced-block bg */
+  --vc-code-fg:         oklch(22%   0.006 106);
+  --vc-code-border:     oklch(91%   0.006 106);
+  --vc-code-inline-bg:  oklch(95.5% 0.006 106);  /* inline `code` bg */
+
+  /* Quote */
+  --vc-quote-fg:        oklch(54%   0.012 106);
+  --vc-quote-border:    oklch(45%   0.11  154);
+
+  /* Figure */
+  --vc-figure-bg:       oklch(97%   0.006 106);
+  --vc-caption-fg:      oklch(54%   0.012 106);
+
+  /* Type */
+  --vc-font-body:     Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading:  Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono:     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-prose-measure: 70ch;
+  --vc-prose-leading: 1.75;
+  --vc-heading-scale: 1;
+
+  /* Space / radius */
+  --vc-prose-gap:   1.2em;
+  --vc-section-gap: 2.5rem;
+  --vc-radius:      10px;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Manual dark override - force dark regardless of OS preference
+   ───────────────────────────────────────────────────────────────────────── */
+[data-rich-content][data-vc-mode='dark'] {
+  /* Surface */
+  --vc-bg:          oklch(15%   0.008 168);
+  --vc-fg:          oklch(93.6% 0.008 155);
+  --vc-muted:       oklch(22%   0.012 168);
+  --vc-muted-fg:    oklch(72%   0.014 155);
+  --vc-card:        oklch(18.9% 0.010 173);
+  --vc-card-fg:     oklch(93.6% 0.008 155);
+  --vc-border:      oklch(47%   0.014 168);
+  --vc-accent:      oklch(81%   0.170 153);
+  --vc-accent-fg:   oklch(18.2% 0.029 158);
+  --vc-link:        oklch(75%   0.140 152);
+  --vc-link-hover:  oklch(65%   0.120 152);
+
+  /* Callouts */
+  --vc-callout-note:             oklch(21%  0.040 240);
+  --vc-callout-note-fg:          oklch(78%  0.090 240);
+  --vc-callout-note-border:      oklch(50%  0.120 240);
+  --vc-callout-tip:              oklch(21%  0.040 154);
+  --vc-callout-tip-fg:           oklch(78%  0.120 154);
+  --vc-callout-tip-border:       oklch(55%  0.140 154);
+  --vc-callout-important:        oklch(21%  0.040 285);
+  --vc-callout-important-fg:     oklch(78%  0.120 285);
+  --vc-callout-important-border: oklch(50%  0.140 285);
+  --vc-callout-warning:          oklch(22%  0.050  80);
+  --vc-callout-warning-fg:       oklch(82%  0.100  80);
+  --vc-callout-warning-border:   oklch(55%  0.140  75);
+  --vc-callout-caution:          oklch(21%  0.040  25);
+  --vc-callout-caution-fg:       oklch(78%  0.120  25);
+  --vc-callout-caution-border:   oklch(50%  0.160  25);
+
+  /* Code */
+  --vc-code-bg:        oklch(18.9% 0.010 173);
+  --vc-code-fg:        oklch(93.6% 0.008 155);
+  --vc-code-border:    oklch(47%   0.014 168);
+  --vc-code-inline-bg: oklch(24%   0.012 168);
+
+  /* Quote */
+  --vc-quote-fg:     oklch(72%   0.014 155);
+  --vc-quote-border: oklch(81%   0.170 153);
+
+  /* Figure */
+  --vc-figure-bg:   oklch(18.9% 0.010 173);
+  --vc-caption-fg:  oklch(72%   0.014 155);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Manual light override - force light even under dark OS preference
+   ───────────────────────────────────────────────────────────────────────── */
+[data-rich-content][data-vc-mode='light'] {
+  color-scheme: light;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Component styles - scoped to [data-rich-content]
+   All use --vc-* tokens; dark mode is implicit via the token flip above.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Callouts ─────────────────────────────────────────────────────────── */
+[data-rich-content] .vc-callout {
+  display: block;
+  padding: 0.875rem 1rem 0.875rem 1.125rem;
+  border-left: 4px solid transparent;
+  border-radius: var(--vc-radius);
+  margin: var(--vc-prose-gap) 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+[data-rich-content] .vc-callout[data-callout='note'] {
+  background:        var(--vc-callout-note);
+  color:             var(--vc-callout-note-fg);
+  border-left-color: var(--vc-callout-note-border);
+}
+[data-rich-content] .vc-callout[data-callout='tip'] {
+  background:        var(--vc-callout-tip);
+  color:             var(--vc-callout-tip-fg);
+  border-left-color: var(--vc-callout-tip-border);
+}
+[data-rich-content] .vc-callout[data-callout='important'] {
+  background:        var(--vc-callout-important);
+  color:             var(--vc-callout-important-fg);
+  border-left-color: var(--vc-callout-important-border);
+}
+[data-rich-content] .vc-callout[data-callout='warning'] {
+  background:        var(--vc-callout-warning);
+  color:             var(--vc-callout-warning-fg);
+  border-left-color: var(--vc-callout-warning-border);
+}
+[data-rich-content] .vc-callout[data-callout='caution'] {
+  background:        var(--vc-callout-caution);
+  color:             var(--vc-callout-caution-fg);
+  border-left-color: var(--vc-callout-caution-border);
+}
+
+[data-rich-content] .vc-callout-label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.375rem;
+}
+
+/* ── Table of Contents ────────────────────────────────────────────────── */
+[data-rich-content] nav[data-toc] {
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  background: var(--vc-muted);
+  padding: 1rem 1.25rem;
+  margin: var(--vc-section-gap) 0;
+}
+
+[data-rich-content] nav[data-toc] ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+[data-rich-content] nav[data-toc] li {
+  padding: 0.3125rem 0;
+}
+
+[data-rich-content] nav[data-toc] li + li {
+  border-top: 1px solid var(--vc-border);
+}
+
+[data-rich-content] nav[data-toc] a {
+  color: var(--vc-link);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+[data-rich-content] nav[data-toc] a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Figures ──────────────────────────────────────────────────────────── */
+[data-rich-content] figure[data-captioned] {
+  margin: var(--vc-section-gap) 0;
+  background: var(--vc-figure-bg);
+  border-radius: var(--vc-radius);
+  overflow: hidden;
+}
+
+[data-rich-content] figure[data-captioned] img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0;
+}
+
+[data-rich-content] figure[data-captioned] figcaption {
+  color: var(--vc-caption-fg);
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.625rem 1rem 0.75rem;
+  font-style: italic;
+}
+
+/* ── Code blocks (pre[data-lang]) ────────────────────────────────────── */
+/* Higher specificity (2 attr) overrides .markdown pre (class+elem).
+   Sets all code-block properties so the CSS module need not repeat them. */
+[data-rich-content] pre[data-lang] {
+  position: relative;
+  background: var(--vc-code-bg);
+  color: var(--vc-code-fg);
+  border: 1px solid var(--vc-code-border);
+  border-radius: var(--vc-radius);
+  padding: 2.25rem 1.25rem 1rem;  /* top room for lang label */
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-family: var(--vc-font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+/* Lang label - data-lang attr as a corner badge */
+[data-rich-content] pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.875rem;
+  font-family: var(--vc-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--vc-muted-fg);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Reset inner <code> so no double styling */
+[data-rich-content] pre[data-lang] code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* ── Inline code ──────────────────────────────────────────────────────── */
+[data-rich-content] code:not(pre code) {
+  font-family: var(--vc-font-mono);
+  font-size: 0.875em;
+  background: var(--vc-code-inline-bg);
+  color: var(--vc-fg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+} /* @layer base */

@@ -1,16 +1,21 @@
 .publicPage {
   color-scheme: light;
-  background: oklch(98.7% 0.004 106);
-  color: oklch(22% 0.006 106);
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
-  --blog-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --blog-accent: oklch(45% 0.11 154);
-  --blog-accent-hover: oklch(36% 0.1 154);
-  --blog-border: oklch(91% 0.006 106);
-  --blog-muted: oklch(54% 0.012 106);
-  --blog-code-bg: oklch(95.5% 0.006 106);
-  --blog-pre-bg: oklch(97% 0.006 106);
-  --blog-radius: 10px;
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  /* --vc-* fallbacks for chrome elements that live outside [data-rich-content].
+     These match the light defaults in vc-rich-content.css exactly; the chrome
+     stays light regardless of OS dark preference (.publicPage color-scheme: light). */
+  --vc-font-body:  Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono:  "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-bg:         oklch(98.7% 0.004 106);
+  --vc-fg:         oklch(22%   0.006 106);
+  --vc-muted-fg:   oklch(54%   0.012 106);
+  --vc-accent:     oklch(45%   0.11  154);
+  --vc-link:       oklch(45%   0.11  154);
+  --vc-link-hover: oklch(36%   0.1   154);
+  --vc-border:     oklch(91%   0.006 106);
+  --vc-radius:     10px;
   max-width: 860px;
   min-height: 100vh;
   margin: 0 auto;
@@ -22,7 +27,7 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 16px;
-  border-bottom: 1px solid var(--blog-border);
+  border-bottom: 1px solid var(--vc-border);
   padding-bottom: 28px;
   margin-bottom: 42px;
 }
@@ -36,7 +41,7 @@
 }
 
 .publicBrand:hover {
-  color: var(--blog-accent);
+  color: var(--vc-accent);
 }
 
 .postList {
@@ -45,17 +50,17 @@
 }
 
 .postCard {
-  border-bottom: 1px solid var(--blog-border);
+  border-bottom: 1px solid var(--vc-border);
   padding-bottom: 24px;
   transition: border-color 180ms ease;
 }
 
 .postCard:hover {
-  border-color: var(--blog-accent);
+  border-color: var(--vc-accent);
 }
 
 .postCard p {
-  color: var(--blog-muted);
+  color: var(--vc-muted-fg);
   line-height: 1.6;
 }
 
@@ -63,7 +68,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: var(--blog-radius);
+  border-radius: var(--vc-radius);
   margin-bottom: 18px;
 }
 
@@ -71,7 +76,7 @@
   width: 100%;
   max-height: 520px;
   object-fit: cover;
-  border-radius: calc(var(--blog-radius) + 4px);
+  border-radius: calc(var(--vc-radius) + 4px);
   margin: 18px 0 28px;
 }
 
@@ -91,7 +96,7 @@
 
 .postCard h2 a:hover,
 .backLink:hover {
-  color: var(--blog-accent);
+  color: var(--vc-accent);
 }
 
 .article {
@@ -112,8 +117,8 @@
 }
 
 .date {
-  color: var(--blog-muted);
-  font-family: var(--blog-font-mono);
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
   font-size: 0.8rem;
   letter-spacing: 0.02em;
   margin-top: 28px;
@@ -150,14 +155,14 @@
 }
 
 .markdown a {
-  color: var(--blog-accent);
+  color: var(--vc-link);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
 
 .markdown a:hover {
-  color: var(--blog-accent-hover);
+  color: var(--vc-link-hover);
 }
 
 .markdown ul,
@@ -181,18 +186,18 @@
 }
 
 .markdown code {
-  font-family: var(--blog-font-mono);
+  font-family: var(--vc-font-mono);
   font-size: 0.875em;
-  background: var(--blog-code-bg);
+  background: var(--vc-code-inline-bg);
   padding: 0.15em 0.4em;
   border-radius: 4px;
 }
 
 .markdown pre {
-  font-family: var(--blog-font-mono);
-  background: var(--blog-pre-bg);
-  border: 1px solid var(--blog-border);
-  border-radius: var(--blog-radius);
+  font-family: var(--vc-font-mono);
+  background: var(--vc-code-bg);
+  border: 1px solid var(--vc-code-border);
+  border-radius: var(--vc-radius);
   padding: 1rem 1.25rem;
   overflow-x: auto;
   margin: 1.25rem 0;
@@ -208,10 +213,10 @@
 }
 
 .markdown blockquote {
-  border-left: 3px solid var(--blog-accent);
+  border-left: 3px solid var(--vc-quote-border);
   margin: 1.25rem 0;
   padding: 0.5rem 1rem;
-  color: var(--blog-muted);
+  color: var(--vc-quote-fg);
 }
 
 .markdown blockquote p {
@@ -229,20 +234,20 @@
 
 .markdown hr {
   border: none;
-  border-top: 1px solid var(--blog-border);
+  border-top: 1px solid var(--vc-border);
   margin: 2.5rem 0;
 }
 
 .markdown img {
   max-width: 100%;
   height: auto;
-  border-radius: var(--blog-radius);
+  border-radius: var(--vc-radius);
   margin: 1.5rem 0;
 }
 
 .empty,
 .notFound {
-  color: var(--blog-muted);
+  color: var(--vc-muted-fg);
   text-align: center;
   padding: 4rem 1rem;
   font-size: 1.1rem;
@@ -284,7 +289,7 @@
 
   .heroImage {
     max-height: 320px;
-    border-radius: var(--blog-radius);
+    border-radius: var(--vc-radius);
   }
 }
 

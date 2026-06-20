@@ -18,6 +18,8 @@ import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
+import { universalFormatGuide } from "./format-guide";
+import { renderRichContent, renderRichContentToHtml, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
 
 export type OperationContext = {
   actor: Actor;
@@ -212,4 +214,19 @@ export async function getPostVersionOp(ctx: OperationContext, input: { postId: s
 
 export async function restorePostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number }) {
   return mapPost(await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
+}
+
+export function getFormatGuideOp(ctx: OperationContext, _input: { presetId?: string }) {
+  requireScope(ctx.actor, "posts:read");
+  return universalFormatGuide;
+}
+
+export function previewPostOp(ctx: OperationContext, input: { contentMarkdown: string; presetId?: string }) {
+  requireScope(ctx.actor, "posts:read");
+  const opts = input.presetId ? { presetId: input.presetId } : undefined;
+  const html = renderRichContentToHtml(input.contentMarkdown, opts);
+  const { outline, warnings: renderWarnings } = renderRichContent(input.contentMarkdown, opts);
+  const validateWarnings = validateRichContent(input.contentMarkdown);
+  const warnings = [...new Set([...renderWarnings, ...validateWarnings])];
+  return { html, outline, warnings, rendererVersion: RENDERER_VERSION };
 }

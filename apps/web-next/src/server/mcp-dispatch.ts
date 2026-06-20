@@ -2,12 +2,14 @@ import type { McpToolName } from "@vc/api-contract";
 import {
   archivePostRequestSchema,
   createPostRequestSchema,
+  getFormatGuideRequestSchema,
   getPostRequestSchema,
   getPostVersionRequestSchema,
   getSiteRequestSchema,
   listActivityRequestSchema,
   listPostsRequestSchema,
   listPostVersionsRequestSchema,
+  previewPostRequestSchema,
   publishPostRequestSchema,
   restorePostVersionRequestSchema,
   searchPostsRequestSchema,
@@ -18,12 +20,14 @@ import type { OperationContext } from "./operations";
 import {
   archivePostOp,
   createPostOp,
+  getFormatGuideOp,
   getPostOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
   listPostsOp,
   listPostVersionsOp,
+  previewPostOp,
   publishPostOp,
   restorePostVersionOp,
   searchPostsOp,
@@ -60,6 +64,10 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return getPostVersionOp(ctx, getPostVersionRequestSchema.parse(rawArguments ?? {}));
     case "posts.versions.restore":
       return restorePostVersionOp(ctx, restorePostVersionRequestSchema.parse(rawArguments ?? {}));
+    case "posts.format_guide":
+      return getFormatGuideOp(ctx, getFormatGuideRequestSchema.parse(rawArguments ?? {}));
+    case "posts.preview":
+      return previewPostOp(ctx, previewPostRequestSchema.parse(rawArguments ?? {}));
     default:
       throw new Error(`Unknown tool: ${String(toolName)}`);
   }

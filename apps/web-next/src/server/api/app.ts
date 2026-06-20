@@ -6,14 +6,17 @@ import { authenticateBearerToken } from "~/server/api-keys";
 import {
   archivePostOp,
   createPostOp,
+  getFormatGuideOp,
   getPostOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
   listPostsOp,
   listPostVersionsOp,
+  previewPostOp,
   publishPostOp,
   restorePostVersionOp,
+  searchPostsOp,
   updatePostOp,
   uploadAssetOp,
   type OperationContext,
@@ -23,6 +26,7 @@ import {
   archivePostRoute,
   bearerAuthSecurityScheme,
   createPostRoute,
+  getFormatGuideRoute,
   getPostRoute,
   getPostVersionRoute,
   getSiteRoute,
@@ -30,6 +34,7 @@ import {
   listPostsRoute,
   listPostVersionsRoute,
   openApiInfo,
+  previewPostRoute,
   publishPostRoute,
   restorePostVersionRoute,
   updatePostRoute,
@@ -159,6 +164,13 @@ apiV1App.openapi(listPostsRoute, async (c) => {
   );
 });
 
+// Static route MUST precede the parametrized GET /posts/{postId} or it is shadowed.
+apiV1App.openapi(getFormatGuideRoute, async (c) => {
+  const query = c.req.valid("query");
+  const guide = getFormatGuideOp(c.get("ctx"), query);
+  return c.json(guide, 200);
+});
+
 apiV1App.openapi(getPostRoute, async (c) => {
   const { postId } = c.req.valid("param");
   const post = await getPostOp(c.get("ctx"), { postId });
@@ -218,6 +230,12 @@ apiV1App.openapi(restorePostVersionRoute, async (c) => {
   const { postId, versionNumber } = c.req.valid("param");
   const post = await restorePostVersionOp(c.get("ctx"), { postId, versionNumber });
   return c.json(post, 200);
+});
+
+apiV1App.openapi(previewPostRoute, async (c) => {
+  const body = c.req.valid("json");
+  const result = previewPostOp(c.get("ctx"), body);
+  return c.json(result, 200);
 });
 
 apiV1App.onError((err, c) => {
