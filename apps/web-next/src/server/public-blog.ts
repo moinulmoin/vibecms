@@ -4,6 +4,7 @@ import {
   listPublishedPosts,
   resolveSite,
   resolveSiteBySlug,
+  type PostDetailRow,
   type PostRow,
   type SiteRow,
 } from "./public-blog-data";
@@ -36,7 +37,7 @@ export function stripMarkdownSuffix(slug: string | undefined): { slug: string | 
   return { slug, markdown: false };
 }
 
-function buildPostMarkdown(post: PostRow, canonicalUrl: string) {
+function buildPostMarkdown(post: PostDetailRow, canonicalUrl: string) {
   const description = post.seo_description || post.excerpt || "";
   const date = post.published_at ? new Date(post.published_at * 1000).toISOString() : "";
   let tags: string[] = [];
@@ -53,6 +54,7 @@ function buildPostMarkdown(post: PostRow, canonicalUrl: string) {
     date ? `date: ${date}` : null,
     tags.length ? `tags: [${tags.map((tag) => JSON.stringify(tag)).join(", ")}]` : null,
     `canonical: ${canonicalUrl}`,
+    post.presentation ? `vibecms: ${JSON.stringify(post.presentation)}` : null,
     "---",
   ]
     .filter((line): line is string => line !== null)
@@ -118,7 +120,7 @@ export async function handlePublicPostByHostGet(request: Request, slug: string |
 
 export type PublicPostLoaderData = {
   site: SiteRow;
-  post: PostRow;
+  post: PostDetailRow;
   basePath: string;
   canonicalUrl: string;
   indexable: boolean;

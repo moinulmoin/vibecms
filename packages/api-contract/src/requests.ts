@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRESENTATION_LAYOUTS } from "@vc/config";
 import {
   DEFAULT_POST_LIST_LIMIT,
   MAX_POST_LIST_LIMIT,
@@ -18,6 +19,10 @@ const seoTitleField = z.string().trim().max(70);
 const seoDescriptionField = z.string().trim().max(180);
 const contentField = z.string().max(500_000);
 const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
+const presentationField = z
+  .object({ layout: z.enum(PRESENTATION_LAYOUTS).optional(), toc: z.boolean().optional() })
+  .strict()
+  .nullable();
 
 export const getSiteRequestSchema = z.object({}).strict();
 
@@ -46,6 +51,7 @@ export const createPostRequestSchema = z.object({
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
   tags: tagsField.default([]),
+  presentation: presentationField.optional().default(null),
 }).strict();
 
 export const updatePostRequestSchema = z.object({
@@ -57,6 +63,8 @@ export const updatePostRequestSchema = z.object({
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
   tags: tagsField.optional(),
+  // presentation: undefined = preserve, null = reset to preset default, object = store intent
+  presentation: presentationField.optional(),
 }).strict();
 
 export const publishPostRequestSchema = z.object({
@@ -99,6 +107,7 @@ export const getFormatGuideRequestSchema = z.object({
 export const previewPostRequestSchema = z.object({
   contentMarkdown: contentField,
   presetId: z.string().optional(),
+  presentation: presentationField.optional(),
 }).strict();
 
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;

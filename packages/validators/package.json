@@ -9,6 +9,7 @@
     "lint": "tsc"
   },
   "dependencies": {
+    "@vc/config": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {

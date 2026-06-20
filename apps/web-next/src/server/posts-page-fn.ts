@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import type { Post } from '@vc/core'
 import { getPostVersion, listPostVersions } from '@vc/core'
+import { resolvePresetId } from '@vc/config'
 import { createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getMedia } from '~/server/media'
@@ -38,6 +39,7 @@ function parsePostPayload(data: {
   seoTitle?: string
   seoDescription?: string
   tags?: string
+  presentation?: { layout?: string; toc?: boolean } | null
 }): PostFormPayload {
   return {
     title: data.title.trim(),
@@ -48,6 +50,7 @@ function parsePostPayload(data: {
     seoTitle: data.seoTitle?.trim() || undefined,
     seoDescription: data.seoDescription?.trim() || undefined,
     tags: typeof data.tags === 'string' ? parseTags(data.tags) : [],
+    presentation: data.presentation,
   }
 }
 
@@ -68,8 +71,12 @@ export const loadPostEditorPage = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const app = await requireApp()
     const assets = await getMedia(app)
+    const themeRow = await env.DB.prepare('SELECT theme FROM sites WHERE id = ? LIMIT 1')
+      .bind(app.siteId)
+      .first<{ theme: string | null }>()
+    const presetId = resolvePresetId(themeRow?.theme)
     if (!data.postId) {
-      return { mode: 'new' as const, post: null, assets, missing: false }
+      return { mode: 'new' as const, post: null, assets, missing: false, presetId }
     }
     const repo = createD1PostRepository(env.DB)
     const post = await repo.getPost(app.siteId, data.postId)
@@ -78,6 +85,7 @@ export const loadPostEditorPage = createServerFn({ method: 'GET' })
       post: post as Post | null,
       assets,
       missing: !post,
+      presetId,
     }
   })
 
@@ -91,6 +99,7 @@ export const createPostMutation = createServerFn({ method: 'POST' })
     seoTitle?: string
     seoDescription?: string
     tags?: string
+    presentation?: { layout?: string; toc?: boolean } | null
   }) => data)
   .handler(async ({ data }) => {
     const app = await requireApp()
@@ -108,6 +117,7 @@ export const updatePostMutation = createServerFn({ method: 'POST' })
     seoTitle?: string
     seoDescription?: string
     tags?: string
+    presentation?: { layout?: string; toc?: boolean } | null
   }) => data)
   .handler(async ({ data }) => {
     const app = await requireApp()

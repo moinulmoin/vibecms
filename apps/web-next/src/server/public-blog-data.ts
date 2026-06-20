@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { Presentation } from "@vc/config";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./onboarding";
 
 export type SiteRow = {
@@ -26,7 +27,11 @@ export type PostRow = {
   seo_title: string | null;
   seo_description: string | null;
   tags_json: string;
+  presentation_json: string | null;
 };
+
+/** PostRow extended with parsed presentation intent. Returned by getPublishedPost. */
+export type PostDetailRow = PostRow & { presentation: Presentation | null };
 
 function normalizeHost(request: Request) {
   return request.headers.get("host")?.split(":")[0]?.toLowerCase() ?? "";
@@ -84,16 +89,22 @@ export async function resolveSiteBySlug(slug: string | undefined) {
   return site;
 }
 
-export async function getPublishedPost(siteId: string, slug: string) {
+export async function getPublishedPost(siteId: string, slug: string): Promise<PostDetailRow | null> {
   const now = Math.floor(Date.now() / 1000);
-  return env.DB.prepare(
-    `SELECT id, title, slug, excerpt, content_markdown, cover_asset_id, published_at, seo_title, seo_description, tags_json
+  const row = await env.DB.prepare(
+    `SELECT id, title, slug, excerpt, content_markdown, cover_asset_id, published_at, seo_title, seo_description, tags_json, presentation_json
      FROM posts
      WHERE site_id = ? AND slug = ? AND status = 'published' AND published_at IS NOT NULL AND published_at <= ?
      LIMIT 1`,
   )
     .bind(siteId, slug, now)
     .first<PostRow>();
+  if (!row) return null;
+  let presentation: Presentation | null = null;
+  if (row.presentation_json) {
+    try { presentation = JSON.parse(row.presentation_json) as Presentation; } catch { /* ignore */ }
+  }
+  return { ...row, presentation };
 }
 
 export async function listPublishedPosts(siteId: string) {

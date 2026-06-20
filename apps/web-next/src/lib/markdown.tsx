@@ -540,15 +540,23 @@ export function renderRichContentToHtml(markdown: string, opts?: RenderOpts): st
  *   • Code fence missing language identifier
  *   • Image missing alt text
  */
-export function validateRichContent(markdown: string): string[] {
-  const { warnings } = renderRichContent(markdown);
+export function validateRichContent(
+  markdown: string,
+  opts?: { renderWarnings?: string[]; hasPageToc?: boolean },
+): string[] {
+  const warnings =
+    opts?.renderWarnings !== undefined
+      ? [...opts.renderWarnings]
+      : renderRichContent(markdown).warnings;
 
-  // Long post without TOC
-  const wordCount = markdown.split(/\s+/).filter(Boolean).length;
-  if (wordCount > 600 && !markdown.includes("[[toc]]")) {
-    warnings.push(
-      "Post has more than 600 words but no [[toc]] marker - consider adding a table of contents",
-    );
+  // Long post without TOC - skip when page-level TOC is active
+  if (!opts?.hasPageToc) {
+    const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+    if (wordCount > 600 && !markdown.includes("[[toc]]")) {
+      warnings.push(
+        "Post has more than 600 words but no [[toc]] marker - consider adding a table of contents",
+      );
+    }
   }
 
   // Code fence without language

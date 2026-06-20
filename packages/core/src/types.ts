@@ -1,3 +1,5 @@
+import type { Presentation } from "@vc/config";
+
 export type HumanRole = "owner" | "editor" | "viewer";
 
 export type Scope =
@@ -34,8 +36,9 @@ export type Post = {
   tags: string[];
   createdAt: number;
   updatedAt: number;
+  presentation: Presentation | null;
 };
-export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription">;
+export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "presentation">;
 
 export type PostVersionSummary = {
   versionNumber: number;
@@ -54,6 +57,7 @@ export type PostVersion = PostVersionSummary & {
   seoTitle: string | null;
   seoDescription: string | null;
   tags: string[];
+  presentation: Presentation | null;
 };
 
 

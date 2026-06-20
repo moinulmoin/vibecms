@@ -153,6 +153,9 @@ importers:
 
   packages/api-contract:
     dependencies:
+      '@vc/config':
+        specifier: workspace:*
+        version: link:../config
       '@vc/core':
         specifier: workspace:*
         version: link:../core
@@ -187,6 +190,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@vc/config':
+        specifier: workspace:*
+        version: link:../config
       '@vc/validators':
         specifier: workspace:*
         version: link:../validators
@@ -260,6 +266,9 @@ importers:
 
   packages/validators:
     dependencies:
+      '@vc/config':
+        specifier: workspace:*
+        version: link:../config
       zod:
         specifier: 4.4.3
         version: 4.4.3

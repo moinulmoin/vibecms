@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { PRESENTATION_LAYOUTS } from "@vc/config";
+
+const presentationSchema = z
+  .object({ layout: z.enum(PRESENTATION_LAYOUTS).optional(), toc: z.boolean().optional() })
+  .strict()
+  .nullable();
 
 export const postStatusSchema = z.enum(["draft", "published", "archived"]);
 
@@ -28,6 +34,7 @@ export const postDtoSchema = postSummaryDtoSchema.extend({
   contentMarkdown: z.string(),
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
+  presentation: presentationSchema,
 });
 
 export const assetDtoSchema = z.object({
@@ -75,6 +82,7 @@ export const postVersionDtoSchema = postVersionSummaryDtoSchema.extend({
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
   tags: z.array(z.string()),
+  presentation: presentationSchema,
 });
 
 export type SiteDto = z.infer<typeof siteDtoSchema>;
@@ -93,6 +101,12 @@ export const formatGuideDtoSchema = z.object({
   recommendedComponents: z.array(z.string()),
   presetGuidance: z.string(),
   examples: z.string(),
+  presentationOptions: z.object({
+    supportedLayouts: z.array(z.enum(PRESENTATION_LAYOUTS)),
+    default: z.object({ layout: z.enum(PRESENTATION_LAYOUTS), toc: z.boolean() }),
+    supportsToc: z.boolean(),
+    notes: z.string(),
+  }),
 });
 
 export type FormatGuideDto = z.infer<typeof formatGuideDtoSchema>;
@@ -106,6 +120,9 @@ export const previewPostDtoSchema = z.object({
   })),
   warnings: z.array(z.string()),
   rendererVersion: z.string(),
+  requestedPresentation: presentationSchema,
+  resolvedPresentation: z.object({ layout: z.enum(PRESENTATION_LAYOUTS), toc: z.boolean() }),
+  presentationWarnings: z.array(z.string()),
 });
 
 export type PreviewPostDto = z.infer<typeof previewPostDtoSchema>;

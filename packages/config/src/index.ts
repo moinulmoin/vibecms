@@ -1,50 +1,3 @@
-export type AppEnv = "development" | "preview" | "production" | "test";
-
-export type RuntimeEnv = {
-  DB: D1Database;
-  ASSETS_BUCKET: R2Bucket;
-  APP_ENV: AppEnv | string;
-  APP_URL: string;
-  PUBLIC_BLOG_DOMAIN: string;
-  SELF_HOSTED?: string;
-  POLAR_ACCESS_TOKEN?: string;
-  POLAR_WEBHOOK_SECRET?: string;
-  POLAR_PRODUCT_ID?: string;
-  POLAR_MONTHLY_PRODUCT_ID?: string;
-  POLAR_YEARLY_PRODUCT_ID?: string;
-  POLAR_SERVER?: "sandbox" | "production";
-  TOKEN_PEPPER?: string;
-  API_USAGE_TEST_LIMIT?: string;
-};
-
-const productionOnly = [
-  "APP_URL",
-  "PUBLIC_BLOG_DOMAIN",
-  "TOKEN_PEPPER",
-] as const;
-
-const hostedProductionOnly = [
-  "POLAR_ACCESS_TOKEN",
-  "POLAR_WEBHOOK_SECRET",
-  "POLAR_PRODUCT_ID",
-] as const;
-
-export function assertRuntimeEnv(env: Partial<RuntimeEnv>): asserts env is RuntimeEnv {
-  if (!env.DB) throw new Error("Missing DB binding");
-  if (!env.ASSETS_BUCKET) throw new Error("Missing ASSETS_BUCKET binding");
-  if (!env.APP_ENV) throw new Error("Missing APP_ENV");
-  if (env.APP_ENV === "production") {
-    for (const key of productionOnly) {
-      if (!env[key]) throw new Error(`Missing required production env: ${key}`);
-    }
-    if (env.SELF_HOSTED !== "true") {
-      for (const key of hostedProductionOnly) {
-        if (!env[key]) throw new Error(`Missing required hosted production env: ${key}`);
-      }
-    }
-  }
-}
-
 export const BRAND = {
   name: "VibeCMS",
   tagline: "CMS for AI Agents.",
@@ -165,6 +118,35 @@ export const DEFAULT_PRESET_ID: PresetId = "minimal";
 
 export type ComponentEmphasis = "high" | "medium" | "low";
 
+// ---------------------------------------------------------------------------
+// Presentation intent (bounded layout + toc; per-post, preset-interpreted)
+// ---------------------------------------------------------------------------
+
+export const PRESENTATION_LAYOUTS = ["standard", "feature", "essay"] as const;
+export type PresentationLayout = (typeof PRESENTATION_LAYOUTS)[number];
+
+export interface Presentation {
+  layout?: PresentationLayout;
+  toc?: boolean;
+}
+
+export interface PresetLayoutCapability {
+  default: { layout: PresentationLayout; toc: boolean };
+  supportedLayouts: readonly PresentationLayout[];
+  supportsToc: boolean;
+}
+
+export interface ResolvedPresentation {
+  layout: PresentationLayout;
+  toc: boolean;
+}
+
+export interface ResolvedPresentationResult {
+  requested: Presentation | null;
+  resolved: ResolvedPresentation;
+  warnings: string[];
+}
+
 export interface ThemePreset {
   id: PresetId;
   /** Display name shown in the picker. */
@@ -189,6 +171,8 @@ export interface ThemePreset {
    * FormatGuideDto.presetGuidance by the format_guide tool.
    */
   formatGuide: string;
+  /** Structural layout capability for this preset. */
+  layout: PresetLayoutCapability;
 }
 
 export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
@@ -225,6 +209,11 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
     formatGuide:
       "Write clearly and directly. Prefer short sentences and concrete examples. " +
       "Use callouts sparingly - one per section at most. Let structure carry meaning.",
+    layout: {
+      default: { layout: "standard", toc: false },
+      supportedLayouts: ["standard"],
+      supportsToc: false,
+    },
   },
 
   editorial: {
@@ -262,7 +251,13 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Place a captioned image every two or three sections to anchor the narrative. " +
       "Use blockquotes sparingly as pull quotes - one standout sentence per section at most. " +
       "Keep code to a minimum; if you must include it, prefer a short fenced block with a language label. " +
-      "Let prose carry the weight; avoid heavy structural markup.",
+      "Let prose carry the weight; avoid heavy structural markup. " +
+      "For long essays, prefer setting presentation.toc=true for a page-level table of contents; use inline [[toc]] only as an intentional in-body marker.",
+    layout: {
+      default: { layout: "essay", toc: false },
+      supportedLayouts: ["standard", "essay"],
+      supportsToc: true,
+    },
   },
 
   technical: {
@@ -296,11 +291,16 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
     density: "tight",
     idealArchetypes: ["docs", "tutorial", "reference"],
     formatGuide:
-      "Open with [[toc]] for any post longer than three sections. " +
+      "For posts longer than three sections, prefer setting presentation.toc=true (page-level TOC); use inline [[toc]] only as an intentional in-body marker. " +
       "Always include a language label on fenced code blocks. " +
       "Use callouts with purpose - NOTE for context, TIP for shortcuts, WARNING for gotchas. " +
       "Tables work well for option references and comparisons. " +
       "Keep paragraphs short and factual; favour precision over decoration.",
+    layout: {
+      default: { layout: "standard", toc: false },
+      supportedLayouts: ["standard"],
+      supportsToc: true,
+    },
   },
 
   product: {
@@ -340,6 +340,11 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Keep sections short and scannable with clear bold-italic emphasis on key terms. " +
       "Close with a clear next step (link or CTA paragraph) so readers know what to do. " +
       "Avoid deep code samples; this is a business voice.",
+    layout: {
+      default: { layout: "feature", toc: false },
+      supportedLayouts: ["standard", "feature"],
+      supportsToc: false,
+    },
   },
 };
 
@@ -349,4 +354,49 @@ export function resolvePresetId(value: string | null | undefined): PresetId {
     return value as PresetId;
   }
   return DEFAULT_PRESET_ID;
+}
+
+/**
+ * Clamp requested presentation intent to what the active preset supports.
+ * Never throws - unsupported values degrade gracefully to the preset default.
+ * Returns warnings for each clamped value so callers can surface them.
+ */
+export function resolvePresentation(
+  presetId: string | null | undefined,
+  requested: Presentation | null | undefined,
+): ResolvedPresentationResult {
+  const preset = THEME_PRESETS[resolvePresetId(presetId)].layout;
+  const warnings: string[] = [];
+
+  let resolvedLayout: PresentationLayout;
+  if (requested?.layout && preset.supportedLayouts.includes(requested.layout)) {
+    resolvedLayout = requested.layout;
+  } else {
+    if (requested?.layout) {
+      warnings.push(
+        `layout '${requested.layout}' is not supported by this preset; using '${preset.default.layout}'`,
+      );
+    }
+    resolvedLayout = preset.default.layout;
+  }
+
+  let resolvedToc: boolean;
+  if (requested?.toc !== undefined) {
+    if (preset.supportsToc) {
+      resolvedToc = requested.toc;
+    } else {
+      if (requested.toc === true) {
+        warnings.push(`toc is not supported by this preset; toc disabled`);
+      }
+      resolvedToc = false;
+    }
+  } else {
+    resolvedToc = preset.default.toc;
+  }
+
+  return {
+    requested: requested ?? null,
+    resolved: { layout: resolvedLayout, toc: resolvedToc },
+    warnings,
+  };
 }

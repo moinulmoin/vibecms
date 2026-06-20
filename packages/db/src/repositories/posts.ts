@@ -13,6 +13,7 @@ type PostRow = {
   status: string;
   published_at: number | null;
   tags_json: string;
+  presentation_json: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -48,6 +49,7 @@ function mapPost(row: PostRow): Post {
     status: normalizePostStatus(row.status),
     publishedAt: row.published_at,
     tags: JSON.parse(row.tags_json) as string[],
+    presentation: row.presentation_json ? JSON.parse(row.presentation_json) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -78,6 +80,7 @@ type PostVersionRow = {
 type PostVersionFullRow = PostVersionRow & {
   excerpt: string | null; content_markdown: string; cover_asset_id: string | null;
   seo_title: string | null; seo_description: string | null; tags_json: string;
+  presentation_json: string | null;
 };
 function actorTypeOf(t: string): Actor["type"] {
   return t === "human" || t === "api_key" || t === "agent" ? t : "system";
@@ -94,6 +97,7 @@ function mapPostVersion(row: PostVersionFullRow): PostVersion {
     ...mapPostVersionSummary(row),
     excerpt: row.excerpt, contentMarkdown: row.content_markdown, coverAssetId: row.cover_asset_id,
     seoTitle: row.seo_title, seoDescription: row.seo_description, tags: JSON.parse(row.tags_json) as string[],
+    presentation: row.presentation_json ? JSON.parse(row.presentation_json) : null,
   };
 }
 
@@ -112,7 +116,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
   const getPost = async (siteId: string, postId: string) => {
     const row = await db.prepare(
       `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
-        tags_json, created_at, updated_at
+        tags_json, presentation_json, created_at, updated_at
       FROM posts WHERE site_id = ? AND id = ? LIMIT 1`,
     ).bind(siteId, postId).first<PostRow>();
     return row ? mapPost(row) : null;
@@ -121,8 +125,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
   const postVersionStatement = (post: Post, actor: Actor, changeSummary: string, timestamp: number) => db.prepare(
     `INSERT INTO post_versions (
       id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
-      cover_asset_id, seo_title, seo_description, status, tags_json, created_by_type, created_by_id, change_summary, created_at
-    ) VALUES (?, ?, ?, COALESCE((SELECT MAX(version_number) FROM post_versions WHERE post_id = ?), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      cover_asset_id, seo_title, seo_description, status, tags_json, presentation_json, created_by_type, created_by_id, change_summary, created_at
+    ) VALUES (?, ?, ?, COALESCE((SELECT MAX(version_number) FROM post_versions WHERE post_id = ?), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
     post.id,
@@ -137,6 +141,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     post.seoDescription,
     post.status,
     JSON.stringify(post.tags),
+    post.presentation ? JSON.stringify(post.presentation) : null,
     actor.type,
     actorId(actor),
     changeSummary,
@@ -181,9 +186,9 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         db.prepare(
           `INSERT INTO posts (
             id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
-            tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id,
+            tags_json, presentation_json, created_by_type, created_by_id, updated_by_type, updated_by_id,
             created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           post.id,
           post.siteId,
@@ -197,6 +202,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           post.status,
           post.publishedAt,
           JSON.stringify(post.tags),
+          post.presentation ? JSON.stringify(post.presentation) : null,
           actor.type,
           actorId(actor),
           actor.type,
@@ -219,7 +225,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         db.prepare(
           `UPDATE posts SET
             title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?, seo_title = ?, seo_description = ?, status = ?, published_at = ?,
-            tags_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
+            tags_json = ?, presentation_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
           WHERE site_id = ? AND id = ?`,
         ).bind(
           after.title,
@@ -232,6 +238,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           after.status,
           after.publishedAt,
           JSON.stringify(after.tags),
+          after.presentation ? JSON.stringify(after.presentation) : null,
           actor.type,
           actorId(actor),
           timestamp,
@@ -249,7 +256,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     async findPostBySlug(siteId, slug) {
       const row = await db.prepare(
         `SELECT id, site_id, title, slug, excerpt, content_markdown, cover_asset_id, seo_title, seo_description, status, published_at,
-          tags_json, created_at, updated_at
+          tags_json, presentation_json, created_at, updated_at
         FROM posts WHERE site_id = ? AND slug = ? LIMIT 1`,
       ).bind(siteId, slug).first<PostRow>();
       return row ? mapPost(row) : null;
@@ -330,7 +337,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     async getPostVersion(siteId, postId, versionNumber) {
       const row = await db.prepare(
         `SELECT pv.version_number, pv.title, pv.slug, pv.status, pv.change_summary, pv.created_by_type, pv.created_at,
-          pv.excerpt, pv.content_markdown, pv.cover_asset_id, pv.seo_title, pv.seo_description, pv.tags_json,
+          pv.excerpt, pv.content_markdown, pv.cover_asset_id, pv.seo_title, pv.seo_description, pv.tags_json, pv.presentation_json,
           COALESCE((SELECT name FROM user WHERE id = pv.created_by_id),
                    (SELECT actor_name FROM api_keys WHERE id = pv.created_by_id),
                    pv.created_by_id) AS actor_name

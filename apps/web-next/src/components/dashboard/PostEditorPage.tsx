@@ -1,6 +1,7 @@
 'use client'
 
 import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
+import { THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -17,6 +18,7 @@ import {
 import { Button, PageHeader, Panel, StatusAlert, formatDateTime } from '~/components/dashboard/DashboardLayout'
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Switch } from '~/components/ui/switch'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from '~/components/dashboard/MarkdownEditor'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -137,6 +139,11 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [viewingVersion, setViewingVersion] = useState<PostVersion | null>(null)
   const [viewingVersionLoading, setViewingVersionLoading] = useState(false)
   const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
+  const [presetId, setPresetId] = useState<string>('minimal')
+  const [selectedLayout, setSelectedLayout] = useState<string>('standard')
+  const [selectedToc, setSelectedToc] = useState<boolean>(false)
+  const [presentationDirty, setPresentationDirty] = useState(false)
+  const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -146,6 +153,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setPost(result.post)
         setAssets(result.assets)
         setMissing(result.missing)
+        setPresetId(result.presetId)
+        const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
+        setSelectedLayout(result.post?.presentation?.layout ?? cap.default.layout)
+        setSelectedToc(result.post?.presentation?.toc ?? cap.default.toc)
+        setHasPriorPresentation(result.post?.presentation != null)
+        setPresentationDirty(false)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -165,9 +178,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
     setSavePending(true)
     try {
       const payload = payloadFromForm(new FormData(form))
+      const presentation =
+        !presentationDirty && !hasPriorPresentation
+          ? null
+          : { layout: selectedLayout, toc: selectedToc }
       const result = postId
-        ? await updatePostMutation({ data: { postId, ...payload } })
-        : await createPostMutation({ data: payload })
+        ? await updatePostMutation({ data: { postId, ...payload, presentation } })
+        : await createPostMutation({ data: { ...payload, presentation } })
       if (result.kind === 'ok' && !postId && result.postId) {
         await navigate({
           to: '/app/posts/$postId/edit',
@@ -178,6 +195,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setPost(refreshed.post)
         setAssets(refreshed.assets)
         setMissing(refreshed.missing)
+        setHasPriorPresentation(presentation !== null)
+        setPresentationDirty(false)
         return
       }
       const editorSearch = postEditorSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
@@ -186,6 +205,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         if (result.kind === 'ok') {
           const refreshed = await loadPostEditorPage({ data: { postId } })
           setPost(refreshed.post)
+          setHasPriorPresentation(presentation !== null)
+          setPresentationDirty(false)
         }
       } else {
         await navigate({ to: '/app/posts/new', search: editorSearch })
@@ -259,6 +280,11 @@ function PostEditorShell({ postId }: { postId?: string }) {
       if (result.kind === 'ok') {
         const refreshed = await loadPostEditorPage({ data: { postId } })
         setPost(refreshed.post)
+        const cap = THEME_PRESETS[resolvePresetId(refreshed.presetId)].layout
+        setSelectedLayout(refreshed.post?.presentation?.layout ?? cap.default.layout)
+        setSelectedToc(refreshed.post?.presentation?.toc ?? cap.default.toc)
+        setHasPriorPresentation(refreshed.post?.presentation != null)
+        setPresentationDirty(false)
         setFormKey((k) => k + 1)
         setVersionDrawerOpen(false)
         await navigate({
@@ -277,6 +303,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
 
   const statusKicker = post ? post.status : 'New post'
+  const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
 
   return (
     <>
@@ -328,7 +355,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 >
                   Markdown
                 </FieldLabel>
-                <MarkdownEditor assets={assets} defaultValue={post?.contentMarkdown ?? ''} />
+                <MarkdownEditor
+                  assets={assets}
+                  defaultValue={post?.contentMarkdown ?? ''}
+                  presetId={presetId}
+                  presentation={{ layout: selectedLayout, toc: selectedToc }}
+                />
                 <FieldDescription className="font-sans">
                   Markdown is rendered with the same safe renderer as the public blog.
                 </FieldDescription>
@@ -428,6 +460,52 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   Every save creates a post version and activity event, whether the change comes from you, an API token, or
                   an agent.
                 </p>
+              </div>
+            </Panel>
+            <Panel title="Presentation">
+              <div className="grid gap-4">
+                <Field>
+                  <FieldLabel
+                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="post-layout"
+                  >
+                    Layout
+                  </FieldLabel>
+                  <Select
+                    id="post-layout"
+                    value={selectedLayout}
+                    onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
+                  >
+                    {capability.supportedLayouts.map((l) => (
+                      <option key={l} value={l}>
+                        {l.charAt(0).toUpperCase() + l.slice(1)}
+                      </option>
+                    ))}
+                  </Select>
+                  <FieldDescription className="font-sans">
+                    Controls the article structure on the public blog.
+                  </FieldDescription>
+                </Field>
+                {capability.supportsToc ? (
+                  <Field>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="post-toc"
+                        checked={selectedToc}
+                        onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
+                      />
+                      <FieldLabel
+                        className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                        htmlFor="post-toc"
+                      >
+                        Table of contents
+                      </FieldLabel>
+                    </div>
+                    <FieldDescription className="font-sans">
+                      Inserts a TOC block above the article body.
+                    </FieldDescription>
+                  </Field>
+                ) : null}
               </div>
             </Panel>
             <Panel title="Actions">

@@ -1,5 +1,5 @@
 import { AppError, archivePost, createPost, getPost, getPostVersion, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
-import { MEDIA, resolvePresetId } from "@vc/config";
+import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
 import {
@@ -19,7 +19,10 @@ import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
 import { formatGuideForPreset } from "./format-guide";
-import { renderRichContent, renderRichContentToHtml, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
+import { renderRichContent, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { PresentedPostArticle } from "../components/PresentedPostArticle";
 
 export type OperationContext = {
   actor: Actor;
@@ -127,6 +130,7 @@ export async function createPostOp(
     seoTitle?: string;
     seoDescription?: string;
     tags?: string[];
+    presentation?: Presentation | null;
   },
 ) {
   return mapPost(
@@ -139,6 +143,7 @@ export async function createPostOp(
       seoTitle: input.seoTitle,
       seoDescription: input.seoDescription,
       tags: input.tags,
+      presentation: input.presentation,
     }),
   );
 }
@@ -154,14 +159,21 @@ export async function updatePostOp(
     seoTitle?: string;
     seoDescription?: string;
     tags?: string[];
+    presentation?: Presentation | null;
   },
 ) {
-  const { postId, ...patch } = input;
   return mapPost(
     await updatePost(repository(), ctx.actor, {
       siteId: ctx.siteId,
-      postId,
-      ...patch,
+      postId: input.postId,
+      title: input.title,
+      slug: input.slug,
+      excerpt: input.excerpt,
+      contentMarkdown: input.contentMarkdown,
+      seoTitle: input.seoTitle,
+      seoDescription: input.seoDescription,
+      tags: input.tags,
+      presentation: input.presentation,
     }),
   );
 }
@@ -225,7 +237,10 @@ export async function getFormatGuideOp(ctx: OperationContext, _input: { presetId
   return formatGuideForPreset(presetId);
 }
 
-export async function previewPostOp(ctx: OperationContext, input: { contentMarkdown: string; presetId?: string }) {
+export async function previewPostOp(
+  ctx: OperationContext,
+  input: { contentMarkdown: string; presetId?: string; presentation?: Presentation | null },
+) {
   requireScope(ctx.actor, "posts:read");
   let resolvedPresetId: string;
   if (input.presetId) {
@@ -236,10 +251,38 @@ export async function previewPostOp(ctx: OperationContext, input: { contentMarkd
       .first<{ theme: string | null }>();
     resolvedPresetId = resolvePresetId(row?.theme);
   }
-  const opts = { presetId: resolvedPresetId };
-  const html = renderRichContentToHtml(input.contentMarkdown, opts);
-  const { outline, warnings: renderWarnings } = renderRichContent(input.contentMarkdown, opts);
-  const validateWarnings = validateRichContent(input.contentMarkdown);
-  const warnings = [...new Set([...renderWarnings, ...validateWarnings])];
-  return { html, outline, warnings, rendererVersion: RENDERER_VERSION };
+
+  // Single parse: node + outline + render warnings in one pass
+  const { node, outline, warnings: renderWarnings } = renderRichContent(input.contentMarkdown, {
+    presetId: resolvedPresetId,
+  });
+
+  const r = resolvePresentation(resolvedPresetId, input.presentation);
+  const validateWarnings = validateRichContent(input.contentMarkdown, { renderWarnings, hasPageToc: r.resolved.toc });
+
+  // Duplicate-TOC warning: page-level TOC block AND [[toc]] marker both present
+  const dupTocWarnings: string[] =
+    r.resolved.toc && /\[\[toc\]\]/.test(input.contentMarkdown)
+      ? ["[[toc]] marker found in content but presentation.toc is true - the page-level TOC block already covers this; remove [[toc]] from content to avoid a duplicate"]
+      : [];
+
+  const html = renderToStaticMarkup(
+    createElement(PresentedPostArticle, {
+      renderResult: { node, outline, warnings: renderWarnings },
+      presetId: resolvedPresetId,
+      presentation: r.resolved,
+    }),
+  );
+
+  const warnings = [...new Set([...renderWarnings, ...validateWarnings, ...dupTocWarnings])];
+
+  return {
+    html,
+    outline,
+    warnings,
+    rendererVersion: RENDERER_VERSION,
+    requestedPresentation: r.requested,
+    resolvedPresentation: r.resolved,
+    presentationWarnings: r.warnings,
+  };
 }

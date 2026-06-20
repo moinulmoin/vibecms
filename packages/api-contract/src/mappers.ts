@@ -85,5 +85,6 @@ export function mapPostVersion(version: PostVersion): PostVersionDto {
     seoTitle: version.seoTitle,
     seoDescription: version.seoDescription,
     tags: version.tags,
+    presentation: version.presentation,
   };
 }

@@ -1,6 +1,8 @@
 'use client'
 
 import { renderRichContent, RichContentFrame } from '~/lib/markdown'
+import { PresentedPostArticle } from '~/components/PresentedPostArticle'
+import { resolvePresentation, type Presentation } from '@vc/config'
 import { Button, FieldDescription, Select, Textarea } from '@vc/ui'
 import { EyeOpenIcon, ImageIcon, Pencil2Icon } from '@radix-ui/react-icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -9,22 +11,23 @@ type MarkdownAsset = {
   id: string
   filename: string
 }
-
 type MarkdownEditorProps = {
   assets: MarkdownAsset[]
   defaultValue: string
+  presetId?: string
+  presentation?: { layout?: string; toc?: boolean }
 }
 
 type EditorMode = 'write' | 'preview'
 
-export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
+export function MarkdownEditor({ assets, defaultValue, presetId, presentation }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionRef = useRef({ start: defaultValue.length, end: defaultValue.length })
   const [mode, setMode] = useState<EditorMode>('write')
   const [previewSource, setPreviewSource] = useState(defaultValue)
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
 
-  const { node: previewNode } = useMemo(() => renderRichContent(previewSource), [previewSource])
+  const previewResult = useMemo(() => renderRichContent(previewSource), [previewSource])
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? assets[0]
 
   function showWrite() {
@@ -156,7 +159,15 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           aria-label="Markdown preview"
         >
           {previewSource.trim() ? (
-            <RichContentFrame node={previewNode} />
+            presetId ? (
+              <PresentedPostArticle
+                renderResult={previewResult}
+                presetId={presetId}
+                presentation={resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved}
+              />
+            ) : (
+              <RichContentFrame node={previewResult.node} />
+            )
           ) : (
             <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>
           )}

@@ -9,6 +9,7 @@
     "lint": "tsc"
   },
   "dependencies": {
+    "@vc/config": "workspace:*",
     "@vc/validators": "workspace:*"
   },
   "devDependencies": {

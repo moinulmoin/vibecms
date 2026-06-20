@@ -296,3 +296,110 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Layout: feature ───────────────────────────────────────────────────────── */
+
+/* Feature layout expands to the full page container width */
+.article[data-vc-layout="feature"] {
+  max-width: 100%;
+}
+
+/* Full-width hero container; title + date sit below it */
+.featureHero {
+  margin-bottom: 28px;
+}
+
+/* Hero cover image: full-width, capped height, no bottom margin (featureHero handles spacing) */
+.featureCover {
+  display: block;
+  width: 100%;
+  max-height: 540px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin-bottom: 20px;
+}
+
+/* ── Layout: essay ──────────────────────────────────────────────────────────── */
+
+/* Essay: constrain to the preset prose measure (already narrower than 860px) */
+.article[data-vc-layout="essay"] {
+  max-width: var(--vc-prose-measure);
+}
+
+/*
+ * Essay: conservative drop cap on the first body paragraph.
+ * Pure CSS - no renderer plugin required.
+ * Targets the first <p> inside the .markdown div produced by RichContentFrame.
+ * Known limitation: if the first paragraph contains only an image (no text),
+ * no letter is available to float and the drop cap will not appear.
+ */
+[data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
+  float: left;
+  font-size: 3.4em;
+  font-family: var(--vc-font-heading);
+  font-weight: 800;
+  line-height: 0.76;
+  margin-right: 0.08em;
+  margin-top: 0.05em;
+  color: var(--vc-fg);
+}
+
+/* ── TOC block ──────────────────────────────────────────────────────────────── */
+
+.tocBlock {
+  background: var(--vc-code-inline-bg);
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  padding: 0.875rem 1.125rem;
+  margin: 0 0 var(--vc-section-gap);
+}
+
+.tocBlock::before {
+  content: "Contents";
+  display: block;
+  font-family: var(--vc-font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--vc-muted-fg);
+  margin-bottom: 0.5rem;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.tocItemH2 > a,
+.tocItemH3 > a {
+  color: var(--vc-link);
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.tocItemH2 > a:hover,
+.tocItemH3 > a:hover {
+  color: var(--vc-link-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* H3 items are indented to show hierarchy */
+.tocItemH3 {
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .featureCover {
+    max-height: 280px;
+    border-radius: var(--vc-radius);
+  }
+
+  [data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
+    font-size: 2.8em;
+  }
+}

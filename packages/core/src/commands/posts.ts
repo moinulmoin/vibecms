@@ -40,6 +40,7 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     status: "draft" as const,
     publishedAt: null,
     tags: data.tags ?? [],
+    presentation: data.presentation ?? null,
   };
   return repo.createPostWithHistory(postInput, actor, {
     changeSummary: "Created post",
@@ -62,6 +63,8 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     seoTitle: data.seoTitle === undefined ? before.seoTitle : data.seoTitle || null,
     seoDescription: data.seoDescription === undefined ? before.seoDescription : data.seoDescription || null,
     tags: data.tags ?? before.tags,
+    // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
+    presentation: data.presentation === undefined ? before.presentation : data.presentation,
   };
   const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {
     changeSummary: "Updated post",
@@ -133,6 +136,7 @@ export async function restorePostVersion(repo: PostRepository, actor: Actor, inp
     title: target.title, slug: target.slug, excerpt: target.excerpt,
     contentMarkdown: target.contentMarkdown, coverAssetId: target.coverAssetId,
     seoTitle: target.seoTitle, seoDescription: target.seoDescription, tags: target.tags,
+    presentation: target.presentation,
   };
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, patch, actor, {
     changeSummary: `Restored to v${input.versionNumber}`,

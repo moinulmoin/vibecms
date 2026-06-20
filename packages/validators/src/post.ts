@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRESENTATION_LAYOUTS } from "@vc/config";
 
 const slug = z
   .string()
@@ -18,6 +19,13 @@ const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
 const seoTitleField = z.string().trim().max(70);
 const seoDescriptionField = z.string().trim().max(180);
 
+
+// Bounded presentation intent: layout archetype + optional TOC flag.
+// null = explicit reset to preset default.
+const presentationField = z
+  .object({ layout: z.enum(PRESENTATION_LAYOUTS).optional(), toc: z.boolean().optional() })
+  .strict()
+  .nullable();
 export const postStatus = z.enum(["draft", "published", "archived"]);
 
 export const createPostInput = z.object({
@@ -30,6 +38,7 @@ export const createPostInput = z.object({
   tags: tagsField.default([]),
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
+  presentation: presentationField.optional().default(null),
 }).strict();
 
 // Update is a true patch: every field is optional with NO defaults, so an
@@ -47,6 +56,8 @@ export const updatePostInput = z.object({
   tags: tagsField.optional(),
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
+  // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
+  presentation: presentationField.optional(),
 }).strict();
 
 export const publishPostInput = z.object({

@@ -3,9 +3,19 @@ import { THEME_PRESETS, type PresetId } from "@vc/config";
 import { RENDERER_VERSION } from "../lib/markdown";
 
 /** Bumped when the v1 syntax vocabulary changes. */
-export const GUIDE_VERSION = "1";
+export const GUIDE_VERSION = "2";
 
 export { RENDERER_VERSION };
+
+/**
+ * Agent-facing notes for the presentation field. Returned as part of
+ * presentationOptions so agents understand how to declare layout intent.
+ */
+const PRESENTATION_NOTES =
+  "Declare layout intent via the typed `presentation` field on posts.create or posts.update - NOT in front-matter or body text. " +
+  "Supported fields: `layout` (one of the preset's supportedLayouts) and `toc` (boolean, only when supportsToc is true). " +
+  "Do not combine `presentation.toc: true` with an inline `[[toc]]` marker in the body - choose one; " +
+  "`presentation.toc` is preferred when the preset supports it and removes the need for a manual [[toc]] marker.";
 
 const V1_EXAMPLES = `
 === Callouts (GOOD) ===
@@ -28,15 +38,19 @@ const V1_EXAMPLES = `
 > [!WARN]    <- typo; use [!WARNING]
 > [!info]    <- lowercase; use [!NOTE]
 
-=== Table of contents (GOOD) ===
+=== Table of contents - page-level (GOOD when preset supportsToc) ===
+// Set presentation.toc: true on posts.create / posts.update.
+// The runtime inserts a TOC block above the article body; no inline marker needed.
+
+=== Table of contents - inline marker (GOOD when page-level TOC is not active) ===
 [[toc]]
 
 ## Introduction
 ## Setup
 ### Advanced options
 
-=== Table of contents (BAD - no marker means no TOC; auto-TOC is not supported) ===
-<!-- Without [[toc]], no table of contents is generated. Place [[toc]] explicitly. -->
+=== Table of contents (BAD - omitting both presentation.toc and [[toc]] produces no TOC) ===
+<!-- No [[toc]] marker and no presentation.toc: true -> no table of contents is generated. -->
 
 === Captioned image (GOOD - image line + emphasis line, no blank line between) ===
 ![A golden retriever on a sunny hillside](/assets/dog.jpg)
@@ -83,6 +97,7 @@ const x = 1;
 
 export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
   const preset = THEME_PRESETS[presetId];
+  const layoutCap = preset.layout;
   return {
     activePresetId: preset.id,
     activePresetName: preset.name,
@@ -91,5 +106,11 @@ export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
     recommendedComponents: preset.recommendedComponents,
     presetGuidance: preset.formatGuide,
     examples: V1_EXAMPLES,
+    presentationOptions: {
+      supportedLayouts: [...layoutCap.supportedLayouts],
+      default: layoutCap.default,
+      supportsToc: layoutCap.supportsToc,
+      notes: PRESENTATION_NOTES,
+    },
   };
 }

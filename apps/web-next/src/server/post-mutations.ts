@@ -63,6 +63,7 @@ export type PostFormPayload = {
   seoTitle?: string | null
   seoDescription?: string | null
   tags: string[]
+  presentation?: { layout?: string; toc?: boolean } | null
 }
 
 export async function createPostForApp(app: AppUserContext, payload: PostFormPayload): Promise<MutationResult> {
@@ -78,6 +79,7 @@ export async function createPostForApp(app: AppUserContext, payload: PostFormPay
       seoTitle: payload.seoTitle ?? undefined,
       seoDescription: payload.seoDescription ?? undefined,
       tags: payload.tags,
+      presentation: payload.presentation ?? null,
     })
     return { kind: 'ok', code: 'post_created', postId: post.id }
   } catch (error) {
@@ -103,6 +105,7 @@ export async function updatePostForApp(
       seoTitle: payload.seoTitle ?? undefined,
       seoDescription: payload.seoDescription ?? undefined,
       tags: payload.tags,
+      presentation: payload.presentation,
     })
     await purgeIfPublished(app, post.slug, post.status)
     return { kind: 'ok', code: 'post_saved', postId }

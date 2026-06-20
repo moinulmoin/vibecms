@@ -1,13 +1,9 @@
 import styles from "./public-blog.module.css";
-import { renderRichContent, RichContentFrame } from "~/lib/markdown";
+import { renderRichContent } from "~/lib/markdown";
 import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/public-blog";
-import { resolvePresetId } from "@vc/config";
-import { SubscribeForm } from "~/components/SubscribeForm";
-
-function MarkdownBody({ source, presetId }: { source: string; presetId: string }) {
-  const { node } = renderRichContent(source);
-  return <RichContentFrame node={node} presetId={presetId} />;
-}
+import { resolvePresetId, resolvePresentation } from "@vc/config";
+import { SubscribeForm } from "./SubscribeForm";
+import { PresentedPostArticle } from "./PresentedPostArticle";
 
 function RobotsMeta({ indexable }: { indexable: boolean }) {
   return indexable ? null : <meta name="robots" content="noindex,nofollow" />;
@@ -88,9 +84,16 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const indexHref = publicIndexHref(basePath);
   const ogImage = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : "/brand/og.png";
+  const presetId = resolvePresetId(site.theme);
+  const { resolved } = resolvePresentation(presetId, post.presentation);
+  const renderResult = renderRichContent(post.content_markdown, { presetId });
+  const coverAssetSrc = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : undefined;
+  const dateText = post.published_at
+    ? new Date(post.published_at * 1000).toLocaleDateString()
+    : "Published";
 
   return (
-    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
+    <main className={styles.publicPage} data-vc-theme={presetId}>
       <title>{seoTitle}</title>
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
@@ -107,26 +110,17 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         </a>
         {site.description ? <p>{site.description}</p> : null}
       </header>
-      <article className={styles.article}>
-        <a href={indexHref} className={styles.backLink}>
-          {"\u2190"} All posts
-        </a>
-        <h1 className={styles.articleTitle}>{post.title}</h1>
-        {post.cover_asset_id ? (
-          <img
-            className={styles.heroImage}
-            src={`/media-assets/${post.cover_asset_id}`}
-            alt={`Cover image for ${post.title}`}
-            width={860}
-            height={520}
-            loading="lazy"
-          />
-        ) : null}
-        <p className={styles.date}>
-          {post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : "Published"}
-        </p>
-        <MarkdownBody source={post.content_markdown} presetId={resolvePresetId(site.theme)} />
-      </article>
+      <a href={indexHref} className={styles.backLink}>
+        {"\u2190"} All posts
+      </a>
+      <PresentedPostArticle
+        renderResult={renderResult}
+        presetId={presetId}
+        presentation={resolved}
+        title={post.title}
+        coverAssetSrc={coverAssetSrc}
+        dateText={dateText}
+      />
       <SubscribeForm siteSlug={site.slug} placement="end" />
     </main>
   );
