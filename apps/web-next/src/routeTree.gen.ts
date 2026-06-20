@@ -25,6 +25,7 @@ import { Route as AppMediaRouteImport } from './routes/app/media'
 import { Route as AppConnectRouteImport } from './routes/app/connect'
 import { Route as AppBillingRouteImport } from './routes/app/billing'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
+import { Route as ApiSubscribeRouteImport } from './routes/api/subscribe'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as ApiExportDotjsonRouteImport } from './routes/api/export[.]json'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
@@ -120,6 +121,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const ApiSubscribeRoute = ApiSubscribeRouteImport.update({
+  id: '/api/subscribe',
+  path: '/api/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPostsRoute = ApiPostsRouteImport.update({
   id: '/api/posts',
   path: '/api/posts',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
+  '/api/subscribe': typeof ApiSubscribeRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
   '/app/connect': typeof AppConnectRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
+  '/api/subscribe': typeof ApiSubscribeRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
   '/app/connect': typeof AppConnectRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
+  '/api/subscribe': typeof ApiSubscribeRoute
   '/app/activity': typeof AppActivityRoute
   '/app/billing': typeof AppBillingRoute
   '/app/connect': typeof AppConnectRoute
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/export.json'
     | '/api/posts'
+    | '/api/subscribe'
     | '/app/activity'
     | '/app/billing'
     | '/app/connect'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/export.json'
     | '/api/posts'
+    | '/api/subscribe'
     | '/app/activity'
     | '/app/billing'
     | '/app/connect'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/api/export.json'
     | '/api/posts'
+    | '/api/subscribe'
     | '/app/activity'
     | '/app/billing'
     | '/app/connect'
@@ -396,6 +408,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiExportDotjsonRoute: typeof ApiExportDotjsonRoute
   ApiPostsRoute: typeof ApiPostsRoute
+  ApiSubscribeRoute: typeof ApiSubscribeRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -520,6 +533,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/activity'
       preLoaderRoute: typeof AppActivityRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/api/subscribe': {
+      id: '/api/subscribe'
+      path: '/api/subscribe'
+      fullPath: '/api/subscribe'
+      preLoaderRoute: typeof ApiSubscribeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/posts': {
       id: '/api/posts'
@@ -675,6 +695,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiExportDotjsonRoute: ApiExportDotjsonRoute,
   ApiPostsRoute: ApiPostsRoute,
+  ApiSubscribeRoute: ApiSubscribeRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,

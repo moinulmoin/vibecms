@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 @import "./vc-rich-content.css";
+@import "./presets.css";
 @source "../../../packages/ui/src";
 
 @font-face {
@@ -87,6 +89,20 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  /* --vc-* aliases so preset tokens are available as Tailwind utilities
+     (bg-vc-bg, text-vc-fg, text-vc-accent, border-vc-border, etc.) */
+  --color-vc-bg:        var(--vc-bg);
+  --color-vc-fg:        var(--vc-fg);
+  --color-vc-muted:     var(--vc-muted);
+  --color-vc-muted-fg:  var(--vc-muted-fg);
+  --color-vc-accent:    var(--vc-accent);
+  --color-vc-accent-fg: var(--vc-accent-fg);
+  --color-vc-border:    var(--vc-border);
+  --color-vc-link:      var(--vc-link);
+  --font-vc-body:       var(--vc-font-body);
+  --font-vc-heading:    var(--vc-font-heading);
+  --font-vc-mono:       var(--vc-font-mono);
+  --radius-vc:          var(--vc-radius);
 }
 
 :root {
@@ -241,6 +257,26 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+
+  /* bridge --tw-prose-* to --vc-* so .prose tracks the active preset + dark */
+  [data-rich-content] {
+    --tw-prose-body:          var(--vc-fg);
+    --tw-prose-headings:      var(--vc-fg);
+    --tw-prose-lead:          var(--vc-muted-fg);
+    --tw-prose-links:         var(--vc-link);
+    --tw-prose-bold:          var(--vc-fg);
+    --tw-prose-counters:      var(--vc-muted-fg);
+    --tw-prose-bullets:       var(--vc-border);
+    --tw-prose-hr:            var(--vc-border);
+    --tw-prose-quotes:        var(--vc-quote-fg);
+    --tw-prose-quote-borders: var(--vc-quote-border);
+    --tw-prose-captions:      var(--vc-caption-fg);
+    --tw-prose-code:          var(--vc-fg);
+    --tw-prose-pre-code:      var(--vc-code-fg);
+    --tw-prose-pre-bg:        var(--vc-code-bg);
+    --tw-prose-th-borders:    var(--vc-border);
+    --tw-prose-td-borders:    var(--vc-border);
   }
 }
 

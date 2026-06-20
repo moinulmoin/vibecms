@@ -6,6 +6,7 @@ export type SiteRow = {
   workspace_id: string;
   name: string;
   slug: string;
+  theme: string;
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
@@ -49,7 +50,7 @@ export async function resolveSite(request: Request) {
     return null;
 
   const site = await env.DB.prepare(
-    `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
+    `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.theme, sites.description,
       sites.default_seo_title, sites.default_seo_description,
       billing_customers.status AS billing_status, billing_customers.current_period_end,
       (SELECT COUNT(*) FROM posts WHERE posts.site_id = sites.id AND posts.status = 'published') AS published_count
@@ -68,7 +69,7 @@ export async function resolveSite(request: Request) {
 export async function resolveSiteBySlug(slug: string | undefined) {
   if (!slug) return null;
   const site = await env.DB.prepare(
-    `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.description,
+    `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.theme, sites.description,
       sites.default_seo_title, sites.default_seo_description,
       billing_customers.status AS billing_status, billing_customers.current_period_end,
       (SELECT COUNT(*) FROM posts WHERE posts.site_id = sites.id AND posts.status = 'published') AS published_count

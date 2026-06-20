@@ -1,6 +1,6 @@
 # 015 - Theme presets + per-preset agent guidance + audience capture
 
-Status: PLANNED (architecture, Oracle-reviewed GO-WITH-CHANGES; P1/P2/P3 folded in). Written 2026-06-19. DEPENDS ON 016 (rich content renderer + the shared render contract) landing first - presets skin the components 016 emits and reuse its `RichContentFrame`.
+Status: DONE - shipped to dev 2026-06-20 (worker `29d97712`). Built via parallel subagents (registry/db/CSS keystones, then render/format_guide/settings/capture consumers). Oracle returned NO-GO on the first pass (public theming boundary too narrow -> incoherent dark), fixed with full-page `data-vc-theme` + preset token consumption + per-block color-scheme; the Reviewer's 6 P2s (subscribe DoS/rate-limit/HMAC hardening, theme-save clobber, preview-mode parity) were also fixed. Gates green (typecheck/lint/audit/build, zero em-dash); verified end-to-end on dev incl. browser QA of coherent light/dark editorial theming. Follow-up: exhaustive 4-preset visual sweep + Settings-picker browser QA (only editorial was screenshotted; the shared-frame mechanism is proven).
 
 ## Goal
 A small catalog of THEME PRESETS that skin the rendered-markdown vocabulary (callouts / TOC / captioned figures / code / prose) over ONE semantic DOM; a Settings picker with honest, canonical-sample live preview; per-preset authoring guidance the agent fetches (via 016's versioned `format_guide`); and a first-party audience-capture (email) widget that stores signups now with honest copy while sending is deferred to 017.

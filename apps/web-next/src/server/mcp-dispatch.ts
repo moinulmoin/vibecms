@@ -65,9 +65,9 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
     case "posts.versions.restore":
       return restorePostVersionOp(ctx, restorePostVersionRequestSchema.parse(rawArguments ?? {}));
     case "posts.format_guide":
-      return getFormatGuideOp(ctx, getFormatGuideRequestSchema.parse(rawArguments ?? {}));
+      return await getFormatGuideOp(ctx, getFormatGuideRequestSchema.parse(rawArguments ?? {}));
     case "posts.preview":
-      return previewPostOp(ctx, previewPostRequestSchema.parse(rawArguments ?? {}));
+      return await previewPostOp(ctx, previewPostRequestSchema.parse(rawArguments ?? {}));
     default:
       throw new Error(`Unknown tool: ${String(toolName)}`);
   }

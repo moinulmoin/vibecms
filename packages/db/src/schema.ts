@@ -34,6 +34,7 @@ export const sites = sqliteTable("sites", {
   defaultSeoTitle: text("default_seo_title"),
   defaultSeoDescription: text("default_seo_description"),
   status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+  theme: text("theme").notNull().default("minimal"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 
@@ -215,3 +216,21 @@ export const verification = sqliteTable("verification", {
   createdAt: integer("created_at", { mode: "timestamp" }),
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
+
+export const subscribers = sqliteTable("subscribers", {
+  id: text("id").primaryKey(),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  status: text("status", { enum: ["pending", "confirmed", "unsubscribed"] }).notNull().default("pending"),
+  sourceUrl: text("source_url"),
+  consentText: text("consent_text").notNull(),
+  consentVersion: text("consent_version").notNull(),
+  confirmedAt: integer("confirmed_at"),
+  providerId: text("provider_id"),
+  ipHash: text("ip_hash"),
+  uaHash: text("ua_hash"),
+  ...timestamps,
+}, (table) => [
+  uniqueIndex("idx_subscribers_site_email").on(table.siteId, table.email),
+  index("idx_subscribers_site_id").on(table.siteId),
+]);

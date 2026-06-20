@@ -1,6 +1,6 @@
 'use client'
 
-import { BRAND, ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
+import { BRAND, DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
 import type { ApiKeyListItem } from '~/server/api-keys'
 import { DownloadIcon } from '@radix-ui/react-icons'
 import {
@@ -17,9 +17,11 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  cn,
 } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { renderRichContent, RichContentFrame } from '~/lib/markdown'
 import {
   Button,
   EmptyState,
@@ -48,6 +50,8 @@ type SiteSettingsForm = {
   description: string
   defaultSeoTitle: string
   defaultSeoDescription: string
+  theme: string
+  slug: string
 }
 
 type SettingsPageData = {
@@ -92,18 +96,71 @@ function BillingStatusBadge({ status }: { status: string }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Canonical markdown sample - exercises the full renderer vocabulary.
+// Computed once at module load; safe because renderRichContent is synchronous.
+// ---------------------------------------------------------------------------
+const CANONICAL_SAMPLE_MD = `## Sample heading
+
+[[toc]]
+
+### Introduction
+
+Write compelling posts with **bold text**, *italic text*, and [links](https://example.com).
+
+> [!NOTE]
+> Notes add context without interrupting the narrative.
+
+> [!TIP]
+> Tips help readers get the most from their reading.
+
+> [!WARNING]
+> Warnings flag important caveats or breaking changes.
+
+### Code block
+
+\`\`\`ts
+export async function getPost(id: string) {
+  return db.posts.findById(id)
+}
+\`\`\`
+
+### Media
+
+![A sample blog header image](https://picsum.photos/seed/vc/800/400)
+*Caption: a hero image sets the tone for every preset.*
+
+### Comparison table
+
+| Preset | Density | Best for |
+| ------ | ------- | -------- |
+| Minimal | Airy | General writing |
+| Editorial | Comfortable | Narrative |
+| Technical | Tight | Docs and reference |
+| Product | Clean | Launch posts |
+
+> Style is a point of view - pick the preset that fits your content.
+`
+
+const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
+
 export function SettingsPage() {
   const navigate = useNavigate()
   const formStatus = useFormStatusFromSearch()
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [revokePending, setRevokePending] = useState<string | null>(null)
+  const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
+  const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
 
   useEffect(() => {
     let cancelled = false
     void loadSettingsPage()
       .then((loaded) => {
-        if (!cancelled) setData(loaded)
+        if (!cancelled) {
+          setData(loaded)
+          setSelectedTheme(loaded.site.theme)
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load settings.')
@@ -122,8 +179,30 @@ export function SettingsPage() {
         description: String(form.get('description') ?? '') || undefined,
         defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
         defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
+        theme: data?.site.theme ?? selectedTheme,
       },
     })
+    await navigate({
+      to: '/app/settings',
+      search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
+    })
+  }
+
+  async function handleThemeSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!data) return
+    const result = await updateSiteSettingsMutation({
+      data: {
+        name: data.site.name,
+        description: data.site.description || undefined,
+        defaultSeoTitle: data.site.defaultSeoTitle,
+        defaultSeoDescription: data.site.defaultSeoDescription || undefined,
+        theme: selectedTheme,
+      },
+    })
+    if (result.kind === 'ok') {
+      setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
+    }
     await navigate({
       to: '/app/settings',
       search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
@@ -218,6 +297,108 @@ export function SettingsPage() {
             Save site settings
           </PendingSubmitButton>
         </form>
+      </Panel>
+      <Panel title="Public blog" meta="Theme">
+        <p className="mb-4 font-sans text-sm text-muted-foreground">
+          Changes public blog appearance and future agent guidance. Does not rewrite existing content.
+        </p>
+        <form className="grid gap-4" onSubmit={(e) => void handleThemeSave(e)}>
+          <FieldSet>
+            <FieldLegend className="sr-only">Preset</FieldLegend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PRESET_IDS.map((id) => {
+                const preset = THEME_PRESETS[id]
+                const isCurrent = site.theme === id
+                const isDefault = id === DEFAULT_PRESET_ID
+                return (
+                  <Field
+                    key={id}
+                    orientation="horizontal"
+                    className={cn(
+                      'rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
+                      'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
+                    )}
+                  >
+                    <input
+                      id={`theme-${id}`}
+                      className="mt-1 accent-[var(--brand-bright)]"
+                      type="radio"
+                      name="theme"
+                      value={id}
+                      checked={selectedTheme === id}
+                      onChange={() => setSelectedTheme(id)}
+                    />
+                    <span>
+                      <FieldLabel
+                        htmlFor={`theme-${id}`}
+                        className="flex flex-wrap items-center gap-1.5 font-display text-sm font-medium"
+                      >
+                        {preset.name}
+                        {isCurrent && (
+                          <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-brand-bright text-[0.65rem]">
+                            Current live theme
+                          </Badge>
+                        )}
+                        {isDefault && (
+                          <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">
+                            Default
+                          </Badge>
+                        )}
+                      </FieldLabel>
+                      <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
+                        {preset.designIntent}
+                      </span>
+                    </span>
+                  </Field>
+                )
+              })}
+            </div>
+          </FieldSet>
+          {selectedTheme !== site.theme && (
+            <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
+              Theme not yet saved.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <PendingSubmitButton className="w-fit" pendingText="Saving theme...">
+              Save theme
+            </PendingSubmitButton>
+            {site.slug ? (
+              <Button asChild variant="outline">
+                <a href={`/blog/${site.slug}`} target="_blank" rel="noopener noreferrer">
+                  View public blog
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        </form>
+        <div className="mt-6 rounded-2xl border bg-muted/30 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="font-display text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Illustrative preview
+            </p>
+            <div className="flex gap-1 rounded-lg border bg-background p-0.5 text-xs">
+              {(['light', 'system', 'dark'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPreviewMode(mode)}
+                  className={cn(
+                    'rounded-md px-2 py-1 capitalize transition-colors',
+                    previewMode === mode
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-xl border">
+            <RichContentFrame node={SAMPLE_RENDER.node} presetId={selectedTheme} mode={previewMode} />
+          </div>
+        </div>
       </Panel>
       <Panel
         title="Billing"

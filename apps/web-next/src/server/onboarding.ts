@@ -1,4 +1,5 @@
 import type { Actor } from '@vc/core'
+import { resolvePresetId } from '@vc/config'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '~/server/billing'
 
@@ -120,11 +121,12 @@ export type SiteSettingsPayload = {
   description?: string
   defaultSeoTitle: string
   defaultSeoDescription?: string
+  theme: string
 }
 
 export async function getSiteSettings(app: AppUserContext) {
   const site = await env.DB.prepare(
-    'SELECT name, description, default_seo_title, default_seo_description FROM sites WHERE id = ? LIMIT 1',
+    'SELECT name, description, default_seo_title, default_seo_description, theme, slug FROM sites WHERE id = ? LIMIT 1',
   )
     .bind(app.siteId)
     .first<{
@@ -132,12 +134,16 @@ export async function getSiteSettings(app: AppUserContext) {
       description: string | null
       default_seo_title: string | null
       default_seo_description: string | null
+      theme: string | null
+      slug: string
     }>()
   return {
     name: site?.name ?? 'My Blog',
     description: site?.description ?? '',
     defaultSeoTitle: site?.default_seo_title ?? '',
     defaultSeoDescription: site?.default_seo_description ?? '',
+    theme: resolvePresetId(site?.theme),
+    slug: site?.slug ?? '',
   }
 }
 
@@ -187,11 +193,12 @@ export async function updateSiteSettingsForApp(
   const defaultSeoDescription = payload.defaultSeoDescription?.trim()
     ? payload.defaultSeoDescription.trim().slice(0, 220)
     : null
+  const theme = resolvePresetId(payload.theme)
 
   await env.DB.prepare(
-    'UPDATE sites SET name = ?, description = ?, default_seo_title = ?, default_seo_description = ?, updated_at = ? WHERE id = ?',
+    'UPDATE sites SET name = ?, description = ?, default_seo_title = ?, default_seo_description = ?, theme = ?, updated_at = ? WHERE id = ?',
   )
-    .bind(name, description, defaultSeoTitle, defaultSeoDescription, timestamp, app.siteId)
+    .bind(name, description, defaultSeoTitle, defaultSeoDescription, theme, timestamp, app.siteId)
     .run()
 
   await env.DB.prepare(

@@ -497,15 +497,18 @@ export function renderRichContent(markdown: string, _opts?: RenderOpts): RenderR
 export function RichContentFrame({
   node,
   presetId,
+  mode,
 }: {
   node: ReactNode;
   presetId?: string;
+  mode?: 'light' | 'dark' | 'system';
 }) {
   return (
     <div
       className={styles.markdown}
       data-rich-content=""
       data-vc-theme={presetId ?? "minimal"}
+      {...(mode === 'light' || mode === 'dark' ? { 'data-vc-mode': mode } : {})}
     >
       {node}
     </div>

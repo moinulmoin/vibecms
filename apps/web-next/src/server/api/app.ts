@@ -167,7 +167,7 @@ apiV1App.openapi(listPostsRoute, async (c) => {
 // Static route MUST precede the parametrized GET /posts/{postId} or it is shadowed.
 apiV1App.openapi(getFormatGuideRoute, async (c) => {
   const query = c.req.valid("query");
-  const guide = getFormatGuideOp(c.get("ctx"), query);
+  const guide = await getFormatGuideOp(c.get("ctx"), query);
   return c.json(guide, 200);
 });
 
@@ -234,7 +234,7 @@ apiV1App.openapi(restorePostVersionRoute, async (c) => {
 
 apiV1App.openapi(previewPostRoute, async (c) => {
   const body = c.req.valid("json");
-  const result = previewPostOp(c.get("ctx"), body);
+  const result = await previewPostOp(c.get("ctx"), body);
   return c.json(result, 200);
 });
 

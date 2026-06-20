@@ -148,3 +148,205 @@ export function readFormStatus(search: URLSearchParams): FormStatus | null {
   if (ok) return FORM_STATUS[ok] ?? null;
   return null;
 }
+// ---------------------------------------------------------------------------
+// Theme preset registry
+// ---------------------------------------------------------------------------
+
+export type PresetId = "minimal" | "editorial" | "technical" | "product";
+
+export const PRESET_IDS: readonly PresetId[] = [
+  "minimal",
+  "editorial",
+  "technical",
+  "product",
+];
+
+export const DEFAULT_PRESET_ID: PresetId = "minimal";
+
+export type ComponentEmphasis = "high" | "medium" | "low";
+
+export interface ThemePreset {
+  id: PresetId;
+  /** Display name shown in the picker. */
+  name: string;
+  /** 1-2 sentence picker-facing description. */
+  designIntent: string;
+  /**
+   * Ordered list of recommended components. Only real renderer components:
+   * callout, table-of-contents, captioned-image, fenced-code, table, list,
+   * link, bold-italic, blockquote.
+   */
+  recommendedComponents: string[];
+  /** Relative weight per component name. */
+  componentEmphasis: Record<string, ComponentEmphasis>;
+  /** Preferred image aspect ratio, e.g. "16:9" or "3:2". */
+  preferredImageRatio: string;
+  density: "airy" | "comfortable" | "tight";
+  /** Content archetypes this preset is optimised for. */
+  idealArchetypes: string[];
+  /**
+   * Agent-facing tonal authoring guidance. Returned as
+   * FormatGuideDto.presetGuidance by the format_guide tool.
+   */
+  formatGuide: string;
+}
+
+export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
+  minimal: {
+    id: "minimal",
+    name: "Minimal",
+    designIntent:
+      "Clean, airy, and neutral. A general-purpose canvas that stays out of the way and lets your words lead.",
+    recommendedComponents: [
+      "list",
+      "link",
+      "bold-italic",
+      "callout",
+      "captioned-image",
+      "table",
+      "fenced-code",
+      "blockquote",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      list: "high",
+      link: "high",
+      "bold-italic": "medium",
+      callout: "medium",
+      "captioned-image": "medium",
+      table: "medium",
+      "fenced-code": "medium",
+      blockquote: "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "airy",
+    idealArchetypes: ["general", "newsletter", "personal"],
+    formatGuide:
+      "Write clearly and directly. Prefer short sentences and concrete examples. " +
+      "Use callouts sparingly - one per section at most. Let structure carry meaning.",
+  },
+
+  editorial: {
+    id: "editorial",
+    name: "Editorial",
+    designIntent:
+      "Serif headings, wide measure, and media-rich narrative flow. Built for long-form storytelling, essays, and reported pieces.",
+    recommendedComponents: [
+      "captioned-image",
+      "blockquote",
+      "bold-italic",
+      "list",
+      "link",
+      "callout",
+      "fenced-code",
+      "table",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      "captioned-image": "high",
+      blockquote: "high",
+      "bold-italic": "high",
+      list: "medium",
+      link: "medium",
+      callout: "low",
+      "fenced-code": "low",
+      table: "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "3:2",
+    density: "comfortable",
+    idealArchetypes: ["essay", "narrative", "longform"],
+    formatGuide:
+      "Lead with a strong opening image or scene-setting paragraph. " +
+      "Place a captioned image every two or three sections to anchor the narrative. " +
+      "Use blockquotes sparingly as pull quotes - one standout sentence per section at most. " +
+      "Keep code to a minimum; if you must include it, prefer a short fenced block with a language label. " +
+      "Let prose carry the weight; avoid heavy structural markup.",
+  },
+
+  technical: {
+    id: "technical",
+    name: "Technical",
+    designIntent:
+      "Monospace emphasis, prominent table of contents, and tight density. Optimised for documentation, tutorials, and reference guides.",
+    recommendedComponents: [
+      "table-of-contents",
+      "fenced-code",
+      "callout",
+      "table",
+      "list",
+      "link",
+      "captioned-image",
+      "bold-italic",
+      "blockquote",
+    ],
+    componentEmphasis: {
+      "table-of-contents": "high",
+      "fenced-code": "high",
+      callout: "high",
+      table: "high",
+      list: "high",
+      link: "medium",
+      "captioned-image": "medium",
+      "bold-italic": "medium",
+      blockquote: "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "tight",
+    idealArchetypes: ["docs", "tutorial", "reference"],
+    formatGuide:
+      "Open with [[toc]] for any post longer than three sections. " +
+      "Always include a language label on fenced code blocks. " +
+      "Use callouts with purpose - NOTE for context, TIP for shortcuts, WARNING for gotchas. " +
+      "Tables work well for option references and comparisons. " +
+      "Keep paragraphs short and factual; favour precision over decoration.",
+  },
+
+  product: {
+    id: "product",
+    name: "Product",
+    designIntent:
+      "Clean, confident, and conversion-aware. Built for founder updates, launch announcements, and company news.",
+    recommendedComponents: [
+      "captioned-image",
+      "callout",
+      "list",
+      "bold-italic",
+      "link",
+      "blockquote",
+      "table",
+      "fenced-code",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      "captioned-image": "high",
+      callout: "high",
+      list: "high",
+      "bold-italic": "high",
+      link: "high",
+      blockquote: "medium",
+      table: "medium",
+      "fenced-code": "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "comfortable",
+    idealArchetypes: ["announcement", "launch", "company-update"],
+    formatGuide:
+      "Lead with the announcement in the first paragraph - no slow build. " +
+      "Place a captioned hero image immediately after the opener. " +
+      "Use IMPORTANT or TIP callouts for availability dates, pricing, or key highlights. " +
+      "Keep sections short and scannable with clear bold-italic emphasis on key terms. " +
+      "Close with a clear next step (link or CTA paragraph) so readers know what to do. " +
+      "Avoid deep code samples; this is a business voice.",
+  },
+};
+
+/** Returns the given value if it is a known PresetId, otherwise DEFAULT_PRESET_ID. */
+export function resolvePresetId(value: string | null | undefined): PresetId {
+  if (value != null && (PRESET_IDS as readonly string[]).includes(value)) {
+    return value as PresetId;
+  }
+  return DEFAULT_PRESET_ID;
+}

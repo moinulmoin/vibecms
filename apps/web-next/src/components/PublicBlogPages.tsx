@@ -1,10 +1,12 @@
 import styles from "./public-blog.module.css";
 import { renderRichContent, RichContentFrame } from "~/lib/markdown";
 import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/public-blog";
+import { resolvePresetId } from "@vc/config";
+import { SubscribeForm } from "~/components/SubscribeForm";
 
-function MarkdownBody({ source }: { source: string }) {
+function MarkdownBody({ source, presetId }: { source: string; presetId: string }) {
   const { node } = renderRichContent(source);
-  return <RichContentFrame node={node} />;
+  return <RichContentFrame node={node} presetId={presetId} />;
 }
 
 function RobotsMeta({ indexable }: { indexable: boolean }) {
@@ -30,7 +32,7 @@ function PublicShell({
   const seoDescription = site.default_seo_description || site.description || undefined;
   const homeHref = publicIndexHref(basePath);
   return (
-    <main className={styles.publicPage}>
+    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
       {seoTitle ? <title>{seoTitle}</title> : null}
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
@@ -43,6 +45,9 @@ function PublicShell({
         {site.description ? <p>{site.description}</p> : null}
       </header>
       {children}
+      <footer>
+        <SubscribeForm siteSlug={site.slug} placement="footer" />
+      </footer>
     </main>
   );
 }
@@ -85,7 +90,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const ogImage = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : "/brand/og.png";
 
   return (
-    <main className={styles.publicPage}>
+    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
       <title>{seoTitle}</title>
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
@@ -120,8 +125,9 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         <p className={styles.date}>
           {post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : "Published"}
         </p>
-        <MarkdownBody source={post.content_markdown} />
+        <MarkdownBody source={post.content_markdown} presetId={resolvePresetId(site.theme)} />
       </article>
+      <SubscribeForm siteSlug={site.slug} placement="end" />
     </main>
   );
 }
@@ -129,7 +135,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
 export function PublicBlogNotFound({ site, basePath }: { site: PublicIndexLoaderData["site"]; basePath: string }) {
   const homeHref = publicIndexHref(basePath);
   return (
-    <main className={styles.publicPage}>
+    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
       <title>{`Not found - ${site.name}`}</title>
       <meta name="robots" content="noindex" />
       <header className={styles.publicHeader}>

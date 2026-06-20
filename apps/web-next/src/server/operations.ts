@@ -1,5 +1,5 @@
 import { AppError, archivePost, createPost, getPost, getPostVersion, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
-import { MEDIA } from "@vc/config";
+import { MEDIA, resolvePresetId } from "@vc/config";
 import { createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
 import {
@@ -18,7 +18,7 @@ import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
-import { universalFormatGuide } from "./format-guide";
+import { formatGuideForPreset } from "./format-guide";
 import { renderRichContent, renderRichContentToHtml, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
 
 export type OperationContext = {
@@ -216,14 +216,27 @@ export async function restorePostVersionOp(ctx: OperationContext, input: { postI
   return mapPost(await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
 }
 
-export function getFormatGuideOp(ctx: OperationContext, _input: { presetId?: string }) {
+export async function getFormatGuideOp(ctx: OperationContext, _input: { presetId?: string }) {
   requireScope(ctx.actor, "posts:read");
-  return universalFormatGuide;
+  const row = await env.DB.prepare("SELECT theme FROM sites WHERE id = ? LIMIT 1")
+    .bind(ctx.siteId)
+    .first<{ theme: string | null }>();
+  const presetId = resolvePresetId(_input.presetId ?? row?.theme);
+  return formatGuideForPreset(presetId);
 }
 
-export function previewPostOp(ctx: OperationContext, input: { contentMarkdown: string; presetId?: string }) {
+export async function previewPostOp(ctx: OperationContext, input: { contentMarkdown: string; presetId?: string }) {
   requireScope(ctx.actor, "posts:read");
-  const opts = input.presetId ? { presetId: input.presetId } : undefined;
+  let resolvedPresetId: string;
+  if (input.presetId) {
+    resolvedPresetId = resolvePresetId(input.presetId);
+  } else {
+    const row = await env.DB.prepare("SELECT theme FROM sites WHERE id = ? LIMIT 1")
+      .bind(ctx.siteId)
+      .first<{ theme: string | null }>();
+    resolvedPresetId = resolvePresetId(row?.theme);
+  }
+  const opts = { presetId: resolvedPresetId };
   const html = renderRichContentToHtml(input.contentMarkdown, opts);
   const { outline, warnings: renderWarnings } = renderRichContent(input.contentMarkdown, opts);
   const validateWarnings = validateRichContent(input.contentMarkdown);

@@ -1,4 +1,5 @@
 import type { FormatGuideDto } from "@vc/api-contract";
+import { THEME_PRESETS, type PresetId } from "@vc/config";
 import { RENDERER_VERSION } from "../lib/markdown";
 
 /** Bumped when the v1 syntax vocabulary changes. */
@@ -80,24 +81,15 @@ const x = 1;
 **Bold** and *italic* and ~~strikethrough~~
 `.trim();
 
-// 015 makes this preset-aware (keyed off sites.theme)
-export const universalFormatGuide: FormatGuideDto = {
-  activePresetId: "minimal",
-  activePresetName: "Minimal",
-  guideVersion: GUIDE_VERSION,
-  rendererVersion: RENDERER_VERSION,
-  recommendedComponents: [
-    "callout",
-    "table-of-contents",
-    "captioned-image",
-    "fenced-code",
-    "table",
-    "list",
-    "link",
-    "bold-italic",
-  ],
-  presetGuidance:
-    "Write clearly and directly. Prefer short sentences and concrete examples. " +
-    "Use callouts sparingly - one per section at most. Let structure carry meaning.",
-  examples: V1_EXAMPLES,
-};
+export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
+  const preset = THEME_PRESETS[presetId];
+  return {
+    activePresetId: preset.id,
+    activePresetName: preset.name,
+    guideVersion: GUIDE_VERSION,
+    rendererVersion: RENDERER_VERSION,
+    recommendedComponents: preset.recommendedComponents,
+    presetGuidance: preset.formatGuide,
+    examples: V1_EXAMPLES,
+  };
+}

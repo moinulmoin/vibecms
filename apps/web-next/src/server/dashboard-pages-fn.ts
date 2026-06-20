@@ -59,6 +59,7 @@ export const updateSiteSettingsMutation = createServerFn({ method: 'POST' })
     description?: string
     defaultSeoTitle: string
     defaultSeoDescription?: string
+    theme: string
   }) => data)
   .handler(async ({ data }) => {
     const app = await requireApp()
