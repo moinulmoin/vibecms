@@ -123,3 +123,44 @@ export async function listPublishedPosts(siteId: string) {
 export function isPublicBlogIndexable(site: SiteRow) {
   return String(env.SELF_HOSTED) === "true" || site.billing_status === "active";
 }
+
+export function escapeLike(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+export async function listPublishedPostsByTag(siteId: string, tag: string): Promise<PostRow[]> {
+  if (!tag) return [];
+  const now = Math.floor(Date.now() / 1000);
+  const result = await env.DB.prepare(
+    `SELECT id, title, slug, excerpt, content_markdown, cover_asset_id, published_at, seo_title, seo_description, tags_json
+     FROM posts
+     WHERE site_id = ? AND status = 'published' AND published_at IS NOT NULL AND published_at <= ?
+       AND EXISTS (SELECT 1 FROM json_each(tags_json) WHERE value = ?)
+     ORDER BY published_at DESC`,
+  )
+    .bind(siteId, now, tag)
+    .all<PostRow>();
+  return result.results;
+}
+
+export async function searchPublishedPosts(siteId: string, q: string): Promise<PostRow[]> {
+  const trimmed = q.trim().slice(0, 100);
+  if (!trimmed) return [];
+  const now = Math.floor(Date.now() / 1000);
+  const pattern = "%" + escapeLike(trimmed) + "%";
+  const result = await env.DB.prepare(
+    `SELECT id, title, slug, excerpt, content_markdown, cover_asset_id, published_at, seo_title, seo_description, tags_json
+     FROM posts
+     WHERE site_id = ? AND status = 'published' AND published_at IS NOT NULL AND published_at <= ?
+       AND (
+         title LIKE ? ESCAPE '\\'
+         OR excerpt LIKE ? ESCAPE '\\'
+         OR content_markdown LIKE ? ESCAPE '\\'
+         OR EXISTS (SELECT 1 FROM json_each(tags_json) WHERE value LIKE ? ESCAPE '\\')
+       )
+     ORDER BY published_at DESC`,
+  )
+    .bind(siteId, now, pattern, pattern, pattern, pattern)
+    .all<PostRow>();
+  return result.results;
+}

@@ -2,6 +2,8 @@ import {
   getPublishedPost,
   isPublicBlogIndexable,
   listPublishedPosts,
+  listPublishedPostsByTag,
+  searchPublishedPosts,
   resolveSite,
   resolveSiteBySlug,
   type PostDetailRow,
@@ -163,28 +165,53 @@ export async function loadPublicPostByHost(request: Request, slug: string | unde
   };
 }
 
+export type PublicListingContext =
+  | { kind: "index" }
+  | { kind: "tag"; tag: string }
+  | { kind: "search"; query: string };
+
 export type PublicIndexLoaderData = {
   site: SiteRow;
   posts: PostRow[];
   basePath: string;
   indexable: boolean;
+  listing: PublicListingContext;
 };
 
-export async function loadPublicIndexBySlug(siteSlug: string | undefined): Promise<PublicIndexLoaderData | null> {
+export async function loadPublicIndexBySlug(siteSlug: string | undefined, query?: string): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSiteBySlug(siteSlug);
   if (!site) return null;
+  if (query !== undefined) {
+    const posts = await searchPublishedPosts(site.id, query);
+    return { site, posts, basePath: `/blog/${site.slug}`, indexable: false, listing: { kind: "search", query } };
+  }
   const posts = await listPublishedPosts(site.id);
-  return {
-    site,
-    posts,
-    basePath: `/blog/${site.slug}`,
-    indexable: isPublicBlogIndexable(site),
-  };
+  return { site, posts, basePath: `/blog/${site.slug}`, indexable: isPublicBlogIndexable(site), listing: { kind: "index" } };
 }
 
-export async function loadPublicIndexByHost(request: Request): Promise<PublicIndexLoaderData | null> {
+export async function loadPublicIndexByHost(request: Request, query?: string): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request);
   if (!site) return null;
+  if (query !== undefined) {
+    const posts = await searchPublishedPosts(site.id, query);
+    return { site, posts, basePath: "", indexable: false, listing: { kind: "search", query } };
+  }
   const posts = await listPublishedPosts(site.id);
-  return { site, posts, basePath: "", indexable: isPublicBlogIndexable(site) };
+  return { site, posts, basePath: "", indexable: isPublicBlogIndexable(site), listing: { kind: "index" } };
+}
+
+export async function loadPublicTagBySlug(siteSlug: string | undefined, tag: string): Promise<PublicIndexLoaderData | null> {
+  const site = await resolveSiteBySlug(siteSlug);
+  if (!site) return null;
+  const posts = await listPublishedPostsByTag(site.id, tag);
+  if (posts.length === 0) return null;
+  return { site, posts, basePath: `/blog/${site.slug}`, indexable: isPublicBlogIndexable(site), listing: { kind: "tag", tag } };
+}
+
+export async function loadPublicTagByHost(request: Request, tag: string): Promise<PublicIndexLoaderData | null> {
+  const site = await resolveSite(request);
+  if (!site) return null;
+  const posts = await listPublishedPostsByTag(site.id, tag);
+  if (posts.length === 0) return null;
+  return { site, posts, basePath: "", indexable: isPublicBlogIndexable(site), listing: { kind: "tag", tag } };
 }

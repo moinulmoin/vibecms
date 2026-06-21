@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { cloudflarePool, cloudflareTest } from "@cloudflare/vitest-pool-workers";
 
@@ -11,6 +13,12 @@ const workerPoolOpts = {
 };
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Mirror the Vite alias so worker test bundles can resolve ~/server/...
+      "~": path.resolve(path.dirname(fileURLToPath(import.meta.url)), "src"),
+    },
+  },
   plugins: [cloudflareTest(workerPoolOpts)],
   test: {
     name: "isolation",

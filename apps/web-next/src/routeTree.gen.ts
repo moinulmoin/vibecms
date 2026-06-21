@@ -18,6 +18,7 @@ import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as TagTagRouteImport } from './routes/tag/$tag'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
 import { Route as AppSetupRouteImport } from './routes/app/setup'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
@@ -40,6 +41,7 @@ import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiMediaDeleteRouteImport } from './routes/api/media/delete'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as BlogSiteSlugTagTagRouteImport } from './routes/blog/$siteSlug/tag/$tag'
 import { Route as AppPostsPostIdEditRouteImport } from './routes/app/posts/$postId/edit'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -86,6 +88,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const TagTagRoute = TagTagRouteImport.update({
+  id: '/tag/$tag',
+  path: '/tag/$tag',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MediaAssetsAssetIdRoute = MediaAssetsAssetIdRouteImport.update({
   id: '/media-assets/$assetId',
@@ -197,6 +204,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogSiteSlugTagTagRoute = BlogSiteSlugTagTagRouteImport.update({
+  id: '/blog/$siteSlug/tag/$tag',
+  path: '/blog/$siteSlug/tag/$tag',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppPostsPostIdEditRoute = AppPostsPostIdEditRouteImport.update({
   id: '/posts/$postId/edit',
   path: '/posts/$postId/edit',
@@ -222,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/tag/$tag': typeof TagTagRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
@@ -236,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/app/posts/': typeof AppPostsIndexRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -255,6 +269,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/tag/$tag': typeof TagTagRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
@@ -269,6 +284,7 @@ export interface FileRoutesByTo {
   '/app/posts': typeof AppPostsIndexRoute
   '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -290,6 +306,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/setup': typeof AppSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
+  '/tag/$tag': typeof TagTagRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
@@ -304,6 +321,7 @@ export interface FileRoutesById {
   '/app/posts/': typeof AppPostsIndexRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -326,6 +344,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
+    | '/tag/$tag'
     | '/app/'
     | '/api/auth/$'
     | '/api/media/delete'
@@ -340,6 +359,7 @@ export interface FileRouteTypes {
     | '/app/posts/'
     | '/blog/$siteSlug/'
     | '/app/posts/$postId/edit'
+    | '/blog/$siteSlug/tag/$tag'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -359,6 +379,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
+    | '/tag/$tag'
     | '/app'
     | '/api/auth/$'
     | '/api/media/delete'
@@ -373,6 +394,7 @@ export interface FileRouteTypes {
     | '/app/posts'
     | '/blog/$siteSlug'
     | '/app/posts/$postId/edit'
+    | '/blog/$siteSlug/tag/$tag'
   id:
     | '__root__'
     | '/'
@@ -393,6 +415,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/setup'
     | '/media-assets/$assetId'
+    | '/tag/$tag'
     | '/app/'
     | '/api/auth/$'
     | '/api/media/delete'
@@ -407,6 +430,7 @@ export interface FileRouteTypes {
     | '/app/posts/'
     | '/blog/$siteSlug/'
     | '/app/posts/$postId/edit'
+    | '/blog/$siteSlug/tag/$tag'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -422,6 +446,7 @@ export interface RootRouteChildren {
   ApiPostsRoute: typeof ApiPostsRoute
   ApiSubscribeRoute: typeof ApiSubscribeRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
+  TagTagRoute: typeof TagTagRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMediaDeleteRoute: typeof ApiMediaDeleteRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -431,6 +456,7 @@ export interface RootRouteChildren {
   BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
   BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
   BlogSiteSlugIndexRoute: typeof BlogSiteSlugIndexRoute
+  BlogSiteSlugTagTagRoute: typeof BlogSiteSlugTagTagRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -497,6 +523,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/tag/$tag': {
+      id: '/tag/$tag'
+      path: '/tag/$tag'
+      fullPath: '/tag/$tag'
+      preLoaderRoute: typeof TagTagRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/media-assets/$assetId': {
       id: '/media-assets/$assetId'
@@ -652,6 +685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/$siteSlug/tag/$tag': {
+      id: '/blog/$siteSlug/tag/$tag'
+      path: '/blog/$siteSlug/tag/$tag'
+      fullPath: '/blog/$siteSlug/tag/$tag'
+      preLoaderRoute: typeof BlogSiteSlugTagTagRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/posts/$postId/edit': {
       id: '/app/posts/$postId/edit'
       path: '/posts/$postId/edit'
@@ -717,6 +757,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPostsRoute: ApiPostsRoute,
   ApiSubscribeRoute: ApiSubscribeRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
+  TagTagRoute: TagTagRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMediaDeleteRoute: ApiMediaDeleteRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
@@ -726,6 +767,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
   BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
   BlogSiteSlugIndexRoute: BlogSiteSlugIndexRoute,
+  BlogSiteSlugTagTagRoute: BlogSiteSlugTagTagRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

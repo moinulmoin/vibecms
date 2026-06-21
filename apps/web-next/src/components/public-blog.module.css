@@ -246,6 +246,83 @@
   line-height: 1.6;
 }
 
+/* ── Tag chips + search form + listing banners (plan 020) ─────────────────── */
+
+.searchForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--vc-border);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  font-size: 1rem;
+  padding: 6px 0;
+  outline: none;
+  transition: border-color 180ms ease;
+}
+
+.searchInput:focus {
+  border-bottom-color: var(--vc-fg);
+}
+
+.searchButton {
+  background: transparent;
+  border: none;
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px 0 6px 8px;
+  transition: color 180ms ease;
+}
+
+.searchButton:hover {
+  color: var(--vc-fg);
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tagChip {
+  display: inline-block;
+  background: var(--vc-code-inline-bg);
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.tagChip:hover {
+  color: var(--vc-fg);
+}
+
+.listingBanner {
+  margin-bottom: var(--vc-section-gap);
+}
+
+.listingHeading {
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin: 0 0 8px;
+}
+
 @media (max-width: 640px) {
   .publicPage {
     padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
