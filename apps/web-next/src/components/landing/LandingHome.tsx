@@ -7,12 +7,10 @@ import { HeaderHero } from '~/components/landing/header-hero'
 import { HostingPricing } from '~/components/landing/hosting-pricing'
 import { DotGrid, Glow } from '~/components/landing/primitives'
 import { PublishingFlow } from '~/components/landing/publishing-flow'
-import { SmoothAnchors } from '~/components/landing/smooth-anchors'
 
 export function LandingHome() {
   return (
     <main className="dark relative min-h-dvh overflow-hidden bg-background text-foreground">
-      <SmoothAnchors />
       <DotGrid className="pointer-events-none fixed inset-0 z-0 opacity-90" />
       <Glow className="pointer-events-none fixed -top-[32%] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
       <div className="relative z-[1]">

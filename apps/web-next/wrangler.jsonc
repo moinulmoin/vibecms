@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vibecms",
+  "name": "vibecms-dev",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
@@ -39,6 +39,7 @@
     // Before deploying, set all placeholders marked TODO via `wrangler secret put --env production`
     // and replace the TODO database_id after running `wrangler d1 create vibecms_prod`.
     "production": {
+      "name": "vibecms-prod",
       "d1_databases": [
         {
           "binding": "DB",

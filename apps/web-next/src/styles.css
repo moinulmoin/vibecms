@@ -361,6 +361,17 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+#features,
+#agents,
+#pricing,
+#faq {
+  scroll-margin-top: 5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
