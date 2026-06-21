@@ -122,6 +122,24 @@ export const mcpTools: McpToolDefinition[] = [
     ),
     inputSchema: { type: "object", properties: { contentMarkdown: { type: "string" }, presetId: { type: "string" } }, required: ["contentMarkdown"], ...noAdditionalProperties },
   },
+  {
+    name: "assets.list",
+    requiredScope: "assets:write",
+    description: withScopeDescription("List all image assets for the current site, newest first.", "assets:write"),
+    inputSchema: { type: "object", properties: {}, ...noAdditionalProperties },
+  },
+  {
+    name: "assets.get",
+    requiredScope: "assets:write",
+    description: withScopeDescription("Get one image asset's metadata and public URL by id.", "assets:write"),
+    inputSchema: { type: "object", properties: { assetId: { type: "string", minLength: 1 } }, required: ["assetId"], ...noAdditionalProperties },
+  },
+  {
+    name: "assets.delete",
+    requiredScope: "assets:write",
+    description: withScopeDescription("Delete an image asset (file + metadata). Returns CONFLICT if the asset is currently set as a post cover image.", "assets:write"),
+    inputSchema: { type: "object", properties: { assetId: { type: "string", minLength: 1 } }, required: ["assetId"], ...noAdditionalProperties },
+  },
 ];
 
 /**
@@ -144,7 +162,7 @@ Content rules:
 
 Reading: posts.list and posts.search return summaries without the body; use posts.get for the full Markdown.
 
-Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown.
+Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown. Use assets.list to see all uploaded assets; assets.get to fetch one asset's metadata and URL by id; assets.delete to remove an asset (returns CONFLICT if it is a post cover image - remove it from the post cover first).
 
 Version history: posts.versions.list returns all saved versions (newest first) with actorName and changeSummary. posts.versions.get fetches the full Markdown for any version. posts.versions.restore replaces the current content with the chosen version - it is content-only and never re-publishes, and it creates a new version entry marked post.restored. Requires posts:update scope.
 

@@ -82,6 +82,10 @@ export const uploadAssetRequestSchema = z.object({
   altText: z.string().trim().max(180).optional(),
 }).strict();
 
+export const listAssetsRequestSchema = z.object({}).strict();
+export const getAssetRequestSchema = z.object({ assetId: z.string().min(1) }).strict();
+export const deleteAssetRequestSchema = z.object({ assetId: z.string().min(1) }).strict();
+
 export const listActivityRequestSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 }).strict();
@@ -125,3 +129,6 @@ export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
 export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;
 export type GetFormatGuideRequest = z.infer<typeof getFormatGuideRequestSchema>;
 export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;
+export type ListAssetsRequest = z.infer<typeof listAssetsRequestSchema>;
+export type GetAssetRequest = z.infer<typeof getAssetRequestSchema>;
+export type DeleteAssetRequest = z.infer<typeof deleteAssetRequestSchema>;

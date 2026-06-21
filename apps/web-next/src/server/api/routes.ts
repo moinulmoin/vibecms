@@ -5,6 +5,7 @@ import {
   assetDtoSchema,
   createPostRequestSchema,
   formatGuideDtoSchema,
+  getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
   listActivityRequestSchema,
@@ -73,6 +74,9 @@ const updatePostOpDef = operationsByToolName["posts.update"];
 const publishPostOpDef = operationsByToolName["posts.publish"];
 const archivePostOpDef = operationsByToolName["posts.archive"];
 const uploadAssetOpDef = operationsByToolName["assets.upload"];
+const listAssetsOpDef = operationsByToolName["assets.list"];
+const getAssetOpDef = operationsByToolName["assets.get"];
+const deleteAssetOpDef = operationsByToolName["assets.delete"];
 const listActivityOpDef = operationsByToolName["activity.list"];
 const listPostVersionsOpDef = operationsByToolName["posts.versions.list"];
 const getPostVersionOpDef = operationsByToolName["posts.versions.get"];
@@ -93,6 +97,7 @@ const postVersionParamsSchema = z.object({
   postId: z.string().min(1),
   versionNumber: z.coerce.number().int().min(1),
 });
+const assetIdParamsSchema = getAssetRequestSchema;
 
 export const getSiteRoute = createRoute({
   method: "get",
@@ -245,6 +250,57 @@ export const uploadAssetRoute = createRoute({
   },
 });
 
+export const listAssetsRoute = createRoute({
+  method: "get",
+  path: "/assets",
+  operationId: listAssetsOpDef.operationId,
+  description: listAssetsOpDef.description,
+  security: bearerSecurity,
+  responses: {
+    200: {
+      description: "Image assets for the current site, newest first",
+      content: { "application/json": { schema: z.array(assetDtoSchema) } },
+    },
+    ...routeErrors(401, 403, 429, 500),
+  },
+});
+
+export const getAssetRoute = createRoute({
+  method: "get",
+  path: "/assets/{assetId}",
+  operationId: getAssetOpDef.operationId,
+  description: getAssetOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: assetIdParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Asset metadata + public URL",
+      content: { "application/json": { schema: assetDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
+export const deleteAssetRoute = createRoute({
+  method: "delete",
+  path: "/assets/{assetId}",
+  operationId: deleteAssetOpDef.operationId,
+  description: deleteAssetOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: assetIdParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Deleted asset metadata",
+      content: { "application/json": { schema: assetDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
+  },
+});
+
 export const listActivityRoute = createRoute({
   method: "get",
   path: "/activity",
@@ -363,6 +419,9 @@ export const apiV1OperationRoutes = [
   publishPostRoute,
   archivePostRoute,
   uploadAssetRoute,
+  listAssetsRoute,
+  getAssetRoute,
+  deleteAssetRoute,
   listActivityRoute,
   listPostVersionsRoute,
   getPostVersionRoute,

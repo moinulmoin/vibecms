@@ -6,11 +6,14 @@ import { authenticateBearerToken } from "~/server/api-keys";
 import {
   archivePostOp,
   createPostOp,
+  deleteAssetOp,
+  getAssetOp,
   getFormatGuideOp,
   getPostOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
+  listAssetsOp,
   listPostsOp,
   listPostVersionsOp,
   previewPostOp,
@@ -26,11 +29,14 @@ import {
   archivePostRoute,
   bearerAuthSecurityScheme,
   createPostRoute,
+  deleteAssetRoute,
+  getAssetRoute,
   getFormatGuideRoute,
   getPostRoute,
   getPostVersionRoute,
   getSiteRoute,
   listActivityRoute,
+  listAssetsRoute,
   listPostsRoute,
   listPostVersionsRoute,
   openApiInfo,
@@ -206,6 +212,24 @@ apiV1App.openapi(uploadAssetRoute, async (c) => {
   const body = c.req.valid("json");
   const asset = await uploadAssetOp(c.get("ctx"), body);
   return c.json(asset, 201);
+});
+
+apiV1App.openapi(listAssetsRoute, async (c) => {
+  const assets = await listAssetsOp(c.get("ctx"));
+  return c.json(assets, 200);
+});
+
+// Static GET /assets must precede the parametrized routes to avoid shadowing.
+apiV1App.openapi(getAssetRoute, async (c) => {
+  const { assetId } = c.req.valid("param");
+  const asset = await getAssetOp(c.get("ctx"), { assetId });
+  return c.json(asset, 200);
+});
+
+apiV1App.openapi(deleteAssetRoute, async (c) => {
+  const { assetId } = c.req.valid("param");
+  const asset = await deleteAssetOp(c.get("ctx"), { assetId });
+  return c.json(asset, 200);
 });
 
 apiV1App.openapi(listActivityRoute, async (c) => {

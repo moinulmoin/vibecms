@@ -1,6 +1,6 @@
-import { AppError, archivePost, createPost, getPost, getPostVersion, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
-import { createD1PostRepository } from "@vc/db";
+import { createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
 import {
   mapActivityRow,
@@ -192,12 +192,15 @@ export async function publishPostOp(ctx: OperationContext, input: { postId: stri
 }
 
 export async function archivePostOp(ctx: OperationContext, input: { postId: string }) {
-  return mapPost(
-    await archivePost(repository(), ctx.actor, {
-      siteId: ctx.siteId,
-      postId: input.postId,
-    }),
-  );
+  const archived = await archivePost(repository(), ctx.actor, {
+    siteId: ctx.siteId,
+    postId: input.postId,
+  });
+  const siteRow = await env.DB.prepare("SELECT slug FROM sites WHERE id = ? LIMIT 1")
+    .bind(ctx.siteId)
+    .first<{ slug: string }>();
+  if (siteRow?.slug) void purgeArticleCache(ctx.siteId, siteRow.slug, archived.slug);
+  return mapPost(archived);
 }
 
 export async function uploadAssetOp(
@@ -207,6 +210,30 @@ export async function uploadAssetOp(
   await requireBillableSite(ctx.siteId);
   const asset = await uploadAsset(appUser(ctx), base64File(input), input.altText);
   return mapAsset(asset, `/media-assets/${asset.id}`);
+}
+
+function assetRepository() {
+  return createD1AssetRepository(env.DB);
+}
+
+export async function listAssetsOp(ctx: OperationContext) {
+  const assets = await listAssets(assetRepository(), ctx.actor, ctx.siteId);
+  return assets.map((a) => mapAsset(a, `/media-assets/${a.id}`));
+}
+
+export async function getAssetOp(ctx: OperationContext, input: { assetId: string }) {
+  const a = await getAsset(assetRepository(), ctx.actor, ctx.siteId, input.assetId);
+  return mapAsset(a, `/media-assets/${a.id}`);
+}
+
+export async function deleteAssetOp(ctx: OperationContext, input: { assetId: string }) {
+  const a = await deleteAsset(assetRepository(), ctx.actor, ctx.siteId, input.assetId);
+  try {
+    await env.ASSETS_BUCKET.delete(a.r2Key);
+  } catch (err) {
+    console.error("R2 delete failed for asset", a.id, err);
+  }
+  return mapAsset(a, `/media-assets/${a.id}`);
 }
 
 export async function listActivityOp(ctx: OperationContext, input: { limit?: number }) {

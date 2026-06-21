@@ -133,7 +133,11 @@ export async function publishPostForApp(app: AppUserContext, postId: string): Pr
 
 export async function archivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
   try {
-    await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
+    const archived = await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
+    const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
+      .bind(app.siteId)
+      .first<{ slug: string }>()
+    if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, archived.slug)
     return { kind: 'ok', code: 'post_archived', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }

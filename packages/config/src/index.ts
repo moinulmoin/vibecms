@@ -72,6 +72,8 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   post_published: { variant: "success", title: "Post published", message: "It is now live on your blog." },
   post_archived: { variant: "success", title: "Post archived", message: "It is hidden from the public blog. Versions and activity are kept." },
   media_uploaded: { variant: "success", title: "Image uploaded", message: "It is ready to use as a cover image." },
+  media_deleted: { variant: "success", title: "Image deleted", message: "The image has been removed from your library." },
+  asset_in_use: { variant: "error", title: "Image in use", message: "This image is set as a post cover. Remove it from the post before deleting." },
   setup_complete: { variant: "success", title: "Blog ready", message: "Your hosted blog is set up." },
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },

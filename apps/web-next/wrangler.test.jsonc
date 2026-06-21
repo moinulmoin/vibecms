@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms-test",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms_test",
+      "database_id": "test-db-00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/drizzle"
+    }
+  ],
+  "vars": {
+    "APP_ENV": "development",
+    "APP_URL": "https://dev.vibecms.dev",
+    "BETTER_AUTH_URL": "https://dev.vibecms.dev",
+    "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
+    "SELF_HOSTED": "false",
+    "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
+    "POLAR_PRODUCT_ID": "product_test_placeholder",
+    "POLAR_SERVER": "sandbox",
+    "BETTER_AUTH_SECRET": "test-secret-for-miniflare-not-used",
+    "TOKEN_PEPPER": "test-pepper-for-miniflare-not-used",
+    "POLAR_WEBHOOK_SECRET": "test-webhook-secret-not-used",
+    "BETTER_AUTH_URL": "https://dev.vibecms.dev"
+  }
+}

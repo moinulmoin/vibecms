@@ -1,5 +1,5 @@
 import { MEDIA } from '@vc/config'
-import { createAsset, listAssets } from '@vc/core'
+import { ConflictError, createAsset, deleteAsset, listAssets, NotFoundError } from '@vc/core'
 import { createD1AssetRepository } from '@vc/db'
 import { allowedImageMimeTypes } from '@vc/validators'
 import { env } from 'cloudflare:workers'
@@ -109,6 +109,25 @@ export async function uploadAssetFromRequest(app: AppUserContext, request: Reque
     return redirectWithStatus('error', error instanceof UploadError ? error.code : 'unknown')
   }
   return redirectWithStatus('ok', 'media_uploaded')
+}
+
+export async function deleteAssetForApp(
+  app: AppUserContext,
+  assetId: string,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  try {
+    const asset = await deleteAsset(repository(), app.actor, app.siteId, assetId)
+    try {
+      await env.ASSETS_BUCKET.delete(asset.r2Key)
+    } catch (e) {
+      console.error('[media] R2 delete failed (best-effort):', e)
+    }
+    return { kind: 'ok', code: 'media_deleted' }
+  } catch (error) {
+    if (error instanceof ConflictError) return { kind: 'error', code: 'asset_in_use' }
+    if (error instanceof NotFoundError) return { kind: 'error', code: 'not_found' }
+    return { kind: 'error', code: 'unknown' }
+  }
 }
 
 export async function serveAsset(assetId: string) {

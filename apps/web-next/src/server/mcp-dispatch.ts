@@ -2,11 +2,14 @@ import type { McpToolName } from "@vc/api-contract";
 import {
   archivePostRequestSchema,
   createPostRequestSchema,
+  deleteAssetRequestSchema,
+  getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
   getPostVersionRequestSchema,
   getSiteRequestSchema,
   listActivityRequestSchema,
+  listAssetsRequestSchema,
   listPostsRequestSchema,
   listPostVersionsRequestSchema,
   previewPostRequestSchema,
@@ -20,11 +23,14 @@ import type { OperationContext } from "./operations";
 import {
   archivePostOp,
   createPostOp,
+  deleteAssetOp,
+  getAssetOp,
   getFormatGuideOp,
   getPostOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
+  listAssetsOp,
   listPostsOp,
   listPostVersionsOp,
   previewPostOp,
@@ -56,6 +62,13 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return archivePostOp(ctx, archivePostRequestSchema.parse(rawArguments ?? {}));
     case "assets.upload":
       return uploadAssetOp(ctx, uploadAssetRequestSchema.parse(rawArguments ?? {}));
+    case "assets.list":
+      listAssetsRequestSchema.parse(rawArguments ?? {});
+      return listAssetsOp(ctx);
+    case "assets.get":
+      return getAssetOp(ctx, getAssetRequestSchema.parse(rawArguments ?? {}));
+    case "assets.delete":
+      return deleteAssetOp(ctx, deleteAssetRequestSchema.parse(rawArguments ?? {}));
     case "activity.list":
       return listActivityOp(ctx, listActivityRequestSchema.parse(rawArguments ?? {}));
     case "posts.versions.list":

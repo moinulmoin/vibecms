@@ -21,8 +21,10 @@ Commands:
   posts update <postId> [--title --slug --content --content-file --excerpt --tags]
   posts publish <postId>
   posts archive <postId>
+  assets list
+  assets get <assetId>
   assets upload <file> [--alt <text>]
-  activity [--limit <n>]
+  assets delete <assetId>
   schema [operationId]                      Print the API operations as JSON (for agent introspection)
 
 Global options:
@@ -226,19 +228,39 @@ async function assetsCommand(
   cfg: ResolvedConfig,
   fmt: OutputFormat,
 ): Promise<void> {
-  if (action !== "upload") fail(`Unknown assets subcommand: ${action ?? "(none)"}.`, EXIT.USAGE);
-  const file = need(rest[0], "<file>");
-  const mimeType = MIME[extname(file).toLowerCase()];
-  if (!mimeType) fail(`Unsupported image type: ${extname(file)} (png, jpg, webp, gif)`, EXIT.USAGE);
-  const data = await readFile(file);
-  return mutate(
-    cfg,
-    "POST",
-    "/api/v1/assets",
-    dropUndefined({ filename: basename(file), mimeType, dataBase64: data.toString("base64"), altText: str(v.alt) }),
-    v,
-    fmt,
-  );
+  switch (action) {
+    case "list":
+      return emit(await apiRequest(cfg, "GET", "/api/v1/assets"), fmt);
+    case "get":
+      return emit(await apiRequest(cfg, "GET", `/api/v1/assets/${encodeURIComponent(need(rest[0], "<assetId>"))}`), fmt);
+    case "upload": {
+      const file = need(rest[0], "<file>");
+      const mimeType = MIME[extname(file).toLowerCase()];
+      if (!mimeType) fail(`Unsupported image type: ${extname(file)} (png, jpg, webp, gif)`, EXIT.USAGE);
+      const data = await readFile(file);
+      return mutate(
+        cfg,
+        "POST",
+        "/api/v1/assets",
+        dropUndefined({ filename: basename(file), mimeType, dataBase64: data.toString("base64"), altText: str(v.alt) }),
+        v,
+        fmt,
+      );
+    }
+    case "delete": {
+      const assetId = need(rest[0], "<assetId>");
+      const result = await apiRequest(cfg, "DELETE", `/api/v1/assets/${encodeURIComponent(assetId)}`);
+      if (result.res.status === 409) {
+        fail(
+          result.json ?? { error: { code: "CONFLICT", message: "Asset is in use as a post cover image and cannot be deleted." } },
+          EXIT.CONFLICT,
+        );
+      }
+      return emit(result, fmt);
+    }
+    default:
+      fail(`Unknown assets subcommand: ${action ?? "(none)"}. Run 'vibecms --help'.`, EXIT.USAGE);
+  }
 }
 
 async function schemaCommand(operationId: string | undefined, fmt: OutputFormat): Promise<void> {

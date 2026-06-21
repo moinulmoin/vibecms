@@ -30,7 +30,7 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload"]);
+const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete"]);
 
 function apiUsageKind(toolName: string): ApiUsageKind {
   return writeTools.has(toolName) ? "write" : "read";

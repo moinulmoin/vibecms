@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     css: false,
+    // Worker-environment tests run via vitest.isolation.config.ts + cloudflarePool.
+    // Excluding them here prevents the node runner from importing cloudflare:workers.
+    exclude: ['**/node_modules/**', '**/.git/**', 'src/**/*.worker.test.ts'],
   },
 });

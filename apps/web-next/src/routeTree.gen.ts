@@ -38,6 +38,7 @@ import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiPolarWebhookRouteImport } from './routes/api/polar/webhook'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
+import { Route as ApiMediaDeleteRouteImport } from './routes/api/media/delete'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppPostsPostIdEditRouteImport } from './routes/app/posts/$postId/edit'
 
@@ -186,6 +187,11 @@ const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
   path: '/api/media/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaDeleteRoute = ApiMediaDeleteRouteImport.update({
+  id: '/api/media/delete',
+  path: '/api/media/delete',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -218,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/app/'
     | '/api/auth/$'
+    | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/app'
     | '/api/auth/$'
+    | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/media-assets/$assetId'
     | '/app/'
     | '/api/auth/$'
+    | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
@@ -411,6 +423,7 @@ export interface RootRouteChildren {
   ApiSubscribeRoute: typeof ApiSubscribeRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMediaDeleteRoute: typeof ApiMediaDeleteRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
   ApiPolarWebhookRoute: typeof ApiPolarWebhookRoute
@@ -625,6 +638,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/delete': {
+      id: '/api/media/delete'
+      path: '/api/media/delete'
+      fullPath: '/api/media/delete'
+      preLoaderRoute: typeof ApiMediaDeleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -698,6 +718,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSubscribeRoute: ApiSubscribeRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMediaDeleteRoute: ApiMediaDeleteRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
   ApiPolarWebhookRoute: ApiPolarWebhookRoute,

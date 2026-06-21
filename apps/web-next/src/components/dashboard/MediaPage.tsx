@@ -2,10 +2,11 @@
 
 import { MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import { UploadIcon } from '@radix-ui/react-icons'
+import { TrashIcon, UploadIcon } from '@radix-ui/react-icons'
 import { Field, FieldDescription, FieldLabel, Input } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { EmptyState, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -62,6 +63,7 @@ export function MediaPage() {
   const [assets, setAssets] = useState<Asset[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [uploadPending, setUploadPending] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -99,6 +101,33 @@ export function MediaPage() {
       await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setUploadPending(false)
+    }
+  }
+
+  async function handleDelete(assetId: string) {
+    setDeletingId(assetId)
+    try {
+      const response = await fetch('/api/media/delete', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ assetId }),
+        credentials: 'include',
+      })
+      if (response.status === 401) {
+        await navigate({ to: '/login' })
+        return
+      }
+      const result = (await response.json()) as { kind: 'ok' | 'error'; code: string }
+      if (result.kind === 'ok') {
+        setAssets((prev) => prev?.filter((a) => a.id !== assetId) ?? null)
+        await navigate({ to: '/app/media', search: dashboardStatusSearch({ ok: result.code }) })
+      } else {
+        await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: result.code }) })
+      }
+    } catch {
+      await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: 'unknown' }) })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -212,6 +241,25 @@ export function MediaPage() {
                 <code className="block truncate rounded-lg bg-background/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
                   /media-assets/{asset.id}
                 </code>
+                <div className="flex items-center justify-end pt-0.5">
+                  <SpaConfirmButton
+                    size="sm"
+                    variant="ghost"
+                    confirmLabel={
+                      <span className="flex items-center gap-1.5">
+                        <TrashIcon className="size-3.5" aria-hidden />
+                        Confirm delete
+                      </span>
+                    }
+                    helperText="Permanently removes the file from storage."
+                    disabled={deletingId === asset.id}
+                    onConfirm={() => void handleDelete(asset.id)}
+                    className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    <TrashIcon className="size-3.5" aria-hidden />
+                    Delete
+                  </SpaConfirmButton>
+                </div>
               </article>
             ))}
           </div>
