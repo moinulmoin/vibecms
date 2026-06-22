@@ -15,6 +15,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
+import { Route as PostSlugRouteImport } from './routes/$postSlug'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
@@ -72,6 +73,11 @@ const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
 const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
   id: '/feed.xml',
   path: '/feed.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostSlugRoute = PostSlugRouteImport.update({
+  id: '/$postSlug',
+  path: '/$postSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -218,6 +224,7 @@ const AppPostsPostIdEditRoute = AppPostsPostIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/$postSlug': typeof PostSlugRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$postSlug': typeof PostSlugRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/$postSlug': typeof PostSlugRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/$postSlug'
     | '/feed.xml'
     | '/llms.txt'
     | '/login'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$postSlug'
     | '/feed.xml'
     | '/llms.txt'
     | '/login'
@@ -399,6 +410,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/$postSlug'
     | '/feed.xml'
     | '/llms.txt'
     | '/login'
@@ -436,6 +448,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  PostSlugRoute: typeof PostSlugRoute
   FeedDotxmlRoute: typeof FeedDotxmlRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
@@ -501,6 +514,13 @@ declare module '@tanstack/react-router' {
       path: '/feed.xml'
       fullPath: '/feed.xml'
       preLoaderRoute: typeof FeedDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$postSlug': {
+      id: '/$postSlug'
+      path: '/$postSlug'
+      fullPath: '/$postSlug'
+      preLoaderRoute: typeof PostSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -747,6 +767,7 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
+  PostSlugRoute: PostSlugRoute,
   FeedDotxmlRoute: FeedDotxmlRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,

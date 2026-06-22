@@ -4,6 +4,7 @@ import {
   loadPublicIndexBySlug,
   loadPublicIndexByHost,
   loadPublicPostBySlug,
+  loadPublicPostByHost,
   loadPublicTagBySlug,
   loadPublicTagByHost,
   publicHtmlResponseHeaders,
@@ -59,4 +60,13 @@ export const loadPublicBlogTagByHost = createServerFn({ method: 'GET' })
     const blog = await loadPublicTagByHost(request, data.tag)
     if (!blog) return null
     return { blog, headers: publicHtmlResponseHeaders(blog.site) }
+  })
+
+export const loadPublicBlogPostByHost = createServerFn({ method: 'GET' })
+  .validator((data: { postSlug: string }) => data)
+  .handler(async ({ data }) => {
+    const request = getRequest()
+    const blog = await loadPublicPostByHost(request, data.postSlug)
+    if (!blog) return null
+    return { blog, headers: publicHtmlResponseHeaders(blog.site, blog.cacheTag) }
   })
