@@ -9,10 +9,12 @@
  *   pnpm dev:token --scopes draft  # draft-only preset (no publish/archive)
  *   pnpm dev:token --site <id>     # a site other than demo_site
  *   pnpm dev:token --revoke        # delete tokens this tool minted (add --remote for dev)
+ *   pnpm dev:token --sync-pepper   # push .dev.vars TOKEN_PEPPER to the deployed dev worker
  *
  * Minted rows are marked with created_by_user_id = "dev-token" so --revoke is exact.
- * The token hash uses TOKEN_PEPPER from apps/web/.dev.vars, which matches both
- * the local worker and the deployed dev secret.
+ * The token hash uses TOKEN_PEPPER from apps/web/.dev.vars. The local worker reads the
+ * same file; keep the deployed dev worker in sync via `pnpm dev:sync-pepper` (also run
+ * automatically by `pnpm deploy:dev`) so remotely minted tokens verify.
  */
 import { execFileSync } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
@@ -50,6 +52,7 @@ if (hasFlag("--help") || hasFlag("-h")) {
       "  pnpm dev:token --site <id>     target a site other than demo_site",
       "  pnpm dev:token --name <label>  label the token (default: dev-token)",
       "  pnpm dev:token --revoke        delete tokens minted by this tool (add --remote for dev)",
+      "  pnpm dev:token --sync-pepper   push .dev.vars TOKEN_PEPPER to the deployed dev worker (fixes remote 401s)",
       "",
       "Local needs the DB seeded first: pnpm db:migrate:local && pnpm db:seed:local",
     ].join("\n"),
@@ -75,6 +78,28 @@ function d1(sql: string): Array<{ results?: unknown[]; meta?: { changes?: number
 if (hasFlag("--revoke")) {
   const res = d1(`DELETE FROM api_keys WHERE created_by_user_id = '${MARKER}'`);
   console.log(`Revoked ${res[0]?.meta?.changes ?? 0} dev token(s) on ${where} D1.`);
+  process.exit(0);
+}
+
+if (hasFlag("--sync-pepper")) {
+  // Push local .dev.vars TOKEN_PEPPER to the deployed dev worker so it verifies tokens with
+  // the SAME pepper this tool hashes them with. Prevents remote 401s after a worker
+  // rename/redeploy; run automatically by `pnpm deploy:dev`. Validate FIRST: pushing an
+  // empty/placeholder value would clobber the worker's good pepper and 401 every token.
+  const pepper = readPepper();
+  if (!/^[0-9a-f]{64}$/i.test(pepper)) {
+    console.error(
+      "Refusing to sync: TOKEN_PEPPER in apps/web/.dev.vars must be a 64-char hex string " +
+        "(openssl rand -hex 32). Syncing an empty or placeholder value would break all token auth.",
+    );
+    process.exit(1);
+  }
+  execFileSync("pnpm", ["--filter", "@vc/web", "exec", "wrangler", "secret", "put", "TOKEN_PEPPER"], {
+    cwd: ROOT,
+    input: pepper,
+    stdio: ["pipe", "inherit", "inherit"],
+  });
+  console.log("Synced TOKEN_PEPPER from apps/web/.dev.vars to the deployed dev worker (vibecms-dev).");
   process.exit(0);
 }
 
@@ -114,7 +139,9 @@ d1(
 let status = "";
 try {
   const r = await fetch(`${base}/api/v1/site`, { headers: { Authorization: `Bearer ${token}` } });
-  status = r.ok ? `token verified (HTTP ${r.status})` : `WARNING: auth returned HTTP ${r.status}`;
+  status = r.ok
+    ? `token verified (HTTP ${r.status})`
+    : `WARNING: auth returned HTTP ${r.status} - worker TOKEN_PEPPER likely differs from apps/web/.dev.vars.${remote ? " Fix: pnpm dev:sync-pepper" : ""}`;
 } catch {
   status = remote ? "could not reach dev to verify" : "local dev server not running - start it with `pnpm dev`, then retry the curl below";
 }
