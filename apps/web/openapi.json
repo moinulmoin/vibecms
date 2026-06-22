@@ -4063,6 +4063,12 @@
                         "null"
                       ]
                     },
+                    "canonicalUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "tags": {
                       "type": "array",
                       "items": {
@@ -4104,6 +4110,7 @@
                     "coverAssetId",
                     "seoTitle",
                     "seoDescription",
+                    "canonicalUrl",
                     "tags",
                     "presentation"
                   ]

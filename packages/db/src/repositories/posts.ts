@@ -81,7 +81,7 @@ type PostVersionRow = {
 };
 type PostVersionFullRow = PostVersionRow & {
   excerpt: string | null; content_markdown: string; cover_asset_id: string | null;
-  seo_title: string | null; seo_description: string | null; tags_json: string;
+  canonical_url: string | null; seo_title: string | null; seo_description: string | null; tags_json: string;
   presentation_json: string | null;
 };
 function actorTypeOf(t: string): Actor["type"] {
@@ -97,7 +97,7 @@ function mapPostVersionSummary(row: PostVersionRow): PostVersionSummary {
 function mapPostVersion(row: PostVersionFullRow): PostVersion {
   return {
     ...mapPostVersionSummary(row),
-    excerpt: row.excerpt, contentMarkdown: row.content_markdown, coverAssetId: row.cover_asset_id,
+    excerpt: row.excerpt, contentMarkdown: row.content_markdown, coverAssetId: row.cover_asset_id, canonicalUrl: row.canonical_url,
     seoTitle: row.seo_title, seoDescription: row.seo_description, tags: JSON.parse(row.tags_json) as string[],
     presentation: row.presentation_json ? JSON.parse(row.presentation_json) : null,
   };
@@ -342,7 +342,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     async getPostVersion(siteId, postId, versionNumber) {
       const row = await db.prepare(
         `SELECT pv.version_number, pv.title, pv.slug, pv.status, pv.change_summary, pv.created_by_type, pv.created_at,
-          pv.excerpt, pv.content_markdown, pv.cover_asset_id, pv.seo_title, pv.seo_description, pv.tags_json, pv.presentation_json,
+          pv.excerpt, pv.content_markdown, pv.cover_asset_id, pv.canonical_url, pv.seo_title, pv.seo_description, pv.tags_json, pv.presentation_json,
           COALESCE((SELECT name FROM user WHERE id = pv.created_by_id),
                    (SELECT actor_name FROM api_keys WHERE id = pv.created_by_id),
                    pv.created_by_id) AS actor_name

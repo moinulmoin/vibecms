@@ -136,7 +136,7 @@ export async function restorePostVersion(repo: PostRepository, actor: Actor, inp
   if (!target) throw new NotFoundError("Post version not found");
   const patch: Partial<Post> = {
     title: target.title, slug: target.slug, excerpt: target.excerpt,
-    contentMarkdown: target.contentMarkdown, coverAssetId: target.coverAssetId,
+    contentMarkdown: target.contentMarkdown, coverAssetId: target.coverAssetId, canonicalUrl: target.canonicalUrl,
     seoTitle: target.seoTitle, seoDescription: target.seoDescription, tags: target.tags,
     presentation: target.presentation,
   };

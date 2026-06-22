@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Separator } from '~/components/ui/separator'
+import { diffLines, type DiffLine } from '~/lib/diff'
 
 function tagsFromForm(form: FormData) {
   const raw = form.get('tags')
@@ -139,6 +140,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewingVersion, setViewingVersion] = useState<PostVersion | null>(null)
   const [viewingVersionLoading, setViewingVersionLoading] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
   const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
   const [presetId, setPresetId] = useState<string>('minimal')
   const [selectedLayout, setSelectedLayout] = useState<string>('standard')
@@ -262,6 +264,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     if (!postId) return
     setViewDialogOpen(true)
     setViewingVersion(null)
+    setShowDiff(false)
     setViewingVersionLoading(true)
     try {
       const v = await getPostVersionFn({ data: { postId, versionNumber } })
@@ -639,7 +642,10 @@ function PostEditorShell({ postId }: { postId?: string }) {
         open={viewDialogOpen}
         onOpenChange={(open) => {
           setViewDialogOpen(open)
-          if (!open) setViewingVersion(null)
+          if (!open) {
+            setViewingVersion(null)
+            setShowDiff(false)
+          }
         }}
       >
         <DialogContent className="flex max-h-[85dvh] flex-col sm:max-w-xl">
@@ -675,12 +681,48 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   <p className="text-sm italic text-muted-foreground">{viewingVersion.excerpt}</p>
                 ) : null}
                 <div>
-                  <p className="mb-1 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                    Markdown
-                  </p>
-                  <pre className="max-h-64 overflow-y-auto rounded-lg bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap break-words">
-                    {viewingVersion.contentMarkdown}
-                  </pre>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      {showDiff ? 'Diff vs current' : 'Markdown'}
+                    </p>
+                    <Button
+                      type="button"
+                      variant={showDiff ? 'default' : 'outline'}
+                      size="sm"
+                      className="gap-1.5"
+                      aria-pressed={showDiff}
+                      onClick={() => setShowDiff((v) => !v)}
+                    >
+                      Compare with current
+                    </Button>
+                  </div>
+                  {showDiff ? (
+                    <div className="max-h-64 overflow-y-auto rounded-lg border bg-muted/40 p-2 font-mono text-xs leading-relaxed">
+                      {diffLines(viewingVersion.contentMarkdown, post?.contentMarkdown ?? '').map(
+                        (line: DiffLine, i: number) => {
+                          const sign = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '
+                          const rowClass =
+                            line.type === 'add'
+                              ? 'bg-brand-bright/10 text-brand-bright'
+                              : line.type === 'del'
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'text-muted-foreground'
+                          return (
+                            <div key={i} className={`flex gap-2 px-1 ${rowClass}`}>
+                              <span className="w-4 shrink-0 select-none text-center">{sign}</span>
+                              <span className="whitespace-pre-wrap break-words">
+                                {line.text || '\u00A0'}
+                              </span>
+                            </div>
+                          )
+                        },
+                      )}
+                    </div>
+                  ) : (
+                    <pre className="max-h-64 overflow-y-auto rounded-lg bg-muted p-3 text-xs leading-relaxed whitespace-pre-wrap break-words">
+                      {viewingVersion.contentMarkdown}
+                    </pre>
+                  )}
                 </div>
                 {viewingVersion.seoTitle || viewingVersion.seoDescription ? (
                   <div className="grid gap-1.5">

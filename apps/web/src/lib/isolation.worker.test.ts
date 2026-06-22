@@ -29,9 +29,11 @@ import { createD1PostRepository } from "@vc/db";
 import {
   createPost,
   getPost,
+  getPostVersion,
   listPosts,
   updatePost,
   publishPost,
+  restorePostVersion,
   ForbiddenError,
   NotFoundError,
   RateLimitError,
@@ -301,5 +303,42 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
       canonicalUrl: null,
     });
     expect(cleared.canonicalUrl).toBeNull();
+  });
+  it("restorePostVersion reverts canonicalUrl from the version snapshot", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const created = await createPost(repo, fullActor, {
+      siteId: "site-a",
+      title: "Canonical Restore Post",
+      slug: "canonical-restore-post",
+      contentMarkdown: "# Restore",
+      canonicalUrl: "https://a.example/one",
+    });
+
+    // updatePost snapshots v2 with the NEW value; v1 (create-time) keeps the OLD value.
+    await updatePost(repo, fullActor, {
+      siteId: "site-a",
+      postId: created.id,
+      canonicalUrl: "https://b.example/two",
+    });
+
+    // The live post now carries the NEW value.
+    const before = await getPost(repo, fullActor, "site-a", created.id);
+    expect(before.canonicalUrl).toBe("https://b.example/two");
+
+    // Restoring to v1 must revert canonicalUrl back to the OLD value.
+    const restored = await restorePostVersion(repo, fullActor, {
+      siteId: "site-a",
+      postId: created.id,
+      versionNumber: 1,
+    });
+    expect(restored.canonicalUrl).toBe("https://a.example/one");
+
+    // The version snapshot read-back must also carry the OLD canonicalUrl.
+    const version = await getPostVersion(repo, fullActor, {
+      siteId: "site-a",
+      postId: created.id,
+      versionNumber: 1,
+    });
+    expect(version?.canonicalUrl).toBe("https://a.example/one");
   });
 });

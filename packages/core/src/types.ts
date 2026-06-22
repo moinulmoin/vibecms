@@ -55,6 +55,7 @@ export type PostVersion = PostVersionSummary & {
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
+  canonicalUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   tags: string[];

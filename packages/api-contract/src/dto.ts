@@ -82,6 +82,7 @@ export const postVersionDtoSchema = postVersionSummaryDtoSchema.extend({
   coverAssetId: z.string().nullable(),
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
+  canonicalUrl: z.string().nullable(),
   tags: z.array(z.string()),
   presentation: presentationSchema,
 });

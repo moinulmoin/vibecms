@@ -26,13 +26,13 @@ Last updated: 2026-06-22
 
 ### Version history
 - Immutable snapshot on every create/update/publish/archive/restore.
-- List versions, view a version, restore (content-only; does not change status/publishedAt).
+- List versions, view a version, diff a version against current, restore (reverts all content fields incl cover/canonical; does not change status/publishedAt).
 
 ### Editor (dashboard)
 - Write/Preview toggle using the exact public renderer.
 - Image insert from the media library; cover-image selector; SEO + tags fields.
 - Presentation panel (layout + TOC, constrained to the active theme preset).
-- Unsaved-changes guard; version-history sheet (view/restore).
+- Unsaved-changes guard; version-history sheet (view / diff vs current / restore).
 
 ### Media
 - Image upload (jpeg/png/webp/gif, <=10 MB) to R2, served at `/media-assets/<id>` (immutable cache).
@@ -64,6 +64,7 @@ Last updated: 2026-06-22
 - REST API `/api/v1` (17 operations) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
 - CLI `@vibecms/cli` (login/whoami/site/posts/assets/schema).
 - Bearer tokens `vc_live_...` (HMAC-hashed, peppered, reveal-once); 8 scopes; 3 presets (draft / publish=default / full); max 10 active tokens.
+- Typed `coverAssetId` + `canonicalUrl` on posts.create/update (set/clear cover, set canonical); persisted to posts + version snapshots and reverted by restore.
 
 ### Dashboard
 - Overview, Posts, Media, Activity, Settings, Connect, Billing, Setup.
@@ -86,8 +87,7 @@ Last updated: 2026-06-22
 
 ## In progress
 
-- **Agent cover images**: expose `coverAssetId` as a typed field on the create/update API (MCP + REST). Agents already upload via `assets.upload`; this lets them set/clear the post cover (the OG image + feature-layout hero), matching what the dashboard already does. [2026-06-22]
-- **Canonical URL write path**: add `canonicalUrl` as a typed create/update field (API + MCP + dashboard editor); persist to posts + version snapshots. Column + export already exist. [2026-06-22]
+- (none currently)
 
 ---
 
@@ -95,7 +95,6 @@ Last updated: 2026-06-22
 
 - **Custom domains for users** (bring-your-own domain per blog). Foundation exists: `domains` table with `type=custom` + `cloudflare_custom_hostname_id` + `verification_errors_json`, and host-based resolution. Still needed: Cloudflare custom-hostname provisioning + DNS verification UI + the root host-based post route (currently latent). Wanted feature.
 - **Google OAuth sign-in**: code is wired in `auth.ts`, gated behind `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. Coming soon (enable once the OAuth client is provisioned).
-- **Diff view in version history**: compare a version against current (or version-vs-version) in the editor's history sheet. (Note: the landing copy says "diff" - building this makes that claim true.)
 - **Newsletter delivery** (separate track, currently ON HOLD): audience capture stores pending subscribers today; double opt-in confirmation + sends (Plunk) are deferred. Not a gap in the current scope.
 
 ---

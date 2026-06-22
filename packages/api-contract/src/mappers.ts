@@ -82,6 +82,7 @@ export function mapPostVersion(version: PostVersion): PostVersionDto {
     excerpt: version.excerpt,
     contentMarkdown: version.contentMarkdown,
     coverAssetId: version.coverAssetId,
+    canonicalUrl: version.canonicalUrl,
     seoTitle: version.seoTitle,
     seoDescription: version.seoDescription,
     tags: version.tags,
