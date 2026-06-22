@@ -17,6 +17,8 @@ const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);
 const seoTitleField = z.string().trim().max(70);
 const seoDescriptionField = z.string().trim().max(180);
+const coverAssetIdRequestField = z.string().trim().max(120).nullable();
+const canonicalUrlRequestField = z.string().trim().max(2048).nullable();
 const contentField = z.string().max(500_000);
 const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
 const presentationField = z
@@ -50,6 +52,8 @@ export const createPostRequestSchema = z.object({
   contentMarkdown: contentField,
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
+  coverAssetId: coverAssetIdRequestField.optional(),
+  canonicalUrl: canonicalUrlRequestField.optional(),
   tags: tagsField.default([]),
   presentation: presentationField.optional().default(null),
 }).strict();
@@ -63,6 +67,8 @@ export const updatePostRequestSchema = z.object({
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
   tags: tagsField.optional(),
+  coverAssetId: coverAssetIdRequestField.optional(),
+  canonicalUrl: canonicalUrlRequestField.optional(),
   // presentation: undefined = preserve, null = reset to preset default, object = store intent
   presentation: presentationField.optional(),
 }).strict();

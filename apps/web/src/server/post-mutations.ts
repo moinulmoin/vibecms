@@ -60,6 +60,7 @@ export type PostFormPayload = {
   excerpt?: string
   contentMarkdown: string
   coverAssetId?: string | null
+  canonicalUrl?: string | null
   seoTitle?: string | null
   seoDescription?: string | null
   tags: string[]
@@ -76,6 +77,7 @@ export async function createPostForApp(app: AppUserContext, payload: PostFormPay
       excerpt: payload.excerpt,
       contentMarkdown: payload.contentMarkdown,
       coverAssetId: coverAssetId ?? undefined,
+      canonicalUrl: payload.canonicalUrl ?? undefined,
       seoTitle: payload.seoTitle ?? undefined,
       seoDescription: payload.seoDescription ?? undefined,
       tags: payload.tags,
@@ -102,6 +104,7 @@ export async function updatePostForApp(
       excerpt: payload.excerpt,
       contentMarkdown: payload.contentMarkdown,
       coverAssetId: coverAssetId ?? undefined,
+      canonicalUrl: payload.canonicalUrl,
       seoTitle: payload.seoTitle ?? undefined,
       seoDescription: payload.seoDescription ?? undefined,
       tags: payload.tags,

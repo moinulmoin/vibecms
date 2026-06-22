@@ -29,6 +29,7 @@ export type Post = {
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
+  canonicalUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   status: PostStatus;
@@ -38,7 +39,7 @@ export type Post = {
   updatedAt: number;
   presentation: Presentation | null;
 };
-export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "presentation">;
+export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation">;
 
 export type PostVersionSummary = {
   versionNumber: number;

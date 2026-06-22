@@ -34,6 +34,7 @@ export const postDtoSchema = postSummaryDtoSchema.extend({
   contentMarkdown: z.string(),
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
+  canonicalUrl: z.string().nullable(),
   presentation: presentationSchema,
 });
 

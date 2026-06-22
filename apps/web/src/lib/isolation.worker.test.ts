@@ -245,3 +245,61 @@ describe("c. quota enforcement", () => {
     ).rejects.toBeInstanceOf(RateLimitError);
   });
 });
+
+// ---------------------------------------------------------------------------
+// d. coverAssetId + canonicalUrl persistence (typed fields + version snapshot)
+// ---------------------------------------------------------------------------
+
+describe("d. coverAssetId + canonicalUrl persistence", () => {
+  it("createPost persists coverAssetId + canonicalUrl on the post row and the version snapshot", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const created = await createPost(repo, fullActor, {
+      siteId: "site-a",
+      title: "Fields Post",
+      slug: "fields-post",
+      contentMarkdown: "# Fields",
+      coverAssetId: "asset-cover-1",
+      canonicalUrl: "https://example.com/canonical",
+    });
+    expect(created.coverAssetId).toBe("asset-cover-1");
+    expect(created.canonicalUrl).toBe("https://example.com/canonical");
+
+    const fetched = await getPost(repo, fullActor, "site-a", created.id);
+    expect(fetched.coverAssetId).toBe("asset-cover-1");
+    expect(fetched.canonicalUrl).toBe("https://example.com/canonical");
+
+    // The version snapshot must capture both - this is the new write path the API relies on.
+    const versionRow = await env.DB.prepare(
+      "SELECT canonical_url, cover_asset_id FROM post_versions WHERE post_id = ? ORDER BY version_number DESC LIMIT 1",
+    )
+      .bind(created.id)
+      .first<{ canonical_url: string | null; cover_asset_id: string | null }>();
+    expect(versionRow?.canonical_url).toBe("https://example.com/canonical");
+    expect(versionRow?.cover_asset_id).toBe("asset-cover-1");
+  });
+
+  it("updatePost preserves canonicalUrl when omitted and clears it on explicit null", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const created = await createPost(repo, fullActor, {
+      siteId: "site-a",
+      title: "Patch Fields Post",
+      slug: "patch-fields-post",
+      contentMarkdown: "# Patch",
+      canonicalUrl: "https://example.com/keep",
+    });
+
+    const preserved = await updatePost(repo, fullActor, {
+      siteId: "site-a",
+      postId: created.id,
+      title: "Patch Fields Post v2",
+    });
+    expect(preserved.canonicalUrl).toBe("https://example.com/keep");
+
+    const cleared = await updatePost(repo, fullActor, {
+      siteId: "site-a",
+      postId: created.id,
+      canonicalUrl: null,
+    });
+    expect(cleared.canonicalUrl).toBeNull();
+  });
+});

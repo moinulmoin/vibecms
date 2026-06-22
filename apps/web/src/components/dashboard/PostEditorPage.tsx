@@ -62,6 +62,7 @@ function payloadFromForm(form: FormData) {
     coverAssetId: typeof cover === 'string' && cover.length > 0 ? cover : null,
     seoTitle: String(form.get('seoTitle') ?? '').trim() || undefined,
     seoDescription: String(form.get('seoDescription') ?? '').trim() || undefined,
+    canonicalUrl: String(form.get('canonicalUrl') ?? '').trim() || null,
     tags: tagsFromForm(form).join(', '),
   }
 }
@@ -429,6 +430,22 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     rows={3}
                     defaultValue={post?.seoDescription ?? ''}
                     placeholder="Falls back to the excerpt"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel
+                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    htmlFor="post-canonical-url"
+                  >
+                    Canonical URL <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                  </FieldLabel>
+                  <Input
+                    id="post-canonical-url"
+                    name="canonicalUrl"
+                    type="text"
+                    maxLength={2048}
+                    defaultValue={post?.canonicalUrl ?? ''}
+                    placeholder="Overrides the default canonical URL for SEO"
                   />
                 </Field>
                 <Field>

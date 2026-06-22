@@ -15,6 +15,7 @@ const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);
 const contentField = z.string().max(500_000);
 const coverField = z.string().trim().max(120).nullable();
+const canonicalUrlField = z.string().trim().max(2048).nullable();
 const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
 const seoTitleField = z.string().trim().max(70);
 const seoDescriptionField = z.string().trim().max(180);
@@ -35,6 +36,7 @@ export const createPostInput = z.object({
   excerpt: excerptField.optional(),
   contentMarkdown: contentField.default(""),
   coverAssetId: coverField.optional(),
+  canonicalUrl: canonicalUrlField.optional(),
   tags: tagsField.default([]),
   seoTitle: seoTitleField.optional(),
   seoDescription: seoDescriptionField.optional(),
@@ -55,6 +57,7 @@ export const updatePostInput = z.object({
   coverAssetId: coverField.optional(),
   tags: tagsField.optional(),
   seoTitle: seoTitleField.optional(),
+  canonicalUrl: canonicalUrlField.optional(),
   seoDescription: seoDescriptionField.optional(),
   // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
   presentation: presentationField.optional(),

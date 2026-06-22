@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -70,6 +70,16 @@ async function requireBillableSite(siteId: string) {
   return billingStatus;
 }
 
+// Cover asset ownership: an agent-supplied coverAssetId must reference an asset
+// already uploaded to THIS site, otherwise the API must reject (not silently drop).
+async function assertCoverAssetOwnedBySite(siteId: string, coverAssetId: string | null | undefined) {
+  if (!coverAssetId) return;
+  const asset = await env.DB.prepare("SELECT id FROM assets WHERE id = ? AND site_id = ? LIMIT 1")
+    .bind(coverAssetId, siteId)
+    .first<{ id: string }>();
+  if (!asset) throw new ValidationError("Cover image must belong to this site");
+}
+
 function decodedBase64Length(dataBase64: string) {
   const normalized = dataBase64.replace(/\s/g, "");
   const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
@@ -127,12 +137,15 @@ export async function createPostOp(
     slug: string;
     excerpt?: string;
     contentMarkdown: string;
+    coverAssetId?: string | null;
+    canonicalUrl?: string | null;
     seoTitle?: string;
     seoDescription?: string;
     tags?: string[];
     presentation?: Presentation | null;
   },
 ) {
+  await assertCoverAssetOwnedBySite(ctx.siteId, input.coverAssetId);
   return mapPost(
     await createPost(repository(), ctx.actor, {
       siteId: ctx.siteId,
@@ -140,6 +153,8 @@ export async function createPostOp(
       slug: input.slug,
       excerpt: input.excerpt,
       contentMarkdown: input.contentMarkdown,
+      coverAssetId: input.coverAssetId,
+      canonicalUrl: input.canonicalUrl,
       seoTitle: input.seoTitle,
       seoDescription: input.seoDescription,
       tags: input.tags,
@@ -156,12 +171,15 @@ export async function updatePostOp(
     slug?: string;
     excerpt?: string;
     contentMarkdown?: string;
+    coverAssetId?: string | null;
+    canonicalUrl?: string | null;
     seoTitle?: string;
     seoDescription?: string;
     tags?: string[];
     presentation?: Presentation | null;
   },
 ) {
+  await assertCoverAssetOwnedBySite(ctx.siteId, input.coverAssetId);
   return mapPost(
     await updatePost(repository(), ctx.actor, {
       siteId: ctx.siteId,
@@ -170,6 +188,8 @@ export async function updatePostOp(
       slug: input.slug,
       excerpt: input.excerpt,
       contentMarkdown: input.contentMarkdown,
+      coverAssetId: input.coverAssetId,
+      canonicalUrl: input.canonicalUrl,
       seoTitle: input.seoTitle,
       seoDescription: input.seoDescription,
       tags: input.tags,

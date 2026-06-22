@@ -18,6 +18,8 @@ const slugProperty = { type: "string", minLength: 1, maxLength: 120, pattern: "^
 const excerptProperty = { type: "string", maxLength: 500 };
 const contentMarkdownProperty = { type: "string", maxLength: 500_000 };
 const tagsProperty = { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 40 } };
+const coverAssetIdProperty = { type: ["string", "null"], maxLength: 120, description: "Asset id (from assets.upload/assets.list) to use as the post cover image" };
+const canonicalUrlProperty = { type: ["string", "null"], maxLength: 2048, description: "Canonical URL for SEO, or null to clear" };
 const limitProperty = { type: "integer", minimum: 1, maximum: MAX_POST_LIST_LIMIT, default: 20 };
 const offsetProperty = { type: "integer", minimum: 0, maximum: 10_000, default: 0 };
 
@@ -54,13 +56,13 @@ export const mcpTools: McpToolDefinition[] = [
     name: "posts.create",
     requiredScope: "posts:create",
     description: withScopeDescription("Create a draft post from a Markdown body. Returns the new post id; make it live with posts.publish.", "posts:create"),
-    inputSchema: { type: "object", properties: { title: titleProperty, slug: slugProperty, excerpt: excerptProperty, contentMarkdown: contentMarkdownProperty, tags: tagsProperty }, required: ["title", "slug", "contentMarkdown"], ...noAdditionalProperties },
+    inputSchema: { type: "object", properties: { title: titleProperty, slug: slugProperty, excerpt: excerptProperty, contentMarkdown: contentMarkdownProperty, coverAssetId: coverAssetIdProperty, canonicalUrl: canonicalUrlProperty, tags: tagsProperty }, required: ["title", "slug", "contentMarkdown"], ...noAdditionalProperties },
   },
   {
     name: "posts.update",
     requiredScope: "posts:update",
     description: withScopeDescription("Update a post. Provide postId plus only the fields to change; contentMarkdown is the full Markdown body.", "posts:update"),
-    inputSchema: { type: "object", properties: { postId: postIdProperty, title: titleProperty, slug: slugProperty, excerpt: excerptProperty, contentMarkdown: contentMarkdownProperty, tags: tagsProperty }, required: ["postId"], ...noAdditionalProperties },
+    inputSchema: { type: "object", properties: { postId: postIdProperty, title: titleProperty, slug: slugProperty, excerpt: excerptProperty, contentMarkdown: contentMarkdownProperty, coverAssetId: coverAssetIdProperty, canonicalUrl: canonicalUrlProperty, tags: tagsProperty }, required: ["postId"], ...noAdditionalProperties },
   },
   {
     name: "posts.publish",
