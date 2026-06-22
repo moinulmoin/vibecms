@@ -1,5 +1,5 @@
 {
-  "name": "@vc/web-next",
+  "name": "@vc/web",
   "version": "0.1.0",
   "description": "VibeCMS TanStack Start worker (migration target)",
   "private": true,

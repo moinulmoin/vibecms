@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 export async function setup({ provide }: { provide: (key: string, value: unknown) => void }) {
   const dir = dirname(fileURLToPath(import.meta.url));
-  // From apps/web-next/src/lib/ -> ../../../../ -> repo root -> packages/db/drizzle
+  // From apps/web/src/lib/ -> ../../../../ -> repo root -> packages/db/drizzle
   const migrationsPath = resolve(dir, "../../../../packages/db/drizzle");
   const migrations = await readD1Migrations(migrationsPath);
   provide("migrations", migrations);

@@ -14,7 +14,7 @@ pnpm build
 For self-host development, copy the example env file and generate local secrets:
 
 ```sh
-cp apps/web-next/dev.vars.example apps/web-next/.dev.vars
+cp apps/web/dev.vars.example apps/web/.dev.vars
 openssl rand -hex 32
 ```
 
@@ -32,7 +32,7 @@ pnpm dev:token --scopes draft                  # draft-only preset (no publish/a
 pnpm dev:token --revoke                        # clean up (add --remote if you used it)
 ```
 
-It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash uses `TOKEN_PEPPER` from `apps/web-next/.dev.vars`. Minted tokens are scoped and revocable; never commit them.
+It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash uses `TOKEN_PEPPER` from `apps/web/.dev.vars`. Minted tokens are scoped and revocable; never commit them.
 
 ## Pull requests
 

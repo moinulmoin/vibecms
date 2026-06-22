@@ -25,7 +25,7 @@ D1 database bound as DB
 R2 bucket bound as ASSETS_BUCKET
 ```
 
-The root `wrangler.jsonc` is the starting point for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web-next/wrangler.jsonc` so private development resources do not leak into the public self-host config.
+The root `wrangler.jsonc` is the starting point for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web/wrangler.jsonc` so private development resources do not leak into the public self-host config.
 
 Self-hosting is meant to be easy for users who already know Cloudflare Workers, D1, and R2. It is not required for VibeCMS Cloud, and the launch path does not depend on perfect one-click self-hosting. A clean self-host deploy still needs real Cloudflare resources and secrets.
 
@@ -41,7 +41,7 @@ Cloudflare's deploy flow should run the root `deploy` script:
 pnpm deploy
 ```
 
-That script runs `pnpm build:self-host` (which sets `CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=../../wrangler.jsonc` and builds `@vc/web-next`), applies D1 migrations with `pnpm db:migrate:self-host:remote`, and deploys with `wrangler deploy --config dist/server/wrangler.json`. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update root `wrangler.jsonc` first.
+That script runs `pnpm build:self-host` (which sets `CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=../../wrangler.jsonc` and builds `@vc/web`), applies D1 migrations with `pnpm db:migrate:self-host:remote`, and deploys with `wrangler deploy --config dist/server/wrangler.json`. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update root `wrangler.jsonc` first.
 
 ## Required variables and secrets
 
@@ -73,8 +73,8 @@ openssl rand -hex 32
 Then set them (from repo root, against the self-host config when using root wrangler):
 
 ```sh
-pnpm --filter @vc/web-next exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
-pnpm --filter @vc/web-next exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
 ```
 
 Do not set Polar secrets for self-hosted mode unless you intentionally want to test the hosted billing adapter.
@@ -86,7 +86,7 @@ Sign-in is passwordless: users enter their email and receive a 6-digit code. Ver
 To deliver codes by email in production, set a [Plunk](https://www.useplunk.com/) API key as a secret:
 
 ```sh
-pnpm --filter @vc/web-next exec wrangler secret put PLUNK_API_KEY --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put PLUNK_API_KEY --config ../../wrangler.jsonc
 ```
 
 Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a verified sender on your Plunk-verified domain, e.g. `VibeCMS <login@yourdomain.com>`. If `PLUNK_API_KEY` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
@@ -94,8 +94,8 @@ Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a verified sender on 
 To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
 
 ```sh
-pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
-pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
 ```
 
 In the Google Cloud Console, set the authorized redirect URI to `<APP_URL>/api/auth/callback/google`. When the credentials are absent, the button is hidden and email sign-in is the only option.
@@ -117,7 +117,7 @@ pnpm deploy
 ```sh
 pnpm build:self-host
 pnpm db:migrate:self-host:remote
-pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json
+pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json
 ```
 
 6. Open the deployed URL.

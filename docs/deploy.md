@@ -7,7 +7,7 @@ and how dev and prod stay separate without divergent config.
 
 ## Where config lives (read this first)
 
-Put environment config in `apps/web-next/wrangler.jsonc`, **not** the Cloudflare dashboard.
+Put environment config in `apps/web/wrangler.jsonc`, **not** the Cloudflare dashboard.
 `wrangler deploy` overwrites the worker's remote config (routes, `workers_dev`, vars) with
 whatever is in `wrangler.jsonc` on every deploy - dashboard edits get wiped. Secrets are the
 exception: they are stored on the worker (`wrangler secret put`) and are preserved.
@@ -33,7 +33,7 @@ The env name is appended to the worker name, so `env.production` deploys a separ
 > - dev: `pnpm build` then `wrangler deploy --config dist/server/wrangler.json`
 > - prod: `CLOUDFLARE_ENV=production pnpm build` then `wrangler deploy --config dist/server/wrangler.json`
 
-Shape of `apps/web-next/wrangler.jsonc` (named envs do **not** inherit top-level vars/bindings/
+Shape of `apps/web/wrangler.jsonc` (named envs do **not** inherit top-level vars/bindings/
 routes - repeat what prod needs):
 
 ```jsonc
@@ -72,12 +72,12 @@ authorize GitHub, pick `moinulmoin/vibecms`, then:
 | Git branch | `dev` | `main` |
 | Root directory | *blank (repo root)* | *blank (repo root)* |
 | Build command | `pnpm build` | `CLOUDFLARE_ENV=production pnpm build` |
-| Deploy command | `pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json` | `pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json` |
+| Deploy command | `pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json` | `pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json` |
 
 Root must be repo root so the pnpm workspace installs and the `@vc/*` packages resolve.
 Workers Builds runs install itself, uses the wrangler version pinned in `package.json`
 (`4.85.0`), and `wrangler deploy` ships the config the build generated at
-`apps/web-next/dist/server/wrangler.json`.
+`apps/web/dist/server/wrangler.json`.
 
 ### D1 migrations are not in the CI deploy
 
@@ -97,7 +97,7 @@ ignores it under the Vite plugin).
 ### Secrets
 
 Runtime secrets (`BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `PLUNK_API_KEY`, Polar, Google) are
-stored on each worker (`pnpm --filter @vc/web-next exec wrangler secret put <NAME>`, or
+stored on each worker (`pnpm --filter @vc/web exec wrangler secret put <NAME>`, or
 `--env production` for the prod worker) and persist across deploys. CI needs no `.dev.vars`.
 Full production set: [`launch-runbook.md`](./launch-runbook.md).
 
@@ -108,8 +108,8 @@ pnpm deploy:dev    # dev worker: migrate dev DB -> build -> deploy
 pnpm deploy:prod   # prod worker (see launch-runbook.md)
 ```
 
-`deploy:dev` runs `pnpm --filter @vc/web-next exec wrangler d1 migrations apply DB --remote`,
-then `pnpm --filter @vc/web-next build`, then `wrangler deploy --config dist/server/wrangler.json`.
+`deploy:dev` runs `pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote`,
+then `pnpm --filter @vc/web build`, then `wrangler deploy --config dist/server/wrangler.json`.
 At launch, `deploy:prod` must select the production env -
 build with `CLOUDFLARE_ENV=production` and migrate with `--env production` -
 otherwise it would ship dev config to prod. The first production release is manual per the launch runbook; connect

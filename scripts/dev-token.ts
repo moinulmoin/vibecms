@@ -11,7 +11,7 @@
  *   pnpm dev:token --revoke        # delete tokens this tool minted (add --remote for dev)
  *
  * Minted rows are marked with created_by_user_id = "dev-token" so --revoke is exact.
- * The token hash uses TOKEN_PEPPER from apps/web-next/.dev.vars, which matches both
+ * The token hash uses TOKEN_PEPPER from apps/web/.dev.vars, which matches both
  * the local worker and the deployed dev secret.
  */
 import { execFileSync } from "node:child_process";
@@ -65,7 +65,7 @@ const base = remote ? "https://dev.vibecms.dev" : "http://localhost:3000";
 function d1(sql: string): Array<{ results?: unknown[]; meta?: { changes?: number } }> {
   const out = execFileSync(
     "pnpm",
-    ["--filter", "@vc/web-next", "exec", "wrangler", "d1", "execute", DB, target, "--json", "--command", sql],
+    ["--filter", "@vc/web", "exec", "wrangler", "d1", "execute", DB, target, "--json", "--command", sql],
     { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   const start = out.indexOf("["); // skip any wrangler preamble; --json result set is an array
@@ -95,9 +95,9 @@ if (!site[0]?.results?.length) {
 }
 
 function readPepper(): string {
-  const txt = readFileSync(join(ROOT, "apps/web-next/.dev.vars"), "utf8");
+  const txt = readFileSync(join(ROOT, "apps/web/.dev.vars"), "utf8");
   const m = txt.match(/^TOKEN_PEPPER=(.+)$/m);
-  if (!m) throw new Error("TOKEN_PEPPER not found in apps/web-next/.dev.vars");
+  if (!m) throw new Error("TOKEN_PEPPER not found in apps/web/.dev.vars");
   return m[1].trim();
 }
 

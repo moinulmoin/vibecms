@@ -9,7 +9,7 @@
  *   e. searchPublishedPosts: draft posts are excluded.
  *
  * Run via:
- *   pnpm --filter @vc/web-next test:isolation
+ *   pnpm --filter @vc/web test:isolation
  *
  * Runs inside @cloudflare/vitest-pool-workers with a real miniflare D1.
  * All migrations are applied before tests; IDs are unique to this file.

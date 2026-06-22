@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web-next/public/brand/wordmark.png" alt="VibeCMS" width="460" />
+  <img src="apps/web/public/brand/wordmark.png" alt="VibeCMS" width="460" />
   <p><strong>CMS for AI Agents.</strong></p>
 </div>
 
@@ -99,7 +99,7 @@ In self-host mode, Polar is optional, billing gates are disabled, and hosted wor
 
 The repo is intentionally set up as **one repository** for both VibeCMS Cloud development and self-hosted deploys:
 
-- `apps/web-next/wrangler.jsonc` is the private/dev hosted Worker config.
+- `apps/web/wrangler.jsonc` is the private/dev hosted Worker config.
 - `wrangler.jsonc` at the repo root is the public self-host Deploy-to-Cloudflare config.
 - `pnpm deploy` uses the root self-host config, applies D1 migrations by binding name (`DB`), and deploys the built Worker.
 
@@ -142,7 +142,7 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 
 ## Launch notes
 
-- Configure Cloudflare D1/R2 IDs in `apps/web-next/wrangler.jsonc` before production deploy.
+- Configure Cloudflare D1/R2 IDs in `apps/web/wrangler.jsonc` before production deploy.
 - Set secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
 - Set `POLAR_PRODUCT_ID`, `POLAR_SERVER`, `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` for the deployed environment.
 - Apply D1 migrations before deploy: `pnpm db:migrate:dev`.
@@ -152,7 +152,7 @@ For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET`
 
 ## Dev deployment
 
-Current Cloudflare dev resources are wired in `apps/web-next/wrangler.jsonc`:
+Current Cloudflare dev resources are wired in `apps/web/wrangler.jsonc`:
 
 - Worker: `vibecms`
 - URL: `https://dev.vibecms.dev`
@@ -174,11 +174,11 @@ pnpm deploy:dev
 For Polar billing, create a sandbox product in Polar and update:
 
 ```sh
-# In apps/web-next/wrangler.jsonc, replace product_dev_placeholder:
+# In apps/web/wrangler.jsonc, replace product_dev_placeholder:
 # "POLAR_PRODUCT_ID": "<your Polar sandbox product id>"
 
-pnpm --filter @vc/web-next exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/web-next exec wrangler secret put POLAR_WEBHOOK_SECRET
+pnpm --filter @vc/web exec wrangler secret put POLAR_ACCESS_TOKEN
+pnpm --filter @vc/web exec wrangler secret put POLAR_WEBHOOK_SECRET
 pnpm deploy:dev
 ```
 

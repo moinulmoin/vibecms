@@ -17,7 +17,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc && cp ../../apps/web-next/openapi.json dist/openapi.json",
+    "build": "tsc && cp ../../apps/web/openapi.json dist/openapi.json",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "prepublishOnly": "pnpm build"

@@ -7,7 +7,7 @@
  *      is at the plan limit (API_USAGE_TEST_LIMIT=1 via miniflare bindings).
  *
  * Run via:
- *   pnpm --filter @vc/web-next test:isolation
+ *   pnpm --filter @vc/web test:isolation
  *
  * Runs inside @cloudflare/vitest-pool-workers with a real miniflare D1.
  * All migrations are applied before tests; each test uses unique IDs.
