@@ -12,6 +12,7 @@ import {
 } from '~/server/onboarding'
 import { resolveAppRouterContext } from '~/server/resolve-app-router-context.server'
 import { getSitePublicBaseUrl } from '~/server/cms-dashboard'
+import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '~/server/custom-domains'
 
 async function requireApp() {
   const ctx = await resolveAppRouterContext()
@@ -33,10 +34,11 @@ export const completeSetupMutation = createServerFn({ method: 'POST' })
 
 export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()
-  const [site, apiKeys, billing] = await Promise.all([
+  const [site, apiKeys, billing, customDomains] = await Promise.all([
     getSiteSettings(app),
     listApiKeys(app),
     getBilling(app.workspaceId),
+    listCustomDomainsForApp(app),
   ])
   const selfHosted = isSelfHosted()
   const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
@@ -45,6 +47,7 @@ export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async 
   return {
     site,
     apiKeys,
+    customDomains,
     billingStatus: billing.status,
     selfHosted,
     isOwner,
@@ -78,6 +81,20 @@ export const revokeApiKeyMutation = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const app = await requireApp()
     return revokeApiKeyForApp(app, data.keyId)
+  })
+
+export const addCustomDomainMutation = createServerFn({ method: 'POST' })
+  .validator((data: { hostname: string }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return addCustomDomainForApp(app, data.hostname)
+  })
+
+export const removeCustomDomainMutation = createServerFn({ method: 'POST' })
+  .validator((data: { domainId: string }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return removeCustomDomainForApp(app, data.domainId)
   })
 
 export const loadMediaPage = createServerFn({ method: 'GET' }).handler(async () => {
