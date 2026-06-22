@@ -14,6 +14,12 @@ export type DomainRepository = {
   reclaimStale(hostname: string, staleBeforeUpdatedAt: number): Promise<number>;
   /** Delete a CUSTOM domain by id, scoped to its site. Returns rows removed (never the default subdomain). */
   deleteCustomForSite(id: string, siteId: string): Promise<number>;
+  /** Persist Cloudflare provisioning state (custom-hostname id + status + verification errors). */
+  setProvisioning(
+    id: string,
+    siteId: string,
+    patch: { cloudflareCustomHostnameId: string | null; status: DomainRecord["status"]; verificationErrorsJson: string | null },
+  ): Promise<void>;
 };
 
 // A never-verified row older than this is treated as abandoned and may be reclaimed by

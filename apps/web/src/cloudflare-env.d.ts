@@ -23,5 +23,7 @@ declare namespace Cloudflare {
     POLAR_WEBHOOK_SECRET?: string
     CLOUDFLARE_ZONE_ID?: string
     CACHE_PURGE_API_TOKEN?: string
+    CUSTOM_HOSTNAME_API_TOKEN?: string
+    CUSTOM_HOSTNAME_CNAME_TARGET?: string
   }
 }

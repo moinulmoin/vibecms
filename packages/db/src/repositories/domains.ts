@@ -85,5 +85,20 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
         .run();
       return result.meta.changes ?? 0;
     },
+    async setProvisioning(id, siteId, patch) {
+      await db
+        .prepare(
+          `UPDATE domains SET cloudflare_custom_hostname_id = ?, status = ?, verification_errors_json = ?, updated_at = ? WHERE id = ? AND site_id = ? AND type = 'custom'`,
+        )
+        .bind(
+          patch.cloudflareCustomHostnameId,
+          patch.status,
+          patch.verificationErrorsJson,
+          Math.floor(Date.now() / 1000),
+          id,
+          siteId,
+        )
+        .run();
+    },
   };
 }
