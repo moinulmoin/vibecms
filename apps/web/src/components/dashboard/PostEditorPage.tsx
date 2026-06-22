@@ -703,7 +703,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                           const sign = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '
                           const rowClass =
                             line.type === 'add'
-                              ? 'bg-brand-bright/10 text-brand-bright'
+                              ? 'bg-brand-bright/10 text-brand-bright-foreground dark:text-brand-bright'
                               : line.type === 'del'
                                 ? 'bg-destructive/10 text-destructive'
                                 : 'text-muted-foreground'
