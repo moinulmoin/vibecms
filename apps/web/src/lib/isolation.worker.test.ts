@@ -25,7 +25,7 @@ import { describe, it, expect, beforeAll, inject } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
 import type { D1Migration } from "cloudflare:test";
-import { createD1PostRepository } from "@vc/db";
+import { createD1DomainRepository, createD1PostRepository } from "@vc/db";
 import {
   createPost,
   getPost,
@@ -37,9 +37,16 @@ import {
   ForbiddenError,
   NotFoundError,
   RateLimitError,
+  addCustomDomain,
+  listCustomDomains,
+  removeCustomDomain,
+  BillingRequiredError,
+  ConflictError,
+  ValidationError,
 } from "@vc/core";
 import type { Actor } from "@vc/core";
 import { enforceApiBudget } from "../server/usage";
+import { resolveSite } from "../server/public-blog-data";
 
 // ---------------------------------------------------------------------------
 // Actors
@@ -340,5 +347,109 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
       versionNumber: 1,
     });
     expect(version?.canonicalUrl).toBe("https://a.example/one");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// e. custom domains (validation, owner+paid gating, stale reclaim, host serving)
+// ---------------------------------------------------------------------------
+
+describe("e. custom domains", () => {
+  const ENV = { appHost: "app.vibecms.dev", platformZone: "vibecms.dev" };
+
+  it("addCustomDomain inserts a pending custom row for a paid owner and normalizes the hostname", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const record = await addCustomDomain(repo, {
+      siteId: "site-a",
+      hostname: "Blog.Example.com",
+      isOwner: true,
+      isPaid: true,
+      ...ENV,
+    });
+    expect(record.type).toBe("custom");
+    expect(record.status).toBe("pending");
+    expect(record.hostname).toBe("blog.example.com");
+    const list = await listCustomDomains(repo, "site-a");
+    expect(list.some((d) => d.hostname === "blog.example.com")).toBe(true);
+  });
+
+  it("gates add behind owner + paid and rejects platform hostnames", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    await expect(
+      addCustomDomain(repo, { siteId: "site-a", hostname: "x1.example.com", isOwner: false, isPaid: true, ...ENV }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      addCustomDomain(repo, { siteId: "site-a", hostname: "x2.example.com", isOwner: true, isPaid: false, ...ENV }),
+    ).rejects.toBeInstanceOf(BillingRequiredError);
+    await expect(
+      addCustomDomain(repo, { siteId: "site-a", hostname: "evil.vibecms.dev", isOwner: true, isPaid: true, ...ENV }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects a hostname freshly connected to another site", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    await addCustomDomain(repo, { siteId: "site-a", hostname: "shared.example.com", isOwner: true, isPaid: true, ...ENV });
+    await expect(
+      addCustomDomain(repo, { siteId: "site-b", hostname: "shared.example.com", isOwner: true, isPaid: true, ...ENV }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("lets the real owner reclaim a stale never-verified squatter row, but not a fresh one", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const staleTtlSeconds = 72 * 60 * 60;
+    const claimedAt = 1_000_000_000;
+    // site-a squats reclaim.example.com but never verifies it.
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'custom', 'pending', ?, ?)",
+    )
+      .bind("dom-stale", "site-a", "reclaim.example.com", claimedAt, claimedAt)
+      .run();
+    // Inside the TTL window: not reclaimable, the squatter still has time to verify.
+    await expect(
+      addCustomDomain(repo, {
+        siteId: "site-b",
+        hostname: "reclaim.example.com",
+        isOwner: true,
+        isPaid: true,
+        ...ENV,
+        now: claimedAt + 60,
+        staleTtlSeconds,
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    // After the TTL elapses, the real owner reclaims it.
+    const record = await addCustomDomain(repo, {
+      siteId: "site-b",
+      hostname: "reclaim.example.com",
+      isOwner: true,
+      isPaid: true,
+      ...ENV,
+      now: claimedAt + staleTtlSeconds + 1,
+      staleTtlSeconds,
+    });
+    expect(record.siteId).toBe("site-b");
+    expect((await repo.getByHostname("reclaim.example.com"))?.siteId).toBe("site-b");
+  });
+
+  it("removeCustomDomain deletes only the owner's own custom domain", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const record = await addCustomDomain(repo, { siteId: "site-a", hostname: "remove.example.com", isOwner: true, isPaid: true, ...ENV });
+    await expect(removeCustomDomain(repo, { siteId: "site-a", domainId: record.id, isOwner: false })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(removeCustomDomain(repo, { siteId: "site-b", domainId: record.id, isOwner: true })).rejects.toBeInstanceOf(NotFoundError);
+    await removeCustomDomain(repo, { siteId: "site-a", domainId: record.id, isOwner: true });
+    expect((await listCustomDomains(repo, "site-a")).some((d) => d.hostname === "remove.example.com")).toBe(false);
+  });
+
+  it("resolveSite serves an active custom domain but never a pending or failed one", async () => {
+    const ts = 1_700_000_000;
+    await env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").bind("ws-dom", "Dom WS", "ws-dom", ts, ts).run();
+    await env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").bind("site-dom", "ws-dom", "Dom Site", "site-dom", ts, ts).run();
+    await env.DB.prepare("INSERT INTO billing_customers (id, workspace_id, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)").bind("bc-dom", "ws-dom", ts, ts).run();
+    await env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-dom', ?, 'custom', 'active', ?, ?)").bind("dom-active", "active.example.com", ts, ts).run();
+    await env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-dom', ?, 'custom', 'pending', ?, ?)").bind("dom-pending", "pending.example.com", ts, ts).run();
+
+    const served = await resolveSite(new Request("https://active.example.com/", { headers: { host: "active.example.com" } }));
+    expect(served?.id).toBe("site-dom");
+    const notServed = await resolveSite(new Request("https://pending.example.com/", { headers: { host: "pending.example.com" } }));
+    expect(notServed).toBeNull();
   });
 });
