@@ -209,6 +209,46 @@ Worker falls back to `caches.default.delete()` for path-mode URLs only.
 
 ---
 
+## Step 11 - Enable user custom domains (Cloudflare for SaaS) [post-launch]
+
+Lets a paid blog serve on its own domain (e.g. `blog.acme.com`). All app code ships behind
+this config: until the secrets below are set, "Add domain" stores a `pending` row and makes
+no Cloudflare calls (so dev and an un-provisioned prod are both safe).
+
+1. Enable Cloudflare for SaaS on the `vibecms.dev` zone (SSL/TLS -> Custom Hostnames) and set
+   a **Fallback Origin** that resolves to the worker (e.g. a proxied `cname.vibecms.dev`
+   pointing at `vibecms-prod`). Custom-hostname traffic is routed to this fallback origin,
+   where `resolveSite` matches the Host header to the `domains` row.
+2. Set the CNAME target customers point their domain at (the fallback origin host) so the
+   dashboard can show the DNS instruction:
+   ```bash
+   # value example: cname.vibecms.dev
+   pnpm --filter @vc/web exec wrangler secret put CUSTOM_HOSTNAME_CNAME_TARGET --env production
+   ```
+3. Create a CF API token scoped to **SSL and Certificates: Edit** for `vibecms.dev`
+   (dash.cloudflare.com/profile/api-tokens) and set it (`CLOUDFLARE_ZONE_ID` from Step 3 is reused):
+   ```bash
+   pnpm --filter @vc/web exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env production
+   ```
+4. SSL uses HTTP DV: when a customer adds `blog.acme.com` and creates a CNAME
+   `blog.acme.com -> <CUSTOM_HOSTNAME_CNAME_TARGET>`, Cloudflare auto-issues the certificate.
+   The row flips `pending -> active` on the next dashboard settings load (status refreshed from
+   the CF custom_hostname API). Only `active` domains are ever served.
+
+Code already shipped: hostname validation (rejects the platform zone + apex + IPs + wildcards),
+the `domains` repository + owner/paid-gated commands with stale-reclaim, the CF `custom_hostnames`
+client (`apps/web/src/server/custom-hostnames.ts`), provisioning wired into the dashboard server
+fns, and the host-based post route (`/$postSlug`). REMAINING code: the Settings dashboard panel
+(add/list/remove UI) - pending browser QA.
+
+Verify after enabling (add a domain in the dashboard + create the CNAME first):
+```bash
+curl -sI https://blog.acme.com/ | grep -E "HTTP|cf-ray"
+```
+Expected once SSL is active: `HTTP/2 200`.
+
+---
+
 ## Quick reference: what each secret does
 
 | Secret | Required | Purpose |
@@ -222,6 +262,8 @@ Worker falls back to `caches.default.delete()` for path-mode URLs only.
 | `POLAR_WEBHOOK_SECRET` | Yes (billing) | Validates incoming Polar webhook events |
 | `CLOUDFLARE_ZONE_ID` | Yes (caching) | Zone for cache-tag purge API |
 | `CACHE_PURGE_API_TOKEN` | Yes (caching) | CF API token with Cache Purge permission |
+| `CUSTOM_HOSTNAME_API_TOKEN` | No (custom domains) | CF token (SSL and Certificates: Edit) to provision custom hostnames |
+| `CUSTOM_HOSTNAME_CNAME_TARGET` | No (custom domains) | CNAME target customers point their domain at (the SaaS fallback origin) |
 
 Secrets gated on the pricing decision (Step 4):
 
