@@ -2,6 +2,7 @@
 
 import { BRAND, DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
 import type { ApiKeyListItem } from '~/server/api-keys'
+import type { CustomDomainsPanel, CustomDomainView } from '~/server/custom-domains'
 import { DownloadIcon } from '@radix-ui/react-icons'
 import {
   Field,
@@ -38,6 +39,8 @@ import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   createApiKeyMutation,
+  addCustomDomainMutation,
+  removeCustomDomainMutation,
   loadSettingsPage,
   revokeApiKeyMutation,
   updateSiteSettingsMutation,
@@ -57,6 +60,7 @@ type SiteSettingsForm = {
 type SettingsPageData = {
   site: SiteSettingsForm
   apiKeys: ApiKeyListItem[]
+  customDomains: CustomDomainsPanel
   billingStatus: string
   selfHosted: boolean
   isOwner: boolean
@@ -86,6 +90,29 @@ function BillingStatusBadge({ status }: { status: string }) {
       <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         Active
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  )
+}
+
+function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
+  if (status === 'active') {
+    return (
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        Active
+      </Badge>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <Badge variant="outline" className="border-destructive/30 bg-destructive/10 capitalize text-destructive">
+        failed
       </Badge>
     )
   }
@@ -150,6 +177,7 @@ export function SettingsPage() {
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [revokePending, setRevokePending] = useState<string | null>(null)
+  const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
 
@@ -243,6 +271,36 @@ export function SettingsPage() {
     }
   }
 
+  async function handleAddDomain(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const hostname = String(form.get('hostname') ?? '').trim()
+    const result = await addCustomDomainMutation({ data: { hostname } })
+    if (result.ok) {
+      const refreshed = await loadSettingsPage()
+      setData(refreshed)
+    }
+    await navigate({
+      to: '/app/settings',
+      search: dashboardStatusSearch(result.ok ? { ok: 'domain_added' } : { error: result.code }),
+    })
+  }
+
+  async function handleRemoveDomain(domainId: string) {
+    setRemoveDomainPending(domainId)
+    try {
+      const result = await removeCustomDomainMutation({ data: { domainId } })
+      const refreshed = await loadSettingsPage()
+      setData(refreshed)
+      await navigate({
+        to: '/app/settings',
+        search: dashboardStatusSearch(result.ok ? { ok: 'domain_removed' } : { error: result.code }),
+      })
+    } finally {
+      setRemoveDomainPending(null)
+    }
+  }
+
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
   if (!data) {
     return (
@@ -259,7 +317,7 @@ export function SettingsPage() {
     )
   }
 
-  const { site, apiKeys, billingStatus, selfHosted, isOwner, canManageTokens, mcpUrl } = data
+  const { site, apiKeys, customDomains, billingStatus, selfHosted, isOwner, canManageTokens, mcpUrl } = data
 
   return (
     <>
@@ -400,6 +458,56 @@ export function SettingsPage() {
           </div>
         </div>
       </Panel>
+      {isOwner ? (
+        <Panel title="Custom domain" meta="Bring your own domain">
+          <p className="mb-4 font-sans text-sm text-muted-foreground">
+            Serve your blog on your own domain (for example blog.example.com). Requires an active subscription.
+          </p>
+          <form className="mb-4 flex max-w-3xl flex-wrap items-end gap-3" onSubmit={(e) => void handleAddDomain(e)}>
+            <Field className="flex-1">
+              <FieldLabel htmlFor="domain-hostname">Domain</FieldLabel>
+              <Input id="domain-hostname" name="hostname" placeholder="blog.example.com" autoComplete="off" required />
+            </Field>
+            <PendingSubmitButton className="w-fit" pendingText="Adding…">
+              Add domain
+            </PendingSubmitButton>
+          </form>
+          {customDomains.cnameTarget ? (
+            <p className="mb-4 font-sans text-xs leading-5 text-muted-foreground">
+              After adding, create a CNAME record pointing your domain to{' '}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{customDomains.cnameTarget}</code>. We verify and issue SSL automatically.
+            </p>
+          ) : null}
+          {customDomains.domains.length ? (
+            <div className="grid gap-3">
+              {customDomains.domains.map((domain) => (
+                <article className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/50 p-4" key={domain.id}>
+                  <div className="min-w-0">
+                    <strong className="break-words font-display text-foreground">{domain.hostname}</strong>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <DomainStatusBadge status={domain.status} />
+                      {domain.verificationErrors.length ? (
+                        <span className="font-sans text-xs text-muted-foreground">{domain.verificationErrors[0]}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <SpaConfirmButton
+                    size="sm"
+                    confirmLabel="Confirm remove"
+                    helperText="Removing stops serving your blog on this domain."
+                    disabled={removeDomainPending === domain.id}
+                    onConfirm={() => handleRemoveDomain(domain.id)}
+                  >
+                    Remove
+                  </SpaConfirmButton>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No custom domains" description="Add a domain above to serve your blog on your own URL." />
+          )}
+        </Panel>
+      ) : null}
       <Panel
         title="Billing"
         meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}

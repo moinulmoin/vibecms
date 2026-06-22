@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers'
-import { addCustomDomain, AppError, type DomainRecord, listCustomDomains, removeCustomDomain } from '@vc/core'
+import { addCustomDomain, AppError, BillingRequiredError, ConflictError, type DomainRecord, ForbiddenError, listCustomDomains, NotFoundError, removeCustomDomain, ValidationError } from '@vc/core'
 import { createD1DomainRepository } from '@vc/db'
 import { mapCustomHostnameStatus } from '~/lib/custom-domain'
 import { getBillingStatus } from '~/server/billing'
@@ -27,8 +27,8 @@ export type CustomDomainsPanel = {
   cnameTarget: string | null
 }
 
-export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; error: string }
-export type RemoveCustomDomainResult = { ok: true } | { ok: false; error: string }
+export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; code: string }
+export type RemoveCustomDomainResult = { ok: true } | { ok: false; code: string }
 
 function appHost(): string {
   try {
@@ -40,6 +40,16 @@ function appHost(): string {
 
 function isOwner(app: AppUserContext): boolean {
   return app.actor.type === 'human' && app.actor.role === 'owner'
+}
+
+/** Map a domain AppError to a FORM_STATUS code the dashboard alert understands. */
+function errorCode(error: AppError): string {
+  if (error instanceof ValidationError) return 'domain_invalid'
+  if (error instanceof ConflictError) return 'domain_conflict'
+  if (error instanceof BillingRequiredError) return 'domain_billing'
+  if (error instanceof ForbiddenError) return 'owner_required'
+  if (error instanceof NotFoundError) return 'not_found'
+  return 'unknown'
 }
 
 function toView(record: DomainRecord): CustomDomainView {
@@ -106,7 +116,7 @@ export async function addCustomDomainForApp(app: AppUserContext, hostname: strin
     }
     return { ok: true, domain: toView(record) }
   } catch (error) {
-    if (error instanceof AppError) return { ok: false, error: error.message }
+    if (error instanceof AppError) return { ok: false, code: errorCode(error) }
     throw error
   }
 }
@@ -123,7 +133,7 @@ export async function removeCustomDomainForApp(app: AppUserContext, domainId: st
     if (cfId) await deleteCustomHostname(cfId) // best-effort, reached only when our row was actually removed
     return { ok: true }
   } catch (error) {
-    if (error instanceof AppError) return { ok: false, error: error.message }
+    if (error instanceof AppError) return { ok: false, code: errorCode(error) }
     throw error
   }
 }
