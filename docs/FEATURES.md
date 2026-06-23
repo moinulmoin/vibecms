@@ -6,7 +6,7 @@ Update this whenever a feature is added, removed, or planned.
 - `CHANGELOG.md` = code release notes (per-commit/version).
 - This file = product/feature state and roadmap.
 
-Last updated: 2026-06-22
+Last updated: 2026-06-23
 
 ---
 
@@ -54,6 +54,13 @@ Last updated: 2026-06-22
 - Body search (LIKE over title/excerpt/content/tags); search results are `noindex` + `no-store`.
 - Clean-Markdown delivery of any post (`.md` / `Accept: text/markdown` / `?format=md`) with YAML frontmatter (output only).
 
+### Custom domains
+- Bring-your-own domain per blog (owner + paid): add / list / remove in Settings with a CNAME instruction and live status badges.
+- Hostname validation rejects the platform zone (apex + `*.<platformZone>`), IPs, and wildcards; `hostname` is UNIQUE with race-safe reclaim of abandoned never-verified rows after a 3-day TTL.
+- Host-based post route mounted: an active custom domain serves posts at the root (`/`, `/:slug`, `.md`).
+- Cloudflare-for-SaaS custom-hostname provisioning + DNS/SSL verification is wired but prod-gated (inert until `CUSTOM_HOSTNAME_API_TOKEN` + zone are set; activates at the prod cutover, PROD-LAUNCH Step 11). Reclaim tears down the old custom hostname so a squatter cannot block the real owner.
+- Independently reviewed (Codex); all findings fixed. CF provisioning and the Settings panel still need verification at/after cutover.
+
 ### Public output & SEO
 - RSS feed, sitemap.xml, robots.txt, llms.txt (per-site + product variant), `content-signal` AI headers.
 - Per-post OG/meta/canonical; `noindex` for unpaid/trial blogs.
@@ -93,7 +100,6 @@ Last updated: 2026-06-22
 
 ## Planned
 
-- **Custom domains for users** (bring-your-own domain per blog). Foundation exists: `domains` table with `type=custom` + `cloudflare_custom_hostname_id` + `verification_errors_json`, and host-based resolution. Still needed: Cloudflare custom-hostname provisioning + DNS verification UI + the root host-based post route (currently latent). Wanted feature.
 - **Google OAuth sign-in**: code is wired in `auth.ts`, gated behind `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. Coming soon (enable once the OAuth client is provisioned).
 - **Newsletter delivery** (separate track, currently ON HOLD): audience capture stores pending subscribers today; double opt-in confirmation + sends (Plunk) are deferred. Not a gap in the current scope.
 
