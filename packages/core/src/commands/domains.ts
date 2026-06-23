@@ -39,7 +39,7 @@ export type AddCustomDomainInput = {
   now?: number;
 };
 
-export async function addCustomDomain(repo: DomainRepository, input: AddCustomDomainInput): Promise<DomainRecord> {
+export async function addCustomDomain(repo: DomainRepository, input: AddCustomDomainInput): Promise<{ record: DomainRecord; reclaimedCfHostnameId: string | null }> {
   if (!input.isOwner) throw new ForbiddenError("Only workspace owners can manage domains.");
   if (!input.isPaid) throw new BillingRequiredError("Custom domains require an active subscription.");
 
@@ -49,10 +49,11 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
 
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const staleBefore = now - (input.staleTtlSeconds ?? DEFAULT_STALE_TTL_SECONDS);
+  let reclaimedCfHostnameId: string | null = null;
 
   const existing = await repo.getByHostname(hostname);
   if (existing) {
-    if (existing.siteId === input.siteId) return existing; // idempotent: already connected to this site
+    if (existing.siteId === input.siteId) return { record: existing, reclaimedCfHostnameId: null }; // idempotent: already connected to this site
     const reclaimable =
       (existing.status === "pending" || existing.status === "failed") && existing.updatedAt <= staleBefore;
     if (!reclaimable) throw new ConflictError("That domain is already connected to another blog.");
@@ -60,6 +61,7 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
     // and now, 0 rows are removed and we must not steal it.
     const reclaimed = await repo.reclaimStale(hostname, staleBefore);
     if (reclaimed === 0) throw new ConflictError("That domain is already connected to another blog.");
+    reclaimedCfHostnameId = existing.cloudflareCustomHostnameId;
   }
 
   const record: DomainRecord = {
@@ -74,7 +76,7 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
     updatedAt: now,
   };
   await repo.insert(record); // throws ConflictError on a concurrent UNIQUE claim
-  return record;
+  return { record, reclaimedCfHostnameId };
 }
 
 export async function listCustomDomains(repo: DomainRepository, siteId: string): Promise<DomainRecord[]> {

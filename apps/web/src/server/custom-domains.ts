@@ -92,7 +92,7 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
 export async function addCustomDomainForApp(app: AppUserContext, hostname: string): Promise<AddCustomDomainResult> {
   try {
     const repo = createD1DomainRepository(env.DB)
-    const record = await addCustomDomain(repo, {
+    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
       siteId: app.siteId,
       hostname,
       isOwner: isOwner(app),
@@ -103,6 +103,7 @@ export async function addCustomDomainForApp(app: AppUserContext, hostname: strin
 
     // PROD: provision the Cloudflare custom hostname and reflect its initial status.
     if (customHostnameProvisioningEnabled()) {
+      if (reclaimedCfHostnameId) await deleteCustomHostname(reclaimedCfHostnameId)
       const payload = await createCustomHostname(record.hostname)
       if (payload?.id) {
         const mapped = mapCustomHostnameStatus(payload)

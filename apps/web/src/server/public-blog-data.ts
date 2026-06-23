@@ -51,7 +51,14 @@ function canRenderPublic(site: SiteRow) {
 
 export async function resolveSite(request: Request) {
   const host = normalizeHost(request);
-  if (!host || host === "localhost" || host === appHost() || host.startsWith("app.") || (isLocalDefaultHostname(host) && publicBlogBaseDomain()))
+  const zone = publicBlogBaseDomain() || "";
+  if (
+    !host ||
+    host === "localhost" ||
+    host === appHost() ||
+    (zone !== "" && host === `app.${zone}`) ||
+    (isLocalDefaultHostname(host) && zone !== "")
+  )
     return null;
 
   const site = await env.DB.prepare(

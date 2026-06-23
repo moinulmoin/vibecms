@@ -113,6 +113,8 @@ export async function handlePublicPostBySlugGet(request: Request, siteSlug: stri
 }
 
 export async function handlePublicPostByHostGet(request: Request, slug: string | undefined) {
+  const { slug: stripped } = stripMarkdownSuffix(slug);
+  if (!stripped || RESERVED_ROOT_SLUGS.has(stripped)) return null;
   const site = await resolveSite(request);
   if (!site) return notFound();
   const md = await tryPublicPostMarkdownResponse(request, site, "", slug);
@@ -148,11 +150,10 @@ export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlu
 }
 
 export async function loadPublicPostByHost(request: Request, slug: string | undefined): Promise<PublicPostLoaderData | null> {
-  if (!slug || RESERVED_ROOT_SLUGS.has(slug)) return null;
+  const { slug: postSlug } = stripMarkdownSuffix(slug);
+  if (!postSlug || RESERVED_ROOT_SLUGS.has(postSlug)) return null;
   const site = await resolveSite(request);
   if (!site) return null;
-  const { slug: postSlug } = stripMarkdownSuffix(slug);
-  if (!postSlug) return null;
   const post = await getPublishedPost(site.id, postSlug);
   if (!post) return null;
   return {

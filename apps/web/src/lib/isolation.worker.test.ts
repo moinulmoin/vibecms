@@ -47,6 +47,7 @@ import {
 import type { Actor } from "@vc/core";
 import { enforceApiBudget } from "../server/usage";
 import { resolveSite } from "../server/public-blog-data";
+import { loadPublicPostByHost, handlePublicPostByHostGet } from "../server/public-blog";
 
 // ---------------------------------------------------------------------------
 // Actors
@@ -359,7 +360,7 @@ describe("e. custom domains", () => {
 
   it("addCustomDomain inserts a pending custom row for a paid owner and normalizes the hostname", async () => {
     const repo = createD1DomainRepository(env.DB);
-    const record = await addCustomDomain(repo, {
+    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
       siteId: "site-a",
       hostname: "Blog.Example.com",
       isOwner: true,
@@ -369,6 +370,7 @@ describe("e. custom domains", () => {
     expect(record.type).toBe("custom");
     expect(record.status).toBe("pending");
     expect(record.hostname).toBe("blog.example.com");
+    expect(reclaimedCfHostnameId).toBeNull();
     const list = await listCustomDomains(repo, "site-a");
     expect(list.some((d) => d.hostname === "blog.example.com")).toBe(true);
   });
@@ -417,7 +419,7 @@ describe("e. custom domains", () => {
       }),
     ).rejects.toBeInstanceOf(ConflictError);
     // After the TTL elapses, the real owner reclaims it.
-    const record = await addCustomDomain(repo, {
+    const { record } = await addCustomDomain(repo, {
       siteId: "site-b",
       hostname: "reclaim.example.com",
       isOwner: true,
@@ -432,7 +434,7 @@ describe("e. custom domains", () => {
 
   it("removeCustomDomain deletes only the owner's own custom domain", async () => {
     const repo = createD1DomainRepository(env.DB);
-    const record = await addCustomDomain(repo, { siteId: "site-a", hostname: "remove.example.com", isOwner: true, isPaid: true, ...ENV });
+    const { record } = await addCustomDomain(repo, { siteId: "site-a", hostname: "remove.example.com", isOwner: true, isPaid: true, ...ENV });
     await expect(removeCustomDomain(repo, { siteId: "site-a", domainId: record.id, isOwner: false })).rejects.toBeInstanceOf(ForbiddenError);
     await expect(removeCustomDomain(repo, { siteId: "site-b", domainId: record.id, isOwner: true })).rejects.toBeInstanceOf(NotFoundError);
     await removeCustomDomain(repo, { siteId: "site-a", domainId: record.id, isOwner: true });
@@ -451,5 +453,73 @@ describe("e. custom domains", () => {
     expect(served?.id).toBe("site-dom");
     const notServed = await resolveSite(new Request("https://pending.example.com/", { headers: { host: "pending.example.com" } }));
     expect(notServed).toBeNull();
+  });
+
+  it("surfaces a reclaimed squatter's Cloudflare hostname id so the caller can tear it down", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const staleTtlSeconds = 72 * 60 * 60;
+    const claimedAt = 1_000_000_100;
+    // site-a squats with a provisioned-but-never-verified CF hostname, then abandons it.
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, cloudflare_custom_hostname_id, created_at, updated_at) VALUES (?, ?, ?, 'custom', 'pending', ?, ?, ?)",
+    )
+      .bind("dom-cf-stale", "site-a", "cfreclaim.example.com", "cf-stale-xyz", claimedAt, claimedAt)
+      .run();
+    // The real owner reclaims after the TTL; the stale row's CF id must come back so the caller tears it down.
+    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
+      siteId: "site-b",
+      hostname: "cfreclaim.example.com",
+      isOwner: true,
+      isPaid: true,
+      ...ENV,
+      now: claimedAt + staleTtlSeconds + 1,
+      staleTtlSeconds,
+    });
+    expect(record.siteId).toBe("site-b");
+    expect(reclaimedCfHostnameId).toBe("cf-stale-xyz");
+  });
+
+  it("resolveSite serves an active customer app.* domain but still rejects the platform app subdomain", async () => {
+    const ts = 1_700_000_100;
+    await env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").bind("ws-appsub", "AppSub WS", "ws-appsub", ts, ts).run();
+    await env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").bind("site-appsub", "ws-appsub", "AppSub Site", "site-appsub", ts, ts).run();
+    await env.DB.prepare("INSERT INTO billing_customers (id, workspace_id, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)").bind("bc-appsub", "ws-appsub", ts, ts).run();
+    // A customer-owned app.* host is a legitimate custom domain and must serve once active.
+    await env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-appsub', ?, 'custom', 'active', ?, ?)").bind("dom-appsub", "app.customer.com", ts, ts).run();
+    // The platform's own app subdomain (app.<PUBLIC_BLOG_DOMAIN>) must never resolve, even with an active row.
+    await env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-appsub', ?, 'custom', 'active', ?, ?)").bind("dom-platapp", "app.dev.vibecms.dev", ts, ts).run();
+
+    const served = await resolveSite(new Request("https://app.customer.com/", { headers: { host: "app.customer.com" } }));
+    expect(served?.id).toBe("site-appsub");
+    const platformApp = await resolveSite(new Request("https://app.dev.vibecms.dev/", { headers: { host: "app.dev.vibecms.dev" } }));
+    expect(platformApp).toBeNull();
+  });
+
+  it("never serves a reserved root slug as a post on a custom host, including the .md and markdown paths", async () => {
+    const ts = 1_700_000_200;
+    await env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").bind("ws-reserved", "Reserved WS", "ws-reserved", ts, ts).run();
+    await env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").bind("site-reserved", "ws-reserved", "Reserved Site", "site-reserved", ts, ts).run();
+    await env.DB.prepare("INSERT INTO billing_customers (id, workspace_id, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)").bind("bc-reserved", "ws-reserved", ts, ts).run();
+    await env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-reserved', ?, 'custom', 'active', ?, ?)").bind("dom-reserved", "posts.acmecorp.com", ts, ts).run();
+    const postCols = "id, site_id, title, slug, content_markdown, status, published_at, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at";
+    // A published post whose slug collides with a reserved root, plus a normal one.
+    await env.DB.prepare(`INSERT INTO posts (${postCols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind("post-api", "site-reserved", "Api", "api", "# Api", "published", ts, "api_key", "key-full", "api_key", "key-full", ts, ts)
+      .run();
+    await env.DB.prepare(`INSERT INTO posts (${postCols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind("post-hello", "site-reserved", "Hello", "hello", "# Hello", "published", ts, "api_key", "key-full", "api_key", "key-full", ts, ts)
+      .run();
+
+    const headers = { host: "posts.acmecorp.com" };
+    // Reserved slug must not resolve as a post even though a post slugged "api" exists.
+    expect(await loadPublicPostByHost(new Request("https://posts.acmecorp.com/api", { headers }), "api")).toBeNull();
+    // The .md variant must also be guarded (strip then check), closing the /api.md bypass.
+    expect(await loadPublicPostByHost(new Request("https://posts.acmecorp.com/api.md", { headers }), "api.md")).toBeNull();
+    // A normal post still resolves, so the guard does not over-block.
+    const real = await loadPublicPostByHost(new Request("https://posts.acmecorp.com/hello", { headers }), "hello");
+    expect(real?.post.slug).toBe("hello");
+    // The markdown GET path must not serve a reserved slug either.
+    const md = await handlePublicPostByHostGet(new Request("https://posts.acmecorp.com/api?format=md", { headers }), "api");
+    expect(md).toBeNull();
   });
 });
