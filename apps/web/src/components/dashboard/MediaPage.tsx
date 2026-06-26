@@ -5,7 +5,7 @@ import type { Asset } from '@vc/core'
 import { TrashIcon, UploadIcon } from '@radix-ui/react-icons'
 import { Field, FieldDescription, FieldLabel, Input } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { EmptyState, LoadError, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -64,6 +64,17 @@ export function MediaPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [uploadPending, setUploadPending] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault()
+    setDragActive(false)
+    const files = event.dataTransfer?.files
+    if (files?.length && fileInputRef.current) {
+      fileInputRef.current.files = files
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -149,16 +160,34 @@ export function MediaPage() {
 
       <Card className="gap-0 p-4">
         <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-start">
-          <form className="grid gap-4" onSubmit={(e) => void handleUpload(e)}>
-            <Field className="relative min-h-44 place-items-center overflow-hidden rounded-2xl bg-muted/50 p-6 text-center transition-colors focus-within:bg-muted">
+          <form
+            className="grid gap-4"
+            onSubmit={(e) => void handleUpload(e)}
+            onDragOver={(e) => {
+              e.preventDefault()
+              if (!dragActive) setDragActive(true)
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget === e.target) setDragActive(false)
+            }}
+            onDrop={handleDrop}
+          >
+            <Field
+              className={`relative min-h-44 place-items-center overflow-hidden rounded-2xl border border-dashed p-6 text-center transition-colors ${
+                dragActive
+                  ? 'border-brand-bright/60 bg-muted'
+                  : 'border-[color:var(--hairline)] bg-muted/50 focus-within:bg-muted'
+              }`}
+            >
               <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
               <FieldLabel htmlFor="media-file" className="font-display text-sm font-medium text-foreground">
-                Drop in a blog image
+                Drag an image here, or browse
               </FieldLabel>
               <FieldDescription id="media-file-help" className="max-w-sm">
                 Upload cover art or inline post images. Video and arbitrary files are intentionally blocked.
               </FieldDescription>
               <Input
+                ref={fileInputRef}
                 id="media-file"
                 className="mt-3 max-w-sm bg-background"
                 type="file"
@@ -173,7 +202,7 @@ export function MediaPage() {
                 <FieldLabel htmlFor="media-alt">Alt Text</FieldLabel>
                 <Input id="media-alt" name="altText" maxLength={180} placeholder="Describe the image for readers" />
               </Field>
-              <PendingSubmitButton pendingText="Uploading…" disabled={uploadPending}>
+              <PendingSubmitButton pending={uploadPending} pendingText="Uploading…">
                 Upload image
               </PendingSubmitButton>
             </div>
