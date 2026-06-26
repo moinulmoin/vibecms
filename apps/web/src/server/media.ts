@@ -1,5 +1,5 @@
 import { MEDIA } from '@vc/config'
-import { ConflictError, createAsset, deleteAsset, listAssets, NotFoundError } from '@vc/core'
+import { ConflictError, createAsset, deleteAsset, listAssets, NotFoundError, updateAssetAltText } from '@vc/core'
 import { createD1AssetRepository } from '@vc/db'
 import { allowedImageMimeTypes } from '@vc/validators'
 import { env } from 'cloudflare:workers'
@@ -109,6 +109,20 @@ export async function uploadAssetFromRequest(app: AppUserContext, request: Reque
     return redirectWithStatus('error', error instanceof UploadError ? error.code : 'unknown')
   }
   return redirectWithStatus('ok', 'media_uploaded')
+}
+
+export async function updateAssetAltForApp(
+  app: AppUserContext,
+  assetId: string,
+  altText: string,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  try {
+    await updateAssetAltText(repository(), app.actor, app.siteId, assetId, altText)
+    return { kind: 'ok', code: 'media_updated' }
+  } catch (error) {
+    if (error instanceof NotFoundError) return { kind: 'error', code: 'not_found' }
+    return { kind: 'error', code: 'unknown' }
+  }
 }
 
 export async function deleteAssetForApp(

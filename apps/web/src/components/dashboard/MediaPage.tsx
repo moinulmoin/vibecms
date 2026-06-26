@@ -2,18 +2,18 @@
 
 import { MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import { TrashIcon, UploadIcon } from '@radix-ui/react-icons'
+import { Pencil1Icon, TrashIcon, UploadIcon } from '@radix-ui/react-icons'
 import { Field, FieldDescription, FieldLabel, Input } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { EmptyState, LoadError, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { Button, EmptyState, LoadError, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { Card } from '~/components/ui/card'
 import { Progress } from '~/components/ui/progress'
 import { Skeleton } from '~/components/ui/skeleton'
-import { loadMediaPage } from '~/server/dashboard-pages-fn'
+import { loadMediaPage, updateMediaAltMutation } from '~/server/dashboard-pages-fn'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -65,7 +65,26 @@ export function MediaPage() {
   const [uploadPending, setUploadPending] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [editingAltId, setEditingAltId] = useState<string | null>(null)
+  const [altDraft, setAltDraft] = useState('')
+  const [altPending, setAltPending] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleSaveAlt(assetId: string) {
+    setAltPending(true)
+    try {
+      const result = await updateMediaAltMutation({ data: { assetId, altText: altDraft } })
+      if (result.kind === 'ok') {
+        const next = altDraft.trim().slice(0, 180) || null
+        setAssets((prev) => prev?.map((asset) => (asset.id === assetId ? { ...asset, altText: next } : asset)) ?? null)
+        setEditingAltId(null)
+      } else {
+        await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: result.code }) })
+      }
+    } finally {
+      setAltPending(false)
+    }
+  }
 
   function handleDrop(event: React.DragEvent) {
     event.preventDefault()
@@ -263,9 +282,51 @@ export function MediaPage() {
                   <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                     {formatBytes(asset.sizeBytes)}
                   </p>
-                  <p className="mt-1 line-clamp-2 font-sans text-xs leading-5 text-muted-foreground">
-                    {asset.altText || 'No alt text'}
-                  </p>
+                  {editingAltId === asset.id ? (
+                    <div className="mt-2 grid gap-2">
+                      <Input
+                        value={altDraft}
+                        onChange={(event) => setAltDraft(event.target.value)}
+                        maxLength={180}
+                        placeholder="Describe the image for readers"
+                        aria-label="Alt text"
+                        className="h-8 text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          disabled={altPending}
+                          onClick={() => void handleSaveAlt(asset.id)}
+                        >
+                          {altPending ? 'Saving…' : 'Save'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          disabled={altPending}
+                          onClick={() => setEditingAltId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAltId(asset.id)
+                        setAltDraft(asset.altText ?? '')
+                      }}
+                      className="mt-1 inline-flex items-center gap-1.5 text-left font-sans text-xs leading-5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      <Pencil1Icon className="size-3 shrink-0" aria-hidden="true" />
+                      <span className="line-clamp-2">{asset.altText || 'Add alt text'}</span>
+                    </button>
+                  )}
                 </div>
                 <code className="block truncate rounded-lg bg-background/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
                   /media-assets/{asset.id}

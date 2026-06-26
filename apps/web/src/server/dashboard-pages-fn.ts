@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import { getBilling, getBillingStatus, isSelfHosted } from '~/server/billing'
 import { getActivity } from '~/server/cms'
 import { canManageApiKeys, createApiKeyForApp, listApiKeys, revokeApiKeyForApp } from '~/server/api-keys'
-import { getMedia } from '~/server/media'
+import { getMedia, updateAssetAltForApp } from '~/server/media'
 import {
   completeSiteSetupForApp,
   getSiteSettings,
@@ -81,6 +81,13 @@ export const revokeApiKeyMutation = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const app = await requireApp()
     return revokeApiKeyForApp(app, data.keyId)
+  })
+
+export const updateMediaAltMutation = createServerFn({ method: 'POST' })
+  .validator((data: { assetId: string; altText: string }) => data)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return updateAssetAltForApp(app, data.assetId, data.altText)
   })
 
 export const addCustomDomainMutation = createServerFn({ method: 'POST' })
