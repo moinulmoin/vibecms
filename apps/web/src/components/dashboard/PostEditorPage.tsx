@@ -4,7 +4,7 @@ import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
 import { THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   archivePostMutation,
   createPostMutation,
@@ -19,7 +19,7 @@ import { Button, PageHeader, Panel, StatusAlert, formatDateTime } from '~/compon
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Switch } from '~/components/ui/switch'
-import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard } from '~/components/dashboard/MarkdownEditor'
+import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
@@ -137,6 +137,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [post, setPost] = useState<Post | null>(null)
   const [assets, setAssets] = useState<Asset[]>([])
   const [missing, setMissing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [savePending, setSavePending] = useState(false)
   const [publishPending, setPublishPending] = useState(false)
@@ -156,6 +157,16 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
 
+  // Track the editor form so Publish/Archive can persist unsaved edits first
+  // (they navigate programmatically and would otherwise discard them).
+  const formRef = useRef<HTMLFormElement>(null)
+  const baselineRef = useRef<string>('')
+  const captureBaseline = () => {
+    if (formRef.current) baselineRef.current = serializeForm(formRef.current)
+  }
+  const isFormDirty = () =>
+    presentationDirty || (formRef.current ? serializeForm(formRef.current) !== baselineRef.current : false)
+
   useEffect(() => {
     let cancelled = false
     void loadPostEditorPage({ data: { postId } })
@@ -171,6 +182,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setHasPriorPresentation(result.post?.presentation != null)
         setPresentationDirty(false)
       })
+      .catch(() => {
+        if (!cancelled) setLoadError('Could not load this post. Refresh to try again.')
+      })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -178,6 +192,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
       cancelled = true
     }
   }, [postId])
+
+  // Snapshot the saved form state once it has rendered, so isFormDirty() and the
+  // Publish/Archive save-first logic compare against the persisted baseline.
+  useEffect(() => {
+    if (!loading && !missing) captureBaseline()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, missing, formKey, post])
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -227,10 +248,39 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
+  // Persist the open editor form before a programmatic action (publish/archive)
+  // so unsaved edits are never silently discarded. Returns false if the save was
+  // attempted and failed (caller should stop).
+  async function persistIfDirty(): Promise<boolean> {
+    const form = formRef.current
+    if (!postId || !form || !isFormDirty()) return true
+    if (!form.checkValidity()) {
+      form.reportValidity()
+      return false
+    }
+    const payload = payloadFromForm(new FormData(form))
+    const presentation =
+      !presentationDirty && !hasPriorPresentation ? null : { layout: selectedLayout, toc: selectedToc }
+    const result = await updatePostMutation({ data: { postId, ...payload, presentation } })
+    if (result.kind !== 'ok') {
+      await navigate({
+        to: '/app/posts/$postId/edit',
+        params: { postId },
+        search: postEditorSearch({ error: result.code }),
+      })
+      return false
+    }
+    setHasPriorPresentation(presentation !== null)
+    setPresentationDirty(false)
+    captureBaseline()
+    return true
+  }
+
   async function handlePublish() {
     if (!postId) return
     setPublishPending(true)
     try {
+      if (!(await persistIfDirty())) return
       const result = await publishPostMutation({ data: { postId } })
       await navigate({
         to: '/app/posts',
@@ -245,6 +295,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     if (!postId) return
     setArchivePending(true)
     try {
+      if (!(await persistIfDirty())) return
       const result = await archivePostMutation({ data: { postId } })
       await navigate({
         to: '/app/posts',
@@ -330,13 +381,23 @@ function PostEditorShell({ postId }: { postId?: string }) {
         }
       />
       <StatusAlert status={formStatus} />
-      {missing ? (
+      {loadError ? (
+        <Panel title="Could not load post">
+          <div className="grid gap-3">
+            <p className="font-sans text-sm text-muted-foreground">{loadError}</p>
+            <Button type="button" variant="outline" className="w-fit" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          </div>
+        </Panel>
+      ) : missing ? (
         <Panel title="Post Not Found">
           <p className="font-sans text-sm text-muted-foreground">Post not found.</p>
         </Panel>
       ) : (
         <form
           key={formKey}
+          ref={formRef}
           className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >

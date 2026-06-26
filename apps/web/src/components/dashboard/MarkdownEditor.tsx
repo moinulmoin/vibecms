@@ -225,9 +225,12 @@ export function PostSlugFromTitle({ enabled = true }: PostSlugFromTitleProps) {
   return null
 }
 
+// Guards against losing unsaved edits via full-page unload or in-app link
+// navigation. Saving (form submit) and the in-editor Publish/Archive actions are
+// NOT blocked here - the editor persists the form before those (see
+// PostEditorPage), so this only protects against leaving the page entirely.
 export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: { message?: string }) {
-  const markerRef = useRef<HTMLParagraphElement>(null)
-  const [warning, setWarning] = useState(false)
+  const markerRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     const form = markerRef.current?.closest('form')
@@ -237,13 +240,9 @@ export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: {
     let submitting = false
     const isDirty = () => serializeForm(form) !== initialValue
 
-    const handleSubmit = (event: SubmitEvent) => {
-      if (isDirty()) {
-        event.preventDefault()
-        setWarning(true)
-        return
-      }
-      setWarning(false)
+    // A submit means we're saving; don't warn, and suppress beforeunload during
+    // the save->navigate round-trip.
+    const handleSubmit = () => {
       submitting = true
     }
 
@@ -275,23 +274,10 @@ export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: {
     }
   }, [message])
 
-  return (
-    <p
-      ref={markerRef}
-      role="status"
-      aria-live="polite"
-      className={
-        warning
-          ? 'rounded-xl bg-destructive/10 px-3 py-2.5 font-sans text-sm text-destructive lg:col-span-2'
-          : 'hidden'
-      }
-    >
-      Save the draft before publishing or archiving unsaved changes.
-    </p>
-  )
+  return <span ref={markerRef} className="hidden" aria-hidden="true" />
 }
 
-function serializeForm(form: HTMLFormElement) {
+export function serializeForm(form: HTMLFormElement) {
   return Array.from(new FormData(form).entries())
     .map(([key, value]) => `${key}=${typeof value === 'string' ? value : value.name}`)
     .sort()
