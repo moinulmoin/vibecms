@@ -34,6 +34,7 @@ import {
 } from '~/components/dashboard/DashboardLayout'
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -351,6 +352,17 @@ export function SettingsPage() {
         description="Manage billing and the scoped credentials agents use to safely operate the blog."
       />
       <StatusAlert status={formStatus} />
+      <Tabs defaultValue="general" className="gap-4">
+        <div className="overflow-x-auto">
+          <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="domain">Domain</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="agents">Agents &amp; Tokens</TabsTrigger>
+            <TabsTrigger value="data">Data</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="general" className="grid gap-4">
       <Panel title="Site" meta="Name & SEO defaults">
         <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
           <Field>
@@ -482,6 +494,8 @@ export function SettingsPage() {
           </div>
         </div>
       </Panel>
+        </TabsContent>
+        <TabsContent value="domain" className="grid gap-4">
       {isOwner ? (
         <Panel title="Custom domain" meta="Bring your own domain">
           <p className="mb-4 font-sans text-sm text-muted-foreground">
@@ -532,6 +546,8 @@ export function SettingsPage() {
           )}
         </Panel>
       ) : null}
+        </TabsContent>
+        <TabsContent value="billing" className="grid gap-4">
       <Panel
         title="Billing"
         meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}
@@ -566,6 +582,8 @@ export function SettingsPage() {
           </div>
         </div>
       </Panel>
+        </TabsContent>
+        <TabsContent value="agents" className="grid gap-4">
       <Panel title="Agent Access Token" meta={canManageTokens ? 'Draft-only by default' : 'Owner access required'}>
         {canManageTokens ? (
           <form
@@ -714,6 +732,8 @@ export function SettingsPage() {
       <Panel title="Connect an agent" meta="MCP over HTTPS">
         <ConnectAgent mcpUrl={mcpUrl} />
       </Panel>
+        </TabsContent>
+        <TabsContent value="data" className="grid gap-4">
       {isOwner ? (
         <Panel title="Your data" meta="Export">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4 md:p-5">
@@ -738,6 +758,8 @@ export function SettingsPage() {
           ))}
         </div>
       </Panel>
+        </TabsContent>
+      </Tabs>
     </>
   )
 }
