@@ -7,6 +7,7 @@ import {
   Button,
   DataRow,
   EmptyState,
+  LoadError,
   PageHeader,
   Panel,
   StatCard,
@@ -18,7 +19,7 @@ import { Badge } from '~/components/ui/badge'
 import { Card } from '~/components/ui/card'
 import { Progress } from '~/components/ui/progress'
 import { Skeleton } from '~/components/ui/skeleton'
-import { emptyDashboardStatusSearch, emptyPostsListSearch } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -116,7 +117,7 @@ export function DashboardOverview() {
   }, [])
 
   if (error) {
-    return <p className="text-sm text-destructive">{error}</p>
+    return <LoadError message={error} />
   }
   if (!data) {
     return <OverviewSkeleton />
@@ -178,14 +179,39 @@ export function DashboardOverview() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} />
-        <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" />
-        <StatCard
-          label="Media used"
-          value={formatBytes(data.media.bytes)}
-          detail={`${data.media.count} images of ${quotaLabel}`}
-        />
-        <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" />
+        <Link
+          to="/app/posts"
+          search={postsListSearch({ status: 'published' })}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
+        </Link>
+        <Link
+          to="/app/posts"
+          search={postsListSearch({ status: 'draft' })}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
+        </Link>
+        <Link
+          to="/app/media"
+          search={emptyDashboardStatusSearch}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard
+            label="Media used"
+            value={formatBytes(data.media.bytes)}
+            detail={`${data.media.count} images of ${quotaLabel}`}
+            interactive
+          />
+        </Link>
+        <Link
+          to="/app/connect"
+          search={emptyDashboardStatusSearch}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
+        </Link>
       </div>
 
       <ApiUsagePanel usage={data.apiUsage} />

@@ -296,9 +296,24 @@ export function PageHeader({
   )
 }
 
-export function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
+export function StatCard({
+  label,
+  value,
+  detail,
+  interactive,
+}: {
+  label: string
+  value: string | number
+  detail?: string
+  interactive?: boolean
+}) {
   return (
-    <Card className="gap-0 p-4">
+    <Card
+      className={cn(
+        'gap-0 p-4',
+        interactive && 'h-full transition-colors hover:border-[color:var(--brand-bright)]/30 hover:bg-muted/40',
+      )}
+    >
       <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
       <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</p>
       {detail ? <p className="mt-1 font-sans text-xs text-muted-foreground">{detail}</p> : null}
