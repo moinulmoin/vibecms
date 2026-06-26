@@ -188,7 +188,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               <Button
                 type="button"
                 variant="link"
-                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-brand-bright underline"
+                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-primary underline"
                 disabled={loading}
                 onClick={() => void sendCode()}
               >
@@ -197,7 +197,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               <Button
                 type="button"
                 variant="link"
-                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-brand-bright underline"
+                className="h-auto justify-start px-0 font-mono text-xs font-semibold text-primary underline"
                 disabled={loading}
                 onClick={() => {
                   setStep('email')

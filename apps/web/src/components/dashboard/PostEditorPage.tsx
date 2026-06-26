@@ -71,7 +71,7 @@ function payloadFromForm(form: FormData) {
 function PostStatusBadge({ status }: { status: string }) {
   if (status === 'published') {
     return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-brand-bright">
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-primary">
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         {status}
       </Badge>
@@ -703,7 +703,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                           const sign = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '
                           const rowClass =
                             line.type === 'add'
-                              ? 'bg-brand-bright/10 text-brand-bright-foreground dark:text-brand-bright'
+                              ? 'bg-brand-bright/10 text-brand-bright-foreground dark:text-primary'
                               : line.type === 'del'
                                 ? 'bg-destructive/10 text-destructive'
                                 : 'text-muted-foreground'

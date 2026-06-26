@@ -18,6 +18,7 @@ export function SetupPage() {
   const formStatus = useFormStatusFromSearch()
   const [site, setSite] = useState<{ name: string; slug: string; description: string } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   // Controlled values for the three prefillable fields
   const [nameVal, setNameVal] = useState('')
@@ -91,19 +92,24 @@ export function SetupPage() {
     const name = String(form.get('name') ?? '')
     const slug = String(form.get('slug') ?? '')
     const description = String(form.get('description') ?? '')
-    const result = await completeSetupMutation({ data: { name, slug, description: description || undefined } })
-    if (result.kind === 'ok') {
-      await router.invalidate()
-      await navigate({ to: '/app/connect', search: dashboardStatusSearch({ ok: result.code }) })
-    } else {
-      await navigate({ to: '/app/setup', search: dashboardStatusSearch({ error: result.code }) })
+    setSubmitting(true)
+    try {
+      const result = await completeSetupMutation({ data: { name, slug, description: description || undefined } })
+      if (result.kind === 'ok') {
+        await router.invalidate()
+        await navigate({ to: '/app/connect', search: dashboardStatusSearch({ ok: result.code }) })
+      } else {
+        await navigate({ to: '/app/setup', search: dashboardStatusSearch({ error: result.code }) })
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
   if (!site)
     return (
-      <OnboardingFrame phase="Step 1 of 1">
+      <OnboardingFrame phase="Blog setup">
         <div className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Skeleton className="h-[68px] rounded-xl" />
@@ -115,7 +121,7 @@ export function SetupPage() {
     )
 
   return (
-    <OnboardingFrame phase="Step 1 of 1">
+    <OnboardingFrame phase="Blog setup">
       <div className="grid gap-4">
         <StatusAlert status={formStatus} />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -205,7 +211,7 @@ export function SetupPage() {
               <p className="font-mono text-[11px] leading-5 text-muted-foreground">
                 Draft for free and publish your first post to try it live. Subscribe to publish more and upload media.
               </p>
-              <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pendingText="Saving…">
+              <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pending={submitting} pendingText="Saving…">
                 Continue
               </PendingSubmitButton>
             </div>

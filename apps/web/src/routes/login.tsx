@@ -17,7 +17,7 @@ function LoginPage() {
           {BRAND.name}
         </a>
         <CardHeader className="p-0">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-bright">Account</p>
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-primary">Account</p>
           <CardDescription className="mt-3 text-pretty font-sans text-sm leading-6 text-muted-foreground">
             Sign in with a one-time code sent to your email.
           </CardDescription>

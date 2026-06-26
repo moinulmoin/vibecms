@@ -143,7 +143,7 @@ function UserMenu({ userEmail, authUrl }: { userEmail?: string; authUrl: string 
             <DropdownMenuLabel className="font-normal">
               <span className="block truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
               <span className="block truncate font-mono text-xs text-muted-foreground">
-                vibecms<span className="text-brand-bright">.</span>
+                vibecms<span className="text-primary">.</span>
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -196,7 +196,7 @@ export function AppShell({
                         {siteName ?? BRAND.name}
                       </span>
                       <span className="truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
-                        vibecms<span className="text-brand-bright">.</span>
+                        vibecms<span className="text-primary">.</span>
                       </span>
                     </div>
                   </Link>
@@ -217,7 +217,7 @@ export function AppShell({
                         asChild
                         isActive={active}
                         tooltip={label}
-                        className="[&[data-active=true]_svg]:text-brand-bright"
+                        className="[&[data-active=true]_svg]:text-primary"
                       >
                         <Link to={to}>
                           <Icon aria-hidden="true" />
@@ -264,7 +264,7 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-2">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-bright">{kicker}</p>
+        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-primary">{kicker}</p>
         <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl">{title}</h2>
         {description ? (
           <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>

@@ -77,7 +77,7 @@ function TokenStatusBadge({ revoked }: { revoked: boolean }) {
     )
   }
   return (
-    <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+    <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
       <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
       Active
     </Badge>
@@ -87,7 +87,7 @@ function TokenStatusBadge({ revoked }: { revoked: boolean }) {
 function BillingStatusBadge({ status }: { status: string }) {
   if (status === 'active') {
     return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         Active
       </Badge>
@@ -103,7 +103,7 @@ function BillingStatusBadge({ status }: { status: string }) {
 function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
   if (status === 'active') {
     return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         Active
       </Badge>
@@ -178,6 +178,7 @@ export function SettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [revokePending, setRevokePending] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'theme' | 'token' | 'domain' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
 
@@ -201,59 +202,74 @@ export function SettingsPage() {
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const result = await updateSiteSettingsMutation({
-      data: {
-        name: String(form.get('name') ?? ''),
-        description: String(form.get('description') ?? '') || undefined,
-        defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
-        defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
-        theme: data?.site.theme ?? selectedTheme,
-      },
-    })
-    await navigate({
-      to: '/app/settings',
-      search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
-    })
+    setFormPending('site')
+    try {
+      const result = await updateSiteSettingsMutation({
+        data: {
+          name: String(form.get('name') ?? ''),
+          description: String(form.get('description') ?? '') || undefined,
+          defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
+          defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
+          theme: data?.site.theme ?? selectedTheme,
+        },
+      })
+      await navigate({
+        to: '/app/settings',
+        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
+      })
+    } finally {
+      setFormPending(null)
+    }
   }
 
   async function handleThemeSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!data) return
-    const result = await updateSiteSettingsMutation({
-      data: {
-        name: data.site.name,
-        description: data.site.description || undefined,
-        defaultSeoTitle: data.site.defaultSeoTitle,
-        defaultSeoDescription: data.site.defaultSeoDescription || undefined,
-        theme: selectedTheme,
-      },
-    })
-    if (result.kind === 'ok') {
-      setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
+    setFormPending('theme')
+    try {
+      const result = await updateSiteSettingsMutation({
+        data: {
+          name: data.site.name,
+          description: data.site.description || undefined,
+          defaultSeoTitle: data.site.defaultSeoTitle,
+          defaultSeoDescription: data.site.defaultSeoDescription || undefined,
+          theme: selectedTheme,
+        },
+      })
+      if (result.kind === 'ok') {
+        setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
+      }
+      await navigate({
+        to: '/app/settings',
+        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
+      })
+    } finally {
+      setFormPending(null)
     }
-    await navigate({
-      to: '/app/settings',
-      search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
-    })
   }
 
   async function handleCreateToken(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const preset = form.get('preset') === 'full' ? 'full' : 'publish'
-    const result = await createApiKeyMutation({
-      data: {
-        name: String(form.get('name') ?? 'My agent'),
-        actorName: String(form.get('actorName') ?? 'My agent'),
-        preset,
-      },
-    })
-    if (result.kind === 'ok') {
-      saveTokenFlash({ token: result.token, name: result.name })
-      await navigate({ to: '/app/settings/token-created', search: emptyDashboardStatusSearch })
-      return
+    setFormPending('token')
+    try {
+      const result = await createApiKeyMutation({
+        data: {
+          name: String(form.get('name') ?? 'My agent'),
+          actorName: String(form.get('actorName') ?? 'My agent'),
+          preset,
+        },
+      })
+      if (result.kind === 'ok') {
+        saveTokenFlash({ token: result.token, name: result.name })
+        await navigate({ to: '/app/settings/token-created', search: emptyDashboardStatusSearch })
+        return
+      }
+      await navigate({ to: '/app/settings', search: dashboardStatusSearch({ error: result.code }) })
+    } finally {
+      setFormPending(null)
     }
-    await navigate({ to: '/app/settings', search: dashboardStatusSearch({ error: result.code }) })
   }
 
   async function handleRevoke(keyId: string) {
@@ -275,15 +291,20 @@ export function SettingsPage() {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const hostname = String(form.get('hostname') ?? '').trim()
-    const result = await addCustomDomainMutation({ data: { hostname } })
-    if (result.ok) {
-      const refreshed = await loadSettingsPage()
-      setData(refreshed)
+    setFormPending('domain')
+    try {
+      const result = await addCustomDomainMutation({ data: { hostname } })
+      if (result.ok) {
+        const refreshed = await loadSettingsPage()
+        setData(refreshed)
+      }
+      await navigate({
+        to: '/app/settings',
+        search: dashboardStatusSearch(result.ok ? { ok: 'domain_added' } : { error: result.code }),
+      })
+    } finally {
+      setFormPending(null)
     }
-    await navigate({
-      to: '/app/settings',
-      search: dashboardStatusSearch(result.ok ? { ok: 'domain_added' } : { error: result.code }),
-    })
   }
 
   async function handleRemoveDomain(domainId: string) {
@@ -351,7 +372,7 @@ export function SettingsPage() {
               defaultValue={site.defaultSeoDescription}
             />
           </Field>
-          <PendingSubmitButton className="w-fit" pendingText="Saving…">
+          <PendingSubmitButton className="w-fit" pending={formPending === 'site'} pendingText="Saving…">
             Save site settings
           </PendingSubmitButton>
         </form>
@@ -393,7 +414,7 @@ export function SettingsPage() {
                       >
                         {preset.name}
                         {isCurrent && (
-                          <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-brand-bright text-[0.65rem]">
+                          <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
                             Current live theme
                           </Badge>
                         )}
@@ -418,7 +439,7 @@ export function SettingsPage() {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3">
-            <PendingSubmitButton className="w-fit" pendingText="Saving theme...">
+            <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving theme...">
               Save theme
             </PendingSubmitButton>
             {site.slug ? (
@@ -468,7 +489,7 @@ export function SettingsPage() {
               <FieldLabel htmlFor="domain-hostname">Domain</FieldLabel>
               <Input id="domain-hostname" name="hostname" placeholder="blog.example.com" autoComplete="off" required />
             </Field>
-            <PendingSubmitButton className="w-fit" pendingText="Adding…">
+            <PendingSubmitButton className="w-fit" pending={formPending === 'domain'} pendingText="Adding…">
               Add domain
             </PendingSubmitButton>
           </form>
@@ -592,7 +613,7 @@ export function SettingsPage() {
                 </Field>
               </div>
             </FieldSet>
-            <PendingSubmitButton className="w-fit" pendingText="Creating token…">
+            <PendingSubmitButton className="w-fit" pending={formPending === 'token'} pendingText="Creating token…">
               Create token
             </PendingSubmitButton>
           </form>
@@ -608,7 +629,7 @@ export function SettingsPage() {
                 <article className="grid gap-3 rounded-2xl bg-muted/50 p-4" key={key.id}>
                   <div className="min-w-0">
                     <strong className="font-display text-foreground">{key.name}</strong>
-                    <p className="mt-1 font-mono text-xs text-brand-bright">{key.tokenPrefix}…</p>
+                    <p className="mt-1 font-mono text-xs text-primary">{key.tokenPrefix}…</p>
                     <p className="mt-1 break-words font-mono text-[11px] leading-5 text-muted-foreground">{key.scopes.join(', ')}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
@@ -643,7 +664,7 @@ export function SettingsPage() {
                   <TableRow key={key.id}>
                     <TableCell>
                       <strong className="font-display text-foreground">{key.name}</strong>
-                      <p className="mt-1 font-mono text-xs text-brand-bright">{key.tokenPrefix}…</p>
+                      <p className="mt-1 font-mono text-xs text-primary">{key.tokenPrefix}…</p>
                       <p className="mt-1 max-w-2xl truncate font-mono text-[11px] text-muted-foreground">{key.scopes.join(', ')}</p>
                     </TableCell>
                     <TableCell>
@@ -684,7 +705,7 @@ export function SettingsPage() {
         <Panel title="Your data" meta="Export">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4 md:p-5">
             <div className="flex min-w-0 items-start gap-3">
-              <DownloadIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-brand-bright" />
+              <DownloadIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
               <p className="font-sans text-sm leading-6 text-muted-foreground">
                 Download every post (drafts, published, and archived) as JSON. Your content is yours to keep, with no lock-in.
               </p>

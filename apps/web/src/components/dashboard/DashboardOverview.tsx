@@ -150,7 +150,7 @@ export function DashboardOverview() {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {isLive ? (
-                <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+                <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
                   <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
                   Live
                 </Badge>
@@ -162,7 +162,7 @@ export function DashboardOverview() {
           </div>
           {data.publicUrl ? (
             <a
-              className="break-all font-mono text-sm font-medium text-brand-bright underline-offset-4 hover:underline"
+              className="break-all font-mono text-sm font-medium text-primary underline-offset-4 hover:underline"
               href={data.publicUrl}
               target="_blank"
               rel="noreferrer"

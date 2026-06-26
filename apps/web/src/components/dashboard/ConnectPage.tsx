@@ -69,12 +69,12 @@ function UpgradeCtas({
       <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
         {(['Indexable public blog', 'More publishes'] as const).map((item) => (
           <li key={item} className="flex items-start gap-2.5">
-            <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
+            <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
             <span className="font-sans text-foreground">{item}</span>
           </li>
         ))}
         <li className="flex items-start gap-2.5">
-          <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
+          <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media</span>
         </li>
       </ul>
@@ -413,7 +413,7 @@ export function ConnectPage() {
               className={[
                 'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
                 selfTestSub === 'connected'
-                  ? 'bg-brand-bright/10 text-brand-bright'
+                  ? 'bg-brand-bright/10 text-primary'
                   : selfTestSub === 'revoked'
                   ? 'bg-destructive/10 text-destructive'
                   : 'bg-muted/50 text-foreground',
@@ -494,7 +494,7 @@ export function ConnectPage() {
                   href={livePost.url}
                   target="_blank"
                   rel="noopener"
-                  className="font-sans text-sm font-medium text-brand-bright underline-offset-4 hover:underline"
+                  className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
                   Open Post
                 </a>

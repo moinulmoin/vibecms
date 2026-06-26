@@ -85,14 +85,14 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
       {!promptOnly && token ? (
         <div className="grid gap-3 rounded-2xl bg-muted/50 p-4">
           <div className="space-y-1">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-brand-bright">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
               {tokenName ?? 'Agent token'}
             </p>
             <p className="font-sans text-xs leading-5 text-muted-foreground">
               Copy this token now. For security it is shown only once - it is already baked into the snippets below.
             </p>
           </div>
-          <pre className="overflow-auto rounded-xl bg-background/80 p-4 font-mono text-sm text-brand-bright">
+          <pre className="overflow-auto rounded-xl bg-background/80 p-4 font-mono text-sm text-primary">
             {token}
           </pre>
           <CopyButton value={token} label="Copy token" copiedLabel="Token copied" className="w-fit" />

@@ -17,7 +17,7 @@ import { loadBillingRequiredPage } from '~/server/dashboard-pages-fn'
 function BillingStatusBadge({ status }: { status: string }) {
   if (status === 'active') {
     return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-brand-bright">
+      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         Active
       </Badge>
@@ -98,12 +98,12 @@ export function BillingRequiredPage() {
           <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
             {ENTITLEMENTS.map((entitlement) => (
               <li key={entitlement} className="flex items-start gap-2.5">
-                <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
                 <span className="font-sans text-foreground">{entitlement}</span>
               </li>
             ))}
             <li className="flex items-start gap-2.5">
-              <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden="true" />
+              <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
               <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
             </li>
           </ul>
@@ -140,7 +140,7 @@ export function BillingRequiredPage() {
             <Link
               to="/app/billing"
               search={emptyDashboardStatusSearch}
-              className="font-mono text-[11px] text-brand-bright underline-offset-4 hover:underline"
+              className="font-mono text-[11px] text-primary underline-offset-4 hover:underline"
             >
               Full billing &amp; customer portal &rarr;
             </Link>

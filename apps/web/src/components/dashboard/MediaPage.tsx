@@ -151,7 +151,7 @@ export function MediaPage() {
         <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-start">
           <form className="grid gap-4" onSubmit={(e) => void handleUpload(e)}>
             <Field className="relative min-h-44 place-items-center overflow-hidden rounded-2xl bg-muted/50 p-6 text-center transition-colors focus-within:bg-muted">
-              <UploadIcon aria-hidden className="mb-3 size-8 text-brand-bright/80" />
+              <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
               <FieldLabel htmlFor="media-file" className="font-display text-sm font-medium text-foreground">
                 Drop in a blog image
               </FieldLabel>

@@ -30,7 +30,7 @@ function StatusBadge({ status, className }: { status: string; className?: string
     return (
       <Badge
         className={cn(
-          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-brand-bright',
+          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-primary',
           className,
         )}
       >
@@ -173,7 +173,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 <article className="grid gap-3 rounded-xl bg-muted/50 p-4" key={post.id}>
                   <div className="min-w-0">
                     <Link
-                      className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-brand-bright hover:underline"
+                      className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
                       to="/app/posts/$postId/edit"
                       search={emptyPostEditorSearch}
                       params={{ postId: post.id }}
@@ -181,7 +181,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       {post.title}
                     </Link>
                     <p className="mt-1.5 break-words font-mono text-[11px] leading-5 text-muted-foreground">
-                      <span className="text-brand-bright/90">/{post.slug}</span>
+                      <span className="text-primary/90">/{post.slug}</span>
                       <span className="text-muted-foreground"> · </span>
                       {post.excerpt || 'No excerpt yet'}
                     </p>
@@ -240,7 +240,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 <DataRow className="md:grid-cols-[1.5fr_.55fr_.7fr_1fr] md:items-center" key={post.id}>
                   <div className="min-w-0">
                     <Link
-                      className="font-display text-sm font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-brand-bright hover:underline"
+                      className="font-display text-sm font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
                       data-row-key
                       to="/app/posts/$postId/edit"
                       search={emptyPostEditorSearch}
@@ -249,7 +249,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       {post.title}
                     </Link>
                     <p className="mt-1 max-w-xl truncate font-mono text-[11px] text-muted-foreground">
-                      <span className="text-brand-bright/90">/{post.slug}</span>
+                      <span className="text-primary/90">/{post.slug}</span>
                       <span> · </span>
                       {post.excerpt || 'No excerpt yet'}
                     </p>

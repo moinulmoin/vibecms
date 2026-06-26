@@ -126,7 +126,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
         ) : (
           <FieldDescription className="font-sans">
             No image assets yet.{' '}
-            <a className="font-medium text-brand-bright underline underline-offset-4" href="/app/media">
+            <a className="font-medium text-primary underline underline-offset-4" href="/app/media">
               Upload images
             </a>{' '}
             to insert them here.
