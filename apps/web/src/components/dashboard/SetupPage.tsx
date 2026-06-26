@@ -8,14 +8,12 @@ import { LoadError, Panel, StatusAlert } from '~/components/dashboard/DashboardL
 import { Skeleton } from '~/components/ui/skeleton'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { completeSetupMutation, loadSetupPage } from '~/server/dashboard-pages-fn'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 
 export function SetupPage() {
   const navigate = useNavigate()
   const router = useRouter()
-  const formStatus = useFormStatusFromSearch()
   const [site, setSite] = useState<{ name: string; slug: string; description: string } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -123,7 +121,6 @@ export function SetupPage() {
   return (
     <OnboardingFrame phase="Blog setup">
       <div className="grid gap-4">
-        <StatusAlert status={formStatus} />
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-muted/50 p-4">
             <strong className="block font-display text-base font-semibold tabular-nums text-foreground">1 blog</strong>

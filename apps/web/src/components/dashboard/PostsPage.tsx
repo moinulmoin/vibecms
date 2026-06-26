@@ -21,7 +21,6 @@ import {
 } from '~/components/dashboard/DashboardLayout'
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -76,7 +75,6 @@ function PostsSkeleton() {
 
 export function PostsPage({ search }: { search: PostsListSearch }) {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [posts, setPosts] = useState<PostSummary[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -161,7 +159,6 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
           </Button>
         }
       />
-      <StatusAlert status={formStatus} />
       <Panel title="All Posts">
         <form
           className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-muted/50 p-3"

@@ -20,7 +20,6 @@ import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Switch } from '~/components/ui/switch'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -133,7 +132,6 @@ function relativeTime(tsSeconds: number): string {
 
 function PostEditorShell({ postId }: { postId?: string }) {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [post, setPost] = useState<Post | null>(null)
   const [assets, setAssets] = useState<Asset[]>([])
   const [missing, setMissing] = useState(false)
@@ -380,7 +378,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
           </Button>
         }
       />
-      <StatusAlert status={formStatus} />
       {loadError ? (
         <Panel title="Could not load post">
           <div className="grid gap-3">

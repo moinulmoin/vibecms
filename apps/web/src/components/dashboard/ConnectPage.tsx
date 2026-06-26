@@ -9,7 +9,6 @@ import { Button, PageHeader, Panel, StatusAlert } from '~/components/dashboard/D
 import { Skeleton } from '~/components/ui/skeleton'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   createApiKeyMutation,
   loadOnboardingStatus,
@@ -122,7 +121,6 @@ function UpgradeCtas({
 // ---------------------------------------------------------------------------
 export function ConnectPage() {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
 
   const [status, setStatus] = useState<OnboardingConnectStatus | null>(null)
   const [flash, setFlash] = useState<{ token: string; name: string } | null>(null)
@@ -323,7 +321,6 @@ export function ConnectPage() {
         }
       />
 
-      <StatusAlert status={formStatus} />
 
       {/* Loading skeleton */}
       {!status && (

@@ -38,7 +38,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   createApiKeyMutation,
   addCustomDomainMutation,
@@ -175,7 +174,6 @@ const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [revokePending, setRevokePending] = useState<string | null>(null)
@@ -351,7 +349,6 @@ export function SettingsPage() {
         title="Workspace Settings"
         description="Manage billing and the scoped credentials agents use to safely operate the blog."
       />
-      <StatusAlert status={formStatus} />
       <Tabs defaultValue="general" className="gap-4">
         <div className="overflow-x-auto">
           <TabsList>

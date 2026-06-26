@@ -9,7 +9,6 @@ import { Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { checkoutBillingMutation } from '~/server/billing-page-fn'
 import { loadBillingRequiredPage } from '~/server/dashboard-pages-fn'
@@ -32,7 +31,6 @@ function BillingStatusBadge({ status }: { status: string }) {
 
 export function BillingRequiredPage() {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [billingStatus, setBillingStatus] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
@@ -80,7 +78,6 @@ export function BillingRequiredPage() {
   return (
     <OnboardingFrame phase="Billing">
       <div className="grid gap-4">
-        <StatusAlert status={formStatus} />
         <Panel
           title={PRICING.monthlyLabel}
           meta={

@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { Button, EmptyState, LoadError, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { Card } from '~/components/ui/card'
 import { Progress } from '~/components/ui/progress'
 import { Skeleton } from '~/components/ui/skeleton'
@@ -59,7 +58,6 @@ function MediaSkeleton() {
 
 export function MediaPage() {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [assets, setAssets] = useState<Asset[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [uploadPending, setUploadPending] = useState(false)
@@ -175,7 +173,6 @@ export function MediaPage() {
         title="Images"
         description={`Upload only blog media: ${MEDIA.formatsLabel}. Native video and generic file hosting stay blocked.`}
       />
-      <StatusAlert status={formStatus} />
 
       <Card className="gap-0 p-4">
         <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-start">

@@ -7,6 +7,7 @@ import {
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
+import { StatusToaster, ToastProvider } from '~/components/Toaster'
 import appCss from '~/styles.css?url'
 import { BRAND } from '@vc/config'
 import { seo } from '~/utils/seo'
@@ -81,7 +82,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <ToastProvider>
+          {children}
+          <StatusToaster />
+        </ToastProvider>
         <Scripts />
       </body>
     </html>

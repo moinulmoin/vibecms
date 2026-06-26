@@ -9,7 +9,6 @@ import { PageHeader, Panel, StatusAlert } from '~/components/dashboard/Dashboard
 import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import type { BillingSnapshot } from '~/server/billing'
 import {
@@ -37,7 +36,6 @@ function BillingStatusBadge({ status }: { status: string }) {
 
 export function BillingPage() {
   const navigate = useNavigate()
-  const formStatus = useFormStatusFromSearch()
   const [data, setData] = useState<BillingPageLoadResult | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
   const [portalPending, setPortalPending] = useState(false)
@@ -123,7 +121,6 @@ export function BillingPage() {
       />
       <OnboardingFrame phase="Billing">
         <div className="grid gap-4">
-          <StatusAlert status={formStatus} />
           <Panel
             title={PRICING.monthlyLabel}
             meta={
