@@ -3,7 +3,7 @@ import { createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 
-type ActivityRow = { action: string; summary: string; actor_name: string; created_at: number }
+type ActivityRow = { action: string; summary: string; actor_type: string; actor_name: string; created_at: number }
 
 function repository() {
   return createD1PostRepository(env.DB)
@@ -21,7 +21,7 @@ export async function getPosts(
 
 export async function getActivity(app: AppUserContext, limit = 50) {
   const activity = await env.DB.prepare(
-    `SELECT action, summary, actor_name, created_at
+    `SELECT action, summary, actor_type, actor_name, created_at
      FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
   )
     .bind(app.siteId, Math.min(Math.max(limit, 1), 100))

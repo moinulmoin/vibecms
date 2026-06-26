@@ -8,6 +8,7 @@ import {
   FileTextIcon,
   GearIcon,
   ImageIcon,
+  Link2Icon,
 } from '@radix-ui/react-icons'
 import { Alert, Button, cn } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
@@ -48,8 +49,16 @@ const navItems: NavItem[] = [
   { label: 'Posts', to: '/app/posts', Icon: FileTextIcon },
   { label: 'Media', to: '/app/media', Icon: ImageIcon },
   { label: 'Activity', to: '/app/activity', Icon: ActivityLogIcon },
+  { label: 'Connect', to: '/app/connect', Icon: Link2Icon },
   { label: 'Settings', to: '/app/settings', Icon: GearIcon },
 ]
+
+// Titles for routes that are not primary nav items, so the top bar never
+// falls through to "Overview" on Billing / Setup / token-created.
+const EXTRA_TITLES: Record<string, string> = {
+  '/app/billing': 'Billing',
+  '/app/setup': 'Set up your blog',
+}
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en', {
@@ -91,7 +100,11 @@ function pageTitle(current: string) {
   const match = [...navItems]
     .sort((a, b) => b.to.length - a.to.length)
     .find((item) => current === item.to || (item.to !== '/app' && current.startsWith(item.to)))
-  return match?.label ?? 'Overview'
+  if (match) return match.label
+  const extra = Object.keys(EXTRA_TITLES)
+    .sort((a, b) => b.length - a.length)
+    .find((path) => current === path || current.startsWith(path))
+  return extra ? EXTRA_TITLES[extra] : 'Overview'
 }
 
 function UserMenu({ userEmail, authUrl }: { userEmail?: string; authUrl: string }) {

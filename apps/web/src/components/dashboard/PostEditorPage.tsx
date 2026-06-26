@@ -77,6 +77,14 @@ function PostStatusBadge({ status }: { status: string }) {
       </Badge>
     )
   }
+  if (status === 'archived') {
+    return (
+      <Badge variant="outline" className="gap-1.5 border-dashed capitalize text-muted-foreground/70">
+        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+        {status}
+      </Badge>
+    )
+  }
   return (
     <Badge variant="outline" className="capitalize">
       {status}

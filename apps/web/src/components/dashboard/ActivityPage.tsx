@@ -13,7 +13,30 @@ import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { loadActivityPage } from '~/server/dashboard-pages-fn'
 
-type ActivityEvent = { action: string; summary: string; actor_name: string; created_at: number }
+type ActivityEvent = {
+  action: string
+  summary: string
+  actor_type: string
+  actor_name: string
+  created_at: number
+}
+
+// Map the stored actor_type to a reader-facing label. This is the trust surface:
+// the point is to tell at a glance whether you, a token, or an agent acted.
+function actorTypeLabel(type: string) {
+  switch (type) {
+    case 'human':
+      return 'Human'
+    case 'agent':
+      return 'Agent'
+    case 'api_key':
+      return 'Token'
+    case 'system':
+      return 'System'
+    default:
+      return 'Unknown'
+  }
+}
 
 function ActivitySkeleton() {
   return (
@@ -81,6 +104,12 @@ export function ActivityPage() {
                     <span aria-hidden className="text-muted-foreground/40">
                       ·
                     </span>
+                    <Badge
+                      variant="outline"
+                      className="gap-1 font-mono text-[10px] uppercase tracking-[0.08em]"
+                    >
+                      {actorTypeLabel(event.actor_type)}
+                    </Badge>
                     <span className="truncate font-mono text-xs text-muted-foreground">{event.actor_name}</span>
                   </div>
                 </div>

@@ -39,6 +39,17 @@ function StatusBadge({ status, className }: { status: string; className?: string
       </Badge>
     )
   }
+  if (status === 'archived') {
+    return (
+      <Badge
+        variant="outline"
+        className={cn('gap-1.5 border-dashed capitalize text-muted-foreground/70', className)}
+      >
+        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+        {status}
+      </Badge>
+    )
+  }
   return (
     <Badge variant="outline" className={cn('capitalize', className)}>
       {status}
