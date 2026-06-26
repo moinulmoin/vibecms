@@ -4,7 +4,7 @@ import { BRAND, MEDIA } from '@vc/config'
 import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from '@vc/ui'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { LoadError, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { Skeleton } from '~/components/ui/skeleton'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -106,7 +106,7 @@ export function SetupPage() {
     }
   }
 
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
+  if (loadError) return <LoadError message={loadError} />
   if (!site)
     return (
       <OnboardingFrame phase="Blog setup">

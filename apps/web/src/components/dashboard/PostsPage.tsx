@@ -13,6 +13,7 @@ import {
   Button,
   DataRow,
   EmptyState,
+  LoadError,
   PageHeader,
   Panel,
   StatusAlert,
@@ -122,7 +123,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
   }
 
   if (loadError) {
-    return <p className="text-sm text-destructive">{loadError}</p>
+    return <LoadError message={loadError} />
   }
   if (!posts) {
     return <PostsSkeleton />

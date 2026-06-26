@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   DataRow,
   EmptyState,
+  LoadError,
   PageHeader,
   Panel,
   formatDateTime,
@@ -75,7 +76,7 @@ export function ActivityPage() {
     }
   }, [])
 
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
+  if (loadError) return <LoadError message={loadError} />
   if (!events) return <ActivitySkeleton />
 
   return (

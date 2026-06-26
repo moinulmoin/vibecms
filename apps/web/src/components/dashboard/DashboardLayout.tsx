@@ -251,12 +251,20 @@ export function AppShell({
         </Sidebar>
 
         <SidebarInset>
+          <a
+            href="#dashboard-main"
+            className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50"
+          >
+            Skip to content
+          </a>
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
             <h1 className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</h1>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">{children}</div>
+          <div id="dashboard-main" tabIndex={-1} className="flex flex-1 flex-col gap-4 p-4 outline-none sm:p-6">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
@@ -348,6 +356,27 @@ export function EmptyState({
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>
+  )
+}
+
+/** Consistent, retryable error state for a page whose data failed to load. */
+export function LoadError({ message }: { message: string }) {
+  return (
+    <Panel title="Something went wrong">
+      <div className="grid gap-3">
+        <p className="font-sans text-sm text-muted-foreground">{message}</p>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-fit"
+          onClick={() => {
+            if (typeof window !== 'undefined') window.location.reload()
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    </Panel>
   )
 }
 

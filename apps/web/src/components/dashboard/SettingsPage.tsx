@@ -1,6 +1,6 @@
 'use client'
 
-import { BRAND, DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
+import { API_TOKENS_MAX, BRAND, DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
 import type { ApiKeyListItem } from '~/server/api-keys'
 import type { CustomDomainsPanel, CustomDomainView } from '~/server/custom-domains'
 import { DownloadIcon } from '@radix-ui/react-icons'
@@ -26,6 +26,7 @@ import { renderRichContent, RichContentFrame } from '~/lib/markdown'
 import {
   Button,
   EmptyState,
+  LoadError,
   PageHeader,
   Panel,
   StatusAlert,
@@ -322,7 +323,7 @@ export function SettingsPage() {
     }
   }
 
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
+  if (loadError) return <LoadError message={loadError} />
   if (!data) {
     return (
       <>
@@ -339,6 +340,8 @@ export function SettingsPage() {
   }
 
   const { site, apiKeys, customDomains, billingStatus, selfHosted, isOwner, canManageTokens, mcpUrl } = data
+  const activeTokenCount = apiKeys.filter((key) => key.revokedAt == null).length
+  const atTokenCap = activeTokenCount >= API_TOKENS_MAX
 
   return (
     <>
@@ -613,15 +616,25 @@ export function SettingsPage() {
                 </Field>
               </div>
             </FieldSet>
-            <PendingSubmitButton className="w-fit" pending={formPending === 'token'} pendingText="Creating token…">
+            <PendingSubmitButton
+              className="w-fit"
+              pending={formPending === 'token'}
+              pendingText="Creating token…"
+              disabled={atTokenCap}
+            >
               Create token
             </PendingSubmitButton>
+            {atTokenCap ? (
+              <p className="font-sans text-xs text-muted-foreground">
+                You have {API_TOKENS_MAX} active tokens (the maximum). Revoke one below to create another.
+              </p>
+            ) : null}
           </form>
         ) : (
           <p className="font-sans text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>
         )}
       </Panel>
-      <Panel title="Existing Tokens" meta={`${apiKeys.length} total`}>
+      <Panel title="Existing Tokens" meta={`${activeTokenCount} of ${API_TOKENS_MAX} active`}>
         {apiKeys.length ? (
           <>
             <div className="grid gap-3 md:hidden">

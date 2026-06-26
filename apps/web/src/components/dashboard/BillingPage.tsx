@@ -112,12 +112,13 @@ export function BillingPage() {
 
   const billing: BillingSnapshot = data.billing
   const { isOwner } = data
+  const isActive = billing.status === 'active'
 
   return (
     <>
       <PageHeader
         kicker="Billing"
-        title="Subscribe to publish"
+        title={isActive ? "You're subscribed" : 'Subscribe to publish'}
         description="Manage your Polar subscription and customer portal."
       />
       <OnboardingFrame phase="Billing">
@@ -150,43 +151,58 @@ export function BillingPage() {
               </li>
             </ul>
             {isOwner ? (
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                <PendingSubmitButton
-                  type="button"
-                  className="h-11 w-full rounded-xl"
-                  pending={checkoutPending === 'monthly'}
-                  pendingText="Starting checkout…"
-                  onClick={() => void startCheckout('monthly')}
-                >
-                  Subscribe monthly
-                </PendingSubmitButton>
-                <PendingSubmitButton
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full rounded-xl"
-                  pending={checkoutPending === 'yearly'}
-                  pendingText="Starting checkout…"
-                  onClick={() => void startCheckout('yearly')}
-                >
-                  Subscribe yearly
-                </PendingSubmitButton>
-                <PendingSubmitButton
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full rounded-xl sm:col-span-2"
-                  pending={portalPending}
-                  pendingText="Opening portal…"
-                  onClick={() => void openPortal()}
-                >
-                  Customer portal
-                </PendingSubmitButton>
-              </div>
+              isActive ? (
+                <div className="mt-5 grid gap-2">
+                  <PendingSubmitButton
+                    type="button"
+                    className="h-11 w-full rounded-xl"
+                    pending={portalPending}
+                    pendingText="Opening portal…"
+                    onClick={() => void openPortal()}
+                  >
+                    Manage subscription
+                  </PendingSubmitButton>
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  <PendingSubmitButton
+                    type="button"
+                    className="h-11 w-full rounded-xl"
+                    pending={checkoutPending === 'monthly'}
+                    pendingText="Starting checkout…"
+                    onClick={() => void startCheckout('monthly')}
+                  >
+                    Subscribe monthly
+                  </PendingSubmitButton>
+                  <PendingSubmitButton
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-xl"
+                    pending={checkoutPending === 'yearly'}
+                    pendingText="Starting checkout…"
+                    onClick={() => void startCheckout('yearly')}
+                  >
+                    Subscribe yearly
+                  </PendingSubmitButton>
+                  <PendingSubmitButton
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full rounded-xl sm:col-span-2"
+                    pending={portalPending}
+                    pendingText="Opening portal…"
+                    onClick={() => void openPortal()}
+                  >
+                    Customer portal
+                  </PendingSubmitButton>
+                </div>
+              )
             ) : (
               <p className="mt-5 font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
             )}
             <p className="mt-5 font-mono text-[11px] leading-5 text-muted-foreground">
-              Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload
-              media, and make your blog search-indexable. Cancel anytime from the customer portal.
+              {isActive
+                ? 'Your plan is active: unlimited publishing, media uploads, and search indexing are on. Cancel anytime from the customer portal.'
+                : 'Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload media, and make your blog search-indexable. Cancel anytime from the customer portal.'}
             </p>
           </Panel>
         </div>

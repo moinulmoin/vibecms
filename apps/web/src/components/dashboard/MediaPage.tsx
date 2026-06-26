@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldLabel, Input } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { EmptyState, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, LoadError, PageHeader, Panel, StatusAlert } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import { Card } from '~/components/ui/card'
@@ -131,7 +131,7 @@ export function MediaPage() {
     }
   }
 
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>
+  if (loadError) return <LoadError message={loadError} />
   if (!assets) return <MediaSkeleton />
 
   const usedBytes = assets.reduce((total, asset) => total + asset.sizeBytes, 0)
