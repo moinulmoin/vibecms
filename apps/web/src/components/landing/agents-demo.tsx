@@ -23,10 +23,21 @@ export function AgentsDemo() {
                 without your login.
               </h2>
               <p className="mt-4 mb-6 max-w-[420px] text-[16.5px] leading-[1.62] text-muted-foreground">
-                Give each assistant only the scopes it needs. Flip a switch - the MCP
-                token updates instantly. Nothing leaks to your account or billing.
+                Give each assistant only the scopes it needs. Flip a switch - the
+                token updates instantly, shown once then hashed. Nothing leaks to
+                your account or billing.
               </p>
               <GeneratedScopeTokenBox />
+              <p className="mt-5 max-w-[440px] text-[13.5px] leading-[1.6] text-muted-foreground">
+                Prefer scripts? The same scopes drive a typed{" "}
+                <a
+                  className="font-medium text-brand-bright underline-offset-4 hover:underline"
+                  href="/api/v1/docs"
+                >
+                  REST API + OpenAPI
+                </a>{" "}
+                and a CLI - not just MCP.
+              </p>
             </div>
           }
           right={

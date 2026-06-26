@@ -77,8 +77,38 @@ function MonoPill({
   );
 }
 
+const THEME_SWATCHES = [
+  ["minimal", "Minimal"],
+  ["editorial", "Editorial"],
+  ["technical", "Technical"],
+  ["product", "Product"],
+] as const;
+
+// Renders a real, token-driven mini-preview of each blog preset (forced light
+// so the four accents read distinctly on the dark landing).
+function ThemePreview({ id, name }: { id: string; name: string }) {
+  return (
+    <div>
+      <div
+        data-vc-theme={id}
+        data-vc-mode="light"
+        className="rounded-xl border border-vc-border bg-vc-bg p-3 shadow-[0_12px_26px_-20px_oklch(0_0_0/0.85)]"
+      >
+        <div className="h-1.5 w-7 rounded-full bg-vc-accent" />
+        <div className="mt-2.5 h-1.5 w-full rounded-full bg-vc-fg/85" />
+        <div className="mt-1.5 h-1 w-4/5 rounded-full bg-vc-fg/30" />
+        <div className="mt-1 h-1 w-2/3 rounded-full bg-vc-fg/30" />
+      </div>
+      <div className="mt-2 text-center font-mono text-[10.5px] text-muted-foreground">
+        {name}
+      </div>
+    </div>
+  );
+}
+
 export function EssentialsBento() {
   return (
+    <section id="features">
     <SectionShell className="pt-14 md:pt-24">
       <div className="mb-10 max-w-[620px]" data-reveal>
         <MonoEyebrow label="// The essentials" className="mb-4" />
@@ -88,8 +118,8 @@ export function EssentialsBento() {
           blog needs. Nothing it doesn&apos;t.
         </h2>
         <p className="mt-4 text-[16.5px] leading-[1.6] text-muted-foreground">
-          One clean publication surface: editing, media, history, scoped agents,
-          and public output - all wired together.
+          One clean publication surface: editing, media, history, designed themes,
+          scoped agents, and your own domain - all wired together.
         </p>
       </div>
 
@@ -99,14 +129,15 @@ export function EssentialsBento() {
         data-d="1"
       >
         <GlassCard className="relative overflow-hidden p-[26px] md:col-span-2 lg:col-span-3">
-          <div className="mb-11 grid size-9 place-items-center rounded-[10px] bg-brand-bright/10 text-brand-bright shadow-[inset_0_0_0_1px_oklch(0.8107_0.1705_152.72/0.16)]">
+          <div className="mb-6 grid size-9 place-items-center rounded-[10px] bg-brand-bright/10 text-brand-bright shadow-[inset_0_0_0_1px_oklch(0.8107_0.1705_152.72/0.16)]">
             <ReaderIcon className="size-[18px]" aria-hidden="true" />
           </div>
           <h3 className="font-display text-[19px] font-semibold text-foreground">
             Markdown editor
           </h3>
-          <p className="mt-1.5 max-w-[300px] text-sm leading-[1.55] text-muted-foreground">
-            Live preview, drafts, and instant publish - keyboard-first and distraction-free.
+          <p className="mt-1.5 max-w-[320px] text-sm leading-[1.55] text-muted-foreground">
+            Live preview, drafts, and instant publish - with callouts, code blocks,
+            and a table of contents built in.
           </p>
           <div className="mt-[18px] rounded-t-[11px] px-[15px] py-3 font-mono text-[11.5px] leading-[1.7] text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass-strong)]">
             <div>
@@ -184,15 +215,19 @@ export function EssentialsBento() {
 
         <GlassCard className="p-[22px] md:col-span-1 lg:col-span-2">
           <div className="mb-4 flex flex-wrap gap-1.5">
-            <MonoPill accent>RSS</MonoPill>
+            <MonoPill accent>your domain</MonoPill>
+            <MonoPill>RSS</MonoPill>
             <MonoPill>sitemap</MonoPill>
-            <MonoPill>meta tags</MonoPill>
+            <MonoPill>llms.txt</MonoPill>
+            <MonoPill>.md</MonoPill>
           </div>
           <h3 className="font-display text-base font-semibold text-foreground">
-            Public output
+            Your domain, clean output
           </h3>
           <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-            RSS, sitemap, social cards and clean SEO pages - built in.
+            Bring your own domain. RSS, sitemap, SEO,{" "}
+            <span className="font-mono text-[12px] text-foreground">llms.txt</span>,
+            and clean Markdown of every post - for readers and agents.
           </p>
         </GlassCard>
 
@@ -209,7 +244,28 @@ export function EssentialsBento() {
             Download every post as JSON. No lock-in, ever.
           </p>
         </GlassCard>
+
+        <GlassCard className="p-[26px] md:col-span-2 lg:col-span-6">
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-[360px]">
+              <h3 className="font-display text-[19px] font-semibold text-foreground">
+                Themes that look designed
+              </h3>
+              <p className="mt-1.5 text-sm leading-[1.55] text-muted-foreground">
+                Four token-driven themes - Minimal, Editorial, Technical, Product -
+                in light and dark, with three layouts. Your blog looks built, not
+                generic.
+              </p>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-3.5 sm:grid-cols-4 lg:max-w-[460px]">
+              {THEME_SWATCHES.map(([id, name]) => (
+                <ThemePreview key={id} id={id} name={name} />
+              ))}
+            </div>
+          </div>
+        </GlassCard>
       </div>
     </SectionShell>
+    </section>
   );
 }

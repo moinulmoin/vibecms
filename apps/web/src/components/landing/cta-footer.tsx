@@ -3,7 +3,7 @@ import { BRAND } from "@vc/config";
 import { Glow, SectionShell } from "./primitives";
 
 const greenCta =
-  "inline-flex items-center whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]";
+  "inline-flex min-h-[44px] items-center whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]";
 const greenBg =
   "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
 
@@ -15,12 +15,20 @@ const productLinks = [
 
 const deployLinks = [
   ["GitHub", BRAND.repoUrl],
+  ["API docs", "/api/v1/docs"],
   ["Docs", `${BRAND.repoUrl}#readme`],
 ] as const;
 
 const accountLinks = [
   ["Sign in", "/login"],
-  ["Get started", "/login"],
+  ["Start free", "/login"],
+] as const;
+
+// Sibling products from the same studio - external.
+const exploreLinks = [
+  ["Ideaplexa", "https://ideaplexa.com"],
+  ["VoiceTypr", "https://voicetypr.com"],
+  ["ChadNext", "https://chadnext.moinulmoin.com"],
 ] as const;
 
 export function CtaFooter() {
@@ -49,10 +57,10 @@ export function CtaFooter() {
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
             <a className={greenCta} style={{ background: greenBg }} href="/login">
-              Get started
+              Start free
             </a>
             <a
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)]"
+              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)]"
               href={BRAND.repoUrl}
               rel="noopener noreferrer"
               target="_blank"
@@ -67,7 +75,7 @@ export function CtaFooter() {
       <footer className="py-12">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-7">
           <div
-            className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-5"
             data-reveal
           >
             <div className="sm:col-span-2 lg:col-span-1">
@@ -95,7 +103,25 @@ export function CtaFooter() {
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {productLinks.map(([label, href]) => (
-                  <a className="no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
+                    {label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+            <div>
+              <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
+                Explore
+              </p>
+              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+                {exploreLinks.map(([label, href]) => (
+                  <a
+                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
+                    href={href}
+                    key={label}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
                     {label}
                   </a>
                 ))}
@@ -108,7 +134,7 @@ export function CtaFooter() {
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {deployLinks.map(([label, href]) => (
                   <a
-                    className="no-underline hover:text-foreground"
+                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
                     {...(href.startsWith("http") ? { rel: "noopener noreferrer", target: "_blank" } : {})}
@@ -124,7 +150,7 @@ export function CtaFooter() {
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {accountLinks.map(([label, href]) => (
-                  <a className="no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
                   </a>
                 ))}
@@ -136,7 +162,16 @@ export function CtaFooter() {
             data-reveal
             data-d="1"
           >
-            © {year} vibecms · Markdown · Media · Versions · MCP
+            © {year} vibecms - a product of{" "}
+            <a
+              className="text-muted-foreground underline-offset-2 hover:text-foreground"
+              href="https://ideaplexa.com"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Ideaplexa LLC
+            </a>
+            .
           </p>
         </div>
       </footer>

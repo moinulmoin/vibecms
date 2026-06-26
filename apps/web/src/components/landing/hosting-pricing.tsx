@@ -1,13 +1,16 @@
 import { ENTITLEMENTS, MEDIA, PRICING } from "@vc/config";
 import { CheckIcon } from "@radix-ui/react-icons";
-import { GlassCard, MonoEyebrow, SectionShell } from "./primitives";
+import { GlassCard, SectionShell } from "./primitives";
 
 const pricingChecklist = [
   ...ENTITLEMENTS,
+  "Custom domain",
+  "4 designed themes",
+  "Typed REST API & CLI",
   "Unlimited drafts",
   `${MEDIA.paidStorageLabel} media on R2`,
+  "RSS, sitemap & llms.txt",
   "Fast managed hosting",
-  "RSS, sitemap and SEO",
 ] as const;
 
 const ctaGreen =
@@ -19,14 +22,15 @@ export function HostingPricing() {
       <SectionShell>
         <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-14">
           <div data-reveal>
-            <MonoEyebrow label="Pricing" />
-            <h2 className="mt-4 max-w-md text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+            <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
               One plan for one
               <br />
               serious blog.
             </h2>
             <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
-              Everything you need to run a real publication - with agent publishing through MCP.
+              Jump in free, no card - set up your blog, connect your agents, and see
+              it publish. One plan unlocks unlimited publishing, your own domain, and
+              the full API.
             </p>
             <p className="mt-6 font-mono text-[13px] leading-6 text-muted-foreground">
               Or self-host free - same scoped-MCP publishing, your own infrastructure.
@@ -55,8 +59,11 @@ export function HostingPricing() {
                   "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
               }}
             >
-              Get started
+              Start free
             </a>
+            <p className="mt-3 text-center text-[12.5px] leading-5 text-muted-foreground">
+              Free to try - no card, no commitment.
+            </p>
             <ul className="mt-8 grid gap-x-6 gap-y-3 sm:grid-cols-2">
               {pricingChecklist.map((item) => (
                 <li className="flex gap-3 text-sm leading-6 text-muted-foreground" key={item}>

@@ -117,6 +117,8 @@ function ScopeSwitch({
         onClick={onToggle}
         className={[
           "relative h-[25px] w-11 shrink-0 rounded-full border-0 p-0 transition-[background,box-shadow] duration-250 ease-out",
+          // 44x44 invisible hit area for comfortable mobile tapping (visual track stays 25px)
+          "before:absolute before:left-1/2 before:top-1/2 before:size-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']",
           on
             ? "bg-gradient-to-b from-primary to-brand-bright shadow-[0_0_0_1px_oklch(0.8107_0.1705_152.72/0.45),0_8px_18px_-8px_oklch(0.8107_0.1705_152.72/0.7)]"
             : "bg-white/10 shadow-[inset_0_0_0_1px_oklch(1_0_0/0.09)]",
@@ -124,7 +126,7 @@ function ScopeSwitch({
       >
         <span
           className={[
-            "absolute top-[3px] size-[19px] rounded-full shadow-[0_2px_5px_oklch(0_0_0/0.4)] transition-[left,background] duration-250 ease-[cubic-bezier(0.4,1.3,0.6,1)]",
+            "absolute top-[3px] size-[19px] rounded-full shadow-[0_2px_5px_oklch(0_0_0/0.4)] transition-[left,background] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]",
             on ? "left-[22px] bg-brand-bright-foreground" : "left-[3px] bg-muted-foreground/80",
           ].join(" ")}
           aria-hidden="true"

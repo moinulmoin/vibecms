@@ -1,5 +1,5 @@
 import { PlusIcon } from "@radix-ui/react-icons";
-import { GlassCard, MonoEyebrow, SectionShell } from "./primitives";
+import { GlassCard, SectionShell } from "./primitives";
 
 const faqs = [
   {
@@ -30,8 +30,7 @@ export function FaqAccordion() {
       <SectionShell>
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-start">
           <div data-reveal>
-            <MonoEyebrow label="FAQ" />
-            <h2 className="mt-4 max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
+            <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
               Questions
               <br />
               before launch.
