@@ -1,6 +1,6 @@
 import { ENTITLEMENTS, MEDIA, PRICING } from "@vc/config";
 import { CheckIcon } from "@radix-ui/react-icons";
-import { GlassCard, SectionShell } from "./primitives";
+import { GREEN_BG, GREEN_CTA, GlassCard, SectionShell } from "./primitives";
 
 const pricingChecklist = [
   ...ENTITLEMENTS,
@@ -12,9 +12,6 @@ const pricingChecklist = [
   "RSS, sitemap & llms.txt",
   "Fast managed hosting",
 ] as const;
-
-const ctaGreen =
-  "inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded-xl px-8 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)] sm:w-auto";
 
 export function HostingPricing() {
   return (
@@ -44,20 +41,21 @@ export function HostingPricing() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">Cancel anytime.</p>
               </div>
-              <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-                ${PRICING.monthlyUsd}
-                <span className="text-lg font-medium text-muted-foreground">
-                  /mo · or {PRICING.annualLabel}
-                </span>
-              </p>
+              <div className="text-right">
+                <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
+                  ${PRICING.monthlyUsd}
+                  <span className="text-lg font-medium text-muted-foreground">/mo</span>
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  or {PRICING.annualLabel}{" "}
+                  <span className="text-brand-bright">· 2 months free</span>
+                </p>
+              </div>
             </div>
             <a
-              className={`mt-7 ${ctaGreen}`}
+              className={`mt-7 h-12 w-full px-8 text-[15px] sm:w-auto ${GREEN_CTA}`}
               href="/login"
-              style={{
-                background:
-                  "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
-              }}
+              style={{ background: GREEN_BG }}
             >
               Start free
             </a>

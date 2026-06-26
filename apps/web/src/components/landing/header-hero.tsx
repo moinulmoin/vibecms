@@ -1,6 +1,6 @@
 import { BRAND } from "@vc/config";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { Glow } from "./primitives";
+import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
 import { HeaderNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
 
@@ -14,11 +14,6 @@ const agents = [
   ["Amp", "amp.svg"],
   ["Droid", "droid.svg"],
 ] as const;
-
-const greenCta =
-  "inline-flex min-h-[44px] items-center whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]";
-const greenBg =
-  "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
 
 export function HeaderHero() {
   return (
@@ -52,8 +47,8 @@ export function HeaderHero() {
               Sign in
             </a>
             <a
-              className="inline-flex min-h-[44px] items-center whitespace-nowrap rounded-xl px-[18px] text-sm font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]"
-              style={{ background: greenBg }}
+              className={`${GREEN_CTA} min-h-[44px] px-[18px] text-sm`}
+              style={{ background: GREEN_BG }}
               href="/login"
             >
               Start free
@@ -72,11 +67,15 @@ export function HeaderHero() {
             never your login.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <a className={greenCta} style={{ background: greenBg }} href="/login">
+            <a
+              className={`${GREEN_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
+              style={{ background: GREEN_BG }}
+              href="/login"
+            >
               Start free
             </a>
             <a
-              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)]"
+              className={`${GHOST_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
               href={BRAND.repoUrl}
               rel="noopener noreferrer"
               target="_blank"
@@ -105,6 +104,9 @@ export function HeaderHero() {
                   {name}
                 </span>
               ))}
+              <span className="text-[13px] font-medium text-muted-foreground/70">
+                + any MCP client
+              </span>
             </div>
           </div>
         </div>

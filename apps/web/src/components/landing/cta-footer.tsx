@@ -1,11 +1,6 @@
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { BRAND } from "@vc/config";
-import { Glow, SectionShell } from "./primitives";
-
-const greenCta =
-  "inline-flex min-h-[44px] items-center whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)]";
-const greenBg =
-  "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
+import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
 
 const productLinks = [
   ["Features", "#features"],
@@ -56,11 +51,15 @@ export function CtaFooter() {
             Scoped MCP, a full version trail, and your login never leaves your hands.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
-            <a className={greenCta} style={{ background: greenBg }} href="/login">
+            <a
+              className={`${GREEN_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
+              style={{ background: GREEN_BG }}
+              href="/login"
+            >
               Start free
             </a>
             <a
-              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-[22px] py-3.5 text-[15px] font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)]"
+              className={`${GHOST_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
               href={BRAND.repoUrl}
               rel="noopener noreferrer"
               target="_blank"
@@ -129,7 +128,7 @@ export function CtaFooter() {
             </div>
             <div>
               <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
-                Open source
+                Resources
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {deployLinks.map(([label, href]) => (

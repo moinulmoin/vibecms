@@ -159,7 +159,7 @@ export function HeroDemo() {
             className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] transition-colors duration-500 ${
               published
                 ? "text-brand-bright ring-1 ring-brand-bright/35 [background:oklch(0.8107_0.1705_152.72/0.12)]"
-                : "text-muted-foreground/50 ring-1 ring-[color:var(--hairline)]"
+                : "text-muted-foreground ring-1 ring-[color:var(--hairline)]"
             }`}
           >
             <span
@@ -172,7 +172,7 @@ export function HeroDemo() {
           <div className="font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground">
             Shipping with MCP
           </div>
-          <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">by claude · just now</div>
+          <div className="mt-1 font-mono text-[11px] text-muted-foreground">by claude · just now</div>
           <div className="mt-4 space-y-2.5">
             <div className="h-2 w-full rounded bg-muted-foreground/20" />
             <div className="h-2 w-[88%] rounded bg-muted-foreground/15" />

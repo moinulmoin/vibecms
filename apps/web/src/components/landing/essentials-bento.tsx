@@ -66,7 +66,7 @@ function MonoPill({
   return (
     <span
       className={[
-        "rounded-md px-2.5 py-1 font-mono text-[10px]",
+        "rounded-md px-2.5 py-1 font-mono text-[11px]",
         accent
           ? "bg-brand-bright/10 text-brand-bright"
           : "[background:var(--surface-glass-strong)] text-muted-foreground",

@@ -5,6 +5,17 @@ type Classable = {
   children?: ReactNode;
 };
 
+// The single source of truth for the primary green CTA. Visual + interaction
+// only (rounded, color, shadow, hover/active); each call adds its own size /
+// padding. Pair with GREEN_BG on the style prop. Hover lift is motion-reduce safe.
+export const GREEN_BG =
+  "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
+export const GREEN_CTA =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)] transition duration-200 ease-out hover:-translate-y-px hover:brightness-[1.06] active:translate-y-0 active:brightness-100 motion-reduce:hover:translate-y-0";
+// Secondary / ghost button, with a hover that lifts the hairline + ink.
+export const GHOST_CTA =
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)] transition-colors duration-200 hover:text-foreground hover:ring-[color:var(--brand-bright)]/30";
+
 export function DotGrid({ className, children }: Classable) {
   return (
     <div
