@@ -19,12 +19,12 @@ export async function getPosts(
   return listPosts(repository(), app.actor, { siteId: app.siteId, status, search, limit, offset })
 }
 
-export async function getActivity(app: AppUserContext, limit = 50) {
+export async function getActivity(app: AppUserContext, limit = 50, offset = 0) {
   const activity = await env.DB.prepare(
     `SELECT action, summary, actor_type, actor_name, created_at
-     FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
+     FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
   )
-    .bind(app.siteId, Math.min(Math.max(limit, 1), 100))
+    .bind(app.siteId, Math.min(Math.max(limit, 1), 101), Math.max(offset, 0))
     .all<ActivityRow>()
   return activity.results ?? []
 }

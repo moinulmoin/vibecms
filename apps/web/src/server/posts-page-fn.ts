@@ -54,16 +54,21 @@ function parsePostPayload(data: {
   }
 }
 
+const POSTS_PAGE_SIZE = 24
+
 export const loadPostsPage = createServerFn({ method: 'GET' })
-  .validator((data: { status?: string; search?: string }) => data)
+  .validator((data: { status?: string; search?: string; offset?: number }) => data)
   .handler(async ({ data }) => {
     const app = await requireApp()
     const status =
       data.status === 'draft' || data.status === 'published' || data.status === 'archived'
         ? data.status
         : undefined
-    const posts = await getPosts(app, status, data.search?.trim() || undefined)
-    return { posts }
+    const offset = Math.max(data.offset ?? 0, 0)
+    // Fetch one extra to know whether another page exists, without a count query.
+    const fetched = await getPosts(app, status, data.search?.trim() || undefined, POSTS_PAGE_SIZE + 1, offset)
+    const hasMore = fetched.length > POSTS_PAGE_SIZE
+    return { posts: hasMore ? fetched.slice(0, POSTS_PAGE_SIZE) : fetched, hasMore }
   })
 
 export const loadPostEditorPage = createServerFn({ method: 'GET' })

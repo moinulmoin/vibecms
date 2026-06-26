@@ -103,11 +103,17 @@ export const loadMediaPage = createServerFn({ method: 'GET' }).handler(async () 
   return { assets }
 })
 
-export const loadActivityPage = createServerFn({ method: 'GET' }).handler(async () => {
-  const app = await requireApp()
-  const events = await getActivity(app)
-  return { events }
-})
+const ACTIVITY_PAGE_SIZE = 25
+
+export const loadActivityPage = createServerFn({ method: 'GET' })
+  .validator((data?: { offset?: number }) => data ?? {})
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    const offset = Math.max(data.offset ?? 0, 0)
+    const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, offset)
+    const hasMore = fetched.length > ACTIVITY_PAGE_SIZE
+    return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
+  })
 
 export const loadConnectPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()

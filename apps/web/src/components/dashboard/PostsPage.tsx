@@ -78,6 +78,8 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
   const navigate = useNavigate()
   const formStatus = useFormStatusFromSearch()
   const [posts, setPosts] = useState<PostSummary[] | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [rowPending, setRowPending] = useState<string | null>(null)
 
@@ -92,7 +94,10 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
     let cancelled = false
     void loadPostsPage({ data: { status: search.status, search: search.search } })
       .then((result) => {
-        if (!cancelled) setPosts(result.posts)
+        if (!cancelled) {
+          setPosts(result.posts)
+          setHasMore(result.hasMore)
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load posts.')
@@ -117,8 +122,23 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
       await navigate({ to: '/app/posts', search: params })
       const refreshed = await loadPostsPage({ data: { status: search.status, search: search.search } })
       setPosts(refreshed.posts)
+      setHasMore(refreshed.hasMore)
     } finally {
       setRowPending(null)
+    }
+  }
+
+  async function loadMore() {
+    if (!posts) return
+    setLoadingMore(true)
+    try {
+      const result = await loadPostsPage({
+        data: { status: search.status, search: search.search, offset: posts.length },
+      })
+      setPosts((prev) => [...(prev ?? []), ...result.posts])
+      setHasMore(result.hasMore)
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -307,6 +327,13 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 </DataRow>
               ))}
             </div>
+            {hasMore ? (
+              <div className="mt-3 flex justify-center">
+                <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
+            ) : null}
           </>
         ) : (
           <EmptyState

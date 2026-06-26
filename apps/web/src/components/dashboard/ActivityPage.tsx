@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import {
+  Button,
   DataRow,
   EmptyState,
   LoadError,
@@ -60,13 +61,18 @@ function ActivitySkeleton() {
 
 export function ActivityPage() {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    void loadActivityPage()
+    void loadActivityPage({ data: {} })
       .then((data) => {
-        if (!cancelled) setEvents(data.events)
+        if (!cancelled) {
+          setEvents(data.events)
+          setHasMore(data.hasMore)
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load activity.')
@@ -75,6 +81,18 @@ export function ActivityPage() {
       cancelled = true
     }
   }, [])
+
+  async function loadMore() {
+    if (!events) return
+    setLoadingMore(true)
+    try {
+      const data = await loadActivityPage({ data: { offset: events.length } })
+      setEvents((prev) => [...(prev ?? []), ...data.events])
+      setHasMore(data.hasMore)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   if (loadError) return <LoadError message={loadError} />
   if (!events) return <ActivitySkeleton />
@@ -126,6 +144,13 @@ export function ActivityPage() {
             description="Create a post, upload media, or issue an API token and this log will fill in automatically."
           />
         )}
+        {hasMore ? (
+          <div className="mt-3 flex justify-center">
+            <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        ) : null}
       </Panel>
     </>
   )
