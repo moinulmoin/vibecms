@@ -7,7 +7,7 @@ import { Slot } from "radix-ui"
 
 import { useIsMobile } from "~/hooks/use-mobile"
 import { cn } from "@vc/ui/lib/utils"
-import { Button } from "~/components/ui/button"
+import { Button } from "@vc/ui"
 import { Input } from "~/components/ui/input"
 import { Separator } from "~/components/ui/separator"
 import {
