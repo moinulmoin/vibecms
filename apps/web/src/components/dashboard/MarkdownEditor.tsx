@@ -244,18 +244,16 @@ export function UnsavedChangesGuard({
     const form = markerRef.current?.closest('form')
     if (!(form instanceof HTMLFormElement)) return
 
+    // Baseline is recaptured whenever resetKey changes (the editor passes the
+    // loaded post, so a successful save rebaselines and isDirty() goes false).
+    // The editor saves via SPA mutation (no real page unload), so a dirty form
+    // here always means genuinely-unsaved edits worth warning about - including
+    // after a FAILED save, where the post (and resetKey) never changed.
     const initialValue = serializeForm(form)
-    let submitting = false
     const isDirty = () => serializeForm(form) !== initialValue
 
-    // A submit means we're saving; don't warn, and suppress beforeunload during
-    // the save->navigate round-trip.
-    const handleSubmit = () => {
-      submitting = true
-    }
-
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (submitting || !isDirty()) return
+      if (!isDirty()) return
       event.preventDefault()
       event.returnValue = ''
     }
@@ -272,11 +270,9 @@ export function UnsavedChangesGuard({
       event.stopImmediatePropagation()
     }
 
-    form.addEventListener('submit', handleSubmit)
     window.addEventListener('beforeunload', handleBeforeUnload)
     document.addEventListener('click', handleDocumentClick, true)
     return () => {
-      form.removeEventListener('submit', handleSubmit)
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('click', handleDocumentClick, true)
     }
