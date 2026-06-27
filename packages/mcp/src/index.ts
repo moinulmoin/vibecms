@@ -79,7 +79,7 @@ export const mcpTools: McpToolDefinition[] = [
   {
     name: "assets.upload",
     requiredScope: "assets:write",
-    description: withScopeDescription("Upload an image from base64 data. Decoded image must be 10 MB or smaller. Returns a URL to reference in your Markdown.", "assets:write"),
+    description: withScopeDescription("Upload an image as base64; decoded image must be 10 MB or smaller. Returns a URL to reference in your Markdown. If the image is a file on disk and you have shell access, prefer the CLI `vibecms assets upload <path>` instead - it reads the file locally so the base64 never enters your context. Use this tool for bytes you hold in memory.", "assets:write"),
     inputSchema: { type: "object", properties: { filename: { type: "string", minLength: 1, maxLength: 180 }, mimeType: { type: "string", enum: imageMimeEnum }, dataBase64: { type: "string" }, altText: { type: "string", maxLength: 180 } }, required: ["filename", "mimeType", "dataBase64"], ...noAdditionalProperties },
   },
   {
@@ -164,7 +164,7 @@ Content rules:
 
 Reading: posts.list and posts.search return summaries without the body; use posts.get for the full Markdown.
 
-Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown. Use assets.list to see all uploaded assets; assets.get to fetch one asset's metadata and URL by id; assets.delete to remove an asset (returns CONFLICT if it is a post cover image - remove it from the post cover first).
+Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown. If the image is a file on disk and you have shell access, prefer the CLI 'vibecms assets upload <path>' so the base64 stays out of your context; use assets.upload for in-memory bytes. Use assets.list to see all uploaded assets; assets.get to fetch one asset's metadata and URL by id; assets.delete to remove an asset (returns CONFLICT if it is a post cover image - remove it from the post cover first).
 
 Version history: posts.versions.list returns all saved versions (newest first) with actorName and changeSummary. posts.versions.get fetches the full Markdown for any version. posts.versions.restore replaces the current content with the chosen version - it is content-only and never re-publishes, and it creates a new version entry marked post.restored. Requires posts:update scope.
 

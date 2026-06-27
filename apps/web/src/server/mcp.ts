@@ -58,10 +58,25 @@ function rpcError(id: JsonRpcRequest["id"], code: number, message: string, statu
 
 function structuredToolResult(dto: unknown, outputSchema: Record<string, unknown>) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(dto, null, 2) }],
+    // Compact JSON: agents read this text into their context, so the
+    // pretty-print indentation was pure token overhead. structuredContent
+    // carries the machine-readable object for hosts that prefer it.
+    content: [{ type: "text" as const, text: JSON.stringify(dto) }],
     structuredContent: dto,
     outputSchema,
   };
+}
+
+// Tell the agent how long to wait. MCP hosts often surface the error message
+// but not the HTTP headers, so put the reset time in the text too.
+function rateLimitMessage(error: unknown): string {
+  const status =
+    error instanceof RateLimitError
+      ? (error as RateLimitError & { usageStatus?: { resetsAt: number; metric: string; period: string } }).usageStatus
+      : undefined
+  if (!status) return "Rate limit exceeded. Wait for the limit to reset, then retry."
+  const seconds = Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000))
+  return `Rate limit exceeded on ${status.metric} (${status.period}). Retry after ${seconds}s.`
 }
 
 function toolError(message: string): { content: ToolContent[]; isError: true } {
@@ -121,7 +136,7 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
     case "CONFLICT":
       return rpcError(id, -32009, error.message, 409);
     case "RATE_LIMIT":
-      return rpcError(id, -32010, "Rate limit exceeded", 429, apiRateLimitHeaders(error));
+      return rpcError(id, -32010, rateLimitMessage(error), 429, apiRateLimitHeaders(error));
     case "VALIDATION_ERROR":
       return rpcError(id, -32602, error.message, 400);
     default:
