@@ -130,6 +130,33 @@ function relativeTime(tsSeconds: number): string {
   return formatDateTime(tsSeconds)
 }
 
+// Live character counter for a capped field; reads the input by id and listens
+// to input events so the surrounding form stays uncontrolled.
+function CharCounter({ targetId, max }: { targetId: string; max: number }) {
+  const [len, setLen] = useState(0)
+  useEffect(() => {
+    const el = document.getElementById(targetId) as HTMLInputElement | HTMLTextAreaElement | null
+    if (!el) return
+    const update = () => setLen(el.value.length)
+    update()
+    el.addEventListener('input', update)
+    return () => el.removeEventListener('input', update)
+  }, [targetId])
+  return (
+    <span
+      className={`font-mono text-[11px] tabular-nums ${
+        len >= max
+          ? 'text-destructive'
+          : len > max * 0.9
+            ? 'text-amber-600 dark:text-amber-400'
+            : 'text-muted-foreground'
+      }`}
+    >
+      {len}/{max}
+    </span>
+  )
+}
+
 function PostEditorShell({ postId }: { postId?: string }) {
   const navigate = useNavigate()
   const [post, setPost] = useState<Post | null>(null)
@@ -469,6 +496,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     Excerpt
                   </FieldLabel>
                   <Textarea id="post-excerpt" name="excerpt" maxLength={500} rows={4} defaultValue={post?.excerpt ?? ''} />
+                  <div className="flex justify-end">
+                    <CharCounter targetId="post-excerpt" max={500} />
+                  </div>
                 </Field>
                 <Field>
                   <FieldLabel
@@ -484,6 +514,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     defaultValue={post?.seoTitle ?? ''}
                     placeholder="Falls back to the post title"
                   />
+                  <div className="flex justify-end">
+                    <CharCounter targetId="post-seo-title" max={70} />
+                  </div>
                 </Field>
                 <Field>
                   <FieldLabel
@@ -500,6 +533,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     defaultValue={post?.seoDescription ?? ''}
                     placeholder="Falls back to the excerpt"
                   />
+                  <div className="flex justify-end">
+                    <CharCounter targetId="post-seo-description" max={180} />
+                  </div>
                 </Field>
                 <Field>
                   <FieldLabel
