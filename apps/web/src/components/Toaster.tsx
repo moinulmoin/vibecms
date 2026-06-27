@@ -2,7 +2,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { CheckCircledIcon, Cross2Icon, CrossCircledIcon } from '@radix-ui/react-icons'
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { FormStatus } from '@vc/config'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 
@@ -34,8 +34,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => [...current, { ...status, id }])
   }, [])
 
+  // Stable value so consumers don't re-render when the toast list changes
+  // (this provider wraps the whole app at the root).
+  const value = useMemo(() => ({ toast }), [toast])
+
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2 p-4 sm:items-end"
