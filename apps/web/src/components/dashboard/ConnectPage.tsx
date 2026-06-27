@@ -6,7 +6,7 @@ import { MEDIA, PRICING } from '@vc/config'
 import { CopyButton } from '@vc/ui'
 import { CheckIcon } from '@radix-ui/react-icons'
 import { Button, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Skeleton } from "@vc/ui"
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import {

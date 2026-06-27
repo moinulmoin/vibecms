@@ -5,7 +5,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError, Panel } from '~/components/dashboard/DashboardLayout'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Skeleton } from "@vc/ui"
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { completeSetupMutation, loadSetupPage } from '~/server/dashboard-pages-fn'

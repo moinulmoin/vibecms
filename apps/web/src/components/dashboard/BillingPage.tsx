@@ -6,8 +6,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Badge } from "@vc/ui"
+import { Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import type { BillingSnapshot } from '~/server/billing'

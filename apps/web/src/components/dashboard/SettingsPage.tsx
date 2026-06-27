@@ -31,8 +31,8 @@ import {
   Panel,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Badge } from "@vc/ui"
+import { Skeleton } from "@vc/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'

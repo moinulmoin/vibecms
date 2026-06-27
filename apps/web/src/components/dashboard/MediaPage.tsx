@@ -9,9 +9,9 @@ import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { Button, EmptyState, LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { Card } from '~/components/ui/card'
+import { Card } from "@vc/ui"
 import { Progress } from '~/components/ui/progress'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Skeleton } from "@vc/ui"
 import { loadMediaPage, updateMediaAltMutation } from '~/server/dashboard-pages-fn'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 

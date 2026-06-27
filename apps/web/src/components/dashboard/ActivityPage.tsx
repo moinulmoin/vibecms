@@ -11,8 +11,8 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Badge } from "@vc/ui"
+import { Skeleton } from "@vc/ui"
 import { loadActivityPage } from '~/server/dashboard-pages-fn'
 
 type ActivityEvent = {

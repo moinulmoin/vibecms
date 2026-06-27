@@ -3,8 +3,8 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Button, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Badge } from "@vc/ui"
+import { Skeleton } from "@vc/ui"
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { loadSettingsPage } from '~/server/dashboard-pages-fn'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'

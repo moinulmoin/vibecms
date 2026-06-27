@@ -16,8 +16,8 @@ import {
   updatePostMutation,
 } from '~/server/posts-page-fn'
 import { Button, PageHeader, Panel, formatDateTime } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Badge } from "@vc/ui"
+import { Skeleton } from "@vc/ui"
 import { Switch } from '~/components/ui/switch'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -40,7 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Separator } from '~/components/ui/separator'
+import { Separator } from "@vc/ui"
 import { diffLines, type DiffLine } from '~/lib/diff'
 
 function tagsFromForm(form: FormData) {

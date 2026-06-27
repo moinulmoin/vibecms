@@ -8,8 +8,8 @@ import { Slot } from "radix-ui"
 import { useIsMobile } from "~/hooks/use-mobile"
 import { cn } from "@vc/ui/lib/utils"
 import { Button } from "@vc/ui"
-import { Input } from "~/components/ui/input"
-import { Separator } from "~/components/ui/separator"
+import { Input } from "@vc/ui"
+import { Separator } from "@vc/ui"
 import {
   Sheet,
   SheetContent,
@@ -17,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet"
-import { Skeleton } from "~/components/ui/skeleton"
+import { Skeleton } from "@vc/ui"
 import {
   Tooltip,
   TooltipContent,

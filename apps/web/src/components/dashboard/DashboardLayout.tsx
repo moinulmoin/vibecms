@@ -37,8 +37,8 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
-import { Card } from '~/components/ui/card'
-import { Separator } from '~/components/ui/separator'
+import { Card } from "@vc/ui"
+import { Separator } from "@vc/ui"
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
 

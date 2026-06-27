@@ -15,10 +15,10 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge } from '~/components/ui/badge'
-import { Card } from '~/components/ui/card'
+import { Badge } from "@vc/ui"
+import { Card } from "@vc/ui"
 import { Progress } from '~/components/ui/progress'
-import { Skeleton } from '~/components/ui/skeleton'
+import { Skeleton } from "@vc/ui"
 import { emptyDashboardStatusSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
