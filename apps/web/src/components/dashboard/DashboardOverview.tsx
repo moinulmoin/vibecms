@@ -19,7 +19,7 @@ import { Badge } from "@vc/ui"
 import { Card } from "@vc/ui"
 import { Progress } from '~/components/ui/progress'
 import { Skeleton } from "@vc/ui"
-import { emptyDashboardStatusSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -136,7 +136,7 @@ export function DashboardOverview() {
         description="Publishing status, media usage, agent access, and recent activity at a glance."
         action={
           <Button asChild>
-            <Link to="/app/posts" search={emptyPostsListSearch}>
+            <Link to="/app/posts/new" search={emptyPostEditorSearch}>
               New post
             </Link>
           </Button>
@@ -251,7 +251,7 @@ export function DashboardOverview() {
               description="Create the first post manually, then connect an agent token when you are ready for agents to help."
               action={
                 <Button asChild>
-                  <Link to="/app/posts" search={emptyPostsListSearch}>
+                  <Link to="/app/posts/new" search={emptyPostEditorSearch}>
                     New post
                   </Link>
                 </Button>

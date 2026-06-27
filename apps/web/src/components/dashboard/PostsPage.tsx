@@ -2,7 +2,7 @@
 
 import { Field, FieldLabel, Input, Select, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PostSummary } from '@vc/core'
 import {
   archivePostMutation,
@@ -125,8 +125,10 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
     }
   }
 
+  const loadingMoreRef = useRef(false)
   async function loadMore() {
-    if (!posts) return
+    if (!posts || loadingMoreRef.current) return
+    loadingMoreRef.current = true
     setLoadingMore(true)
     try {
       const result = await loadPostsPage({
@@ -135,6 +137,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
       setPosts((prev) => [...(prev ?? []), ...result.posts])
       setHasMore(result.hasMore)
     } finally {
+      loadingMoreRef.current = false
       setLoadingMore(false)
     }
   }

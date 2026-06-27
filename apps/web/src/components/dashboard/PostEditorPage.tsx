@@ -425,7 +425,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >
-          <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" />
+          <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
           <Panel title="Draft">
             <div className="grid gap-4">

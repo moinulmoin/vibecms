@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Button,
   DataRow,
@@ -82,14 +82,17 @@ export function ActivityPage() {
     }
   }, [])
 
+  const loadingMoreRef = useRef(false)
   async function loadMore() {
-    if (!events) return
+    if (!events || loadingMoreRef.current) return
+    loadingMoreRef.current = true
     setLoadingMore(true)
     try {
       const data = await loadActivityPage({ data: { offset: events.length } })
       setEvents((prev) => [...(prev ?? []), ...data.events])
       setHasMore(data.hasMore)
     } finally {
+      loadingMoreRef.current = false
       setLoadingMore(false)
     }
   }

@@ -229,7 +229,15 @@ export function PostSlugFromTitle({ enabled = true }: PostSlugFromTitleProps) {
 // navigation. Saving (form submit) and the in-editor Publish/Archive actions are
 // NOT blocked here - the editor persists the form before those (see
 // PostEditorPage), so this only protects against leaving the page entirely.
-export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: { message?: string }) {
+export function UnsavedChangesGuard({
+  message = 'You have unsaved changes.',
+  resetKey,
+}: {
+  message?: string
+  // Change this (e.g. pass the loaded post) after a successful save so the guard
+  // re-captures its baseline and clears the in-flight `submitting` flag.
+  resetKey?: unknown
+}) {
   const markerRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -272,7 +280,7 @@ export function UnsavedChangesGuard({ message = 'You have unsaved changes.' }: {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('click', handleDocumentClick, true)
     }
-  }, [message])
+  }, [message, resetKey])
 
   return <span ref={markerRef} className="hidden" aria-hidden="true" />
 }

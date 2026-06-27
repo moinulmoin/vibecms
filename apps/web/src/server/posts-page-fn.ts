@@ -36,6 +36,7 @@ function parsePostPayload(data: {
   excerpt?: string
   contentMarkdown: string
   coverAssetId?: string | null
+  canonicalUrl?: string | null
   seoTitle?: string
   seoDescription?: string
   tags?: string
@@ -47,6 +48,7 @@ function parsePostPayload(data: {
     excerpt: data.excerpt?.trim() || undefined,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId && data.coverAssetId.length > 0 ? data.coverAssetId : null,
+    canonicalUrl: data.canonicalUrl ?? null,
     seoTitle: data.seoTitle?.trim() || undefined,
     seoDescription: data.seoDescription?.trim() || undefined,
     tags: typeof data.tags === 'string' ? parseTags(data.tags) : [],
@@ -64,7 +66,7 @@ export const loadPostsPage = createServerFn({ method: 'GET' })
       data.status === 'draft' || data.status === 'published' || data.status === 'archived'
         ? data.status
         : undefined
-    const offset = Math.max(data.offset ?? 0, 0)
+    const offset = Math.min(Math.max(data.offset ?? 0, 0), 10_000)
     // Fetch one extra to know whether another page exists, without a count query.
     const fetched = await getPosts(app, status, data.search?.trim() || undefined, POSTS_PAGE_SIZE + 1, offset)
     const hasMore = fetched.length > POSTS_PAGE_SIZE
@@ -101,6 +103,7 @@ export const createPostMutation = createServerFn({ method: 'POST' })
     excerpt?: string
     contentMarkdown: string
     coverAssetId?: string | null
+    canonicalUrl?: string | null
     seoTitle?: string
     seoDescription?: string
     tags?: string
@@ -119,6 +122,7 @@ export const updatePostMutation = createServerFn({ method: 'POST' })
     excerpt?: string
     contentMarkdown: string
     coverAssetId?: string | null
+    canonicalUrl?: string | null
     seoTitle?: string
     seoDescription?: string
     tags?: string

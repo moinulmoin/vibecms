@@ -116,7 +116,7 @@ export const loadActivityPage = createServerFn({ method: 'GET' })
   .validator((data?: { offset?: number }) => data ?? {})
   .handler(async ({ data }) => {
     const app = await requireApp()
-    const offset = Math.max(data.offset ?? 0, 0)
+    const offset = Math.min(Math.max(data.offset ?? 0, 0), 10_000)
     const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, offset)
     const hasMore = fetched.length > ACTIVITY_PAGE_SIZE
     return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
