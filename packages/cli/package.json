@@ -1,0 +1,29 @@
+{
+  "name": "@vibecms/cli",
+  "version": "0.1.0",
+  "description": "Command-line client for the VibeCMS API, built for AI agents.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "bin": {
+    "vibecms": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && cp ../../apps/web/openapi.json dist/openapi.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "~25.6.0"
+  }
+}

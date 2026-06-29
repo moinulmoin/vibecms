@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime-env.ts"
+  },
   "scripts": {
     "typecheck": "tsc",
     "lint": "tsc"

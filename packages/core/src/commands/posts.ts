@@ -1,7 +1,7 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
 import { BillingRequiredError, NotFoundError } from "../errors";
 import { requireScope } from "../policies";
-import type { Actor, BillingStatus, Post, PostSummary } from "../types";
+import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
 export type PostMutationHistory = {
   changeSummary: string;
@@ -15,7 +15,9 @@ export type PostRepository = {
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  countPublishedPosts(siteId: string): Promise<number>;
+  publishPostWithHistory(siteId: string, postId: string, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean }>;
+  listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
+  getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
 
 // Draft-free model: a workspace may keep up to this many published posts without
@@ -33,9 +35,13 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     excerpt: data.excerpt ?? null,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId ?? null,
+    canonicalUrl: data.canonicalUrl ?? null,
+    seoTitle: data.seoTitle ?? null,
+    seoDescription: data.seoDescription ?? null,
     status: "draft" as const,
     publishedAt: null,
     tags: data.tags ?? [],
+    presentation: data.presentation ?? null,
   };
   return repo.createPostWithHistory(postInput, actor, {
     changeSummary: "Created post",
@@ -55,7 +61,12 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     excerpt: data.excerpt ?? before.excerpt,
     contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
     coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
+    canonicalUrl: data.canonicalUrl === undefined ? before.canonicalUrl : data.canonicalUrl || null,
+    seoTitle: data.seoTitle === undefined ? before.seoTitle : data.seoTitle || null,
+    seoDescription: data.seoDescription === undefined ? before.seoDescription : data.seoDescription || null,
     tags: data.tags ?? before.tags,
+    // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
+    presentation: data.presentation === undefined ? before.presentation : data.presentation,
   };
   const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {
     changeSummary: "Updated post",
@@ -70,19 +81,16 @@ export async function publishPost(repo: PostRepository, actor: Actor, input: { s
   requireScope(actor, "posts:publish");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  if (input.billingStatus !== "active" && before.status !== "published") {
-    const published = await repo.countPublishedPosts(input.siteId);
-    if (published >= FREE_PUBLISHED_LIMIT) {
-      throw new BillingRequiredError("Subscribe to publish more than one post");
-    }
-  }
-  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "published", publishedAt: Math.floor(Date.now() / 1000) }, actor, {
+  // The free-publish cap is enforced atomically in the repository's conditional
+  // write (D1 serializes the statement), closing the read-then-write race.
+  const { post, capReached } = await repo.publishPostWithHistory(input.siteId, input.postId, actor, {
     changeSummary: "Published post",
     activityAction: "post.published",
     activitySummary: `Published ${before.title}`,
-  });
-  if (!after) throw new NotFoundError("Post not found");
-  return after;
+  }, { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT });
+  if (capReached) throw new BillingRequiredError("Subscribe to publish more than one post");
+  if (!post) throw new NotFoundError("Post not found");
+  return post;
 }
 
 export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
@@ -108,4 +116,35 @@ export async function getPost(repo: PostRepository, actor: Actor, siteId: string
 export function listPosts(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:read");
   return repo.listPosts(listPostsInput.parse(input));
+}
+
+export async function listPostVersions(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+  requireScope(actor, "posts:read");
+  return repo.listPostVersions(input.siteId, input.postId);
+}
+
+export async function getPostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number }) {
+  requireScope(actor, "posts:read");
+  const version = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!version) throw new NotFoundError("Post version not found");
+  return version;
+}
+
+export async function restorePostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number }) {
+  requireScope(actor, "posts:update");
+  const target = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!target) throw new NotFoundError("Post version not found");
+  const patch: Partial<Post> = {
+    title: target.title, slug: target.slug, excerpt: target.excerpt,
+    contentMarkdown: target.contentMarkdown, coverAssetId: target.coverAssetId, canonicalUrl: target.canonicalUrl,
+    seoTitle: target.seoTitle, seoDescription: target.seoDescription, tags: target.tags,
+    presentation: target.presentation,
+  };
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, patch, actor, {
+    changeSummary: `Restored to v${input.versionNumber}`,
+    activityAction: "post.restored",
+    activitySummary: `Restored "${target.title}" to v${input.versionNumber}`,
+  });
+  if (!after) throw new NotFoundError("Post not found");
+  return after;
 }

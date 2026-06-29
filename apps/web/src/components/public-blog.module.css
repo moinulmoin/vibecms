@@ -1,0 +1,482 @@
+.publicPage {
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  max-width: 860px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
+}
+
+.publicHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom: 1px solid var(--vc-border);
+  padding-bottom: 28px;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.publicBrand {
+  color: inherit;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.publicBrand:hover {
+  color: var(--vc-accent);
+}
+
+.postList {
+  display: grid;
+  gap: 18px;
+}
+
+.postCard {
+  border-bottom: 1px solid var(--vc-border);
+  padding-bottom: 24px;
+  transition: border-color 180ms ease;
+}
+
+.postCard:hover {
+  border-color: var(--vc-accent);
+}
+
+.postCard p {
+  color: var(--vc-muted-fg);
+  line-height: 1.6;
+}
+
+.coverImage {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--vc-radius);
+  margin-bottom: 18px;
+}
+
+.heroImage {
+  width: 100%;
+  max-height: 520px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin: 18px 0 28px;
+}
+
+.postCard h2 {
+  margin: 6px 0;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(28px, 5vw, 44px) * var(--vc-heading-scale));
+  letter-spacing: -0.06em;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.postCard a,
+.backLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.postCard h2 a:hover,
+.backLink:hover {
+  color: var(--vc-accent);
+}
+
+.article {
+  max-width: var(--vc-prose-measure);
+}
+
+.articleTitle {
+  margin: 20px 0 16px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(42px, 7vw, 72px) * var(--vc-heading-scale));
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  font-weight: 800;
+}
+
+.backLink {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.date {
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  margin-top: 28px;
+}
+
+.markdown h1 {
+  margin: 10px 0 28px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(42px, 7vw, 72px) * var(--vc-heading-scale));
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  font-weight: 800;
+}
+
+.markdown h2 {
+  margin-top: var(--vc-section-gap);
+  margin-bottom: 12px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(28px * var(--vc-heading-scale));
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+.markdown h3 {
+  margin-top: 28px;
+  margin-bottom: 8px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(20px * var(--vc-heading-scale));
+  font-weight: 600;
+}
+
+.markdown p {
+  max-width: var(--vc-prose-measure);
+  font-size: 19px;
+  line-height: var(--vc-prose-leading);
+  margin: 0 0 var(--vc-prose-gap);
+}
+
+.markdown a {
+  color: var(--vc-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.markdown a:hover {
+  color: var(--vc-link-hover);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  font-size: 19px;
+  line-height: var(--vc-prose-leading);
+}
+
+.markdown ul {
+  list-style-type: disc;
+}
+
+.markdown ol {
+  list-style-type: decimal;
+}
+
+.markdown li {
+  margin-bottom: 0.4rem;
+  line-height: var(--vc-prose-leading);
+}
+
+.markdown code {
+  font-family: var(--vc-font-mono);
+  font-size: 0.875em;
+  background: var(--vc-code-inline-bg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+.markdown pre {
+  font-family: var(--vc-font-mono);
+  background: var(--vc-code-bg);
+  border: 1px solid var(--vc-code-border);
+  border-radius: var(--vc-radius);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--vc-quote-border);
+  margin: 1.25rem 0;
+  padding: 0.5rem 1rem;
+  color: var(--vc-quote-fg);
+}
+
+.markdown blockquote p {
+  color: inherit;
+  font-size: inherit;
+}
+
+.markdown strong {
+  font-weight: 700;
+}
+
+.markdown em {
+  font-style: italic;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--vc-border);
+  margin: 2.5rem 0;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--vc-radius);
+  margin: 1.5rem 0;
+}
+
+.empty,
+.notFound {
+  color: var(--vc-muted-fg);
+  text-align: center;
+  padding: 4rem 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* ── Tag chips + search form + listing banners (plan 020) ─────────────────── */
+
+.searchForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--vc-border);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  font-size: 1rem;
+  padding: 6px 0;
+  outline: none;
+  transition: border-color 180ms ease;
+}
+
+.searchInput:focus {
+  border-bottom-color: var(--vc-fg);
+}
+
+.searchButton {
+  background: transparent;
+  border: none;
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px 0 6px 8px;
+  transition: color 180ms ease;
+}
+
+.searchButton:hover {
+  color: var(--vc-fg);
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tagChip {
+  display: inline-block;
+  background: var(--vc-code-inline-bg);
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.tagChip:hover {
+  color: var(--vc-fg);
+}
+
+.listingBanner {
+  margin-bottom: var(--vc-section-gap);
+}
+
+.listingHeading {
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin: 0 0 8px;
+}
+
+@media (max-width: 640px) {
+  .publicPage {
+    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
+  }
+
+  .publicHeader {
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .publicBrand {
+    font-size: 22px;
+  }
+
+  .postCard h2 {
+    font-size: clamp(22px, 6vw, 32px);
+  }
+
+  .articleTitle,
+  .markdown h1 {
+    font-size: calc(clamp(32px, 9vw, 52px) * var(--vc-heading-scale));
+  }
+
+  .markdown h2 {
+    font-size: calc(22px * var(--vc-heading-scale));
+  }
+
+  .markdown p,
+  .markdown ul,
+  .markdown ol {
+    font-size: 17px;
+  }
+
+  .heroImage {
+    max-height: 320px;
+    border-radius: var(--vc-radius);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicPage,
+  .publicPage *,
+  .publicPage *::before,
+  .publicPage *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Layout: feature ───────────────────────────────────────────────────────── */
+
+/* Feature layout expands to the full page container width */
+.article[data-vc-layout="feature"] {
+  max-width: 100%;
+}
+
+/* Full-width hero container; title + date sit below it */
+.featureHero {
+  margin-bottom: 28px;
+}
+
+/* Hero cover image: full-width, capped height, no bottom margin (featureHero handles spacing) */
+.featureCover {
+  display: block;
+  width: 100%;
+  max-height: 540px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin-bottom: 20px;
+}
+
+/* ── Layout: essay ──────────────────────────────────────────────────────────── */
+
+/* Essay: constrain to the preset prose measure (already narrower than 860px) */
+.article[data-vc-layout="essay"] {
+  max-width: var(--vc-prose-measure);
+}
+
+/*
+ * Essay: conservative drop cap on the first body paragraph.
+ * Pure CSS - no renderer plugin required.
+ * Targets the first <p> inside the .markdown div produced by RichContentFrame.
+ * Known limitation: if the first paragraph contains only an image (no text),
+ * no letter is available to float and the drop cap will not appear.
+ */
+[data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
+  float: left;
+  font-size: 3.4em;
+  font-family: var(--vc-font-heading);
+  font-weight: 800;
+  line-height: 0.76;
+  margin-right: 0.08em;
+  margin-top: 0.05em;
+  color: var(--vc-fg);
+}
+
+/* ── TOC block ──────────────────────────────────────────────────────────────── */
+
+.tocBlock {
+  background: var(--vc-code-inline-bg);
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  padding: 0.875rem 1.125rem;
+  margin: 0 0 var(--vc-section-gap);
+}
+
+.tocBlock::before {
+  content: "Contents";
+  display: block;
+  font-family: var(--vc-font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--vc-muted-fg);
+  margin-bottom: 0.5rem;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.tocItemH2 > a,
+.tocItemH3 > a {
+  color: var(--vc-link);
+  text-decoration: none;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.tocItemH2 > a:hover,
+.tocItemH3 > a:hover {
+  color: var(--vc-link-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* H3 items are indented to show hierarchy */
+.tocItemH3 {
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .featureCover {
+    max-height: 280px;
+    border-radius: var(--vc-radius);
+  }
+
+  [data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
+    font-size: 2.8em;
+  }
+}

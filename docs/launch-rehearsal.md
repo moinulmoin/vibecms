@@ -25,7 +25,6 @@ pnpm typecheck
 pnpm lint
 pnpm build
 pnpm deploy:dev
-BASE_URL=https://vibecms.moinulislammoin2019.workers.dev pnpm test:smoke
 ```
 
 ## 3. Polar sandbox check

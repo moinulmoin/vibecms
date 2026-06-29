@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- VibeCMS mark: terminal prompt — green chevron, command lines, green cursor dot -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#202327"/>
+      <stop offset="1" stop-color="#121417"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="7" fill="url(#tile)" stroke="#2c3035" stroke-width="0.75"/>
+  <!-- prompt chevron -->
+  <path d="M7.5 9.8 L12.8 16 L7.5 22.2" fill="none" stroke="#80e541" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- command lines -->
+  <rect x="15.2" y="9.6"  width="10.8" height="2.2" rx="1.1" fill="#e6ebe7"/>
+  <rect x="15.2" y="14.9" width="8.6"  height="2.2" rx="1.1" fill="#e6ebe7"/>
+  <rect x="15.2" y="20.2" width="5.4"  height="2.2" rx="1.1" fill="#e6ebe7"/>
+  <!-- cursor dot -->
+  <rect x="22.6" y="19.7" width="3.2" height="3.2" rx="0.8" fill="#80e541"/>
+</svg>

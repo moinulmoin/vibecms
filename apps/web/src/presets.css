@@ -1,0 +1,748 @@
+/* presets.css - per-preset [data-vc-theme] design token blocks
+   Imported in styles.css AFTER vc-rich-content.css.
+
+   Mechanism: data-rich-content and data-vc-theme live on the SAME root element
+   (RichContentFrame). These blocks carry the same single-attribute specificity as
+   the [data-rich-content] defaults in vc-rich-content.css; because this file is
+   imported later, the active preset's tokens win.
+
+   Dark mode per preset:
+   - System default: @media (prefers-color-scheme: dark) nested inside each selector
+   - Force dark:     [data-vc-theme="X"][data-vc-mode="dark"] - after the base block
+   - Force light:    [data-vc-theme="X"][data-vc-mode="light"] - highest specificity,
+                     re-declares light color tokens to beat the media query
+
+   Token vocabulary: full --vc-* set (surface 11, callouts 15, code 4, quote 2,
+   figure 2, type 6, space-radius 3 = 43 tokens each preset x light+dark).
+*/
+
+@layer base {
+
+/* ==========================================================================
+   MINIMAL - default, Geist sans, airy neutral, general purpose
+   Values MUST equal the current [data-rich-content] defaults in vc-rich-content.css.
+   ========================================================================== */
+
+[data-vc-theme="minimal"] {
+  color-scheme: light;
+  /* Surface */
+  --vc-bg:              oklch(98.7% 0.004 106);
+  --vc-fg:              oklch(22%   0.006 106);
+  --vc-muted:           oklch(97%   0.006 106);
+  --vc-muted-fg:        oklch(54%   0.012 106);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(22%   0.006 106);
+  --vc-border:          oklch(91%   0.006 106);
+  --vc-accent:          oklch(45%   0.11  154);
+  --vc-accent-fg:       oklch(98.7% 0.004 106);
+  --vc-link:            oklch(45%   0.11  154);
+  --vc-link-hover:      oklch(36%   0.1   154);
+  /* Callouts */
+  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note-fg:          oklch(35%  0.090 240);
+  --vc-callout-note-border:      oklch(65%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.040 154);
+  --vc-callout-tip-fg:           oklch(35%  0.100 154);
+  --vc-callout-tip-border:       oklch(55%  0.130 154);
+  --vc-callout-important:        oklch(93%  0.030 285);
+  --vc-callout-important-fg:     oklch(35%  0.120 285);
+  --vc-callout-important-border: oklch(60%  0.150 285);
+  --vc-callout-warning:          oklch(95%  0.050  80);
+  --vc-callout-warning-fg:       oklch(35%  0.100  65);
+  --vc-callout-warning-border:   oklch(65%  0.140  75);
+  --vc-callout-caution:          oklch(94%  0.040  25);
+  --vc-callout-caution-fg:       oklch(35%  0.120  25);
+  --vc-callout-caution-border:   oklch(58%  0.180  25);
+  /* Code */
+  --vc-code-bg:         oklch(97%   0.006 106);
+  --vc-code-fg:         oklch(22%   0.006 106);
+  --vc-code-border:     oklch(91%   0.006 106);
+  --vc-code-inline-bg:  oklch(95.5% 0.006 106);
+  /* Quote */
+  --vc-quote-fg:        oklch(54%   0.012 106);
+  --vc-quote-border:    oklch(45%   0.11  154);
+  /* Figure */
+  --vc-figure-bg:       oklch(97%   0.006 106);
+  --vc-caption-fg:      oklch(54%   0.012 106);
+  /* Type */
+  --vc-font-body:       Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading:    Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono:       "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-prose-measure:   70ch;
+  --vc-prose-leading:   1.75;
+  --vc-heading-scale:   1;
+  /* Space / radius */
+  --vc-prose-gap:       1.2em;
+  --vc-section-gap:     2.5rem;
+  --vc-radius:          10px;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+    /* Surface - dark */
+    --vc-bg:              oklch(15%   0.008 168);
+    --vc-fg:              oklch(93.6% 0.008 155);
+    --vc-muted:           oklch(22%   0.012 168);
+    --vc-muted-fg:        oklch(72%   0.014 155);
+    --vc-card:            oklch(18.9% 0.010 173);
+    --vc-card-fg:         oklch(93.6% 0.008 155);
+    --vc-border:          oklch(47%   0.014 168);
+    --vc-accent:          oklch(81%   0.170 153);
+    --vc-accent-fg:       oklch(18.2% 0.029 158);
+    --vc-link:            oklch(75%   0.140 152);
+    --vc-link-hover:      oklch(65%   0.120 152);
+    /* Callouts - dark */
+    --vc-callout-note:             oklch(21%  0.040 240);
+    --vc-callout-note-fg:          oklch(78%  0.090 240);
+    --vc-callout-note-border:      oklch(50%  0.120 240);
+    --vc-callout-tip:              oklch(21%  0.040 154);
+    --vc-callout-tip-fg:           oklch(78%  0.120 154);
+    --vc-callout-tip-border:       oklch(55%  0.140 154);
+    --vc-callout-important:        oklch(21%  0.040 285);
+    --vc-callout-important-fg:     oklch(78%  0.120 285);
+    --vc-callout-important-border: oklch(50%  0.140 285);
+    --vc-callout-warning:          oklch(22%  0.050  80);
+    --vc-callout-warning-fg:       oklch(82%  0.100  80);
+    --vc-callout-warning-border:   oklch(55%  0.140  75);
+    --vc-callout-caution:          oklch(21%  0.040  25);
+    --vc-callout-caution-fg:       oklch(78%  0.120  25);
+    --vc-callout-caution-border:   oklch(50%  0.160  25);
+    /* Code - dark */
+    --vc-code-bg:         oklch(18.9% 0.010 173);
+    --vc-code-fg:         oklch(93.6% 0.008 155);
+    --vc-code-border:     oklch(47%   0.014 168);
+    --vc-code-inline-bg:  oklch(24%   0.012 168);
+    /* Quote - dark */
+    --vc-quote-fg:        oklch(72%   0.014 155);
+    --vc-quote-border:    oklch(81%   0.170 153);
+    /* Figure - dark */
+    --vc-figure-bg:       oklch(18.9% 0.010 173);
+    --vc-caption-fg:      oklch(72%   0.014 155);
+  }
+}
+
+/* minimal - force dark (overrides media query via higher specificity) */
+[data-vc-theme="minimal"][data-vc-mode="dark"] {
+  color-scheme: dark;
+  --vc-bg:              oklch(15%   0.008 168);
+  --vc-fg:              oklch(93.6% 0.008 155);
+  --vc-muted:           oklch(22%   0.012 168);
+  --vc-muted-fg:        oklch(72%   0.014 155);
+  --vc-card:            oklch(18.9% 0.010 173);
+  --vc-card-fg:         oklch(93.6% 0.008 155);
+  --vc-border:          oklch(47%   0.014 168);
+  --vc-accent:          oklch(81%   0.170 153);
+  --vc-accent-fg:       oklch(18.2% 0.029 158);
+  --vc-link:            oklch(75%   0.140 152);
+  --vc-link-hover:      oklch(65%   0.120 152);
+  --vc-callout-note:             oklch(21%  0.040 240);
+  --vc-callout-note-fg:          oklch(78%  0.090 240);
+  --vc-callout-note-border:      oklch(50%  0.120 240);
+  --vc-callout-tip:              oklch(21%  0.040 154);
+  --vc-callout-tip-fg:           oklch(78%  0.120 154);
+  --vc-callout-tip-border:       oklch(55%  0.140 154);
+  --vc-callout-important:        oklch(21%  0.040 285);
+  --vc-callout-important-fg:     oklch(78%  0.120 285);
+  --vc-callout-important-border: oklch(50%  0.140 285);
+  --vc-callout-warning:          oklch(22%  0.050  80);
+  --vc-callout-warning-fg:       oklch(82%  0.100  80);
+  --vc-callout-warning-border:   oklch(55%  0.140  75);
+  --vc-callout-caution:          oklch(21%  0.040  25);
+  --vc-callout-caution-fg:       oklch(78%  0.120  25);
+  --vc-callout-caution-border:   oklch(50%  0.160  25);
+  --vc-code-bg:         oklch(18.9% 0.010 173);
+  --vc-code-fg:         oklch(93.6% 0.008 155);
+  --vc-code-border:     oklch(47%   0.014 168);
+  --vc-code-inline-bg:  oklch(24%   0.012 168);
+  --vc-quote-fg:        oklch(72%   0.014 155);
+  --vc-quote-border:    oklch(81%   0.170 153);
+  --vc-figure-bg:       oklch(18.9% 0.010 173);
+  --vc-caption-fg:      oklch(72%   0.014 155);
+}
+
+/* minimal - force light (re-sets color tokens to beat system dark media query) */
+[data-vc-theme="minimal"][data-vc-mode="light"] {
+  color-scheme: light;
+  --vc-bg:              oklch(98.7% 0.004 106);
+  --vc-fg:              oklch(22%   0.006 106);
+  --vc-muted:           oklch(97%   0.006 106);
+  --vc-muted-fg:        oklch(54%   0.012 106);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(22%   0.006 106);
+  --vc-border:          oklch(91%   0.006 106);
+  --vc-accent:          oklch(45%   0.11  154);
+  --vc-accent-fg:       oklch(98.7% 0.004 106);
+  --vc-link:            oklch(45%   0.11  154);
+  --vc-link-hover:      oklch(36%   0.1   154);
+  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note-fg:          oklch(35%  0.090 240);
+  --vc-callout-note-border:      oklch(65%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.040 154);
+  --vc-callout-tip-fg:           oklch(35%  0.100 154);
+  --vc-callout-tip-border:       oklch(55%  0.130 154);
+  --vc-callout-important:        oklch(93%  0.030 285);
+  --vc-callout-important-fg:     oklch(35%  0.120 285);
+  --vc-callout-important-border: oklch(60%  0.150 285);
+  --vc-callout-warning:          oklch(95%  0.050  80);
+  --vc-callout-warning-fg:       oklch(35%  0.100  65);
+  --vc-callout-warning-border:   oklch(65%  0.140  75);
+  --vc-callout-caution:          oklch(94%  0.040  25);
+  --vc-callout-caution-fg:       oklch(35%  0.120  25);
+  --vc-callout-caution-border:   oklch(58%  0.180  25);
+  --vc-code-bg:         oklch(97%   0.006 106);
+  --vc-code-fg:         oklch(22%   0.006 106);
+  --vc-code-border:     oklch(91%   0.006 106);
+  --vc-code-inline-bg:  oklch(95.5% 0.006 106);
+  --vc-quote-fg:        oklch(54%   0.012 106);
+  --vc-quote-border:    oklch(45%   0.11  154);
+  --vc-figure-bg:       oklch(97%   0.006 106);
+  --vc-caption-fg:      oklch(54%   0.012 106);
+}
+
+
+/* ==========================================================================
+   EDITORIAL - serif headings, wide measure, narrative, media-heavy
+   Typeface: system serif headings (Georgia fallback), Hanken Grotesk body.
+   Hue: warm off-white (hue ~80) + terracotta accent.
+   Density: airy (prose-measure 80ch, leading 1.85, section-gap 3rem).
+   ========================================================================== */
+
+[data-vc-theme="editorial"] {
+  color-scheme: light;
+  /* Surface */
+  --vc-bg:              oklch(98%   0.003  80);
+  --vc-fg:              oklch(18%   0.006  70);
+  --vc-muted:           oklch(96%   0.004  80);
+  --vc-muted-fg:        oklch(50%   0.012  70);
+  --vc-card:            oklch(100%  0      0);
+  --vc-card-fg:         oklch(18%   0.006  70);
+  --vc-border:          oklch(88%   0.006  80);
+  --vc-accent:          oklch(42%   0.14   32);
+  --vc-accent-fg:       oklch(98%   0.003  80);
+  --vc-link:            oklch(42%   0.14   32);
+  --vc-link-hover:      oklch(32%   0.12   32);
+  /* Callouts - warm-tinted backgrounds */
+  --vc-callout-note:             oklch(93%  0.025 240);
+  --vc-callout-note-fg:          oklch(32%  0.080 240);
+  --vc-callout-note-border:      oklch(62%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.038 154);
+  --vc-callout-tip-fg:           oklch(33%  0.095 154);
+  --vc-callout-tip-border:       oklch(52%  0.125 154);
+  --vc-callout-important:        oklch(93%  0.026 285);
+  --vc-callout-important-fg:     oklch(33%  0.115 285);
+  --vc-callout-important-border: oklch(58%  0.145 285);
+  --vc-callout-warning:          oklch(95%  0.048  80);
+  --vc-callout-warning-fg:       oklch(33%  0.095  65);
+  --vc-callout-warning-border:   oklch(62%  0.135  75);
+  --vc-callout-caution:          oklch(94%  0.038  25);
+  --vc-callout-caution-fg:       oklch(33%  0.115  25);
+  --vc-callout-caution-border:   oklch(55%  0.175  25);
+  /* Code - warm neutral */
+  --vc-code-bg:         oklch(96%   0.005  80);
+  --vc-code-fg:         oklch(18%   0.006  70);
+  --vc-code-border:     oklch(88%   0.006  80);
+  --vc-code-inline-bg:  oklch(95%   0.006  80);
+  /* Quote - editorial pull-quote style with terracotta accent */
+  --vc-quote-fg:        oklch(50%   0.012  70);
+  --vc-quote-border:    oklch(42%   0.14   32);
+  /* Figure */
+  --vc-figure-bg:       oklch(96%   0.004  80);
+  --vc-caption-fg:      oklch(50%   0.012  70);
+  /* Type - serif headings, humanist body */
+  --vc-font-body:       "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading:    Georgia, "Times New Roman", ui-serif, serif;
+  --vc-font-mono:       "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-prose-measure:   80ch;
+  --vc-prose-leading:   1.85;
+  --vc-heading-scale:   1.05;
+  /* Space / radius - airy, understated edges */
+  --vc-prose-gap:       1.4em;
+  --vc-section-gap:     3rem;
+  --vc-radius:          6px;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+    /* Surface - dark warm */
+    --vc-bg:              oklch(14%   0.005  60);
+    --vc-fg:              oklch(92%   0.006  80);
+    --vc-muted:           oklch(20%   0.007  60);
+    --vc-muted-fg:        oklch(70%   0.012  70);
+    --vc-card:            oklch(17%   0.006  60);
+    --vc-card-fg:         oklch(92%   0.006  80);
+    --vc-border:          oklch(44%   0.012  65);
+    --vc-accent:          oklch(72%   0.14   32);
+    --vc-accent-fg:       oklch(14%   0.005  60);
+    --vc-link:            oklch(72%   0.14   32);
+    --vc-link-hover:      oklch(62%   0.12   32);
+    /* Callouts - dark warm */
+    --vc-callout-note:             oklch(18%  0.035 240);
+    --vc-callout-note-fg:          oklch(76%  0.090 240);
+    --vc-callout-note-border:      oklch(48%  0.120 240);
+    --vc-callout-tip:              oklch(18%  0.038 154);
+    --vc-callout-tip-fg:           oklch(76%  0.120 154);
+    --vc-callout-tip-border:       oklch(52%  0.140 154);
+    --vc-callout-important:        oklch(18%  0.038 285);
+    --vc-callout-important-fg:     oklch(76%  0.120 285);
+    --vc-callout-important-border: oklch(48%  0.140 285);
+    --vc-callout-warning:          oklch(19%  0.048  80);
+    --vc-callout-warning-fg:       oklch(80%  0.100  80);
+    --vc-callout-warning-border:   oklch(52%  0.140  75);
+    --vc-callout-caution:          oklch(18%  0.038  25);
+    --vc-callout-caution-fg:       oklch(76%  0.120  25);
+    --vc-callout-caution-border:   oklch(48%  0.160  25);
+    /* Code - dark warm */
+    --vc-code-bg:         oklch(17%   0.006  60);
+    --vc-code-fg:         oklch(92%   0.006  80);
+    --vc-code-border:     oklch(44%   0.012  65);
+    --vc-code-inline-bg:  oklch(22%   0.007  60);
+    /* Quote - dark */
+    --vc-quote-fg:        oklch(70%   0.012  70);
+    --vc-quote-border:    oklch(72%   0.14   32);
+    /* Figure - dark */
+    --vc-figure-bg:       oklch(17%   0.006  60);
+    --vc-caption-fg:      oklch(70%   0.012  70);
+  }
+}
+
+/* editorial - force dark */
+[data-vc-theme="editorial"][data-vc-mode="dark"] {
+  color-scheme: dark;
+  --vc-bg:              oklch(14%   0.005  60);
+  --vc-fg:              oklch(92%   0.006  80);
+  --vc-muted:           oklch(20%   0.007  60);
+  --vc-muted-fg:        oklch(70%   0.012  70);
+  --vc-card:            oklch(17%   0.006  60);
+  --vc-card-fg:         oklch(92%   0.006  80);
+  --vc-border:          oklch(44%   0.012  65);
+  --vc-accent:          oklch(72%   0.14   32);
+  --vc-accent-fg:       oklch(14%   0.005  60);
+  --vc-link:            oklch(72%   0.14   32);
+  --vc-link-hover:      oklch(62%   0.12   32);
+  --vc-callout-note:             oklch(18%  0.035 240);
+  --vc-callout-note-fg:          oklch(76%  0.090 240);
+  --vc-callout-note-border:      oklch(48%  0.120 240);
+  --vc-callout-tip:              oklch(18%  0.038 154);
+  --vc-callout-tip-fg:           oklch(76%  0.120 154);
+  --vc-callout-tip-border:       oklch(52%  0.140 154);
+  --vc-callout-important:        oklch(18%  0.038 285);
+  --vc-callout-important-fg:     oklch(76%  0.120 285);
+  --vc-callout-important-border: oklch(48%  0.140 285);
+  --vc-callout-warning:          oklch(19%  0.048  80);
+  --vc-callout-warning-fg:       oklch(80%  0.100  80);
+  --vc-callout-warning-border:   oklch(52%  0.140  75);
+  --vc-callout-caution:          oklch(18%  0.038  25);
+  --vc-callout-caution-fg:       oklch(76%  0.120  25);
+  --vc-callout-caution-border:   oklch(48%  0.160  25);
+  --vc-code-bg:         oklch(17%   0.006  60);
+  --vc-code-fg:         oklch(92%   0.006  80);
+  --vc-code-border:     oklch(44%   0.012  65);
+  --vc-code-inline-bg:  oklch(22%   0.007  60);
+  --vc-quote-fg:        oklch(70%   0.012  70);
+  --vc-quote-border:    oklch(72%   0.14   32);
+  --vc-figure-bg:       oklch(17%   0.006  60);
+  --vc-caption-fg:      oklch(70%   0.012  70);
+}
+
+/* editorial - force light */
+[data-vc-theme="editorial"][data-vc-mode="light"] {
+  color-scheme: light;
+  --vc-bg:              oklch(98%   0.003  80);
+  --vc-fg:              oklch(18%   0.006  70);
+  --vc-muted:           oklch(96%   0.004  80);
+  --vc-muted-fg:        oklch(50%   0.012  70);
+  --vc-card:            oklch(100%  0      0);
+  --vc-card-fg:         oklch(18%   0.006  70);
+  --vc-border:          oklch(88%   0.006  80);
+  --vc-accent:          oklch(42%   0.14   32);
+  --vc-accent-fg:       oklch(98%   0.003  80);
+  --vc-link:            oklch(42%   0.14   32);
+  --vc-link-hover:      oklch(32%   0.12   32);
+  --vc-callout-note:             oklch(93%  0.025 240);
+  --vc-callout-note-fg:          oklch(32%  0.080 240);
+  --vc-callout-note-border:      oklch(62%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.038 154);
+  --vc-callout-tip-fg:           oklch(33%  0.095 154);
+  --vc-callout-tip-border:       oklch(52%  0.125 154);
+  --vc-callout-important:        oklch(93%  0.026 285);
+  --vc-callout-important-fg:     oklch(33%  0.115 285);
+  --vc-callout-important-border: oklch(58%  0.145 285);
+  --vc-callout-warning:          oklch(95%  0.048  80);
+  --vc-callout-warning-fg:       oklch(33%  0.095  65);
+  --vc-callout-warning-border:   oklch(62%  0.135  75);
+  --vc-callout-caution:          oklch(94%  0.038  25);
+  --vc-callout-caution-fg:       oklch(33%  0.115  25);
+  --vc-callout-caution-border:   oklch(55%  0.175  25);
+  --vc-code-bg:         oklch(96%   0.005  80);
+  --vc-code-fg:         oklch(18%   0.006  70);
+  --vc-code-border:     oklch(88%   0.006  80);
+  --vc-code-inline-bg:  oklch(95%   0.006  80);
+  --vc-quote-fg:        oklch(50%   0.012  70);
+  --vc-quote-border:    oklch(42%   0.14   32);
+  --vc-figure-bg:       oklch(96%   0.004  80);
+  --vc-caption-fg:      oklch(50%   0.012  70);
+}
+
+
+/* ==========================================================================
+   TECHNICAL - Space Grotesk headings, JetBrains Mono emphasis, tight density
+   Intended for: docs, tutorials, reference. Cool blue accent.
+   Density: tight (prose-measure 65ch, leading 1.65, section-gap 2rem).
+   ========================================================================== */
+
+[data-vc-theme="technical"] {
+  color-scheme: light;
+  /* Surface - very slightly cool */
+  --vc-bg:              oklch(98.5% 0.003 230);
+  --vc-fg:              oklch(19%   0.010 240);
+  --vc-muted:           oklch(97%   0.004 230);
+  --vc-muted-fg:        oklch(52%   0.015 240);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(19%   0.010 240);
+  --vc-border:          oklch(90%   0.008 230);
+  --vc-accent:          oklch(50%   0.18  255);
+  --vc-accent-fg:       oklch(98.5% 0.003 230);
+  --vc-link:            oklch(50%   0.18  255);
+  --vc-link-hover:      oklch(40%   0.16  255);
+  /* Callouts */
+  --vc-callout-note:             oklch(93%  0.032 240);
+  --vc-callout-note-fg:          oklch(34%  0.095 240);
+  --vc-callout-note-border:      oklch(64%  0.125 240);
+  --vc-callout-tip:              oklch(93%  0.042 154);
+  --vc-callout-tip-fg:           oklch(34%  0.100 154);
+  --vc-callout-tip-border:       oklch(54%  0.132 154);
+  --vc-callout-important:        oklch(93%  0.032 285);
+  --vc-callout-important-fg:     oklch(34%  0.125 285);
+  --vc-callout-important-border: oklch(58%  0.155 285);
+  --vc-callout-warning:          oklch(94%  0.052  80);
+  --vc-callout-warning-fg:       oklch(34%  0.102  65);
+  --vc-callout-warning-border:   oklch(64%  0.142  75);
+  --vc-callout-caution:          oklch(93%  0.042  25);
+  --vc-callout-caution-fg:       oklch(34%  0.125  25);
+  --vc-callout-caution-border:   oklch(57%  0.185  25);
+  /* Code - cool-tinted background for technical emphasis */
+  --vc-code-bg:         oklch(96.5% 0.006 230);
+  --vc-code-fg:         oklch(19%   0.010 240);
+  --vc-code-border:     oklch(90%   0.008 230);
+  --vc-code-inline-bg:  oklch(94.5% 0.008 230);
+  /* Quote */
+  --vc-quote-fg:        oklch(52%   0.015 240);
+  --vc-quote-border:    oklch(50%   0.18  255);
+  /* Figure */
+  --vc-figure-bg:       oklch(96.5% 0.006 230);
+  --vc-caption-fg:      oklch(52%   0.015 240);
+  /* Type - geometric headings, prominent mono */
+  --vc-font-body:       Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading:    "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono:       "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-prose-measure:   65ch;
+  --vc-prose-leading:   1.65;
+  --vc-heading-scale:   0.95;
+  /* Space / radius - tight, utilitarian */
+  --vc-prose-gap:       1em;
+  --vc-section-gap:     2rem;
+  --vc-radius:          8px;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+    /* Surface - dark cool */
+    --vc-bg:              oklch(13%   0.012 240);
+    --vc-fg:              oklch(92%   0.010 230);
+    --vc-muted:           oklch(20%   0.014 240);
+    --vc-muted-fg:        oklch(70%   0.018 230);
+    --vc-card:            oklch(17%   0.012 240);
+    --vc-card-fg:         oklch(92%   0.010 230);
+    --vc-border:          oklch(45%   0.018 240);
+    --vc-accent:          oklch(66%   0.20  255);
+    --vc-accent-fg:       oklch(13%   0.012 240);
+    --vc-link:            oklch(66%   0.20  255);
+    --vc-link-hover:      oklch(56%   0.18  255);
+    /* Callouts - dark cool */
+    --vc-callout-note:             oklch(19%  0.042 240);
+    --vc-callout-note-fg:          oklch(76%  0.090 240);
+    --vc-callout-note-border:      oklch(49%  0.120 240);
+    --vc-callout-tip:              oklch(19%  0.042 154);
+    --vc-callout-tip-fg:           oklch(76%  0.120 154);
+    --vc-callout-tip-border:       oklch(53%  0.140 154);
+    --vc-callout-important:        oklch(19%  0.042 285);
+    --vc-callout-important-fg:     oklch(76%  0.120 285);
+    --vc-callout-important-border: oklch(49%  0.140 285);
+    --vc-callout-warning:          oklch(20%  0.052  80);
+    --vc-callout-warning-fg:       oklch(80%  0.100  80);
+    --vc-callout-warning-border:   oklch(53%  0.140  75);
+    --vc-callout-caution:          oklch(19%  0.042  25);
+    --vc-callout-caution-fg:       oklch(76%  0.120  25);
+    --vc-callout-caution-border:   oklch(49%  0.160  25);
+    /* Code - dark cool */
+    --vc-code-bg:         oklch(17%   0.012 240);
+    --vc-code-fg:         oklch(92%   0.010 230);
+    --vc-code-border:     oklch(45%   0.018 240);
+    --vc-code-inline-bg:  oklch(23%   0.014 240);
+    /* Quote - dark */
+    --vc-quote-fg:        oklch(70%   0.018 230);
+    --vc-quote-border:    oklch(66%   0.20  255);
+    /* Figure - dark */
+    --vc-figure-bg:       oklch(17%   0.012 240);
+    --vc-caption-fg:      oklch(70%   0.018 230);
+  }
+}
+
+/* technical - force dark */
+[data-vc-theme="technical"][data-vc-mode="dark"] {
+  color-scheme: dark;
+  --vc-bg:              oklch(13%   0.012 240);
+  --vc-fg:              oklch(92%   0.010 230);
+  --vc-muted:           oklch(20%   0.014 240);
+  --vc-muted-fg:        oklch(70%   0.018 230);
+  --vc-card:            oklch(17%   0.012 240);
+  --vc-card-fg:         oklch(92%   0.010 230);
+  --vc-border:          oklch(45%   0.018 240);
+  --vc-accent:          oklch(66%   0.20  255);
+  --vc-accent-fg:       oklch(13%   0.012 240);
+  --vc-link:            oklch(66%   0.20  255);
+  --vc-link-hover:      oklch(56%   0.18  255);
+  --vc-callout-note:             oklch(19%  0.042 240);
+  --vc-callout-note-fg:          oklch(76%  0.090 240);
+  --vc-callout-note-border:      oklch(49%  0.120 240);
+  --vc-callout-tip:              oklch(19%  0.042 154);
+  --vc-callout-tip-fg:           oklch(76%  0.120 154);
+  --vc-callout-tip-border:       oklch(53%  0.140 154);
+  --vc-callout-important:        oklch(19%  0.042 285);
+  --vc-callout-important-fg:     oklch(76%  0.120 285);
+  --vc-callout-important-border: oklch(49%  0.140 285);
+  --vc-callout-warning:          oklch(20%  0.052  80);
+  --vc-callout-warning-fg:       oklch(80%  0.100  80);
+  --vc-callout-warning-border:   oklch(53%  0.140  75);
+  --vc-callout-caution:          oklch(19%  0.042  25);
+  --vc-callout-caution-fg:       oklch(76%  0.120  25);
+  --vc-callout-caution-border:   oklch(49%  0.160  25);
+  --vc-code-bg:         oklch(17%   0.012 240);
+  --vc-code-fg:         oklch(92%   0.010 230);
+  --vc-code-border:     oklch(45%   0.018 240);
+  --vc-code-inline-bg:  oklch(23%   0.014 240);
+  --vc-quote-fg:        oklch(70%   0.018 230);
+  --vc-quote-border:    oklch(66%   0.20  255);
+  --vc-figure-bg:       oklch(17%   0.012 240);
+  --vc-caption-fg:      oklch(70%   0.018 230);
+}
+
+/* technical - force light */
+[data-vc-theme="technical"][data-vc-mode="light"] {
+  color-scheme: light;
+  --vc-bg:              oklch(98.5% 0.003 230);
+  --vc-fg:              oklch(19%   0.010 240);
+  --vc-muted:           oklch(97%   0.004 230);
+  --vc-muted-fg:        oklch(52%   0.015 240);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(19%   0.010 240);
+  --vc-border:          oklch(90%   0.008 230);
+  --vc-accent:          oklch(50%   0.18  255);
+  --vc-accent-fg:       oklch(98.5% 0.003 230);
+  --vc-link:            oklch(50%   0.18  255);
+  --vc-link-hover:      oklch(40%   0.16  255);
+  --vc-callout-note:             oklch(93%  0.032 240);
+  --vc-callout-note-fg:          oklch(34%  0.095 240);
+  --vc-callout-note-border:      oklch(64%  0.125 240);
+  --vc-callout-tip:              oklch(93%  0.042 154);
+  --vc-callout-tip-fg:           oklch(34%  0.100 154);
+  --vc-callout-tip-border:       oklch(54%  0.132 154);
+  --vc-callout-important:        oklch(93%  0.032 285);
+  --vc-callout-important-fg:     oklch(34%  0.125 285);
+  --vc-callout-important-border: oklch(58%  0.155 285);
+  --vc-callout-warning:          oklch(94%  0.052  80);
+  --vc-callout-warning-fg:       oklch(34%  0.102  65);
+  --vc-callout-warning-border:   oklch(64%  0.142  75);
+  --vc-callout-caution:          oklch(93%  0.042  25);
+  --vc-callout-caution-fg:       oklch(34%  0.125  25);
+  --vc-callout-caution-border:   oklch(57%  0.185  25);
+  --vc-code-bg:         oklch(96.5% 0.006 230);
+  --vc-code-fg:         oklch(19%   0.010 240);
+  --vc-code-border:     oklch(90%   0.008 230);
+  --vc-code-inline-bg:  oklch(94.5% 0.008 230);
+  --vc-quote-fg:        oklch(52%   0.015 240);
+  --vc-quote-border:    oklch(50%   0.18  255);
+  --vc-figure-bg:       oklch(96.5% 0.006 230);
+  --vc-caption-fg:      oklch(52%   0.015 240);
+}
+
+
+/* ==========================================================================
+   PRODUCT - Space Grotesk headings, Hanken Grotesk body, larger heading scale
+   Intended for: founder updates, launch posts, conversion-aware content.
+   Brand green accent, slightly rounder radius, scan-friendly density.
+   ========================================================================== */
+
+[data-vc-theme="product"] {
+  color-scheme: light;
+  /* Surface - neutral (clean, confident) */
+  --vc-bg:              oklch(98.7% 0.004 106);
+  --vc-fg:              oklch(20%   0.008 120);
+  --vc-muted:           oklch(97%   0.006 106);
+  --vc-muted-fg:        oklch(52%   0.014 120);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(20%   0.008 120);
+  --vc-border:          oklch(90%   0.007 106);
+  --vc-accent:          oklch(38%   0.16  152);
+  --vc-accent-fg:       oklch(98.7% 0.004 106);
+  --vc-link:            oklch(38%   0.16  152);
+  --vc-link-hover:      oklch(30%   0.14  152);
+  /* Callouts - standard semantic with vibrant brand-green tip */
+  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note-fg:          oklch(35%  0.090 240);
+  --vc-callout-note-border:      oklch(65%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.044 154);
+  --vc-callout-tip-fg:           oklch(35%  0.105 154);
+  --vc-callout-tip-border:       oklch(56%  0.135 154);
+  --vc-callout-important:        oklch(93%  0.032 285);
+  --vc-callout-important-fg:     oklch(35%  0.122 285);
+  --vc-callout-important-border: oklch(60%  0.152 285);
+  --vc-callout-warning:          oklch(95%  0.052  80);
+  --vc-callout-warning-fg:       oklch(35%  0.102  65);
+  --vc-callout-warning-border:   oklch(65%  0.142  75);
+  --vc-callout-caution:          oklch(94%  0.042  25);
+  --vc-callout-caution-fg:       oklch(35%  0.122  25);
+  --vc-callout-caution-border:   oklch(58%  0.182  25);
+  /* Code */
+  --vc-code-bg:         oklch(97%   0.006 106);
+  --vc-code-fg:         oklch(20%   0.008 120);
+  --vc-code-border:     oklch(90%   0.007 106);
+  --vc-code-inline-bg:  oklch(95.5% 0.007 106);
+  /* Quote - brand-green left border for pull-quote impact */
+  --vc-quote-fg:        oklch(52%   0.014 120);
+  --vc-quote-border:    oklch(38%   0.16  152);
+  /* Figure */
+  --vc-figure-bg:       oklch(97%   0.006 106);
+  --vc-caption-fg:      oklch(52%   0.014 120);
+  /* Type - confident geometric headings, warm humanist body */
+  --vc-font-body:       "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading:    "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --vc-font-mono:       "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vc-prose-measure:   68ch;
+  --vc-prose-leading:   1.7;
+  --vc-heading-scale:   1.1;
+  /* Space / radius - scan-friendly, modern rounded */
+  --vc-prose-gap:       1.1em;
+  --vc-section-gap:     2.5rem;
+  --vc-radius:          12px;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+    /* Surface - dark brand-green teal family */
+    --vc-bg:              oklch(14%   0.008 168);
+    --vc-fg:              oklch(93.6% 0.008 155);
+    --vc-muted:           oklch(21%   0.012 168);
+    --vc-muted-fg:        oklch(71%   0.014 155);
+    --vc-card:            oklch(18%   0.010 173);
+    --vc-card-fg:         oklch(93.6% 0.008 155);
+    --vc-border:          oklch(46%   0.014 168);
+    --vc-accent:          oklch(78%   0.18  152);
+    --vc-accent-fg:       oklch(14%   0.008 168);
+    --vc-link:            oklch(75%   0.16  152);
+    --vc-link-hover:      oklch(65%   0.14  152);
+    /* Callouts - dark */
+    --vc-callout-note:             oklch(21%  0.040 240);
+    --vc-callout-note-fg:          oklch(78%  0.090 240);
+    --vc-callout-note-border:      oklch(50%  0.120 240);
+    --vc-callout-tip:              oklch(21%  0.042 154);
+    --vc-callout-tip-fg:           oklch(78%  0.125 154);
+    --vc-callout-tip-border:       oklch(56%  0.145 154);
+    --vc-callout-important:        oklch(21%  0.040 285);
+    --vc-callout-important-fg:     oklch(78%  0.122 285);
+    --vc-callout-important-border: oklch(50%  0.142 285);
+    --vc-callout-warning:          oklch(22%  0.052  80);
+    --vc-callout-warning-fg:       oklch(82%  0.102  80);
+    --vc-callout-warning-border:   oklch(56%  0.142  75);
+    --vc-callout-caution:          oklch(21%  0.042  25);
+    --vc-callout-caution-fg:       oklch(78%  0.122  25);
+    --vc-callout-caution-border:   oklch(50%  0.162  25);
+    /* Code - dark */
+    --vc-code-bg:         oklch(18%   0.010 173);
+    --vc-code-fg:         oklch(93.6% 0.008 155);
+    --vc-code-border:     oklch(46%   0.014 168);
+    --vc-code-inline-bg:  oklch(24%   0.012 168);
+    /* Quote - dark */
+    --vc-quote-fg:        oklch(71%   0.014 155);
+    --vc-quote-border:    oklch(78%   0.18  152);
+    /* Figure - dark */
+    --vc-figure-bg:       oklch(18%   0.010 173);
+    --vc-caption-fg:      oklch(71%   0.014 155);
+  }
+}
+
+/* product - force dark */
+[data-vc-theme="product"][data-vc-mode="dark"] {
+  color-scheme: dark;
+  --vc-bg:              oklch(14%   0.008 168);
+  --vc-fg:              oklch(93.6% 0.008 155);
+  --vc-muted:           oklch(21%   0.012 168);
+  --vc-muted-fg:        oklch(71%   0.014 155);
+  --vc-card:            oklch(18%   0.010 173);
+  --vc-card-fg:         oklch(93.6% 0.008 155);
+  --vc-border:          oklch(46%   0.014 168);
+  --vc-accent:          oklch(78%   0.18  152);
+  --vc-accent-fg:       oklch(14%   0.008 168);
+  --vc-link:            oklch(75%   0.16  152);
+  --vc-link-hover:      oklch(65%   0.14  152);
+  --vc-callout-note:             oklch(21%  0.040 240);
+  --vc-callout-note-fg:          oklch(78%  0.090 240);
+  --vc-callout-note-border:      oklch(50%  0.120 240);
+  --vc-callout-tip:              oklch(21%  0.042 154);
+  --vc-callout-tip-fg:           oklch(78%  0.125 154);
+  --vc-callout-tip-border:       oklch(56%  0.145 154);
+  --vc-callout-important:        oklch(21%  0.040 285);
+  --vc-callout-important-fg:     oklch(78%  0.122 285);
+  --vc-callout-important-border: oklch(50%  0.142 285);
+  --vc-callout-warning:          oklch(22%  0.052  80);
+  --vc-callout-warning-fg:       oklch(82%  0.102  80);
+  --vc-callout-warning-border:   oklch(56%  0.142  75);
+  --vc-callout-caution:          oklch(21%  0.042  25);
+  --vc-callout-caution-fg:       oklch(78%  0.122  25);
+  --vc-callout-caution-border:   oklch(50%  0.162  25);
+  --vc-code-bg:         oklch(18%   0.010 173);
+  --vc-code-fg:         oklch(93.6% 0.008 155);
+  --vc-code-border:     oklch(46%   0.014 168);
+  --vc-code-inline-bg:  oklch(24%   0.012 168);
+  --vc-quote-fg:        oklch(71%   0.014 155);
+  --vc-quote-border:    oklch(78%   0.18  152);
+  --vc-figure-bg:       oklch(18%   0.010 173);
+  --vc-caption-fg:      oklch(71%   0.014 155);
+}
+
+/* product - force light */
+[data-vc-theme="product"][data-vc-mode="light"] {
+  color-scheme: light;
+  --vc-bg:              oklch(98.7% 0.004 106);
+  --vc-fg:              oklch(20%   0.008 120);
+  --vc-muted:           oklch(97%   0.006 106);
+  --vc-muted-fg:        oklch(52%   0.014 120);
+  --vc-card:            oklch(100%  0     0);
+  --vc-card-fg:         oklch(20%   0.008 120);
+  --vc-border:          oklch(90%   0.007 106);
+  --vc-accent:          oklch(38%   0.16  152);
+  --vc-accent-fg:       oklch(98.7% 0.004 106);
+  --vc-link:            oklch(38%   0.16  152);
+  --vc-link-hover:      oklch(30%   0.14  152);
+  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note-fg:          oklch(35%  0.090 240);
+  --vc-callout-note-border:      oklch(65%  0.120 240);
+  --vc-callout-tip:              oklch(94%  0.044 154);
+  --vc-callout-tip-fg:           oklch(35%  0.105 154);
+  --vc-callout-tip-border:       oklch(56%  0.135 154);
+  --vc-callout-important:        oklch(93%  0.032 285);
+  --vc-callout-important-fg:     oklch(35%  0.122 285);
+  --vc-callout-important-border: oklch(60%  0.152 285);
+  --vc-callout-warning:          oklch(95%  0.052  80);
+  --vc-callout-warning-fg:       oklch(35%  0.102  65);
+  --vc-callout-warning-border:   oklch(65%  0.142  75);
+  --vc-callout-caution:          oklch(94%  0.042  25);
+  --vc-callout-caution-fg:       oklch(35%  0.122  25);
+  --vc-callout-caution-border:   oklch(58%  0.182  25);
+  --vc-code-bg:         oklch(97%   0.006 106);
+  --vc-code-fg:         oklch(20%   0.008 120);
+  --vc-code-border:     oklch(90%   0.007 106);
+  --vc-code-inline-bg:  oklch(95.5% 0.007 106);
+  --vc-quote-fg:        oklch(52%   0.014 120);
+  --vc-quote-border:    oklch(38%   0.16  152);
+  --vc-figure-bg:       oklch(97%   0.006 106);
+  --vc-caption-fg:      oklch(52%   0.014 120);
+}
+
+} /* @layer base */

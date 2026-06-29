@@ -4,7 +4,7 @@ import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, InfoCircle
 import { cn } from "../lib/utils";
 
 const alertVariants = cva(
-  "relative flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-sm",
+  "relative flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm font-sans ring-1 ring-[color:var(--hairline)]",
   {
     variants: {
       variant: {
@@ -37,7 +37,7 @@ function Alert({ className, variant = "info", title, children, role, ...props }:
     >
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <div className="flex min-w-0 flex-col gap-0.5">
-        {title ? <p className="font-medium leading-snug">{title}</p> : null}
+        {title ? <p className="font-display font-medium leading-snug">{title}</p> : null}
         {children ? (
           <div className="leading-snug text-muted-foreground [&_a]:font-medium [&_a]:text-foreground [&_a]:underline [&_a]:underline-offset-4">
             {children}

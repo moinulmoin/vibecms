@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { BRAND } from "@vc/config";
-import { listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog";
+import { isPublicBlogIndexable, listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog-data";
 
 function xmlEscape(value: string): string {
   return value
@@ -12,6 +12,11 @@ function xmlEscape(value: string): string {
 }
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
+
+/** Non-indexable (unpaid) blogs render but must not be advertised to crawlers/agents. */
+function robotsTagHeaders(site: SiteRow): Record<string, string> {
+  return isPublicBlogIndexable(site) ? {} : { "x-robots-tag": "noindex, nofollow" };
+}
 
 const notFound = () =>
   new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -94,7 +99,7 @@ ${items}
 </rss>`;
 
   return new Response(xml, {
-    headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": cacheControl },
+    headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": cacheControl, ...robotsTagHeaders(site) },
   });
 }
 
@@ -102,6 +107,7 @@ ${items}
 export async function handleSitemap(request: Request): Promise<Response> {
   const site = await resolveSite(request);
   if (!site) return isAppHost(request) ? productSitemap(new URL(request.url).origin) : notFound();
+  if (!isPublicBlogIndexable(site)) return notFound();
   const origin = new URL(request.url).origin;
   const posts = await listPublishedPosts(site.id);
   const urls = [`${origin}/`, ...posts.map((post) => `${origin}/${post.slug}`)];
@@ -122,7 +128,7 @@ export async function handleRobots(request: Request): Promise<Response> {
   const site = await resolveSite(request);
   const origin = new URL(request.url).origin;
 
-  const indexable = !!site || isAppHost(request);
+  const indexable = (site ? isPublicBlogIndexable(site) : false) || isAppHost(request);
   const body = indexable
     ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
     : "User-agent: *\nAllow: /\n";
@@ -147,7 +153,7 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
     }
   }
   return new Response(`${lines.join("\n")}\n`, {
-    headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": cacheControl },
+    headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": cacheControl, ...robotsTagHeaders(site) },
   });
 }
 

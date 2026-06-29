@@ -82,5 +82,18 @@ export function createD1AssetRepository(db: D1Database): AssetRepository {
         now(),
       ).run();
     },
+
+    async updateAssetAltText(siteId: string, assetId: string, altText: string | null) {
+      await db.prepare("UPDATE assets SET alt_text = ?, updated_at = ? WHERE site_id = ? AND id = ?").bind(altText, now(), siteId, assetId).run();
+    },
+
+    async deleteAsset(siteId: string, assetId: string) {
+      await db.prepare("DELETE FROM assets WHERE site_id = ? AND id = ?").bind(siteId, assetId).run();
+    },
+
+    async isAssetReferencedAsCover(siteId: string, assetId: string) {
+      const r = await db.prepare("SELECT 1 FROM posts WHERE site_id = ? AND cover_asset_id = ? LIMIT 1").bind(siteId, assetId).first();
+      return r != null;
+    },
   };
 }

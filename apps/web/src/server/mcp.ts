@@ -1,27 +1,28 @@
-import { AppError, RateLimitError, archivePost, can, createPost, getPost, listPosts, publishPost, requireScope, updatePost, type Actor, type Post } from "@vc/core";
-import { FORM_STATUS, MEDIA } from "@vc/config";
-import { createD1PostRepository } from "@vc/db";
-import { mcpInstructions, mcpToolNames, mcpTools } from "@vc/mcp";
-import { allowedImageMimeTypes } from "@vc/validators";
+import { AppError, RateLimitError, can, type Actor } from "@vc/core";
 import { env } from "cloudflare:workers";
+import { FORM_STATUS } from "@vc/config";
+import { mcpInstructions, mcpTools } from "@vc/mcp";
+import {
+  mcpToolNames as contractToolNames,
+  operations,
+  operationsByToolName,
+  zodToJsonSchema,
+  type McpToolName,
+  type OperationAnnotations,
+} from "@vc/api-contract";
 import { authenticateBearerToken } from "./api-keys";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
-import { getBillingStatusForSite } from "./billing";
-import { UploadError, uploadAsset } from "./media";
+import { UploadError } from "./media";
+import { dispatchOperation } from "./mcp-dispatch";
+import type { OperationContext } from "./operations";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
 type ToolContent = { type: "text"; text: string };
-type SiteRow = { id: string; name: string; slug: string; description: string | null; created_at: number; updated_at: number };
-type ActivityRow = { id: string; action: string; entity_type: string; entity_id: string; summary: string; actor_type: string; actor_id: string; actor_name: string; created_at: number };
 
-const tools = mcpTools;
-
-function repository() {
-  return createD1PostRepository(env.DB);
-}
+const mcpToolsByName = new Map(mcpTools.map((tool) => [tool.name, tool]));
 
 function asObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function stringParam(params: Record<string, unknown>, name: string) {
@@ -29,54 +30,15 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function numberParam(params: Record<string, unknown>, name: string) {
-  const value = params[name];
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return undefined;
-}
-
-function tagsParam(params: Record<string, unknown>) {
-  return Array.isArray(params.tags) ? params.tags.filter((tag): tag is string => typeof tag === "string") : undefined;
-}
-
-function decodedBase64Length(dataBase64: string) {
-  const normalized = dataBase64.replace(/\\s/g, "");
-  const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
-  return Math.floor((normalized.length * 3) / 4) - padding;
-}
-
-function isAllowedMimeType(type: string): type is typeof allowedImageMimeTypes[number] {
-  return allowedImageMimeTypes.includes(type as typeof allowedImageMimeTypes[number]);
-}
-
-function base64File(args: Record<string, unknown>) {
-  const filename = stringParam(args, "filename");
-  const mimeType = stringParam(args, "mimeType");
-  const dataBase64 = stringParam(args, "dataBase64");
-  if (!filename || !mimeType || !dataBase64) throw new AppError("VALIDATION_ERROR", "filename, mimeType, and dataBase64 are required", 400);
-  if (!isAllowedMimeType(mimeType)) throw new AppError("VALIDATION_ERROR", "Unsupported image MIME type", 400);
-  if (decodedBase64Length(dataBase64) > MEDIA.maxImageBytes) throw new AppError("VALIDATION_ERROR", "Asset payload exceeds 10 MB", 400);
-  try {
-    const bytes = Uint8Array.from(atob(dataBase64), (char) => char.charCodeAt(0));
-    return new File([bytes], filename, { type: mimeType });
-  } catch {
-    throw new AppError("VALIDATION_ERROR", "Invalid base64 asset payload", 400);
-  }
-}
-
-const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "assets.upload"]);
+const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete"]);
 
 function apiUsageKind(toolName: string): ApiUsageKind {
   return writeTools.has(toolName) ? "write" : "read";
 }
-function forceQuotaForSmoke(request: Request) {
-  return env.APP_ENV !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
-}
 
+function forceQuotaForSmoke(request: Request) {
+  return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
+}
 const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
 const LATEST_PROTOCOL_VERSION = "2025-06-18";
 const recoverableToolErrorCodes = new Set(["VALIDATION_ERROR", "CONFLICT", "NOT_FOUND"]);
@@ -94,90 +56,60 @@ function rpcError(id: JsonRpcRequest["id"], code: number, message: string, statu
   return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers });
 }
 
-function textResult(value: unknown): { content: ToolContent[] } {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+function structuredToolResult(dto: unknown, outputSchema: Record<string, unknown>) {
+  return {
+    // Compact JSON: agents read this text into their context, so the
+    // pretty-print indentation was pure token overhead. structuredContent
+    // carries the machine-readable object for hosts that prefer it.
+    content: [{ type: "text" as const, text: JSON.stringify(dto) }],
+    structuredContent: dto,
+    outputSchema,
+  };
+}
+
+// Tell the agent how long to wait. MCP hosts often surface the error message
+// but not the HTTP headers, so put the reset time in the text too.
+function rateLimitMessage(error: unknown): string {
+  const status =
+    error instanceof RateLimitError
+      ? (error as RateLimitError & { usageStatus?: { resetsAt: number; metric: string; period: string } }).usageStatus
+      : undefined
+  if (!status) return "Rate limit exceeded. Wait for the limit to reset, then retry."
+  const seconds = Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000))
+  return `Rate limit exceeded on ${status.metric} (${status.period}). Retry after ${seconds}s.`
 }
 
 function toolError(message: string): { content: ToolContent[]; isError: true } {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-async function currentSite(siteId: string) {
-  return env.DB.prepare("SELECT id, name, slug, description, created_at, updated_at FROM sites WHERE id = ? LIMIT 1").bind(siteId).first<SiteRow>();
+async function callTool(name: McpToolName, actor: Actor, siteId: string, workspaceId: string, tokenId: string, rawArguments: unknown) {
+  const op = operationsByToolName[name];
+  const dto = await dispatchOperation(name, { actor, siteId, workspaceId, tokenId } satisfies OperationContext, rawArguments);
+  return structuredToolResult(dto, zodToJsonSchema(op.responseSchema));
 }
-
-async function recentActivity(siteId: string, limit: number) {
-  const rows = await env.DB.prepare(
-    `SELECT id, action, entity_type, entity_id, summary, actor_type, actor_id, actor_name, created_at
-     FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
-  ).bind(siteId, Math.min(Math.max(limit, 1), 50)).all<ActivityRow>();
-  return rows.results;
-}
-
-async function requireBillableSite(siteId: string) {
-  const billingStatus = await getBillingStatusForSite(siteId);
-  if (billingStatus !== "active") {
-    throw new AppError("BILLING_REQUIRED", "An active subscription is required for MCP writes", 402);
-  }
-  return billingStatus;
-}
-
-async function callTool(name: string, actor: Actor, siteId: string, workspaceId: string, rawArguments: unknown) {
-  const args = asObject(rawArguments);
-  const repo = repository();
-  switch (name) {
-    case "sites.get":
-      requireScope(actor, "sites:read");
-      return textResult(await currentSite(siteId));
-    case "posts.list":
-      return textResult(await listPosts(repo, actor, { siteId, status: stringParam(args, "status") as Post["status"] | undefined, search: stringParam(args, "search"), limit: numberParam(args, "limit"), offset: numberParam(args, "offset") }));
-    case "posts.search":
-      return textResult(await listPosts(repo, actor, { siteId, search: stringParam(args, "search") ?? "", limit: numberParam(args, "limit"), offset: numberParam(args, "offset") }));
-    case "posts.get": {
-      const postId = stringParam(args, "postId");
-      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await getPost(repo, actor, siteId, postId));
-    }
-    case "posts.create":
-      return textResult(await createPost(repo, actor, { siteId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
-    case "posts.update": {
-      const postId = stringParam(args, "postId");
-      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await updatePost(repo, actor, { siteId, postId, title: stringParam(args, "title"), slug: stringParam(args, "slug"), excerpt: stringParam(args, "excerpt"), contentMarkdown: stringParam(args, "contentMarkdown"), tags: tagsParam(args) }));
-    }
-    case "posts.publish": {
-      const postId = stringParam(args, "postId");
-      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await publishPost(repo, actor, { siteId, postId, billingStatus: await getBillingStatusForSite(siteId) }));
-    }
-    case "posts.archive": {
-      const postId = stringParam(args, "postId");
-      if (!postId) throw new AppError("VALIDATION_ERROR", "postId is required", 400);
-      return textResult(await archivePost(repo, actor, { siteId, postId }));
-    }
-    case "assets.upload":
-      await requireBillableSite(siteId);
-      return textResult(await uploadAsset({ user: { id: actor.id, name: actor.name, email: "api" }, workspaceId, siteId, actor }, base64File(args), stringParam(args, "altText")));
-    case "activity.list":
-      requireScope(actor, "activity:read");
-      return textResult(await recentActivity(siteId, numberParam(args, "limit") ?? 20));
-    default:
-      throw new AppError("VALIDATION_ERROR", "Unknown tool", 400);
-  }
-}
-
 
 function listedTools(actor?: Actor) {
   return {
-    tools: tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-      _meta: {
-        "vibecms.com/requiredScope": tool.requiredScope,
-        ...(actor ? { "vibecms.com/available": can(actor, tool.requiredScope) } : {}),
-      },
-    })),
+    tools: operations.map((op) => {
+      const catalog = mcpToolsByName.get(op.toolName);
+      const annotations: Record<string, boolean> = {};
+      const hints = op.annotations as OperationAnnotations;
+      if (hints.readOnly) annotations.readOnlyHint = true;
+      if (hints.destructive) annotations.destructiveHint = true;
+      if (hints.idempotent) annotations.idempotentHint = true;
+      return {
+        name: op.toolName,
+        description: catalog?.description ?? op.description,
+        inputSchema: catalog?.inputSchema ?? {},
+        outputSchema: zodToJsonSchema(op.responseSchema),
+        annotations,
+        _meta: {
+          "vibecms.com/requiredScope": op.requiredScope,
+          ...(actor ? { "vibecms.com/available": can(actor, op.requiredScope) } : {}),
+        },
+      };
+    }),
   };
 }
 
@@ -204,7 +136,7 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
     case "CONFLICT":
       return rpcError(id, -32009, error.message, 409);
     case "RATE_LIMIT":
-      return rpcError(id, -32010, "Rate limit exceeded", 429, apiRateLimitHeaders(error));
+      return rpcError(id, -32010, rateLimitMessage(error), 429, apiRateLimitHeaders(error));
     case "VALIDATION_ERROR":
       return rpcError(id, -32602, error.message, 400);
     default:
@@ -222,14 +154,29 @@ export async function handleMcpRequest(request: Request) {
     return rpcError(null, -32700, "Parse error", 400);
   }
   const protocolHeader = request.headers.get("MCP-Protocol-Version");
-  if (protocolHeader && !(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(protocolHeader)) return rpcError(body.id, -32600, `Unsupported MCP-Protocol-Version: ${protocolHeader}`, 400);
-  if (body.method === "initialize") return result(body.id, { protocolVersion: negotiateProtocolVersion(body.params), capabilities: { tools: {} }, serverInfo: { name: "vibecms", title: "VibeCMS", version: "0.1.0" }, instructions: mcpInstructions });
+  if (protocolHeader && !(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(protocolHeader)) {
+    return rpcError(body.id, -32600, `Unsupported MCP-Protocol-Version: ${protocolHeader}`, 400);
+  }
+  if (body.method === "initialize") {
+    return result(body.id, {
+      protocolVersion: negotiateProtocolVersion(body.params),
+      capabilities: { tools: {} },
+      serverInfo: { name: "vibecms", title: "VibeCMS", version: "0.1.0" },
+      instructions: mcpInstructions,
+    });
+  }
   if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
   if (body.method === "tools/list") {
     const auth = await authenticateBearerToken(request);
     if (!auth) return result(body.id, listedTools());
     try {
-      await enforceApiBudget({ workspaceId: auth.workspaceId, siteId: auth.siteId, tokenId: auth.tokenId, kind: "read", force: forceQuotaForSmoke(request) });
+      await enforceApiBudget({
+        workspaceId: auth.workspaceId,
+        siteId: auth.siteId,
+        tokenId: auth.tokenId,
+        kind: "read",
+        force: forceQuotaForSmoke(request),
+      });
       return result(body.id, listedTools(auth.actor));
     } catch (error) {
       if (error instanceof RateLimitError) return appRpcError(body.id, error);
@@ -242,10 +189,19 @@ export async function handleMcpRequest(request: Request) {
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);
-  if (!(mcpToolNames as readonly string[]).includes(name)) return rpcError(body.id, -32602, `Unknown tool: ${name}`, 400);
+  if (!(contractToolNames as readonly string[]).includes(name)) return rpcError(body.id, -32602, `Unknown tool: ${name}`, 400);
   try {
-    await enforceApiBudget({ workspaceId: auth.workspaceId, siteId: auth.siteId, tokenId: auth.tokenId, kind: apiUsageKind(name), force: forceQuotaForSmoke(request) });
-    return result(body.id, await callTool(name, auth.actor, auth.siteId, auth.workspaceId, params.arguments));
+    await enforceApiBudget({
+      workspaceId: auth.workspaceId,
+      siteId: auth.siteId,
+      tokenId: auth.tokenId,
+      kind: apiUsageKind(name),
+      force: forceQuotaForSmoke(request),
+    });
+    return result(
+      body.id,
+      await callTool(name as McpToolName, auth.actor, auth.siteId, auth.workspaceId, auth.tokenId, params.arguments),
+    );
   } catch (error) {
     const validationMessage = zodValidationMessage(error);
     if (validationMessage) return result(body.id, toolError(validationMessage));

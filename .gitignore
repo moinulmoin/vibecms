@@ -12,3 +12,11 @@ dist/
 apps/*/dist/
 *.log
 dogfood-output/
+.agents/
+.DS_Store
+
+# Generated marketing / design assets (not source)
+/vibecms-keynote*.mp4
+/output/
+/.impeccable/
+apps/web/public/brand/generated/

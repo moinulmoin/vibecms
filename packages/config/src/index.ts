@@ -1,53 +1,6 @@
-export type AppEnv = "development" | "preview" | "production" | "test";
-
-export type RuntimeEnv = {
-  DB: D1Database;
-  ASSETS_BUCKET: R2Bucket;
-  APP_ENV: AppEnv | string;
-  APP_URL: string;
-  PUBLIC_BLOG_DOMAIN: string;
-  SELF_HOSTED?: string;
-  POLAR_ACCESS_TOKEN?: string;
-  POLAR_WEBHOOK_SECRET?: string;
-  POLAR_PRODUCT_ID?: string;
-  POLAR_MONTHLY_PRODUCT_ID?: string;
-  POLAR_YEARLY_PRODUCT_ID?: string;
-  POLAR_SERVER?: "sandbox" | "production";
-  TOKEN_PEPPER?: string;
-  API_USAGE_TEST_LIMIT?: string;
-};
-
-const productionOnly = [
-  "APP_URL",
-  "PUBLIC_BLOG_DOMAIN",
-  "TOKEN_PEPPER",
-] as const;
-
-const hostedProductionOnly = [
-  "POLAR_ACCESS_TOKEN",
-  "POLAR_WEBHOOK_SECRET",
-  "POLAR_PRODUCT_ID",
-] as const;
-
-export function assertRuntimeEnv(env: Partial<RuntimeEnv>): asserts env is RuntimeEnv {
-  if (!env.DB) throw new Error("Missing DB binding");
-  if (!env.ASSETS_BUCKET) throw new Error("Missing ASSETS_BUCKET binding");
-  if (!env.APP_ENV) throw new Error("Missing APP_ENV");
-  if (env.APP_ENV === "production") {
-    for (const key of productionOnly) {
-      if (!env[key]) throw new Error(`Missing required production env: ${key}`);
-    }
-    if (env.SELF_HOSTED !== "true") {
-      for (const key of hostedProductionOnly) {
-        if (!env[key]) throw new Error(`Missing required hosted production env: ${key}`);
-      }
-    }
-  }
-}
-
 export const BRAND = {
   name: "VibeCMS",
-  tagline: "CMS for humans and AI agents.",
+  tagline: "CMS for AI Agents.",
   description:
     "Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP.",
   repoUrl: "https://github.com/moinulmoin/vibecms",
@@ -86,10 +39,10 @@ export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
   planName: "VibeCMS Cloud",
-  monthlyUsd: 9,
-  annualUsd: 99,
-  monthlyLabel: "$9/month",
-  annualLabel: "$99/year",
+  monthlyUsd: 19,
+  annualUsd: 190,
+  monthlyLabel: "$19/month",
+  annualLabel: "$190/year",
 } as const;
 
 export const ENTITLEMENTS = [
@@ -119,10 +72,18 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   post_published: { variant: "success", title: "Post published", message: "It is now live on your blog." },
   post_archived: { variant: "success", title: "Post archived", message: "It is hidden from the public blog. Versions and activity are kept." },
   media_uploaded: { variant: "success", title: "Image uploaded", message: "It is ready to use as a cover image." },
+  media_deleted: { variant: "success", title: "Image deleted", message: "The image has been removed from your library." },
+  media_updated: { variant: "success", title: "Alt text saved", message: "The image description has been updated." },
+  asset_in_use: { variant: "error", title: "Image in use", message: "This image is set as a post cover. Remove it from the post before deleting." },
   setup_complete: { variant: "success", title: "Blog ready", message: "Your hosted blog is set up." },
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },
   billing_success: { variant: "success", title: "Subscription active", message: "Billing is set up. Welcome aboard." },
+  domain_added: { variant: "success", title: "Domain added", message: "Add the DNS record shown below to finish connecting it." },
+  domain_removed: { variant: "success", title: "Domain removed", message: "It no longer points to your blog." },
+  domain_invalid: { variant: "error", title: "Invalid domain", message: "Enter a domain you own, for example blog.example.com." },
+  domain_conflict: { variant: "error", title: "Domain in use", message: "That domain is already connected to another blog." },
+  domain_billing: { variant: "error", title: "Subscription required", message: "Custom domains are a paid feature. Subscribe to connect your own domain." },
   invalid_cover_asset: { variant: "error", title: "Cover image not found", message: "Pick an image from your media library." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
@@ -147,4 +108,303 @@ export function readFormStatus(search: URLSearchParams): FormStatus | null {
   const ok = search.get("ok");
   if (ok) return FORM_STATUS[ok] ?? null;
   return null;
+}
+// ---------------------------------------------------------------------------
+// Theme preset registry
+// ---------------------------------------------------------------------------
+
+export type PresetId = "minimal" | "editorial" | "technical" | "product";
+
+export const PRESET_IDS: readonly PresetId[] = [
+  "minimal",
+  "editorial",
+  "technical",
+  "product",
+];
+
+export const DEFAULT_PRESET_ID: PresetId = "minimal";
+
+export type ComponentEmphasis = "high" | "medium" | "low";
+
+// ---------------------------------------------------------------------------
+// Presentation intent (bounded layout + toc; per-post, preset-interpreted)
+// ---------------------------------------------------------------------------
+
+export const PRESENTATION_LAYOUTS = ["standard", "feature", "essay"] as const;
+export type PresentationLayout = (typeof PRESENTATION_LAYOUTS)[number];
+
+export interface Presentation {
+  layout?: PresentationLayout;
+  toc?: boolean;
+}
+
+export interface PresetLayoutCapability {
+  default: { layout: PresentationLayout; toc: boolean };
+  supportedLayouts: readonly PresentationLayout[];
+  supportsToc: boolean;
+}
+
+export interface ResolvedPresentation {
+  layout: PresentationLayout;
+  toc: boolean;
+}
+
+export interface ResolvedPresentationResult {
+  requested: Presentation | null;
+  resolved: ResolvedPresentation;
+  warnings: string[];
+}
+
+export interface ThemePreset {
+  id: PresetId;
+  /** Display name shown in the picker. */
+  name: string;
+  /** 1-2 sentence picker-facing description. */
+  designIntent: string;
+  /**
+   * Ordered list of recommended components. Only real renderer components:
+   * callout, table-of-contents, captioned-image, fenced-code, table, list,
+   * link, bold-italic, blockquote.
+   */
+  recommendedComponents: string[];
+  /** Relative weight per component name. */
+  componentEmphasis: Record<string, ComponentEmphasis>;
+  /** Preferred image aspect ratio, e.g. "16:9" or "3:2". */
+  preferredImageRatio: string;
+  density: "airy" | "comfortable" | "tight";
+  /** Content archetypes this preset is optimised for. */
+  idealArchetypes: string[];
+  /**
+   * Agent-facing tonal authoring guidance. Returned as
+   * FormatGuideDto.presetGuidance by the format_guide tool.
+   */
+  formatGuide: string;
+  /** Structural layout capability for this preset. */
+  layout: PresetLayoutCapability;
+}
+
+export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
+  minimal: {
+    id: "minimal",
+    name: "Minimal",
+    designIntent:
+      "Clean, airy, and neutral. A general-purpose canvas that stays out of the way and lets your words lead.",
+    recommendedComponents: [
+      "list",
+      "link",
+      "bold-italic",
+      "callout",
+      "captioned-image",
+      "table",
+      "fenced-code",
+      "blockquote",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      list: "high",
+      link: "high",
+      "bold-italic": "medium",
+      callout: "medium",
+      "captioned-image": "medium",
+      table: "medium",
+      "fenced-code": "medium",
+      blockquote: "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "airy",
+    idealArchetypes: ["general", "newsletter", "personal"],
+    formatGuide:
+      "Write clearly and directly. Prefer short sentences and concrete examples. " +
+      "Use callouts sparingly - one per section at most. Let structure carry meaning.",
+    layout: {
+      default: { layout: "standard", toc: false },
+      supportedLayouts: ["standard"],
+      supportsToc: false,
+    },
+  },
+
+  editorial: {
+    id: "editorial",
+    name: "Editorial",
+    designIntent:
+      "Serif headings, wide measure, and media-rich narrative flow. Built for long-form storytelling, essays, and reported pieces.",
+    recommendedComponents: [
+      "captioned-image",
+      "blockquote",
+      "bold-italic",
+      "list",
+      "link",
+      "callout",
+      "fenced-code",
+      "table",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      "captioned-image": "high",
+      blockquote: "high",
+      "bold-italic": "high",
+      list: "medium",
+      link: "medium",
+      callout: "low",
+      "fenced-code": "low",
+      table: "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "3:2",
+    density: "comfortable",
+    idealArchetypes: ["essay", "narrative", "longform"],
+    formatGuide:
+      "Lead with a strong opening image or scene-setting paragraph. " +
+      "Place a captioned image every two or three sections to anchor the narrative. " +
+      "Use blockquotes sparingly as pull quotes - one standout sentence per section at most. " +
+      "Keep code to a minimum; if you must include it, prefer a short fenced block with a language label. " +
+      "Let prose carry the weight; avoid heavy structural markup. " +
+      "For long essays, prefer setting presentation.toc=true for a page-level table of contents; use inline [[toc]] only as an intentional in-body marker.",
+    layout: {
+      default: { layout: "essay", toc: false },
+      supportedLayouts: ["standard", "essay"],
+      supportsToc: true,
+    },
+  },
+
+  technical: {
+    id: "technical",
+    name: "Technical",
+    designIntent:
+      "Monospace emphasis, prominent table of contents, and tight density. Optimised for documentation, tutorials, and reference guides.",
+    recommendedComponents: [
+      "table-of-contents",
+      "fenced-code",
+      "callout",
+      "table",
+      "list",
+      "link",
+      "captioned-image",
+      "bold-italic",
+      "blockquote",
+    ],
+    componentEmphasis: {
+      "table-of-contents": "high",
+      "fenced-code": "high",
+      callout: "high",
+      table: "high",
+      list: "high",
+      link: "medium",
+      "captioned-image": "medium",
+      "bold-italic": "medium",
+      blockquote: "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "tight",
+    idealArchetypes: ["docs", "tutorial", "reference"],
+    formatGuide:
+      "For posts longer than three sections, prefer setting presentation.toc=true (page-level TOC); use inline [[toc]] only as an intentional in-body marker. " +
+      "Always include a language label on fenced code blocks. " +
+      "Use callouts with purpose - NOTE for context, TIP for shortcuts, WARNING for gotchas. " +
+      "Tables work well for option references and comparisons. " +
+      "Keep paragraphs short and factual; favour precision over decoration.",
+    layout: {
+      default: { layout: "standard", toc: false },
+      supportedLayouts: ["standard"],
+      supportsToc: true,
+    },
+  },
+
+  product: {
+    id: "product",
+    name: "Product",
+    designIntent:
+      "Clean, confident, and conversion-aware. Built for founder updates, launch announcements, and company news.",
+    recommendedComponents: [
+      "captioned-image",
+      "callout",
+      "list",
+      "bold-italic",
+      "link",
+      "blockquote",
+      "table",
+      "fenced-code",
+      "table-of-contents",
+    ],
+    componentEmphasis: {
+      "captioned-image": "high",
+      callout: "high",
+      list: "high",
+      "bold-italic": "high",
+      link: "high",
+      blockquote: "medium",
+      table: "medium",
+      "fenced-code": "low",
+      "table-of-contents": "low",
+    },
+    preferredImageRatio: "16:9",
+    density: "comfortable",
+    idealArchetypes: ["announcement", "launch", "company-update"],
+    formatGuide:
+      "Lead with the announcement in the first paragraph - no slow build. " +
+      "Place a captioned hero image immediately after the opener. " +
+      "Use IMPORTANT or TIP callouts for availability dates, pricing, or key highlights. " +
+      "Keep sections short and scannable with clear bold-italic emphasis on key terms. " +
+      "Close with a clear next step (link or CTA paragraph) so readers know what to do. " +
+      "Avoid deep code samples; this is a business voice.",
+    layout: {
+      default: { layout: "feature", toc: false },
+      supportedLayouts: ["standard", "feature"],
+      supportsToc: false,
+    },
+  },
+};
+
+/** Returns the given value if it is a known PresetId, otherwise DEFAULT_PRESET_ID. */
+export function resolvePresetId(value: string | null | undefined): PresetId {
+  if (value != null && (PRESET_IDS as readonly string[]).includes(value)) {
+    return value as PresetId;
+  }
+  return DEFAULT_PRESET_ID;
+}
+
+/**
+ * Clamp requested presentation intent to what the active preset supports.
+ * Never throws - unsupported values degrade gracefully to the preset default.
+ * Returns warnings for each clamped value so callers can surface them.
+ */
+export function resolvePresentation(
+  presetId: string | null | undefined,
+  requested: Presentation | null | undefined,
+): ResolvedPresentationResult {
+  const preset = THEME_PRESETS[resolvePresetId(presetId)].layout;
+  const warnings: string[] = [];
+
+  let resolvedLayout: PresentationLayout;
+  if (requested?.layout && preset.supportedLayouts.includes(requested.layout)) {
+    resolvedLayout = requested.layout;
+  } else {
+    if (requested?.layout) {
+      warnings.push(
+        `layout '${requested.layout}' is not supported by this preset; using '${preset.default.layout}'`,
+      );
+    }
+    resolvedLayout = preset.default.layout;
+  }
+
+  let resolvedToc: boolean;
+  if (requested?.toc !== undefined) {
+    if (preset.supportsToc) {
+      resolvedToc = requested.toc;
+    } else {
+      if (requested.toc === true) {
+        warnings.push(`toc is not supported by this preset; toc disabled`);
+      }
+      resolvedToc = false;
+    }
+  } else {
+    resolvedToc = preset.default.toc;
+  }
+
+  return {
+    requested: requested ?? null,
+    resolved: { layout: resolvedLayout, toc: resolvedToc },
+    warnings,
+  };
 }

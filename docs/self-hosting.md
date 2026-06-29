@@ -41,11 +41,11 @@ Cloudflare's deploy flow should run the root `deploy` script:
 pnpm deploy
 ```
 
-That script builds the RedwoodSDK app with the root self-host Wrangler config, applies D1 migrations using the `DB` binding name, and deploys the generated Worker bundle. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update `wrangler.jsonc` first.
+That script runs `pnpm build:self-host` (which sets `CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=../../wrangler.jsonc` and builds `@vc/web`), applies D1 migrations with `pnpm db:migrate:self-host:remote`, and deploys with `wrangler deploy --config dist/server/wrangler.json`. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update root `wrangler.jsonc` first.
 
 ## Required variables and secrets
 
-Wrangler vars:
+Wrangler vars (in root `wrangler.jsonc`):
 
 ```txt
 APP_ENV=production
@@ -55,7 +55,7 @@ PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
-When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>` on the Worker. If you set `PUBLIC_BLOG_DOMAIN` to a separate domain, route `*.PUBLIC_BLOG_DOMAIN` to the Worker and add matching DNS so default blog hostnames can use `<site-slug>.PUBLIC_BLOG_DOMAIN`. `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
+When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>` on the Worker. Host-based public blogs on `*.vibecms.dev` (or another wildcard domain) are a deferred follow-up; path mode works today. `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
 
 Wrangler secrets:
 
@@ -70,43 +70,67 @@ Generate secrets locally with:
 openssl rand -hex 32
 ```
 
-Then set them:
-
-```sh
-pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET
-pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
-```
-
-Do not set Polar secrets for self-hosted mode unless you intentionally want to test the hosted billing adapter.
-
-## Manual deploy flow
-
-1. Fork/clone the repo.
-2. Create or select a Cloudflare D1 database and R2 bucket.
-3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, and public URL vars above. If `PUBLIC_BLOG_DOMAIN` is a separate domain from `APP_URL`, also add wildcard DNS and Worker routing for `*.PUBLIC_BLOG_DOMAIN`.
-4. Set secrets:
+Then set them (from repo root, against the self-host config when using root wrangler):
 
 ```sh
 pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
 pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
 ```
 
-5. Apply migrations using the binding name:
+Do not set Polar secrets for self-hosted mode unless you intentionally want to test the hosted billing adapter.
+
+## Sign-in (passwordless email + optional Google)
+
+Sign-in is passwordless: users enter their email and receive a 6-digit code. Verifying the code creates the account on first use, so the email is always confirmed - there is no separate password to manage or reset.
+
+To deliver codes by email in production, set a [Plunk](https://www.useplunk.com/) API key as a secret:
 
 ```sh
-pnpm db:migrate:self-host:remote
+pnpm --filter @vc/web exec wrangler secret put PLUNK_API_KEY --config ../../wrangler.jsonc
 ```
 
-6. Deploy:
+Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a verified sender on your Plunk-verified domain, e.g. `VibeCMS <login@yourdomain.com>`. If `PLUNK_API_KEY` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
+
+To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
+
+```sh
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
+```
+
+In the Google Cloud Console, set the authorized redirect URI to `<APP_URL>/api/auth/callback/google`. When the credentials are absent, the button is hidden and email sign-in is the only option.
+
+## Manual deploy flow
+
+1. Fork/clone the repo.
+2. Create or select a Cloudflare D1 database and R2 bucket.
+3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, `SELF_HOSTED=true`, and the public URL vars above.
+4. Set secrets (see above).
+5. Deploy in one step from the repo root:
 
 ```sh
 pnpm deploy
 ```
 
-7. Open the deployed URL.
-8. Create the first account.
-9. Complete blog setup.
-10. You should land directly on `/app` instead of `/app/billing`.
+`pnpm deploy` is equivalent to:
+
+```sh
+pnpm build:self-host
+pnpm db:migrate:self-host:remote
+pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json
+```
+
+6. Open the deployed URL.
+7. Create the first account.
+8. Complete blog setup.
+9. You should land directly on `/app` instead of `/app/billing`.
+
+Local migrations only (no deploy):
+
+```sh
+pnpm db:migrate:self-host:local
+pnpm db:migrate:self-host:remote
+```
 
 ## Deploy button target
 

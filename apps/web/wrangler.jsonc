@@ -1,22 +1,12 @@
 {
-  // Schema reference for wrangler configuration
   "$schema": "node_modules/wrangler/config-schema.json",
-
-  // Name of your worker
-  "name": "vibecms",
-
-  // Entry point for your worker
-  "main": "src/worker.tsx",
-
-  // Compatibility settings
+  "name": "vibecms-dev",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
-
-  // Assets configuration
-  "assets": {
-    "binding": "ASSETS"
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
   },
-
   "d1_databases": [
     {
       "binding": "DB",
@@ -25,27 +15,67 @@
       "migrations_dir": "../../packages/db/drizzle"
     }
   ],
-
   "r2_buckets": [
     {
       "binding": "ASSETS_BUCKET",
       "bucket_name": "vibecms-assets"
     }
   ],
-
-  // Observability settings
-  "observability": {
-    "enabled": true
-  },
-
-  // Environment variables
+  "routes": [{ "pattern": "dev.vibecms.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "vars": {
     "APP_ENV": "development",
-    "APP_URL": "https://vibecms.moinulislammoin2019.workers.dev",
-    "BETTER_AUTH_URL": "https://vibecms.moinulislammoin2019.workers.dev",
-    "PUBLIC_BLOG_DOMAIN": "vibecms.moinulislammoin2019.workers.dev",
+    "APP_URL": "https://dev.vibecms.dev",
+    "BETTER_AUTH_URL": "https://dev.vibecms.dev",
+    "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "SELF_HOSTED": "false",
+    "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
     "POLAR_SERVER": "sandbox"
+  },
+  "env": {
+    // Production: app.vibecms.dev (dashboard) + *.vibecms.dev/* (tenant subdomains)
+    // Before deploying, set all placeholders marked TODO via `wrangler secret put --env production`
+    // and replace the TODO database_id after running `wrangler d1 create vibecms_prod`.
+    "production": {
+      "name": "vibecms-prod",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "vibecms_prod",
+          // TODO: replace with real id after: wrangler d1 create vibecms_prod
+          "database_id": "TODO_REPLACE_AFTER_wrangler_d1_create_vibecms_prod",
+          "migrations_dir": "../../packages/db/drizzle"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ASSETS_BUCKET",
+          "bucket_name": "vibecms-assets-prod"
+        }
+      ],
+      "routes": [
+        // Dashboard host - Cloudflare creates the DNS A record automatically
+        { "pattern": "app.vibecms.dev", "custom_domain": true },
+        // Tenant blog subdomains - requires a proxied *.vibecms.dev DNS record added manually
+        // (cannot use custom_domain for wildcards; zone_name routes a pattern instead)
+        { "pattern": "*.vibecms.dev/*", "zone_name": "vibecms.dev" }
+      ],
+      "vars": {
+        "APP_ENV": "production",
+        "APP_URL": "https://app.vibecms.dev",
+        "BETTER_AUTH_URL": "https://app.vibecms.dev",
+        "PUBLIC_BLOG_DOMAIN": "vibecms.dev",
+        "SELF_HOSTED": "false",
+        "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
+        "POLAR_SERVER": "production",
+        // GATED ON PRICING DECISION ($19/mo, $190/yr)
+        // Replace with the real Polar product id once the prod product is created.
+        // Then also set POLAR_MONTHLY_PRODUCT_ID and POLAR_YEARLY_PRODUCT_ID as secrets
+        // (see plans/PROD-LAUNCH.md for the full Polar setup sequence).
+        "POLAR_PRODUCT_ID": "TODO_POLAR_PROD_PRODUCT_ID_GATED_ON_PRICING_DECISION"
+      }
+    }
   }
 }

@@ -1,3 +1,5 @@
+import type { Presentation } from "@vc/config";
+
 export type HumanRole = "owner" | "editor" | "viewer";
 
 export type Scope =
@@ -27,13 +29,38 @@ export type Post = {
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
+  canonicalUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   status: PostStatus;
   publishedAt: number | null;
   tags: string[];
   createdAt: number;
   updatedAt: number;
+  presentation: Presentation | null;
 };
-export type PostSummary = Omit<Post, "contentMarkdown">;
+export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation">;
+
+export type PostVersionSummary = {
+  versionNumber: number;
+  title: string;
+  slug: string;
+  status: PostStatus;
+  changeSummary: string | null;
+  actorType: Actor["type"]; // "human" | "api_key" | "agent" | "system"
+  actorName: string;
+  createdAt: number;
+};
+export type PostVersion = PostVersionSummary & {
+  excerpt: string | null;
+  contentMarkdown: string;
+  coverAssetId: string | null;
+  canonicalUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  tags: string[];
+  presentation: Presentation | null;
+};
 
 
 export type Asset = {
@@ -61,15 +88,11 @@ export type ActivityInput = {
   after?: unknown;
 };
 
-export const DEFAULT_SCOPES: Scope[] = [
-  "posts:read",
-  "posts:create",
-  "posts:update",
-  "assets:write",
-  "activity:read",
-];
-
-export const AGENT_TOKEN_PRESETS: Record<"draft" | "full", Scope[]> = {
+export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full", Scope[]> = {
   draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
+  publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
   full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
 };
+
+// Default scopes for a token minted without an explicit preset: non-destructive publisher (publish, no archive).
+export const DEFAULT_SCOPES: Scope[] = AGENT_TOKEN_PRESETS.publish;

@@ -20,6 +20,20 @@ openssl rand -hex 32
 
 Never commit `.env`, `.dev.vars`, Cloudflare credentials, Polar credentials, or generated API tokens.
 
+## Get a dev API token (no email needed)
+
+The seed creates a demo site and posts but no login or API token, so testing the authed surfaces (REST, MCP, CLI) would otherwise require the email-OTP flow. Mint a scoped token instead:
+
+```sh
+pnpm db:migrate:local && pnpm db:seed:local   # first time only, for local D1
+pnpm dev:token                                 # full-scope token for demo_site on local D1
+pnpm dev:token --remote                        # or against the deployed dev worker
+pnpm dev:token --scopes draft                  # draft-only preset (no publish/archive)
+pnpm dev:token --revoke                        # clean up (add --remote if you used it)
+```
+
+It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash uses `TOKEN_PEPPER` from `apps/web/.dev.vars`. Minted tokens are scoped and revocable; never commit them.
+
 ## Pull requests
 
 - Keep changes focused.

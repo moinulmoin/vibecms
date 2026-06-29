@@ -1,8 +1,8 @@
-# VibeCMS
+<div align="center">
+  <img src="apps/web/public/brand/wordmark.png" alt="VibeCMS" width="460" />
+  <p><strong>CMS for AI Agents.</strong></p>
+</div>
 
-![VibeCMS social preview](apps/web/public/brand/github-social.png)
-
-CMS for humans and AI agents.
 
 Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP. REST stays read/list, every mutation creates activity, and meaningful post changes create versions.
 
@@ -83,7 +83,7 @@ pnpm db:seed:local
 pnpm dev
 ```
 
-Database migration SQL lives in `packages/db/drizzle/0001_initial.sql` and is wired to the web worker's D1 binding.
+Database migration SQL lives in `packages/db/drizzle/0001_initial.sql` and is wired to the TanStack worker's D1 binding.
 
 See `MILESTONES.md` for the milestone-by-milestone build plan and acceptance checks.
 
@@ -145,7 +145,7 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 - Configure Cloudflare D1/R2 IDs in `apps/web/wrangler.jsonc` before production deploy.
 - Set secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
 - Set `POLAR_PRODUCT_ID`, `POLAR_SERVER`, `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` for the deployed environment.
-- Apply D1 migrations before deploy: `pnpm --filter @vc/web exec wrangler d1 migrations apply vibecms_dev --remote`.
+- Apply D1 migrations before deploy: `pnpm db:migrate:dev`.
 - Custom domains are intentionally deferred from the MVP; the schema supports domain rows, but hostname provisioning/status checks should ship as a dedicated follow-up.
 
 For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET` plus `TOKEN_PEPPER` are required as secrets; Polar access token/product/webhook secrets are hosted-SaaS only.
@@ -155,7 +155,7 @@ For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET`
 Current Cloudflare dev resources are wired in `apps/web/wrangler.jsonc`:
 
 - Worker: `vibecms`
-- URL: `https://vibecms.moinulislammoin2019.workers.dev`
+- URL: `https://dev.vibecms.dev`
 - D1 database: `vibecms_dev`
 - R2 bucket: `vibecms-assets`
 
@@ -167,10 +167,9 @@ pnpm typecheck
 pnpm lint
 pnpm db:seed:dev
 pnpm deploy:dev
-BASE_URL=https://vibecms.moinulislammoin2019.workers.dev pnpm test:smoke
 ```
 
-`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the RedwoodSDK worker, and deploys it. `pnpm release:dev` is also available when you want RedwoodSDK's interactive `rw-scripts ensure-deploy-env` release flow.
+`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the TanStack Start worker, and deploys it (`dist/server/wrangler.json`).
 
 For Polar billing, create a sandbox product in Polar and update:
 
@@ -202,7 +201,7 @@ You do not need product, order, refund, file, meter, webhook, or subscription wr
 In Polar, set the webhook endpoint to:
 
 ```text
-https://vibecms.moinulislammoin2019.workers.dev/polar/webhook
+https://dev.vibecms.dev/polar/webhook
 ```
 
 Subscribe to these webhook events:
@@ -212,3 +211,4 @@ Subscribe to these webhook events:
 - Optional but useful for analytics later: `order.paid`.
 
 The app currently updates billing state from `subscription.*` payloads and from successful `checkout.updated` payloads. Keep the webhook delivery format as raw JSON and copy the endpoint signing secret into `POLAR_WEBHOOK_SECRET`.
+
