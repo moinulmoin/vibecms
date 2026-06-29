@@ -44,8 +44,7 @@
         {
           "binding": "DB",
           "database_name": "vibecms_prod",
-          // TODO: replace with real id after: wrangler d1 create vibecms_prod
-          "database_id": "TODO_REPLACE_AFTER_wrangler_d1_create_vibecms_prod",
+          "database_id": "98ac8ee4-6b93-4500-b2a0-f8011516fe75",
           "migrations_dir": "../../packages/db/drizzle"
         }
       ],
