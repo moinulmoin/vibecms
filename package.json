@@ -48,7 +48,7 @@
     "dev:sync-pepper": "tsx scripts/dev-token.ts --sync-pepper",
     "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json",
     "deploy:dev": "pnpm dev:sync-pepper && pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote && pnpm --filter @vc/web build && pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json",
-    "deploy:prod": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote && pnpm --filter @vc/web build && pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json",
+    "deploy:prod": "pnpm --filter @vc/web exec wrangler d1 migrations apply DB --remote --env production && CLOUDFLARE_ENV=production pnpm --filter @vc/web build && pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json",
     "public:audit": "bash scripts/public-release-audit.sh",
     "openapi:gen": "tsx scripts/gen-openapi.ts",
     "openapi:check": "pnpm openapi:gen && git diff --exit-code apps/web/openapi.json",
