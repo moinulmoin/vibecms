@@ -10,6 +10,10 @@ export type PostsListSearch = DashboardStatusSearch & {
   search: string | undefined
 }
 
+export type SettingsSearch = DashboardStatusSearch & {
+  tab: string | undefined
+}
+
 /** Child routes under `/dashboard/posts` inherit the list search keys. */
 export type PostEditorSearch = PostsListSearch
 
@@ -31,6 +35,17 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
   return {
     ok: typeof search.ok === 'string' ? search.ok : undefined,
     error: typeof search.error === 'string' ? search.error : undefined,
+  }
+}
+
+const SETTINGS_TABS: Record<string, true> = { general: true, domain: true, billing: true, data: true }
+
+export function validateSettingsSearch(search: Record<string, unknown>): SettingsSearch {
+  const tab = typeof search.tab === 'string' && SETTINGS_TABS[search.tab] ? search.tab : undefined
+  return {
+    ok: typeof search.ok === 'string' ? search.ok : undefined,
+    error: typeof search.error === 'string' ? search.error : undefined,
+    tab,
   }
 }
 

@@ -12,7 +12,7 @@ import {
   Textarea,
   cn,
 } from '@vc/ui'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { renderRichContent, RichContentFrame } from '~/lib/markdown'
 import {
@@ -33,7 +33,7 @@ import {
   loadSettingsPage,
   updateSiteSettingsMutation,
 } from '~/server/dashboard-pages-fn'
-import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 
 type SiteSettingsForm = {
   name: string
@@ -141,6 +141,7 @@ const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
 export function SettingsPage() {
   const navigate = useNavigate()
+  const search = useSearch({ from: '/dashboard/settings' })
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
@@ -181,7 +182,7 @@ export function SettingsPage() {
       })
       await navigate({
         to: '/dashboard/settings',
-        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
+        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
       })
     } finally {
       setFormPending(null)
@@ -207,7 +208,7 @@ export function SettingsPage() {
       }
       await navigate({
         to: '/dashboard/settings',
-        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
+        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
       })
     } finally {
       setFormPending(null)
@@ -227,7 +228,7 @@ export function SettingsPage() {
       }
       await navigate({
         to: '/dashboard/settings',
-        search: dashboardStatusSearch(result.ok ? { ok: 'domain_added' } : { error: result.code }),
+        search: (prev) => ({ ok: result.ok ? 'domain_added' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
       })
     } finally {
       setFormPending(null)
@@ -242,7 +243,7 @@ export function SettingsPage() {
       setData(refreshed)
       await navigate({
         to: '/dashboard/settings',
-        search: dashboardStatusSearch(result.ok ? { ok: 'domain_removed' } : { error: result.code }),
+        search: (prev) => ({ ok: result.ok ? 'domain_removed' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
       })
     } finally {
       setRemoveDomainPending(null)
@@ -274,7 +275,11 @@ export function SettingsPage() {
         title="Workspace Settings"
         description="Manage billing, your domain, and workspace preferences."
       />
-      <Tabs defaultValue="general" className="gap-4">
+      <Tabs
+        value={search.tab ?? 'general'}
+        onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value } })}
+        className="gap-4"
+      >
         <div className="overflow-x-auto">
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
