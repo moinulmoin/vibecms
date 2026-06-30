@@ -20,3 +20,9 @@ dogfood-output/
 /output/
 /.impeccable/
 apps/web/public/brand/generated/
+
+# Local-only brand WIP and session notes (kept on disk, not committed)
+apps/web/public/brand/icon.png
+apps/web/public/brand/og-agent-flow.html
+apps/web/public/brand/og-agent-flow.svg
+plans/HANDOFF.md
