@@ -1,57 +1,76 @@
 'use client'
 
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { MEDIA, PRICING } from '@vc/config'
-import { CopyButton } from '@vc/ui'
+import type { Scope } from '@vc/core'
+import { CopyButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, Input } from '@vc/ui'
 import { CheckIcon } from '@radix-ui/react-icons'
-import { Button, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Skeleton } from "@vc/ui"
+import { Button, EmptyState, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
+import { Skeleton } from '@vc/ui'
+import type { ApiKeyListItem } from '~/server/api-keys'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
   createApiKeyMutation,
+  loadConnectPage,
   loadOnboardingStatus,
+  revokeApiKeyMutation,
+  type ConnectPageData,
   type OnboardingConnectStatus,
 } from '~/server/dashboard-pages-fn'
-import { dashboardStatusSearch, postEditorSearch } from '~/lib/dashboard-search'
+import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import { consumeTokenFlash, saveTokenFlash } from '~/lib/token-flash'
 import { checkoutBillingMutation } from '~/server/billing-page-fn'
 
-// Computed once from constants; updates automatically when pricing changes.
 const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
-
-function isTerminal(s: OnboardingConnectStatus): boolean {
-  return s.publish?.state === 'live' || s.publish?.state === 'already_live' || s.connection === 'revoked'
-}
 
 type SelfTestSub = 'waiting' | 'stalled' | 'recovery' | 'connected' | 'revoked'
 
-function getSub(s: OnboardingConnectStatus, elapsedMs: number): SelfTestSub {
-  if (s.connection === 'revoked') return 'revoked'
-  if (s.connection === 'connected') return 'connected'
-  if (elapsedMs > 60_000) return 'recovery'
-  if (elapsedMs > 20_000) return 'stalled'
-  return 'waiting'
+type TokenPreset = {
+  id: 'draft' | 'publish' | 'full'
+  label: string
+  description: string
+  recommended?: boolean
 }
 
-/** Text announced on aria-live transitions only (not every poll tick). */
-function announcementFor(s: OnboardingConnectStatus, sub: SelfTestSub | null): string {
-  if (s.publish?.state === 'live' || s.publish?.state === 'already_live') {
-    return s.publish.actor === 'onboarding_agent'
-      ? 'Your agent published your first live post.'
-      : 'Your first post is live.'
+const TOKEN_PRESETS: TokenPreset[] = [
+  { id: 'draft', label: 'Drafter', description: 'Create and edit drafts and upload media. Cannot publish or archive posts.' },
+  { id: 'publish', label: 'Publisher', description: 'Everything in Drafter, plus publish posts live. Cannot archive.', recommended: true },
+  { id: 'full', label: 'Full publisher', description: 'Everything in Publisher, plus archive posts.' },
+]
+
+function capabilityLabel(scopes: Scope[]): string {
+  if (scopes.includes('posts:archive')) return 'Full publisher'
+  if (scopes.includes('posts:publish')) return 'Publisher'
+  return 'Drafter'
+}
+
+function isLive(s: OnboardingConnectStatus | null): boolean {
+  return s?.publish?.state === 'live' || s?.publish?.state === 'already_live'
+}
+
+function getSub(connection: OnboardingConnectStatus['connection'], elapsedMs: number): SelfTestSub | null {
+  if (connection === 'revoked') return 'revoked'
+  if (connection === 'connected') return 'connected'
+  if (connection === 'waiting') {
+    if (elapsedMs > 60_000) return 'recovery'
+    if (elapsedMs > 20_000) return 'stalled'
+    return 'waiting'
   }
-  if (sub === 'revoked') return "This token can't be used anymore. Generate a new publish token."
-  if (sub === 'connected') return 'Connected. VibeCMS saw your agent authenticate. Now paste the publish prompt below.'
-  if (sub === 'recovery') return 'Not detected yet. Check your configuration or write your first post manually.'
-  if (sub === 'stalled') return "Still waiting. Some MCP clients don't call tools until you ask."
-  return 'Waiting for your agent to connect...'
+  return null
 }
 
-// ---------------------------------------------------------------------------
-// Upgrade CTAs (reusable for live reveal and billing_required states)
-// ---------------------------------------------------------------------------
+function announcementFor(sub: SelfTestSub | null): string {
+  if (sub === 'revoked') return "This token can't be used anymore. Generate a new token to connect an agent."
+  if (sub === 'connected') return 'Connected. VibeCMS saw your agent authenticate.'
+  if (sub === 'recovery') return 'Not detected yet. Check your configuration or create a new token.'
+  if (sub === 'stalled') return "Still waiting. Some MCP clients don't call tools until you ask."
+  if (sub === 'waiting') return 'Waiting for your agent to connect...'
+  return ''
+}
+
 function UpgradeCtas({
   checkoutPending,
   onCheckout,
@@ -106,44 +125,81 @@ function UpgradeCtas({
           )}
         </div>
       </div>
-
-      <div className="flex justify-center">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/dashboard">Go to dashboard</Link>
-        </Button>
-      </div>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// ConnectPage
-// ---------------------------------------------------------------------------
+function TokenRow({
+  apiKey,
+  pending,
+  onDelete,
+}: {
+  apiKey: ApiKeyListItem
+  pending: boolean
+  onDelete: (keyId: string) => void
+}) {
+  return (
+    <article className="grid gap-3 rounded-2xl bg-muted/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <strong className="font-display text-foreground">{apiKey.name}</strong>
+          <p className="mt-1 font-mono text-xs text-primary">{apiKey.tokenPrefix}</p>
+          <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
+            {capabilityLabel(apiKey.scopes)}
+          </p>
+        </div>
+        <SpaConfirmButton
+          size="sm"
+          confirmLabel="Confirm delete"
+          helperText="Deleting permanently blocks this token. The secret cannot be recovered."
+          disabled={pending}
+          onConfirm={() => onDelete(apiKey.id)}
+        >
+          Delete token
+        </SpaConfirmButton>
+      </div>
+      <div className="font-mono text-xs text-muted-foreground">
+        Last used {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'never'}
+      </div>
+    </article>
+  )
+}
+
 export function ConnectPage() {
   const navigate = useNavigate()
 
+  const [connectData, setConnectData] = useState<ConnectPageData | null>(null)
   const [status, setStatus] = useState<OnboardingConnectStatus | null>(null)
   const [flash, setFlash] = useState<{ token: string; name: string } | null>(null)
   const [createPending, setCreatePending] = useState(false)
+  const [revokePending, setRevokePending] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
-  const [dismissedSecretLoss, setDismissedSecretLoss] = useState(false)
   const [announcement, setAnnouncement] = useState('')
 
-  // Refs: do not trigger re-renders; safe to read in render (values stable within a tick).
   const waitingStartedAtRef = useRef<number | null>(null)
-  const lastKeyRef = useRef<string>('')
+  const lastSubRef = useRef<string>('')
+  const stickyConnectedRef = useRef(false)
 
-  // ---------------------------------------------------------------------------
-  // Polling effect - cancellable, stops on terminal states or unmount
-  // ---------------------------------------------------------------------------
+  async function refreshTokens() {
+    try {
+      const data = await loadConnectPage()
+      setConnectData(data)
+    } catch {
+      // Keep stale list; the status toast surfaces the failure.
+    }
+  }
+
+  // Mount: restore a one-time reveal from sessionStorage (reload fallback) and load the token list.
+  useEffect(() => {
+    setFlash(consumeTokenFlash())
+    void refreshTokens()
+  }, [])
+
+  // Poll the connection/publish status. Monotonic + terminal-sticky: once connected,
+  // the display never regresses to waiting; polling stops once the first post is live.
   useEffect(() => {
     let cancelled = false
-    // Timer handle - ReturnType<typeof setTimeout> is the allowed exception.
     let timerId: ReturnType<typeof setTimeout> | undefined
-
-    // Consume flash synchronously before first async load so the token is
-    // available when the status arrives.
-    setFlash(consumeTokenFlash())
 
     async function poll() {
       if (cancelled) return
@@ -151,33 +207,40 @@ export function ConnectPage() {
         const s = await loadOnboardingStatus()
         if (cancelled) return
 
-        // Track when we first entered the waiting state for stalled/recovery thresholds.
+        if (s.connection === 'connected') stickyConnectedRef.current = true
+
         if (s.connection === 'waiting') {
           if (waitingStartedAtRef.current === null) waitingStartedAtRef.current = Date.now()
         } else {
           waitingStartedAtRef.current = null
         }
 
-        const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
-        const sub: SelfTestSub | null =
-          s.connection === 'waiting' || s.connection === 'connected' || s.connection === 'revoked'
-            ? getSub(s, elapsedMs)
-            : null
+        const serverConn = s.connection
+        const displayConn =
+          serverConn === 'no_token' || serverConn === 'revoked'
+            ? serverConn
+            : stickyConnectedRef.current
+              ? 'connected'
+              : serverConn
 
-        // Announce only on genuine state transitions, not every poll tick.
-        const key = `${s.connection}|${s.publish?.state ?? ''}|${sub ?? ''}`
-        if (key !== lastKeyRef.current) {
-          lastKeyRef.current = key
-          const msg = announcementFor(s, sub)
+        const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
+        const sub = getSub(displayConn, elapsedMs)
+
+        const key = `${displayConn}|${s.publish?.state ?? ''}|${sub ?? ''}`
+        if (key !== lastSubRef.current) {
+          lastSubRef.current = key
+          const msg = announcementFor(sub)
           if (msg) setAnnouncement(msg)
         }
 
         setStatus(s)
 
-        if (!isTerminal(s)) timerId = setTimeout(poll, 3_000)
+        if (!isLive(s)) {
+          const interval = stickyConnectedRef.current ? 5_000 : 3_000
+          timerId = setTimeout(poll, interval)
+        }
       } catch {
-        // Silently retry; never expose raw errors to the user.
-        if (!cancelled) timerId = setTimeout(poll, 3_000)
+        if (!cancelled) timerId = setTimeout(poll, 5_000)
       }
     }
 
@@ -188,25 +251,47 @@ export function ConnectPage() {
     }
   }, [])
 
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
-  async function handleCreate() {
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const rawPreset = String(form.get('preset') ?? 'publish')
+    const preset: 'draft' | 'publish' | 'full' =
+      rawPreset === 'full' || rawPreset === 'draft' ? rawPreset : 'publish'
     setCreatePending(true)
+    stickyConnectedRef.current = false
     try {
       const result = await createApiKeyMutation({
-        data: { name: 'My agent', actorName: 'My agent', preset: 'publish' },
+        data: {
+          name: String(form.get('name') ?? 'My agent'),
+          actorName: String(form.get('actorName') ?? 'My agent'),
+          preset,
+        },
       })
       if (result.kind === 'ok') {
         saveTokenFlash({ token: result.token, name: result.name })
         setFlash({ token: result.token, name: result.name })
-        setDismissedSecretLoss(false)
+        await refreshTokens()
         await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ ok: 'token_created' }) })
         return
       }
       await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: result.code }) })
     } finally {
       setCreatePending(false)
+    }
+  }
+
+  async function handleDelete(keyId: string) {
+    setRevokePending(keyId)
+    stickyConnectedRef.current = false
+    try {
+      const result = await revokeApiKeyMutation({ data: { keyId } })
+      await refreshTokens()
+      await navigate({
+        to: '/dashboard/connect',
+        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: 'token_deleted' } : { error: result.code }),
+      })
+    } finally {
+      setRevokePending(null)
     }
   }
 
@@ -226,104 +311,64 @@ export function ConnectPage() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Derived state (refresh-idempotent: computed purely from server status + flash)
-  // ---------------------------------------------------------------------------
-  const isLive = status?.publish?.state === 'live' || status?.publish?.state === 'already_live'
+  const live = isLive(status)
+  const serverConn = status?.connection
+  const displayConn =
+    serverConn === 'no_token' || serverConn === 'revoked'
+      ? serverConn
+      : stickyConnectedRef.current
+        ? 'connected'
+        : serverConn
 
-  // P0.4: token secret is gone (consumed flash was empty), key exists, not yet connected.
-  const secretLost =
-    status !== null &&
-    status.onboardingKey !== null &&
-    flash === null &&
-    status.connection !== 'connected' &&
-    !dismissedSecretLoss
-
-  // Elapsed time within the current waiting window (re-computed each render; polls drive re-renders ~3 s).
   const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
-  const selfTestSub: SelfTestSub | null =
-    status !== null &&
-    (status.connection === 'waiting' || status.connection === 'connected' || status.connection === 'revoked')
-      ? getSub(status, elapsedMs)
-      : null
-
-  // Show self-test when we have a connection state to report (not live, not P0.4, not billing).
+  const selfTestSub = getSub(displayConn ?? 'no_token', elapsedMs)
   const showSelfTest =
-    !isLive &&
-    !secretLost &&
+    !live &&
     status !== null &&
-    (status.connection === 'waiting' || status.connection === 'connected' || status.connection === 'revoked')
+    (displayConn === 'waiting' || displayConn === 'connected' || displayConn === 'revoked')
 
-  // ConnectAgent in full setup mode: agent just got a token, needs MCP config + prompt.
-  const showSetup =
-    !isLive && !secretLost && status !== null && status.connection === 'waiting' && flash !== null
-
-  // ConnectAgent in prompt-only mode: agent connected, needs the publish task pasted.
-  const showPrompt =
-    !isLive &&
-    !secretLost &&
-    status !== null &&
-    status.connection === 'connected' &&
-    (status.publish === null || status.publish.state === 'none')
-
-  // Live reveal data
+  const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
+  const canManage = connectData?.canManage ?? status?.canManage ?? false
+  const apiKeys = connectData?.apiKeys ?? []
   const livePost = status?.publish?.post
   const liveHeading =
     status?.publish?.actor === 'onboarding_agent'
       ? 'Your agent published your first live post.'
       : 'Your first post is live.'
 
-  // PageHeader content varies by phase
-  const pageKicker = isLive ? 'Live' : 'Connect'
-  const pageTitle = isLive
+  const pageKicker = live ? 'Live' : 'Connect'
+  const pageTitle = live
     ? liveHeading
-    : selfTestSub === 'connected'
-    ? 'Agent connected'
-    : flash !== null
-    ? 'Your agent is ready'
-    : 'Connect your agent'
-  const pageDesc = isLive
+    : displayConn === 'connected'
+      ? 'Agent connected'
+      : flash !== null
+        ? 'Token created'
+        : 'Connect your agent'
+  const pageDesc = live
     ? undefined
-    : selfTestSub === 'connected'
-    ? 'Paste the prompt below into your agent to publish your first post.'
-    : flash !== null
-    ? 'Copy the token and config below, then paste the starter prompt into your agent.'
-    : 'Generate a publish token and point your AI agent at the blog over MCP.'
+    : displayConn === 'connected'
+      ? 'Your agent authenticated. Paste the starter prompt to publish your first post.'
+      : flash !== null
+        ? 'Copy the token and config below now. It is shown only once.'
+        : 'Create a scoped API token, point your AI agent at the blog over MCP, and manage tokens.'
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  const loading = !connectData && !status
+
   return (
     <>
-      {/* P2.1: noscript fallback - visible only when JS is disabled */}
       <noscript>
         <p className="rounded-xl bg-muted p-4 font-sans text-sm text-muted-foreground">
-          VibeCMS onboarding requires JavaScript to create tokens and detect your agent. Enable JavaScript and refresh
-          this page.
+          VibeCMS needs JavaScript to manage tokens and detect your agent. Enable JavaScript and refresh this page.
         </p>
       </noscript>
 
-      {/* P1.5: aria-live region - announces only on state transitions, never every poll tick */}
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
 
-      <PageHeader
-        kicker={pageKicker}
-        title={pageTitle}
-        description={pageDesc}
-        action={
-          !isLive ? (
-            <Button asChild variant="outline">
-              <Link to="/dashboard">Open dashboard</Link>
-            </Button>
-          ) : undefined
-        }
-      />
+      <PageHeader kicker={pageKicker} title={pageTitle} description={pageDesc} />
 
-
-      {/* Loading skeleton */}
-      {!status && (
+      {loading && (
         <>
           <div className="space-y-2">
             <Skeleton className="h-3 w-20" />
@@ -335,74 +380,20 @@ export function ConnectPage() {
         </>
       )}
 
-      {/* P0.4: token secret unavailable - key exists but secret is gone and agent not yet connected */}
-      {secretLost && (
-        <Panel title="Token secret unavailable">
-          <div className="grid gap-3">
-            <p className="font-sans text-sm leading-6 text-muted-foreground">
-              For security we can't show that token again. Generate a new publish token and paste the new command into
-              your agent.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <PendingSubmitButton
-                type="button"
-                pending={createPending}
-                pendingText="Creating..."
-                onClick={() => void handleCreate()}
-              >
-                Generate new token
-              </PendingSubmitButton>
-              <Button type="button" variant="outline" onClick={() => setDismissedSecretLoss(true)}>
-                I already copied it - keep checking
-              </Button>
-            </div>
+      {flash && mcpUrl && (
+        <Panel title="Your token is ready">
+          <div className="mb-4 rounded-xl bg-brand-bright/10 p-3 font-sans text-sm leading-6 text-primary">
+            Copy this token now. For security it is shown only once and cannot be retrieved later.
+          </div>
+          <ConnectAgent mcpUrl={mcpUrl} token={flash.token} tokenName={flash.name} />
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setFlash(null)}>
+              I&apos;ve copied it - hide
+            </Button>
           </div>
         </Panel>
       )}
 
-      {/* no_token state */}
-      {!isLive && !secretLost && status?.connection === 'no_token' && (
-        status.canManage ? (
-          <Panel
-            title="Generate a publish token"
-            meta={
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Free</span>
-            }
-          >
-            <div className="grid gap-3">
-              <p className="font-sans text-sm leading-6 text-muted-foreground">
-                Creates a scoped token your agent uses to connect and publish. Shown once - keep it somewhere safe.
-              </p>
-              <PendingSubmitButton
-                type="button"
-                pending={createPending}
-                pendingText="Creating..."
-                onClick={() => void handleCreate()}
-              >
-                Generate publish token
-              </PendingSubmitButton>
-            </div>
-          </Panel>
-        ) : (
-          <Panel title="Create an agent token">
-            <p className="font-sans text-sm leading-6 text-muted-foreground">
-              Only the workspace owner can create agent tokens. Ask the owner to connect an agent.
-            </p>
-          </Panel>
-        )
-      )}
-
-      {/*
-        Full setup panel: shown when the token was just created (waiting + flash).
-        Placed ABOVE the self-test so "the command above" in the waiting helper is accurate.
-      */}
-      {showSetup && status && (
-        <Panel title="Set up your agent">
-          <ConnectAgent mcpUrl={status.mcpUrl} token={flash?.token} tokenName={flash?.name} />
-        </Panel>
-      )}
-
-      {/* Self-test status panel - waiting / stalled / recovery / connected / revoked */}
       {showSelfTest && selfTestSub && (
         <Panel title="Connection status">
           <div className="grid gap-3">
@@ -412,73 +403,132 @@ export function ConnectPage() {
                 selfTestSub === 'connected'
                   ? 'bg-brand-bright/10 text-primary'
                   : selfTestSub === 'revoked'
-                  ? 'bg-destructive/10 text-destructive'
-                  : 'bg-muted/50 text-foreground',
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-muted/50 text-foreground',
               ].join(' ')}
             >
               {selfTestSub === 'waiting' && (
-                // Spinner with reduced-motion opt-out; aria-hidden because the text is the announcement.
                 <span
                   className="mt-0.5 inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none"
                   aria-hidden="true"
                 />
               )}
               <span>
-                {selfTestSub === 'waiting' &&
-                  'Waiting for your agent to connect...'}
+                {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
                 {selfTestSub === 'stalled' &&
-                  "Still waiting. Some MCP clients don't call tools until you ask. Paste this into your agent: Call sites.get on vibecms and tell me the blog name."}
+                  "Still waiting. Some MCP clients don't call tools until you ask. Try asking your agent to call sites.get."}
                 {selfTestSub === 'recovery' &&
-                  'Not detected yet. Check the token starts with vc_live_, the MCP URL is copied exactly, and the header is Authorization: Bearer <token>. You can keep this open, generate a new token, or write your first post manually.'}
+                  'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
                 {selfTestSub === 'connected' &&
-                  'Connected. VibeCMS saw your agent authenticate. Now paste the publish prompt below.'}
+                  'Connected. VibeCMS saw your agent authenticate. Paste the starter prompt to publish your first post.'}
                 {selfTestSub === 'revoked' &&
-                  "This token can't be used anymore. Generate a new publish token and paste the new command into your agent."}
+                  "This token can't be used anymore. Create a new token below to connect an agent."}
               </span>
             </div>
-
-            {selfTestSub === 'waiting' && (
-              <p className="font-sans text-xs leading-5 text-muted-foreground">
-                Run the command above, restart your agent if it asks, then start a new chat. We'll keep checking.
-              </p>
-            )}
-
-            {/* Recovery / revoked: offer a new token */}
-            {(selfTestSub === 'recovery' || selfTestSub === 'revoked') && (
-              <div className="flex flex-wrap items-center gap-2">
-                <PendingSubmitButton
-                  type="button"
-                  variant={selfTestSub === 'revoked' ? 'default' : 'outline'}
-                  size="sm"
-                  pending={createPending}
-                  pendingText="Creating..."
-                  onClick={() => void handleCreate()}
-                >
-                  Generate new token
-                </PendingSubmitButton>
-              </div>
-            )}
           </div>
         </Panel>
       )}
 
-      {/*
-        Prompt-only ConnectAgent: shown when the agent is connected but hasn't published yet.
-        Placed BELOW the self-test so "paste the publish prompt below" in the connected message is accurate.
-      */}
-      {showPrompt && status && (
-        <Panel title="Paste this into your agent">
-          <ConnectAgent mcpUrl={status.mcpUrl} promptOnly />
+      {connectData && (
+        <Panel
+          title="API tokens"
+          meta={canManage ? `${apiKeys.length} active` : 'Owner access required'}
+        >
+          {canManage ? (
+            <div className="grid gap-5">
+              <form className="grid gap-4 rounded-2xl bg-muted/50 p-4" onSubmit={(e) => void handleCreate(e)}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="token-name">Token name</FieldLabel>
+                    <Input id="token-name" name="name" required maxLength={80} defaultValue="My agent" />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="token-actor-name">Actor name</FieldLabel>
+                    <Input id="token-actor-name" name="actorName" required maxLength={80} defaultValue="My agent" />
+                    <FieldDescription>Shown in activity when this token changes content.</FieldDescription>
+                  </Field>
+                </div>
+                <FieldSet className="gap-3">
+                  <FieldLegend>Capabilities</FieldLegend>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {TOKEN_PRESETS.map((preset) => (
+                      <Field
+                        key={preset.id}
+                        orientation="horizontal"
+                        className="rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40"
+                      >
+                        <input
+                          id={`preset-${preset.id}`}
+                          className="mt-1 accent-[var(--brand-bright)]"
+                          type="radio"
+                          name="preset"
+                          value={preset.id}
+                          defaultChecked={preset.recommended}
+                        />
+                        <span>
+                          <FieldLabel
+                            htmlFor={`preset-${preset.id}`}
+                            className="flex items-center gap-1.5 font-display text-sm font-medium"
+                          >
+                            {preset.label}
+                            {preset.recommended && (
+                              <span className="font-mono text-[0.6rem] uppercase tracking-wide text-primary">default</span>
+                            )}
+                          </FieldLabel>
+                          <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
+                            {preset.description}
+                          </span>
+                        </span>
+                      </Field>
+                    ))}
+                  </div>
+                </FieldSet>
+                <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
+                  Create token
+                </PendingSubmitButton>
+              </form>
+
+              {apiKeys.length ? (
+                <div className="grid gap-3">
+                  {apiKeys.map((key) => (
+                    <TokenRow
+                      key={key.id}
+                      apiKey={key}
+                      pending={revokePending === key.id}
+                      onDelete={(id) => void handleDelete(id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No tokens yet"
+                  description="Create a token above to connect an AI agent to this blog over MCP."
+                />
+              )}
+            </div>
+          ) : (
+            <p className="font-sans text-sm text-muted-foreground">
+              Only the workspace owner can create and delete agent tokens.
+            </p>
+          )}
         </Panel>
       )}
 
-      {/* Live reveal */}
-      {isLive && status && (
+      {!flash && connectData && mcpUrl && !live && (
+        <Panel title="Connect an agent" meta="MCP over HTTPS">
+          <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
+            Point any MCP-compatible agent at the endpoint below. Token secrets are shown only once when created;
+            create a new token to connect another agent.
+          </p>
+          <ConnectAgent mcpUrl={mcpUrl} />
+        </Panel>
+      )}
+
+      {live && status && (
         <div className="grid gap-4">
-          {/* Reveal card: kicker is in PageHeader; card shows body + URL row */}
-          <div className="rounded-2xl border border-brand-bright/20 bg-brand-bright/5 px-5 pb-5 pt-4">
+          <div className="rounded-2xl bg-brand-bright/5 px-5 pb-5 pt-4">
             <p className="font-sans text-sm leading-6 text-muted-foreground">
-              This is your included free publish. People with the link can read it now; search engines won't index it
+              This is your included free publish. People with the link can read it now; search engines won&apos;t index it
               until you upgrade.
             </p>
             {livePost && (
@@ -493,7 +543,7 @@ export function ConnectPage() {
                   rel="noopener"
                   className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  Open Post
+                  Open post
                 </a>
                 <CopyButton value={livePost.url} label="Copy URL" copiedLabel="Copied" iconOnly />
               </div>
@@ -503,34 +553,6 @@ export function ConnectPage() {
           <Panel title="Continue publishing">
             <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
           </Panel>
-        </div>
-      )}
-
-      {/* P1.3: Skip / manual fallback - hidden after live reveal (which has its own CTA) */}
-      {status && !isLive && (
-        <div className="space-y-3">
-          {/* Secondary: write manually (under troubleshooting, not equal-weight in hero) */}
-          <div className="rounded-2xl bg-muted/50 px-4 py-3">
-            <p className="font-sans text-sm">
-              <Link
-                to="/dashboard/posts/new"
-                search={postEditorSearch()}
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                Write your first post manually instead
-              </Link>
-            </p>
-            <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
-              You can still connect an agent later. Your first manual publish is also the included free publish.
-            </p>
-          </div>
-
-          {/* Tertiary: skip entirely */}
-          <div className="flex justify-end">
-            <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-              <Link to="/dashboard">Skip for now</Link>
-            </Button>
-          </div>
         </div>
       )}
     </>

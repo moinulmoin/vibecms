@@ -180,13 +180,13 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             <FieldLabel className="sr-only font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground" htmlFor="posts-search">
               Search posts
             </FieldLabel>
-            <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} />
+            <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} className="border-transparent bg-background/70 shadow-sm" />
           </Field>
           <Field className="w-full gap-2 sm:w-44">
             <FieldLabel className="sr-only font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground" htmlFor="posts-status">
               Status
             </FieldLabel>
-            <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''}>
+            <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''} className="border-transparent bg-background/70 shadow-sm">
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
               <option value="published">Published</option>

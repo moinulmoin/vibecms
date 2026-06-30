@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers'
 import { getBilling, getBillingStatus, isSelfHosted } from '~/server/billing'
 import { getActivity } from '~/server/cms'
 import { canManageApiKeys, createApiKeyForApp, listApiKeys, revokeApiKeyForApp } from '~/server/api-keys'
+import type { ApiKeyListItem } from '~/server/api-keys'
 import { getMedia, updateAssetAltForApp } from '~/server/media'
 import {
   completeSiteSetupForApp,
@@ -34,24 +35,20 @@ export const completeSetupMutation = createServerFn({ method: 'POST' })
 
 export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()
-  const [site, apiKeys, billing, customDomains] = await Promise.all([
+  const [site, billing, customDomains] = await Promise.all([
     getSiteSettings(app),
-    listApiKeys(app),
     getBilling(app.workspaceId),
     listCustomDomainsForApp(app),
   ])
   const selfHosted = isSelfHosted()
   const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
-  const canManageTokens = canManageApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
   return {
     site,
-    apiKeys,
     customDomains,
     billingStatus: billing.status,
     selfHosted,
     isOwner,
-    canManageTokens,
     mcpUrl,
   }
 })
@@ -122,11 +119,18 @@ export const loadActivityPage = createServerFn({ method: 'GET' })
     return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
   })
 
+export type ConnectPageData = {
+  canManage: boolean
+  mcpUrl: string
+  apiKeys: ApiKeyListItem[]
+}
+
 export const loadConnectPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()
   const canManage = canManageApiKeys(app)
+  const apiKeys = await listApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
-  return { canManage, mcpUrl }
+  return { canManage, mcpUrl, apiKeys }
 })
 
 export const loadBillingRequiredPage = createServerFn({ method: 'GET' }).handler(async () => {

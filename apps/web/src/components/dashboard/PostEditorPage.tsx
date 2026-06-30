@@ -688,7 +688,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                         ) : versions.length === 0 ? (
                           <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
                         ) : (
-                          <ul className="divide-y">
+                          <ul className="divide-y divide-[color:var(--hairline)]">
                             {versions.map((v) => (
                               <li key={v.versionNumber} className="flex flex-col gap-2 p-4">
                                 <div className="flex items-center gap-2">
@@ -799,7 +799,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     </Button>
                   </div>
                   {showDiff ? (
-                    <div className="max-h-64 overflow-y-auto rounded-lg border bg-muted/40 p-2 font-mono text-xs leading-relaxed">
+                    <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-2 font-mono text-xs leading-relaxed">
                       {diffLines(viewingVersion.contentMarkdown, post?.contentMarkdown ?? '').map(
                         (line: DiffLine, i: number) => {
                           const sign = line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '
@@ -854,7 +854,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </div>
             ) : null}
           </div>
-          <div className="flex justify-end border-t pt-3">
+          <div className="flex justify-end border-t border-[color:var(--hairline)] pt-3">
             <DialogClose asChild>
               <Button type="button" variant="outline" size="sm">
                 Close

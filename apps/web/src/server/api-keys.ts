@@ -107,7 +107,7 @@ export async function listApiKeys(app: AppUserContext) {
   if (!canManageApiKeys(app)) return []
   const result = await env.DB.prepare(
     `SELECT id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, last_used_at, revoked_at, created_at
-     FROM api_keys WHERE site_id = ? ORDER BY created_at DESC LIMIT 100`,
+     FROM api_keys WHERE site_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 100`,
   )
     .bind(app.siteId)
     .all<ApiKeyRow>()

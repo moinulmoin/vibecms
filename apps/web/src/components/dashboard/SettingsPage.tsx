@@ -1,22 +1,14 @@
 'use client'
 
-import { API_TOKENS_MAX, BRAND, DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
-import type { ApiKeyListItem } from '~/server/api-keys'
+import { DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
 import type { CustomDomainsPanel, CustomDomainView } from '~/server/custom-domains'
 import { DownloadIcon } from '@radix-ui/react-icons'
 import {
   Field,
-  FieldDescription,
   FieldLabel,
   FieldLegend,
   FieldSet,
   Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Textarea,
   cn,
 } from '@vc/ui'
@@ -29,24 +21,19 @@ import {
   LoadError,
   PageHeader,
   Panel,
-  formatDate,
 } from '~/components/dashboard/DashboardLayout'
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
-  createApiKeyMutation,
   addCustomDomainMutation,
   removeCustomDomainMutation,
   loadSettingsPage,
-  revokeApiKeyMutation,
   updateSiteSettingsMutation,
 } from '~/server/dashboard-pages-fn'
 import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
-import { saveTokenFlash } from '~/lib/token-flash'
 
 type SiteSettingsForm = {
   name: string
@@ -59,29 +46,10 @@ type SiteSettingsForm = {
 
 type SettingsPageData = {
   site: SiteSettingsForm
-  apiKeys: ApiKeyListItem[]
   customDomains: CustomDomainsPanel
   billingStatus: string
   selfHosted: boolean
   isOwner: boolean
-  canManageTokens: boolean
-  mcpUrl: string
-}
-
-function TokenStatusBadge({ revoked }: { revoked: boolean }) {
-  if (revoked) {
-    return (
-      <Badge variant="outline" className="capitalize">
-        revoked
-      </Badge>
-    )
-  }
-  return (
-    <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-      <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-      Active
-    </Badge>
-  )
 }
 
 function BillingStatusBadge({ status }: { status: string }) {
@@ -175,9 +143,8 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [revokePending, setRevokePending] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
-  const [formPending, setFormPending] = useState<'site' | 'theme' | 'token' | 'domain' | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
 
@@ -247,45 +214,6 @@ export function SettingsPage() {
     }
   }
 
-  async function handleCreateToken(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const preset = form.get('preset') === 'full' ? 'full' : 'publish'
-    setFormPending('token')
-    try {
-      const result = await createApiKeyMutation({
-        data: {
-          name: String(form.get('name') ?? 'My agent'),
-          actorName: String(form.get('actorName') ?? 'My agent'),
-          preset,
-        },
-      })
-      if (result.kind === 'ok') {
-        saveTokenFlash({ token: result.token, name: result.name })
-        await navigate({ to: '/dashboard/settings/token-created', search: emptyDashboardStatusSearch })
-        return
-      }
-      await navigate({ to: '/dashboard/settings', search: dashboardStatusSearch({ error: result.code }) })
-    } finally {
-      setFormPending(null)
-    }
-  }
-
-  async function handleRevoke(keyId: string) {
-    setRevokePending(keyId)
-    try {
-      const result = await revokeApiKeyMutation({ data: { keyId } })
-      const refreshed = await loadSettingsPage()
-      setData(refreshed)
-      await navigate({
-        to: '/dashboard/settings',
-        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
-      })
-    } finally {
-      setRevokePending(null)
-    }
-  }
-
   async function handleAddDomain(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -337,16 +265,14 @@ export function SettingsPage() {
     )
   }
 
-  const { site, apiKeys, customDomains, billingStatus, selfHosted, isOwner, canManageTokens, mcpUrl } = data
-  const activeTokenCount = apiKeys.filter((key) => key.revokedAt == null).length
-  const atTokenCap = activeTokenCount >= API_TOKENS_MAX
+  const { site, customDomains, billingStatus, selfHosted, isOwner } = data
 
   return (
     <>
       <PageHeader
         kicker="Settings"
         title="Workspace Settings"
-        description="Manage billing and the scoped credentials agents use to safely operate the blog."
+        description="Manage billing, your domain, and workspace preferences."
       />
       <Tabs defaultValue="general" className="gap-4">
         <div className="overflow-x-auto">
@@ -354,7 +280,6 @@ export function SettingsPage() {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
-            <TabsTrigger value="agents">Agents &amp; Tokens</TabsTrigger>
             <TabsTrigger value="data">Data</TabsTrigger>
           </TabsList>
         </div>
@@ -577,156 +502,6 @@ export function SettingsPage() {
             )}
           </div>
         </div>
-      </Panel>
-        </TabsContent>
-        <TabsContent value="agents" className="grid gap-4">
-      <Panel title="Agent Access Token" meta={canManageTokens ? 'Draft-only by default' : 'Owner access required'}>
-        {canManageTokens ? (
-          <form
-            className="grid max-w-3xl gap-4 rounded-2xl bg-muted/50 p-4 md:p-5"
-            onSubmit={(e) => void handleCreateToken(e)}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="token-name">Token Name</FieldLabel>
-                <Input id="token-name" name="name" required defaultValue="My agent" />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="token-actor-name">Actor Name</FieldLabel>
-                <Input id="token-actor-name" name="actorName" required defaultValue="My agent" />
-                <FieldDescription>Shown in activity when this token changes content.</FieldDescription>
-              </Field>
-            </div>
-            <FieldSet className="gap-3">
-              <FieldLegend>Capabilities</FieldLegend>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Field
-                  orientation="horizontal"
-                  className="rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted has-[:checked]:bg-muted"
-                >
-                  <input id="preset-publish" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="publish" defaultChecked />
-                  <span>
-                    <FieldLabel htmlFor="preset-publish" className="flex items-center gap-2 font-display text-sm font-medium">
-                      Publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">default</Badge>
-                    </FieldLabel>
-                    <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                      Read, create, edit, upload media, and publish live posts. Cannot archive. Recommended.
-                    </span>
-                  </span>
-                </Field>
-                <Field
-                  orientation="horizontal"
-                  className="rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted has-[:checked]:bg-muted"
-                >
-                  <input id="preset-full" className="mt-1 accent-[var(--brand-bright)]" type="radio" name="preset" value="full" />
-                  <span>
-                    <FieldLabel htmlFor="preset-full" className="flex items-center gap-2 font-display text-sm font-medium">
-                      Full publisher <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">can archive</Badge>
-                    </FieldLabel>
-                    <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                      Everything in Publisher plus archiving live posts.
-                    </span>
-                  </span>
-                </Field>
-              </div>
-            </FieldSet>
-            <PendingSubmitButton
-              className="w-fit"
-              pending={formPending === 'token'}
-              pendingText="Creating token…"
-              disabled={atTokenCap}
-            >
-              Create token
-            </PendingSubmitButton>
-            {atTokenCap ? (
-              <p className="font-sans text-xs text-muted-foreground">
-                You have {API_TOKENS_MAX} active tokens (the maximum). Revoke one below to create another.
-              </p>
-            ) : null}
-          </form>
-        ) : (
-          <p className="font-sans text-sm text-muted-foreground">Only workspace owners can create agent access tokens.</p>
-        )}
-      </Panel>
-      <Panel title="Existing Tokens" meta={`${activeTokenCount} of ${API_TOKENS_MAX} active`}>
-        {apiKeys.length ? (
-          <>
-            <div className="grid gap-3 md:hidden">
-              {apiKeys.map((key) => (
-                <article className="grid gap-3 rounded-2xl bg-muted/50 p-4" key={key.id}>
-                  <div className="min-w-0">
-                    <strong className="font-display text-foreground">{key.name}</strong>
-                    <p className="mt-1 font-mono text-xs text-primary">{key.tokenPrefix}…</p>
-                    <p className="mt-1 break-words font-mono text-[11px] leading-5 text-muted-foreground">{key.scopes.join(', ')}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
-                    <TokenStatusBadge revoked={Boolean(key.revokedAt)} />
-                    <span className="tabular-nums">Last used {key.lastUsedAt ? formatDate(key.lastUsedAt) : 'never'}</span>
-                  </div>
-                  {!key.revokedAt ? (
-                    <SpaConfirmButton
-                      size="sm"
-                      confirmLabel="Confirm revoke"
-                      helperText="Revoking immediately blocks this token."
-                      disabled={revokePending === key.id}
-                      onConfirm={() => handleRevoke(key.id)}
-                    >
-                      Revoke
-                    </SpaConfirmButton>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-            <Table className="hidden md:table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Token</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Used</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {apiKeys.map((key) => (
-                  <TableRow key={key.id}>
-                    <TableCell>
-                      <strong className="font-display text-foreground">{key.name}</strong>
-                      <p className="mt-1 font-mono text-xs text-primary">{key.tokenPrefix}…</p>
-                      <p className="mt-1 max-w-2xl truncate font-mono text-[11px] text-muted-foreground">{key.scopes.join(', ')}</p>
-                    </TableCell>
-                    <TableCell>
-                      <TokenStatusBadge revoked={Boolean(key.revokedAt)} />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {key.lastUsedAt ? formatDate(key.lastUsedAt) : 'never used'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {!key.revokedAt ? (
-                        <SpaConfirmButton
-                          size="sm"
-                          confirmLabel="Confirm revoke"
-                          helperText="Revoking immediately blocks this token."
-                          disabled={revokePending === key.id}
-                          onConfirm={() => handleRevoke(key.id)}
-                        >
-                          Revoke
-                        </SpaConfirmButton>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </>
-        ) : (
-          <EmptyState
-            title="No tokens yet"
-            description={`Create a token when you are ready to connect an agent through ${BRAND.name}.`}
-          />
-        )}
-      </Panel>
-      <Panel title="Connect an agent" meta="MCP over HTTPS">
-        <ConnectAgent mcpUrl={mcpUrl} />
       </Panel>
         </TabsContent>
         <TabsContent value="data" className="grid gap-4">

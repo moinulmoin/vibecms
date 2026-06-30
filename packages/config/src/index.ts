@@ -78,6 +78,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   setup_complete: { variant: "success", title: "Blog ready", message: "Your hosted blog is set up." },
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },
+  token_deleted: { variant: "success", title: "Token deleted", message: "That token can no longer access your workspace." },
   billing_success: { variant: "success", title: "Subscription active", message: "Billing is set up. Welcome aboard." },
   domain_added: { variant: "success", title: "Domain added", message: "Add the DNS record shown below to finish connecting it." },
   domain_removed: { variant: "success", title: "Domain removed", message: "It no longer points to your blog." },
