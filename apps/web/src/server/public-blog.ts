@@ -10,6 +10,7 @@ import {
   type PostRow,
   type SiteRow,
 } from "./public-blog-data";
+export { isMarketingHost } from "./public-blog-data";
 import { articleCacheTag, publicCacheControl } from "./public-blog-cache";
 import { defaultHostname, publicBlogUsesAppPath } from "./onboarding";
 

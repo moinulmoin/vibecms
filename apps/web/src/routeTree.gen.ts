@@ -21,7 +21,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as TagTagRouteImport } from './routes/tag/$tag'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
-import { Route as DashboardSetupRouteImport } from './routes/dashboard/setup'
+import { Route as DashboardSetupRouteImport } from './routes/dashboard_/setup'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
 import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
@@ -106,9 +106,9 @@ const MediaAssetsAssetIdRoute = MediaAssetsAssetIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSetupRoute = DashboardSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
-  getParentRoute: () => DashboardRouteRoute,
+  id: '/dashboard_/setup',
+  path: '/dashboard/setup',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
@@ -315,7 +315,7 @@ export interface FileRoutesById {
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
-  '/dashboard/setup': typeof DashboardSetupRoute
+  '/dashboard_/setup': typeof DashboardSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/tag/$tag': typeof TagTagRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -427,7 +427,7 @@ export interface FileRouteTypes {
     | '/dashboard/connect'
     | '/dashboard/media'
     | '/dashboard/settings'
-    | '/dashboard/setup'
+    | '/dashboard_/setup'
     | '/media-assets/$assetId'
     | '/tag/$tag'
     | '/dashboard/'
@@ -460,6 +460,7 @@ export interface RootRouteChildren {
   ApiExportDotjsonRoute: typeof ApiExportDotjsonRoute
   ApiPostsRoute: typeof ApiPostsRoute
   ApiSubscribeRoute: typeof ApiSubscribeRoute
+  DashboardSetupRoute: typeof DashboardSetupRoute
   MediaAssetsAssetIdRoute: typeof MediaAssetsAssetIdRoute
   TagTagRoute: typeof TagTagRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -560,12 +561,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaAssetsAssetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard/setup': {
-      id: '/dashboard/setup'
-      path: '/setup'
+    '/dashboard_/setup': {
+      id: '/dashboard_/setup'
+      path: '/dashboard/setup'
       fullPath: '/dashboard/setup'
       preLoaderRoute: typeof DashboardSetupRouteImport
-      parentRoute: typeof DashboardRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/settings': {
       id: '/dashboard/settings'
@@ -741,7 +742,6 @@ interface DashboardRouteRouteChildren {
   DashboardConnectRoute: typeof DashboardConnectRoute
   DashboardMediaRoute: typeof DashboardMediaRoute
   DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
-  DashboardSetupRoute: typeof DashboardSetupRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardPostsNewRoute: typeof DashboardPostsNewRoute
   DashboardPostsIndexRoute: typeof DashboardPostsIndexRoute
@@ -754,7 +754,6 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardConnectRoute: DashboardConnectRoute,
   DashboardMediaRoute: DashboardMediaRoute,
   DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
-  DashboardSetupRoute: DashboardSetupRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardPostsNewRoute: DashboardPostsNewRoute,
   DashboardPostsIndexRoute: DashboardPostsIndexRoute,
@@ -778,6 +777,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportDotjsonRoute: ApiExportDotjsonRoute,
   ApiPostsRoute: ApiPostsRoute,
   ApiSubscribeRoute: ApiSubscribeRoute,
+  DashboardSetupRoute: DashboardSetupRoute,
   MediaAssetsAssetIdRoute: MediaAssetsAssetIdRoute,
   TagTagRoute: TagTagRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

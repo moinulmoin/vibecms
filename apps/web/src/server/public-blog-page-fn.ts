@@ -8,6 +8,7 @@ import {
   loadPublicTagBySlug,
   loadPublicTagByHost,
   publicHtmlResponseHeaders,
+  isMarketingHost,
 } from '~/server/public-blog'
 
 export const loadPublicBlogIndex = createServerFn({ method: 'GET' })
@@ -70,3 +71,7 @@ export const loadPublicBlogPostByHost = createServerFn({ method: 'GET' })
     if (!blog) return null
     return { blog, headers: publicHtmlResponseHeaders(blog.site, blog.cacheTag) }
   })
+
+export const loadRootHostMode = createServerFn({ method: 'GET' })
+  .validator((data: Record<string, never>) => data)
+  .handler(async () => ({ marketing: isMarketingHost(getRequest()) }))

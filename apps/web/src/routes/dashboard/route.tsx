@@ -4,11 +4,11 @@ import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 
 export const Route = createFileRoute('/dashboard')({
   ssr: false,
-  beforeLoad: ({ context, location }) => {
+  beforeLoad: ({ context }) => {
     if (!context.app) {
       throw redirect({ to: '/login' })
     }
-    if (location.pathname !== '/dashboard/setup' && !context.siteSetupComplete) {
+    if (!context.siteSetupComplete) {
       throw redirect({ to: '/dashboard/setup', search: emptyDashboardStatusSearch })
     }
   },

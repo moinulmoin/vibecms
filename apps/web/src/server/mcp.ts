@@ -1,4 +1,4 @@
-import { AppError, RateLimitError, can, type Actor } from "@vc/core";
+import { AppError, RateLimitError, type Actor } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { FORM_STATUS } from "@vc/config";
 import { mcpInstructions, mcpTools } from "@vc/mcp";
@@ -89,7 +89,7 @@ async function callTool(name: McpToolName, actor: Actor, siteId: string, workspa
   return structuredToolResult(dto, zodToJsonSchema(op.responseSchema));
 }
 
-function listedTools(actor?: Actor) {
+function listedTools() {
   return {
     tools: operations.map((op) => {
       const catalog = mcpToolsByName.get(op.toolName);
@@ -106,7 +106,6 @@ function listedTools(actor?: Actor) {
         annotations,
         _meta: {
           "vibecms.com/requiredScope": op.requiredScope,
-          ...(actor ? { "vibecms.com/available": can(actor, op.requiredScope) } : {}),
         },
       };
     }),
@@ -167,21 +166,15 @@ export async function handleMcpRequest(request: Request) {
   }
   if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
   if (body.method === "tools/list") {
-    const auth = await authenticateBearerToken(request);
-    if (!auth) return result(body.id, listedTools());
     try {
-      await enforceApiBudget({
-        workspaceId: auth.workspaceId,
-        siteId: auth.siteId,
-        tokenId: auth.tokenId,
-        kind: "read",
-        force: forceQuotaForSmoke(request),
-      });
-      return result(body.id, listedTools(auth.actor));
+      await authenticateBearerToken(request);
     } catch (error) {
-      if (error instanceof RateLimitError) return appRpcError(body.id, error);
-      return rpcError(body.id, -32000, "Tool failed", 500);
+      console.error("mcp.tools_list_auth_failed", {
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
+    return result(body.id, listedTools());
   }
   if (body.method !== "tools/call") return rpcError(body.id, -32601, "Method not found");
   const auth = await authenticateBearerToken(request);

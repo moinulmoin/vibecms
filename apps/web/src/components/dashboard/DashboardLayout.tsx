@@ -53,11 +53,9 @@ const navItems: NavItem[] = [
   { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
 ]
 
-// Titles for routes that are not primary nav items, so the top bar never
-// falls through to "Overview" on Billing / Setup / token-created.
+// Titles for non-nav routes so the top bar never falls through to "Overview".
 const EXTRA_TITLES: Record<string, string> = {
   '/dashboard/billing': 'Billing',
-  '/dashboard/setup': 'Set up your blog',
 }
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })

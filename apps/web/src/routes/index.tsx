@@ -1,15 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, notFound } from '@tanstack/react-router'
 import { BRAND } from '@vc/config'
 import { LandingHome } from '~/components/landing/LandingHome'
 import { PublicBlogIndexView } from '~/components/PublicBlogPages'
 import { seo } from '~/utils/seo'
 import { getOgOrigin } from '~/server/og'
-import { loadPublicBlogIndexByHost } from '~/server/public-blog-page-fn'
+import { loadPublicBlogIndexByHost, loadRootHostMode } from '~/server/public-blog-page-fn'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
     const blog = await loadPublicBlogIndexByHost({ data: {} })
     if (blog) return { kind: 'blog' as const, ...blog }
+    const hostMode = await loadRootHostMode({ data: {} })
+    if (!hostMode.marketing) throw notFound()
     const ogOrigin = await getOgOrigin()
     return { kind: 'landing' as const, ogOrigin }
   },

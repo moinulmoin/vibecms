@@ -45,21 +45,19 @@ function appHost() {
   }
 }
 
-function canRenderPublic(site: SiteRow) {
-  return String(env.SELF_HOSTED) === "true" || site.billing_status === "active" || (site.published_count ?? 0) > 0;
+// Product hosts (localhost, APP_URL host, apex zone, app.<zone>) never serve a tenant blog.
+export function isMarketingHost(request: Request): boolean {
+  const host = normalizeHost(request);
+  if (!host || isLocalDefaultHostname(host)) return true;
+  if (host === appHost()) return true;
+  const zone = publicBlogBaseDomain();
+  if (zone && (host === zone || host === `app.${zone}`)) return true;
+  return false;
 }
 
 export async function resolveSite(request: Request) {
+  if (isMarketingHost(request)) return null;
   const host = normalizeHost(request);
-  const zone = publicBlogBaseDomain() || "";
-  if (
-    !host ||
-    host === "localhost" ||
-    host === appHost() ||
-    (zone !== "" && host === `app.${zone}`) ||
-    (isLocalDefaultHostname(host) && zone !== "")
-  )
-    return null;
 
   const site = await env.DB.prepare(
     `SELECT sites.id, sites.workspace_id, sites.name, sites.slug, sites.theme, sites.description,
@@ -74,7 +72,7 @@ export async function resolveSite(request: Request) {
   )
     .bind(host)
     .first<SiteRow>();
-  if (!site || !canRenderPublic(site)) return null;
+  if (!site) return null;
   return site;
 }
 
@@ -92,7 +90,7 @@ export async function resolveSiteBySlug(slug: string | undefined) {
   )
     .bind(slug)
     .first<SiteRow>();
-  if (!site || !canRenderPublic(site)) return null;
+  if (!site) return null;
   return site;
 }
 

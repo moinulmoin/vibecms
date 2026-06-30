@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { isMarketingHost } from "./public-blog";
 import { BRAND } from "@vc/config";
 import { isPublicBlogIndexable, listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog-data";
 
@@ -20,20 +20,6 @@ function robotsTagHeaders(site: SiteRow): Record<string, string> {
 
 const notFound = () =>
   new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
-
-function appHostName() {
-  try {
-    return env.APP_URL ? new URL(env.APP_URL).host.split(":")[0].toLowerCase() : "";
-  } catch {
-    return "";
-  }
-}
-
-/** True for the product host (marketing app), where agent files describe VibeCMS itself rather than a blog. */
-function isAppHost(request: Request) {
-  const host = new URL(request.url).host.split(":")[0].toLowerCase();
-  return host === "localhost" || host === appHostName() || host.startsWith("app.");
-}
 
 function productSitemap(origin: string): Response {
   const urls = [`${origin}/`, `${origin}/login`];
@@ -106,7 +92,7 @@ ${items}
 /** XML sitemap for resolvable blog hosts (self-host or active subscription). */
 export async function handleSitemap(request: Request): Promise<Response> {
   const site = await resolveSite(request);
-  if (!site) return isAppHost(request) ? productSitemap(new URL(request.url).origin) : notFound();
+  if (!site) return isMarketingHost(request) ? productSitemap(new URL(request.url).origin) : notFound();
   if (!isPublicBlogIndexable(site)) return notFound();
   const origin = new URL(request.url).origin;
   const posts = await listPublishedPosts(site.id);
@@ -128,7 +114,7 @@ export async function handleRobots(request: Request): Promise<Response> {
   const site = await resolveSite(request);
   const origin = new URL(request.url).origin;
 
-  const indexable = (site ? isPublicBlogIndexable(site) : false) || isAppHost(request);
+  const indexable = (site ? isPublicBlogIndexable(site) : false) || isMarketingHost(request);
   const body = indexable
     ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
     : "User-agent: *\nAllow: /\n";
@@ -160,7 +146,7 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
 /** llms.txt for a custom-domain blog host so AI agents can discover posts and fetch clean markdown. */
 export async function handleLlmsTxt(request: Request): Promise<Response> {
   const site = await resolveSite(request);
-  if (!site) return isAppHost(request) ? productLlmsTxt(new URL(request.url).origin) : notFound();
+  if (!site) return isMarketingHost(request) ? productLlmsTxt(new URL(request.url).origin) : notFound();
   return renderLlmsTxt(site, new URL(request.url).origin, "", await listPublishedPosts(site.id));
 }
 
