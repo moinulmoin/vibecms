@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to VibeCMS will be documented in this file.
+All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
@@ -45,7 +45,7 @@ All notable changes to VibeCMS will be documented in this file.
 
 ## 0.1.0-alpha
 
-- Initial VibeCMS Cloudflare Worker app.
+- Initial vibecms Cloudflare Worker app.
 - Better Auth email/password auth.
 - Onboarding and single-blog setup.
 - Posts dashboard with create, edit, publish, and archive flows.

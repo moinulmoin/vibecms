@@ -1,5 +1,5 @@
 /**
- * Rich Markdown rendering pipeline for VibeCMS.
+ * Rich Markdown rendering pipeline for vibecms.
  *
  * Pipeline: remark-parse → remark-gfm → remark-rehype →
  *   rehype-slug → external-link rel → TOC collector →

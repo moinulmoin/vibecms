@@ -64,7 +64,7 @@ function getSub(connection: OnboardingConnectStatus['connection'], elapsedMs: nu
 
 function announcementFor(sub: SelfTestSub | null): string {
   if (sub === 'revoked') return "This token can't be used anymore. Generate a new token to connect an agent."
-  if (sub === 'connected') return 'Connected. VibeCMS saw your agent authenticate.'
+  if (sub === 'connected') return 'Connected. vibecms saw your agent authenticate.'
   if (sub === 'recovery') return 'Not detected yet. Check your configuration or create a new token.'
   if (sub === 'stalled') return "Still waiting. Some MCP clients don't call tools until you ask."
   if (sub === 'waiting') return 'Waiting for your agent to connect...'
@@ -358,7 +358,7 @@ export function ConnectPage() {
     <>
       <noscript>
         <p className="rounded-xl bg-muted p-4 font-sans text-sm text-muted-foreground">
-          VibeCMS needs JavaScript to manage tokens and detect your agent. Enable JavaScript and refresh this page.
+          vibecms needs JavaScript to manage tokens and detect your agent. Enable JavaScript and refresh this page.
         </p>
       </noscript>
 
@@ -420,7 +420,7 @@ export function ConnectPage() {
                 {selfTestSub === 'recovery' &&
                   'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
                 {selfTestSub === 'connected' &&
-                  'Connected. VibeCMS saw your agent authenticate. Paste the starter prompt to publish your first post.'}
+                  'Connected. vibecms saw your agent authenticate. Paste the starter prompt to publish your first post.'}
                 {selfTestSub === 'revoked' &&
                   "This token can't be used anymore. Create a new token below to connect an agent."}
               </span>

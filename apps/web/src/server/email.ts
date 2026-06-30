@@ -5,13 +5,13 @@ import { cloudflare } from '@opencoredev/email-sdk/cloudflare'
 type OtpType = 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
 
 const SUBJECTS: Record<OtpType, string> = {
-  'sign-in': 'Your VibeCMS sign-in code',
-  'email-verification': 'Verify your VibeCMS email',
-  'forget-password': 'Your VibeCMS password reset code',
-  'change-email': 'Confirm your new VibeCMS email',
+  'sign-in': 'Your vibecms sign-in code',
+  'email-verification': 'Verify your vibecms email',
+  'forget-password': 'Your vibecms password reset code',
+  'change-email': 'Confirm your new vibecms email',
 }
 
-const DEFAULT_FROM = 'VibeCMS <hey@vibecms.dev>'
+const DEFAULT_FROM = 'vibecms <hey@vibecms.dev>'
 
 /**
  * Lazily build the Email SDK client.
@@ -48,8 +48,8 @@ export async function sendOtpEmail(email: string, otp: string, type: OtpType) {
     return
   }
 
-  const html = `<p>Your VibeCMS code is <strong style="font-size:18px;letter-spacing:3px">${otp}</strong>.</p><p>It expires in 10 minutes. If you did not request this, ignore this email.</p>`
-  const text = `Your VibeCMS code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
+  const html = `<p>Your vibecms code is <strong style="font-size:18px;letter-spacing:3px">${otp}</strong>.</p><p>It expires in 10 minutes. If you did not request this, ignore this email.</p>`
+  const text = `Your vibecms code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
 
   const response = await client.send({
     from: env.EMAIL_FROM ?? DEFAULT_FROM,

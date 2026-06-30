@@ -1,5 +1,5 @@
 export const BRAND = {
-  name: "VibeCMS",
+  name: "vibecms",
   tagline: "CMS for AI Agents.",
   description:
     "Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP.",
@@ -38,7 +38,7 @@ export const API_USAGE_LIMITS = {
 export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
-  planName: "VibeCMS Cloud",
+  planName: "vibecms Cloud",
   monthlyUsd: 19,
   annualUsd: 190,
   monthlyLabel: "$19/month",

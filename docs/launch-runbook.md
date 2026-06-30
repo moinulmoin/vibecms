@@ -1,4 +1,4 @@
-# VibeCMS Cloud - production launch runbook
+# vibecms Cloud - production launch runbook
 
 Promotes the hosted worker (`apps/web/wrangler.jsonc`, worker name `vibecms`) from
 the current dev/sandbox state to production. Self-hosting has its own path in
@@ -95,7 +95,7 @@ pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN
 Add to `apps/web/wrangler.jsonc` `vars` (not sensitive):
 
 ```jsonc
-"EMAIL_FROM": "VibeCMS <login@<your-domain>>"
+"EMAIL_FROM": "vibecms <login@<your-domain>>"
 ```
 
 The `EMAIL_FROM` address must be on the domain you onboarded to Cloudflare Email Sending. `CLOUDFLARE_ACCOUNT_ID` is already set as a var in `apps/web/wrangler.jsonc`.

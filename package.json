@@ -9,7 +9,7 @@
   "cloudflare": {
     "bindings": {
       "DB": {
-        "description": "D1 database for VibeCMS auth, content, activity, versions, and billing state. Keep the binding name as `DB`."
+        "description": "D1 database for vibecms auth, content, activity, versions, and billing state. Keep the binding name as `DB`."
       },
       "ASSETS_BUCKET": {
         "description": "R2 bucket for uploaded blog media. Keep the binding name as `ASSETS_BUCKET`."
@@ -27,7 +27,7 @@
         "description": "Required secret. Generate with `openssl rand -hex 32`."
       },
       "TOKEN_PEPPER": {
-        "description": "Required secret. Generate with `openssl rand -hex 32`. Used to hash VibeCMS API tokens."
+        "description": "Required secret. Generate with `openssl rand -hex 32`. Used to hash vibecms API tokens."
       }
     }
   },

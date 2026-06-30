@@ -1,6 +1,6 @@
 # Design
 
-Visual system for VibeCMS (`apps/web`). Captured from the shipping code
+Visual system for vibecms (`apps/web`). Captured from the shipping code
 (`src/styles.css`, `src/presets.css`, landing + dashboard primitives). The brand
 is **locked**: dark dev-tool / terminal identity, monochrome neutrals + a rare
 green accent, the Space Grotesk / Hanken Grotesk / JetBrains Mono trio. Elevate
@@ -57,15 +57,15 @@ card `oklch(1 0 0)`, border `oklch(0.9 0 0)`. Primary is a deep green
 
 ### Blog templates / presets (user-selectable, `presets.css`)
 
-These are the **blog themes a VibeCMS user picks for their own published blog** -
+These are the **blog themes a vibecms user picks for their own published blog** -
 a product feature, not app chrome. Each preset is a full token vocabulary
 (`--vc-*`, ~43 tokens × light/dark) selected via `[data-vc-theme]` (`minimal`, …)
 in `presets.css` + `vc-rich-content.css`, applied to rendered post content.
 Surfaced to Tailwind as `vc-bg`, `vc-fg`, `vc-accent`, `vc-border`, etc. Covers
 surface, callouts, code, quote, figure, type, spacing.
 
-This token set is **deliberately decoupled** from the VibeCMS app/landing tokens
-above: the user's blog should look like *their* brand, not like VibeCMS. When
+This token set is **deliberately decoupled** from the vibecms app/landing tokens
+above: the user's blog should look like *their* brand, not like vibecms. When
 designing app chrome use the `--*` / `--color-*` tokens; when designing or adding
 a blog template, work in the `--vc-*` set. Adding a new preset = a new
 `[data-vc-theme]` block here (a shippable product surface in its own right).

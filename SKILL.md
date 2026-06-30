@@ -1,6 +1,6 @@
-# VibeCMS - Writing Posts (Agent Skill)
+# vibecms - Writing Posts (Agent Skill)
 
-VibeCMS is a blog platform where a person and their agents share one site. Posts are written in Markdown and stored as drafts until explicitly published.
+vibecms is a blog platform where a person and their agents share one site. Posts are written in Markdown and stored as drafts until explicitly published.
 
 ---
 

@@ -23,10 +23,10 @@ trust, while I stay the owner of record."*
 
 ## Product Purpose
 
-VibeCMS is a CMS built for AI agents. Agents write, draft, and publish through
+vibecms is a CMS built for AI agents. Agents write, draft, and publish through
 MCP over plain HTTPS + a bearer token. REST stays read/list only; every mutation
 creates an activity record, and meaningful post changes create versions. It ships
-two ways from one repo: hosted **VibeCMS Cloud** (Polar billing) and a real
+two ways from one repo: hosted **vibecms Cloud** (Polar billing) and a real
 **self-host mode** (`SELF_HOSTED=true`) on the operator's own Cloudflare D1/R2.
 
 Success looks like: a developer connects an agent in minutes, watches it publish,

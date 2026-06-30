@@ -1,7 +1,7 @@
 {
   "name": "@vc/web",
   "version": "0.1.0",
-  "description": "VibeCMS TanStack Start worker (migration target)",
+  "description": "vibecms TanStack Start worker (migration target)",
   "private": true,
   "sideEffects": false,
   "type": "module",

@@ -1,5 +1,5 @@
 /**
- * dev:token - mint a scoped VibeCMS API token for local/dev testing without the
+ * dev:token - mint a scoped vibecms API token for local/dev testing without the
  * email-OTP dance. The seed creates a demo site + posts but no auth row and no
  * API key, so this is how a developer (or an agent) gets a working credential to
  * exercise the authed surfaces (REST, MCP, CLI).
@@ -43,7 +43,7 @@ function optvalue(flag: string, fallback: string): string {
 if (hasFlag("--help") || hasFlag("-h")) {
   console.log(
     [
-      "pnpm dev:token - mint a scoped VibeCMS API token for testing (no email OTP needed)",
+      "pnpm dev:token - mint a scoped vibecms API token for testing (no email OTP needed)",
       "",
       "  pnpm dev:token                 mint a full-scope token on LOCAL D1 (demo_site)",
       "  pnpm dev:token --remote        mint against the deployed dev D1 (dev.vibecms.dev)",
@@ -151,7 +151,7 @@ const mcpUrl = `${base}/mcp`;
 console.log(
   [
     "",
-    `  VibeCMS dev token  [${where} | site ${siteId} | scopes ${preset}]`,
+    `  vibecms dev token  [${where} | site ${siteId} | scopes ${preset}]`,
     `  ${status}`,
     "",
     `  ${token}`,

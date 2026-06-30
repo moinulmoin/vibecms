@@ -1,6 +1,6 @@
-# Self-host VibeCMS on Cloudflare
+# Self-host vibecms on Cloudflare
 
-VibeCMS can run without Polar in `SELF_HOSTED=true` mode. In this mode the app uses your Cloudflare Worker, D1 database, and R2 bucket; billing gates and hosted workspace API quotas are not enforced by default.
+vibecms can run without Polar in `SELF_HOSTED=true` mode. In this mode the app uses your Cloudflare Worker, D1 database, and R2 bucket; billing gates and hosted workspace API quotas are not enforced by default.
 
 ## What self-hosted mode changes
 
@@ -27,7 +27,7 @@ R2 bucket bound as ASSETS_BUCKET
 
 The root `wrangler.jsonc` is the starting point for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web/wrangler.jsonc` so private development resources do not leak into the public self-host config.
 
-Self-hosting is meant to be easy for users who already know Cloudflare Workers, D1, and R2. It is not required for VibeCMS Cloud, and the launch path does not depend on perfect one-click self-hosting. A clean self-host deploy still needs real Cloudflare resources and secrets.
+Self-hosting is meant to be easy for users who already know Cloudflare Workers, D1, and R2. It is not required for vibecms Cloud, and the launch path does not depend on perfect one-click self-hosting. A clean self-host deploy still needs real Cloudflare resources and secrets.
 
 Once the repository is public, the README can expose a Deploy to Cloudflare button after the clean-account flow is rehearsed:
 
@@ -89,7 +89,7 @@ To deliver codes by email in production, set `CLOUDFLARE_EMAIL_API_TOKEN` as a s
 pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN --config ../../wrangler.jsonc
 ```
 
-Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on a domain onboarded to Cloudflare Email Sending, e.g. `VibeCMS <login@yourdomain.com>`. If `CLOUDFLARE_EMAIL_API_TOKEN` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
+Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on a domain onboarded to Cloudflare Email Sending, e.g. `vibecms <login@yourdomain.com>`. If `CLOUDFLARE_EMAIL_API_TOKEN` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
 
 To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
 
@@ -156,13 +156,13 @@ Before turning on the public deploy button, finish this release checklist:
 
 ## MCP in self-hosted mode
 
-Self-hosted MCP uses the same remote HTTP endpoint as hosted VibeCMS:
+Self-hosted MCP uses the same remote HTTP endpoint as hosted vibecms:
 
 ```txt
 https://<your-worker>.<your-subdomain>.workers.dev/mcp
 Authorization: Bearer vc_...
 ```
 
-Hosted VibeCMS Cloud counts MCP and REST against the same workspace API quota. Self-hosted deployments can add their own limits, but VibeCMS does not enforce hosted quotas when `SELF_HOSTED=true`.
+Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Self-hosted deployments can add their own limits, but vibecms does not enforce hosted quotas when `SELF_HOSTED=true`.
 
 Create the token in Settings, copy it once, and pass it as the bearer token. Agents can write, draft, publish, upload media, and inspect activity only when the token has the matching scopes.

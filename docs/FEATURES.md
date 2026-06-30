@@ -1,4 +1,4 @@
-# VibeCMS Feature Ledger
+# vibecms Feature Ledger
 
 Living record of what is shipped, in progress, planned, and intentionally skipped.
 Update this whenever a feature is added, removed, or planned.

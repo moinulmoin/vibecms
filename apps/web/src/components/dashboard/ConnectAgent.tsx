@@ -3,7 +3,7 @@
 import { CopyButton } from '@vc/ui'
 
 const STARTER_PROMPT =
-  'You\'re connected to my VibeCMS blog through the "vibecms" MCP server. First call posts.format_guide to learn the supported syntax. Then draft a short welcome post in Markdown - call posts.preview to render it and check the warnings before saving. Create the post with posts.create, then publish it with posts.publish. Use a clear title, a URL-safe slug, and 2 to 4 short paragraphs. When it is published, tell me the title and the URL if the tool returns one.'
+  'You\'re connected to my vibecms blog through the "vibecms" MCP server. First call posts.format_guide to learn the supported syntax. Then draft a short welcome post in Markdown - call posts.preview to render it and check the warnings before saving. Create the post with posts.create, then publish it with posts.publish. Use a clear title, a URL-safe slug, and 2 to 4 short paragraphs. When it is published, tell me the title and the URL if the tool returns one.'
 
 function CodeBlock({ name, hint, code }: { name: string; hint: string; code: string }) {
   return (

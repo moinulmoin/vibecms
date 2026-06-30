@@ -3,7 +3,7 @@ TOKEN_PEPPER=generate_with_openssl_rand_hex_32
 # Optional: passwordless sign-in emails the 6-digit code via Cloudflare Email Sending in production.
 # Leave CLOUDFLARE_EMAIL_API_TOKEN unset to log the code to the worker console instead.
 CLOUDFLARE_EMAIL_API_TOKEN=
-EMAIL_FROM=VibeCMS <login@your-domain.com>
+EMAIL_FROM=vibecms <login@your-domain.com>
 # Optional: enables the "Continue with Google" button (set both, or omit both).
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=

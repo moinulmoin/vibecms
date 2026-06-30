@@ -1,6 +1,6 @@
 {
-  "name": "VibeCMS",
-  "short_name": "VibeCMS",
+  "name": "vibecms",
+  "short_name": "vibecms",
   "description": "Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP.",
   "start_url": "/",
   "display": "standalone",

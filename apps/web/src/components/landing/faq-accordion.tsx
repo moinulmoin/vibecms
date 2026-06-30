@@ -3,9 +3,9 @@ import { GlassCard, SectionShell } from "./primitives";
 
 const faqs = [
   {
-    question: "Is VibeCMS an AI writer?",
+    question: "Is vibecms an AI writer?",
     answer:
-      "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; VibeCMS is the publication layer underneath.",
+      "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; vibecms is the publication layer underneath.",
   },
   {
     question: "Who is this for?",

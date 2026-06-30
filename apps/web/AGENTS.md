@@ -25,7 +25,7 @@ source of truth:
   only wrap genuinely interactive things; never nest cards.
 - **Two token sets, don't cross them:** app/landing chrome uses `--*` /
   `--color-*`; user-facing blog templates use `--vc-*` (`presets.css`) so a
-  user's blog looks like *their* brand, not VibeCMS.
+  user's blog looks like *their* brand, not vibecms.
 - **Accessibility:** WCAG 2.1 AA. Body ≥4.5:1 (verify muted-fg on dark), visible
   focus rings, every animation reduced-motion safe.
 

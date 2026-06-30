@@ -31,7 +31,7 @@
     "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "PUBLIC_BLOG_URL_MODE": "app-path",
     "SELF_HOSTED": "false",
-    "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
+    "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
     "POLAR_SERVER": "sandbox",
     "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
@@ -71,7 +71,7 @@
         "PUBLIC_BLOG_DOMAIN": "vibecms.dev",
         "PUBLIC_BLOG_URL_MODE": "subdomain",
         "SELF_HOSTED": "false",
-        "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
+        "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
         "POLAR_SERVER": "production",
         "POLAR_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
         "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436",

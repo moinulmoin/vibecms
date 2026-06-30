@@ -1,4 +1,4 @@
-# VibeCMS - deployment and environments
+# vibecms - deployment and environments
 
 How code reaches Cloudflare. Two paths: manual (`pnpm deploy:*`) and push-to-deploy
 (Cloudflare Workers Builds). Production launch config (secrets, domain, Polar, email) lives

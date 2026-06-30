@@ -13,7 +13,7 @@ Let theme presets differ by page LAYOUT/STRUCTURE, not only typography/color, an
 
 ## Keystone decision: a typed `presentation` field, NOT embedded YAML front-matter
 Confirmed by three independent lines (advisory + Librarian source research + pipeline map):
-1. VibeCMS is API/MCP-authored, not file-authored. `createPostRequestSchema` is already `.strict()` with typed fields (`seoTitle`, `seoDescription`, `tags`) and `contentMarkdown` as a PURE body. Layout intent is just another typed field - reusing the existing convention, not adding a second.
+1. vibecms is API/MCP-authored, not file-authored. `createPostRequestSchema` is already `.strict()` with typed fields (`seoTitle`, `seoDescription`, `tags`) and `contentMarkdown` as a PURE body. Layout intent is just another typed field - reusing the existing convention, not adding a second.
 2. Embedded YAML would force agents to string-concat YAML+body, require re-parsing Markdown to validate metadata, and complicate the (currently double-render) `previewPostOp`.
 3. `buildPostMarkdown` (apps/web-next/src/server/public-blog.ts) ALREADY emits outbound YAML front-matter for `.md`/Accept-markdown export; author-embedded front-matter would nest/duplicate. So embedded is rejected. No YAML parser / remark-frontmatter dependency is added.
 

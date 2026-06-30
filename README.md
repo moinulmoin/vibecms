@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web/public/brand/wordmark.png" alt="VibeCMS" width="460" />
+  <img src="apps/web/public/brand/wordmark.png" alt="vibecms" width="460" />
   <p><strong>CMS for AI Agents.</strong></p>
 </div>
 
@@ -17,12 +17,12 @@ Write in Markdown, manage media and versions, and let agents write, draft, and p
 - Post version history
 - Scoped agent tokens with `vc_` prefixes
 - MCP endpoint for trusted agents
-- Polar billing for hosted VibeCMS Cloud
+- Polar billing for hosted vibecms Cloud
 - `SELF_HOSTED=true` mode without Polar
 
 ## Connect an MCP client
 
-VibeCMS exposes MCP over normal HTTPS. Create a scoped token in **Settings → Agent Access Token**, then give your agent:
+vibecms exposes MCP over normal HTTPS. Create a scoped token in **Settings → Agent Access Token**, then give your agent:
 
 ```txt
 MCP URL: https://your-vibecms-domain.com/mcp
@@ -61,15 +61,15 @@ curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
-Hosted VibeCMS Cloud counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
+Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
 
-Some older MCP clients only accept local stdio servers. Use an HTTP-to-stdio bridge for those clients only; the VibeCMS integration itself is just HTTPS plus the bearer token.
+Some older MCP clients only accept local stdio servers. Use an HTTP-to-stdio bridge for those clients only; the vibecms integration itself is just HTTPS plus the bearer token.
 
 ## License
 
-VibeCMS is licensed under AGPL-3.0-or-later. See `LICENSE`.
+vibecms is licensed under AGPL-3.0-or-later. See `LICENSE`.
 
-The VibeCMS name and marks are covered by the trademark guidelines in `TRADEMARKS.md`.
+The vibecms name and marks are covered by the trademark guidelines in `TRADEMARKS.md`.
 
 ## Scripts
 
@@ -89,7 +89,7 @@ See `MILESTONES.md` for the milestone-by-milestone build plan and acceptance che
 
 ## Self-host mode
 
-VibeCMS now has a real self-host switch:
+vibecms now has a real self-host switch:
 
 ```txt
 SELF_HOSTED=true
@@ -97,7 +97,7 @@ SELF_HOSTED=true
 
 In self-host mode, Polar is optional, billing gates are disabled, and hosted workspace API quotas are not enforced by default. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
 
-The repo is intentionally set up as **one repository** for both VibeCMS Cloud development and self-hosted deploys:
+The repo is intentionally set up as **one repository** for both vibecms Cloud development and self-hosted deploys:
 
 - `apps/web/wrangler.jsonc` is the private/dev hosted Worker config.
 - `wrangler.jsonc` at the repo root is the public self-host Deploy-to-Cloudflare config.

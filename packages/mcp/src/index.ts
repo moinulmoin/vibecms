@@ -149,7 +149,7 @@ export const mcpTools: McpToolDefinition[] = [
  * the model so an agent learns the post format and the draft->publish flow
  * without trial and error. Keep it in sync with the tool schemas above.
  */
-export const mcpInstructions = `VibeCMS is one calm blog shared by a person and their agents. Write posts in Markdown using these tools.
+export const mcpInstructions = `vibecms is one calm blog shared by a person and their agents. Write posts in Markdown using these tools.
 
 Workflow:
 - BEFORE drafting or publishing, call posts.format_guide to learn the supported syntax and active preset guidance.

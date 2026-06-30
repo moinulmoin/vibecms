@@ -1,6 +1,6 @@
 # Launch Rehearsal Checklist
 
-Use this before making VibeCMS public or announcing a hosted alpha.
+Use this before making vibecms public or announcing a hosted alpha.
 
 ## 1. Secret safety
 

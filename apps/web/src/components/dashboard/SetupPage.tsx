@@ -155,7 +155,7 @@ export function SetupPage() {
                   onBlur={(e) => handleUrlPrefill(e.target.value)}
                 />
                 <FieldDescription>
-                  Used only to prefill the fields below. VibeCMS will not scrape, import, or contact this site.
+                  Used only to prefill the fields below. vibecms will not scrape, import, or contact this site.
                 </FieldDescription>
               </Field>
               <Field>

@@ -16,7 +16,7 @@
 
 ## Why this matters
 
-VibeCMS promises that every meaningful post change creates both a version and activity event. Today, post writes, version creation, and activity creation are separate awaited calls. If D1 fails after the post row changes, or if concurrent edits collide on `MAX(version_number)+1`, the app can publish/update content without the promised audit/version trail.
+vibecms promises that every meaningful post change creates both a version and activity event. Today, post writes, version creation, and activity creation are separate awaited calls. If D1 fails after the post row changes, or if concurrent edits collide on `MAX(version_number)+1`, the app can publish/update content without the promised audit/version trail.
 
 This is core product integrity. It matters even more because agents can write/publish through MCP.
 

@@ -29,7 +29,7 @@ export const bearerSecurity = [{ bearerAuth: [] }];
 
 export const openApiInfo = {
   openapi: "3.1.0" as const,
-  info: { title: "VibeCMS API", version: "1.0.0" },
+  info: { title: "vibecms API", version: "1.0.0" },
   security: bearerSecurity,
 };
 

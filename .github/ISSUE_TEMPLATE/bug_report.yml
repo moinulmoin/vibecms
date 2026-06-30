@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible VibeCMS bug
+description: Report a reproducible vibecms bug
 title: "bug: "
 labels: [bug]
 body:
@@ -36,7 +36,7 @@ body:
     attributes:
       label: Mode
       options:
-        - VibeCMS Cloud / hosted
+        - vibecms Cloud / hosted
         - Self-hosted Cloudflare Worker
         - Local development
         - Unsure

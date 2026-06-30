@@ -1,6 +1,6 @@
 # Code of Conduct
 
-VibeCMS should be a practical, respectful project for builders.
+vibecms should be a practical, respectful project for builders.
 
 ## Expected behavior
 

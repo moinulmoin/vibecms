@@ -1,6 +1,6 @@
-# Contributing to VibeCMS
+# Contributing to vibecms
 
-Thanks for helping improve VibeCMS.
+Thanks for helping improve vibecms.
 
 ## Local setup
 

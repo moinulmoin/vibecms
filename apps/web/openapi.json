@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "VibeCMS API",
+    "title": "vibecms API",
     "version": "1.0.0"
   },
   "security": [

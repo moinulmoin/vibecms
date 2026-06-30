@@ -6,7 +6,7 @@ Status: DONE (shipped to dev worker version `5ba9967e`, 2026-06-19). Phases 1-5 
 Re-sequence onboarding so the user watches THEIR OWN agent publish a real, live post via MCP before any paywall. The one free publish (FREE_PUBLISHED_LIMIT=1) becomes the activation moment; the plan ask comes after the live URL. Value-first conversion for the $19/$190 plan.
 
 ## Why (decision context)
-VibeCMS is agent-native (MCP/REST/CLI); the differentiated "aha" is seeing your own agent publish to your own live blog, not a generic demo. Backed by oracle + market research (see local 012-discussion brief). The free-publish-one billing model makes "live URL before paywall" valid: the onboarding publish IS the free publish; subscribing then unlocks indexability, more publishes, media, and analytics.
+vibecms is agent-native (MCP/REST/CLI); the differentiated "aha" is seeing your own agent publish to your own live blog, not a generic demo. Backed by oracle + market research (see local 012-discussion brief). The free-publish-one billing model makes "live URL before paywall" valid: the onboarding publish IS the free publish; subscribing then unlocks indexability, more publishes, media, and analytics.
 
 ## Current state (audited; apps/web-next)
 - No `/signup`. Landing "Get started" -> `/login` (AuthForm: email-OTP or optional Google) -> hard redirect `/app` -> `/app` parent `beforeLoad` redirects to `/app/setup` until `siteSetupComplete`. `siteSetupComplete = Boolean(site.default_seo_title)`. [routes/login.tsx, components/AuthForm.tsx:39-60, routes/app/route.tsx:5-15, server/resolve-app-router-context.server.ts:21-40]

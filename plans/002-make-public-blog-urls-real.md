@@ -18,7 +18,7 @@
 
 The product promises public hosted blog pages, but new sites currently store `slug.localhost` as their active default domain. In production, dashboards can show `https://<slug>.localhost`, while `resolveSite` ignores localhost and only resolves actual domain rows. A user can create and publish content, but their default public URL is not launchable without manual DB surgery.
 
-A deployed smoke also showed the current remote Worker at `https://vibecms.moinulislammoin2019.workers.dev` is stale: it rendered old copy (`VibeCMS | Blog CMS for humans and AI agents`) and `/brand/og-image.png` returned 404, while current `main` has new copy/assets. That is a release-process issue, but this plan focuses on source behavior for real public URLs.
+A deployed smoke also showed the current remote Worker at `https://vibecms.moinulislammoin2019.workers.dev` is stale: it rendered old copy (`vibecms | Blog CMS for humans and AI agents`) and `/brand/og-image.png` returned 404, while current `main` has new copy/assets. That is a release-process issue, but this plan focuses on source behavior for real public URLs.
 
 ## Current state
 

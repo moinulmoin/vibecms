@@ -1,6 +1,6 @@
-# VibeCMS Feature Sheet
+# vibecms Feature Sheet
 
-A complete, value-oriented inventory of what VibeCMS delivers. Grounded in the codebase, not marketing.
+A complete, value-oriented inventory of what vibecms delivers. Grounded in the codebase, not marketing.
 
 - `docs/FEATURES.md` = terse internal ledger of shipped/planned/skipped state.
 - This file = the full customer + agent facing feature inventory, including small details.
@@ -11,7 +11,7 @@ Last updated: 2026-06-23
 
 ## The value proposition
 
-**VibeCMS is the calm, markdown-native blog built for the human + agent era: hosted, own-your-domain, own-your-data, $19/month.**
+**vibecms is the calm, markdown-native blog built for the human + agent era: hosted, own-your-domain, own-your-data, $19/month.**
 
 Three things make it worth paying for:
 
@@ -126,13 +126,13 @@ Three things make it worth paying for:
 
 ## Pricing
 
-**VibeCMS Cloud: $19/month or $190/year** (annual is about 2 months free). Decided and wired across the whole product.
+**vibecms Cloud: $19/month or $190/year** (annual is about 2 months free). Decided and wired across the whole product.
 
 Plan includes: 1 hosted blog, unlimited posts, scoped MCP access, activity history, post version history, 5 GB media storage.
 
 ---
 
-## What VibeCMS deliberately does not do (positioning, not gaps)
+## What vibecms deliberately does not do (positioning, not gaps)
 
 - No platform-authored AI content. The agent writes; the platform validates.
 - No scheduled posts, no multi-blog/teams/comments, no block or page builder. Calm and markdown-native by design.

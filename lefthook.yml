@@ -1,4 +1,4 @@
-# Git hooks for VibeCMS, managed by lefthook (https://lefthook.dev).
+# Git hooks for vibecms, managed by lefthook (https://lefthook.dev).
 # Re-wire after editing with: pnpm exec lefthook install
 #
 # pre-commit: runs on every commit - secrets/placeholders (audit), no em-dashes

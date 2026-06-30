@@ -7,7 +7,7 @@ import { EXIT, exitCodeForStatus, fail, printData, type OutputFormat } from "./o
 
 const VERSION = "0.1.0";
 
-const HELP = `vibecms - command-line client for the VibeCMS API (built for AI agents)
+const HELP = `vibecms - command-line client for the vibecms API (built for AI agents)
 
 Usage: vibecms <command> [options]
 

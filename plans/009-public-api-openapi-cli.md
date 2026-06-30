@@ -13,7 +13,7 @@
 
 ## Why (decision record)
 
-VibeCMS funnels humans (cookie session) and agents (Bearer token) through ONE `@vc/core`. The agent surface is strong over MCP (10 tools at `/mcp`) but REST is a thin read sliver (`GET /api/posts`) with no formal contract, no CLI, and no published package. The goal is "one public API": a versioned REST API with a committed OpenAPI 3.1 spec, consumed by a CLI and external clients, with the existing HTTP MCP sharing the same internals.
+vibecms funnels humans (cookie session) and agents (Bearer token) through ONE `@vc/core`. The agent surface is strong over MCP (10 tools at `/mcp`) but REST is a thin read sliver (`GET /api/posts`) with no formal contract, no CLI, and no published package. The goal is "one public API": a versioned REST API with a committed OpenAPI 3.1 spec, consumed by a CLI and external clients, with the existing HTTP MCP sharing the same internals.
 
 Key decisions (oracle-validated; some overturn the initial lean):
 

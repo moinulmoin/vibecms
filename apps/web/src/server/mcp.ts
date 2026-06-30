@@ -160,7 +160,7 @@ export async function handleMcpRequest(request: Request) {
     return result(body.id, {
       protocolVersion: negotiateProtocolVersion(body.params),
       capabilities: { tools: {} },
-      serverInfo: { name: "vibecms", title: "VibeCMS", version: "0.1.0" },
+      serverInfo: { name: "vibecms", title: "vibecms", version: "0.1.0" },
       instructions: mcpInstructions,
     });
   }

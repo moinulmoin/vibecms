@@ -16,7 +16,7 @@
 
 ## Why this matters
 
-VibeCMS uses session-authenticated native POST forms for setup, posts, media upload, billing checkout/portal, token creation/revoke, and theme updates. Those forms currently have no anti-CSRF token. If Better Auth's session cookie is sent on a cross-site form submission, another site could trigger mutations such as publish/archive, token creation/revoke, or checkout redirects in the user's browser.
+vibecms uses session-authenticated native POST forms for setup, posts, media upload, billing checkout/portal, token creation/revoke, and theme updates. Those forms currently have no anti-CSRF token. If Better Auth's session cookie is sent on a cross-site form submission, another site could trigger mutations such as publish/archive, token creation/revoke, or checkout redirects in the user's browser.
 
 Bearer-token MCP/REST routes are not the problem because attackers cannot attach the victim's bearer token from another origin. This plan only protects browser-session mutations.
 

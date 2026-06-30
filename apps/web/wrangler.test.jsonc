@@ -17,7 +17,7 @@
     "BETTER_AUTH_URL": "https://dev.vibecms.dev",
     "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "SELF_HOSTED": "false",
-    "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
+    "EMAIL_FROM": "vibecms <noreply@ideaplexa.com>",
     "POLAR_PRODUCT_ID": "product_test_placeholder",
     "POLAR_SERVER": "sandbox",
     "BETTER_AUTH_SECRET": "test-secret-for-miniflare-not-used",

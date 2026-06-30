@@ -1,6 +1,6 @@
 # GitHub Release Checklist
 
-Use this when cutting a VibeCMS GitHub release.
+Use this when cutting a vibecms GitHub release.
 
 ## Before tagging
 
@@ -30,9 +30,9 @@ git push origin v0.1.0-alpha
 ## Release notes skeleton
 
 ```md
-## VibeCMS 0.1.0-alpha
+## vibecms 0.1.0-alpha
 
-First public alpha of VibeCMS: a minimal blog CMS for humans and AI agents.
+First public alpha of vibecms: a minimal blog CMS for humans and AI agents.
 
 ### Included
 
