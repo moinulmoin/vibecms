@@ -33,21 +33,17 @@ function emailClient() {
   })
 }
 
-/**
- * Delivers a one-time passcode.
- *
- * Same code path in every environment - the only split is delivery: when an
- * email provider is configured we send through the Email SDK (Cloudflare Email
- * Sending adapter); otherwise we log the code so the flow stays testable locally
- * without a provider. The code is also stored (plain) in the `verification`
- * table, which is how automated smoke reads it. EMAIL_FROM must be a sender on a
- * domain onboarded to Cloudflare Email Sending.
- */
+// Delivers a one-time passcode. Hosted prod sends via the Email SDK (Cloudflare
+// Email Sending adapter) and treats a missing provider or an unaccepted message as
+// a hard error; dev/self-host log the code (also stored plain in `verification`).
 export async function sendOtpEmail(email: string, otp: string, type: OtpType) {
   const subject = SUBJECTS[type] ?? SUBJECTS['sign-in']
   const client = emailClient()
 
   if (!client) {
+    if (env.APP_ENV === 'production') {
+      throw new Error('email provider not configured: set CLOUDFLARE_EMAIL_API_TOKEN')
+    }
     console.log(`[email-otp] to=${email} type=${type} otp=${otp}`)
     return
   }
@@ -55,15 +51,18 @@ export async function sendOtpEmail(email: string, otp: string, type: OtpType) {
   const html = `<p>Your VibeCMS code is <strong style="font-size:18px;letter-spacing:3px">${otp}</strong>.</p><p>It expires in 10 minutes. If you did not request this, ignore this email.</p>`
   const text = `Your VibeCMS code is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`
 
-  try {
-    await client.send({
-      from: env.EMAIL_FROM ?? DEFAULT_FROM,
-      to: email,
-      subject,
-      html,
-      text,
-    })
-  } catch (error) {
-    console.error(`[email-otp] cloudflare send failed: ${error instanceof Error ? error.message : String(error)}`)
+  const response = await client.send({
+    from: env.EMAIL_FROM ?? DEFAULT_FROM,
+    to: email,
+    subject,
+    html,
+    text,
+  })
+
+  const accepted = response.accepted?.length ?? 0
+  const rejected = response.rejected?.length ?? 0
+  if (accepted === 0 || rejected > 0) {
+    console.error(`[email-otp] provider=${response.provider} not accepted (accepted=${accepted} rejected=${rejected})`)
+    throw new Error('email provider did not accept the message')
   }
 }

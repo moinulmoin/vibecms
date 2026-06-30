@@ -37,6 +37,11 @@ export const auth = betterAuth({
   trustedOrigins: Array.from(
     new Set([env.BETTER_AUTH_URL, env.APP_URL, 'http://localhost:3000'].filter(Boolean)),
   ),
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ['cf-connecting-ip'],
+    },
+  },
 })
 
 export function googleSignInEnabled() {
