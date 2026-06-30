@@ -70,11 +70,8 @@
         "SELF_HOSTED": "false",
         "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
         "POLAR_SERVER": "production",
-        // GATED ON PRICING DECISION ($19/mo, $190/yr)
-        // Replace with the real Polar product id once the prod product is created.
-        // Then also set POLAR_MONTHLY_PRODUCT_ID and POLAR_YEARLY_PRODUCT_ID as secrets
-        // (see plans/PROD-LAUNCH.md for the full Polar setup sequence).
-        "POLAR_PRODUCT_ID": "TODO_POLAR_PROD_PRODUCT_ID_GATED_ON_PRICING_DECISION",
+        "POLAR_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
+        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436",
         "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
       }
     }
