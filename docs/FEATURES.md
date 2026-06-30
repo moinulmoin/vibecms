@@ -14,7 +14,7 @@ Last updated: 2026-06-23
 
 ### Auth & accounts
 - Passwordless email OTP sign-in (Better Auth `emailOTP`, 6-digit, 10-min expiry).
-- OTP delivery via Plunk when `PLUNK_API_KEY` is set; otherwise console-logged (local/test).
+- OTP delivery via Cloudflare Email Sending when `CLOUDFLARE_EMAIL_API_TOKEN` is set; otherwise console-logged (local/test).
 - OTP send rate limit: 5/hour per email (D1, fail-open).
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default domain + billing row (`none`).
 
@@ -101,7 +101,7 @@ Last updated: 2026-06-23
 ## Planned
 
 - **Google OAuth sign-in**: code is wired in `auth.ts`, gated behind `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. Coming soon (enable once the OAuth client is provisioned).
-- **Newsletter delivery** (separate track, currently ON HOLD): audience capture stores pending subscribers today; double opt-in confirmation + sends (Plunk) are deferred. Not a gap in the current scope.
+- **Newsletter delivery** (separate track, currently ON HOLD): audience capture stores pending subscribers today; double opt-in confirmation + sends (Cloudflare Email Sending) are deferred. Not a gap in the current scope.
 
 ---
 

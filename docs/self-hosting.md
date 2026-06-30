@@ -83,13 +83,13 @@ Do not set Polar secrets for self-hosted mode unless you intentionally want to t
 
 Sign-in is passwordless: users enter their email and receive a 6-digit code. Verifying the code creates the account on first use, so the email is always confirmed - there is no separate password to manage or reset.
 
-To deliver codes by email in production, set a [Plunk](https://www.useplunk.com/) API key as a secret:
+To deliver codes by email in production, set `CLOUDFLARE_EMAIL_API_TOKEN` as a secret:
 
 ```sh
-pnpm --filter @vc/web exec wrangler secret put PLUNK_API_KEY --config ../../wrangler.jsonc
+pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN --config ../../wrangler.jsonc
 ```
 
-Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a verified sender on your Plunk-verified domain, e.g. `VibeCMS <login@yourdomain.com>`. If `PLUNK_API_KEY` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
+Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on a domain onboarded to Cloudflare Email Sending, e.g. `VibeCMS <login@yourdomain.com>`. If `CLOUDFLARE_EMAIL_API_TOKEN` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
 
 To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
 

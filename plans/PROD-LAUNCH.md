@@ -50,8 +50,8 @@ pnpm --filter @vc/web-next exec wrangler secret put BETTER_AUTH_SECRET --env pro
 pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_ID --env production
 pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_SECRET --env production
 
-# Plunk email delivery (app.plunk.com - verify the ideaplexa.com domain if not already done)
-pnpm --filter @vc/web-next exec wrangler secret put PLUNK_API_KEY --env production
+# Cloudflare Email Sending delivery (enable Email Sending on the account + onboard the sending domain)
+pnpm --filter @vc/web-next exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN --env production
 
 # Polar billing (see Step 4 below for POLAR_PRODUCT_ID - set access token + webhook secret now)
 pnpm --filter @vc/web-next exec wrangler secret put POLAR_ACCESS_TOKEN --env production
@@ -257,7 +257,7 @@ Expected once SSL is active: `HTTP/2 200`.
 | `BETTER_AUTH_SECRET` | Yes | Session signing key |
 | `GOOGLE_CLIENT_ID` | No (OAuth optional) | Google sign-in |
 | `GOOGLE_CLIENT_SECRET` | No (OAuth optional) | Google sign-in |
-| `PLUNK_API_KEY` | Yes (prod) | Email OTP delivery |
+| `CLOUDFLARE_EMAIL_API_TOKEN` | Yes (prod) | OTP email via Cloudflare Email Sending |
 | `POLAR_ACCESS_TOKEN` | Yes (billing) | Polar checkout + subscription API |
 | `POLAR_WEBHOOK_SECRET` | Yes (billing) | Validates incoming Polar webhook events |
 | `CLOUDFLARE_ZONE_ID` | Yes (caching) | Zone for cache-tag purge API |

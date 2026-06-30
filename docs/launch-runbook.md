@@ -19,7 +19,7 @@ in `apps/web/wrangler.jsonc`.
 
 - `wrangler login` done, on the Cloudflare account that will own production.
 - A domain already added to that Cloudflare account (zone active).
-- A [Plunk](https://www.useplunk.com/) account (for OTP email).
+- Cloudflare Email Sending enabled on your Cloudflare account, with your sending domain onboarded (for OTP email).
 - A **production** [Polar](https://polar.sh) organization - production and sandbox are
   fully isolated (separate org, token, products, webhook secret), so the sandbox org
   used for testing cannot be reused.
@@ -78,17 +78,18 @@ pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
 
 ---
 
-## 2. Email delivery (Plunk) - required for real OTP
+## 2. Email delivery (Cloudflare Email Sending) - required for real OTP
 
-Without `PLUNK_API_KEY` the worker only logs codes to `wrangler tail`; real users get
-nothing. Sign-in is impossible without this in production.
+Without `CLOUDFLARE_EMAIL_API_TOKEN` the worker only logs codes to `wrangler tail`
+(sign-in is impossible in production).
 
-1. In Plunk, **verify your sending domain** (add the DNS records Plunk requires).
-2. Create an API key (Plunk dashboard).
-3. Set the secret and a verified sender var:
+1. Enable **Email Sending** on the Cloudflare account and onboard your sending domain
+   (add the SPF/DKIM/DMARC records Cloudflare provides).
+2. Create a Cloudflare API token with **Email Sending** permission.
+3. Set the secret and a sender var:
 
 ```bash
-pnpm --filter @vc/web exec wrangler secret put PLUNK_API_KEY
+pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN
 ```
 
 Add to `apps/web/wrangler.jsonc` `vars` (not sensitive):
@@ -97,7 +98,7 @@ Add to `apps/web/wrangler.jsonc` `vars` (not sensitive):
 "EMAIL_FROM": "VibeCMS <login@<your-domain>>"
 ```
 
-The `EMAIL_FROM` address must be on the domain you verified in Plunk. OTP sends use `https://next-api.useplunk.com/v1/send`.
+The `EMAIL_FROM` address must be on the domain you onboarded to Cloudflare Email Sending. `CLOUDFLARE_ACCOUNT_ID` is already set as a var in `apps/web/wrangler.jsonc`.
 
 ---
 

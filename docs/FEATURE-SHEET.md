@@ -25,7 +25,7 @@ Three things make it worth paying for:
 
 ### Accounts and sign-in
 - Passwordless email OTP (6-digit, 10-minute expiry); no passwords.
-- OTP delivery via Plunk when configured, console fallback otherwise.
+- OTP delivery via Cloudflare Email Sending when configured, console fallback otherwise.
 - OTP send rate limit: 5 per hour per email (fail-open).
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default subdomain + billing row, in one step.
 - Cross-origin POST guard on app and onboarding endpoints.
