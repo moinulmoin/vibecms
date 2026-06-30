@@ -1,4 +1,5 @@
-import { createCsrfMiddleware, createStart } from '@tanstack/react-start'
+import { createCsrfMiddleware, createMiddleware, createStart } from '@tanstack/react-start'
+import { canonicalHostRedirect } from '~/server/canonical-host.server'
 
 // Server functions are the cookie-authed mutation surface (createPost, updateSiteSettings,
 // createApiKey, publishPost, revokeApiKey, billing checkout/portal, ...). TanStack's server-fn
@@ -16,6 +17,9 @@ const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === 'serverFn',
 })
 
+// Canonicalize hosts (app surfaces -> app host) before the CSRF guard; see canonical-host.server.ts.
+const hostMiddleware = createMiddleware().server((ctx) => canonicalHostRedirect(ctx.request) ?? ctx.next())
+
 export const startInstance = createStart(() => ({
-  requestMiddleware: [csrfMiddleware],
+  requestMiddleware: [hostMiddleware, csrfMiddleware],
 }))

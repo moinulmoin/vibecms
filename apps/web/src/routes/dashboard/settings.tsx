@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { BillingPage } from '~/components/dashboard/BillingPage'
+import { SettingsPage } from '~/components/dashboard/SettingsPage'
 import { validateDashboardSearch } from '~/lib/dashboard-search'
 
-export const Route = createFileRoute('/app/billing')({
+export const Route = createFileRoute('/dashboard/settings')({
   validateSearch: validateDashboardSearch,
-  component: BillingPage,
+  component: SettingsPage,
 })

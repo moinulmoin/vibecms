@@ -18,7 +18,7 @@ export function TokenCreatedPage() {
   useEffect(() => {
     const consumed = consumeTokenFlash()
     if (!consumed) {
-      void navigate({ to: '/app/settings', search: { ok: undefined, error: 'token_expired' } })
+      void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: 'token_expired' } })
       return
     }
     setFlash(consumed)
@@ -46,7 +46,7 @@ export function TokenCreatedPage() {
         description="Copy this token now - it is shown only once - then drop the config into your agent."
         action={
           <Button asChild variant="outline">
-            <Link to="/app/settings" search={emptyDashboardStatusSearch}>Back to settings</Link>
+            <Link to="/dashboard/settings" search={emptyDashboardStatusSearch}>Back to settings</Link>
           </Button>
         }
       />

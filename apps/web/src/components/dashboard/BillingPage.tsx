@@ -59,9 +59,9 @@ export function BillingPage() {
         window.location.assign(result.url)
         return
       }
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: result.code }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: result.code }) })
     } catch {
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
     } finally {
       setCheckoutPending(null)
     }
@@ -75,9 +75,9 @@ export function BillingPage() {
         window.location.assign(result.url)
         return
       }
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: result.code }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: result.code }) })
     } catch {
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: 'polar_unconfigured' }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: 'polar_unconfigured' }) })
     } finally {
       setPortalPending(false)
     }

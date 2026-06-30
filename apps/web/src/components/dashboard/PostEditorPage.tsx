@@ -244,7 +244,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         : await createPostMutation({ data: { ...payload, presentation } })
       if (result.kind === 'ok' && !postId && result.postId) {
         await navigate({
-          to: '/app/posts/$postId/edit',
+          to: '/dashboard/posts/$postId/edit',
           params: { postId: result.postId },
           search: postEditorSearch({ ok: result.code }),
         })
@@ -258,7 +258,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
       }
       const editorSearch = postEditorSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
       if (postId) {
-        await navigate({ to: '/app/posts/$postId/edit', params: { postId }, search: editorSearch })
+        await navigate({ to: '/dashboard/posts/$postId/edit', params: { postId }, search: editorSearch })
         if (result.kind === 'ok') {
           const refreshed = await loadPostEditorPage({ data: { postId } })
           setPost(refreshed.post)
@@ -266,7 +266,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           setPresentationDirty(false)
         }
       } else {
-        await navigate({ to: '/app/posts/new', search: editorSearch })
+        await navigate({ to: '/dashboard/posts/new', search: editorSearch })
       }
     } finally {
       setSavePending(false)
@@ -289,7 +289,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     const result = await updatePostMutation({ data: { postId, ...payload, presentation } })
     if (result.kind !== 'ok') {
       await navigate({
-        to: '/app/posts/$postId/edit',
+        to: '/dashboard/posts/$postId/edit',
         params: { postId },
         search: postEditorSearch({ error: result.code }),
       })
@@ -308,7 +308,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
       if (!(await persistIfDirty())) return
       const result = await publishPostMutation({ data: { postId } })
       await navigate({
-        to: '/app/posts',
+        to: '/dashboard/posts',
         search: statusSearchFromMutation(result),
       })
     } finally {
@@ -323,7 +323,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
       if (!(await persistIfDirty())) return
       const result = await archivePostMutation({ data: { postId } })
       await navigate({
-        to: '/app/posts',
+        to: '/dashboard/posts',
         search: statusSearchFromMutation(result),
       })
     } finally {
@@ -376,7 +376,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setFormKey((k) => k + 1)
         setVersionDrawerOpen(false)
         await navigate({
-          to: '/app/posts/$postId/edit',
+          to: '/dashboard/posts/$postId/edit',
           params: { postId },
           search: postEditorSearch({ ok: result.code }),
         })
@@ -401,7 +401,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         description="Write in Markdown, attach a cover image, and keep every save versioned for rollback and audit history."
         action={
           <Button asChild variant="outline">
-            <Link to="/app/posts" search={emptyPostsListSearch}>Back to posts</Link>
+            <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
           </Button>
         }
       />

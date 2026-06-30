@@ -77,7 +77,7 @@ export function MediaPage() {
         setAssets((prev) => prev?.map((asset) => (asset.id === assetId ? { ...asset, altText: next } : asset)) ?? null)
         setEditingAltId(null)
       } else {
-        await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: result.code }) })
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
       }
     } finally {
       setAltPending(false)
@@ -121,12 +121,12 @@ export function MediaPage() {
       if (result.kind === 'ok') {
         const data = await loadMediaPage()
         setAssets(data.assets)
-        await navigate({ to: '/app/media', search: dashboardStatusSearch({ ok: result.code }) })
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
-        await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: result.code }) })
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
       }
     } catch {
-      await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: 'unknown' }) })
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setUploadPending(false)
     }
@@ -148,12 +148,12 @@ export function MediaPage() {
       const result = (await response.json()) as { kind: 'ok' | 'error'; code: string }
       if (result.kind === 'ok') {
         setAssets((prev) => prev?.filter((a) => a.id !== assetId) ?? null)
-        await navigate({ to: '/app/media', search: dashboardStatusSearch({ ok: result.code }) })
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
-        await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: result.code }) })
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
       }
     } catch {
-      await navigate({ to: '/app/media', search: dashboardStatusSearch({ error: 'unknown' }) })
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setDeletingId(null)
     }

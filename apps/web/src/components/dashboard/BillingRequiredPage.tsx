@@ -40,7 +40,7 @@ export function BillingRequiredPage() {
     void loadBillingRequiredPage().then((data) => {
       if (cancelled) return
       if (data.redirectToApp) {
-        void navigate({ to: '/app' })
+        void navigate({ to: '/dashboard' })
         return
       }
       setBillingStatus(data.billingStatus)
@@ -59,9 +59,9 @@ export function BillingRequiredPage() {
         window.location.assign(result.url)
         return
       }
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: result.code }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: result.code }) })
     } catch {
-      void navigate({ to: '/app/billing', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
     } finally {
       setCheckoutPending(null)
     }
@@ -135,7 +135,7 @@ export function BillingRequiredPage() {
           </p>
           <div className="mt-4">
             <Link
-              to="/app/billing"
+              to="/dashboard/billing"
               search={emptyDashboardStatusSearch}
               className="font-mono text-[11px] text-primary underline-offset-4 hover:underline"
             >

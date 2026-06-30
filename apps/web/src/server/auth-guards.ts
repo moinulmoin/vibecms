@@ -33,6 +33,6 @@ export async function maybeRejectOtpSendRateLimit(request: Request): Promise<Res
 export function maybeRejectCrossOriginAppPost(request: Request): Response | undefined {
   const pathname = new URL(request.url).pathname
   if (request.method !== 'POST') return undefined
-  if (pathname !== '/api/onboarding/ensure' && !pathname.startsWith('/app/')) return undefined
+  if (pathname !== '/api/onboarding/ensure' && !pathname.startsWith('/dashboard/')) return undefined
   return rejectCrossOriginBrowserPost(request)
 }

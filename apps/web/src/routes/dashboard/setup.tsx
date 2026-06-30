@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ConnectPage } from '~/components/dashboard/ConnectPage'
+import { SetupPage } from '~/components/dashboard/SetupPage'
 import { validateDashboardSearch } from '~/lib/dashboard-search'
 
-export const Route = createFileRoute('/app/connect')({
+export const Route = createFileRoute('/dashboard/setup')({
   validateSearch: validateDashboardSearch,
-  component: ConnectPage,
+  component: SetupPage,
 })

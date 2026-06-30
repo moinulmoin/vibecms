@@ -111,8 +111,8 @@ export async function createCheckoutSessionForApp(
   try {
     const session = await client.checkouts.create({
       products: [productId],
-      successUrl: `${env.APP_URL}/app?ok=billing_success&checkout_id={CHECKOUT_ID}`,
-      returnUrl: `${env.APP_URL}/app/billing?error=unknown`,
+      successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
+      returnUrl: `${env.APP_URL}/dashboard/billing?error=unknown`,
       externalCustomerId: app.workspaceId,
       customerEmail: app.user.email,
       customerName: app.user.name,
@@ -143,7 +143,7 @@ export async function createPortalSessionForApp(app: AppUserContext): Promise<Bi
   try {
     const session = await client.customerSessions.create({
       externalCustomerId: app.workspaceId,
-      returnUrl: `${env.APP_URL}/app/billing`,
+      returnUrl: `${env.APP_URL}/dashboard/billing`,
     })
     if (!session.customerPortalUrl) return { kind: 'error', code: 'polar_unconfigured' }
     return { kind: 'ok', url: session.customerPortalUrl }

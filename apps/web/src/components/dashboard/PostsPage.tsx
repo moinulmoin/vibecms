@@ -116,7 +116,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
         search: search.search,
         ...(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
-      await navigate({ to: '/app/posts', search: params })
+      await navigate({ to: '/dashboard/posts', search: params })
       const refreshed = await loadPostsPage({ data: { status: search.status, search: search.search } })
       setPosts(refreshed.posts)
       setHasMore(refreshed.hasMore)
@@ -157,7 +157,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
         description="Draft, publish, archive, and review every post the dashboard or agents create."
         action={
           <Button asChild>
-            <Link to="/app/posts/new" search={emptyPostEditorSearch}>New post</Link>
+            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>New post</Link>
           </Button>
         }
       />
@@ -171,7 +171,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             const nextStatus = (form.elements.namedItem('status') as HTMLSelectElement | null)?.value ?? ''
             const nextSearch = (form.elements.namedItem('search') as HTMLInputElement | null)?.value?.trim() ?? ''
             void navigate({
-              to: '/app/posts',
+              to: '/dashboard/posts',
               search: postsListSearch({ status: nextStatus || undefined, search: nextSearch || undefined }),
             })
           }}
@@ -205,7 +205,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   <div className="min-w-0">
                     <Link
                       className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
-                      to="/app/posts/$postId/edit"
+                      to="/dashboard/posts/$postId/edit"
                       search={emptyPostEditorSearch}
                       params={{ postId: post.id }}
                     >
@@ -223,7 +223,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/app/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
+                      <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
                         Edit
                       </Link>
                     </Button>
@@ -273,7 +273,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     <Link
                       className="font-display text-sm font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
                       data-row-key
-                      to="/app/posts/$postId/edit"
+                      to="/dashboard/posts/$postId/edit"
                       search={emptyPostEditorSearch}
                       params={{ postId: post.id }}
                     >
@@ -289,7 +289,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDate(post.updatedAt)}</span>
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/app/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
+                      <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
                         Edit
                       </Link>
                     </Button>
@@ -345,11 +345,11 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             action={
               hasFilters ? (
                 <Button asChild variant="outline">
-                  <Link to="/app/posts" search={emptyPostsListSearch}>Clear filters</Link>
+                  <Link to="/dashboard/posts" search={emptyPostsListSearch}>Clear filters</Link>
                 </Button>
               ) : (
                 <Button asChild>
-                  <Link to="/app/posts/new" search={emptyPostEditorSearch}>New post</Link>
+                  <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>New post</Link>
                 </Button>
               )
             }

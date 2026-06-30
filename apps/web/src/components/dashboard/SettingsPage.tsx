@@ -213,7 +213,7 @@ export function SettingsPage() {
         },
       })
       await navigate({
-        to: '/app/settings',
+        to: '/dashboard/settings',
         search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
     } finally {
@@ -239,7 +239,7 @@ export function SettingsPage() {
         setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
       }
       await navigate({
-        to: '/app/settings',
+        to: '/dashboard/settings',
         search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
     } finally {
@@ -262,10 +262,10 @@ export function SettingsPage() {
       })
       if (result.kind === 'ok') {
         saveTokenFlash({ token: result.token, name: result.name })
-        await navigate({ to: '/app/settings/token-created', search: emptyDashboardStatusSearch })
+        await navigate({ to: '/dashboard/settings/token-created', search: emptyDashboardStatusSearch })
         return
       }
-      await navigate({ to: '/app/settings', search: dashboardStatusSearch({ error: result.code }) })
+      await navigate({ to: '/dashboard/settings', search: dashboardStatusSearch({ error: result.code }) })
     } finally {
       setFormPending(null)
     }
@@ -278,7 +278,7 @@ export function SettingsPage() {
       const refreshed = await loadSettingsPage()
       setData(refreshed)
       await navigate({
-        to: '/app/settings',
+        to: '/dashboard/settings',
         search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
     } finally {
@@ -298,7 +298,7 @@ export function SettingsPage() {
         setData(refreshed)
       }
       await navigate({
-        to: '/app/settings',
+        to: '/dashboard/settings',
         search: dashboardStatusSearch(result.ok ? { ok: 'domain_added' } : { error: result.code }),
       })
     } finally {
@@ -313,7 +313,7 @@ export function SettingsPage() {
       const refreshed = await loadSettingsPage()
       setData(refreshed)
       await navigate({
-        to: '/app/settings',
+        to: '/dashboard/settings',
         search: dashboardStatusSearch(result.ok ? { ok: 'domain_removed' } : { error: result.code }),
       })
     } finally {
@@ -569,7 +569,7 @@ export function SettingsPage() {
             ) : isOwner ? (
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Button asChild>
-                  <Link to="/app/billing" search={emptyDashboardStatusSearch}>Subscribe / manage billing</Link>
+                  <Link to="/dashboard/billing" search={emptyDashboardStatusSearch}>Subscribe / manage billing</Link>
                 </Button>
               </div>
             ) : (

@@ -116,8 +116,9 @@ In the Cloudflare dashboard for `vibecms.dev`:
 This record allows `<slug>.vibecms.dev` requests to reach Cloudflare so the `*.vibecms.dev/*`
 wrangler route can dispatch them to the worker. Without this record no DNS resolution occurs.
 
-Note: `app.vibecms.dev` is handled automatically by the `custom_domain: true` entry in
-wrangler.jsonc - wrangler creates and manages that DNS record on deploy.
+Note: `vibecms.dev` (apex marketing) and `app.vibecms.dev` (app) are handled automatically by their
+`custom_domain: true` entries in wrangler.jsonc - wrangler creates and manages those DNS records on
+deploy. Only the `*` wildcard above is added manually.
 
 ---
 
@@ -144,15 +145,23 @@ config is unaffected - `pnpm deploy:dev` continues to deploy without `--env`.
 
 ---
 
-## Step 8 - Verify HTTPS and subdomains
+## Step 8 - Verify HTTPS and hosts
 
-Check the dashboard host:
+Check the marketing apex:
 
 ```bash
-curl -sI https://app.vibecms.dev/ | grep -E "HTTP|content-type|cf-ray"
+curl -sI https://vibecms.dev/ | grep -E "HTTP|content-type|cf-ray"
 ```
 
-Expected: `HTTP/2 200`, `content-type: text/html`.
+Expected: `HTTP/2 200`, `content-type: text/html` (the marketing landing).
+
+Check the app host root redirects to the dashboard:
+
+```bash
+curl -sI https://app.vibecms.dev/ | grep -E "HTTP|location"
+```
+
+Expected: `HTTP/2 308`, `location: https://app.vibecms.dev/dashboard` (the dashboard then redirects to `/login` when signed out). `https://app.vibecms.dev/dashboard` returns `HTTP/2 200` (the SPA shell).
 
 Check a tenant blog subdomain (replace `<slug>` with a real site slug):
 
@@ -162,16 +171,18 @@ curl -sI https://<slug>.vibecms.dev/ | grep -E "HTTP|content-type|cf-ray"
 
 Expected: `HTTP/2 200`, `content-type: text/html`.
 
-Check SSL cert covers both:
+Check SSL covers the apex, app host, and tenant subdomains:
 
 ```bash
+echo | openssl s_client -connect vibecms.dev:443 -servername vibecms.dev 2>/dev/null \
+  | openssl x509 -noout -subject -ext subjectAltName
 echo | openssl s_client -connect app.vibecms.dev:443 -servername app.vibecms.dev 2>/dev/null \
   | openssl x509 -noout -subject -ext subjectAltName
 echo | openssl s_client -connect <slug>.vibecms.dev:443 -servername <slug>.vibecms.dev 2>/dev/null \
   | openssl x509 -noout -subject -ext subjectAltName
 ```
 
-Both should show `*.vibecms.dev` in the SAN list (free Universal SSL certificate).
+All should show `vibecms.dev` and/or `*.vibecms.dev` in the SAN list (free Universal SSL certificate).
 
 ---
 
@@ -198,13 +209,14 @@ Worker falls back to `caches.default.delete()` for path-mode URLs only.
 
 ## Step 10 - Smoke-test the full user flow
 
-1. Create an account at `https://app.vibecms.dev` via email OTP.
-2. Complete the onboarding setup (site slug, site name).
-3. Create and publish a post.
-4. Verify the post appears at `https://<slug>.vibecms.dev/<post-slug>` over HTTPS.
-5. Archive the post - confirm it returns 404 (and, if CDN caching is enabled, that the
+1. Verify `https://vibecms.dev` serves the marketing landing, and `https://app.vibecms.dev/` redirects to the dashboard (then to `/login` when signed out).
+2. Sign up at `https://app.vibecms.dev` via email OTP; confirm the OTP email arrives.
+3. Complete the onboarding setup (site slug, site name); you land on `/dashboard`.
+4. Create and publish a post.
+5. Verify the post appears at `https://<slug>.vibecms.dev/<post-slug>` over HTTPS.
+6. Archive the post - confirm it returns 404 (and, if CDN caching is enabled, that the
    previously cached page is no longer served within ~30 seconds via cache purge).
-6. Test the Upgrade flow (billing button -> Polar checkout) once the Polar product is
+7. Test the Upgrade flow (billing button -> Polar checkout) once the Polar product is
    configured (Step 4).
 
 ---

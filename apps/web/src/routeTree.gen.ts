@@ -16,34 +16,34 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as PostSlugRouteImport } from './routes/$postSlug'
-import { Route as AppRouteRouteImport } from './routes/app/route'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as TagTagRouteImport } from './routes/tag/$tag'
 import { Route as MediaAssetsAssetIdRouteImport } from './routes/media-assets/$assetId'
-import { Route as AppSetupRouteImport } from './routes/app/setup'
-import { Route as AppSettingsRouteImport } from './routes/app/settings'
-import { Route as AppMediaRouteImport } from './routes/app/media'
-import { Route as AppConnectRouteImport } from './routes/app/connect'
-import { Route as AppBillingRouteImport } from './routes/app/billing'
-import { Route as AppActivityRouteImport } from './routes/app/activity'
+import { Route as DashboardSetupRouteImport } from './routes/dashboard/setup'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
+import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
+import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
+import { Route as DashboardActivityRouteImport } from './routes/dashboard/activity'
 import { Route as ApiSubscribeRouteImport } from './routes/api/subscribe'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as ApiExportDotjsonRouteImport } from './routes/api/export[.]json'
+import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
 import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
-import { Route as AppPostsIndexRouteImport } from './routes/app/posts/index'
+import { Route as DashboardSettingsTokenCreatedRouteImport } from './routes/dashboard/settings/token-created'
+import { Route as DashboardPostsNewRouteImport } from './routes/dashboard/posts/new'
 import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
 import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
-import { Route as AppSettingsTokenCreatedRouteImport } from './routes/app/settings/token-created'
-import { Route as AppPostsNewRouteImport } from './routes/app/posts/new'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiPolarWebhookRouteImport } from './routes/api/polar/webhook'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiMediaDeleteRouteImport } from './routes/api/media/delete'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as DashboardPostsPostIdEditRouteImport } from './routes/dashboard/posts/$postId/edit'
 import { Route as BlogSiteSlugTagTagRouteImport } from './routes/blog/$siteSlug/tag/$tag'
-import { Route as AppPostsPostIdEditRouteImport } from './routes/app/posts/$postId/edit'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -80,9 +80,9 @@ const PostSlugRoute = PostSlugRouteImport.update({
   path: '/$postSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRouteRoute = AppRouteRouteImport.update({
-  id: '/app',
-  path: '/app',
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -90,10 +90,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const TagTagRoute = TagTagRouteImport.update({
   id: '/tag/$tag',
@@ -105,35 +105,35 @@ const MediaAssetsAssetIdRoute = MediaAssetsAssetIdRouteImport.update({
   path: '/media-assets/$assetId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppSetupRoute = AppSetupRouteImport.update({
+const DashboardSetupRoute = DashboardSetupRouteImport.update({
   id: '/setup',
   path: '/setup',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AppMediaRoute = AppMediaRouteImport.update({
+const DashboardMediaRoute = DashboardMediaRouteImport.update({
   id: '/media',
   path: '/media',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AppConnectRoute = AppConnectRouteImport.update({
+const DashboardConnectRoute = DashboardConnectRouteImport.update({
   id: '/connect',
   path: '/connect',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AppBillingRoute = AppBillingRouteImport.update({
+const DashboardBillingRoute = DashboardBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AppActivityRoute = AppActivityRouteImport.update({
+const DashboardActivityRoute = DashboardActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
-  getParentRoute: () => AppRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const ApiSubscribeRoute = ApiSubscribeRouteImport.update({
   id: '/api/subscribe',
@@ -150,15 +150,26 @@ const ApiExportDotjsonRoute = ApiExportDotjsonRouteImport.update({
   path: '/api/export.json',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardPostsIndexRoute = DashboardPostsIndexRouteImport.update({
+  id: '/posts/',
+  path: '/posts/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const BlogSiteSlugIndexRoute = BlogSiteSlugIndexRouteImport.update({
   id: '/blog/$siteSlug/',
   path: '/blog/$siteSlug/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppPostsIndexRoute = AppPostsIndexRouteImport.update({
-  id: '/posts/',
-  path: '/posts/',
-  getParentRoute: () => AppRouteRoute,
+const DashboardSettingsTokenCreatedRoute =
+  DashboardSettingsTokenCreatedRouteImport.update({
+    id: '/token-created',
+    path: '/token-created',
+    getParentRoute: () => DashboardSettingsRoute,
+  } as any)
+const DashboardPostsNewRoute = DashboardPostsNewRouteImport.update({
+  id: '/posts/new',
+  path: '/posts/new',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
   id: '/blog/$siteSlug/llms.txt',
@@ -169,16 +180,6 @@ const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
   id: '/blog/$siteSlug/$postSlug',
   path: '/blog/$siteSlug/$postSlug',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AppSettingsTokenCreatedRoute = AppSettingsTokenCreatedRouteImport.update({
-  id: '/token-created',
-  path: '/token-created',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
-const AppPostsNewRoute = AppPostsNewRouteImport.update({
-  id: '/posts/new',
-  path: '/posts/new',
-  getParentRoute: () => AppRouteRoute,
 } as any)
 const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   id: '/api/v1/$',
@@ -210,20 +211,21 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardPostsPostIdEditRoute =
+  DashboardPostsPostIdEditRouteImport.update({
+    id: '/posts/$postId/edit',
+    path: '/posts/$postId/edit',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 const BlogSiteSlugTagTagRoute = BlogSiteSlugTagTagRouteImport.update({
   id: '/blog/$siteSlug/tag/$tag',
   path: '/blog/$siteSlug/tag/$tag',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppPostsPostIdEditRoute = AppPostsPostIdEditRouteImport.update({
-  id: '/posts/$postId/edit',
-  path: '/posts/$postId/edit',
-  getParentRoute: () => AppRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/app': typeof AppRouteRouteWithChildren
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/$postSlug': typeof PostSlugRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -234,29 +236,29 @@ export interface FileRoutesByFullPath {
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/api/subscribe': typeof ApiSubscribeRoute
-  '/app/activity': typeof AppActivityRoute
-  '/app/billing': typeof AppBillingRoute
-  '/app/connect': typeof AppConnectRoute
-  '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRouteWithChildren
-  '/app/setup': typeof AppSetupRoute
+  '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/connect': typeof DashboardConnectRoute
+  '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/setup': typeof DashboardSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/tag/$tag': typeof TagTagRoute
-  '/app/': typeof AppIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/app/posts/new': typeof AppPostsNewRoute
-  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
-  '/app/posts/': typeof AppPostsIndexRoute
+  '/dashboard/posts/new': typeof DashboardPostsNewRoute
+  '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
-  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/dashboard/posts/': typeof DashboardPostsIndexRoute
   '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
+  '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -270,34 +272,34 @@ export interface FileRoutesByTo {
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/api/subscribe': typeof ApiSubscribeRoute
-  '/app/activity': typeof AppActivityRoute
-  '/app/billing': typeof AppBillingRoute
-  '/app/connect': typeof AppConnectRoute
-  '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRouteWithChildren
-  '/app/setup': typeof AppSetupRoute
+  '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/connect': typeof DashboardConnectRoute
+  '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/setup': typeof DashboardSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/tag/$tag': typeof TagTagRoute
-  '/app': typeof AppIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/app/posts/new': typeof AppPostsNewRoute
-  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
-  '/app/posts': typeof AppPostsIndexRoute
+  '/dashboard/posts/new': typeof DashboardPostsNewRoute
+  '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
   '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
-  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/dashboard/posts': typeof DashboardPostsIndexRoute
   '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
+  '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/app': typeof AppRouteRouteWithChildren
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/$postSlug': typeof PostSlugRoute
   '/feed.xml': typeof FeedDotxmlRoute
   '/llms.txt': typeof LlmsDottxtRoute
@@ -308,35 +310,35 @@ export interface FileRoutesById {
   '/api/export.json': typeof ApiExportDotjsonRoute
   '/api/posts': typeof ApiPostsRoute
   '/api/subscribe': typeof ApiSubscribeRoute
-  '/app/activity': typeof AppActivityRoute
-  '/app/billing': typeof AppBillingRoute
-  '/app/connect': typeof AppConnectRoute
-  '/app/media': typeof AppMediaRoute
-  '/app/settings': typeof AppSettingsRouteWithChildren
-  '/app/setup': typeof AppSetupRoute
+  '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
+  '/dashboard/connect': typeof DashboardConnectRoute
+  '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/setup': typeof DashboardSetupRoute
   '/media-assets/$assetId': typeof MediaAssetsAssetIdRoute
   '/tag/$tag': typeof TagTagRoute
-  '/app/': typeof AppIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/media/delete': typeof ApiMediaDeleteRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/app/posts/new': typeof AppPostsNewRoute
-  '/app/settings/token-created': typeof AppSettingsTokenCreatedRoute
   '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
   '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
-  '/app/posts/': typeof AppPostsIndexRoute
+  '/dashboard/posts/new': typeof DashboardPostsNewRoute
+  '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
   '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
-  '/app/posts/$postId/edit': typeof AppPostsPostIdEditRoute
+  '/dashboard/posts/': typeof DashboardPostsIndexRoute
   '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
+  '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/app'
+    | '/dashboard'
     | '/$postSlug'
     | '/feed.xml'
     | '/llms.txt'
@@ -347,29 +349,29 @@ export interface FileRouteTypes {
     | '/api/export.json'
     | '/api/posts'
     | '/api/subscribe'
-    | '/app/activity'
-    | '/app/billing'
-    | '/app/connect'
-    | '/app/media'
-    | '/app/settings'
-    | '/app/setup'
+    | '/dashboard/activity'
+    | '/dashboard/billing'
+    | '/dashboard/connect'
+    | '/dashboard/media'
+    | '/dashboard/settings'
+    | '/dashboard/setup'
     | '/media-assets/$assetId'
     | '/tag/$tag'
-    | '/app/'
+    | '/dashboard/'
     | '/api/auth/$'
     | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/app/posts/new'
-    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
-    | '/app/posts/'
+    | '/dashboard/posts/new'
+    | '/dashboard/settings/token-created'
     | '/blog/$siteSlug/'
-    | '/app/posts/$postId/edit'
+    | '/dashboard/posts/'
     | '/blog/$siteSlug/tag/$tag'
+    | '/dashboard/posts/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -383,33 +385,33 @@ export interface FileRouteTypes {
     | '/api/export.json'
     | '/api/posts'
     | '/api/subscribe'
-    | '/app/activity'
-    | '/app/billing'
-    | '/app/connect'
-    | '/app/media'
-    | '/app/settings'
-    | '/app/setup'
+    | '/dashboard/activity'
+    | '/dashboard/billing'
+    | '/dashboard/connect'
+    | '/dashboard/media'
+    | '/dashboard/settings'
+    | '/dashboard/setup'
     | '/media-assets/$assetId'
     | '/tag/$tag'
-    | '/app'
+    | '/dashboard'
     | '/api/auth/$'
     | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/app/posts/new'
-    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
-    | '/app/posts'
+    | '/dashboard/posts/new'
+    | '/dashboard/settings/token-created'
     | '/blog/$siteSlug'
-    | '/app/posts/$postId/edit'
+    | '/dashboard/posts'
     | '/blog/$siteSlug/tag/$tag'
+    | '/dashboard/posts/$postId/edit'
   id:
     | '__root__'
     | '/'
-    | '/app'
+    | '/dashboard'
     | '/$postSlug'
     | '/feed.xml'
     | '/llms.txt'
@@ -420,34 +422,34 @@ export interface FileRouteTypes {
     | '/api/export.json'
     | '/api/posts'
     | '/api/subscribe'
-    | '/app/activity'
-    | '/app/billing'
-    | '/app/connect'
-    | '/app/media'
-    | '/app/settings'
-    | '/app/setup'
+    | '/dashboard/activity'
+    | '/dashboard/billing'
+    | '/dashboard/connect'
+    | '/dashboard/media'
+    | '/dashboard/settings'
+    | '/dashboard/setup'
     | '/media-assets/$assetId'
     | '/tag/$tag'
-    | '/app/'
+    | '/dashboard/'
     | '/api/auth/$'
     | '/api/media/delete'
     | '/api/media/upload'
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/app/posts/new'
-    | '/app/settings/token-created'
     | '/blog/$siteSlug/$postSlug'
     | '/blog/$siteSlug/llms.txt'
-    | '/app/posts/'
+    | '/dashboard/posts/new'
+    | '/dashboard/settings/token-created'
     | '/blog/$siteSlug/'
-    | '/app/posts/$postId/edit'
+    | '/dashboard/posts/'
     | '/blog/$siteSlug/tag/$tag'
+    | '/dashboard/posts/$postId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRouteRoute: typeof AppRouteRouteWithChildren
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   PostSlugRoute: typeof PostSlugRoute
   FeedDotxmlRoute: typeof FeedDotxmlRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
@@ -523,11 +525,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -537,12 +539,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/': {
-      id: '/app/'
+    '/dashboard/': {
+      id: '/dashboard/'
       path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/tag/$tag': {
       id: '/tag/$tag'
@@ -558,47 +560,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaAssetsAssetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/setup': {
-      id: '/app/setup'
+    '/dashboard/setup': {
+      id: '/dashboard/setup'
       path: '/setup'
-      fullPath: '/app/setup'
-      preLoaderRoute: typeof AppSetupRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/setup'
+      preLoaderRoute: typeof DashboardSetupRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/app/settings': {
-      id: '/app/settings'
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
       path: '/settings'
-      fullPath: '/app/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/app/media': {
-      id: '/app/media'
+    '/dashboard/media': {
+      id: '/dashboard/media'
       path: '/media'
-      fullPath: '/app/media'
-      preLoaderRoute: typeof AppMediaRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/media'
+      preLoaderRoute: typeof DashboardMediaRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/app/connect': {
-      id: '/app/connect'
+    '/dashboard/connect': {
+      id: '/dashboard/connect'
       path: '/connect'
-      fullPath: '/app/connect'
-      preLoaderRoute: typeof AppConnectRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/connect'
+      preLoaderRoute: typeof DashboardConnectRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/app/billing': {
-      id: '/app/billing'
+    '/dashboard/billing': {
+      id: '/dashboard/billing'
       path: '/billing'
-      fullPath: '/app/billing'
-      preLoaderRoute: typeof AppBillingRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/billing'
+      preLoaderRoute: typeof DashboardBillingRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/app/activity': {
-      id: '/app/activity'
+    '/dashboard/activity': {
+      id: '/dashboard/activity'
       path: '/activity'
-      fullPath: '/app/activity'
-      preLoaderRoute: typeof AppActivityRouteImport
-      parentRoute: typeof AppRouteRoute
+      fullPath: '/dashboard/activity'
+      preLoaderRoute: typeof DashboardActivityRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/api/subscribe': {
       id: '/api/subscribe'
@@ -621,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/posts/': {
+      id: '/dashboard/posts/'
+      path: '/posts'
+      fullPath: '/dashboard/posts/'
+      preLoaderRoute: typeof DashboardPostsIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/blog/$siteSlug/': {
       id: '/blog/$siteSlug/'
       path: '/blog/$siteSlug'
@@ -628,12 +637,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/posts/': {
-      id: '/app/posts/'
-      path: '/posts'
-      fullPath: '/app/posts/'
-      preLoaderRoute: typeof AppPostsIndexRouteImport
-      parentRoute: typeof AppRouteRoute
+    '/dashboard/settings/token-created': {
+      id: '/dashboard/settings/token-created'
+      path: '/token-created'
+      fullPath: '/dashboard/settings/token-created'
+      preLoaderRoute: typeof DashboardSettingsTokenCreatedRouteImport
+      parentRoute: typeof DashboardSettingsRoute
+    }
+    '/dashboard/posts/new': {
+      id: '/dashboard/posts/new'
+      path: '/posts/new'
+      fullPath: '/dashboard/posts/new'
+      preLoaderRoute: typeof DashboardPostsNewRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/blog/$siteSlug/llms.txt': {
       id: '/blog/$siteSlug/llms.txt'
@@ -648,20 +664,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/$siteSlug/$postSlug'
       preLoaderRoute: typeof BlogSiteSlugPostSlugRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/app/settings/token-created': {
-      id: '/app/settings/token-created'
-      path: '/token-created'
-      fullPath: '/app/settings/token-created'
-      preLoaderRoute: typeof AppSettingsTokenCreatedRouteImport
-      parentRoute: typeof AppSettingsRoute
-    }
-    '/app/posts/new': {
-      id: '/app/posts/new'
-      path: '/posts/new'
-      fullPath: '/app/posts/new'
-      preLoaderRoute: typeof AppPostsNewRouteImport
-      parentRoute: typeof AppRouteRoute
     }
     '/api/v1/$': {
       id: '/api/v1/$'
@@ -705,6 +707,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/posts/$postId/edit': {
+      id: '/dashboard/posts/$postId/edit'
+      path: '/posts/$postId/edit'
+      fullPath: '/dashboard/posts/$postId/edit'
+      preLoaderRoute: typeof DashboardPostsPostIdEditRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/blog/$siteSlug/tag/$tag': {
       id: '/blog/$siteSlug/tag/$tag'
       path: '/blog/$siteSlug/tag/$tag'
@@ -712,61 +721,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSiteSlugTagTagRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/posts/$postId/edit': {
-      id: '/app/posts/$postId/edit'
-      path: '/posts/$postId/edit'
-      fullPath: '/app/posts/$postId/edit'
-      preLoaderRoute: typeof AppPostsPostIdEditRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
   }
 }
 
-interface AppSettingsRouteChildren {
-  AppSettingsTokenCreatedRoute: typeof AppSettingsTokenCreatedRoute
+interface DashboardSettingsRouteChildren {
+  DashboardSettingsTokenCreatedRoute: typeof DashboardSettingsTokenCreatedRoute
 }
 
-const AppSettingsRouteChildren: AppSettingsRouteChildren = {
-  AppSettingsTokenCreatedRoute: AppSettingsTokenCreatedRoute,
+const DashboardSettingsRouteChildren: DashboardSettingsRouteChildren = {
+  DashboardSettingsTokenCreatedRoute: DashboardSettingsTokenCreatedRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
-)
+const DashboardSettingsRouteWithChildren =
+  DashboardSettingsRoute._addFileChildren(DashboardSettingsRouteChildren)
 
-interface AppRouteRouteChildren {
-  AppActivityRoute: typeof AppActivityRoute
-  AppBillingRoute: typeof AppBillingRoute
-  AppConnectRoute: typeof AppConnectRoute
-  AppMediaRoute: typeof AppMediaRoute
-  AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppSetupRoute: typeof AppSetupRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppPostsNewRoute: typeof AppPostsNewRoute
-  AppPostsIndexRoute: typeof AppPostsIndexRoute
-  AppPostsPostIdEditRoute: typeof AppPostsPostIdEditRoute
+interface DashboardRouteRouteChildren {
+  DashboardActivityRoute: typeof DashboardActivityRoute
+  DashboardBillingRoute: typeof DashboardBillingRoute
+  DashboardConnectRoute: typeof DashboardConnectRoute
+  DashboardMediaRoute: typeof DashboardMediaRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
+  DashboardSetupRoute: typeof DashboardSetupRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardPostsNewRoute: typeof DashboardPostsNewRoute
+  DashboardPostsIndexRoute: typeof DashboardPostsIndexRoute
+  DashboardPostsPostIdEditRoute: typeof DashboardPostsPostIdEditRoute
 }
 
-const AppRouteRouteChildren: AppRouteRouteChildren = {
-  AppActivityRoute: AppActivityRoute,
-  AppBillingRoute: AppBillingRoute,
-  AppConnectRoute: AppConnectRoute,
-  AppMediaRoute: AppMediaRoute,
-  AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppSetupRoute: AppSetupRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppPostsNewRoute: AppPostsNewRoute,
-  AppPostsIndexRoute: AppPostsIndexRoute,
-  AppPostsPostIdEditRoute: AppPostsPostIdEditRoute,
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardActivityRoute: DashboardActivityRoute,
+  DashboardBillingRoute: DashboardBillingRoute,
+  DashboardConnectRoute: DashboardConnectRoute,
+  DashboardMediaRoute: DashboardMediaRoute,
+  DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
+  DashboardSetupRoute: DashboardSetupRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DashboardPostsNewRoute: DashboardPostsNewRoute,
+  DashboardPostsIndexRoute: DashboardPostsIndexRoute,
+  DashboardPostsPostIdEditRoute: DashboardPostsPostIdEditRoute,
 }
 
-const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
-  AppRouteRouteChildren,
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRouteRoute: AppRouteRouteWithChildren,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
   PostSlugRoute: PostSlugRoute,
   FeedDotxmlRoute: FeedDotxmlRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,

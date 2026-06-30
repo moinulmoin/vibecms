@@ -1,5 +1,6 @@
 import type { Actor } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
+import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '~/server/billing'
 
@@ -45,6 +46,20 @@ export function defaultHostname(slug: string) {
 export function isLocalDefaultHostname(hostname: string) {
   const host = hostname.toLowerCase()
   return host === 'localhost' || host.endsWith('.localhost')
+}
+
+// Blog URL mode: explicit PUBLIC_BLOG_URL_MODE, else infer (app-path when no real blog domain or it equals APP_URL host).
+export function publicBlogUsesAppPath(): boolean {
+  const mode = env.PUBLIC_BLOG_URL_MODE?.trim().toLowerCase()
+  if (mode === 'app-path') return true
+  if (mode === 'subdomain') return false
+  const baseDomain = publicBlogBaseDomain()
+  if (!baseDomain) return true
+  try {
+    return baseDomain === new URL(env.APP_URL).hostname.toLowerCase()
+  } catch {
+    return false
+  }
 }
 
 export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserContext> {
@@ -154,6 +169,7 @@ export async function completeSiteSetupForApp(
   const timestamp = now()
   const name = payload.name.trim().slice(0, 80) || 'My Blog'
   const slug = slugify(payload.slug || name).slice(0, 42)
+  if (isReservedSiteSlug(slug)) return { kind: 'error', code: 'slug_reserved' }
   const description =
     payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
 

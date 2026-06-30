@@ -38,7 +38,7 @@ function redirect(to: string) {
 }
 
 function redirectWithStatus(kind: 'ok' | 'error', code: string) {
-  return redirect(`/app/media?${kind}=${code}`)
+  return redirect(`/dashboard/media?${kind}=${code}`)
 }
 
 function isAllowedMimeType(type: string): type is (typeof allowedImageMimeTypes)[number] {

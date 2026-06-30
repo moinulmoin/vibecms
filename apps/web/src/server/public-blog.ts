@@ -11,9 +11,10 @@ import {
   type SiteRow,
 } from "./public-blog-data";
 import { articleCacheTag, publicCacheControl } from "./public-blog-cache";
+import { defaultHostname, publicBlogUsesAppPath } from "./onboarding";
 
 export const RESERVED_ROOT_SLUGS = new Set([
-  "app",
+  "dashboard",
   "api",
   "blog",
   "login",
@@ -27,6 +28,22 @@ export const RESERVED_ROOT_SLUGS = new Set([
 
 function notFound() {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+
+// Subdomain mode: 308 duplicate /blog/<slug> path URLs to the canonical subdomain (404 if unknown); no-op in app-path mode.
+export async function pathModeBlogRedirect(
+  request: Request,
+  siteSlug: string | undefined,
+  subPath: string,
+): Promise<Response | null> {
+  if (publicBlogUsesAppPath()) return null;
+  const site = await resolveSiteBySlug(siteSlug);
+  if (!site) return notFound();
+  const search = new URL(request.url).search;
+  return new Response(null, {
+    status: 308,
+    headers: { location: `https://${defaultHostname(site.slug)}${subPath}${search}` },
+  });
 }
 
 export function markdownRequested(request: Request) {

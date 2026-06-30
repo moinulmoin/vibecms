@@ -5,6 +5,7 @@ import {
   defaultHostname,
   isLocalDefaultHostname,
   publicBlogBaseDomain,
+  publicBlogUsesAppPath,
   type AppUserContext,
 } from '~/server/onboarding'
 import { getApiUsageSummary, type ApiUsageSummary } from '~/server/usage'
@@ -55,16 +56,6 @@ function publicUrlForHostname(hostname: string | null) {
   if (!hostname) return null
   if (publicBlogUsesAppPath()) return null
   return `${isLocalDefaultHostname(hostname) ? 'http' : 'https'}://${hostname}`
-}
-
-function publicBlogUsesAppPath() {
-  const baseDomain = publicBlogBaseDomain()
-  if (!baseDomain) return false
-  try {
-    return baseDomain === new URL(env.APP_URL).hostname.toLowerCase()
-  } catch {
-    return false
-  }
 }
 
 function appPublicBlogUrl(slug: string) {

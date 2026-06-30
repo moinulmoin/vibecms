@@ -29,6 +29,7 @@
     "APP_URL": "https://dev.vibecms.dev",
     "BETTER_AUTH_URL": "https://dev.vibecms.dev",
     "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
+    "PUBLIC_BLOG_URL_MODE": "app-path",
     "SELF_HOSTED": "false",
     "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
@@ -36,9 +37,8 @@
     "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
   },
   "env": {
-    // Production: app.vibecms.dev (dashboard) + *.vibecms.dev/* (tenant subdomains)
-    // Before deploying, set all placeholders marked TODO via `wrangler secret put --env production`
-    // and replace the TODO database_id after running `wrangler d1 create vibecms_prod`.
+    // Production hosts: vibecms.dev (marketing) + app.vibecms.dev (dashboard + auth + agent APIs) + *.vibecms.dev/* (tenant blogs).
+    // Secrets (TOKEN_PEPPER, BETTER_AUTH_SECRET, CLOUDFLARE_EMAIL_API_TOKEN, POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET) are set via `wrangler secret put --env production`.
     "production": {
       "name": "vibecms-prod",
       "d1_databases": [
@@ -56,7 +56,9 @@
         }
       ],
       "routes": [
-        // Dashboard host - Cloudflare creates the DNS A record automatically
+        // Marketing host (apex) - Cloudflare auto-provisions the apex DNS record on deploy
+        { "pattern": "vibecms.dev", "custom_domain": true },
+        // App host: dashboard (/dashboard) + auth (/login, /api/auth) + agent APIs (/mcp, /api/v1)
         { "pattern": "app.vibecms.dev", "custom_domain": true },
         // Tenant blog subdomains - requires a proxied *.vibecms.dev DNS record added manually
         // (cannot use custom_domain for wildcards; zone_name routes a pattern instead)
@@ -67,6 +69,7 @@
         "APP_URL": "https://app.vibecms.dev",
         "BETTER_AUTH_URL": "https://app.vibecms.dev",
         "PUBLIC_BLOG_DOMAIN": "vibecms.dev",
+        "PUBLIC_BLOG_URL_MODE": "subdomain",
         "SELF_HOSTED": "false",
         "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
         "POLAR_SERVER": "production",

@@ -274,7 +274,7 @@ export async function revokeApiKey(app: AppUserContext, keyId: string) {
   )
     .bind(crypto.randomUUID(), app.siteId, app.actor.type, app.actor.id, app.actor.name, keyId, timestamp)
     .run()
-  return new Response(null, { status: 303, headers: { Location: '/app/settings?ok=token_revoked' } })
+  return new Response(null, { status: 303, headers: { Location: '/dashboard/settings?ok=token_revoked' } })
 }
 
 export async function authenticateBearerToken(

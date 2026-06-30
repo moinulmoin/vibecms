@@ -123,7 +123,7 @@ pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json
 6. Open the deployed URL.
 7. Create the first account.
 8. Complete blog setup.
-9. You should land directly on `/app` instead of `/app/billing`.
+9. You should land directly on `/dashboard` instead of `/dashboard/billing`.
 
 Local migrations only (no deploy):
 

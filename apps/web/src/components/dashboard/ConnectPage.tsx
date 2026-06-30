@@ -109,7 +109,7 @@ function UpgradeCtas({
 
       <div className="flex justify-center">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/app">Go to dashboard</Link>
+          <Link to="/dashboard">Go to dashboard</Link>
         </Button>
       </div>
     </div>
@@ -201,10 +201,10 @@ export function ConnectPage() {
         saveTokenFlash({ token: result.token, name: result.name })
         setFlash({ token: result.token, name: result.name })
         setDismissedSecretLoss(false)
-        await navigate({ to: '/app/connect', search: dashboardStatusSearch({ ok: 'token_created' }) })
+        await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ ok: 'token_created' }) })
         return
       }
-      await navigate({ to: '/app/connect', search: dashboardStatusSearch({ error: result.code }) })
+      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: result.code }) })
     } finally {
       setCreatePending(false)
     }
@@ -218,9 +218,9 @@ export function ConnectPage() {
         window.location.assign(result.url)
         return
       }
-      await navigate({ to: '/app/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
     } catch {
-      await navigate({ to: '/app/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
     } finally {
       setCheckoutPending(null)
     }
@@ -315,7 +315,7 @@ export function ConnectPage() {
         action={
           !isLive ? (
             <Button asChild variant="outline">
-              <Link to="/app">Open dashboard</Link>
+              <Link to="/dashboard">Open dashboard</Link>
             </Button>
           ) : undefined
         }
@@ -513,7 +513,7 @@ export function ConnectPage() {
           <div className="rounded-2xl bg-muted/50 px-4 py-3">
             <p className="font-sans text-sm">
               <Link
-                to="/app/posts/new"
+                to="/dashboard/posts/new"
                 search={postEditorSearch()}
                 className="font-medium text-foreground underline-offset-4 hover:underline"
               >
@@ -528,7 +528,7 @@ export function ConnectPage() {
           {/* Tertiary: skip entirely */}
           <div className="flex justify-end">
             <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-              <Link to="/app">Skip for now</Link>
+              <Link to="/dashboard">Skip for now</Link>
             </Button>
           </div>
         </div>

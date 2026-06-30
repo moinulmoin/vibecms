@@ -10,7 +10,7 @@ export type PostsListSearch = DashboardStatusSearch & {
   search: string | undefined
 }
 
-/** Child routes under `/app/posts` inherit the list search keys. */
+/** Child routes under `/dashboard/posts` inherit the list search keys. */
 export type PostEditorSearch = PostsListSearch
 
 export const emptyDashboardStatusSearch: DashboardStatusSearch = {

@@ -6,10 +6,6 @@ function headerHost(value: string) {
   }
 }
 
-function isSameSiteFetchMetadata(value: string | null) {
-  return value === 'same-origin' || value === 'same-site' || value === 'none'
-}
-
 function isSameOriginBrowserPost(request: Request) {
   const expectedHost = new URL(request.url).host.toLowerCase()
   const origin = request.headers.get('origin')
@@ -18,7 +14,8 @@ function isSameOriginBrowserPost(request: Request) {
   const referer = request.headers.get('referer')
   if (referer) return headerHost(referer) === expectedHost
 
-  return isSameSiteFetchMetadata(request.headers.get('sec-fetch-site'))
+  // No Origin/Referer: require explicit same-origin (same-site would let tenant subdomains drive mutations).
+  return request.headers.get('sec-fetch-site') === 'same-origin'
 }
 
 export function rejectCrossOriginBrowserPost(request: Request) {

@@ -1,12 +1,14 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicBlogPostView } from '~/components/PublicBlogPages'
-import { handlePublicPostBySlugGet } from '~/server/public-blog'
+import { handlePublicPostBySlugGet, pathModeBlogRedirect } from '~/server/public-blog'
 import { loadPublicBlogPost } from '~/server/public-blog-page-fn'
 
 export const Route = createFileRoute('/blog/$siteSlug/$postSlug')({
   server: {
     handlers: {
       GET: async ({ request, params, next }) => {
+        const redirected = await pathModeBlogRedirect(request, params.siteSlug, `/${encodeURIComponent(params.postSlug)}`)
+        if (redirected) return redirected
         const early = await handlePublicPostBySlugGet(request, params.siteSlug, params.postSlug)
         if (early) return early
         return next()

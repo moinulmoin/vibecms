@@ -136,7 +136,7 @@ export function DashboardOverview() {
         description="Publishing status, media usage, agent access, and recent activity at a glance."
         action={
           <Button asChild>
-            <Link to="/app/posts/new" search={emptyPostEditorSearch}>
+            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
               New post
             </Link>
           </Button>
@@ -180,21 +180,21 @@ export function DashboardOverview() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link
-          to="/app/posts"
+          to="/dashboard/posts"
           search={postsListSearch({ status: 'published' })}
           className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
         </Link>
         <Link
-          to="/app/posts"
+          to="/dashboard/posts"
           search={postsListSearch({ status: 'draft' })}
           className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
         </Link>
         <Link
-          to="/app/media"
+          to="/dashboard/media"
           search={emptyDashboardStatusSearch}
           className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -206,7 +206,7 @@ export function DashboardOverview() {
           />
         </Link>
         <Link
-          to="/app/connect"
+          to="/dashboard/connect"
           search={emptyDashboardStatusSearch}
           className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -221,7 +221,7 @@ export function DashboardOverview() {
           title="Recent posts"
           meta={
             <Button asChild variant="link">
-              <Link to="/app/posts" search={emptyPostsListSearch}>
+              <Link to="/dashboard/posts" search={emptyPostsListSearch}>
                 View all
               </Link>
             </Button>
@@ -232,7 +232,7 @@ export function DashboardOverview() {
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                   <strong className="truncate font-display font-semibold text-foreground">
-                    <Link className="no-underline hover:underline" to="/app/posts" search={emptyPostsListSearch}>
+                    <Link className="no-underline hover:underline" to="/dashboard/posts" search={emptyPostsListSearch}>
                       {post.title}
                     </Link>
                   </strong>
@@ -251,7 +251,7 @@ export function DashboardOverview() {
               description="Create the first post manually, then connect an agent token when you are ready for agents to help."
               action={
                 <Button asChild>
-                  <Link to="/app/posts/new" search={emptyPostEditorSearch}>
+                  <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
                     New post
                   </Link>
                 </Button>
@@ -264,7 +264,7 @@ export function DashboardOverview() {
           title="Recent activity"
           meta={
             <Button asChild variant="link">
-              <Link to="/app/activity">View all</Link>
+              <Link to="/dashboard/activity">View all</Link>
             </Button>
           }
         >

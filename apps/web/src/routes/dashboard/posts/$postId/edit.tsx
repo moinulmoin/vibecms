@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { NewPostEditorPage } from '~/components/dashboard/PostEditorPage'
+import { EditPostEditorPage } from '~/components/dashboard/PostEditorPage'
 import type { PostsListSearch } from '~/lib/dashboard-search'
 
 function validatePostsSearch(search: Record<string, unknown>): PostsListSearch {
@@ -11,7 +11,12 @@ function validatePostsSearch(search: Record<string, unknown>): PostsListSearch {
   }
 }
 
-export const Route = createFileRoute('/app/posts/new')({
+export const Route = createFileRoute('/dashboard/posts/$postId/edit')({
   validateSearch: validatePostsSearch,
-  component: NewPostEditorPage,
+  component: EditPostRoute,
 })
+
+function EditPostRoute() {
+  const { postId } = Route.useParams()
+  return <EditPostEditorPage postId={postId} />
+}

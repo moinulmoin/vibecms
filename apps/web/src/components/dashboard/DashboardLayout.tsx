@@ -45,19 +45,19 @@ import { setupAuthClient } from '~/lib/auth-client'
 type NavItem = { label: string; to: string; Icon: typeof DashboardIcon }
 
 const navItems: NavItem[] = [
-  { label: 'Overview', to: '/app', Icon: DashboardIcon },
-  { label: 'Posts', to: '/app/posts', Icon: FileTextIcon },
-  { label: 'Media', to: '/app/media', Icon: ImageIcon },
-  { label: 'Activity', to: '/app/activity', Icon: ActivityLogIcon },
-  { label: 'Connect', to: '/app/connect', Icon: Link2Icon },
-  { label: 'Settings', to: '/app/settings', Icon: GearIcon },
+  { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
+  { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
+  { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
+  { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
+  { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
+  { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
 ]
 
 // Titles for routes that are not primary nav items, so the top bar never
 // falls through to "Overview" on Billing / Setup / token-created.
 const EXTRA_TITLES: Record<string, string> = {
-  '/app/billing': 'Billing',
-  '/app/setup': 'Set up your blog',
+  '/dashboard/billing': 'Billing',
+  '/dashboard/setup': 'Set up your blog',
 }
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -99,7 +99,7 @@ export function StatusAlert({ status }: { status: FormStatus | null }) {
 function pageTitle(current: string) {
   const match = [...navItems]
     .sort((a, b) => b.to.length - a.to.length)
-    .find((item) => current === item.to || (item.to !== '/app' && current.startsWith(item.to)))
+    .find((item) => current === item.to || (item.to !== '/dashboard' && current.startsWith(item.to)))
   if (match) return match.label
   const extra = Object.keys(EXTRA_TITLES)
     .sort((a, b) => b.length - a.length)
@@ -202,7 +202,7 @@ export function AppShell({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild size="lg">
-                  <Link to="/app">
+                  <Link to="/dashboard">
                     <img src="/brand/icon.svg" alt="" className="size-8 shrink-0 rounded-lg" aria-hidden="true" />
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate text-sm font-semibold tracking-[-0.01em]">
@@ -223,7 +223,7 @@ export function AppShell({
               <SidebarGroupLabel>Workspace</SidebarGroupLabel>
               <SidebarMenu>
                 {navItems.map(({ label, to, Icon }) => {
-                  const active = current === to || (to !== '/app' && current.startsWith(to))
+                  const active = current === to || (to !== '/dashboard' && current.startsWith(to))
                   return (
                     <SidebarMenuItem key={to}>
                       <SidebarMenuButton

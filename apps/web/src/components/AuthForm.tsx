@@ -44,7 +44,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
       {
         onSuccess: async () => {
           await ensureOnboardingRoute()
-          window.location.href = '/app'
+          window.location.href = '/dashboard'
         },
         onError: (ctx: { error: { message?: string } }) => {
           setError(ctx.error.message ?? 'That code did not work. Resend a fresh one and try again.')
@@ -57,7 +57,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
   async function continueWithGoogle() {
     setError(null)
     setLoading(true)
-    const { error: socialError } = await authClient.signIn.social({ provider: 'google', callbackURL: '/app' })
+    const { error: socialError } = await authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
     if (socialError) {
       setError(socialError.message ?? 'Could not start Google sign-in.')
       setLoading(false)

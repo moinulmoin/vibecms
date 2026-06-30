@@ -56,7 +56,7 @@ Confirm:
 - migrations in `packages/db/drizzle` run successfully
 - required secrets are provided before deploy
 - `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` are changed from placeholders to the actual Worker URL
-- first signup lands in setup, then `/app`, not `/app/billing`
+- first signup lands in setup, then `/dashboard`, not `/dashboard/billing`
 
 ## 5. Known deferred work
 
