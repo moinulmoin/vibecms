@@ -11,7 +11,7 @@ const SUBJECTS: Record<OtpType, string> = {
   'change-email': 'Confirm your new VibeCMS email',
 }
 
-const DEFAULT_FROM = 'VibeCMS <noreply@ideaplexa.com>'
+const DEFAULT_FROM = 'VibeCMS <hey@vibecms.dev>'
 
 /**
  * Lazily build the Email SDK client.

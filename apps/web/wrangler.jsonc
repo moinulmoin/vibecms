@@ -30,7 +30,7 @@
     "BETTER_AUTH_URL": "https://dev.vibecms.dev",
     "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
     "SELF_HOSTED": "false",
-    "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
+    "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
     "POLAR_SERVER": "sandbox",
     "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
@@ -68,7 +68,7 @@
         "BETTER_AUTH_URL": "https://app.vibecms.dev",
         "PUBLIC_BLOG_DOMAIN": "vibecms.dev",
         "SELF_HOSTED": "false",
-        "EMAIL_FROM": "VibeCMS <noreply@ideaplexa.com>",
+        "EMAIL_FROM": "VibeCMS <hey@vibecms.dev>",
         "POLAR_SERVER": "production",
         // GATED ON PRICING DECISION ($19/mo, $190/yr)
         // Replace with the real Polar product id once the prod product is created.
