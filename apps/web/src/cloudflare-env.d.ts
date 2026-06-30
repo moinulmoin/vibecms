@@ -10,7 +10,7 @@ declare namespace Cloudflare {
     ASSETS_BUCKET: R2Bucket
     BETTER_AUTH_SECRET?: string
     TOKEN_PEPPER?: string
-    PLUNK_API_KEY?: string
+    CLOUDFLARE_EMAIL_API_TOKEN?: string
     EMAIL_FROM?: string
     GOOGLE_CLIENT_ID?: string
     GOOGLE_CLIENT_SECRET?: string
