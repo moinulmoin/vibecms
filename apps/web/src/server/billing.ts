@@ -1,19 +1,11 @@
 import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
+import { createDataAccess } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from '~/server/onboarding'
 
-type BillingRow = {
-  id: string
-  workspace_id: string
-  polar_customer_id: string | null
-  polar_subscription_id: string | null
-  status: BillingStatus
-  current_period_end: number | null
-}
-type SiteWorkspaceRow = { workspace_id: string }
 type PolarWebhookEvent = { type: string; data?: Record<string, unknown> }
 
 export type BillingSnapshot = {
@@ -22,37 +14,25 @@ export type BillingSnapshot = {
   polarCustomerId: string | null
 }
 
-function now() {
-  return Math.floor(Date.now() / 1000)
-}
-
 export function isSelfHosted() {
   return String(env.SELF_HOSTED) === 'true'
 }
 
 export async function ensureBillingRow(workspaceId: string, status: BillingStatus = 'none') {
-  const timestamp = now()
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO billing_customers (id, workspace_id, status, current_period_end, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(`billing_${workspaceId}`, workspaceId, status, null, timestamp, timestamp)
-    .run()
+  const db = createDataAccess(env.DB)
+  await db.billing.ensureBillingRow(workspaceId, status)
 }
 
 export async function getBilling(workspaceId: string): Promise<BillingSnapshot> {
   if (isSelfHosted()) {
     return { status: 'active', currentPeriodEnd: null, polarCustomerId: null }
   }
-  const row = await env.DB.prepare(
-    'SELECT id, workspace_id, polar_customer_id, polar_subscription_id, status, current_period_end FROM billing_customers WHERE workspace_id = ? LIMIT 1',
-  )
-    .bind(workspaceId)
-    .first<BillingRow>()
+  const db = createDataAccess(env.DB)
+  const row = await db.billing.getBillingRecord(workspaceId)
   return {
     status: row?.status ?? 'none',
-    currentPeriodEnd: row?.current_period_end ?? null,
-    polarCustomerId: row?.polar_customer_id ?? null,
+    currentPeriodEnd: row?.currentPeriodEnd ?? null,
+    polarCustomerId: row?.polarCustomerId ?? null,
   }
 }
 
@@ -62,10 +42,9 @@ export async function getBillingStatus(workspaceId: string): Promise<BillingStat
 }
 
 export async function getBillingStatusForSite(siteId: string): Promise<BillingStatus> {
-  const site = await env.DB.prepare('SELECT workspace_id FROM sites WHERE id = ? LIMIT 1')
-    .bind(siteId)
-    .first<SiteWorkspaceRow>()
-  return site ? getBillingStatus(site.workspace_id) : 'none'
+  const db = createDataAccess(env.DB)
+  const workspaceId = await db.billing.getWorkspaceIdForSite(siteId)
+  return workspaceId ? getBillingStatus(workspaceId) : 'none'
 }
 
 function polar() {
@@ -214,7 +193,6 @@ export async function handlePolarWebhook(request: Request) {
   if (!data) return Response.json({ received: true })
   const workspaceId = workspaceIdFrom(data)
   if (!workspaceId) return Response.json({ received: true })
-  const timestamp = now()
   const status = event.type.startsWith('subscription.')
     ? subscriptionStatus(data.status)
     : event.type === 'checkout.updated' && data.status === 'succeeded'
@@ -224,21 +202,13 @@ export async function handlePolarWebhook(request: Request) {
   const subscriptionId =
     stringField(data, 'subscriptionId', 'subscription_id') ??
     (typeof data.id === 'string' && event.type.startsWith('subscription.') ? data.id : null)
-  await env.DB.prepare(
-    `INSERT INTO billing_customers (id, workspace_id, polar_customer_id, polar_subscription_id, status, current_period_end, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(workspace_id) DO UPDATE SET polar_customer_id = excluded.polar_customer_id, polar_subscription_id = COALESCE(excluded.polar_subscription_id, billing_customers.polar_subscription_id), status = excluded.status, current_period_end = excluded.current_period_end, updated_at = excluded.updated_at`,
-  )
-    .bind(
-      `billing_${workspaceId}`,
-      workspaceId,
-      stringField(data, 'customerId', 'customer_id') ?? null,
-      subscriptionId,
-      status,
-      epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
-      timestamp,
-      timestamp,
-    )
-    .run()
+  const db = createDataAccess(env.DB)
+  await db.billing.upsertFromWebhook({
+    workspaceId,
+    polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
+    polarSubscriptionId: subscriptionId,
+    status,
+    currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
+  })
   return Response.json({ received: true })
 }

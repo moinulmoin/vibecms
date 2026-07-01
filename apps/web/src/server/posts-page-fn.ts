@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import type { Post } from '@vc/core'
 import { getPostVersion, listPostVersions } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
-import { createD1PostRepository } from '@vc/db'
+import { createDataAccess, createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getMedia } from '~/server/media'
 import { getPosts } from '~/server/cms'
@@ -78,10 +78,8 @@ export const loadPostEditorPage = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const app = await requireApp()
     const assets = await getMedia(app)
-    const themeRow = await env.DB.prepare('SELECT theme FROM sites WHERE id = ? LIMIT 1')
-      .bind(app.siteId)
-      .first<{ theme: string | null }>()
-    const presetId = resolvePresetId(themeRow?.theme)
+    const theme = await createDataAccess(env.DB).sites.getSiteTheme(app.siteId)
+    const presetId = resolvePresetId(theme)
     if (!data.postId) {
       return { mode: 'new' as const, post: null, assets, missing: false, presetId }
     }

@@ -12,7 +12,7 @@ import {
   updateSiteSettingsForApp,
 } from '~/server/onboarding'
 import { resolveAppRouterContext } from '~/server/resolve-app-router-context.server'
-import { getSitePublicBaseUrl } from '~/server/cms-dashboard'
+import { getSitePublicBaseUrl } from '~/server/site-public-url'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '~/server/custom-domains'
 
 async function requireApp() {

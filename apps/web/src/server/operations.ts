@@ -1,6 +1,6 @@
 import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
-import { createD1AssetRepository, createD1PostRepository } from "@vc/db";
+import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
 import {
   mapActivityRow,
@@ -18,7 +18,7 @@ import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
-import { getSitePublicBaseUrl } from "./cms-dashboard";
+import { getSitePublicBaseUrl } from "./site-public-url";
 import { formatGuideForPreset } from "./format-guide";
 import { renderRichContent, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -45,12 +45,17 @@ function appUser(ctx: OperationContext) {
   };
 }
 
-async function currentSiteRow(siteId: string) {
-  return env.DB.prepare(
-    "SELECT id, name, slug, description, created_at, updated_at FROM sites WHERE id = ? LIMIT 1",
-  )
-    .bind(siteId)
-    .first<SiteRow>();
+async function currentSiteRow(siteId: string): Promise<SiteRow | null> {
+  const site = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
+  if (!site) return null;
+  return {
+    id: site.id,
+    name: site.name,
+    slug: site.slug,
+    description: site.description,
+    created_at: site.createdAt,
+    updated_at: site.updatedAt,
+  };
 }
 
 async function siteBaseUrl(siteId: string) {
@@ -221,11 +226,9 @@ export async function publishPostOp(ctx: OperationContext, input: { postId: stri
     postId: input.postId,
     billingStatus: await getBillingStatusForSite(ctx.siteId),
   });
-  const siteRow = await env.DB.prepare("SELECT slug FROM sites WHERE id = ? LIMIT 1")
-    .bind(ctx.siteId)
-    .first<{ slug: string }>();
-  if (siteRow?.slug) void purgeArticleCache(ctx.siteId, siteRow.slug, published.slug);
-  const base = siteRow?.slug ? await getSitePublicBaseUrl(ctx.siteId, siteRow.slug) : null;
+  const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
+  if (siteSlug) void purgeArticleCache(ctx.siteId, siteSlug, published.slug);
+  const base = siteSlug ? await getSitePublicBaseUrl(ctx.siteId, siteSlug) : null;
   return mapPost(published, postPublicUrl(base, published));
 }
 
@@ -234,10 +237,8 @@ export async function archivePostOp(ctx: OperationContext, input: { postId: stri
     siteId: ctx.siteId,
     postId: input.postId,
   });
-  const siteRow = await env.DB.prepare("SELECT slug FROM sites WHERE id = ? LIMIT 1")
-    .bind(ctx.siteId)
-    .first<{ slug: string }>();
-  if (siteRow?.slug) void purgeArticleCache(ctx.siteId, siteRow.slug, archived.slug);
+  const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
+  if (siteSlug) void purgeArticleCache(ctx.siteId, siteSlug, archived.slug);
   return mapPost(archived, null);
 }
 
@@ -297,10 +298,8 @@ export async function restorePostVersionOp(ctx: OperationContext, input: { postI
 
 export async function getFormatGuideOp(ctx: OperationContext, _input: { presetId?: string }) {
   requireScope(ctx.actor, "posts:read");
-  const row = await env.DB.prepare("SELECT theme FROM sites WHERE id = ? LIMIT 1")
-    .bind(ctx.siteId)
-    .first<{ theme: string | null }>();
-  const presetId = resolvePresetId(_input.presetId ?? row?.theme);
+  const theme = await createDataAccess(env.DB).sites.getSiteTheme(ctx.siteId);
+  const presetId = resolvePresetId(_input.presetId ?? theme);
   return formatGuideForPreset(presetId);
 }
 
@@ -313,10 +312,8 @@ export async function previewPostOp(
   if (input.presetId) {
     resolvedPresetId = resolvePresetId(input.presetId);
   } else {
-    const row = await env.DB.prepare("SELECT theme FROM sites WHERE id = ? LIMIT 1")
-      .bind(ctx.siteId)
-      .first<{ theme: string | null }>();
-    resolvedPresetId = resolvePresetId(row?.theme);
+    const theme = await createDataAccess(env.DB).sites.getSiteTheme(ctx.siteId);
+    resolvedPresetId = resolvePresetId(theme);
   }
 
   // Single parse: node + outline + render warnings in one pass

@@ -1,5 +1,6 @@
 import type { Actor } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
+import { createDataAccess } from '@vc/db'
 import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '~/server/billing'
@@ -13,9 +14,6 @@ export type AppUserContext = {
   workspaceId: string
   actor: Actor
 }
-
-type RoleRow = { role: 'owner' | 'editor' | 'viewer' }
-type SiteSetupRow = { name: string; slug: string; description: string | null; default_seo_title: string | null }
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -33,59 +31,50 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   const baseSlug = slugify(user.name || user.email.split('@')[0] || user.id)
   const siteSlug = `${baseSlug}-${user.id.slice(0, 8).toLowerCase()}`
 
-  await env.DB.batch([
-    env.DB.prepare(
-      'INSERT OR IGNORE INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).bind(workspaceId, `${user.name || 'My'} Workspace`, `workspace-${user.id}`, timestamp, timestamp),
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO memberships (id, workspace_id, user_id, role, created_at, updated_at) VALUES (?, ?, ?, 'owner', ?, ?)",
-    ).bind(`membership_${user.id}`, workspaceId, user.id, timestamp, timestamp),
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO sites (id, workspace_id, name, slug, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
-    ).bind(
-      siteId,
+  const db = createDataAccess(env.DB)
+  await db.sites.ensureOnboardingBase({
+    timestamp,
+    workspace: {
+      id: workspaceId,
+      name: `${user.name || 'My'} Workspace`,
+      slug: `workspace-${user.id}`,
+    },
+    membership: { id: `membership_${user.id}`, workspaceId, userId: user.id },
+    site: {
+      id: siteId,
       workspaceId,
-      `${user.name || 'My'} Blog`,
-      siteSlug,
-      'A clean blog for you and your agents.',
-      timestamp,
-      timestamp,
-    ),
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)",
-    ).bind(`domain_${user.id}`, siteId, defaultHostname(siteSlug), timestamp, timestamp),
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, 'system', 'system', 'System', 'site.created', 'site', ?, ?, ?)",
-    ).bind(`activity_site_created_${user.id}`, siteId, siteId, 'Created site during onboarding', timestamp),
-  ])
+      name: `${user.name || 'My'} Blog`,
+      slug: siteSlug,
+      description: 'A clean blog for you and your agents.',
+    },
+    defaultDomain: { id: `domain_${user.id}`, siteId, hostname: defaultHostname(siteSlug) },
+    siteCreatedActivity: {
+      id: `activity_site_created_${user.id}`,
+      siteId,
+      summary: 'Created site during onboarding',
+    },
+  })
   await ensureBillingRow(workspaceId, 'none')
 
-  const membership = await env.DB.prepare(
-    'SELECT role FROM memberships WHERE workspace_id = ? AND user_id = ? LIMIT 1',
-  )
-    .bind(workspaceId, user.id)
-    .first<RoleRow>()
+  const role = await db.sites.getMembershipRole(workspaceId, user.id)
   const actor: Actor = {
     type: 'human',
     id: user.id,
     name: user.name || user.email,
-    role: membership?.role ?? 'viewer',
+    role: role ?? 'viewer',
   }
 
   return { user, siteId, workspaceId, actor }
 }
 
 export async function getSiteSetup(app: AppUserContext) {
-  const site = await env.DB.prepare(
-    'SELECT name, slug, description, default_seo_title FROM sites WHERE id = ? LIMIT 1',
-  )
-    .bind(app.siteId)
-    .first<SiteSetupRow>()
+  const db = createDataAccess(env.DB)
+  const site = await db.sites.getSiteSetup(app.siteId)
   return {
     name: site?.name ?? 'My Blog',
     slug: site?.slug ?? 'my-blog',
     description: site?.description ?? '',
-    isComplete: Boolean(site?.default_seo_title),
+    isComplete: Boolean(site?.defaultSeoTitle),
   }
 }
 
@@ -104,23 +93,13 @@ export type SiteSettingsPayload = {
 }
 
 export async function getSiteSettings(app: AppUserContext) {
-  const site = await env.DB.prepare(
-    'SELECT name, description, default_seo_title, default_seo_description, theme, slug FROM sites WHERE id = ? LIMIT 1',
-  )
-    .bind(app.siteId)
-    .first<{
-      name: string
-      description: string | null
-      default_seo_title: string | null
-      default_seo_description: string | null
-      theme: string | null
-      slug: string
-    }>()
+  const db = createDataAccess(env.DB)
+  const site = await db.sites.getSiteSettings(app.siteId)
   return {
     name: site?.name ?? 'My Blog',
     description: site?.description ?? '',
-    defaultSeoTitle: site?.default_seo_title ?? '',
-    defaultSeoDescription: site?.default_seo_description ?? '',
+    defaultSeoTitle: site?.defaultSeoTitle ?? '',
+    defaultSeoDescription: site?.defaultSeoDescription ?? '',
     theme: resolvePresetId(site?.theme),
     slug: site?.slug ?? '',
   }
@@ -137,27 +116,27 @@ export async function completeSiteSetupForApp(
   const description =
     payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
 
-  await env.DB.batch([
-    env.DB.prepare(
-      'UPDATE sites SET name = ?, slug = ?, description = ?, default_seo_title = ?, default_seo_description = ?, updated_at = ? WHERE id = ?',
-    ).bind(name, slug, description, name, description, timestamp, app.siteId),
-    env.DB.prepare('UPDATE domains SET hostname = ?, updated_at = ? WHERE site_id = ? AND type = ?')
-      .bind(defaultHostname(slug), timestamp, app.siteId, 'default'),
-    env.DB.prepare(
-      'INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(
-      `activity_site_setup_${app.user.id}_${timestamp}`,
-      app.siteId,
-      app.actor.type,
-      app.actor.id,
-      app.actor.name,
-      'site.updated',
-      'site',
-      app.siteId,
-      `Configured ${name}`,
-      timestamp,
-    ),
-  ])
+  const db = createDataAccess(env.DB)
+  await db.sites.completeSiteSetup({
+    timestamp,
+    siteId: app.siteId,
+    site: {
+      name,
+      slug,
+      description,
+      defaultSeoTitle: name,
+      defaultSeoDescription: description,
+    },
+    defaultDomainHostname: defaultHostname(slug),
+    activity: {
+      id: `activity_site_setup_${app.user.id}_${timestamp}`,
+      actorType: app.actor.type,
+      actorId: app.actor.id,
+      actorName: app.actor.name,
+      action: 'site.updated',
+      summary: `Configured ${name}`,
+    },
+  })
 
   return { kind: 'ok', code: 'setup_complete' }
 }
@@ -175,28 +154,20 @@ export async function updateSiteSettingsForApp(
     : null
   const theme = resolvePresetId(payload.theme)
 
-  await env.DB.prepare(
-    'UPDATE sites SET name = ?, description = ?, default_seo_title = ?, default_seo_description = ?, theme = ?, updated_at = ? WHERE id = ?',
-  )
-    .bind(name, description, defaultSeoTitle, defaultSeoDescription, theme, timestamp, app.siteId)
-    .run()
-
-  await env.DB.prepare(
-    'INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  )
-    .bind(
-      crypto.randomUUID(),
-      app.siteId,
-      app.actor.type,
-      app.actor.id,
-      app.actor.name,
-      'site.updated',
-      'site',
-      app.siteId,
-      'Updated site settings',
-      timestamp,
-    )
-    .run()
+  const db = createDataAccess(env.DB)
+  await db.sites.updateSiteSettings({
+    timestamp,
+    siteId: app.siteId,
+    site: { name, description, defaultSeoTitle, defaultSeoDescription, theme },
+    activity: {
+      id: crypto.randomUUID(),
+      actorType: app.actor.type,
+      actorId: app.actor.id,
+      actorName: app.actor.name,
+      action: 'site.updated',
+      summary: 'Updated site settings',
+    },
+  })
 
   return { kind: 'ok', code: 'site_saved' }
 }

@@ -6,3 +6,4 @@ export * from "./repositories/assets";
 export * from "./repositories/subscribers";
 export * from "./repositories/activity";
 export * from "./repositories/domains";
+export * from "./repositories/sites";

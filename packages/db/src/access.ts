@@ -5,6 +5,8 @@ import { createD1AssetRepository } from "./repositories/assets";
 import { createD1DomainRepository } from "./repositories/domains";
 import { createD1PostRepository } from "./repositories/posts";
 import { createD1SubscriberRepository, type AddPendingInput } from "./repositories/subscribers";
+import { createSitesRepository, type SitesRepository } from "./repositories/sites";
+import { createBillingRepository, type BillingRepository } from "./repositories/billing";
 
 // Shape returned by createD1SubscriberRepository (which has no named type).
 export interface SubscriberRepository {
@@ -19,6 +21,8 @@ export interface DataAccess {
   domains: DomainRepository;
   subscribers: SubscriberRepository;
   activity: ActivityRepository;
+  sites: SitesRepository;
+  billing: BillingRepository;
 }
 
 // One aggregated data-access entry point: Drizzle client + raw D1 + repositories.
@@ -32,5 +36,7 @@ export function createDataAccess(db: D1Database): DataAccess {
     domains: createD1DomainRepository(db),
     subscribers: createD1SubscriberRepository(db),
     activity: createActivityRepository(db),
+    sites: createSitesRepository(db),
+    billing: createBillingRepository(db),
   };
 }

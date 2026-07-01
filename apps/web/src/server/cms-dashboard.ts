@@ -54,15 +54,6 @@ async function activeDefaultHostname(
   return hostname
 }
 
-export async function getSitePublicBaseUrl(siteId: string, siteSlug: string): Promise<string | null> {
-  if (publicBlogUsesAppPath()) return appPublicBlogUrl(siteSlug)
-  const domainRow = await env.DB.prepare(
-    "SELECT hostname FROM domains WHERE site_id = ? AND type='default' AND status='active' LIMIT 1",
-  ).bind(siteId).first<{ hostname: string }>()
-  const hostname = await activeDefaultHostname({ slug: siteSlug }, domainRow ?? undefined, siteId)
-  return publicUrlForHostname(hostname)
-}
-
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {
   type StatusCountRow = { status: Post['status'] | 'scheduled'; count: number }
   type RecentPostRow = {
