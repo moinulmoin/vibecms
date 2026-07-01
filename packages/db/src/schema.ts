@@ -236,3 +236,31 @@ export const subscribers = sqliteTable("subscribers", {
   uniqueIndex("idx_subscribers_site_email").on(table.siteId, table.email),
   index("idx_subscribers_site_id").on(table.siteId),
 ]);
+
+// Row + insert type aliases for app tables.
+export type WorkspaceRow = typeof workspaces.$inferSelect;
+export type WorkspaceInsert = typeof workspaces.$inferInsert;
+export type MembershipRow = typeof memberships.$inferSelect;
+export type MembershipInsert = typeof memberships.$inferInsert;
+export type SiteRow = typeof sites.$inferSelect;
+export type SiteInsert = typeof sites.$inferInsert;
+export type DomainRow = typeof domains.$inferSelect;
+export type DomainInsert = typeof domains.$inferInsert;
+export type PostRow = typeof posts.$inferSelect;
+export type PostInsert = typeof posts.$inferInsert;
+export type PostVersionRow = typeof postVersions.$inferSelect;
+export type PostVersionInsert = typeof postVersions.$inferInsert;
+export type AssetRow = typeof assets.$inferSelect;
+export type AssetInsert = typeof assets.$inferInsert;
+export type ApiKeyRow = typeof apiKeys.$inferSelect;
+export type ApiKeyInsert = typeof apiKeys.$inferInsert;
+export type ActivityEventRow = typeof activityEvents.$inferSelect;
+export type ActivityEventInsert = typeof activityEvents.$inferInsert;
+export type BillingCustomerRow = typeof billingCustomers.$inferSelect;
+export type BillingCustomerInsert = typeof billingCustomers.$inferInsert;
+export type UsageCounterRow = typeof usageCounters.$inferSelect;
+export type UsageCounterInsert = typeof usageCounters.$inferInsert;
+export type RateLimitRow = typeof rateLimits.$inferSelect;
+export type RateLimitInsert = typeof rateLimits.$inferInsert;
+export type SubscriberRow = typeof subscribers.$inferSelect;
+export type SubscriberInsert = typeof subscribers.$inferInsert;

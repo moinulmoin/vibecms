@@ -1,13 +1,15 @@
 import type { BillingStatus, Post } from '@vc/core'
 import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '~/server/billing'
+import { type AppUserContext } from '~/server/onboarding'
 import {
+  appPublicBlogUrl,
   defaultHostname,
   isLocalDefaultHostname,
   publicBlogBaseDomain,
   publicBlogUsesAppPath,
-  type AppUserContext,
-} from '~/server/onboarding'
+  publicUrlForHostname,
+} from './public-url'
 import { getApiUsageSummary, type ApiUsageSummary } from '~/server/usage'
 
 type SiteRow = { id: string; name: string; slug: string; description: string | null }
@@ -50,17 +52,6 @@ async function activeDefaultHostname(
     .bind(hostname, Math.floor(Date.now() / 1000), siteId, domain.hostname)
     .run()
   return hostname
-}
-
-function publicUrlForHostname(hostname: string | null) {
-  if (!hostname) return null
-  if (publicBlogUsesAppPath()) return null
-  return `${isLocalDefaultHostname(hostname) ? 'http' : 'https'}://${hostname}`
-}
-
-function appPublicBlogUrl(slug: string) {
-  const appUrl = env.APP_URL || 'http://localhost:3000'
-  return new URL(`/blog/${slug}`, appUrl).href
 }
 
 export async function getSitePublicBaseUrl(siteId: string, siteSlug: string): Promise<string | null> {

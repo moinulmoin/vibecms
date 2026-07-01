@@ -3,6 +3,7 @@ import { resolvePresetId } from '@vc/config'
 import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '~/server/billing'
+import { defaultHostname } from './public-url'
 
 type AuthSessionUser = { id: string; name: string; email: string }
 
@@ -23,43 +24,6 @@ function now() {
 function slugify(input: string) {
   const slug = input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 42)
   return slug || 'site'
-}
-
-export function publicBlogBaseDomain() {
-  const raw = env.PUBLIC_BLOG_DOMAIN?.trim()
-  if (!raw) return null
-  try {
-    const url = new URL(raw.includes('://') ? raw : `https://${raw}`)
-    const hostname = url.hostname.toLowerCase()
-    if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '127.0.0.1')
-      return null
-    return hostname
-  } catch {
-    return null
-  }
-}
-
-export function defaultHostname(slug: string) {
-  return `${slug}.${publicBlogBaseDomain() ?? 'localhost'}`
-}
-
-export function isLocalDefaultHostname(hostname: string) {
-  const host = hostname.toLowerCase()
-  return host === 'localhost' || host.endsWith('.localhost')
-}
-
-// Blog URL mode: explicit PUBLIC_BLOG_URL_MODE, else infer (app-path when no real blog domain or it equals APP_URL host).
-export function publicBlogUsesAppPath(): boolean {
-  const mode = env.PUBLIC_BLOG_URL_MODE?.trim().toLowerCase()
-  if (mode === 'app-path') return true
-  if (mode === 'subdomain') return false
-  const baseDomain = publicBlogBaseDomain()
-  if (!baseDomain) return true
-  try {
-    return baseDomain === new URL(env.APP_URL).hostname.toLowerCase()
-  } catch {
-    return false
-  }
 }
 
 export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserContext> {

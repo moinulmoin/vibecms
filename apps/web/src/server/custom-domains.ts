@@ -11,7 +11,7 @@ import {
   refreshCustomHostnameStatus,
 } from '~/server/custom-hostnames'
 import type { AppUserContext } from '~/server/onboarding'
-import { publicBlogBaseDomain } from '~/server/onboarding'
+import { publicBlogBaseDomain } from '~/server/public-url'
 
 export type CustomDomainView = {
   id: string

@@ -2,7 +2,8 @@ import { getRequest, getRequestHeaders } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { auth } from '~/server/auth'
 import { isAppContextHost } from '~/server/canonical-host'
-import { ensureOnboarding, getSiteSetup, publicBlogUsesAppPath } from '~/server/onboarding'
+import { ensureOnboarding, getSiteSetup } from '~/server/onboarding'
+import { publicBlogUsesAppPath } from '~/server/public-url'
 import type { AppRouterContext, SessionUser } from '~/server/auth-context-types'
 
 export async function resolveAppRouterContext(): Promise<AppRouterContext> {

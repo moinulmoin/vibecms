@@ -12,7 +12,7 @@ import {
 } from "./public-blog-data";
 export { isMarketingHost } from "./public-blog-data";
 import { articleCacheTag, publicCacheControl } from "./public-blog-cache";
-import { defaultHostname, publicBlogUsesAppPath } from "./onboarding";
+import { defaultHostname, publicBlogUsesAppPath } from "./public-url";
 
 export const RESERVED_ROOT_SLUGS = new Set([
   "dashboard",

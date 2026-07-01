@@ -6,7 +6,7 @@
 // is provided by wrangler.test.jsonc, so the zone is dev.vibecms.dev here.
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:workers";
-import { publicBlogBaseDomain } from "./onboarding";
+import { publicBlogBaseDomain } from "./public-url";
 import { isMarketingHost } from "./public-blog-data";
 
 const zone = publicBlogBaseDomain();

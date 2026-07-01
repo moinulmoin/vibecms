@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { Presentation } from "@vc/config";
-import { isLocalDefaultHostname, publicBlogBaseDomain } from "./onboarding";
+import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
 
 export type SiteRow = {
   id: string;
