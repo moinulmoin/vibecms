@@ -18,6 +18,7 @@ import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
+import { getSitePublicBaseUrl } from "./cms-dashboard";
 import { formatGuideForPreset } from "./format-guide";
 import { renderRichContent, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -50,6 +51,15 @@ async function currentSiteRow(siteId: string) {
   )
     .bind(siteId)
     .first<SiteRow>();
+}
+
+async function siteBaseUrl(siteId: string) {
+  const row = await currentSiteRow(siteId);
+  return row ? getSitePublicBaseUrl(siteId, row.slug) : null;
+}
+
+function postPublicUrl(base: string | null, post: { status: string; slug: string }) {
+  return base && post.status === "published" ? `${base}/${post.slug}` : null;
 }
 
 async function recentActivity(siteId: string, limit: number) {
@@ -105,12 +115,15 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
 
 export async function getSiteOp(ctx: OperationContext) {
   requireScope(ctx.actor, "sites:read");
-  return mapSiteRow(await currentSiteRow(ctx.siteId));
+  const row = await currentSiteRow(ctx.siteId);
+  const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
+  return mapSiteRow(row, url);
 }
 
 export async function listPostsOp(ctx: OperationContext, input: ListPostsRequest) {
   const rows = await listPosts(repository(), ctx.actor, { siteId: ctx.siteId, ...input });
-  return rows.map(mapPostSummary);
+  const base = rows.length ? await siteBaseUrl(ctx.siteId) : null;
+  return rows.map((post) => mapPostSummary(post, postPublicUrl(base, post)));
 }
 
 export async function searchPostsOp(
@@ -123,11 +136,14 @@ export async function searchPostsOp(
     limit: input.limit,
     offset: input.offset,
   });
-  return rows.map(mapPostSummary);
+  const base = rows.length ? await siteBaseUrl(ctx.siteId) : null;
+  return rows.map((post) => mapPostSummary(post, postPublicUrl(base, post)));
 }
 
 export async function getPostOp(ctx: OperationContext, input: { postId: string }) {
-  return mapPost(await getPost(repository(), ctx.actor, ctx.siteId, input.postId));
+  const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
+  const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPost(post, postPublicUrl(base, post));
 }
 
 export async function createPostOp(
@@ -160,6 +176,7 @@ export async function createPostOp(
       tags: input.tags,
       presentation: input.presentation,
     }),
+    null,
   );
 }
 
@@ -180,8 +197,7 @@ export async function updatePostOp(
   },
 ) {
   await assertCoverAssetOwnedBySite(ctx.siteId, input.coverAssetId);
-  return mapPost(
-    await updatePost(repository(), ctx.actor, {
+  const post = await updatePost(repository(), ctx.actor, {
       siteId: ctx.siteId,
       postId: input.postId,
       title: input.title,
@@ -194,8 +210,9 @@ export async function updatePostOp(
       seoDescription: input.seoDescription,
       tags: input.tags,
       presentation: input.presentation,
-    }),
-  );
+  });
+  const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPost(post, postPublicUrl(base, post));
 }
 
 export async function publishPostOp(ctx: OperationContext, input: { postId: string }) {
@@ -208,7 +225,8 @@ export async function publishPostOp(ctx: OperationContext, input: { postId: stri
     .bind(ctx.siteId)
     .first<{ slug: string }>();
   if (siteRow?.slug) void purgeArticleCache(ctx.siteId, siteRow.slug, published.slug);
-  return mapPost(published);
+  const base = siteRow?.slug ? await getSitePublicBaseUrl(ctx.siteId, siteRow.slug) : null;
+  return mapPost(published, postPublicUrl(base, published));
 }
 
 export async function archivePostOp(ctx: OperationContext, input: { postId: string }) {
@@ -220,7 +238,7 @@ export async function archivePostOp(ctx: OperationContext, input: { postId: stri
     .bind(ctx.siteId)
     .first<{ slug: string }>();
   if (siteRow?.slug) void purgeArticleCache(ctx.siteId, siteRow.slug, archived.slug);
-  return mapPost(archived);
+  return mapPost(archived, null);
 }
 
 export async function uploadAssetOp(
@@ -272,7 +290,9 @@ export async function getPostVersionOp(ctx: OperationContext, input: { postId: s
 }
 
 export async function restorePostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number }) {
-  return mapPost(await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
+  const post = await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber });
+  const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPost(post, postPublicUrl(base, post));
 }
 
 export async function getFormatGuideOp(ctx: OperationContext, _input: { presetId?: string }) {

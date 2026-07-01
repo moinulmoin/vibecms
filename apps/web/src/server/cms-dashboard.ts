@@ -37,8 +37,8 @@ export type DashboardData = {
 }
 
 async function activeDefaultHostname(
-  site: SiteRow | undefined,
-  domain: DomainRow | undefined,
+  site: { slug: string } | undefined,
+  domain: { hostname: string } | undefined,
   siteId: string,
 ) {
   if (!site || !domain) return null
@@ -68,7 +68,8 @@ export async function getSitePublicBaseUrl(siteId: string, siteSlug: string): Pr
   const domainRow = await env.DB.prepare(
     "SELECT hostname FROM domains WHERE site_id = ? AND type='default' AND status='active' LIMIT 1",
   ).bind(siteId).first<{ hostname: string }>()
-  return publicUrlForHostname(domainRow?.hostname ?? null)
+  const hostname = await activeDefaultHostname({ slug: siteSlug }, domainRow ?? undefined, siteId)
+  return publicUrlForHostname(hostname)
 }
 
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {

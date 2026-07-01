@@ -22,26 +22,27 @@ export type ActivityRow = {
   created_at: number;
 };
 
-export function mapSiteRow(row: SiteRow | null): SiteDto | null {
+export function mapSiteRow(row: SiteRow | null, url: string | null): SiteDto | null {
   if (!row) return null;
   return {
     id: row.id,
     name: row.name,
     slug: row.slug,
     description: row.description,
+    url,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export function mapPostSummary(post: PostSummary): PostSummaryDto {
+export function mapPostSummary(post: PostSummary, url: string | null): PostSummaryDto {
   const { siteId: _siteId, ...rest } = post;
-  return rest;
+  return { ...rest, url };
 }
 
-export function mapPost(post: Post): PostDto {
+export function mapPost(post: Post, url: string | null): PostDto {
   const { siteId: _siteId, ...rest } = post;
-  return rest;
+  return { ...rest, url };
 }
 
 export function mapAsset(asset: Asset, url: string): AssetDto {

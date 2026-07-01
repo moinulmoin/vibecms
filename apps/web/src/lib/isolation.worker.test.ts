@@ -48,6 +48,7 @@ import type { Actor } from "@vc/core";
 import { enforceApiBudget } from "../server/usage";
 import { resolveSite } from "../server/public-blog-data";
 import { loadPublicPostByHost, handlePublicPostByHostGet } from "../server/public-blog";
+import { getSiteOp, getPostOp, type OperationContext } from "../server/operations";
 
 // ---------------------------------------------------------------------------
 // Actors
@@ -521,5 +522,40 @@ describe("e. custom domains", () => {
     // The markdown GET path must not serve a reserved slug either.
     const md = await handlePublicPostByHostGet(new Request("https://posts.acmecorp.com/api?format=md", { headers }), "api");
     expect(md).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// f. public url resolution in op DTOs (test env is subdomain mode, like prod)
+// ---------------------------------------------------------------------------
+
+describe("f. public url in op DTOs", () => {
+  const ctx: OperationContext = { actor: fullActor, siteId: "site-a", workspaceId: "ws-iso", tokenId: "key-full" };
+
+  beforeAll(async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, 'site-a', 'site-a.dev.vibecms.dev', 'default', 'active', ?, ?)",
+    ).bind("dom-site-a", ts, ts).run();
+  });
+
+  it("getSiteOp returns the site public base url", async () => {
+    const site = await getSiteOp(ctx);
+    expect(site?.url).toBe("https://site-a.dev.vibecms.dev");
+  });
+
+  it("getPostOp composes the url for a published post and returns null for a draft", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    const cols = "id, site_id, title, slug, content_markdown, status, published_at, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at";
+    await env.DB.prepare(`INSERT INTO posts (${cols}) VALUES (?, ?, ?, ?, ?, 'published', ?, 'api_key', 'key-full', 'api_key', 'key-full', ?, ?)`)
+      .bind("post-url-pub", "site-a", "URL Pub", "url-pub", "# URL", ts, ts, ts)
+      .run();
+    await env.DB.prepare(`INSERT INTO posts (${cols}) VALUES (?, ?, ?, ?, ?, 'draft', NULL, 'api_key', 'key-full', 'api_key', 'key-full', ?, ?)`)
+      .bind("post-url-draft", "site-a", "URL Draft", "url-draft", "# D", ts, ts)
+      .run();
+    const published = await getPostOp(ctx, { postId: "post-url-pub" });
+    expect(published.url).toBe("https://site-a.dev.vibecms.dev/url-pub");
+    const draft = await getPostOp(ctx, { postId: "post-url-draft" });
+    expect(draft.url).toBeNull();
   });
 });

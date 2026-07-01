@@ -13,6 +13,7 @@ export const siteDtoSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable(),
+  url: z.string().nullable(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -21,6 +22,7 @@ export const postSummaryDtoSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  url: z.string().nullable(),
   excerpt: z.string().nullable(),
   coverAssetId: z.string().nullable(),
   status: postStatusSchema,

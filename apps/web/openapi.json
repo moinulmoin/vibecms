@@ -56,6 +56,12 @@
                         "null"
                       ]
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "createdAt": {
                       "type": "number"
                     },
@@ -68,6 +74,7 @@
                     "name",
                     "slug",
                     "description",
+                    "url",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -282,6 +289,12 @@
                           "slug": {
                             "type": "string"
                           },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "excerpt": {
                             "type": [
                               "string",
@@ -325,6 +338,7 @@
                           "id",
                           "title",
                           "slug",
+                          "url",
                           "excerpt",
                           "coverAssetId",
                           "status",
@@ -635,6 +649,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -719,6 +739,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",
@@ -962,6 +983,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -1046,6 +1073,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",
@@ -1370,6 +1398,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -1454,6 +1488,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",
@@ -1728,6 +1763,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -1812,6 +1853,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",
@@ -2086,6 +2128,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -2170,6 +2218,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",
@@ -4353,6 +4402,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "excerpt": {
                       "type": [
                         "string",
@@ -4437,6 +4492,7 @@
                     "id",
                     "title",
                     "slug",
+                    "url",
                     "excerpt",
                     "coverAssetId",
                     "status",

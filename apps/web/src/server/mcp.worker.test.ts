@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { handleMcpRequest } from "./mcp";
 
-type ToolSchema = { type?: string; properties?: Record<string, { type?: string }> };
+type ToolSchema = { type?: string; items?: ToolSchema; properties?: Record<string, ToolSchema> };
 type Tool = { name: string; outputSchema?: ToolSchema };
 
 async function toolsList(): Promise<Tool[]> {
@@ -35,5 +35,13 @@ describe("MCP tools/list outputSchema contract", () => {
     expect(byName.get("posts.list")?.outputSchema?.properties?.result?.type).toBe("array");
     expect(byName.get("sites.get")?.outputSchema?.properties?.result).toBeDefined();
     expect(byName.get("posts.get")?.outputSchema?.properties?.result).toBeUndefined();
+  });
+
+  it("advertises a public url field on post and site DTOs", async () => {
+    const byName = new Map((await toolsList()).map((t) => [t.name, t]));
+    expect(byName.get("posts.get")?.outputSchema?.properties?.url).toBeDefined();
+    expect(byName.get("posts.publish")?.outputSchema?.properties?.url).toBeDefined();
+    expect(byName.get("sites.get")?.outputSchema?.properties?.result?.properties?.url).toBeDefined();
+    expect(byName.get("posts.list")?.outputSchema?.properties?.result?.items?.properties?.url).toBeDefined();
   });
 });
