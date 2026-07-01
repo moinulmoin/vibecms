@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers'
-import { createD1SubscriberRepository } from '@vc/db'
+import { createDataAccess, createD1SubscriberRepository } from '@vc/db'
 
 import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from '~/lib/subscribe-consent'
 
@@ -107,20 +107,19 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
   const rateLimitId = `subscribe:${siteRow.id}:${ipHash ?? 'anon'}:${bucket}`
 
   try {
-    const rlResult = await env.DB.prepare(
-      `INSERT INTO rate_limits (id, count, expires_at, created_at, updated_at)
-       VALUES (?, 1, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET count = rate_limits.count + 1, updated_at = excluded.updated_at
-       WHERE rate_limits.count < ?`,
-    )
-      .bind(rateLimitId, windowEnd, ts, ts, RATE_LIMIT_MAX)
-      .run()
+    const rateLimits = createDataAccess(env.DB).rateLimits
+    const { allowed } = await rateLimits.increment({
+      id: rateLimitId,
+      windowExpiresAt: windowEnd,
+      max: RATE_LIMIT_MAX,
+      now: ts,
+    })
 
     if (Math.random() < 0.02) {
-      await env.DB.prepare('DELETE FROM rate_limits WHERE expires_at < ?').bind(ts).run()
+      await rateLimits.deleteExpired(ts)
     }
 
-    if (rlResult.meta.changes === 0) {
+    if (!allowed) {
       return { status: 429, body: { ok: false, error: 'rate_limited' } }
     }
   } catch (err) {

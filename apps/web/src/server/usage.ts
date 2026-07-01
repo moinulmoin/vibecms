@@ -1,6 +1,7 @@
 import { API_USAGE_LIMITS } from "@vc/config";
 import { RateLimitError, type BillingStatus } from "@vc/core";
 import { env } from "cloudflare:workers";
+import { createDataAccess, type UsageRepository } from "@vc/db";
 import { getBillingStatus, isSelfHosted } from "./billing";
 
 export type ApiUsageKind = "read" | "write";
@@ -17,7 +18,6 @@ type PeriodName = "minute" | "day" | "month";
 type PeriodWindow = { name: PeriodName; period: string; resetsAt: number };
 type LimitPlan = { calls: { minute: number; day: number; month: number }; writes: { day: number; month: number }; token: { minute: number } };
 type UsageCounter = { id: string; workspaceId: string; siteId: string | null; metric: string; period: PeriodWindow; limit: number };
-type UsageCounterRow = { value: number };
 
 const CALLS_METRIC = "calls";
 const WRITES_METRIC = "writes";
@@ -85,54 +85,53 @@ function status(metric: string, period: PeriodWindow, used: number, limit: numbe
   return { metric, period: period.period, used, limit, remaining: Math.max(limit - used, 0), resetsAt: period.resetsAt };
 }
 
-async function readCounter(id: string) {
-  const row = await env.DB.prepare("SELECT value FROM usage_counters WHERE id = ? LIMIT 1").bind(id).first<UsageCounterRow>();
-  return row?.value ?? 0;
+async function readCounter(usage: UsageRepository, id: string) {
+  return usage.readCounter(id);
 }
 
-async function readStatus(id: string, metric: string, period: PeriodWindow, limit: number) {
-  return status(metric, period, await readCounter(id), limit);
+async function readStatus(usage: UsageRepository, id: string, metric: string, period: PeriodWindow, limit: number) {
+  return status(metric, period, await readCounter(usage, id), limit);
 }
 
 function errorFor(limitStatus: ApiUsageStatus) {
   return Object.assign(new RateLimitError(), { usageStatus: limitStatus });
 }
 
-async function assertUnderLimit(counterId: string, metric: string, period: PeriodWindow, limit: number) {
-  const used = await readCounter(counterId);
+async function assertUnderLimit(usage: UsageRepository, counterId: string, metric: string, period: PeriodWindow, limit: number) {
+  const used = await readCounter(usage, counterId);
   if (used >= limit) throw errorFor(status(metric, period, used, limit));
 }
 
-async function incrementCounter(input: UsageCounter) {
-  const timestamp = now();
-  const result = await env.DB.prepare(
-    `INSERT INTO usage_counters (id, workspace_id, site_id, period, metric, value, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET value = usage_counters.value + 1, updated_at = excluded.updated_at
-     WHERE usage_counters.value + excluded.value <= ?`,
-  ).bind(input.id, input.workspaceId, input.siteId, input.period.period, input.metric, timestamp, timestamp, input.limit).run();
-  if (result.meta.changes === 0) {
-    const used = await readCounter(input.id);
+async function incrementCounter(usage: UsageRepository, input: UsageCounter) {
+  // Guarded upsert: applied=false means the value+1<=limit guard rejected the increment (limit reached => deny).
+  const { applied } = await usage.incrementCounter({
+    id: input.id,
+    workspaceId: input.workspaceId,
+    siteId: input.siteId,
+    period: input.period.period,
+    metric: input.metric,
+    limit: input.limit,
+  });
+  if (!applied) {
+    const used = await readCounter(usage, input.id);
     throw errorFor(status(input.metric, input.period, used, input.limit));
   }
 }
 
-async function releaseCounter(input: UsageCounter) {
-  await env.DB.prepare(
-    "UPDATE usage_counters SET value = MAX(value - 1, 0), updated_at = ? WHERE id = ?",
-  ).bind(now(), input.id).run();
+async function releaseCounter(usage: UsageRepository, input: UsageCounter) {
+  await usage.releaseCounter(input.id);
 }
 
-async function reserveCounters(counters: UsageCounter[]) {
-  for (const counter of counters) await assertUnderLimit(counter.id, counter.metric, counter.period, counter.limit);
+async function reserveCounters(usage: UsageRepository, counters: UsageCounter[]) {
+  for (const counter of counters) await assertUnderLimit(usage, counter.id, counter.metric, counter.period, counter.limit);
   const reserved: UsageCounter[] = [];
   try {
     for (const counter of counters) {
-      await incrementCounter(counter);
+      await incrementCounter(usage, counter);
       reserved.push(counter);
     }
   } catch (error) {
-    await Promise.all(reserved.map((counter) => releaseCounter(counter)));
+    await Promise.all(reserved.map((counter) => releaseCounter(usage, counter)));
     throw error;
   }
 }
@@ -164,7 +163,8 @@ export async function enforceApiBudget(input: { workspaceId: string; siteId: str
       { id: workspaceCounterId(input.workspaceId, WRITES_METRIC, period.month.period), workspaceId: input.workspaceId, siteId: null, metric: WRITES_METRIC, period: period.month, limit: limits.writes.month },
     ] : []),
   ];
-  await reserveCounters(counters);
+  const usage = createDataAccess(env.DB).usage;
+  await reserveCounters(usage, counters);
 }
 
 export async function getApiUsageSummary(input: { workspaceId: string; siteId: string; tokenId?: string | null }): Promise<ApiUsageSummary> {
@@ -172,20 +172,21 @@ export async function getApiUsageSummary(input: { workspaceId: string; siteId: s
   const limits = planFor(billingStatus);
   const period = windows();
   const enforced = !isSelfHosted();
+  const usage = createDataAccess(env.DB).usage;
   return {
     enforced,
     billingStatus,
     calls: {
-      minute: await readStatus(workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.calls.minute),
-      day: await readStatus(workspaceCounterId(input.workspaceId, CALLS_METRIC, period.day.period), CALLS_METRIC, period.day, limits.calls.day),
-      month: await readStatus(workspaceCounterId(input.workspaceId, CALLS_METRIC, period.month.period), CALLS_METRIC, period.month, limits.calls.month),
+      minute: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.calls.minute),
+      day: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.day.period), CALLS_METRIC, period.day, limits.calls.day),
+      month: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.month.period), CALLS_METRIC, period.month, limits.calls.month),
     },
     writes: {
-      day: await readStatus(workspaceCounterId(input.workspaceId, WRITES_METRIC, period.day.period), WRITES_METRIC, period.day, limits.writes.day),
-      month: await readStatus(workspaceCounterId(input.workspaceId, WRITES_METRIC, period.month.period), WRITES_METRIC, period.month, limits.writes.month),
+      day: await readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.day.period), WRITES_METRIC, period.day, limits.writes.day),
+      month: await readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.month.period), WRITES_METRIC, period.month, limits.writes.month),
     },
     token: input.tokenId
-      ? { minute: await readStatus(tokenCounterId(input.tokenId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.token.minute) }
+      ? { minute: await readStatus(usage, tokenCounterId(input.tokenId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.token.minute) }
       : null,
   };
 }
