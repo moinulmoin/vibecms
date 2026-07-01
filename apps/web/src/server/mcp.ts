@@ -67,6 +67,16 @@ function structuredToolResult(dto: unknown, outputSchema: Record<string, unknown
   };
 }
 
+// MCP requires each tool outputSchema to be a top-level object; wrap array/nullable DTOs under result.
+function outputSchemaFor(responseSchema: Parameters<typeof zodToJsonSchema>[0]) {
+  const inner = zodToJsonSchema(responseSchema);
+  if (inner.type === "object") return { schema: inner, wrap: false };
+  return {
+    schema: { type: "object", properties: { result: inner }, required: ["result"], additionalProperties: false },
+    wrap: true,
+  };
+}
+
 // Tell the agent how long to wait. MCP hosts often surface the error message
 // but not the HTTP headers, so put the reset time in the text too.
 function rateLimitMessage(error: unknown): string {
@@ -86,7 +96,8 @@ function toolError(message: string): { content: ToolContent[]; isError: true } {
 async function callTool(name: McpToolName, actor: Actor, siteId: string, workspaceId: string, tokenId: string, rawArguments: unknown) {
   const op = operationsByToolName[name];
   const dto = await dispatchOperation(name, { actor, siteId, workspaceId, tokenId } satisfies OperationContext, rawArguments);
-  return structuredToolResult(dto, zodToJsonSchema(op.responseSchema));
+  const { schema, wrap } = outputSchemaFor(op.responseSchema);
+  return structuredToolResult(wrap ? { result: dto } : dto, schema);
 }
 
 function listedTools() {
@@ -102,7 +113,7 @@ function listedTools() {
         name: op.toolName,
         description: catalog?.description ?? op.description,
         inputSchema: catalog?.inputSchema ?? {},
-        outputSchema: zodToJsonSchema(op.responseSchema),
+        outputSchema: outputSchemaFor(op.responseSchema).schema,
         annotations,
         _meta: {
           "vibecms.com/requiredScope": op.requiredScope,
