@@ -41,7 +41,7 @@ export async function sendOtpEmail(email: string, otp: string, type: OtpType) {
   const client = emailClient()
 
   if (!client) {
-    if (env.APP_ENV === 'production') {
+    if (env.APP_ENV === 'production' && String(env.SELF_HOSTED) !== 'true') {
       throw new Error('email provider not configured: set CLOUDFLARE_EMAIL_API_TOKEN')
     }
     console.log(`[email-otp] to=${email} type=${type} otp=${otp}`)
