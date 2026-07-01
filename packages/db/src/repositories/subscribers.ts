@@ -1,3 +1,6 @@
+import { createDbClient } from "../client";
+import { subscribers } from "../schema";
+
 export type AddPendingInput = {
   siteId: string;
   email: string;
@@ -9,29 +12,26 @@ export type AddPendingInput = {
 };
 
 export function createD1SubscriberRepository(db: D1Database) {
+  const client = createDbClient(db);
   return {
     async addPending(input: AddPendingInput): Promise<{ created: boolean }> {
       const ts = Math.floor(Date.now() / 1000);
-      const result = await db
-        .prepare(
-          `INSERT INTO subscribers (
-            id, site_id, email, status, source_url, consent_text, consent_version,
-            ip_hash, ua_hash, created_at, updated_at
-          ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(site_id, email) DO NOTHING`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          input.siteId,
-          input.email,
-          input.sourceUrl ?? null,
-          input.consentText,
-          input.consentVersion,
-          input.ipHash ?? null,
-          input.uaHash ?? null,
-          ts,
-          ts,
-        )
+      const result = await client
+        .insert(subscribers)
+        .values({
+          id: crypto.randomUUID(),
+          siteId: input.siteId,
+          email: input.email,
+          status: "pending",
+          sourceUrl: input.sourceUrl ?? null,
+          consentText: input.consentText,
+          consentVersion: input.consentVersion,
+          ipHash: input.ipHash ?? null,
+          uaHash: input.uaHash ?? null,
+          createdAt: ts,
+          updatedAt: ts,
+        })
+        .onConflictDoNothing({ target: [subscribers.siteId, subscribers.email] })
         .run();
       return { created: result.meta.changes === 1 };
     },

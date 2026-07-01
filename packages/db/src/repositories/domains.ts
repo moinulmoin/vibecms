@@ -1,103 +1,96 @@
+import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { ConflictError, type DomainRecord, type DomainRepository } from "@vc/core";
-
-type DomainRow = {
-  id: string;
-  site_id: string;
-  hostname: string;
-  type: string;
-  status: string;
-  cloudflare_custom_hostname_id: string | null;
-  verification_errors_json: string | null;
-  created_at: number;
-  updated_at: number;
-};
-
-const COLUMNS =
-  "id, site_id, hostname, type, status, cloudflare_custom_hostname_id, verification_errors_json, created_at, updated_at";
+import { createDbClient } from "../client";
+import { domains, type DomainRow } from "../schema";
 
 function mapDomain(row: DomainRow): DomainRecord {
   return {
     id: row.id,
-    siteId: row.site_id,
+    siteId: row.siteId,
     hostname: row.hostname,
     type: row.type === "custom" ? "custom" : "default",
     status:
       row.status === "active" || row.status === "failed" || row.status === "disabled" ? row.status : "pending",
-    cloudflareCustomHostnameId: row.cloudflare_custom_hostname_id,
-    verificationErrorsJson: row.verification_errors_json,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    cloudflareCustomHostnameId: row.cloudflareCustomHostnameId,
+    verificationErrorsJson: row.verificationErrorsJson,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
 export function createD1DomainRepository(db: D1Database): DomainRepository {
+  const client = createDbClient(db);
   return {
     async listBySite(siteId) {
-      const result = await db
-        .prepare(`SELECT ${COLUMNS} FROM domains WHERE site_id = ? ORDER BY created_at ASC`)
-        .bind(siteId)
-        .all<DomainRow>();
-      return result.results.map(mapDomain);
+      const rows = await client
+        .select()
+        .from(domains)
+        .where(eq(domains.siteId, siteId))
+        .orderBy(asc(domains.createdAt));
+      return rows.map(mapDomain);
     },
     async getByHostname(hostname) {
-      const row = await db
-        .prepare(`SELECT ${COLUMNS} FROM domains WHERE hostname = ? LIMIT 1`)
-        .bind(hostname)
-        .first<DomainRow>();
-      return row ? mapDomain(row) : null;
+      const rows = await client.select().from(domains).where(eq(domains.hostname, hostname)).limit(1);
+      return rows[0] ? mapDomain(rows[0]) : null;
     },
     async insert(record) {
       try {
-        await db
-          .prepare(`INSERT INTO domains (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .bind(
-            record.id,
-            record.siteId,
-            record.hostname,
-            record.type,
-            record.status,
-            record.cloudflareCustomHostnameId,
-            record.verificationErrorsJson,
-            record.createdAt,
-            record.updatedAt,
-          )
-          .run();
+        await client.insert(domains).values({
+          id: record.id,
+          siteId: record.siteId,
+          hostname: record.hostname,
+          type: record.type,
+          status: record.status,
+          cloudflareCustomHostnameId: record.cloudflareCustomHostnameId,
+          verificationErrorsJson: record.verificationErrorsJson,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+        });
       } catch (error) {
-        if (error instanceof Error && /UNIQUE/i.test(error.message)) {
+        // Drizzle wraps D1 errors; the UNIQUE text lives on the cause chain, not .message.
+        const chain: string[] = [];
+        let cur: unknown = error;
+        while (cur instanceof Error) {
+          chain.push(cur.message);
+          cur = cur.cause;
+        }
+        if (/UNIQUE/i.test(chain.join("\n"))) {
           throw new ConflictError("That domain is already connected to another blog.");
         }
         throw error;
       }
     },
     async reclaimStale(hostname, staleBeforeUpdatedAt) {
-      const result = await db
-        .prepare(
-          `DELETE FROM domains WHERE hostname = ? AND type = 'custom' AND status IN ('pending', 'failed') AND updated_at <= ?`,
+      const result = await client
+        .delete(domains)
+        .where(
+          and(
+            eq(domains.hostname, hostname),
+            eq(domains.type, "custom"),
+            inArray(domains.status, ["pending", "failed"]),
+            lte(domains.updatedAt, staleBeforeUpdatedAt),
+          ),
         )
-        .bind(hostname, staleBeforeUpdatedAt)
         .run();
       return result.meta.changes ?? 0;
     },
     async deleteCustomForSite(id, siteId) {
-      const result = await db
-        .prepare(`DELETE FROM domains WHERE id = ? AND site_id = ? AND type = 'custom'`)
-        .bind(id, siteId)
+      const result = await client
+        .delete(domains)
+        .where(and(eq(domains.id, id), eq(domains.siteId, siteId), eq(domains.type, "custom")))
         .run();
       return result.meta.changes ?? 0;
     },
     async setProvisioning(id, siteId, patch) {
-      await db
-        .prepare(
-          `UPDATE domains SET cloudflare_custom_hostname_id = ?, status = ?, verification_errors_json = ?, updated_at = ? WHERE id = ? AND site_id = ? AND type = 'custom'`,
-        )
-        .bind(
-          patch.cloudflareCustomHostnameId,
-          patch.status,
-          patch.verificationErrorsJson,
-          Math.floor(Date.now() / 1000),
-          id,
-          siteId,
-        )
+      await client
+        .update(domains)
+        .set({
+          cloudflareCustomHostnameId: patch.cloudflareCustomHostnameId,
+          status: patch.status,
+          verificationErrorsJson: patch.verificationErrorsJson,
+          updatedAt: Math.floor(Date.now() / 1000),
+        })
+        .where(and(eq(domains.id, id), eq(domains.siteId, siteId), eq(domains.type, "custom")))
         .run();
     },
   };
