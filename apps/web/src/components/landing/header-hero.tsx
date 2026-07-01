@@ -4,8 +4,6 @@ import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
 import { HeaderNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
 
-const builtOn = ["Cloudflare Workers", "D1", "R2"] as const;
-
 const agents = [
   ["Claude", "claude.svg"],
   ["Codex", "codex.svg"],
@@ -116,24 +114,6 @@ export function HeaderHero() {
           <div className="relative z-10">
             <HeroDemo />
           </div>
-        </div>
-
-        <div
-          className="mt-12 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground"
-          data-reveal
-          data-d="2"
-        >
-          <span>Built on</span>
-          {builtOn.map((label, i) => (
-            <span key={label} className="inline-flex items-center gap-4">
-              {i > 0 ? (
-                <span className="text-border" aria-hidden="true">
-                  ·
-                </span>
-              ) : null}
-              {label}
-            </span>
-          ))}
         </div>
       </section>
     </>
