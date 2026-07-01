@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { createDataAccess, type ActivityEventRow } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBilling, getBillingStatus, isSelfHosted } from '~/server/billing'
 import { getActivity } from '~/server/cms'
@@ -158,30 +159,19 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
   const app = await requireApp()
   const canManage = canManageApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
+  const db = createDataAccess(env.DB)
 
-  type KeyRow = {
-    id: string
-    name: string
-    created_at: number
-    last_used_at: number | null
-    revoked_at: number | null
-  }
   type PublishedPostRow = { id: string; title: string; slug: string; published_at: number }
-  type PublishActivityRow = { entity_id: string; actor_id: string; actor_type: string; created_at: number }
 
   // Prefer the newest ACTIVE key; only report 'revoked' when there is no active key but the
   // most recent key was revoked. A revoked replacement must not mask an older still-active key.
-  const [activeKeyRow, latestKeyRow, siteRow] = await Promise.all([
-    env.DB.prepare(
-      'SELECT id, name, created_at, last_used_at, revoked_at FROM api_keys WHERE site_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1',
-    ).bind(app.siteId).first<KeyRow>(),
-    env.DB.prepare(
-      'SELECT id, name, created_at, last_used_at, revoked_at FROM api_keys WHERE site_id = ? ORDER BY created_at DESC LIMIT 1',
-    ).bind(app.siteId).first<KeyRow>(),
-    env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1').bind(app.siteId).first<{ slug: string }>(),
+  const [activeKeyRow, latestKeyRow, siteSlug] = await Promise.all([
+    db.apiKeys.latestActive(app.siteId),
+    db.apiKeys.latestAny(app.siteId),
+    db.sites.getSiteSlug(app.siteId),
   ])
 
-  const publicBaseUrl = siteRow ? await getSitePublicBaseUrl(app.siteId, siteRow.slug) : null
+  const publicBaseUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
 
   const keyRow = activeKeyRow ?? latestKeyRow
   if (!keyRow) {
@@ -191,51 +181,48 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
   const onboardingKey = {
     id: keyRow.id,
     name: keyRow.name,
-    createdAt: keyRow.created_at,
-    lastUsedAt: keyRow.last_used_at,
-    revokedAt: keyRow.revoked_at,
+    createdAt: keyRow.createdAt,
+    lastUsedAt: keyRow.lastUsedAt,
+    revokedAt: keyRow.revokedAt,
   }
 
   let connection: OnboardingConnectStatus['connection']
   if (!activeKeyRow) {
     connection = 'revoked'
-  } else if (activeKeyRow.last_used_at != null && activeKeyRow.last_used_at > activeKeyRow.created_at) {
+  } else if (activeKeyRow.lastUsedAt != null && activeKeyRow.lastUsedAt > activeKeyRow.createdAt) {
     connection = 'connected'
   } else {
     connection = 'waiting'
   }
 
   // Query published posts and post.published activity events in parallel
-  const [postsResult, activityResult] = await Promise.all([
+  const [postsResult, publishActivities] = await Promise.all([
     env.DB.prepare(
       "SELECT id, title, slug, published_at FROM posts WHERE site_id = ? AND status = 'published' ORDER BY published_at DESC LIMIT 50",
     ).bind(app.siteId).all<PublishedPostRow>(),
-    env.DB.prepare(
-      "SELECT entity_id, actor_id, actor_type, created_at FROM activity_events WHERE site_id = ? AND action = 'post.published' ORDER BY created_at DESC LIMIT 100",
-    ).bind(app.siteId).all<PublishActivityRow>(),
+    db.activity.listBySiteAndAction(app.siteId, 'post.published', 100),
   ])
 
   const publishedPosts = postsResult.results ?? []
-  const publishActivities = activityResult.results ?? []
 
   // Index activity by post id (first entry wins - DESC order, so newest per post)
-  const activityByPostId = new Map<string, PublishActivityRow>()
+  const activityByPostId = new Map<string, ActivityEventRow>()
   for (const a of publishActivities) {
-    if (!activityByPostId.has(a.entity_id)) activityByPostId.set(a.entity_id, a)
+    if (!activityByPostId.has(a.entityId)) activityByPostId.set(a.entityId, a)
   }
 
   // Only treat a post as 'live' when it is CURRENTLY published, so an agent publish that was
   // later archived does not strand the user in a terminal live reveal with no live post.
   const publishedPostIds = new Set(publishedPosts.map((p) => p.id))
   const agentActivity = publishActivities.find(
-    (a) => a.actor_id === keyRow.id && a.created_at >= keyRow.created_at && publishedPostIds.has(a.entity_id),
+    (a) => a.actorId === keyRow.id && a.createdAt >= keyRow.createdAt && publishedPostIds.has(a.entityId),
   )
 
   let publish: OnboardingConnectStatus['publish']
 
   if (agentActivity) {
     // Onboarding agent published a post - state = 'live'
-    const post = publishedPosts.find((p) => p.id === agentActivity.entity_id)
+    const post = publishedPosts.find((p) => p.id === agentActivity.entityId)
     if (post && publicBaseUrl) {
       publish = {
         state: 'live',
@@ -250,9 +237,9 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
     const newestPost = publishedPosts[0]
     const postActivity = activityByPostId.get(newestPost.id)
     let actor: 'human' | 'other_agent' | 'unknown'
-    if (postActivity?.actor_type === 'human') {
+    if (postActivity?.actorType === 'human') {
       actor = 'human'
-    } else if (postActivity?.actor_type === 'api_key' || postActivity?.actor_type === 'agent') {
+    } else if (postActivity?.actorType === 'api_key' || postActivity?.actorType === 'agent') {
       actor = 'other_agent'
     } else {
       actor = 'unknown'

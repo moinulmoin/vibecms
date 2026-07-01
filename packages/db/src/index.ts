@@ -9,3 +9,4 @@ export * from "./repositories/domains";
 export * from "./repositories/sites";
 export * from "./repositories/usage";
 export * from "./repositories/rate-limits";
+export * from "./repositories/api-keys";

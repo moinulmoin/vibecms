@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { ActivityInput } from "@vc/core";
 import { activityEvents, type ActivityEventRow } from "../schema";
 import { createDbClient } from "../client";
@@ -7,6 +7,8 @@ import { createDbClient } from "../client";
 export interface ActivityRepository {
   create(input: ActivityInput): Promise<void>;
   listBySite(siteId: string, limit: number): Promise<ActivityEventRow[]>;
+  // Newest activity rows for a site filtered to one action (e.g. 'post.published').
+  listBySiteAndAction(siteId: string, action: string, limit: number): Promise<ActivityEventRow[]>;
 }
 
 export function createActivityRepository(db: D1Database): ActivityRepository {
@@ -36,6 +38,14 @@ export function createActivityRepository(db: D1Database): ActivityRepository {
         .select()
         .from(activityEvents)
         .where(eq(activityEvents.siteId, siteId))
+        .orderBy(desc(activityEvents.createdAt))
+        .limit(limit);
+    },
+    async listBySiteAndAction(siteId: string, action: string, limit: number): Promise<ActivityEventRow[]> {
+      return client
+        .select()
+        .from(activityEvents)
+        .where(and(eq(activityEvents.siteId, siteId), eq(activityEvents.action, action)))
         .orderBy(desc(activityEvents.createdAt))
         .limit(limit);
     },

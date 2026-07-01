@@ -1,6 +1,7 @@
 import type { AssetRepository, DomainRepository, PostRepository } from "@vc/core";
 import { createDbClient, type DbClient } from "./client";
 import { createActivityRepository, type ActivityRepository } from "./repositories/activity";
+import { createApiKeysRepository, type ApiKeysRepository } from "./repositories/api-keys";
 import { createD1AssetRepository } from "./repositories/assets";
 import { createD1DomainRepository } from "./repositories/domains";
 import { createD1PostRepository } from "./repositories/posts";
@@ -27,6 +28,7 @@ export interface DataAccess {
   billing: BillingRepository;
   usage: UsageRepository;
   rateLimits: RateLimitsRepository;
+  apiKeys: ApiKeysRepository;
 }
 
 // One aggregated data-access entry point: Drizzle client + raw D1 + repositories.
@@ -40,6 +42,7 @@ export function createDataAccess(db: D1Database): DataAccess {
     domains: createD1DomainRepository(db),
     subscribers: createD1SubscriberRepository(db),
     activity: createActivityRepository(db),
+    apiKeys: createApiKeysRepository(db),
     sites: createSitesRepository(db),
     billing: createBillingRepository(db),
     usage: createUsageRepository(db),
