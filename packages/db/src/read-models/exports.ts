@@ -2,6 +2,11 @@ import { desc, eq } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { posts, sites } from "../schema";
 
+// posts DB CHECK allows a vestigial 'scheduled' the enum now includes; collapse it (and any unknown) to 'draft' at the export boundary, matching the app export path.
+function normalizeExportStatus(status: string): ExportPost["status"] {
+  return status === "published" || status === "archived" ? status : "draft";
+}
+
 // Owner-only full-blog export site projection: SELECT id,name,slug,description,default_seo_title,default_seo_description.
 export interface ExportSite {
   id: string;
@@ -57,7 +62,7 @@ export function createExportReadModel(db: D1Database): ExportReadModel {
     },
 
     async listAllPostsForExport(siteId) {
-      return client
+      const rows = await client
         .select({
           id: posts.id,
           title: posts.title,
@@ -77,6 +82,7 @@ export function createExportReadModel(db: D1Database): ExportReadModel {
         .from(posts)
         .where(eq(posts.siteId, siteId))
         .orderBy(desc(posts.updatedAt), desc(posts.id));
+      return rows.map((row) => ({ ...row, status: normalizeExportStatus(row.status) }));
     },
   };
 }

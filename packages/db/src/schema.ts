@@ -57,7 +57,7 @@ export const posts = sqliteTable("posts", {
   excerpt: text("excerpt"),
   contentMarkdown: text("content_markdown").notNull(),
   coverAssetId: text("cover_asset_id"),
-  status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "published", "scheduled", "archived"] }).notNull().default("draft"),
   publishedAt: integer("published_at"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
