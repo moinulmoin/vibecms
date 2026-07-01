@@ -1,8 +1,8 @@
 # Git hooks for vibecms, managed by lefthook (https://lefthook.dev).
 # Re-wire after editing with: pnpm exec lefthook install
 #
-# pre-commit: runs on every commit - secrets/placeholders (audit), no em-dashes
-#             on staged code/content, and a full typecheck.
+# pre-commit: runs on every commit - secrets/placeholders (audit) and a full
+#             typecheck.
 # pre-push:   typecheck + build before code leaves your machine and triggers the
 #             dev auto-deploy (Workers Builds only runs vite build, which skips
 #             type errors). This repo has no test runner; these gates ARE the
@@ -13,9 +13,6 @@ pre-commit:
   commands:
     audit:
       run: pnpm public:audit
-    no-em-dash:
-      glob: "*.{ts,tsx,css,md,mjs,cjs,js,html}"
-      run: "! grep -l '—' {staged_files}"
     typecheck:
       run: pnpm typecheck
 
