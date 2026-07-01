@@ -10,8 +10,6 @@ import {
   mapPostVersion,
   mapPostVersionSummary,
   mapSiteRow,
-  type ActivityRow,
-  type SiteRow,
 } from "@vc/api-contract";
 import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
@@ -45,45 +43,13 @@ function appUser(ctx: OperationContext) {
   };
 }
 
-async function currentSiteRow(siteId: string): Promise<SiteRow | null> {
-  const site = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
-  if (!site) return null;
-  return {
-    id: site.id,
-    name: site.name,
-    slug: site.slug,
-    description: site.description,
-    created_at: site.createdAt,
-    updated_at: site.updatedAt,
-  };
-}
-
 async function siteBaseUrl(siteId: string) {
-  const row = await currentSiteRow(siteId);
+  const row = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
   return row ? getSitePublicBaseUrl(siteId, row.slug) : null;
 }
 
 function postPublicUrl(base: string | null, post: { status: string; slug: string }) {
   return base && post.status === "published" ? `${base}/${post.slug}` : null;
-}
-
-async function recentActivity(siteId: string, limit: number): Promise<ActivityRow[]> {
-  const rows = await createDataAccess(env.DB).activity.listBySite(
-    siteId,
-    Math.min(Math.max(limit, 1), 50),
-  );
-  // Map camelCase repo rows to the snake_case ActivityRow shape consumed by mapActivityRow.
-  return rows.map((r) => ({
-    id: r.id,
-    action: r.action,
-    entity_type: r.entityType,
-    entity_id: r.entityId,
-    summary: r.summary,
-    actor_type: r.actorType,
-    actor_id: r.actorId,
-    actor_name: r.actorName,
-    created_at: r.createdAt,
-  }));
 }
 
 async function requireBillableSite(siteId: string) {
@@ -127,7 +93,7 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
 
 export async function getSiteOp(ctx: OperationContext) {
   requireScope(ctx.actor, "sites:read");
-  const row = await currentSiteRow(ctx.siteId);
+  const row = await createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId);
   const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
   return mapSiteRow(row, url);
 }
@@ -284,7 +250,10 @@ export async function deleteAssetOp(ctx: OperationContext, input: { assetId: str
 
 export async function listActivityOp(ctx: OperationContext, input: { limit?: number }) {
   requireScope(ctx.actor, "activity:read");
-  const rows = await recentActivity(ctx.siteId, input.limit ?? 20);
+  const rows = await createDataAccess(env.DB).activity.listBySite(
+    ctx.siteId,
+    Math.min(Math.max(input.limit ?? 20, 1), 50),
+  );
   return rows.map(mapActivityRow);
 }
 

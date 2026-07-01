@@ -1,28 +1,30 @@
 import type { Asset, Post, PostSummary, PostVersion, PostVersionSummary } from "@vc/core";
 import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, PostVersionDto, PostVersionSummaryDto, SiteDto } from "./dto";
 
-export type SiteRow = {
+// camelCase input from db.sites.getCurrentSite (kept structural so this contract layer stays free of @vc/db).
+type SiteMapperRow = {
   id: string;
   name: string;
   slug: string;
   description: string | null;
-  created_at: number;
-  updated_at: number;
+  createdAt: number;
+  updatedAt: number;
 };
 
-export type ActivityRow = {
+// camelCase input from db.activity.listBySite (the ActivityEventRow fields projected to ActivityDto).
+type ActivityMapperRow = {
   id: string;
   action: string;
-  entity_type: string;
-  entity_id: string;
+  entityType: string;
+  entityId: string;
   summary: string;
-  actor_type: string;
-  actor_id: string;
-  actor_name: string;
-  created_at: number;
+  actorType: string;
+  actorId: string;
+  actorName: string;
+  createdAt: number;
 };
 
-export function mapSiteRow(row: SiteRow | null, url: string | null): SiteDto | null {
+export function mapSiteRow(row: SiteMapperRow | null, url: string | null): SiteDto | null {
   if (!row) return null;
   return {
     id: row.id,
@@ -30,8 +32,8 @@ export function mapSiteRow(row: SiteRow | null, url: string | null): SiteDto | n
     slug: row.slug,
     description: row.description,
     url,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -50,17 +52,17 @@ export function mapAsset(asset: Asset, url: string): AssetDto {
   return { ...rest, url };
 }
 
-export function mapActivityRow(row: ActivityRow): ActivityDto {
+export function mapActivityRow(row: ActivityMapperRow): ActivityDto {
   return {
     id: row.id,
     action: row.action,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
+    entityType: row.entityType,
+    entityId: row.entityId,
     summary: row.summary,
-    actorType: row.actor_type,
-    actorId: row.actor_id,
-    actorName: row.actor_name,
-    createdAt: row.created_at,
+    actorType: row.actorType,
+    actorId: row.actorId,
+    actorName: row.actorName,
+    createdAt: row.createdAt,
   };
 }
 

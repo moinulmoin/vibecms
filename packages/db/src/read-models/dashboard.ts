@@ -25,6 +25,14 @@ export interface DashboardRecentActivity {
   createdAt: number;
 }
 
+// All currently-published posts (no published_at<=now cutoff) for onboarding attribution.
+export interface AttributionPublishedPost {
+  id: string;
+  title: string;
+  slug: string;
+  publishedAt: number | null;
+}
+
 // DB-derived dashboard aggregate. Env/request-derived fields (publicUrl, publicUrlLocal, billing status, apiUsage) and the local-default-hostname repair stay in the app layer; this returns the active default-domain row exactly like the original SELECT did.
 export interface DashboardAggregate {
   site: { name: string; slug: string } | null;
@@ -39,6 +47,8 @@ export interface DashboardAggregate {
 
 export interface DashboardReadModel {
   getDashboardAggregate(siteId: string): Promise<DashboardAggregate>;
+  // Currently-published posts (no published_at<=now cutoff) for onboarding attribution.
+  listPublishedForAttribution(siteId: string, limit: number): Promise<AttributionPublishedPost[]>;
 }
 
 // Dashboard aggregate read model extracted from cms-dashboard.getDashboardData's env.DB.batch. Takes a D1Database and builds its own Drizzle client; no env import. The eight read-only selects run in parallel (the plan permits this for the dashboard read-only aggregate); the returned data is identical to the original single batch.
@@ -123,6 +133,14 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         recentActivity: activityRows,
         activeDefaultHostname: domainRows[0]?.hostname ?? null,
       };
+    },
+    async listPublishedForAttribution(siteId: string, limit: number): Promise<AttributionPublishedPost[]> {
+      return client
+        .select({ id: posts.id, title: posts.title, slug: posts.slug, publishedAt: posts.publishedAt })
+        .from(posts)
+        .where(and(eq(posts.siteId, siteId), eq(posts.status, "published")))
+        .orderBy(desc(posts.publishedAt))
+        .limit(limit);
     },
   };
 }

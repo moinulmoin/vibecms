@@ -150,7 +150,7 @@ export type OnboardingConnectStatus = {
   connection: 'no_token' | 'waiting' | 'connected' | 'revoked'
   publish: null | {
     state: 'none' | 'live' | 'already_live'
-    post?: { id: string; title: string; slug: string; publishedAt: number; url: string }
+    post?: { id: string; title: string; slug: string; publishedAt: number | null; url: string }
     actor: 'onboarding_agent' | 'human' | 'other_agent' | 'unknown'
   }
 }
@@ -160,8 +160,6 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
   const canManage = canManageApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
   const db = createDataAccess(env.DB)
-
-  type PublishedPostRow = { id: string; title: string; slug: string; published_at: number }
 
   // Prefer the newest ACTIVE key; only report 'revoked' when there is no active key but the
   // most recent key was revoked. A revoked replacement must not mask an older still-active key.
@@ -196,14 +194,10 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
   }
 
   // Query published posts and post.published activity events in parallel
-  const [postsResult, publishActivities] = await Promise.all([
-    env.DB.prepare(
-      "SELECT id, title, slug, published_at FROM posts WHERE site_id = ? AND status = 'published' ORDER BY published_at DESC LIMIT 50",
-    ).bind(app.siteId).all<PublishedPostRow>(),
+  const [publishedPosts, publishActivities] = await Promise.all([
+    db.dashboard.listPublishedForAttribution(app.siteId, 50),
     db.activity.listBySiteAndAction(app.siteId, 'post.published', 100),
   ])
-
-  const publishedPosts = postsResult.results ?? []
 
   // Index activity by post id (first entry wins - DESC order, so newest per post)
   const activityByPostId = new Map<string, ActivityEventRow>()
@@ -226,7 +220,7 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
     if (post && publicBaseUrl) {
       publish = {
         state: 'live',
-        post: { id: post.id, title: post.title, slug: post.slug, publishedAt: post.published_at, url: `${publicBaseUrl}/${post.slug}` },
+        post: { id: post.id, title: post.title, slug: post.slug, publishedAt: post.publishedAt, url: `${publicBaseUrl}/${post.slug}` },
         actor: 'onboarding_agent',
       }
     } else {
@@ -245,7 +239,7 @@ export const loadOnboardingStatus = createServerFn({ method: 'GET' }).handler(as
       actor = 'unknown'
     }
     const postEntry = publicBaseUrl
-      ? { id: newestPost.id, title: newestPost.title, slug: newestPost.slug, publishedAt: newestPost.published_at, url: `${publicBaseUrl}/${newestPost.slug}` }
+      ? { id: newestPost.id, title: newestPost.title, slug: newestPost.slug, publishedAt: newestPost.publishedAt, url: `${publicBaseUrl}/${newestPost.slug}` }
       : undefined
     publish = { state: 'already_live', ...(postEntry ? { post: postEntry } : {}), actor }
   } else {
