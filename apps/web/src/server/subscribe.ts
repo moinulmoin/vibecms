@@ -81,13 +81,9 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
   // Resolve site BEFORE rate-limiting so unknown slugs never touch rate_limits.
   // This prevents slug-variation from minting unlimited rate-limit buckets.
-  const siteRow = await env.DB.prepare(
-    `SELECT id FROM sites WHERE slug = ? AND status = 'active' LIMIT 1`,
-  )
-    .bind(siteSlug)
-    .first<{ id: string }>()
+  const siteId = await createDataAccess(env.DB).sites.getSiteIdBySlug(siteSlug)
 
-  if (!siteRow) {
+  if (!siteId) {
     // Unknown site -> neutral success (no enumeration)
     return { status: 200, body: { ok: true } }
   }
@@ -104,7 +100,7 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
   const ts = Math.floor(Date.now() / 1000)
   const bucket = Math.floor(ts / RATE_LIMIT_WINDOW_SECONDS)
   const windowEnd = (bucket + 1) * RATE_LIMIT_WINDOW_SECONDS
-  const rateLimitId = `subscribe:${siteRow.id}:${ipHash ?? 'anon'}:${bucket}`
+  const rateLimitId = `subscribe:${siteId}:${ipHash ?? 'anon'}:${bucket}`
 
   try {
     const rateLimits = createDataAccess(env.DB).rateLimits
@@ -137,7 +133,7 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
   const sourceUrl = rawSourceUrl ? rawSourceUrl.slice(0, SOURCE_URL_MAX_LENGTH) : null
 
   await createD1SubscriberRepository(env.DB).addPending({
-    siteId: siteRow.id,
+    siteId,
     email,
     sourceUrl,
     consentText: SUBSCRIBE_CONSENT_TEXT,

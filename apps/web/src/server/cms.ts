@@ -1,5 +1,5 @@
 import { listPosts, type Post } from '@vc/core'
-import { createD1PostRepository } from '@vc/db'
+import { createD1PostRepository, createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 
@@ -19,12 +19,15 @@ export async function getPosts(
   return listPosts(repository(), app.actor, { siteId: app.siteId, status, search, limit, offset })
 }
 
-export async function getActivity(app: AppUserContext, limit = 50, offset = 0) {
-  const activity = await env.DB.prepare(
-    `SELECT action, summary, actor_type, actor_name, created_at
-     FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-  )
-    .bind(app.siteId, Math.min(Math.max(limit, 1), 101), Math.max(offset, 0))
-    .all<ActivityRow>()
-  return activity.results ?? []
+export async function getActivity(app: AppUserContext, limit = 50, offset = 0): Promise<ActivityRow[]> {
+  const db = createDataAccess(env.DB)
+  const rows = await db.activity.listBySitePaged(app.siteId, Math.min(Math.max(limit, 1), 101), Math.max(offset, 0))
+  // listBySitePaged returns camelCase rows; map back to the snake_case shape the dashboard expects.
+  return rows.map((r) => ({
+    action: r.action,
+    summary: r.summary,
+    actor_type: r.actorType,
+    actor_name: r.actorName,
+    created_at: r.createdAt,
+  }))
 }

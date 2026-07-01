@@ -1,20 +1,11 @@
 import { MEDIA } from '@vc/config'
 import { ConflictError, createAsset, deleteAsset, listAssets, NotFoundError, updateAssetAltText } from '@vc/core'
-import { createD1AssetRepository } from '@vc/db'
+import { createDataAccess, createD1AssetRepository } from '@vc/db'
 import { allowedImageMimeTypes } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { getBillingStatusForSite, isSelfHosted } from './billing'
 import type { AppUserContext } from './onboarding'
 
-type AssetRow = {
-  id: string
-  site_id: string
-  r2_key: string
-  filename: string
-  mime_type: string
-  size_bytes: number
-  alt_text: string | null
-}
 type UploadErrorCode =
   | 'upload_missing_file'
   | 'upload_type'
@@ -59,12 +50,8 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
   if (!isSelfHosted()) {
     const billingStatus = await getBillingStatusForSite(app.siteId)
     if (billingStatus !== 'active') throw new UploadError('billing_required')
-    const usage = await env.DB.prepare(
-      'SELECT COALESCE(SUM(size_bytes), 0) AS total FROM assets WHERE site_id = ?',
-    )
-      .bind(app.siteId)
-      .first<{ total: number }>()
-    if ((usage?.total ?? 0) + file.size > MEDIA.paidStorageBytes) throw new UploadError('media_quota_paid')
+    const total = await createDataAccess(env.DB).assets.getMediaUsageBytes(app.siteId)
+    if (total + file.size > MEDIA.paidStorageBytes) throw new UploadError('media_quota_paid')
   }
   const filename = safeFilename(file.name)
   const r2Key = `${app.siteId}/${crypto.randomUUID()}-${filename}`
@@ -145,18 +132,14 @@ export async function deleteAssetForApp(
 }
 
 export async function serveAsset(assetId: string) {
-  const row = await env.DB.prepare(
-    'SELECT id, site_id, r2_key, filename, mime_type, size_bytes, alt_text FROM assets WHERE id = ? LIMIT 1',
-  )
-    .bind(assetId)
-    .first<AssetRow>()
+  const row = await createDataAccess(env.DB).assets.getAssetForServe(assetId)
   if (!row) return new Response('Not found', { status: 404 })
-  const object = await env.ASSETS_BUCKET.get(row.r2_key)
+  const object = await env.ASSETS_BUCKET.get(row.r2Key)
   if (!object) return new Response('Not found', { status: 404 })
   return new Response(object.body, {
     headers: {
-      'content-type': row.mime_type,
-      'content-length': String(row.size_bytes),
+      'content-type': row.mimeType,
+      'content-length': String(row.sizeBytes),
       'cache-control': 'public, max-age=31536000, immutable',
     },
   })

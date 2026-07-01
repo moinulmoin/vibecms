@@ -90,6 +90,7 @@ export interface RepairDefaultHostnameInput {
 export interface SitesRepository {
   getCurrentSite(siteId: string): Promise<CurrentSite | null>;
   getSiteSlug(siteId: string): Promise<string | null>;
+  getSiteIdBySlug(slug: string): Promise<string | null>;
   getSiteTheme(siteId: string): Promise<string | null>;
   getSiteSetup(siteId: string): Promise<SiteSetup | null>;
   getSiteSettings(siteId: string): Promise<SiteSettings | null>;
@@ -126,6 +127,16 @@ export function createSitesRepository(db: D1Database): SitesRepository {
     async getSiteSlug(siteId) {
       const rows = await client.select({ slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1);
       return rows[0]?.slug ?? null;
+    },
+
+    // Resolve a site id from its slug, active sites only (subscribe.ts public flow).
+    async getSiteIdBySlug(slug) {
+      const rows = await client
+        .select({ id: sites.id })
+        .from(sites)
+        .where(and(eq(sites.slug, slug), eq(sites.status, "active")))
+        .limit(1);
+      return rows[0]?.id ?? null;
     },
 
     async getSiteTheme(siteId) {

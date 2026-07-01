@@ -67,14 +67,23 @@ function postPublicUrl(base: string | null, post: { status: string; slug: string
   return base && post.status === "published" ? `${base}/${post.slug}` : null;
 }
 
-async function recentActivity(siteId: string, limit: number) {
-  const rows = await env.DB.prepare(
-    `SELECT id, action, entity_type, entity_id, summary, actor_type, actor_id, actor_name, created_at
-     FROM activity_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
-  )
-    .bind(siteId, Math.min(Math.max(limit, 1), 50))
-    .all<ActivityRow>();
-  return rows.results;
+async function recentActivity(siteId: string, limit: number): Promise<ActivityRow[]> {
+  const rows = await createDataAccess(env.DB).activity.listBySite(
+    siteId,
+    Math.min(Math.max(limit, 1), 50),
+  );
+  // Map camelCase repo rows to the snake_case ActivityRow shape consumed by mapActivityRow.
+  return rows.map((r) => ({
+    id: r.id,
+    action: r.action,
+    entity_type: r.entityType,
+    entity_id: r.entityId,
+    summary: r.summary,
+    actor_type: r.actorType,
+    actor_id: r.actorId,
+    actor_name: r.actorName,
+    created_at: r.createdAt,
+  }));
 }
 
 async function requireBillableSite(siteId: string) {
@@ -89,10 +98,8 @@ async function requireBillableSite(siteId: string) {
 // already uploaded to THIS site, otherwise the API must reject (not silently drop).
 async function assertCoverAssetOwnedBySite(siteId: string, coverAssetId: string | null | undefined) {
   if (!coverAssetId) return;
-  const asset = await env.DB.prepare("SELECT id FROM assets WHERE id = ? AND site_id = ? LIMIT 1")
-    .bind(coverAssetId, siteId)
-    .first<{ id: string }>();
-  if (!asset) throw new ValidationError("Cover image must belong to this site");
+  const exists = await createDataAccess(env.DB).assets.existsForSite(siteId, coverAssetId);
+  if (!exists) throw new ValidationError("Cover image must belong to this site");
 }
 
 function decodedBase64Length(dataBase64: string) {

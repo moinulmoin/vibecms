@@ -1,8 +1,8 @@
-import type { AssetRepository, DomainRepository, PostRepository } from "@vc/core";
+import type { DomainRepository, PostRepository } from "@vc/core";
 import { createDbClient, type DbClient } from "./client";
 import { createActivityRepository, type ActivityRepository } from "./repositories/activity";
 import { createApiKeysRepository, type ApiKeysRepository } from "./repositories/api-keys";
-import { createD1AssetRepository } from "./repositories/assets";
+import { createD1AssetRepository, type AssetDbRepository } from "./repositories/assets";
 import { createD1DomainRepository } from "./repositories/domains";
 import { createD1PostRepository } from "./repositories/posts";
 import { createD1SubscriberRepository, type AddPendingInput } from "./repositories/subscribers";
@@ -10,6 +10,9 @@ import { createSitesRepository, type SitesRepository } from "./repositories/site
 import { createBillingRepository, type BillingRepository } from "./repositories/billing";
 import { createUsageRepository, type UsageRepository } from "./repositories/usage";
 import { createRateLimitsRepository, type RateLimitsRepository } from "./repositories/rate-limits";
+import { createPublicBlogReadModel, type PublicBlogReadModel } from "./read-models/public-blog";
+import { createDashboardReadModel, type DashboardReadModel } from "./read-models/dashboard";
+import { createExportReadModel, type ExportReadModel } from "./read-models/exports";
 
 // Shape returned by createD1SubscriberRepository (which has no named type).
 export interface SubscriberRepository {
@@ -20,7 +23,7 @@ export interface DataAccess {
   client: DbClient;
   d1: D1Database;
   posts: PostRepository;
-  assets: AssetRepository;
+  assets: AssetDbRepository;
   domains: DomainRepository;
   subscribers: SubscriberRepository;
   activity: ActivityRepository;
@@ -29,6 +32,9 @@ export interface DataAccess {
   usage: UsageRepository;
   rateLimits: RateLimitsRepository;
   apiKeys: ApiKeysRepository;
+  publicBlog: PublicBlogReadModel;
+  dashboard: DashboardReadModel;
+  exports: ExportReadModel;
 }
 
 // One aggregated data-access entry point: Drizzle client + raw D1 + repositories.
@@ -47,5 +53,8 @@ export function createDataAccess(db: D1Database): DataAccess {
     billing: createBillingRepository(db),
     usage: createUsageRepository(db),
     rateLimits: createRateLimitsRepository(db),
+    publicBlog: createPublicBlogReadModel(db),
+    dashboard: createDashboardReadModel(db),
+    exports: createExportReadModel(db),
   };
 }

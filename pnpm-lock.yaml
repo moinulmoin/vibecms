@@ -209,6 +209,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@vc/config':
+        specifier: workspace:*
+        version: link:../config
       '@vc/core':
         specifier: workspace:*
         version: link:../core

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { ActivityInput, Actor, Asset, AssetRepository } from "@vc/core";
 import { assets, posts, type AssetRow } from "../schema";
 import { createDbClient } from "../client";
@@ -20,7 +20,25 @@ function mapAsset(row: AssetRow): Asset {
   };
 }
 
-export function createD1AssetRepository(db: D1Database): AssetRepository {
+// Serve-time row: by-id-only asset lookup (NOT site-scoped) for media.ts serveAsset.
+export interface AssetServeRow {
+  id: string;
+  siteId: string;
+  r2Key: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  altText: string | null;
+}
+
+// DB-side read extensions beyond the @vc/core AssetRepository contract.
+export interface AssetDbRepository extends AssetRepository {
+  getMediaUsageBytes(siteId: string): Promise<number>;
+  getAssetForServe(assetId: string): Promise<AssetServeRow | null>;
+  existsForSite(siteId: string, assetId: string): Promise<boolean>;
+}
+
+export function createD1AssetRepository(db: D1Database): AssetDbRepository {
   const client = createDbClient(db);
   const activity = createActivityRepository(db);
   return {
@@ -91,6 +109,42 @@ export function createD1AssetRepository(db: D1Database): AssetRepository {
         .select({ id: posts.id })
         .from(posts)
         .where(and(eq(posts.siteId, siteId), eq(posts.coverAssetId, assetId)))
+        .limit(1);
+      return rows.length > 0;
+    },
+    // SUM(size_bytes) for media quota; coalesce to 0 when no assets exist.
+    async getMediaUsageBytes(siteId: string) {
+      const rows = await client
+        .select({ total: sql<number>`coalesce(sum(${assets.sizeBytes}),0)`.mapWith(Number) })
+        .from(assets)
+        .where(eq(assets.siteId, siteId));
+      return rows[0]?.total ?? 0;
+    },
+
+    // Serve-time row lookup BY ID ONLY (intentionally not site-scoped) for serveAsset.
+    async getAssetForServe(assetId: string) {
+      const rows = await client
+        .select({
+          id: assets.id,
+          siteId: assets.siteId,
+          r2Key: assets.r2Key,
+          filename: assets.filename,
+          mimeType: assets.mimeType,
+          sizeBytes: assets.sizeBytes,
+          altText: assets.altText,
+        })
+        .from(assets)
+        .where(eq(assets.id, assetId))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+
+    // Cover-asset ownership check for assertCoverAssetOwnedBySite (id AND site_id).
+    async existsForSite(siteId: string, assetId: string) {
+      const rows = await client
+        .select({ id: assets.id })
+        .from(assets)
+        .where(and(eq(assets.id, assetId), eq(assets.siteId, siteId)))
         .limit(1);
       return rows.length > 0;
     },

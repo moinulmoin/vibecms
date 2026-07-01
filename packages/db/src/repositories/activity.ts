@@ -3,10 +3,21 @@ import type { ActivityInput } from "@vc/core";
 import { activityEvents, type ActivityEventRow } from "../schema";
 import { createDbClient } from "../client";
 
+// Paged activity projection for cms.getActivity (action/summary/actor/created).
+export interface ActivityListEntry {
+  action: string;
+  summary: string;
+  actorType: ActivityEventRow["actorType"];
+  actorName: string;
+  createdAt: number;
+}
+
 // Shared activity-event repository so posts/assets/api-keys/sites don't duplicate activity SQL.
 export interface ActivityRepository {
   create(input: ActivityInput): Promise<void>;
   listBySite(siteId: string, limit: number): Promise<ActivityEventRow[]>;
+  // Paged list (LIMIT/OFFSET) for the dashboard activity feed (cms.getActivity).
+  listBySitePaged(siteId: string, limit: number, offset: number): Promise<ActivityListEntry[]>;
   // Newest activity rows for a site filtered to one action (e.g. 'post.published').
   listBySiteAndAction(siteId: string, action: string, limit: number): Promise<ActivityEventRow[]>;
 }
@@ -40,6 +51,21 @@ export function createActivityRepository(db: D1Database): ActivityRepository {
         .where(eq(activityEvents.siteId, siteId))
         .orderBy(desc(activityEvents.createdAt))
         .limit(limit);
+    },
+    async listBySitePaged(siteId: string, limit: number, offset: number): Promise<ActivityListEntry[]> {
+      return client
+        .select({
+          action: activityEvents.action,
+          summary: activityEvents.summary,
+          actorType: activityEvents.actorType,
+          actorName: activityEvents.actorName,
+          createdAt: activityEvents.createdAt,
+        })
+        .from(activityEvents)
+        .where(eq(activityEvents.siteId, siteId))
+        .orderBy(desc(activityEvents.createdAt))
+        .limit(limit)
+        .offset(offset);
     },
     async listBySiteAndAction(siteId: string, action: string, limit: number): Promise<ActivityEventRow[]> {
       return client

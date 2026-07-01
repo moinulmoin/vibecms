@@ -11,7 +11,7 @@ import {
   restorePostVersion,
   updatePost,
 } from '@vc/core'
-import { createD1PostRepository } from '@vc/db'
+import { createDataAccess, createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '~/server/billing'
 import type { AppUserContext } from '~/server/onboarding'
@@ -39,19 +39,16 @@ export function postMutationErrorCode(error: unknown): string {
 
 async function coverAssetIdForSite(app: AppUserContext, coverAssetId: string | null | undefined) {
   if (!coverAssetId) return null
-  const asset = await env.DB.prepare('SELECT id FROM assets WHERE id = ? AND site_id = ? LIMIT 1')
-    .bind(coverAssetId, app.siteId)
-    .first<{ id: string }>()
-  if (!asset) throw new AppError('INVALID_COVER_ASSET', 'Cover image must belong to this site', 400)
+  if (!(await createDataAccess(env.DB).assets.existsForSite(app.siteId, coverAssetId))) {
+    throw new AppError('INVALID_COVER_ASSET', 'Cover image must belong to this site', 400)
+  }
   return coverAssetId
 }
 
 async function purgeIfPublished(app: AppUserContext, slug: string, status: string) {
   if (status !== 'published') return
-  const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
-    .bind(app.siteId)
-    .first<{ slug: string }>()
-  if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, slug)
+  const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
+  if (siteSlug) void purgeArticleCache(app.siteId, siteSlug, slug)
 }
 
 export type PostFormPayload = {
@@ -124,10 +121,8 @@ export async function publishPostForApp(app: AppUserContext, postId: string): Pr
       postId,
       billingStatus: await getBillingStatus(app.workspaceId),
     })
-    const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
-      .bind(app.siteId)
-      .first<{ slug: string }>()
-    if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, published.slug)
+    const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
+    if (siteSlug) void purgeArticleCache(app.siteId, siteSlug, published.slug)
     return { kind: 'ok', code: 'post_published', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }
@@ -137,10 +132,8 @@ export async function publishPostForApp(app: AppUserContext, postId: string): Pr
 export async function archivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
   try {
     const archived = await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
-    const siteRow = await env.DB.prepare('SELECT slug FROM sites WHERE id = ? LIMIT 1')
-      .bind(app.siteId)
-      .first<{ slug: string }>()
-    if (siteRow?.slug) void purgeArticleCache(app.siteId, siteRow.slug, archived.slug)
+    const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
+    if (siteSlug) void purgeArticleCache(app.siteId, siteSlug, archived.slug)
     return { kind: 'ok', code: 'post_archived', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }
