@@ -49,21 +49,14 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
       { rel: 'manifest', href: '/site.webmanifest' },
       {
         rel: 'preload',
-        href: '/fonts/HankenGrotesk-Variable.woff2',
+        href: '/fonts/Geist-Variable.woff2',
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',
       },
       {
         rel: 'preload',
-        href: '/fonts/SpaceGrotesk-Variable.woff2',
-        as: 'font',
-        type: 'font/woff2',
-        crossOrigin: 'anonymous',
-      },
-      {
-        rel: 'preload',
-        href: '/fonts/JetBrainsMono-Variable.woff2',
+        href: '/fonts/GeistMono-Variable.woff2',
         as: 'font',
         type: 'font/woff2',
         crossOrigin: 'anonymous',
