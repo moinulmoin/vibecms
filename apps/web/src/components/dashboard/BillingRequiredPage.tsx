@@ -82,7 +82,7 @@ export function BillingRequiredPage() {
           title={PRICING.monthlyLabel}
           meta={
             <span className="flex items-center gap-2">
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+              <span className="font-mono text-[11px] text-muted-foreground">
                 {PRICING.planName}
               </span>
               <BillingStatusBadge status={billingStatus} />

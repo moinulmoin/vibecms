@@ -51,7 +51,7 @@ export function AgentSurface() {
             <span className="font-mono text-[11px] text-muted-foreground">
               connect · blog.acme.com
             </span>
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-brand-bright">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10.5px] text-brand-bright">
               <span
                 className="size-1.5 rounded-full bg-brand-bright animate-vc-pulse"
                 aria-hidden="true"
@@ -100,7 +100,7 @@ export function AgentSurface() {
           <div className="mt-7 grid gap-3.5">
             {SURFACES.map((s) => (
               <div key={s.tag} className="flex gap-3.5">
-                <span className="mt-0.5 inline-flex h-[22px] shrink-0 items-center rounded-md bg-brand-bright/10 px-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-brand-bright">
+                <span className="mt-0.5 inline-flex h-[22px] shrink-0 items-center rounded-md bg-brand-bright/10 px-2 font-mono text-[10.5px] font-medium text-brand-bright">
                   {s.tag}
                 </span>
                 <div className="min-w-0">

@@ -84,7 +84,7 @@ export function HeaderHero() {
           </div>
 
           <div className="mt-9 flex flex-col items-center gap-3">
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="font-mono text-[11px] text-muted-foreground">
               Works with your agents
             </span>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">

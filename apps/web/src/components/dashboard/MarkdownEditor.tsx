@@ -79,7 +79,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
             type="button"
             variant={mode === 'write' ? 'default' : 'ghost'}
             size="sm"
-            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] uppercase tracking-[0.1em] sm:flex-none"
+            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
             aria-pressed={mode === 'write'}
             onClick={showWrite}
           >
@@ -90,7 +90,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
             type="button"
             variant={mode === 'preview' ? 'default' : 'ghost'}
             size="sm"
-            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] uppercase tracking-[0.1em] sm:flex-none"
+            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
             aria-pressed={mode === 'preview'}
             onClick={showPreview}
           >
@@ -116,7 +116,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 justify-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em]"
+              className="h-9 justify-center gap-1.5 font-mono text-[11px]"
               onClick={insertImage}
             >
               <ImageIcon className="size-4" aria-hidden="true" />
@@ -134,7 +134,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
         )}
       </div>
 
-      <FieldDescription className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+      <FieldDescription className="font-mono text-[11px] text-muted-foreground">
         Supports headings, bold, italic, links, lists, code, and quotes.
       </FieldDescription>
 

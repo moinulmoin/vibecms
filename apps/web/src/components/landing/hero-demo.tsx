@@ -83,7 +83,7 @@ export function HeroDemo() {
         <div className="flex items-center gap-2.5 border-b border-[color:var(--hairline)] px-4 py-2.5">
           <Dots />
           <span className="ml-1 font-mono text-[11px] text-muted-foreground">agent · claude</span>
-          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-brand-bright">
+          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] text-brand-bright">
             <span className="size-1.5 rounded-full bg-brand-bright animate-vc-pulse" aria-hidden /> mcp
           </span>
         </div>
@@ -156,7 +156,7 @@ export function HeroDemo() {
             blog.acme.com/shipping-with-mcp
           </span>
           <span
-            className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] transition-colors duration-500 ${
+            className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold transition-colors duration-500 ${
               published
                 ? "text-brand-bright ring-1 ring-brand-bright/35 [background:oklch(0.8107_0.1705_152.72/0.12)]"
                 : "text-muted-foreground ring-1 ring-[color:var(--hairline)]"

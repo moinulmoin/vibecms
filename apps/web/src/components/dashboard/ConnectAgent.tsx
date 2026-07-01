@@ -10,7 +10,7 @@ function CodeBlock({ name, hint, code }: { name: string; hint: string; code: str
     <div className="grid gap-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-foreground">{name}</p>
+          <p className="font-mono text-[11px] font-medium text-foreground">{name}</p>
           <p className="mt-1 font-sans text-xs text-muted-foreground">{hint}</p>
         </div>
         <CopyButton value={code} label="Copy" copiedLabel="Copied" iconOnly />
@@ -85,7 +85,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
       {!promptOnly && token ? (
         <div className="grid gap-3 rounded-2xl bg-muted/50 p-4">
           <div className="space-y-1">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
+            <p className="font-mono text-[11px] font-medium text-primary">
               {tokenName ?? 'Agent token'}
             </p>
             <p className="font-sans text-xs leading-5 text-muted-foreground">
@@ -116,7 +116,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
               <CodeBlock name="Claude Code" hint="Run this once in your terminal." code={claudeCode} />
               <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
               <details className="group rounded-xl bg-muted/50">
-                <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground">
+                <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
                   More clients (Cursor, Claude Desktop, others)
                 </summary>
                 <div className="grid gap-3 px-3 pb-3">

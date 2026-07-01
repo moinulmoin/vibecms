@@ -177,13 +177,13 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
           }}
         >
           <Field className="w-full gap-2 sm:w-72">
-            <FieldLabel className="sr-only font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground" htmlFor="posts-search">
+            <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-search">
               Search posts
             </FieldLabel>
             <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} className="border-transparent bg-background/70 shadow-sm" />
           </Field>
           <Field className="w-full gap-2 sm:w-44">
-            <FieldLabel className="sr-only font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground" htmlFor="posts-status">
+            <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
               Status
             </FieldLabel>
             <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''} className="border-transparent bg-background/70 shadow-sm">
@@ -261,7 +261,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               ))}
             </div>
             <div className="hidden md:grid md:gap-1.5">
-              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-3 pb-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-3 pb-1 font-mono text-[10px] font-medium text-muted-foreground">
                 <span>Post</span>
                 <span>Status</span>
                 <span>Updated</span>

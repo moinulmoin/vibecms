@@ -98,7 +98,7 @@ export function MonoEyebrow({ className, label }: MonoEyebrowProps) {
   return (
     <p
       className={[
-        "font-mono text-xs uppercase tracking-[0.16em] text-brand-bright",
+        "font-mono text-xs text-brand-bright",
         className,
       ]
         .filter(Boolean)
@@ -117,7 +117,7 @@ export function Pill({ className, children, pulse }: PillProps) {
   return (
     <span
       className={[
-        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-brand-bright ring-1 ring-[color:var(--brand-bright)]/20 [background:oklch(0.8107_0.1705_152.72/0.08)]",
+        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] text-brand-bright ring-1 ring-[color:var(--brand-bright)]/20 [background:oklch(0.8107_0.1705_152.72/0.08)]",
         className,
       ]
         .filter(Boolean)

@@ -120,7 +120,7 @@ export function ActivityPage() {
                     {event.summary}
                   </p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+                    <span className="font-mono text-[11px] text-muted-foreground">
                       {labelAction(event.action)}
                     </span>
                     <span aria-hidden className="text-muted-foreground/40">
@@ -128,7 +128,7 @@ export function ActivityPage() {
                     </span>
                     <Badge
                       variant="outline"
-                      className="gap-1 font-mono text-[10px] uppercase tracking-[0.08em]"
+                      className="gap-1 font-mono text-[10px]"
                     >
                       {actorTypeLabel(event.actor_type)}
                     </Badge>

@@ -124,7 +124,7 @@ export function SetupPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-muted/50 p-4">
             <strong className="block font-display text-base font-semibold tabular-nums text-foreground">1 blog</strong>
-            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
               per subscription
             </span>
           </div>
@@ -132,19 +132,19 @@ export function SetupPage() {
             <strong className="block font-display text-base font-semibold tabular-nums text-foreground">
               {MEDIA.paidStorageLabel}
             </strong>
-            <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
               media storage
             </span>
           </div>
         </div>
-        <Panel title="Create your hosted blog" meta={<span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Blog setup</span>}>
+        <Panel title="Create your hosted blog" meta={<span className="font-mono text-[11px] text-muted-foreground">Blog setup</span>}>
           <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
             Only the essentials. You can edit posts, media, tokens, and billing after this.
           </p>
           <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
             <FieldGroup className="gap-4">
               <Field>
-                <FieldLabel htmlFor="website-url" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <FieldLabel htmlFor="website-url" className="font-mono text-[11px] font-medium text-muted-foreground">
                   Existing website URL{' '}
                   <span className="normal-case tracking-normal text-muted-foreground">optional</span>
                 </FieldLabel>
@@ -159,7 +159,7 @@ export function SetupPage() {
                 </FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="name" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <FieldLabel htmlFor="name" className="font-mono text-[11px] font-medium text-muted-foreground">
                   Blog Name
                 </FieldLabel>
                 <Input
@@ -174,7 +174,7 @@ export function SetupPage() {
                 <FieldDescription>This appears in the dashboard and public blog header.</FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="slug" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <FieldLabel htmlFor="slug" className="font-mono text-[11px] font-medium text-muted-foreground">
                   Default Slug
                 </FieldLabel>
                 <Input
@@ -190,7 +190,7 @@ export function SetupPage() {
                 <FieldDescription>Lowercase letters, numbers, and hyphens. Custom domains can come later.</FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="description" className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <FieldLabel htmlFor="description" className="font-mono text-[11px] font-medium text-muted-foreground">
                   Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
                 </FieldLabel>
                 <Textarea

@@ -431,7 +431,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             <div className="grid gap-4">
               <Field>
                 <FieldLabel
-                  className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                  className="font-mono text-[11px] font-medium text-muted-foreground"
                   htmlFor="post-title"
                 >
                   Title
@@ -447,7 +447,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </Field>
               <Field>
                 <FieldLabel
-                  className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                  className="font-mono text-[11px] font-medium text-muted-foreground"
                   htmlFor="post-markdown"
                 >
                   Markdown
@@ -469,7 +469,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-slug"
                   >
                     Slug
@@ -490,7 +490,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-excerpt"
                   >
                     Excerpt
@@ -502,7 +502,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-seo-title"
                   >
                     SEO Title <span className="normal-case tracking-normal text-muted-foreground">optional</span>
@@ -520,7 +520,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-seo-description"
                   >
                     SEO Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
@@ -539,7 +539,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-canonical-url"
                   >
                     Canonical URL <span className="normal-case tracking-normal text-muted-foreground">optional</span>
@@ -555,7 +555,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-tags"
                   >
                     Tags
@@ -564,7 +564,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </Field>
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-cover"
                   >
                     Cover Image
@@ -588,7 +588,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel
-                    className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-layout"
                   >
                     Layout
@@ -617,7 +617,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                         onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
                       />
                       <FieldLabel
-                        className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
+                        className="font-mono text-[11px] font-medium text-muted-foreground"
                         htmlFor="post-toc"
                       >
                         Table of contents
@@ -784,7 +784,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 ) : null}
                 <div>
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="font-mono text-[11px] font-medium text-muted-foreground">
                       {showDiff ? 'Diff vs current' : 'Markdown'}
                     </p>
                     <Button

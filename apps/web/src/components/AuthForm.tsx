@@ -87,7 +87,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
           >
             Continue with Google
           </Button>
-          <div className="my-6 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="my-6 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
             or
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
@@ -106,7 +106,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
             <Field>
               <FieldLabel
                 htmlFor="email"
-                className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                className="font-mono text-[11px] font-medium text-muted-foreground"
               >
                 Email
               </FieldLabel>
@@ -150,7 +150,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
             <Field>
               <FieldLabel
                 htmlFor="otp"
-                className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                className="font-mono text-[11px] font-medium text-muted-foreground"
               >
                 6-digit code
               </FieldLabel>

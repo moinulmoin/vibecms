@@ -472,7 +472,7 @@ export function ConnectPage() {
                           >
                             {preset.label}
                             {preset.recommended && (
-                              <span className="font-mono text-[0.6rem] uppercase tracking-wide text-primary">default</span>
+                              <span className="font-mono text-[0.6rem] text-primary">default</span>
                             )}
                           </FieldLabel>
                           <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
@@ -533,7 +533,7 @@ export function ConnectPage() {
             </p>
             {livePost && (
               <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-background/60 px-3 py-2.5">
-                <span className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="font-mono text-[11px] font-medium text-muted-foreground">
                   Live URL
                 </span>
                 <span className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">{livePost.url}</span>

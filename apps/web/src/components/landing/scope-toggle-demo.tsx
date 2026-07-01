@@ -81,7 +81,7 @@ export function GeneratedScopeTokenBox() {
   const { scopeToken } = useScopeContext();
   return (
     <div className="rounded-[14px] bg-black/30 p-3.5 px-4 shadow-[inset_0_0_0_1px_var(--hairline)]">
-      <div className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="mb-2 font-mono text-[10.5px] text-muted-foreground">
         generated scope token
       </div>
       <div className="break-words font-mono text-[13px] leading-relaxed text-brand-bright">
@@ -104,7 +104,7 @@ function ScopeSwitch({
     <div className="flex shrink-0 items-center gap-3">
       <span
         className={[
-          "min-w-[52px] text-right font-mono text-[10.5px] uppercase tracking-[0.08em] transition-colors",
+          "min-w-[52px] text-right font-mono text-[10.5px] transition-colors",
           on ? "text-brand-bright" : "text-muted-foreground",
         ].join(" ")}
       >

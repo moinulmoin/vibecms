@@ -137,7 +137,7 @@ function UserMenu({ userEmail, authUrl }: { userEmail?: string; authUrl: string 
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="truncate text-[11px] text-muted-foreground">
                   Signed in
                 </span>
                 <span className="truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
@@ -283,7 +283,7 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-2">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-primary">{kicker}</p>
+        <p className="font-mono text-[11px] font-medium text-primary">{kicker}</p>
         <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl">{title}</h2>
         {description ? (
           <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>
@@ -312,7 +312,7 @@ export function StatCard({
         interactive && 'h-full transition-colors hover:border-[color:var(--brand-bright)]/30 hover:bg-muted/40',
       )}
     >
-      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <p className="font-mono text-[11px] font-medium text-muted-foreground">{label}</p>
       <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</p>
       {detail ? <p className="mt-1 font-sans text-xs text-muted-foreground">{detail}</p> : null}
     </Card>

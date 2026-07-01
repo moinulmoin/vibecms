@@ -225,7 +225,7 @@ export function MediaPage() {
           </form>
 
           <div className="grid content-start gap-3 rounded-2xl bg-muted/50 p-4">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="font-mono text-[11px] font-medium text-muted-foreground">
               Upload limits
             </p>
             <dl className="grid gap-2 text-sm">
@@ -240,7 +240,7 @@ export function MediaPage() {
             </dl>
             <div className="mt-1 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                <p className="font-mono text-[11px] font-medium text-muted-foreground">
                   Storage
                 </p>
                 <p className="font-mono text-xs tabular-nums text-foreground">
@@ -276,7 +276,7 @@ export function MediaPage() {
                 </div>
                 <div className="min-w-0">
                   <strong className="block truncate font-mono text-sm text-foreground">{asset.filename}</strong>
-                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
                     {formatBytes(asset.sizeBytes)}
                   </p>
                   {editingAltId === asset.id ? (

@@ -41,7 +41,7 @@ function UsageMeter({
   return (
     <div className="rounded-xl bg-muted/50 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+        <p className="font-mono text-[11px] font-medium text-muted-foreground">{label}</p>
         <p className="font-mono text-xs tabular-nums text-foreground">
           {status.used}/{status.limit}
         </p>
@@ -146,7 +146,7 @@ export function DashboardOverview() {
       <Card className="gap-0 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-2">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="font-mono text-[11px] font-medium text-muted-foreground">
               Blog status
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -273,7 +273,7 @@ export function DashboardOverview() {
               {data.recentActivity.map((event) => (
                 <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
                   <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
-                  <span className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">
+                  <span className="font-mono text-xs text-muted-foreground">
                     {labelAction(event.action)}
                   </span>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">

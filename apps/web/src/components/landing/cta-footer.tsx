@@ -97,7 +97,7 @@ export function CtaFooter() {
               </p>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
+              <p className="mb-4 font-mono text-xs text-brand-bright">
                 Product
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -109,7 +109,7 @@ export function CtaFooter() {
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
+              <p className="mb-4 font-mono text-xs text-brand-bright">
                 Explore
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -127,7 +127,7 @@ export function CtaFooter() {
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
+              <p className="mb-4 font-mono text-xs text-brand-bright">
                 Resources
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -144,7 +144,7 @@ export function CtaFooter() {
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs uppercase tracking-[0.14em] text-brand-bright">
+              <p className="mb-4 font-mono text-xs text-brand-bright">
                 Account
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">

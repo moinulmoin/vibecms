@@ -15,12 +15,12 @@ export function OnboardingFrame({ children, phase = 'Setup' }: { children: React
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
           </Link>
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.1em]">
+          <Badge variant="outline" className="font-mono text-[10px]">
             {phase}
           </Badge>
         </div>
         <div className="space-y-3">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-primary">
+          <p className="font-mono text-[11px] font-medium text-primary">
             {BRAND.tagline}
           </p>
           <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">

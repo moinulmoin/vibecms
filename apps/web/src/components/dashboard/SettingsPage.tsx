@@ -360,7 +360,7 @@ export function SettingsPage() {
                           </Badge>
                         )}
                         {isDefault && (
-                          <Badge variant="outline" className="font-mono text-[0.65rem] uppercase">
+                          <Badge variant="outline" className="font-mono text-[0.65rem]">
                             Default
                           </Badge>
                         )}
@@ -394,7 +394,7 @@ export function SettingsPage() {
         </form>
         <div className="mt-6 rounded-2xl border bg-muted/30 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="font-display text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="font-display text-xs font-medium text-muted-foreground">
               Illustrative preview
             </p>
             <div className="flex gap-1 rounded-lg border bg-background p-0.5 text-xs">
@@ -493,7 +493,7 @@ export function SettingsPage() {
               </p>
             </div>
             {selfHosted ? (
-              <Badge variant="outline" className="w-fit font-mono text-[11px] uppercase tracking-[0.08em] lg:justify-self-end">
+              <Badge variant="outline" className="w-fit font-mono text-[11px] lg:justify-self-end">
                 SELF_HOSTED=true
               </Badge>
             ) : isOwner ? (
