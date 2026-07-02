@@ -2,7 +2,7 @@ import type { BillingStatus, Post } from '@vc/core'
 import { createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '~/server/billing'
-import { type AppUserContext } from '~/server/onboarding'
+import type { AppUserContext } from '~/server/onboarding'
 import {
   appPublicBlogUrl,
   defaultHostname,

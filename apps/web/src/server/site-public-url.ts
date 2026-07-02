@@ -9,10 +9,7 @@ import {
   publicUrlForHostname,
 } from './public-url'
 
-// DB-backed public base URL for a site. Mirrors the legacy cms-dashboard logic:
-// app-path short-circuit, else the active default hostname with a one-time
-// local->slug.zone repair, then publicUrlForHostname. Lives in its own module so
-// the pure './public-url' helpers stay free of any DB import.
+// DB-backed public base URL for a site (app-path short-circuit, else active default hostname with one-time local->slug.zone repair); isolated here so './public-url' stays DB-free.
 export async function getSitePublicBaseUrl(siteId: string, siteSlug: string): Promise<string | null> {
   if (publicBlogUsesAppPath()) return appPublicBlogUrl(siteSlug)
   const db = createDataAccess(env.DB)
