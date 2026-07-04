@@ -165,3 +165,23 @@ describe('edge cases – renderer robustness', () => {
     expect(html).toContain('<em>');
   });
 });
+
+// ─── Group E: h1 downgrade ───────────────────────────────────────────────────
+
+describe('h1 downgrade', () => {
+  it('downgrades author h1 to h2 (no <h1> in rendered body)', () => {
+    const html = renderRichContentToHtml('# Top Heading\n\n## Second\n\nbody');
+    // The article <h1> is rendered by PresentedPostArticle outside the markdown,
+    // so the markdown body must contain zero <h1> tags.
+    expect((html.match(/<h1[ >]/g) || []).length).toBe(0);
+    // The original h1 became an h2 carrying the rehype-slug id (prefix 'h-').
+    expect(html).toMatch(/<h2[^>]*id="h-top-heading"/);
+  });
+
+  it('downgraded h1 appears in the outline alongside real h2s', () => {
+    const { outline } = renderRichContent('# A\n\n## B');
+    expect(outline).toHaveLength(2);
+    expect(outline.every((e) => e.depth === 2)).toBe(true);
+    expect(outline.map((e) => e.text)).toEqual(['A', 'B']);
+  });
+});

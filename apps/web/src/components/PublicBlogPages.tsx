@@ -4,6 +4,7 @@ import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/publi
 import { resolvePresetId, resolvePresentation } from "@vc/config";
 import { SubscribeForm } from "./SubscribeForm";
 import { PresentedPostArticle } from "./PresentedPostArticle";
+import { shouldShowUpdatedDate } from "~/lib/seo-meta";
 
 // Pinned seam - matches public-blog.ts once DataAndLoaders lands
 type PublicListingContext =
@@ -163,32 +164,22 @@ export function PublicBlogIndexView({
 }
 
 export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
-  const { site, post, basePath, canonicalUrl, indexable } = data;
-  const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
-  const seoDescription = post.seo_description || post.excerpt || undefined;
+  const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
-  const ogImage = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : "/brand/og.png";
   const presetId = resolvePresetId(site.theme);
   const { resolved } = resolvePresentation(presetId, post.presentation);
   const renderResult = renderRichContent(post.content_markdown, { presetId });
   const coverAssetSrc = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : undefined;
   const dateText = post.published_at
     ? new Date(post.published_at * 1000).toLocaleDateString()
-    : "Published";
+    : undefined;
+  const updatedDateText = shouldShowUpdatedDate(post.published_at, post.updated_at)
+    ? new Date(post.updated_at * 1000).toLocaleDateString()
+    : undefined;
   const tags = parseTags(post.tags_json);
 
   return (
     <main className={styles.publicPage} data-vc-theme={presetId}>
-      <title>{seoTitle}</title>
-      <RobotsMeta indexable={indexable} />
-      {seoDescription ? <meta name="description" content={seoDescription} /> : null}
-      <meta property="og:title" content={seoTitle} />
-      {seoDescription ? <meta property="og:description" content={seoDescription} /> : null}
-      <meta property="og:type" content="article" />
-      <meta property="og:image" content={ogImage} />
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:image" content={ogImage} />
-      <link rel="canonical" href={canonicalUrl} />
       <header className={styles.publicHeader}>
         <a href={indexHref} className={styles.publicBrand}>
           {site.name}
@@ -205,6 +196,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         title={post.title}
         coverAssetSrc={coverAssetSrc}
         dateText={dateText}
+        updatedDateText={updatedDateText}
       />
       <TagList tags={tags} basePath={basePath} />
       <SubscribeForm siteSlug={site.slug} placement="end" />

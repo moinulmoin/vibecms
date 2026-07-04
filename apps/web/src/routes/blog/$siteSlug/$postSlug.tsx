@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { PublicBlogPostView } from '~/components/PublicBlogPages'
 import { handlePublicPostBySlugGet, pathModeBlogRedirect } from '~/server/public-blog'
 import { loadPublicBlogPost } from '~/server/public-blog-page-fn'
+import { buildPostHeadContent } from '~/lib/seo-meta'
 
 export const Route = createFileRoute('/blog/$siteSlug/$postSlug')({
   server: {
@@ -26,19 +27,13 @@ export const Route = createFileRoute('/blog/$siteSlug/$postSlug')({
   head: ({ loaderData }) => {
     const blog = loaderData?.blog
     if (!blog) return {}
-    const seoTitle = blog.post.seo_title || `${blog.post.title} - ${blog.site.name}`
-    const seoDescription = blog.post.seo_description || blog.post.excerpt || undefined
-    return {
-      meta: [
-        { title: seoTitle },
-        ...(seoDescription ? [{ name: 'description', content: seoDescription }] : []),
-        { property: 'og:title', content: seoTitle },
-        ...(seoDescription ? [{ property: 'og:description', content: seoDescription }] : []),
-        { property: 'og:type', content: 'article' },
-        ...(!blog.indexable ? [{ name: 'robots', content: 'noindex,nofollow' }] : []),
-      ],
-      links: [{ rel: 'canonical', href: blog.canonicalUrl }],
-    }
+    return buildPostHeadContent({
+      post: blog.post,
+      site: blog.site,
+      canonicalUrl: blog.canonicalUrl,
+      origin: blog.origin,
+      indexable: blog.indexable,
+    })
   },
   component: BlogPostPage,
 })

@@ -25,6 +25,7 @@ export type PostRow = {
   content_markdown: string;
   cover_asset_id: string | null;
   published_at: number | null;
+  updated_at: number;
   seo_title: string | null;
   seo_description: string | null;
   tags_json: string;
@@ -61,6 +62,7 @@ function toPostRow(row: PublicPostRow): PostRow {
     content_markdown: row.contentMarkdown,
     cover_asset_id: row.coverAssetId,
     published_at: row.publishedAt,
+    updated_at: row.updatedAt,
     seo_title: row.seoTitle,
     seo_description: row.seoDescription,
     tags_json: row.tagsJson,

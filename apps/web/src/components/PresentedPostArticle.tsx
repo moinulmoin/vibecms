@@ -9,6 +9,7 @@ export interface PresentedPostArticleProps {
   title?: string;
   coverAssetSrc?: string;
   dateText?: string;
+  updatedDateText?: string;
 }
 
 /**
@@ -24,11 +25,18 @@ export function PresentedPostArticle({
   title,
   coverAssetSrc,
   dateText,
+  updatedDateText,
 }: PresentedPostArticleProps) {
   const isFeature = presentation.layout === "feature";
   const { outline } = renderResult;
   const hasToc = presentation.toc && outline.length > 0;
-  const hasHeroChrome = Boolean(title || dateText || coverAssetSrc);
+  const hasHeroChrome = Boolean(title || dateText || updatedDateText || coverAssetSrc);
+  const datesBlock = (
+    <>
+      {dateText ? <p className={styles.date}>{dateText}</p> : null}
+      {updatedDateText ? <p className={styles.date}>Updated {updatedDateText}</p> : null}
+    </>
+  );
 
   return (
     <article className={styles.article} data-vc-layout={presentation.layout}>
@@ -47,7 +55,7 @@ export function PresentedPostArticle({
               />
             ) : null}
             {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
-            {dateText ? <p className={styles.date}>{dateText}</p> : null}
+            {datesBlock}
           </div>
         ) : null
       ) : (
@@ -64,7 +72,7 @@ export function PresentedPostArticle({
               loading="lazy"
             />
           ) : null}
-          {dateText ? <p className={styles.date}>{dateText}</p> : null}
+          {datesBlock}
         </>
       )}
       {hasToc ? (

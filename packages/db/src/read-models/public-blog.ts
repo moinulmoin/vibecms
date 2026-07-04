@@ -27,6 +27,7 @@ export interface PublicPostRow {
   contentMarkdown: string;
   coverAssetId: string | null;
   publishedAt: number | null;
+  updatedAt: number;
   seoTitle: string | null;
   seoDescription: string | null;
   tagsJson: string;
@@ -47,6 +48,7 @@ const publishedColumns = {
   contentMarkdown: posts.contentMarkdown,
   coverAssetId: posts.coverAssetId,
   publishedAt: posts.publishedAt,
+  updatedAt: posts.updatedAt,
   seoTitle: posts.seoTitle,
   seoDescription: posts.seoDescription,
   tagsJson: posts.tagsJson,

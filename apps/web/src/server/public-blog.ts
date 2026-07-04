@@ -145,11 +145,12 @@ export type PublicPostLoaderData = {
   post: PostDetailRow;
   basePath: string;
   canonicalUrl: string;
+  origin: string;
   indexable: boolean;
   cacheTag: string;
 };
 
-export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlug: string | undefined): Promise<PublicPostLoaderData | null> {
+export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlug: string | undefined, origin: string): Promise<PublicPostLoaderData | null> {
   const site = await resolveSiteBySlug(siteSlug);
   if (!site) return null;
   const { slug } = stripMarkdownSuffix(postSlug);
@@ -162,6 +163,7 @@ export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlu
     post,
     basePath,
     canonicalUrl: `${basePath}/${post.slug}`,
+    origin,
     indexable: isPublicBlogIndexable(site),
     cacheTag: articleCacheTag(site.id, post.slug),
   };
@@ -174,11 +176,13 @@ export async function loadPublicPostByHost(request: Request, slug: string | unde
   if (!site) return null;
   const post = await getPublishedPost(site.id, postSlug);
   if (!post) return null;
+  const origin = new URL(request.url).origin;
   return {
     site,
     post,
     basePath: "",
     canonicalUrl: `/${post.slug}`,
+    origin,
     indexable: isPublicBlogIndexable(site),
     cacheTag: articleCacheTag(site.id, post.slug),
   };

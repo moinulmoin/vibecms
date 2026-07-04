@@ -121,6 +121,17 @@ function rehypeExternalLinks(): (tree: UnistNode) => void {
   };
 }
 
+// ─── Plugin: downgrade author h1 → h2 so the article title is the only <h1> ─
+
+function rehypeDowngradeH1(): (tree: UnistNode) => void {
+  return (tree) => {
+    const root = tree as unknown as HRoot;
+    walkEl(root.children, (el) => {
+      if (el.tagName === "h1") el.tagName = "h2";
+    });
+  };
+}
+
 // ─── Plugin: TOC collector + [[toc]] replacement ─────────────────────────────
 
 interface TocPluginOpts {
@@ -472,6 +483,7 @@ export function renderRichContent(markdown: string, _opts?: RenderOpts): RenderR
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: false })
+    .use(rehypeDowngradeH1)
     .use(rehypeSlug, { prefix: "h-" })
     .use(rehypeExternalLinks)
     .use(rehypeTocCollector, { outline, warnings })

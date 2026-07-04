@@ -34,7 +34,9 @@ export const loadPublicBlogTag = createServerFn({ method: 'GET' })
 export const loadPublicBlogPost = createServerFn({ method: 'GET' })
   .validator((data: { siteSlug: string; postSlug: string }) => data)
   .handler(async ({ data }) => {
-    const blog = await loadPublicPostBySlug(data.siteSlug, data.postSlug)
+    const request = getRequest()
+    const origin = new URL(request.url).origin
+    const blog = await loadPublicPostBySlug(data.siteSlug, data.postSlug, origin)
     if (!blog) return null
     return { blog, headers: publicHtmlResponseHeaders(blog.site, blog.cacheTag) }
   })
