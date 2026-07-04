@@ -2,6 +2,7 @@ import { isMarketingHost } from "./public-blog";
 import { BRAND } from "@vc/config";
 import { isPublicBlogIndexable, listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
+import { renderRichContentToHtml } from "../lib/markdown";
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
 
@@ -51,7 +52,7 @@ export async function handleFeed(request: Request): Promise<Response> {
   const origin = new URL(request.url).origin;
   const posts = await listPublishedPosts(site.id);
 
-  const xml = buildRssXml(site, origin, posts, new URL(request.url).href);
+  const xml = buildRssXml(site, origin, posts, new URL(request.url).href, (post) => renderRichContentToHtml(post.content_markdown));
 
   return new Response(xml, {
     headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": cacheControl, ...robotsTagHeaders(site) },

@@ -97,9 +97,10 @@ function publicResponseHeaders(site: SiteRow, siteId: string, postSlug: string |
   return publicHtmlResponseHeaders(site, postSlug ? articleCacheTag(siteId, postSlug) : undefined);
 }
 
-async function publicPostMarkdownResponse(site: SiteRow, slug: string, canonicalUrl: string) {
+async function publicPostMarkdownResponse(site: SiteRow, slug: string, request: Request, basePath: string) {
   const post = await getPublishedPost(site.id, slug);
   if (!post) return notFound();
+  const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, request.url).href;
   return new Response(buildPostMarkdown(post, canonicalUrl), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
@@ -118,8 +119,7 @@ export async function tryPublicPostMarkdownResponse(
   const { slug, markdown } = stripMarkdownSuffix(rawSlug);
   if (!markdown && !markdownRequested(request)) return null;
   if (!slug) return notFound();
-  const canonicalUrl = new URL(`${basePath}/${slug}`, request.url).href;
-  return publicPostMarkdownResponse(site, slug, canonicalUrl);
+  return publicPostMarkdownResponse(site, slug, request, basePath);
 }
 
 export async function handlePublicPostBySlugGet(request: Request, siteSlug: string | undefined, postSlug: string | undefined) {
@@ -162,7 +162,7 @@ export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlu
     site,
     post,
     basePath,
-    canonicalUrl: `${basePath}/${post.slug}`,
+    canonicalUrl: post.canonical_url || `${basePath}/${post.slug}`,
     origin,
     indexable: isPublicBlogIndexable(site),
     cacheTag: articleCacheTag(site.id, post.slug),
@@ -181,7 +181,7 @@ export async function loadPublicPostByHost(request: Request, slug: string | unde
     site,
     post,
     basePath: "",
-    canonicalUrl: `/${post.slug}`,
+    canonicalUrl: post.canonical_url || `/${post.slug}`,
     origin,
     indexable: isPublicBlogIndexable(site),
     cacheTag: articleCacheTag(site.id, post.slug),

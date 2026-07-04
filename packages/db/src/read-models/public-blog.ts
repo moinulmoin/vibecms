@@ -30,6 +30,7 @@ export interface PublicPostRow {
   updatedAt: number;
   seoTitle: string | null;
   seoDescription: string | null;
+  canonicalUrl: string | null;
   tagsJson: string;
 }
 
@@ -51,6 +52,7 @@ const publishedColumns = {
   updatedAt: posts.updatedAt,
   seoTitle: posts.seoTitle,
   seoDescription: posts.seoDescription,
+  canonicalUrl: posts.canonicalUrl,
   tagsJson: posts.tagsJson,
 };
 

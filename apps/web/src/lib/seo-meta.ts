@@ -21,6 +21,7 @@ export interface SeoPostInput {
   cover_asset_id: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  canonical_url: string | null;
 }
 
 /** Minimal site identity consumed by the SEO builders. */
@@ -153,7 +154,8 @@ export function buildPostHeadContent(input: PostHeadInput): {
 
   const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
   const seoDescription = post.seo_description || post.excerpt || undefined;
-  const absoluteCanonical = absoluteUrlPath(origin, canonicalUrl);
+  const effectiveCanonical = post.canonical_url || canonicalUrl;
+  const absoluteCanonical = absoluteUrlPath(origin, effectiveCanonical);
   const ogImage = resolveOgImageUrl(origin, post.cover_asset_id);
 
   const meta: Array<Record<string, unknown>> = [{ title: seoTitle }];
@@ -167,6 +169,11 @@ export function buildPostHeadContent(input: PostHeadInput): {
   meta.push({ property: 'og:type', content: 'article' });
   meta.push({ property: 'og:url', content: absoluteCanonical });
   meta.push({ property: 'og:image', content: ogImage });
+  meta.push({ property: 'og:site_name', content: site.name });
+  const publishedIso = formatIsoDate(post.published_at);
+  if (publishedIso) meta.push({ property: 'article:published_time', content: publishedIso });
+  const modifiedIso = formatIsoDate(post.updated_at);
+  if (modifiedIso) meta.push({ property: 'article:modified_time', content: modifiedIso });
   meta.push({ name: 'twitter:card', content: 'summary_large_image' });
   meta.push({ name: 'twitter:image', content: ogImage });
   if (!indexable) {
@@ -181,7 +188,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
     {
       type: 'application/ld+json',
       children: serializeJsonLd(
-        buildBlogPostingJsonLd({ post, site, origin, canonicalUrl }),
+        buildBlogPostingJsonLd({ post, site, origin, canonicalUrl: effectiveCanonical }),
       ),
     },
   ];

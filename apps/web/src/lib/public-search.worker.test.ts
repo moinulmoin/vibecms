@@ -29,7 +29,7 @@ declare module "vitest" {
 import { describe, it, expect, beforeAll, inject } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
-import { listPublishedPostsByTag, searchPublishedPosts } from "../server/public-blog-data";
+import { getPublishedPost, listPublishedPosts, listPublishedPostsByTag, searchPublishedPosts } from "../server/public-blog-data";
 
 // ---------------------------------------------------------------------------
 // Setup: apply migrations + seed test data once per file
@@ -199,5 +199,43 @@ describe("d. LIKE wildcard escaping", () => {
     // None of our seeded posts contain a literal _ character.
     const posts = await searchPublishedPosts("site-search-x", "_");
     expect(posts).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// f. canonical_url projection (PublicPostRow -> app PostRow -> public reads)
+// ---------------------------------------------------------------------------
+
+describe("f. canonical_url projection", () => {
+  beforeAll(async () => {
+    const ts = Math.floor(Date.now() / 1000) - 60;
+    await env.DB.prepare(
+      "INSERT INTO posts (id, site_id, title, slug, excerpt, content_markdown, tags_json, status, published_at, canonical_url, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+      .bind(
+        "psx-can", "site-search-x", "Canonical Post", "canonical-post",
+        "Excerpt.", "# body", '[]', "published", ts, "https://elsewhere.example/original",
+        "api_key", "key-search", "api_key", "key-search", ts, ts,
+      )
+      .run();
+  });
+
+  it("listPublishedPosts surfaces a stored canonical_url override", async () => {
+    const posts = await listPublishedPosts("site-search-x");
+    const post = posts.find((p) => p.id === "psx-can");
+    expect(post).toBeDefined();
+    expect(post?.canonical_url).toBe("https://elsewhere.example/original");
+  });
+
+  it("getPublishedPost surfaces a stored canonical_url override", async () => {
+    const post = await getPublishedPost("site-search-x", "canonical-post");
+    expect(post).toBeDefined();
+    expect(post?.canonical_url).toBe("https://elsewhere.example/original");
+  });
+
+  it("returns canonical_url: null when the column is unset", async () => {
+    const posts = await listPublishedPosts("site-search-x");
+    const rust = posts.find((p) => p.id === "psx-1");
+    expect(rust?.canonical_url).toBeNull();
   });
 });

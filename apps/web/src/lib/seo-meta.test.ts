@@ -25,6 +25,7 @@ const FULL_POST: SeoPostInput = {
   cover_asset_id: 'cover123',
   seo_title: 'Hello SEO',
   seo_description: 'A hand-written SEO description.',
+  canonical_url: null,
 };
 
 // ─── A. buildBlogPostingJsonLd — JSON-LD payload shape ───────────────────────
@@ -104,6 +105,7 @@ describe('buildBlogPostingJsonLd – JSON-LD payload shape', () => {
       cover_asset_id: null,
       seo_title: null,
       seo_description: null,
+      canonical_url: null,
     };
     const ld = buildBlogPostingJsonLd({
       post: bare,
@@ -255,5 +257,37 @@ describe('buildPostHeadContent – head payload', () => {
     expect(head.meta.some((m) => m.name === 'robots')).toBe(false);
     expect(head.scripts).toHaveLength(1);
     expect(head.scripts[0]!.type).toBe('application/ld+json');
+  });
+  it('emits og:site_name and article:published_time/modified_time', () => {
+    expect(head.meta).toContainEqual({ property: 'og:site_name', content: 'Acme' });
+    expect(head.meta).toContainEqual({ property: 'article:published_time', content: new Date(FULL_POST.published_at! * 1000).toISOString() });
+    expect(head.meta).toContainEqual({ property: 'article:modified_time', content: new Date(FULL_POST.updated_at! * 1000).toISOString() });
+  });
+});
+
+describe('buildPostHeadContent – canonical_url override', () => {
+  it('honors post.canonical_url for canonical link, og:url, and JSON-LD @id', () => {
+    const head = buildPostHeadContent({
+      post: { ...FULL_POST, canonical_url: 'https://elsewhere.example/original' },
+      site: SITE,
+      canonicalUrl: '/hello',
+      origin: ORIGIN,
+      indexable: true,
+    });
+    expect(head.links).toContainEqual({ rel: 'canonical', href: 'https://elsewhere.example/original' });
+    expect(head.meta).toContainEqual({ property: 'og:url', content: 'https://elsewhere.example/original' });
+    const ld = JSON.parse(head.scripts[0]!.children);
+    expect(ld.mainEntityOfPage['@id']).toBe('https://elsewhere.example/original');
+  });
+
+  it('falls back to the generated canonical when canonical_url is null', () => {
+    const head = buildPostHeadContent({
+      post: { ...FULL_POST, canonical_url: null },
+      site: SITE,
+      canonicalUrl: '/hello',
+      origin: ORIGIN,
+      indexable: true,
+    });
+    expect(head.links).toContainEqual({ rel: 'canonical', href: 'https://blog.example.com/hello' });
   });
 });

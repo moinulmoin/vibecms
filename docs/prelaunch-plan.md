@@ -1,7 +1,7 @@
 # Pre-launch plan (from external architecture review, 2026-07-02/04)
 
 Findings from a full code review (architecture, SEO correctness, ASP-integration surface).
-Section A partially implemented (commit 774d6f3: JSON-LD, absolute og tags, sitemap lastmod, RSS atom:self, h1 downgrade, updated badge). Remaining A items + canonical-override projection gap identified; implementation next. Ordered by launch impact.
+Section A fully implemented: 774d6f3 (JSON-LD, absolute og tags, sitemap lastmod, RSS atom:self, h1 downgrade, updated badge) plus the canonical-override projection fix (canonical_url now reaches <head> canonical link / og:url / JSON-LD @id and the .md frontmatter) and the remaining og:site_name / article:*time / RSS lastBuildDate / content:encoded items. Ordered by launch impact.
 
 ## A. SEO correctness of the public blog (highest value before Monday)
 

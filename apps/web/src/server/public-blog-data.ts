@@ -28,6 +28,7 @@ export type PostRow = {
   updated_at: number;
   seo_title: string | null;
   seo_description: string | null;
+  canonical_url: string | null;
   tags_json: string;
   presentation_json: string | null;
 };
@@ -65,6 +66,7 @@ function toPostRow(row: PublicPostRow): PostRow {
     updated_at: row.updatedAt,
     seo_title: row.seoTitle,
     seo_description: row.seoDescription,
+    canonical_url: row.canonicalUrl,
     tags_json: row.tagsJson,
     presentation_json: null,
   };

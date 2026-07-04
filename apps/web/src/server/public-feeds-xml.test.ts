@@ -25,6 +25,7 @@ const basePost = {
   cover_asset_id: null,
   seo_title: null,
   seo_description: null,
+  canonical_url: null,
   tags_json: '[]',
   presentation_json: null,
 } satisfies Omit<PostRow, 'published_at' | 'updated_at'>;
@@ -86,32 +87,61 @@ describe('buildSitemapXml', () => {
 });
 
 describe('buildRssXml', () => {
-  it('declares xmlns:atom on the root rss element', () => {
-    const xml = buildRssXml(site, ORIGIN, [], FEED_URL);
-    expect(xml).toContain('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">');
+  const renderHtml = (post: PostRow) => `<p>body for ${post.slug}</p>`;
+
+  it('declares xmlns:atom and xmlns:content on the root rss element', () => {
+    const xml = buildRssXml(site, ORIGIN, [], FEED_URL, renderHtml);
+    expect(xml).toContain('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">');
   });
 
   it('emits an atom:link rel=self pointing at the absolute feed url', () => {
-    const xml = buildRssXml(site, ORIGIN, [], FEED_URL);
+    const xml = buildRssXml(site, ORIGIN, [], FEED_URL, renderHtml);
     expect(xml).toContain(
       `<atom:link href="${FEED_URL}" rel="self" type="application/rss+xml" />`,
     );
   });
 
-  it('derives pubDate from max(published_at, updated_at)', () => {
-    const published = 1_700_000_000;
-    const updated = 1_710_000_000;
-    const xml = buildRssXml(site, ORIGIN, [{ ...basePost, published_at: published, updated_at: updated }], FEED_URL);
-    expect(xml).toContain(`<pubDate>${new Date(updated * 1000).toUTCString()}</pubDate>`);
+  it('emits a channel lastBuildDate from the newest post epoch', () => {
+    const older = 1_700_000_000;
+    const newer = 1_710_000_000;
+    const xml = buildRssXml(
+      site,
+      ORIGIN,
+      [
+        { ...basePost, published_at: older, updated_at: older },
+        { ...basePost, published_at: newer, updated_at: newer },
+      ],
+      FEED_URL,
+      renderHtml,
+    );
+    expect(xml).toContain(`<lastBuildDate>${new Date(newer * 1000).toUTCString()}</lastBuildDate>`);
   });
-  it('omits pubDate when maxPublishEpoch resolves to null', () => {
-    // PostRow.updated_at is typed `number`; cast to simulate the both-null
-    // contract breach that the spec's `epoch != null` guard is built for.
+
+  it('omits lastBuildDate when no post has a resolvable epoch', () => {
     const xml = buildRssXml(
       site,
       ORIGIN,
       [{ ...basePost, published_at: null, updated_at: null as unknown as number }],
       FEED_URL,
+      renderHtml,
+    );
+    expect(xml).not.toContain('<lastBuildDate>');
+  });
+
+  it('derives pubDate from max(published_at, updated_at)', () => {
+    const published = 1_700_000_000;
+    const updated = 1_710_000_000;
+    const xml = buildRssXml(site, ORIGIN, [{ ...basePost, published_at: published, updated_at: updated }], FEED_URL, renderHtml);
+    expect(xml).toContain(`<pubDate>${new Date(updated * 1000).toUTCString()}</pubDate>`);
+  });
+
+  it('omits pubDate when maxPublishEpoch resolves to null', () => {
+    const xml = buildRssXml(
+      site,
+      ORIGIN,
+      [{ ...basePost, published_at: null, updated_at: null as unknown as number }],
+      FEED_URL,
+      renderHtml,
     );
     expect(xml).not.toContain('<pubDate>');
   });
@@ -119,13 +149,23 @@ describe('buildRssXml', () => {
   it('keeps items in the given order (no re-sort)', () => {
     const older = { ...basePost, id: 'old', slug: 'old', published_at: 1_700_000_000, updated_at: 1_700_000_000 };
     const newer = { ...basePost, id: 'new', slug: 'new', published_at: 1_710_000_000, updated_at: 1_710_000_000 };
-    // Deliberately pass them out of chronological order.
-    const xml = buildRssXml(site, ORIGIN, [older, newer], FEED_URL);
+    const xml = buildRssXml(site, ORIGIN, [older, newer], FEED_URL, renderHtml);
     expect(xml.indexOf('/old</link>')).toBeLessThan(xml.indexOf('/new</link>'));
   });
 
+  it('emits content:encoded with the rendered HTML, XML-escaped', () => {
+    const xml = buildRssXml(
+      site,
+      ORIGIN,
+      [{ ...basePost, slug: 'hello', published_at: 1_700_000_000, updated_at: 1_700_000_000 }],
+      FEED_URL,
+      () => '<p>a & b</p>',
+    );
+    expect(xml).toContain('<content:encoded>&lt;p&gt;a &amp; b&lt;/p&gt;</content:encoded>');
+  });
+
   it('escapes site name, description, and item fields', () => {
-    const xml = buildRssXml(site, ORIGIN, [], FEED_URL);
+    const xml = buildRssXml(site, ORIGIN, [], FEED_URL, renderHtml);
     expect(xml).toContain('<title>Acme &amp; Co &lt;Blog&gt;</title>');
     expect(xml).toContain('<description>The &lt;acme&gt; story &amp; more</description>');
   });
