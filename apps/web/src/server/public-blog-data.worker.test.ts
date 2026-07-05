@@ -25,7 +25,7 @@ describe("isMarketingHost", () => {
     expect(isMarketingHost(requestWithHost(`app.${zone}`))).toBe(true);
   });
 
-  it("classifies the APP_URL host as marketing (app-path/self-host root)", () => {
+  it("classifies the APP_URL host as marketing (app/auth host)", () => {
     const appHost = new URL(env.APP_URL).hostname.toLowerCase();
     expect(isMarketingHost(requestWithHost(appHost))).toBe(true);
   });

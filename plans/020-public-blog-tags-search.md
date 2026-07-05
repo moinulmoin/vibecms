@@ -1,5 +1,7 @@
 # 020 - Public blog tag pages + search
 
+> **SUPERSEDED** by `docs/url-architecture-decision.md` (2026-07-05): multi-tenant path-mode (`/blog/<site-slug>/*`) is removed; public blogs are host-only. The `/blog/:siteSlug` routes, `basePath` abstraction, and `/blog/demo/...` e2e references below are historical — the tag/search feature now serves at the host root (`/tag/:tag`, `/?q=`) via the host-mode loaders.
+
 Status: DONE - shipped to dev 2026-06-21 (worker `8fc951c4`). Built via parallel subagents (DataAndLoaders + ComponentUI in wave 1 on a pinned loader-data `listing` seam; Routes in wave 2). Search = `LIKE` over title/excerpt/tags/body (find-the-article, not a search engine; FTS5 deferred). Gates green (typecheck/lint/audit/build; 36 node + 17 isolation tests incl. 10 new); verified e2e on dev (tag pages/chips/404, body-term search, `noindex`, empty state) plus landing + path-mode blog-index regression. Surfaced + wired the previously-dead host-mode (`*ByHost`) public-blog routes. Roadmap item #3.
 
 ## Why

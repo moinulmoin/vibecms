@@ -55,7 +55,7 @@ PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
-When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>` on the Worker. Host-based public blogs on `*.vibecms.dev` (or another wildcard domain) are a deferred follow-up; path mode works today. `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
+Self-host is **single-tenant and host-based**: the public blog serves at the root of its host (`/`, `/<post-slug>`, `/tag/<tag>`, `/feed.xml`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`), and the host-mode resolver (`resolveSite`) returns the single tenant. Multi-tenant path-mode (`/blog/<site-slug>/*`) has been removed — there is no `PUBLIC_BLOG_URL_MODE` to set. With `PUBLIC_BLOG_DOMAIN` equal to `APP_URL` (the default single-host shape above), the app, dashboard, and blog share one Worker host. A future topology may split the app and blog onto separate hosts (e.g. `app.<your-domain>` + `<your-blog-domain>` or a wildcard); that is a pre-release decision (see `docs/url-architecture-decision.md`). `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
 
 Wrangler secrets:
 

@@ -109,7 +109,7 @@ Deploy button shape, once this repo is public:
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
-During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL. `PUBLIC_BLOG_DOMAIN` can be the same host as `APP_URL` for path-based public blogs, or a separate wildcard-routed domain when you have DNS for it:
+During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL. Public blogs are **host-only** (tenant identity is the host): set `PUBLIC_BLOG_DOMAIN` to the host that serves blogs. For a single-host self-host deploy, `PUBLIC_BLOG_DOMAIN` and `APP_URL` are the same host — the app, dashboard, and public blog all run on one Worker host and the host-mode resolver returns the single tenant:
 
 ```txt
 APP_URL=https://<your-worker>.<your-subdomain>.workers.dev
@@ -118,7 +118,7 @@ PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
-When `PUBLIC_BLOG_DOMAIN` matches `APP_URL`, default blog URLs are served as `/blog/<site-slug>`. With a separate wildcard-routed domain, default blog URLs are created as `<site-slug>.PUBLIC_BLOG_DOMAIN`. `PUBLIC_BLOG_DOMAIN=localhost` is only a local development fallback.
+Self-host is single-tenant and host-based: the blog serves at the root of its host (`/`, `/<post-slug>`, `/tag/<tag>`), not under `/blog/<slug>`. Multi-tenant path-mode (`/blog/<site-slug>/*`) has been removed. A future topology may split app and blog onto separate hosts; that is a pre-release decision (see `docs/url-architecture-decision.md`). `PUBLIC_BLOG_DOMAIN=localhost` is only a local development fallback.
 
 The only required self-host secrets are listed in `.dev.vars.example`:
 

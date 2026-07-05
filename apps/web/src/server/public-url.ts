@@ -23,27 +23,8 @@ export function isLocalDefaultHostname(hostname: string) {
   return host === 'localhost' || host.endsWith('.localhost')
 }
 
-// Blog URL mode: explicit PUBLIC_BLOG_URL_MODE, else infer (app-path when no real blog domain or it equals APP_URL host).
-export function publicBlogUsesAppPath(): boolean {
-  const mode = env.PUBLIC_BLOG_URL_MODE?.trim().toLowerCase()
-  if (mode === 'app-path') return true
-  if (mode === 'subdomain') return false
-  const baseDomain = publicBlogBaseDomain()
-  if (!baseDomain) return true
-  try {
-    return baseDomain === new URL(env.APP_URL).hostname.toLowerCase()
-  } catch {
-    return false
-  }
-}
-
+// Host-only public blog URL for an active hostname (null when unset/local).
 export function publicUrlForHostname(hostname: string | null) {
   if (!hostname) return null
-  if (publicBlogUsesAppPath()) return null
   return `${isLocalDefaultHostname(hostname) ? 'http' : 'https'}://${hostname}`
-}
-
-export function appPublicBlogUrl(slug: string) {
-  const appUrl = env.APP_URL || 'http://localhost:3000'
-  return new URL(`/blog/${slug}`, appUrl).href
 }

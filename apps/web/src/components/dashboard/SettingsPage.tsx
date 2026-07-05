@@ -34,7 +34,14 @@ import {
   updateSiteSettingsMutation,
 } from '~/server/dashboard-pages-fn'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
-
+type SettingsPageData = {
+  site: SiteSettingsForm
+  customDomains: CustomDomainsPanel
+  billingStatus: string
+  selfHosted: boolean
+  isOwner: boolean
+  publicBaseUrl: string | null
+}
 type SiteSettingsForm = {
   name: string
   description: string
@@ -42,14 +49,6 @@ type SiteSettingsForm = {
   defaultSeoDescription: string
   theme: string
   slug: string
-}
-
-type SettingsPageData = {
-  site: SiteSettingsForm
-  customDomains: CustomDomainsPanel
-  billingStatus: string
-  selfHosted: boolean
-  isOwner: boolean
 }
 
 function BillingStatusBadge({ status }: { status: string }) {
@@ -383,9 +382,9 @@ export function SettingsPage() {
             <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving theme...">
               Save theme
             </PendingSubmitButton>
-            {site.slug ? (
+            {data.publicBaseUrl ? (
               <Button asChild variant="outline">
-                <a href={`/blog/${site.slug}`} target="_blank" rel="noopener noreferrer">
+                <a href={data.publicBaseUrl} target="_blank" rel="noopener noreferrer">
                   View public blog
                 </a>
               </Button>

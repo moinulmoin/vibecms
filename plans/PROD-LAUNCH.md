@@ -189,21 +189,26 @@ All should show `vibecms.dev` and/or `*.vibecms.dev` in the SAN list (free Unive
 ## Step 9 - Enable zone-level CDN caching (recommended post-launch)
 
 Public blog HTML is served with `cache-control: public, s-maxage=300` and
-`cache-tag: vc-article:<siteId>:<postSlug>` headers. Cloudflare does not cache HTML by
-default; enabling "Cache Everything" for blog paths cuts Worker invocations on high-traffic
-sites and reduces Workers Paid usage costs.
+`cache-tag: vc-article:<siteId>:<postSlug>` headers, host-only (each blog on its own host —
+`<slug>.vibecms.dev` or a custom domain). Cloudflare does not cache HTML by default; enabling
+"Cache Everything" for blog hosts cuts Worker invocations on high-traffic sites and reduces
+Workers Paid usage costs.
 
 In the Cloudflare dashboard for `vibecms.dev`:
 
 1. Caching -> Cache Rules -> Create rule.
-2. Scope: `Hostname equals *.vibecms.dev` OR `URI Path starts with /blog/`
+2. Scope by **hostname** (there is no path-mode `/blog/*` to match): `Hostname equals *.vibecms.dev`
+   for tenant subdomains. Custom domains (e.g. `blog.acme.com`, enabled in Step 11) are served on
+   their own hostnames — add each custom-domain hostname to the rule (or use a broader
+   `Hostname is not app.vibecms.dev and is not vibecms.dev` scope) once Cloudflare for SaaS is live.
 3. Cache eligibility: **Cache Everything**
 4. Respect origin TTL: enabled (honors the `s-maxage=300` from the Worker response)
 5. Save and deploy.
 
-The CLOUDFLARE_ZONE_ID + CACHE_PURGE_API_TOKEN secrets set in Step 3 enable the Worker to
-purge by cache-tag on every publish, update, and archive action. Without those secrets the
-Worker falls back to `caches.default.delete()` for path-mode URLs only.
+The CLOUDFLARE_ZONE_ID + CACHE_PURGE_API_TOKEN secrets set in Step 3 enable the Worker to purge by
+`cache-tag` on every publish, update, and archive action — the purge is tag-based, so it covers both
+tenant subdomains and custom domains without per-URL rules. Without those secrets the Worker falls
+back to `caches.default.delete()` against the article's host URL.
 
 ---
 

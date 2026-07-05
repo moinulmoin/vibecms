@@ -73,7 +73,6 @@ const siteResolveColumns = {
 
 export interface PublicBlogReadModel {
   resolveSiteByHost(host: string): Promise<PublicSiteRow | null>;
-  resolveSiteBySlug(slug: string): Promise<PublicSiteRow | null>;
   getPublishedPost(siteId: string, slug: string, now: number): Promise<PublicPostDetailRow | null>;
   listPublishedPosts(siteId: string, now: number): Promise<PublicPostRow[]>;
   listPublishedPostsByTag(siteId: string, tag: string, now: number): Promise<PublicPostRow[]>;
@@ -109,16 +108,6 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .innerJoin(sites, eq(sites.id, domains.siteId))
         .leftJoin(billingCustomers, eq(billingCustomers.workspaceId, sites.workspaceId))
         .where(and(eq(domains.hostname, host), eq(domains.status, "active"), eq(sites.status, "active")))
-        .limit(1);
-      return rows[0] ?? null;
-    },
-
-    async resolveSiteBySlug(slug: string) {
-      const rows = await client
-        .select(siteResolveColumns)
-        .from(sites)
-        .leftJoin(billingCustomers, eq(billingCustomers.workspaceId, sites.workspaceId))
-        .where(and(eq(sites.slug, slug), eq(sites.status, "active")))
         .limit(1);
       return rows[0] ?? null;
     },

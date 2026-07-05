@@ -3,7 +3,6 @@ import { env } from 'cloudflare:workers'
 import { auth } from '~/server/auth'
 import { isAppContextHost } from '~/server/canonical-host'
 import { ensureOnboarding, getSiteSetup } from '~/server/onboarding'
-import { publicBlogUsesAppPath } from '~/server/public-url'
 import type { AppRouterContext, SessionUser } from '~/server/auth-context-types'
 
 export async function resolveAppRouterContext(): Promise<AppRouterContext> {
@@ -31,7 +30,7 @@ export async function resolveAppRouterContext(): Promise<AppRouterContext> {
   } catch {
     appHost = ''
   }
-  if (!isAppContextHost(requestHost, { appHost, usesAppPath: publicBlogUsesAppPath() })) {
+  if (!isAppContextHost(requestHost, { appHost })) {
     return signedOut
   }
 

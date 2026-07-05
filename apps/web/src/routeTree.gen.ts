@@ -31,11 +31,8 @@ import { Route as ApiSubscribeRouteImport } from './routes/api/subscribe'
 import { Route as ApiPostsRouteImport } from './routes/api/posts'
 import { Route as ApiExportDotjsonRouteImport } from './routes/api/export[.]json'
 import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
-import { Route as BlogSiteSlugIndexRouteImport } from './routes/blog/$siteSlug/index'
 import { Route as DashboardSettingsTokenCreatedRouteImport } from './routes/dashboard/settings/token-created'
 import { Route as DashboardPostsNewRouteImport } from './routes/dashboard/posts/new'
-import { Route as BlogSiteSlugLlmsDottxtRouteImport } from './routes/blog/$siteSlug/llms[.]txt'
-import { Route as BlogSiteSlugPostSlugRouteImport } from './routes/blog/$siteSlug/$postSlug'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiPolarWebhookRouteImport } from './routes/api/polar/webhook'
 import { Route as ApiOnboardingEnsureRouteImport } from './routes/api/onboarding/ensure'
@@ -43,7 +40,6 @@ import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiMediaDeleteRouteImport } from './routes/api/media/delete'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as DashboardPostsPostIdEditRouteImport } from './routes/dashboard/posts/$postId/edit'
-import { Route as BlogSiteSlugTagTagRouteImport } from './routes/blog/$siteSlug/tag/$tag'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -155,11 +151,6 @@ const DashboardPostsIndexRoute = DashboardPostsIndexRouteImport.update({
   path: '/posts/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const BlogSiteSlugIndexRoute = BlogSiteSlugIndexRouteImport.update({
-  id: '/blog/$siteSlug/',
-  path: '/blog/$siteSlug/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardSettingsTokenCreatedRoute =
   DashboardSettingsTokenCreatedRouteImport.update({
     id: '/token-created',
@@ -170,16 +161,6 @@ const DashboardPostsNewRoute = DashboardPostsNewRouteImport.update({
   id: '/posts/new',
   path: '/posts/new',
   getParentRoute: () => DashboardRouteRoute,
-} as any)
-const BlogSiteSlugLlmsDottxtRoute = BlogSiteSlugLlmsDottxtRouteImport.update({
-  id: '/blog/$siteSlug/llms.txt',
-  path: '/blog/$siteSlug/llms.txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogSiteSlugPostSlugRoute = BlogSiteSlugPostSlugRouteImport.update({
-  id: '/blog/$siteSlug/$postSlug',
-  path: '/blog/$siteSlug/$postSlug',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   id: '/api/v1/$',
@@ -217,11 +198,6 @@ const DashboardPostsPostIdEditRoute =
     path: '/posts/$postId/edit',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
-const BlogSiteSlugTagTagRoute = BlogSiteSlugTagTagRouteImport.update({
-  id: '/blog/$siteSlug/tag/$tag',
-  path: '/blog/$siteSlug/tag/$tag',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -251,13 +227,9 @@ export interface FileRoutesByFullPath {
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
-  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
   '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
-  '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/dashboard/posts/': typeof DashboardPostsIndexRoute
-  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
   '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -287,13 +259,9 @@ export interface FileRoutesByTo {
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
-  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
   '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
-  '/blog/$siteSlug': typeof BlogSiteSlugIndexRoute
   '/dashboard/posts': typeof DashboardPostsIndexRoute
-  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
   '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRoutesById {
@@ -325,13 +293,9 @@ export interface FileRoutesById {
   '/api/onboarding/ensure': typeof ApiOnboardingEnsureRoute
   '/api/polar/webhook': typeof ApiPolarWebhookRoute
   '/api/v1/$': typeof ApiV1SplatRoute
-  '/blog/$siteSlug/$postSlug': typeof BlogSiteSlugPostSlugRoute
-  '/blog/$siteSlug/llms.txt': typeof BlogSiteSlugLlmsDottxtRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
   '/dashboard/settings/token-created': typeof DashboardSettingsTokenCreatedRoute
-  '/blog/$siteSlug/': typeof BlogSiteSlugIndexRoute
   '/dashboard/posts/': typeof DashboardPostsIndexRoute
-  '/blog/$siteSlug/tag/$tag': typeof BlogSiteSlugTagTagRoute
   '/dashboard/posts/$postId/edit': typeof DashboardPostsPostIdEditRoute
 }
 export interface FileRouteTypes {
@@ -364,13 +328,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/blog/$siteSlug/$postSlug'
-    | '/blog/$siteSlug/llms.txt'
     | '/dashboard/posts/new'
     | '/dashboard/settings/token-created'
-    | '/blog/$siteSlug/'
     | '/dashboard/posts/'
-    | '/blog/$siteSlug/tag/$tag'
     | '/dashboard/posts/$postId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -400,13 +360,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/blog/$siteSlug/$postSlug'
-    | '/blog/$siteSlug/llms.txt'
     | '/dashboard/posts/new'
     | '/dashboard/settings/token-created'
-    | '/blog/$siteSlug'
     | '/dashboard/posts'
-    | '/blog/$siteSlug/tag/$tag'
     | '/dashboard/posts/$postId/edit'
   id:
     | '__root__'
@@ -437,13 +393,9 @@ export interface FileRouteTypes {
     | '/api/onboarding/ensure'
     | '/api/polar/webhook'
     | '/api/v1/$'
-    | '/blog/$siteSlug/$postSlug'
-    | '/blog/$siteSlug/llms.txt'
     | '/dashboard/posts/new'
     | '/dashboard/settings/token-created'
-    | '/blog/$siteSlug/'
     | '/dashboard/posts/'
-    | '/blog/$siteSlug/tag/$tag'
     | '/dashboard/posts/$postId/edit'
   fileRoutesById: FileRoutesById
 }
@@ -469,10 +421,6 @@ export interface RootRouteChildren {
   ApiOnboardingEnsureRoute: typeof ApiOnboardingEnsureRoute
   ApiPolarWebhookRoute: typeof ApiPolarWebhookRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
-  BlogSiteSlugPostSlugRoute: typeof BlogSiteSlugPostSlugRoute
-  BlogSiteSlugLlmsDottxtRoute: typeof BlogSiteSlugLlmsDottxtRoute
-  BlogSiteSlugIndexRoute: typeof BlogSiteSlugIndexRoute
-  BlogSiteSlugTagTagRoute: typeof BlogSiteSlugTagTagRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -631,13 +579,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPostsIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/blog/$siteSlug/': {
-      id: '/blog/$siteSlug/'
-      path: '/blog/$siteSlug'
-      fullPath: '/blog/$siteSlug/'
-      preLoaderRoute: typeof BlogSiteSlugIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard/settings/token-created': {
       id: '/dashboard/settings/token-created'
       path: '/token-created'
@@ -651,20 +592,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/posts/new'
       preLoaderRoute: typeof DashboardPostsNewRouteImport
       parentRoute: typeof DashboardRouteRoute
-    }
-    '/blog/$siteSlug/llms.txt': {
-      id: '/blog/$siteSlug/llms.txt'
-      path: '/blog/$siteSlug/llms.txt'
-      fullPath: '/blog/$siteSlug/llms.txt'
-      preLoaderRoute: typeof BlogSiteSlugLlmsDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog/$siteSlug/$postSlug': {
-      id: '/blog/$siteSlug/$postSlug'
-      path: '/blog/$siteSlug/$postSlug'
-      fullPath: '/blog/$siteSlug/$postSlug'
-      preLoaderRoute: typeof BlogSiteSlugPostSlugRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/v1/$': {
       id: '/api/v1/$'
@@ -714,13 +641,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/posts/$postId/edit'
       preLoaderRoute: typeof DashboardPostsPostIdEditRouteImport
       parentRoute: typeof DashboardRouteRoute
-    }
-    '/blog/$siteSlug/tag/$tag': {
-      id: '/blog/$siteSlug/tag/$tag'
-      path: '/blog/$siteSlug/tag/$tag'
-      fullPath: '/blog/$siteSlug/tag/$tag'
-      preLoaderRoute: typeof BlogSiteSlugTagTagRouteImport
-      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -786,10 +706,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOnboardingEnsureRoute: ApiOnboardingEnsureRoute,
   ApiPolarWebhookRoute: ApiPolarWebhookRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
-  BlogSiteSlugPostSlugRoute: BlogSiteSlugPostSlugRoute,
-  BlogSiteSlugLlmsDottxtRoute: BlogSiteSlugLlmsDottxtRoute,
-  BlogSiteSlugIndexRoute: BlogSiteSlugIndexRoute,
-  BlogSiteSlugTagTagRoute: BlogSiteSlugTagTagRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

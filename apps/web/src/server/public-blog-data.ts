@@ -106,12 +106,6 @@ export async function resolveSite(request: Request): Promise<SiteRow | null> {
   return row ? toSiteRow(row) : null;
 }
 
-export async function resolveSiteBySlug(slug: string | undefined): Promise<SiteRow | null> {
-  if (!slug) return null;
-  const db = createDataAccess(env.DB);
-  const row = await db.publicBlog.resolveSiteBySlug(slug);
-  return row ? toSiteRow(row) : null;
-}
 
 export async function getPublishedPost(siteId: string, slug: string): Promise<PostDetailRow | null> {
   const now = Math.floor(Date.now() / 1000);

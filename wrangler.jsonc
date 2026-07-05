@@ -27,6 +27,11 @@
     "enabled": true
   },
 
+  // Self-host topology: single-tenant, HOST-BASED (tenant = host; content = path under host).
+  // Equal APP_URL + PUBLIC_BLOG_DOMAIN means the app and public blog share one host and the
+  // host-mode resolver (`resolveSite`) returns the single tenant. There is no multi-tenant
+  // path-mode anymore — see docs/url-architecture-decision.md. A separate app/blog host split
+  // is a future topology option; pick one closer to release.
   "vars": {
     "APP_ENV": "production",
     "APP_URL": "https://vibecms.example.workers.dev",

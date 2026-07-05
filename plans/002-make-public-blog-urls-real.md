@@ -1,5 +1,7 @@
 # Plan 002: Make default public blog URLs real in hosted and self-host deployments
 
+> **SUPERSEDED** by `docs/url-architecture-decision.md` (2026-07-05): multi-tenant path-mode (`/blog/<site-slug>/*`) is removed; public blogs are host-only (tenant = host, content = path under host). The host-based default-hostname work in this plan is retained; the path-mode fallback references are historical.
+
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the STOP conditions occurs, stop and report. When done, update the status row for this plan in `plans/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat c95b816..HEAD -- apps/web/src/server/onboarding.ts apps/web/src/server/public-blog.tsx apps/web/src/server/cms.ts apps/web/src/app/pages/dashboard.tsx docs/self-hosting.md README.md packages/config/src/index.ts`

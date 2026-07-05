@@ -1,5 +1,7 @@
 # Plan 007: Resolve SSR Error 1102 (Workers Paid) and wire public blog subdomains
 
+> **SUPERSEDED** by `docs/url-architecture-decision.md` (2026-07-05): multi-tenant path-mode (`/blog/<site-slug>/*`) is removed; public blogs are host-only (subdomain + custom domain). The dev path-mode URLs and `publicBlogUsesAppPath()` references below are historical. The Workers Paid (Part A) and prod wildcard subdomain work remain valid.
+
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving on. If a STOP condition occurs, stop and report. Part A is a prerequisite for Part B and for any further human-facing dev/prod testing. When done, update the status row in `plans/README.md`.
 
 ## Status

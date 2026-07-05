@@ -71,7 +71,7 @@ Three things make it worth paying for:
 - Non-blocking content warnings: unknown callout, TOC with no headings, long post without TOC, code fence missing a language, image missing alt text.
 
 ### Public blog (reader-facing)
-- Path-based (`/blog/:site`, `/:post`, `/tag/:tag`) and host-based (your domain root) routing.
+- Host-only routing (tenant = host): each blog serves at the root of its own host — `/`, `/:post`, `/tag/:tag` — on `<slug>.vibecms.dev` subdomains and bring-your-own custom domains.
 - Search across title/excerpt/body/tags (results are noindex + no-store).
 - Tag listing pages; post cards with cover, date, excerpt, tag chips.
 - Footer and end-of-post subscribe form (audience capture).

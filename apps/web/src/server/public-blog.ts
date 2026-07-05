@@ -5,14 +5,12 @@ import {
   listPublishedPostsByTag,
   searchPublishedPosts,
   resolveSite,
-  resolveSiteBySlug,
   type PostDetailRow,
   type PostRow,
   type SiteRow,
 } from "./public-blog-data";
 export { isMarketingHost } from "./public-blog-data";
 import { articleCacheTag, publicCacheControl } from "./public-blog-cache";
-import { defaultHostname, publicBlogUsesAppPath } from "./public-url";
 
 export const RESERVED_ROOT_SLUGS = new Set([
   "dashboard",
@@ -29,22 +27,6 @@ export const RESERVED_ROOT_SLUGS = new Set([
 
 function notFound() {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
-}
-
-// Subdomain mode: 308 duplicate /blog/<slug> path URLs to the canonical subdomain (404 if unknown); no-op in app-path mode.
-export async function pathModeBlogRedirect(
-  request: Request,
-  siteSlug: string | undefined,
-  subPath: string,
-): Promise<Response | null> {
-  if (publicBlogUsesAppPath()) return null;
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return notFound();
-  const search = new URL(request.url).search;
-  return new Response(null, {
-    status: 308,
-    headers: { location: `https://${defaultHostname(site.slug)}${subPath}${search}` },
-  });
 }
 
 export function markdownRequested(request: Request) {
@@ -122,14 +104,6 @@ export async function tryPublicPostMarkdownResponse(
   return publicPostMarkdownResponse(site, slug, request, basePath);
 }
 
-export async function handlePublicPostBySlugGet(request: Request, siteSlug: string | undefined, postSlug: string | undefined) {
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return notFound();
-  const md = await tryPublicPostMarkdownResponse(request, site, `/blog/${site.slug}`, postSlug);
-  if (md) return md;
-  return null;
-}
-
 export async function handlePublicPostByHostGet(request: Request, slug: string | undefined) {
   const { slug: stripped } = stripMarkdownSuffix(slug);
   if (!stripped || RESERVED_ROOT_SLUGS.has(stripped)) return null;
@@ -149,25 +123,6 @@ export type PublicPostLoaderData = {
   indexable: boolean;
   cacheTag: string;
 };
-
-export async function loadPublicPostBySlug(siteSlug: string | undefined, postSlug: string | undefined, origin: string): Promise<PublicPostLoaderData | null> {
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return null;
-  const { slug } = stripMarkdownSuffix(postSlug);
-  if (!slug) return null;
-  const post = await getPublishedPost(site.id, slug);
-  if (!post) return null;
-  const basePath = `/blog/${site.slug}`;
-  return {
-    site,
-    post,
-    basePath,
-    canonicalUrl: post.canonical_url || `${basePath}/${post.slug}`,
-    origin,
-    indexable: isPublicBlogIndexable(site),
-    cacheTag: articleCacheTag(site.id, post.slug),
-  };
-}
 
 export async function loadPublicPostByHost(request: Request, slug: string | undefined): Promise<PublicPostLoaderData | null> {
   const { slug: postSlug } = stripMarkdownSuffix(slug);
@@ -201,17 +156,6 @@ export type PublicIndexLoaderData = {
   listing: PublicListingContext;
 };
 
-export async function loadPublicIndexBySlug(siteSlug: string | undefined, query?: string): Promise<PublicIndexLoaderData | null> {
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return null;
-  if (query !== undefined) {
-    const posts = await searchPublishedPosts(site.id, query);
-    return { site, posts, basePath: `/blog/${site.slug}`, indexable: false, listing: { kind: "search", query } };
-  }
-  const posts = await listPublishedPosts(site.id);
-  return { site, posts, basePath: `/blog/${site.slug}`, indexable: isPublicBlogIndexable(site), listing: { kind: "index" } };
-}
-
 export async function loadPublicIndexByHost(request: Request, query?: string): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request);
   if (!site) return null;
@@ -221,14 +165,6 @@ export async function loadPublicIndexByHost(request: Request, query?: string): P
   }
   const posts = await listPublishedPosts(site.id);
   return { site, posts, basePath: "", indexable: isPublicBlogIndexable(site), listing: { kind: "index" } };
-}
-
-export async function loadPublicTagBySlug(siteSlug: string | undefined, tag: string): Promise<PublicIndexLoaderData | null> {
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return null;
-  const posts = await listPublishedPostsByTag(site.id, tag);
-  if (posts.length === 0) return null;
-  return { site, posts, basePath: `/blog/${site.slug}`, indexable: isPublicBlogIndexable(site), listing: { kind: "tag", tag } };
 }
 
 export async function loadPublicTagByHost(request: Request, tag: string): Promise<PublicIndexLoaderData | null> {

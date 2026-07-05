@@ -4,11 +4,9 @@ import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '~/server/billing'
 import type { AppUserContext } from '~/server/onboarding'
 import {
-  appPublicBlogUrl,
   defaultHostname,
   isLocalDefaultHostname,
   publicBlogBaseDomain,
-  publicBlogUsesAppPath,
   publicUrlForHostname,
 } from './public-url'
 import { getApiUsageSummary, type ApiUsageSummary } from '~/server/usage'
@@ -59,7 +57,7 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
 
   return {
     site: agg.site,
-    publicUrl: agg.site && publicBlogUsesAppPath() ? appPublicBlogUrl(agg.site.slug) : publicUrlForHostname(hostname),
+    publicUrl: agg.site ? publicUrlForHostname(hostname) : null,
     publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
     billing: { status: billingStatus },
     apiUsage,

@@ -1,6 +1,6 @@
 import { isMarketingHost } from "./public-blog";
 import { BRAND } from "@vc/config";
-import { isPublicBlogIndexable, listPublishedPosts, resolveSite, resolveSiteBySlug, type PostRow, type SiteRow } from "./public-blog-data";
+import { isPublicBlogIndexable, listPublishedPosts, resolveSite, type PostRow, type SiteRow } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
 import { renderRichContentToHtml } from "../lib/markdown";
 
@@ -113,11 +113,4 @@ export async function handleLlmsTxt(request: Request): Promise<Response> {
   const site = await resolveSite(request);
   if (!site) return isMarketingHost(request) ? productLlmsTxt(new URL(request.url).origin) : notFound();
   return renderLlmsTxt(site, new URL(request.url).origin, "", await listPublishedPosts(site.id));
-}
-
-/** llms.txt for a path-based blog at /blog/:siteSlug. */
-export async function handleLlmsTxtBySlug(request: Request, siteSlug: string | undefined): Promise<Response> {
-  const site = await resolveSiteBySlug(siteSlug);
-  if (!site) return notFound();
-  return renderLlmsTxt(site, new URL(request.url).origin, `/blog/${site.slug}`, await listPublishedPosts(site.id));
 }

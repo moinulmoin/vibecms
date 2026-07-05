@@ -157,14 +157,16 @@ pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET
 
 ## 5. Custom domain and DNS
 
-Simplest topology (recommended): app and public blogs share one hostname, blogs served
-at `/blog/<slug>`. This avoids wildcard DNS.
+Recommended topology: **host-only**. Tenant identity is the host, so each blog serves at the
+root of its own host (`<slug>.<your-domain>` or a custom domain). This requires a wildcard DNS
+record and a wildcard route (below). There is no multi-tenant path-mode (`/blog/<slug>/*`).
 
 1. Add the custom domain to the worker. In `apps/web/wrangler.jsonc`:
 
 ```jsonc
 "routes": [
-  { "pattern": "<your-domain>", "custom_domain": true }
+  { "pattern": "<your-domain>", "custom_domain": true },
+  { "pattern": "*.<your-domain>/*", "zone_name": "<your-domain>" }
 ],
 "workers_dev": false
 ```
@@ -180,12 +182,14 @@ at `/blog/<slug>`. This avoids wildcard DNS.
 "PUBLIC_BLOG_DOMAIN": "<your-domain>"
 ```
 
-   With `PUBLIC_BLOG_DOMAIN` equal to the app host, blogs render at
-   `https://<your-domain>/blog/<site-slug>`.
+   Set `PUBLIC_BLOG_DOMAIN` to the blog base domain (e.g. `<your-domain>`). Tenant blogs then
+   serve at `https://<slug>.<your-domain>/<post-slug>` (host-resolved). `APP_URL` may be the
+   apex (shared) or a dedicated app host like `app.<your-domain>`; either is host-only.
 
-> Per-blog subdomains (`<slug>.blog.<your-domain>`) and host-based public blogs on
-> `*.vibecms.dev` are deferred follow-ups. Start with the path-based layout unless you
-> specifically need subdomains.
+> Add a proxied `*.<your-domain>` DNS record in the Cloudflare dashboard so tenant subdomains
+> resolve. Free Universal SSL covers `<your-domain>` and `*.<your-domain>` (one level). For
+> bring-your-own custom domains (e.g. `blog.acme.com`), enable Cloudflare for SaaS post-launch
+> (see `plans/PROD-LAUNCH.md` Step 11).
 
 ---
 
@@ -236,7 +240,7 @@ Run the same checks the dev dogfood covered, now against `https://<your-domain>`
       tier on `/api/posts` and confirm `429 {"error":"RATE_LIMIT"}`; send >5 OTP codes to
       one email within an hour and confirm the 6th is blocked.
 - [ ] **Public blog**: a published (paid) post renders with correct title/OG/canonical,
-      cover image, and markdown; `/blog/<slug>/llms.txt` and `.md` are reachable.
+      cover image, and markdown; `https://<slug>.<your-domain>/llms.txt` and the post `.md` are reachable.
 - [ ] **Lighthouse** on the public blog and dashboard: LCP / CLS / INP in the green.
 
 ## Rollback

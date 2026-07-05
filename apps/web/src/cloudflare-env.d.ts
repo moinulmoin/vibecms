@@ -5,7 +5,6 @@ declare namespace Cloudflare {
     APP_URL: string
     BETTER_AUTH_URL: string
     PUBLIC_BLOG_DOMAIN: string
-    PUBLIC_BLOG_URL_MODE?: string
     SELF_HOSTED: string
     DB: D1Database
     ASSETS_BUCKET: R2Bucket

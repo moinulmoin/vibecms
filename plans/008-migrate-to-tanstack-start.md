@@ -1,5 +1,7 @@
 # Plan 008: Migrate frontend from RedwoodSDK to TanStack Start
 
+> **SUPERSEDED** by `docs/url-architecture-decision.md` (2026-07-05): multi-tenant path-mode (`/blog/<site-slug>/*`) is removed; public blogs are host-only. The "path mode works today on dev" note in the Outcome is historical; dev blog-serving now requires the `*.dev.vibecms.dev` wildcard (a future task). The migration itself remains the source of truth.
+
 > **Executor instructions**: Multi-phase migration. Each phase has its own acceptance gate; do not advance until the current phase is green. Work on branch `migrate-tanstack`. The existing rwsdk app at `apps/web` stays buildable and shippable on `dev` until the final cutover. Build/verify ONLY the app/phase you touch; Main runs repo-wide gates at integration points.
 
 ## Status

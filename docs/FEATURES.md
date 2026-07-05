@@ -49,8 +49,7 @@ Last updated: 2026-06-23
 - Content validation warnings (unknown callout, TOC without headings, long post without TOC, missing code language, missing alt).
 
 ### Public blog
-- Path-based (fully wired): `/blog/:siteSlug` index+search, `/blog/:siteSlug/:postSlug`, `/blog/:siteSlug/tag/:tag`.
-- Host-based index/tag wired via host resolution; the apex falls back to the marketing landing.
+- Host-only routing (tenant = host): index+search at `/`, posts at `/:postSlug`, tags at `/tag/:tag`, served on `<slug>.vibecms.dev` subdomains and bring-your-own custom domains. The platform apex falls back to the marketing landing.
 - Body search (LIKE over title/excerpt/content/tags); search results are `noindex` + `no-store`.
 - Clean-Markdown delivery of any post (`.md` / `Accept: text/markdown` / `?format=md`) with YAML frontmatter (output only).
 

@@ -44,6 +44,7 @@ export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async 
   const selfHosted = isSelfHosted()
   const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
   const mcpUrl = `${env.APP_URL}/mcp`
+  const publicBaseUrl = site.slug ? await getSitePublicBaseUrl(app.siteId, site.slug) : null
   return {
     site,
     customDomains,
@@ -51,6 +52,7 @@ export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async 
     selfHosted,
     isOwner,
     mcpUrl,
+    publicBaseUrl,
   }
 })
 

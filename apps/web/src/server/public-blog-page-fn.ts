@@ -1,45 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import {
-  loadPublicIndexBySlug,
   loadPublicIndexByHost,
-  loadPublicPostBySlug,
   loadPublicPostByHost,
-  loadPublicTagBySlug,
   loadPublicTagByHost,
   publicHtmlResponseHeaders,
   isMarketingHost,
 } from '~/server/public-blog'
-
-export const loadPublicBlogIndex = createServerFn({ method: 'GET' })
-  .validator((data: { siteSlug: string; q?: string }) => data)
-  .handler(async ({ data }) => {
-    const blog = await loadPublicIndexBySlug(data.siteSlug, data.q)
-    if (!blog) return null
-    const headers =
-      blog.listing.kind === 'search'
-        ? ({ 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } as Record<string, string>)
-        : publicHtmlResponseHeaders(blog.site)
-    return { blog, headers }
-  })
-
-export const loadPublicBlogTag = createServerFn({ method: 'GET' })
-  .validator((data: { siteSlug: string; tag: string }) => data)
-  .handler(async ({ data }) => {
-    const blog = await loadPublicTagBySlug(data.siteSlug, data.tag)
-    if (!blog) return null
-    return { blog, headers: publicHtmlResponseHeaders(blog.site) }
-  })
-
-export const loadPublicBlogPost = createServerFn({ method: 'GET' })
-  .validator((data: { siteSlug: string; postSlug: string }) => data)
-  .handler(async ({ data }) => {
-    const request = getRequest()
-    const origin = new URL(request.url).origin
-    const blog = await loadPublicPostBySlug(data.siteSlug, data.postSlug, origin)
-    if (!blog) return null
-    return { blog, headers: publicHtmlResponseHeaders(blog.site, blog.cacheTag) }
-  })
 
 export const loadPublicBlogIndexByHost = createServerFn({ method: 'GET' })
   .validator((data: Record<string, never>) => data)

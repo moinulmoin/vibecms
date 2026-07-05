@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers'
 import { resolveCanonicalRedirect } from '~/server/canonical-host'
-import { publicBlogUsesAppPath } from '~/server/public-url'
 
 // Env-wired host canonicalization; pure logic + tests in canonical-host.ts.
 export function canonicalHostRedirect(request: Request): Response | undefined {
@@ -10,5 +9,5 @@ export function canonicalHostRedirect(request: Request): Response | undefined {
   } catch {
     return undefined
   }
-  return resolveCanonicalRedirect(request, { appHost, usesAppPath: publicBlogUsesAppPath() })
+  return resolveCanonicalRedirect(request, { appHost })
 }
