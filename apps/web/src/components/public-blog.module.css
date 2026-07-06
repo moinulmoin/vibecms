@@ -8,12 +8,12 @@
   padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
 }
 
+/* §1: header separates by padding + the title's own weight — no border rule. */
 .publicHeader {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 16px;
-  border-bottom: 1px solid var(--vc-border);
   padding-bottom: 28px;
   margin-bottom: var(--vc-section-gap);
 }
@@ -30,19 +30,14 @@
   color: var(--vc-accent);
 }
 
+/* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
 .postList {
   display: grid;
-  gap: 18px;
+  gap: 3rem;
 }
 
 .postCard {
-  border-bottom: 1px solid var(--vc-border);
-  padding-bottom: 24px;
-  transition: border-color 180ms ease;
-}
-
-.postCard:hover {
-  border-color: var(--vc-accent);
+  /* §1: no card border. Separation is the list gap. */
 }
 
 .postCard p {
@@ -60,6 +55,7 @@
 
 .heroImage {
   width: 100%;
+  max-width: var(--vc-prose-measure);
   max-height: 520px;
   object-fit: cover;
   border-radius: calc(var(--vc-radius) + 4px);
@@ -69,10 +65,10 @@
 .postCard h2 {
   margin: 6px 0;
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(28px, 5vw, 44px) * var(--vc-heading-scale));
-  letter-spacing: -0.06em;
-  line-height: 1.1;
-  font-weight: 800;
+  font-size: calc(clamp(24px, 4vw, 32px) * var(--vc-heading-scale));
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 700;
 }
 
 .postCard a,
@@ -81,6 +77,7 @@
   text-decoration: none;
 }
 
+/* §4: hover = title color shift only (no hover-card chrome). */
 .postCard h2 a:hover,
 .backLink:hover {
   color: var(--vc-accent);
@@ -90,35 +87,75 @@
   max-width: var(--vc-prose-measure);
 }
 
+/* §7: soft title metrics — line-height 1.08, −0.025em tracking, clamp max ~3.4rem, balanced. */
 .articleTitle {
   margin: 20px 0 16px;
+  max-width: var(--vc-prose-measure);
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(42px, 7vw, 72px) * var(--vc-heading-scale));
-  line-height: 0.96;
-  letter-spacing: -0.07em;
-  font-weight: 800;
+  font-size: calc(clamp(1.9rem, 5vw, 3.4rem) * var(--vc-heading-scale));
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  text-wrap: balance;
 }
 
 .backLink {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 0.95rem;
 }
 
-.date {
+/* §2: ONE quiet meta line — muted (AA), normal tracking, middle-dot separated. No icons/labels. */
+.metaLine {
   color: var(--vc-muted-fg);
-  font-family: var(--vc-font-mono);
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-  margin-top: 28px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: var(--vc-prose-measure);
+}
+
+/* §2.3 / §6: quiet tag row — sentence-case plain text links, dot-separated, not pills. */
+.tagRow {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: var(--vc-prose-measure);
+}
+
+.tagEntry {
+  display: inline;
+}
+
+.tagLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+}
+
+.tagLink:hover {
+  color: var(--vc-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tagSep {
+  color: var(--vc-muted-fg);
+  opacity: 0.55;
+  margin: 0 0.45em;
+}
+
+/* §7: prose root is always measured, even in feature layout — only the cover breaks out. */
+.markdown {
+  max-width: var(--vc-prose-measure);
 }
 
 .markdown h1 {
   margin: 10px 0 28px;
+  max-width: var(--vc-prose-measure);
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(42px, 7vw, 72px) * var(--vc-heading-scale));
-  line-height: 0.96;
-  letter-spacing: -0.07em;
-  font-weight: 800;
+  font-size: calc(clamp(1.9rem, 5vw, 3.4rem) * var(--vc-heading-scale));
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  text-wrap: balance;
 }
 
 .markdown h2 {
@@ -126,7 +163,7 @@
   margin-bottom: 12px;
   font-family: var(--vc-font-heading);
   font-size: calc(28px * var(--vc-heading-scale));
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   font-weight: 700;
 }
 
@@ -162,6 +199,7 @@
   margin: 1rem 0;
   font-size: 19px;
   line-height: var(--vc-prose-leading);
+  max-width: var(--vc-prose-measure);
 }
 
 .markdown ul {
@@ -204,11 +242,12 @@
   font-size: inherit;
 }
 
+/* §5: blockquote — deeper indent + muted + quiet full-height hairline, no heavy bar. */
 .markdown blockquote {
-  border-left: 3px solid var(--vc-quote-border);
-  margin: 1.25rem 0;
-  padding: 0.5rem 1rem;
+  margin: var(--vc-prose-gap) 0;
+  padding: 0.25rem 0 0.25rem 1.25rem;
   color: var(--vc-quote-fg);
+  border-left: 2px solid var(--vc-border);
 }
 
 .markdown blockquote p {
@@ -224,10 +263,19 @@
   font-style: italic;
 }
 
+/* §1: hr = a centered short mark (an intentional pause, not a wall-to-wall line). */
 .markdown hr {
   border: none;
-  border-top: 1px solid var(--vc-border);
-  margin: 2.5rem 0;
+  text-align: center;
+  margin: var(--vc-section-gap) 0;
+}
+
+.markdown hr::after {
+  content: "\00b7\00a0\00b7\00a0\00b7";
+  color: var(--vc-muted-fg);
+  opacity: 0.5;
+  letter-spacing: 0.1em;
+  font-size: 1rem;
 }
 
 .markdown img {
@@ -246,7 +294,7 @@
   line-height: 1.6;
 }
 
-/* ── Tag chips + search form + listing banners (plan 020) ─────────────────── */
+/* ── Search form + listing banners ─────────────────────────────────────────── */
 
 .searchForm {
   display: flex;
@@ -255,21 +303,27 @@
   margin-bottom: var(--vc-section-gap);
 }
 
+/* §1: search = a quiet filled input (subtle bg tint + radius), no underline border. */
 .searchInput {
   flex: 1;
-  background: transparent;
+  background: var(--vc-muted);
   border: none;
-  border-bottom: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
   color: var(--vc-fg);
   font-family: var(--vc-font-body);
   font-size: 1rem;
-  padding: 6px 0;
+  padding: 0.5rem 0.875rem;
   outline: none;
-  transition: border-color 180ms ease;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.searchInput::placeholder {
+  color: var(--vc-muted-fg);
 }
 
 .searchInput:focus {
-  border-bottom-color: var(--vc-fg);
+  background: var(--vc-code-inline-bg);
+  box-shadow: 0 0 0 1px var(--vc-border);
 }
 
 .searchButton {
@@ -279,35 +333,11 @@
   font-family: var(--vc-font-body);
   font-size: 0.9rem;
   cursor: pointer;
-  padding: 6px 0 6px 8px;
+  padding: 0.5rem 0.5rem 0.5rem 0.25rem;
   transition: color 180ms ease;
 }
 
 .searchButton:hover {
-  color: var(--vc-fg);
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.tagChip {
-  display: inline-block;
-  background: var(--vc-code-inline-bg);
-  color: var(--vc-muted-fg);
-  font-family: var(--vc-font-mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-decoration: none;
-  transition: color 180ms ease;
-}
-
-.tagChip:hover {
   color: var(--vc-fg);
 }
 
@@ -319,7 +349,7 @@
   font-family: var(--vc-font-heading);
   font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
   font-weight: 700;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   margin: 0 0 8px;
 }
 
@@ -338,12 +368,7 @@
   }
 
   .postCard h2 {
-    font-size: clamp(22px, 6vw, 32px);
-  }
-
-  .articleTitle,
-  .markdown h1 {
-    font-size: calc(clamp(32px, 9vw, 52px) * var(--vc-heading-scale));
+    font-size: clamp(22px, 6vw, 28px);
   }
 
   .markdown h2 {
@@ -376,17 +401,17 @@
 
 /* ── Layout: feature ───────────────────────────────────────────────────────── */
 
-/* Feature layout expands to the full page container width */
+/* Feature layout expands to the full page container width (cover breaks out). */
 .article[data-vc-layout="feature"] {
   max-width: 100%;
 }
 
-/* Full-width hero container; title + date sit below it */
+/* Full-width hero container; title + meta sit below the cover. */
 .featureHero {
   margin-bottom: 28px;
 }
 
-/* Hero cover image: full-width, capped height, no bottom margin (featureHero handles spacing) */
+/* Hero cover image: full-width, capped height. Only this breaks out of the measure (§7). */
 .featureCover {
   display: block;
   width: 100%;
@@ -398,48 +423,48 @@
 
 /* ── Layout: essay ──────────────────────────────────────────────────────────── */
 
-/* Essay: constrain to the preset prose measure (already narrower than 860px) */
+/* Essay: constrain to the preset prose measure. (Drop cap removed in §7.) */
 .article[data-vc-layout="essay"] {
   max-width: var(--vc-prose-measure);
 }
 
-/*
- * Essay: conservative drop cap on the first body paragraph.
- * Pure CSS - no renderer plugin required.
- * Targets the first <p> inside the .markdown div produced by RichContentFrame.
- * Known limitation: if the first paragraph contains only an image (no text),
- * no letter is available to float and the drop cap will not appear.
- */
-[data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
-  float: left;
-  font-size: 3.4em;
-  font-family: var(--vc-font-heading);
-  font-weight: 800;
-  line-height: 0.76;
-  margin-right: 0.08em;
-  margin-top: 0.05em;
-  color: var(--vc-fg);
-}
+/* ── Article body + Table of contents ──────────────────────────────────────── */
 
-/* ── TOC block ──────────────────────────────────────────────────────────────── */
-
-.tocBlock {
-  background: var(--vc-code-inline-bg);
-  border: 1px solid var(--vc-border);
-  border-radius: var(--vc-radius);
-  padding: 0.875rem 1.125rem;
-  margin: 0 0 var(--vc-section-gap);
-}
-
-.tocBlock::before {
-  content: "Contents";
+/* Body wrapper holds the prose column; the sticky ToC rail joins it >=1100px.
+   The prose itself is always measured via .markdown above. */
+.articleBody {
   display: block;
-  font-family: var(--vc-font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+}
+
+/* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden >=1100px. */
+.tocDetails {
+  margin: 0 0 var(--vc-section-gap);
+  max-width: var(--vc-prose-measure);
+}
+
+.tocSummary {
+  cursor: pointer;
+  font-size: 0.8rem;
   color: var(--vc-muted-fg);
-  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.tocSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* §3: sticky right rail — hidden below 1100px (the <details> covers narrow screens). */
+.tocRail {
+  display: none;
+}
+
+.tocRailLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--vc-muted-fg);
+  margin: 0 0 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .tocList {
@@ -447,36 +472,65 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 0.28rem;
+  gap: 0.3rem;
 }
 
+/* §3: plain quiet links. */
 .tocItemH2 > a,
 .tocItemH3 > a {
-  color: var(--vc-link);
+  color: var(--vc-muted-fg);
   text-decoration: none;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  display: block;
 }
 
 .tocItemH2 > a:hover,
 .tocItemH3 > a:hover {
-  color: var(--vc-link-hover);
+  color: var(--vc-fg);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-/* H3 items are indented to show hierarchy */
+/* H3 items are indented to show hierarchy. */
 .tocItemH3 {
-  padding-left: 1.1rem;
+  padding-left: 0.85rem;
+}
+
+/* §3: >=1100px — promote the page to a prose + sticky-rail layout.
+   data-vc-toc-rail is set on <main> by PublicBlogPostView only when a rail renders. */
+@media (min-width: 1100px) {
+  .publicPage[data-vc-toc-rail] {
+    max-width: 1080px;
+  }
+
+  .publicPage[data-vc-toc-rail] .article {
+    max-width: 100%;
+  }
+
+  .publicPage[data-vc-toc-rail] .articleBody {
+    display: grid;
+    grid-template-columns: minmax(0, var(--vc-prose-measure)) 15rem;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .publicPage[data-vc-toc-rail] .tocRail {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .publicPage[data-vc-toc-rail] .tocDetails {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
   .featureCover {
     max-height: 280px;
     border-radius: var(--vc-radius);
-  }
-
-  [data-vc-layout="essay"] .markdown > p:first-of-type::first-letter {
-    font-size: 2.8em;
   }
 }

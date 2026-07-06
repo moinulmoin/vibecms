@@ -185,3 +185,62 @@ describe('h1 downgrade', () => {
     expect(outline.map((e) => e.text)).toEqual(['A', 'B']);
   });
 });
+
+// ─── Group F: page-level ToC gate (≥3 headings) ─────────────────────────────
+//
+// PresentedPostArticle / PublicBlogPages render the page-level ToC only when
+// `presentation.toc && outline.length >= 3`. The `outline` is built by
+// renderRichContent's rehypeTocCollector from h2/h3 (a downgraded h1 becomes an
+// h2). These tests pin the outline length at the exact gate boundary so the
+// "≥3 headings" threshold is exercised against the real extractor — the
+// load-bearing data for the inline `>= 3` predicate.
+
+describe('page-level ToC gate – outline length at the ≥3 threshold', () => {
+  it('2 headings -> outline length 2 (gate threshold NOT met)', () => {
+    const { outline } = renderRichContent('## One\n\n## Two\n\nbody');
+    expect(outline).toHaveLength(2);
+    // Gate predicate (presentation.toc assumed true): `outline.length >= 3`
+    // evaluates false here, so no page-level ToC would render.
+    expect(outline.length >= 3).toBe(false);
+  });
+
+  it('3 headings -> outline length 3 (gate threshold met)', () => {
+    const { outline } = renderRichContent('## One\n\n## Two\n\n## Three\n\nbody');
+    expect(outline).toHaveLength(3);
+    expect(outline.length >= 3).toBe(true);
+  });
+
+  it('a mix of h2 and h3 still crosses the 3-entry threshold', () => {
+    const { outline } = renderRichContent('## One\n\n### Sub\n\n### Sub2\n\nbody');
+    expect(outline).toHaveLength(3);
+    expect(outline.length >= 3).toBe(true);
+    expect(outline.map((e) => e.depth)).toEqual([2, 3, 3]);
+  });
+});
+
+// ─── Group G: inline [[toc]] marker regression (markdown.tsx untouched) ──────
+//
+// The theme v1 build added a *page-level* ToC gate; the inline `[[toc]]` marker
+// is handled entirely inside markdown.tsx and must keep emitting <nav data-toc>.
+// These guard that invariant in isolation (the PARITY fixture bundles `[[toc]]`
+// with every other contract element).
+
+describe('inline [[toc]] marker – renderer still emits the toc nav', () => {
+  it('a lone [[toc]] over one heading emits <nav data-toc> linking the heading', () => {
+    const html = renderRichContentToHtml('[[toc]]\n\n## Only');
+    expect(html).toContain('<nav');
+    expect(html).toContain('data-toc');
+    expect(html).toContain('href="#h-only"');
+  });
+
+  it('the literal [[toc]] marker text never leaks into rendered output', () => {
+    const html = renderRichContentToHtml('[[toc]]\n\n## Only');
+    expect(html).not.toContain('[[toc]]');
+  });
+
+  it('[[toc]] with no headings emits no nav (TOC omitted)', () => {
+    const html = renderRichContentToHtml('[[toc]]\n\nNo headings here.');
+    expect(html).not.toContain('<nav');
+    expect(html).not.toContain('data-toc');
+  });
+});

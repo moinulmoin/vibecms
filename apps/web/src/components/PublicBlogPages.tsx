@@ -1,5 +1,6 @@
 import styles from "./public-blog.module.css";
 import { renderRichContent } from "~/lib/markdown";
+import { readingTimeMinutes } from "~/lib/reading-time";
 import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/public-blog";
 import { resolvePresetId, resolvePresentation } from "@vc/config";
 import { SubscribeForm } from "./SubscribeForm";
@@ -31,23 +32,6 @@ function parseTags(tagsJson: string): string[] {
   } catch {
     return [];
   }
-}
-
-function TagList({ tags, basePath }: { tags: string[]; basePath: string }) {
-  if (tags.length === 0) return null;
-  return (
-    <div className={styles.tagList}>
-      {tags.map((tag) => (
-        <a
-          key={tag}
-          href={`${basePath}/tag/${encodeURIComponent(tag)}`}
-          className={styles.tagChip}
-        >
-          {tag}
-        </a>
-      ))}
-    </div>
-  );
 }
 
 function PublicShell({
@@ -125,9 +109,15 @@ export function PublicBlogIndexView({
         </div>
       )}
 
+      {/* §4: single-column, borderless list. Entry = title + excerpt + date · read-time. */}
       <section className={styles.postList}>
         {posts.map((post) => {
-          const tags = parseTags(post.tags_json);
+          const publishedText = post.published_at
+            ? new Date(post.published_at * 1000).toLocaleDateString()
+            : "Published";
+          const metaLine = [publishedText, `${readingTimeMinutes(post.content_markdown)} min read`].join(
+            " \u00b7 ",
+          );
           return (
             <article className={styles.postCard} key={post.id}>
               {post.cover_asset_id ? (
@@ -140,16 +130,11 @@ export function PublicBlogIndexView({
                   loading="lazy"
                 />
               ) : null}
-              <p>
-                {post.published_at
-                  ? new Date(post.published_at * 1000).toLocaleDateString()
-                  : "Published"}
-              </p>
               <h2>
                 <a href={`${basePath}/${post.slug}`}>{post.title}</a>
               </h2>
               {post.excerpt ? <p>{post.excerpt}</p> : null}
-              <TagList tags={tags} basePath={basePath} />
+              <p className={styles.metaLine}>{metaLine}</p>
             </article>
           );
         })}
@@ -176,10 +161,17 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const updatedDateText = shouldShowUpdatedDate(post.published_at, post.updated_at)
     ? new Date(post.updated_at * 1000).toLocaleDateString()
     : undefined;
+  // §2: reading time, render-level (no DB column). §3: ToC rail flag drives the >=1100px layout.
+  const readingMinutes = readingTimeMinutes(post.content_markdown);
+  const hasToc = resolved.toc && renderResult.outline.length >= 3;
   const tags = parseTags(post.tags_json);
 
   return (
-    <main className={styles.publicPage} data-vc-theme={presetId}>
+    <main
+      className={styles.publicPage}
+      data-vc-theme={presetId}
+      data-vc-toc-rail={hasToc ? "" : undefined}
+    >
       <header className={styles.publicHeader}>
         <a href={indexHref} className={styles.publicBrand}>
           {site.name}
@@ -197,8 +189,10 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         coverAssetSrc={coverAssetSrc}
         dateText={dateText}
         updatedDateText={updatedDateText}
+        readingMinutes={readingMinutes}
+        tags={tags}
+        basePath={basePath}
       />
-      <TagList tags={tags} basePath={basePath} />
       <SubscribeForm siteSlug={site.slug} placement="end" />
     </main>
   );

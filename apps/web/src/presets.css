@@ -38,19 +38,19 @@
   --vc-link:            oklch(45%   0.11  154);
   --vc-link-hover:      oklch(36%   0.1   154);
   /* Callouts */
-  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note:             oklch(93%  0.024 240);
   --vc-callout-note-fg:          oklch(35%  0.090 240);
   --vc-callout-note-border:      oklch(65%  0.120 240);
-  --vc-callout-tip:              oklch(94%  0.040 154);
+  --vc-callout-tip:              oklch(94%  0.033 154);
   --vc-callout-tip-fg:           oklch(35%  0.100 154);
   --vc-callout-tip-border:       oklch(55%  0.130 154);
-  --vc-callout-important:        oklch(93%  0.030 285);
+  --vc-callout-important:        oklch(93%  0.024 285);
   --vc-callout-important-fg:     oklch(35%  0.120 285);
   --vc-callout-important-border: oklch(60%  0.150 285);
-  --vc-callout-warning:          oklch(95%  0.050  80);
+  --vc-callout-warning:          oklch(95%  0.041  80);
   --vc-callout-warning-fg:       oklch(35%  0.100  65);
   --vc-callout-warning-border:   oklch(65%  0.140  75);
-  --vc-callout-caution:          oklch(94%  0.040  25);
+  --vc-callout-caution:          oklch(94%  0.033  25);
   --vc-callout-caution-fg:       oklch(35%  0.120  25);
   --vc-callout-caution-border:   oklch(58%  0.180  25);
   /* Code */
@@ -68,13 +68,13 @@
   --vc-font-body:       Geist, ui-sans-serif, system-ui, sans-serif;
   --vc-font-heading:    Geist, ui-sans-serif, system-ui, sans-serif;
   --vc-font-mono:       "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --vc-prose-measure:   70ch;
-  --vc-prose-leading:   1.75;
+  --vc-prose-measure:   68ch;
+  --vc-prose-leading:   1.7;
   --vc-heading-scale:   1;
   /* Space / radius */
   --vc-prose-gap:       1.2em;
-  --vc-section-gap:     2.5rem;
-  --vc-radius:          10px;
+  --vc-section-gap:     2.75rem;
+  --vc-radius:          8px;
 
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;
@@ -91,19 +91,19 @@
     --vc-link:            oklch(75%   0.140 152);
     --vc-link-hover:      oklch(65%   0.120 152);
     /* Callouts - dark */
-    --vc-callout-note:             oklch(21%  0.040 240);
+    --vc-callout-note:             oklch(21%  0.033 240);
     --vc-callout-note-fg:          oklch(78%  0.090 240);
     --vc-callout-note-border:      oklch(50%  0.120 240);
-    --vc-callout-tip:              oklch(21%  0.040 154);
+    --vc-callout-tip:              oklch(21%  0.033 154);
     --vc-callout-tip-fg:           oklch(78%  0.120 154);
     --vc-callout-tip-border:       oklch(55%  0.140 154);
-    --vc-callout-important:        oklch(21%  0.040 285);
+    --vc-callout-important:        oklch(21%  0.033 285);
     --vc-callout-important-fg:     oklch(78%  0.120 285);
     --vc-callout-important-border: oklch(50%  0.140 285);
-    --vc-callout-warning:          oklch(22%  0.050  80);
+    --vc-callout-warning:          oklch(22%  0.041  80);
     --vc-callout-warning-fg:       oklch(82%  0.100  80);
     --vc-callout-warning-border:   oklch(55%  0.140  75);
-    --vc-callout-caution:          oklch(21%  0.040  25);
+    --vc-callout-caution:          oklch(21%  0.033  25);
     --vc-callout-caution-fg:       oklch(78%  0.120  25);
     --vc-callout-caution-border:   oklch(50%  0.160  25);
     /* Code - dark */
@@ -134,19 +134,19 @@
   --vc-accent-fg:       oklch(18.2% 0.029 158);
   --vc-link:            oklch(75%   0.140 152);
   --vc-link-hover:      oklch(65%   0.120 152);
-  --vc-callout-note:             oklch(21%  0.040 240);
+  --vc-callout-note:             oklch(21%  0.033 240);
   --vc-callout-note-fg:          oklch(78%  0.090 240);
   --vc-callout-note-border:      oklch(50%  0.120 240);
-  --vc-callout-tip:              oklch(21%  0.040 154);
+  --vc-callout-tip:              oklch(21%  0.033 154);
   --vc-callout-tip-fg:           oklch(78%  0.120 154);
   --vc-callout-tip-border:       oklch(55%  0.140 154);
-  --vc-callout-important:        oklch(21%  0.040 285);
+  --vc-callout-important:        oklch(21%  0.033 285);
   --vc-callout-important-fg:     oklch(78%  0.120 285);
   --vc-callout-important-border: oklch(50%  0.140 285);
-  --vc-callout-warning:          oklch(22%  0.050  80);
+  --vc-callout-warning:          oklch(22%  0.041  80);
   --vc-callout-warning-fg:       oklch(82%  0.100  80);
   --vc-callout-warning-border:   oklch(55%  0.140  75);
-  --vc-callout-caution:          oklch(21%  0.040  25);
+  --vc-callout-caution:          oklch(21%  0.033  25);
   --vc-callout-caution-fg:       oklch(78%  0.120  25);
   --vc-callout-caution-border:   oklch(50%  0.160  25);
   --vc-code-bg:         oklch(18.9% 0.010 173);
@@ -173,19 +173,19 @@
   --vc-accent-fg:       oklch(98.7% 0.004 106);
   --vc-link:            oklch(45%   0.11  154);
   --vc-link-hover:      oklch(36%   0.1   154);
-  --vc-callout-note:             oklch(93%  0.030 240);
+  --vc-callout-note:             oklch(93%  0.024 240);
   --vc-callout-note-fg:          oklch(35%  0.090 240);
   --vc-callout-note-border:      oklch(65%  0.120 240);
-  --vc-callout-tip:              oklch(94%  0.040 154);
+  --vc-callout-tip:              oklch(94%  0.033 154);
   --vc-callout-tip-fg:           oklch(35%  0.100 154);
   --vc-callout-tip-border:       oklch(55%  0.130 154);
-  --vc-callout-important:        oklch(93%  0.030 285);
+  --vc-callout-important:        oklch(93%  0.024 285);
   --vc-callout-important-fg:     oklch(35%  0.120 285);
   --vc-callout-important-border: oklch(60%  0.150 285);
-  --vc-callout-warning:          oklch(95%  0.050  80);
+  --vc-callout-warning:          oklch(95%  0.041  80);
   --vc-callout-warning-fg:       oklch(35%  0.100  65);
   --vc-callout-warning-border:   oklch(65%  0.140  75);
-  --vc-callout-caution:          oklch(94%  0.040  25);
+  --vc-callout-caution:          oklch(94%  0.033  25);
   --vc-callout-caution-fg:       oklch(35%  0.120  25);
   --vc-callout-caution-border:   oklch(58%  0.180  25);
   --vc-code-bg:         oklch(97%   0.006 106);
