@@ -4,7 +4,7 @@
 </div>
 
 
-Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP. REST stays read/list, every mutation creates activity, and meaningful post changes create versions.
+Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP or the REST `/api/v1` API. Every mutation creates activity, and meaningful post changes create versions.
 
 ## Features
 
@@ -54,7 +54,7 @@ curl https://your-vibecms-domain.com/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-Use REST only for bounded read/list access. Lists return summaries without full Markdown; fetch a single post through MCP `posts.get` when an agent needs the body:
+The REST `/api/v1` API mirrors the MCP tools with full read/write parity (create, update, publish). The legacy `/api/posts` endpoint below is read/list only — lists return summaries without full Markdown, so fetch a single post's body through `/api/v1` or MCP `posts.get`:
 
 ```sh
 curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
