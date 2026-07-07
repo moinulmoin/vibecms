@@ -21,14 +21,20 @@
       "bucket_name": "vibecms-assets"
     }
   ],
-  "routes": [{ "pattern": "dev.vibecms.dev", "custom_domain": true }],
+  "routes": [
+    // Dev mirrors prod on a SEPARATE zone (basedui.dev) to avoid the *.vibecms.dev wildcard collision.
+    { "pattern": "basedui.dev", "custom_domain": true },
+    { "pattern": "app.basedui.dev", "custom_domain": true },
+    // Test tenant blog; arbitrary tenants later need a proxied *.basedui.dev DNS record + a zone_name route.
+    { "pattern": "demo.basedui.dev", "custom_domain": true }
+  ],
   "workers_dev": false,
   "preview_urls": false,
   "vars": {
     "APP_ENV": "development",
-    "APP_URL": "https://dev.vibecms.dev",
-    "BETTER_AUTH_URL": "https://dev.vibecms.dev",
-    "PUBLIC_BLOG_DOMAIN": "dev.vibecms.dev",
+    "APP_URL": "https://app.basedui.dev",
+    "BETTER_AUTH_URL": "https://app.basedui.dev",
+    "PUBLIC_BLOG_DOMAIN": "basedui.dev",
     "SELF_HOSTED": "false",
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
