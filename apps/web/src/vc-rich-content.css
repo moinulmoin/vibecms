@@ -10,6 +10,15 @@
 
 @layer base {
 
+/* Font defaults live on :root (NOT on [data-rich-content]) so a per-site
+   customizer override injected as an inline style on an ancestor (the public
+   <main> / <article> roots) is inherited by the rich-content root instead of
+   being shadowed by a concrete redeclaration there. Geist = minimal base. */
+:root {
+  --vc-font-body:    Geist, ui-sans-serif, system-ui, sans-serif;
+  --vc-font-heading: Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Light defaults
    ───────────────────────────────────────────────────────────────────────── */
@@ -22,10 +31,10 @@
   --vc-card:            oklch(100%  0     0);
   --vc-card-fg:         oklch(22%   0.006 106);
   --vc-border:          oklch(91%   0.006 106);
-  --vc-accent:          oklch(45%   0.11  154);
+  --vc-accent:          var(--vc-accent-light, oklch(45%   0.11  154));
   --vc-accent-fg:       oklch(98.7% 0.004 106);
-  --vc-link:            oklch(45%   0.11  154);
-  --vc-link-hover:      oklch(36%   0.1   154);
+  --vc-link:            var(--vc-accent, oklch(45%   0.11  154));
+  --vc-link-hover:      color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 80%, black);
 
   /* Callouts - note (blue) */
   --vc-callout-note:             oklch(93%  0.024 240);
@@ -56,15 +65,13 @@
 
   /* Quote */
   --vc-quote-fg:        oklch(54%   0.012 106);
-  --vc-quote-border:    oklch(45%   0.11  154);
+  --vc-quote-border:    var(--vc-accent, oklch(45%   0.11  154));
 
   /* Figure */
   --vc-figure-bg:       oklch(97%   0.006 106);
   --vc-caption-fg:      oklch(54%   0.012 106);
 
   /* Type */
-  --vc-font-body:     Geist, ui-sans-serif, system-ui, sans-serif;
-  --vc-font-heading:  Geist, ui-sans-serif, system-ui, sans-serif;
   --vc-font-mono:     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --vc-prose-measure: 68ch;
   --vc-prose-leading: 1.7;
@@ -89,10 +96,10 @@
   --vc-card:        oklch(18.9% 0.010 173);
   --vc-card-fg:     oklch(93.6% 0.008 155);
   --vc-border:      oklch(47%   0.014 168);
-  --vc-accent:      oklch(81%   0.170 153);
+  --vc-accent:      var(--vc-accent-dark, oklch(81%   0.170 153));
   --vc-accent-fg:   oklch(18.2% 0.029 158);
-  --vc-link:        oklch(75%   0.140 152);
-  --vc-link-hover:  oklch(65%   0.120 152);
+  --vc-link:        var(--vc-accent, oklch(75%   0.140 152));
+  --vc-link-hover:  color-mix(in oklch, var(--vc-accent, oklch(81% 0.170 153)) 80%, black);
 
   /* Callouts */
   --vc-callout-note:             oklch(21%  0.033 240);
@@ -119,7 +126,7 @@
 
   /* Quote */
   --vc-quote-fg:     oklch(72%   0.014 155);
-  --vc-quote-border: oklch(81%   0.170 153);
+  --vc-quote-border: var(--vc-accent, oklch(81%   0.170 153));
 
   /* Figure */
   --vc-figure-bg:   oklch(18.9% 0.010 173);

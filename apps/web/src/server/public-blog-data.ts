@@ -9,6 +9,9 @@ export type SiteRow = {
   name: string;
   slug: string;
   theme: string;
+  theme_accent: string | null;
+  theme_font: string | null;
+  theme_mode: string;
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
@@ -45,6 +48,9 @@ function toSiteRow(row: PublicSiteRow): SiteRow {
     name: row.name,
     slug: row.slug,
     theme: row.theme,
+    theme_accent: row.themeAccent,
+    theme_font: row.themeFont,
+    theme_mode: row.themeMode,
     description: row.description,
     default_seo_title: row.defaultSeoTitle,
     default_seo_description: row.defaultSeoDescription,

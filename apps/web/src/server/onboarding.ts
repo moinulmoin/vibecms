@@ -1,5 +1,5 @@
 import type { Actor } from '@vc/core'
-import { resolvePresetId } from '@vc/config'
+import { resolveAccent, resolveFont, resolveMode, resolvePresetId } from '@vc/config'
 import { createDataAccess } from '@vc/db'
 import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
@@ -90,6 +90,11 @@ export type SiteSettingsPayload = {
   defaultSeoTitle: string
   defaultSeoDescription?: string
   theme: string
+  // Theme customizer (Layer 2) — optional until the Appearance UI ships them.
+  // null/undefined accent|font = use resolver default; mode resolves to 'system'.
+  themeAccent?: string | null
+  themeFont?: string | null
+  themeMode?: string
 }
 
 export async function getSiteSettings(app: AppUserContext) {
@@ -102,6 +107,9 @@ export async function getSiteSettings(app: AppUserContext) {
     defaultSeoDescription: site?.defaultSeoDescription ?? '',
     theme: resolvePresetId(site?.theme),
     slug: site?.slug ?? '',
+    themeAccent: resolveAccent(site?.themeAccent),
+    themeFont: resolveFont(site?.themeFont),
+    themeMode: resolveMode(site?.themeMode),
   }
 }
 
@@ -153,12 +161,17 @@ export async function updateSiteSettingsForApp(
     ? payload.defaultSeoDescription.trim().slice(0, 220)
     : null
   const theme = resolvePresetId(payload.theme)
+  // Theme customizer: null accent|font persists null (resolver defaults on read);
+  // an explicit value is resolved to a known id. Mode always resolves to a valid value.
+  const themeAccent = payload.themeAccent == null ? null : resolveAccent(payload.themeAccent)
+  const themeFont = payload.themeFont == null ? null : resolveFont(payload.themeFont)
+  const themeMode = resolveMode(payload.themeMode)
 
   const db = createDataAccess(env.DB)
   await db.sites.updateSiteSettings({
     timestamp,
     siteId: app.siteId,
-    site: { name, description, defaultSeoTitle, defaultSeoDescription, theme },
+    site: { name, description, defaultSeoTitle, defaultSeoDescription, theme, themeAccent, themeFont, themeMode },
     activity: {
       id: crypto.randomUUID(),
       actorType: app.actor.type,

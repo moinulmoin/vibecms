@@ -111,6 +111,154 @@ export function readFormStatus(search: URLSearchParams): FormStatus | null {
   if (ok) return FORM_STATUS[ok] ?? null;
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Theme customizer (Layer 2): curated accents, font pairings, color mode
+// ---------------------------------------------------------------------------
+//
+// Model: ONE neutral base (minimal). Flavor comes from accent + font + mode,
+// NOT separate neutral palettes. Semantic callout hues (note/tip/important/
+// warning/caution) are FIXED universal and never derived from the accent.
+//
+// Every accent swatch is AA-verified: its accent/link text reaches >=4.5:1
+// contrast against the base `--vc-bg` in BOTH light and dark. The recorded
+// ratio per swatch is documented on the swatch (computed via OKLCH -> sRGB ->
+// WCAG luminance; bg light = oklch(98.7% 0.004 106), bg dark = oklch(15% 0.008 168)).
+
+export interface AccentSwatch {
+  /** Stable id persisted on `sites.theme_accent`. */
+  id: string;
+  /** Picker-facing label. */
+  name: string;
+  /** OKLCH accent for links/buttons/focus on the LIGHT base. AA-verified >=4.5:1. */
+  oklchLight: string;
+  /** OKLCH accent for links/buttons/focus on the DARK base. AA-verified >=4.5:1. */
+  oklchDark: string;
+}
+
+/**
+ * Curated accent swatches. Each entry's oklchLight/oklchDark is the AA-verified
+ * accent/link text color for that mode. Ids are stable persistence keys.
+ * Default accent (`teal`) equals the minimal base accent oklch(45% 0.11 154).
+ */
+export const ACCENTS = [
+  { id: "teal",    name: "Teal",    oklchLight: "oklch(45% 0.11 154)",  oklchDark: "oklch(81% 0.170 153)" },
+  { id: "blue",    name: "Blue",    oklchLight: "oklch(45% 0.17 245)",  oklchDark: "oklch(75% 0.15 245)" },
+  { id: "indigo",  name: "Indigo",  oklchLight: "oklch(45% 0.18 275)",  oklchDark: "oklch(74% 0.15 275)" },
+  { id: "violet",  name: "Violet",  oklchLight: "oklch(45% 0.17 300)",  oklchDark: "oklch(78% 0.14 300)" },
+  { id: "magenta", name: "Magenta", oklchLight: "oklch(50% 0.16 340)",  oklchDark: "oklch(78% 0.15 340)" },
+  { id: "crimson", name: "Crimson", oklchLight: "oklch(50% 0.18 25)",   oklchDark: "oklch(77% 0.15 25)" },
+  { id: "rust",    name: "Rust",    oklchLight: "oklch(50% 0.14 50)",   oklchDark: "oklch(80% 0.13 50)" },
+  { id: "green",   name: "Green",   oklchLight: "oklch(45% 0.12 145)",  oklchDark: "oklch(80% 0.15 145)" },
+] as const satisfies readonly AccentSwatch[];
+
+export type AccentId = (typeof ACCENTS)[number]["id"];
+
+export const ACCENT_IDS: readonly AccentId[] = ACCENTS.map((a) => a.id);
+
+/** Default accent; equals the minimal base accent. */
+export const DEFAULT_ACCENT_ID: AccentId = "teal";
+
+export interface FontPairing {
+  /** Stable id persisted on `sites.theme_font`. */
+  id: string;
+  /** Picker-facing label. */
+  name: string;
+  /** CSS font-family stack for body copy (binds `--vc-font-body`). */
+  bodyStack: string;
+  /** CSS font-family stack for headings (binds `--vc-font-heading`). */
+  headingStack: string;
+}
+
+/**
+ * Curated font pairings. Stacks reference the variable web fonts already
+ * loaded via @font-face (Geist, Geist Mono, Space Grotesk, Hanken Grotesk,
+ * JetBrains Mono) with safe OS fallbacks.
+ */
+export const FONTS = [
+  {
+    id: "geist-sans",
+    name: "Geist Sans",
+    bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
+    headingStack: "Geist, ui-sans-serif, system-ui, sans-serif",
+  },
+  {
+    id: "serif",
+    name: "Editorial Serif",
+    bodyStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
+    headingStack: 'Georgia, "Times New Roman", ui-serif, serif',
+  },
+  {
+    id: "grotesk",
+    name: "Space Grotesk",
+    bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
+    headingStack: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+  },
+] as const satisfies readonly FontPairing[];
+
+export type FontId = (typeof FONTS)[number]["id"];
+
+export const FONT_IDS: readonly FontId[] = FONTS.map((f) => f.id);
+
+/** Default font; the minimal base Geist sans pairing. */
+export const DEFAULT_FONT_ID: FontId = "geist-sans";
+
+export const THEME_MODES = ["light", "dark", "system"] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
+
+export const DEFAULT_THEME_MODE: ThemeMode = "system";
+
+/**
+ * One-click starter looks. Each seeds accent (and optionally font) for the
+ * customizer; the three non-minimal presets become seeds, not separate bases.
+ * `data-vc-theme` stays `minimal` (the single base) in v1.
+ */
+export interface StarterLook {
+  accent: AccentId;
+  font?: FontId;
+}
+
+export const STARTER_LOOKS = {
+  editorial: { accent: "rust", font: "serif" },
+  technical: { accent: "blue" },
+  product: { accent: "green" },
+} as const satisfies Record<string, StarterLook>;
+
+export type StarterLookId = keyof typeof STARTER_LOOKS;
+
+/** Returns the given value if it is a known AccentId, otherwise DEFAULT_ACCENT_ID. */
+export function resolveAccent(value: string | null | undefined): AccentId {
+  if (value != null && (ACCENT_IDS as readonly string[]).includes(value)) {
+    return value as AccentId;
+  }
+  return DEFAULT_ACCENT_ID;
+}
+
+/** Returns the given value if it is a known FontId, otherwise DEFAULT_FONT_ID. */
+export function resolveFont(value: string | null | undefined): FontId {
+  if (value != null && (FONT_IDS as readonly string[]).includes(value)) {
+    return value as FontId;
+  }
+  return DEFAULT_FONT_ID;
+}
+
+/** Returns the given value if it is a known ThemeMode, otherwise DEFAULT_THEME_MODE. */
+export function resolveMode(value: string | null | undefined): ThemeMode {
+  if (value != null && (THEME_MODES as readonly string[]).includes(value)) {
+    return value as ThemeMode;
+  }
+  return DEFAULT_THEME_MODE;
+}
+
+/** Accent swatch record for a resolved id; always defined (falls back to default). */
+export function getAccent(id: AccentId): AccentSwatch {
+  return ACCENTS.find((a) => a.id === id) ?? ACCENTS[0];
+}
+
+/** Font pairing record for a resolved id; always defined (falls back to default). */
+export function getFont(id: FontId): FontPairing {
+  return FONTS.find((f) => f.id === id) ?? FONTS[0];
+}
 // ---------------------------------------------------------------------------
 // Theme preset registry
 // ---------------------------------------------------------------------------

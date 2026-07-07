@@ -4,7 +4,7 @@ import { readingTimeMinutes } from "~/lib/reading-time";
 import type { PublicIndexLoaderData, PublicPostLoaderData } from "~/server/public-blog";
 import { resolvePresetId, resolvePresentation } from "@vc/config";
 import { SubscribeForm } from "./SubscribeForm";
-import { PresentedPostArticle } from "./PresentedPostArticle";
+import { PresentedPostArticle, resolveSiteTheme, type SiteThemeInput } from "./PresentedPostArticle";
 import { shouldShowUpdatedDate } from "~/lib/seo-meta";
 
 // Pinned seam - matches public-blog.ts once DataAndLoaders lands
@@ -48,8 +48,20 @@ function PublicShell({
   const seoTitle = site.default_seo_title || site.name;
   const seoDescription = site.default_seo_description || site.description || undefined;
   const homeHref = publicIndexHref(basePath);
+  const themeAttrs = resolveSiteTheme({
+    accent: site.theme_accent,
+    font: site.theme_font,
+    mode: site.theme_mode,
+  });
   return (
-    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
+    <main
+      className={styles.publicPage}
+      data-vc-theme={resolvePresetId(site.theme)}
+      style={themeAttrs.style}
+      {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark"
+        ? { "data-vc-mode": themeAttrs.mode }
+        : {})}
+    >
       {seoTitle ? <title>{seoTitle}</title> : null}
       <RobotsMeta indexable={indexable} />
       {seoDescription ? <meta name="description" content={seoDescription} /> : null}
@@ -152,6 +164,12 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
   const presetId = resolvePresetId(site.theme);
+  const siteTheme: SiteThemeInput = {
+    accent: site.theme_accent,
+    font: site.theme_font,
+    mode: site.theme_mode,
+  };
+  const themeAttrs = resolveSiteTheme(siteTheme);
   const { resolved } = resolvePresentation(presetId, post.presentation);
   const renderResult = renderRichContent(post.content_markdown, { presetId });
   const coverAssetSrc = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : undefined;
@@ -171,6 +189,10 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
       className={styles.publicPage}
       data-vc-theme={presetId}
       data-vc-toc-rail={hasToc ? "" : undefined}
+      style={themeAttrs.style}
+      {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark"
+        ? { "data-vc-mode": themeAttrs.mode }
+        : {})}
     >
       <header className={styles.publicHeader}>
         <a href={indexHref} className={styles.publicBrand}>
@@ -192,6 +214,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         readingMinutes={readingMinutes}
         tags={tags}
         basePath={basePath}
+        theme={siteTheme}
       />
       <SubscribeForm siteSlug={site.slug} placement="end" />
     </main>
@@ -206,8 +229,20 @@ export function PublicBlogNotFound({
   basePath: string;
 }) {
   const homeHref = publicIndexHref(basePath);
+  const themeAttrs = resolveSiteTheme({
+    accent: site.theme_accent,
+    font: site.theme_font,
+    mode: site.theme_mode,
+  });
   return (
-    <main className={styles.publicPage} data-vc-theme={resolvePresetId(site.theme)}>
+    <main
+      className={styles.publicPage}
+      data-vc-theme={resolvePresetId(site.theme)}
+      style={themeAttrs.style}
+      {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark"
+        ? { "data-vc-mode": themeAttrs.mode }
+        : {})}
+    >
       <title>{`Not found - ${site.name}`}</title>
       <meta name="robots" content="noindex" />
       <header className={styles.publicHeader}>

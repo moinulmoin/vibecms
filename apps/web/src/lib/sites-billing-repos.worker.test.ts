@@ -255,6 +255,9 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         defaultSeoTitle: "Settings SEO Title",
         defaultSeoDescription: "Settings SEO Description",
         theme: "editorial",
+        themeAccent: null,
+        themeFont: null,
+        themeMode: "system",
       },
       activity: {
         id: "act-sb-settings-saved",

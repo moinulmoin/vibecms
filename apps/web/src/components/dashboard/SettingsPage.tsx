@@ -1,6 +1,22 @@
 'use client'
 
-import { DEFAULT_PRESET_ID, ENTITLEMENTS, MEDIA, PRESET_IDS, PRICING, THEME_PRESETS } from '@vc/config'
+import {
+  ACCENTS,
+  DEFAULT_PRESET_ID,
+  ENTITLEMENTS,
+  FONTS,
+  MEDIA,
+  PRESET_IDS,
+  PRICING,
+  STARTER_LOOKS,
+  THEME_MODES,
+  THEME_PRESETS,
+  type AccentId,
+  type FontId,
+  type StarterLook,
+  type StarterLookId,
+  type ThemeMode,
+} from '@vc/config'
 import type { CustomDomainsPanel, CustomDomainView } from '~/server/custom-domains'
 import { DownloadIcon } from '@radix-ui/react-icons'
 import {
@@ -49,6 +65,9 @@ type SiteSettingsForm = {
   defaultSeoDescription: string
   theme: string
   slug: string
+  themeAccent: AccentId
+  themeFont: FontId
+  themeMode: ThemeMode
 }
 
 function BillingStatusBadge({ status }: { status: string }) {
@@ -144,17 +163,23 @@ export function SettingsPage() {
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
-  const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'theme' | 'appearance' | 'domain' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
+  const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
+  const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
+  const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
 
   useEffect(() => {
     let cancelled = false
     void loadSettingsPage()
       .then((loaded) => {
         if (!cancelled) {
-          setData(loaded)
-          setSelectedTheme(loaded.site.theme)
+        setData(loaded)
+        setSelectedTheme(loaded.site.theme)
+        setSelectedAccent(loaded.site.themeAccent)
+        setSelectedFont(loaded.site.themeFont)
+        setSelectedMode(loaded.site.themeMode)
         }
       })
       .catch(() => {
@@ -177,6 +202,9 @@ export function SettingsPage() {
           defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
           defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
           theme: data?.site.theme ?? selectedTheme,
+          themeAccent: data?.site.themeAccent,
+          themeFont: data?.site.themeFont,
+          themeMode: data?.site.themeMode,
         },
       })
       await navigate({
@@ -200,10 +228,42 @@ export function SettingsPage() {
           defaultSeoTitle: data.site.defaultSeoTitle,
           defaultSeoDescription: data.site.defaultSeoDescription || undefined,
           theme: selectedTheme,
+          themeAccent: data.site.themeAccent,
+          themeFont: data.site.themeFont,
+          themeMode: data.site.themeMode,
         },
       })
       if (result.kind === 'ok') {
         setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
+      }
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
+      })
+    } finally {
+      setFormPending(null)
+    }
+  }
+
+  async function handleAppearanceSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!data) return
+    setFormPending('appearance')
+    try {
+      const result = await updateSiteSettingsMutation({
+        data: {
+          name: data.site.name,
+          description: data.site.description || undefined,
+          defaultSeoTitle: data.site.defaultSeoTitle,
+          defaultSeoDescription: data.site.defaultSeoDescription || undefined,
+          theme: data.site.theme,
+          themeAccent: selectedAccent,
+          themeFont: selectedFont,
+          themeMode: selectedMode,
+        },
+      })
+      if (result.kind === 'ok') {
+        setData((prev) => prev ? { ...prev, site: { ...prev.site, themeAccent: selectedAccent, themeFont: selectedFont, themeMode: selectedMode } } : prev)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -418,6 +478,134 @@ export function SettingsPage() {
             <RichContentFrame node={SAMPLE_RENDER.node} presetId={selectedTheme} mode={previewMode} />
           </div>
         </div>
+      </Panel>
+      <Panel title="Appearance" meta="Accent, font & mode">
+        <p className="mb-4 font-sans text-sm text-muted-foreground">
+          Customize your blog's accent color, typeface, and light/dark mode. Applies to the public blog only and does not rewrite existing content.
+        </p>
+        <form className="grid gap-5" onSubmit={(e) => void handleAppearanceSave(e)}>
+          <FieldSet>
+            <FieldLegend variant="label">Starter looks</FieldLegend>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(STARTER_LOOKS) as StarterLookId[]).map((id) => {
+                const look: StarterLook = STARTER_LOOKS[id]
+                const isActive =
+                  selectedAccent === look.accent &&
+                  (look.font === undefined || selectedFont === look.font)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAccent(look.accent)
+                      if (look.font) setSelectedFont(look.font)
+                    }}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 font-sans text-sm capitalize transition-colors',
+                      isActive
+                        ? 'border-brand-bright/40 bg-brand-bright/10 text-primary'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {id}
+                  </button>
+                )
+              })}
+            </div>
+          </FieldSet>
+          <FieldSet>
+            <FieldLegend variant="label">Accent color</FieldLegend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {ACCENTS.map((accent) => {
+                const isSelected = selectedAccent === accent.id
+                return (
+                  <Field
+                    key={accent.id}
+                    orientation="horizontal"
+                    className={cn(
+                      'cursor-pointer rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
+                      'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
+                    )}
+                  >
+                    <input
+                      id={`accent-${accent.id}`}
+                      className="sr-only"
+                      type="radio"
+                      name="accent"
+                      value={accent.id}
+                      checked={isSelected}
+                      onChange={() => setSelectedAccent(accent.id)}
+                    />
+                    <span
+                      aria-hidden
+                      className="h-5 w-5 shrink-0 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
+                      style={{ backgroundColor: accent.oklchLight }}
+                    />
+                    <FieldLabel
+                      htmlFor={`accent-${accent.id}`}
+                      className="font-sans text-sm font-medium"
+                    >
+                      {accent.name}
+                    </FieldLabel>
+                  </Field>
+                )
+              })}
+            </div>
+          </FieldSet>
+          <FieldSet>
+            <FieldLegend variant="label">Font</FieldLegend>
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+              {FONTS.map((font) => (
+                <button
+                  key={font.id}
+                  type="button"
+                  onClick={() => setSelectedFont(font.id)}
+                  aria-pressed={selectedFont === font.id}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 font-sans text-sm transition-colors',
+                    selectedFont === font.id
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {font.name}
+                </button>
+              ))}
+            </div>
+          </FieldSet>
+          <FieldSet>
+            <FieldLegend variant="label">Mode</FieldLegend>
+            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+              {THEME_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSelectedMode(mode)}
+                  aria-pressed={selectedMode === mode}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 font-sans text-sm capitalize transition-colors',
+                    selectedMode === mode
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </FieldSet>
+          {(selectedAccent !== site.themeAccent ||
+            selectedFont !== site.themeFont ||
+            selectedMode !== site.themeMode) && (
+            <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
+              Appearance changes not yet saved.
+            </p>
+          )}
+          <PendingSubmitButton className="w-fit" pending={formPending === 'appearance'} pendingText="Saving appearance...">
+            Save appearance
+          </PendingSubmitButton>
+        </form>
       </Panel>
         </TabsContent>
         <TabsContent value="domain" className="grid gap-4">

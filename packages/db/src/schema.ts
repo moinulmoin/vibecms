@@ -35,6 +35,12 @@ export const sites = sqliteTable("sites", {
   defaultSeoDescription: text("default_seo_description"),
   status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
   theme: text("theme").notNull().default("minimal"),
+  // Theme customizer (Layer 2) — additive, nullable→resolver-default.
+  // accent/font are nullable so existing rows (and the resolver) fall back to
+  // the curated defaults; mode defaults to 'system' (light/dark follows OS).
+  themeAccent: text("theme_accent"),
+  themeFont: text("theme_font"),
+  themeMode: text("theme_mode").notNull().default("system"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 

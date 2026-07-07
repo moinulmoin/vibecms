@@ -20,6 +20,10 @@ export interface SiteSetup {
   slug: string;
   description: string | null;
   defaultSeoTitle: string | null;
+  // Theme customizer (Layer 2) — nullable/resolver-default; available to the setup read.
+  themeAccent: string | null;
+  themeFont: string | null;
+  themeMode: string;
 }
 
 // SELECT name, description, default_seo_title, default_seo_description, theme, slug FROM sites
@@ -30,6 +34,10 @@ export interface SiteSettings {
   defaultSeoDescription: string | null;
   theme: string | null;
   slug: string;
+  // Theme customizer (Layer 2) — nullable→resolver-default on read.
+  themeAccent: string | null;
+  themeFont: string | null;
+  themeMode: string;
 }
 
 export type MembershipRole = "owner" | "editor" | "viewer";
@@ -77,6 +85,10 @@ export interface UpdateSiteSettingsInput {
     defaultSeoTitle: string;
     defaultSeoDescription: string | null;
     theme: string;
+    // Theme customizer (Layer 2) — null accent/font = use resolver default.
+    themeAccent: string | null;
+    themeFont: string | null;
+    themeMode: string;
   };
   activity: SiteActivityEntry;
 }
@@ -151,6 +163,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           slug: sites.slug,
           description: sites.description,
           defaultSeoTitle: sites.defaultSeoTitle,
+          themeAccent: sites.themeAccent,
+          themeFont: sites.themeFont,
+          themeMode: sites.themeMode,
         })
         .from(sites)
         .where(eq(sites.id, siteId))
@@ -167,6 +182,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           defaultSeoDescription: sites.defaultSeoDescription,
           theme: sites.theme,
           slug: sites.slug,
+          themeAccent: sites.themeAccent,
+          themeFont: sites.themeFont,
+          themeMode: sites.themeMode,
         })
         .from(sites)
         .where(eq(sites.id, siteId))
@@ -294,6 +312,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           defaultSeoTitle: input.site.defaultSeoTitle,
           defaultSeoDescription: input.site.defaultSeoDescription,
           theme: input.site.theme,
+          themeAccent: input.site.themeAccent,
+          themeFont: input.site.themeFont,
+          themeMode: input.site.themeMode,
           updatedAt: input.timestamp,
         })
         .where(eq(sites.id, input.siteId))

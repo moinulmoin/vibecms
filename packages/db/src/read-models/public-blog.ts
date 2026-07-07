@@ -10,6 +10,10 @@ export interface PublicSiteRow {
   name: string;
   slug: string;
   theme: string;
+  // Theme customizer (Layer 2) — nullable→resolver-default on render.
+  themeAccent: string | null;
+  themeFont: string | null;
+  themeMode: string;
   description: string | null;
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
@@ -63,6 +67,9 @@ const siteResolveColumns = {
   name: sites.name,
   slug: sites.slug,
   theme: sites.theme,
+  themeAccent: sites.themeAccent,
+  themeFont: sites.themeFont,
+  themeMode: sites.themeMode,
   description: sites.description,
   defaultSeoTitle: sites.defaultSeoTitle,
   defaultSeoDescription: sites.defaultSeoDescription,

@@ -1,6 +1,45 @@
+import type { CSSProperties } from "react";
 import styles from "./public-blog.module.css";
 import { RichContentFrame, type RenderResult } from "~/lib/markdown";
-import type { ResolvedPresentation } from "@vc/config";
+import {
+  getAccent,
+  getFont,
+  resolveAccent,
+  resolveFont,
+  resolveMode,
+  type ResolvedPresentation,
+  type ThemeMode,
+} from "@vc/config";
+
+/** Raw per-site theme fields, threaded from the site row. */
+export interface SiteThemeInput {
+  accent: string | null;
+  font: string | null;
+  mode: string | null;
+}
+
+/**
+ * Resolve a site's theme into inline CSS custom properties + color mode for the
+ * theming root. The var-bridge in vc-rich-content.css / presets.css selects
+ * --vc-accent-light/--vc-accent-dark per mode and consumes --vc-font-body/
+ * --vc-font-heading from these. (React 19 CSSProperties has no custom-property
+ * index signature, hence the cast.)
+ */
+export function resolveSiteTheme(theme: SiteThemeInput): {
+  style: CSSProperties;
+  mode: ThemeMode;
+} {
+  const accent = getAccent(resolveAccent(theme.accent));
+  const font = getFont(resolveFont(theme.font));
+  const mode = resolveMode(theme.mode);
+  const style = {
+    "--vc-accent-light": accent.oklchLight,
+    "--vc-accent-dark": accent.oklchDark,
+    "--vc-font-body": font.bodyStack,
+    "--vc-font-heading": font.headingStack,
+  } as CSSProperties;
+  return { style, mode };
+}
 
 export interface PresentedPostArticleProps {
   renderResult: RenderResult;
@@ -16,6 +55,8 @@ export interface PresentedPostArticleProps {
   tags?: string[];
   /** Base path used to build per-tag links. Required when `tags` is supplied. */
   basePath?: string;
+  /** Per-site accent/font/mode; injected as CSS vars + data-vc-mode on the root. */
+  theme?: SiteThemeInput;
 }
 
 /**
@@ -35,7 +76,12 @@ export function PresentedPostArticle({
   readingMinutes,
   tags,
   basePath,
+  theme,
 }: PresentedPostArticleProps) {
+  // Theme Customizer (Layer 2): inject per-site accent/font vars + forced mode
+  // on the article root; they cascade into RichContentFrame's [data-rich-content].
+  const themeAttrs = theme ? resolveSiteTheme(theme) : undefined;
+
   const isFeature = presentation.layout === "feature";
   const { outline } = renderResult;
   // §3: page-level ToC renders only when the preset supports it AND there are
@@ -80,7 +126,14 @@ export function PresentedPostArticle({
   );
 
   return (
-    <article className={styles.article} data-vc-layout={presentation.layout}>
+    <article
+      className={styles.article}
+      data-vc-layout={presentation.layout}
+      style={themeAttrs?.style}
+      {...(themeAttrs?.mode === "light" || themeAttrs?.mode === "dark"
+        ? { "data-vc-mode": themeAttrs.mode }
+        : {})}
+    >
       {isFeature ? (
         hasHeroChrome ? (
           // Feature: full-width cover hero above title; only the cover breaks out (§7).
@@ -127,7 +180,7 @@ export function PresentedPostArticle({
       ) : null}
       {/* Body: prose column + sticky right rail (rail shown only >=1100px via CSS). */}
       <div className={styles.articleBody}>
-        <RichContentFrame node={renderResult.node} presetId={presetId} />
+        <RichContentFrame node={renderResult.node} presetId={presetId} mode={themeAttrs?.mode} />
         {hasToc ? (
           <nav className={styles.tocRail} aria-label="On this page">
             <p className={styles.tocRailLabel}>On this page</p>
