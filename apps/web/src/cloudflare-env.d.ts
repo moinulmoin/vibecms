@@ -8,9 +8,8 @@ declare namespace Cloudflare {
     SELF_HOSTED: string
     DB: D1Database
     ASSETS_BUCKET: R2Bucket
-    BETTER_AUTH_SECRET?: string
+    EMAIL: SendEmail
     TOKEN_PEPPER?: string
-    CLOUDFLARE_EMAIL_API_TOKEN?: string
     EMAIL_FROM?: string
     GOOGLE_CLIENT_ID?: string
     GOOGLE_CLIENT_SECRET?: string

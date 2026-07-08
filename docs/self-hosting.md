@@ -83,13 +83,26 @@ Do not set Polar secrets for self-hosted mode unless you intentionally want to t
 
 Sign-in is passwordless: users enter their email and receive a 6-digit code. Verifying the code creates the account on first use, so the email is always confirmed - there is no separate password to manage or reset.
 
-To deliver codes by email in production, set `CLOUDFLARE_EMAIL_API_TOKEN` as a secret:
+To deliver codes by email in production, OTP email is sent through a native `send_email`
+Workers binding named `EMAIL`, declared in `wrangler.jsonc` as
+`"send_email": [{ "name": "EMAIL" }]`. No API token secret is needed — the Worker itself
+is the sending identity — so there is no `wrangler secret put` step for email. Two things
+are required instead:
+
+1. Onboard **your own** sending domain to Cloudflare Email Sending and add the
+   SPF/DKIM/DMARC records Cloudflare provides:
 
 ```sh
-pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN --config ../../wrangler.jsonc
+npx wrangler email sending enable <your-domain>
 ```
 
-Optionally set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on a domain onboarded to Cloudflare Email Sending, e.g. `vibecms <login@yourdomain.com>`. If `CLOUDFLARE_EMAIL_API_TOKEN` is unset, codes are logged to the Worker console instead of emailed - useful for local testing, not for real users.
+2. Set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on the domain you onboarded,
+   e.g. `vibecms <login@yourdomain.com>`, and confirm the `EMAIL` `send_email` binding is
+   present in your `wrangler.jsonc`.
+
+When the `EMAIL` binding is present the Worker sends real email; without it, codes are
+logged to the Worker console (`wrangler tail`) instead of emailed — useful for local
+testing, not for real users.
 
 To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
 

@@ -80,25 +80,30 @@ pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
 
 ## 2. Email delivery (Cloudflare Email Sending) - required for real OTP
 
-Without `CLOUDFLARE_EMAIL_API_TOKEN` the worker only logs codes to `wrangler tail`
-(sign-in is impossible in production).
+OTP email is sent through a native `send_email` Workers binding named `EMAIL`,
+declared in `apps/web/wrangler.jsonc` as `"send_email": [{ "name": "EMAIL" }]` (present
+in both the top-level dev config and the `env.production` block). The Worker itself is
+the sending identity, so **no API token secret is needed** — there is no
+`wrangler secret put` step for email.
 
 1. Enable **Email Sending** on the Cloudflare account and onboard your sending domain
-   (add the SPF/DKIM/DMARC records Cloudflare provides).
-2. Create a Cloudflare API token with **Email Sending** permission.
-3. Set the secret and a sender var:
+   (add the SPF/DKIM/DMARC records Cloudflare provides). The binding only delivers if the
+   sender domain is onboarded:
 
 ```bash
-pnpm --filter @vc/web exec wrangler secret put CLOUDFLARE_EMAIL_API_TOKEN
+npx wrangler email sending enable <your-domain>
 ```
 
-Add to `apps/web/wrangler.jsonc` `vars` (not sensitive):
+2. Confirm `EMAIL_FROM` is set in `apps/web/wrangler.jsonc` `vars` (not sensitive) to an
+   address on the domain you onboarded:
 
 ```jsonc
 "EMAIL_FROM": "vibecms <login@<your-domain>>"
 ```
 
-The `EMAIL_FROM` address must be on the domain you onboarded to Cloudflare Email Sending. `CLOUDFLARE_ACCOUNT_ID` is already set as a var in `apps/web/wrangler.jsonc`.
+When the `EMAIL` binding is present the Worker sends real email; without it the Worker
+only logs codes to `wrangler tail` (useful for local testing — sign-in is impossible in
+production).
 
 ---
 

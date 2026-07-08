@@ -96,7 +96,7 @@ ignores it under the Vite plugin).
 
 ### Secrets
 
-Runtime secrets (`BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `CLOUDFLARE_EMAIL_API_TOKEN`, Polar, Google) are
+Runtime secrets (`BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, Polar, Google) are
 stored on each worker (`pnpm --filter @vc/web exec wrangler secret put <NAME>`, or
 `--env production` for the prod worker) and persist across deploys. CI needs no `.dev.vars`.
 Full production set: [`launch-runbook.md`](./launch-runbook.md).

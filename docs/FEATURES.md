@@ -14,7 +14,7 @@ Last updated: 2026-06-23
 
 ### Auth & accounts
 - Passwordless email OTP sign-in (Better Auth `emailOTP`, 6-digit, 10-min expiry).
-- OTP delivery via Cloudflare Email Sending when `CLOUDFLARE_EMAIL_API_TOKEN` is set; otherwise console-logged (local/test).
+- OTP delivery via Cloudflare's native `send_email` Workers binding (`EMAIL`, declared in wrangler.jsonc) on an onboarded sending domain; otherwise console-logged (local/test).
 - OTP send rate limit: 5/hour per email (D1, fail-open).
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default domain + billing row (`none`).
 

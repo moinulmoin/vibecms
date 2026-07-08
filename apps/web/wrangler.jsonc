@@ -21,6 +21,11 @@
       "bucket_name": "vibecms-assets"
     }
   ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
   "routes": [
     // Dev mirrors prod on a SEPARATE zone (basedui.dev) to avoid the *.vibecms.dev wildcard collision.
     { "pattern": "basedui.dev", "custom_domain": true },
@@ -38,12 +43,11 @@
     "SELF_HOSTED": "false",
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
     "POLAR_PRODUCT_ID": "product_dev_placeholder",
-    "POLAR_SERVER": "sandbox",
-    "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
+    "POLAR_SERVER": "sandbox"
   },
   "env": {
     // Production hosts: vibecms.dev (marketing) + app.vibecms.dev (dashboard + auth + agent APIs) + *.vibecms.dev/* (tenant blogs).
-    // Secrets (TOKEN_PEPPER, BETTER_AUTH_SECRET, CLOUDFLARE_EMAIL_API_TOKEN, POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET) are set via `wrangler secret put --env production`.
+    // Secrets (TOKEN_PEPPER, BETTER_AUTH_SECRET, POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET) are set via `wrangler secret put --env production`. Email sends via the native send_email binding (no API token).
     "production": {
       "name": "vibecms-prod",
       "d1_databases": [
@@ -58,6 +62,11 @@
         {
           "binding": "ASSETS_BUCKET",
           "bucket_name": "vibecms-assets-prod"
+        }
+      ],
+      "send_email": [
+        {
+          "name": "EMAIL"
         }
       ],
       "routes": [
@@ -77,8 +86,7 @@
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
         "POLAR_SERVER": "production",
         "POLAR_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
-        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436",
-        "CLOUDFLARE_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36"
+        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436"
       }
     }
   }

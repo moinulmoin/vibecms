@@ -1,8 +1,8 @@
 BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
 TOKEN_PEPPER=generate_with_openssl_rand_hex_32
-# Optional: passwordless sign-in emails the 6-digit code via Cloudflare Email Sending in production.
-# Leave CLOUDFLARE_EMAIL_API_TOKEN unset to log the code to the worker console instead.
-CLOUDFLARE_EMAIL_API_TOKEN=
+# OTP email is sent via the native `send_email` Workers binding (named EMAIL) declared in
+# wrangler.jsonc - no API token secret is needed, just an onboarded sending domain. When
+# the binding is absent (local dev/tests) the code is logged to the console instead.
 EMAIL_FROM=vibecms <login@your-domain.com>
 # Optional: enables the "Continue with Google" button (set both, or omit both).
 GOOGLE_CLIENT_ID=

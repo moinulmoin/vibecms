@@ -29,9 +29,6 @@ importers:
       '@hono/zod-openapi':
         specifier: ^1.4.0
         version: 1.4.0(hono@4.12.25)(zod@4.4.3)
-      '@opencoredev/email-sdk':
-        specifier: ^0.6.5
-        version: 0.6.5
       '@polar-sh/sdk':
         specifier: ^0.47.1
         version: 0.47.1
@@ -1631,11 +1628,6 @@ packages:
   '@oozcitak/util@10.0.0':
     resolution: {integrity: sha512-hAX0pT/73190NLqBPPWSdBVGtbY6VOhWYK3qqHqtXQ1gK7kS2yz4+ivsN07hpJ6I3aeMtKP6J6npsEKOAzuTLA==}
     engines: {node: '>=20.0'}
-
-  '@opencoredev/email-sdk@0.6.5':
-    resolution: {integrity: sha512-CuEfbOSjjr4/bsCz7g/X7l7ha1D/QLq0Q4glX4CRsj0uUCnuhdBYRDXv6ffi9myaVx3afw3P8RzAnw+1++jLMg==}
-    engines: {bun: '>=1.1.0', node: '>=20.0.0'}
-    hasBin: true
 
   '@opentelemetry/semantic-conventions@1.41.1':
     resolution: {integrity: sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA==}
@@ -5400,8 +5392,6 @@ snapshots:
       '@oozcitak/util': 10.0.0
 
   '@oozcitak/util@10.0.0': {}
-
-  '@opencoredev/email-sdk@0.6.5': {}
 
   '@opentelemetry/semantic-conventions@1.41.1': {}
 
