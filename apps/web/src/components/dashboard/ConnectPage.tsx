@@ -24,6 +24,7 @@ import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import { clearTokenFlash, consumeTokenFlash, saveTokenFlash } from '~/lib/token-flash'
 import { checkoutBillingMutation } from '~/server/billing-page-fn'
 import { isOnboardingActivationComplete } from '~/lib/connect-onboarding'
+import { resolveDisplayConnection } from './connect-display'
 
 const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
 
@@ -168,7 +169,14 @@ export function ConnectPage() {
 
   const [connectData, setConnectData] = useState<ConnectPageData | null>(null)
   const [status, setStatus] = useState<OnboardingConnectStatus | null>(null)
-  const [flash, setFlash] = useState<{ token: string; name: string } | null>(null)
+  const [flash, setFlashState] = useState<{ token: string; name: string } | null>(null)
+  // Mirror flash in a ref so the once-mounted poll closure observes the latest reveal
+  // without restarting the poll loop when the one-time token flash appears or is dismissed.
+  const flashRef = useRef(flash)
+  const setFlash = (value: { token: string; name: string } | null) => {
+    flashRef.current = value
+    setFlashState(value)
+  }
   const [createPending, setCreatePending] = useState(false)
   const [revokePending, setRevokePending] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
@@ -213,27 +221,33 @@ export function ConnectPage() {
           waitingStartedAtRef.current = null
         }
 
-        const serverConn = s.connection
-        const displayConn =
-          serverConn === 'no_token' || serverConn === 'revoked'
-            ? serverConn
-            : stickyConnectedRef.current
-              ? 'connected'
-              : serverConn
+        const displayConn = resolveDisplayConnection(
+          s.connection,
+          flashRef.current !== null,
+          stickyConnectedRef.current,
+        )
 
         const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
         const sub = getSub(displayConn, elapsedMs)
 
-        const key = `${displayConn}|${s.publish?.state ?? ''}|${sub ?? ''}`
+        // Once onboarding is complete (live), connection announcements are stale — a later
+        // token revocation must not strand "this token can't be used" in the sr-only region
+        // while the visible page shows the live reveal. Clear it and stop announcing.
+        const live = isOnboardingActivationComplete(s.publish)
+        const key = live ? '__live__' : `${displayConn}|${s.publish?.state ?? ''}|${sub ?? ''}`
         if (key !== lastSubRef.current) {
           lastSubRef.current = key
-          const msg = announcementFor(sub)
-          if (msg) setAnnouncement(msg)
+          if (live) {
+            setAnnouncement('')
+          } else {
+            const msg = announcementFor(sub)
+            if (msg) setAnnouncement(msg)
+          }
         }
 
         setStatus(s)
 
-        if (!isOnboardingActivationComplete(s.publish)) {
+        if (!live) {
           const interval = stickyConnectedRef.current ? 5_000 : 3_000
           timerId = setTimeout(poll, interval)
         }
@@ -268,6 +282,12 @@ export function ConnectPage() {
       if (result.kind === 'ok') {
         saveTokenFlash({ token: result.token, name: result.name })
         setFlash({ token: result.token, name: result.name })
+        // The token exists locally right now. Start the waiting clock immediately and
+        // announce waiting so users hear a useful state before the first poll lands —
+        // that poll may briefly read no_token/revoked during D1 propagation, which
+        // resolveDisplayConnection suppresses as waiting while the flash is present.
+        waitingStartedAtRef.current = Date.now()
+        setAnnouncement(announcementFor('waiting'))
         await refreshTokens()
         await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ ok: 'token_created' }) })
         return
@@ -310,16 +330,14 @@ export function ConnectPage() {
   }
 
   const live = isOnboardingActivationComplete(status?.publish)
-  const serverConn = status?.connection
-  const displayConn =
-    serverConn === 'no_token' || serverConn === 'revoked'
-      ? serverConn
-      : stickyConnectedRef.current
-        ? 'connected'
-        : serverConn
+  const displayConn = resolveDisplayConnection(
+    status?.connection,
+    flash !== null,
+    stickyConnectedRef.current,
+  )
 
   const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
-  const selfTestSub = getSub(displayConn ?? 'no_token', elapsedMs)
+  const selfTestSub = getSub(displayConn, elapsedMs)
   const showSelfTest =
     !live &&
     status !== null &&
@@ -361,7 +379,7 @@ export function ConnectPage() {
       </noscript>
 
       <div role="status" aria-live="polite" className="sr-only">
-        {announcement}
+        {live ? '' : announcement}
       </div>
 
       <PageHeader kicker={pageKicker} title={pageTitle} description={pageDesc} />
