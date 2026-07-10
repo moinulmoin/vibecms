@@ -18,6 +18,7 @@ import { uploadAsset } from "./media";
 import { purgeArticleCache } from "./public-blog-cache";
 import { getSitePublicBaseUrl } from "./site-public-url";
 import { formatGuideForPreset } from "./format-guide";
+import { getVoiceProfileForSite } from "./voice-profile";
 import { renderRichContent, validateRichContent, RENDERER_VERSION } from "../lib/markdown";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
@@ -93,9 +94,12 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
 
 export async function getSiteOp(ctx: OperationContext) {
   requireScope(ctx.actor, "sites:read");
-  const row = await createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId);
+  const [row, voiceProfile] = await Promise.all([
+    createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId),
+    getVoiceProfileForSite(ctx.siteId),
+  ]);
   const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
-  return mapSiteRow(row, url);
+  return mapSiteRow(row, url, voiceProfile);
 }
 
 export async function listPostsOp(ctx: OperationContext, input: ListPostsRequest) {
@@ -175,7 +179,7 @@ export async function updatePostOp(
   },
 ) {
   await assertCoverAssetOwnedBySite(ctx.siteId, input.coverAssetId);
-  const post = await updatePost(repository(), ctx.actor, {
+  const { post } = await updatePost(repository(), ctx.actor, {
       siteId: ctx.siteId,
       postId: input.postId,
       title: input.title,
@@ -193,10 +197,14 @@ export async function updatePostOp(
   return mapPost(post, postPublicUrl(base, post));
 }
 
-export async function publishPostOp(ctx: OperationContext, input: { postId: string }) {
+export async function publishPostOp(
+  ctx: OperationContext,
+  input: { postId: string; expectedVersionNumber: number },
+) {
   const published = await publishPost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
+    expectedVersionNumber: input.expectedVersionNumber,
     billingStatus: await getBillingStatusForSite(ctx.siteId),
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);

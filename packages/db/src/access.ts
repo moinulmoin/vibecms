@@ -7,6 +7,7 @@ import { createD1DomainRepository } from "./repositories/domains";
 import { createD1PostRepository } from "./repositories/posts";
 import { createD1SubscriberRepository, type AddPendingInput } from "./repositories/subscribers";
 import { createSitesRepository, type SitesRepository } from "./repositories/sites";
+import { createVoiceProfilesRepository, type VoiceProfilesRepository } from "./repositories/voice-profiles";
 import { createBillingRepository, type BillingRepository } from "./repositories/billing";
 import { createUsageRepository, type UsageRepository } from "./repositories/usage";
 import { createRateLimitsRepository, type RateLimitsRepository } from "./repositories/rate-limits";
@@ -28,6 +29,7 @@ export interface DataAccess {
   subscribers: SubscriberRepository;
   activity: ActivityRepository;
   sites: SitesRepository;
+  voiceProfiles: VoiceProfilesRepository;
   billing: BillingRepository;
   usage: UsageRepository;
   rateLimits: RateLimitsRepository;
@@ -50,6 +52,7 @@ export function createDataAccess(db: D1Database): DataAccess {
     activity: createActivityRepository(db),
     apiKeys: createApiKeysRepository(db),
     sites: createSitesRepository(db),
+    voiceProfiles: createVoiceProfilesRepository(db),
     billing: createBillingRepository(db),
     usage: createUsageRepository(db),
     rateLimits: createRateLimitsRepository(db),

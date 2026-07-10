@@ -44,6 +44,18 @@ export const sites = sqliteTable("sites", {
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 
+export const siteVoiceProfiles = sqliteTable("site_voice_profiles", {
+  siteId: text("site_id").primaryKey().references(() => sites.id, { onDelete: "cascade" }),
+  audience: text("audience"),
+  voiceSummary: text("voice_summary"),
+  guidelinesJson: text("guidelines_json").notNull().default("[]"),
+  representativePostIdsJson: text("representative_post_ids_json").notNull().default("[]"),
+  updatedByType: text("updated_by_type", { enum: ["human"] }).notNull(),
+  updatedById: text("updated_by_id").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  ...timestamps,
+});
+
 export const domains = sqliteTable("domains", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -250,6 +262,8 @@ export type MembershipRow = typeof memberships.$inferSelect;
 export type MembershipInsert = typeof memberships.$inferInsert;
 export type SiteRow = typeof sites.$inferSelect;
 export type SiteInsert = typeof sites.$inferInsert;
+export type SiteVoiceProfileRow = typeof siteVoiceProfiles.$inferSelect;
+export type SiteVoiceProfileInsert = typeof siteVoiceProfiles.$inferInsert;
 export type DomainRow = typeof domains.$inferSelect;
 export type DomainInsert = typeof domains.$inferInsert;
 export type PostRow = typeof posts.$inferSelect;

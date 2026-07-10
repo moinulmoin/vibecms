@@ -21,8 +21,9 @@ import {
   type OnboardingConnectStatus,
 } from '~/server/dashboard-pages-fn'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
-import { consumeTokenFlash, saveTokenFlash } from '~/lib/token-flash'
+import { clearTokenFlash, consumeTokenFlash, saveTokenFlash } from '~/lib/token-flash'
 import { checkoutBillingMutation } from '~/server/billing-page-fn'
+import { isOnboardingActivationComplete } from '~/lib/connect-onboarding'
 
 const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
 
@@ -47,9 +48,6 @@ function capabilityLabel(scopes: Scope[]): string {
   return 'Drafter'
 }
 
-function isLive(s: OnboardingConnectStatus | null): boolean {
-  return s?.publish?.state === 'live' || s?.publish?.state === 'already_live'
-}
 
 function getSub(connection: OnboardingConnectStatus['connection'], elapsedMs: number): SelfTestSub | null {
   if (connection === 'revoked') return 'revoked'
@@ -196,7 +194,7 @@ export function ConnectPage() {
   }, [])
 
   // Poll the connection/publish status. Monotonic + terminal-sticky: once connected,
-  // the display never regresses to waiting; polling stops once the first post is live.
+  // the display never regresses to waiting; polling stops only after this agent publishes.
   useEffect(() => {
     let cancelled = false
     let timerId: ReturnType<typeof setTimeout> | undefined
@@ -235,7 +233,7 @@ export function ConnectPage() {
 
         setStatus(s)
 
-        if (!isLive(s)) {
+        if (!isOnboardingActivationComplete(s.publish)) {
           const interval = stickyConnectedRef.current ? 5_000 : 3_000
           timerId = setTimeout(poll, interval)
         }
@@ -311,7 +309,7 @@ export function ConnectPage() {
     }
   }
 
-  const live = isLive(status)
+  const live = isOnboardingActivationComplete(status?.publish)
   const serverConn = status?.connection
   const displayConn =
     serverConn === 'no_token' || serverConn === 'revoked'
@@ -347,10 +345,10 @@ export function ConnectPage() {
   const pageDesc = live
     ? undefined
     : displayConn === 'connected'
-      ? 'Your agent authenticated. Paste the starter prompt to publish your first post.'
+      ? 'Your agent authenticated. Verify read-only access, then use the approval-first flow to prepare a draft.'
       : flash !== null
         ? 'Copy the token and config below now. It is shown only once.'
-        : 'Create a scoped API token, point your AI agent at the blog over MCP, and manage tokens.'
+        : 'Create a scoped API token, connect any compatible MCP agent, and keep token management in the dashboard.'
 
   const loading = !connectData && !status
 
@@ -387,7 +385,15 @@ export function ConnectPage() {
           </div>
           <ConnectAgent mcpUrl={mcpUrl} token={flash.token} tokenName={flash.name} />
           <div className="mt-4 flex justify-end">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setFlash(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                clearTokenFlash()
+                setFlash(null)
+              }}
+            >
               I&apos;ve copied it - hide
             </Button>
           </div>
@@ -416,11 +422,11 @@ export function ConnectPage() {
               <span>
                 {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
                 {selfTestSub === 'stalled' &&
-                  "Still waiting. Some MCP clients don't call tools until you ask. Try asking your agent to call sites.get."}
+                  "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
                 {selfTestSub === 'recovery' &&
                   'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
                 {selfTestSub === 'connected' &&
-                  'Connected. vibecms saw your agent authenticate. Paste the starter prompt to publish your first post.'}
+                  'Connected. VibeCMS saw your agent authenticate. Run the read-only check, then use the approval-first writing flow.'}
                 {selfTestSub === 'revoked' &&
                   "This token can't be used anymore. Create a new token below to connect an agent."}
               </span>
@@ -429,6 +435,24 @@ export function ConnectPage() {
         </Panel>
       )}
 
+      {status?.publish?.state === 'already_live' && (
+        <Panel title="Existing live content" meta="Context only">
+          <p className="font-sans text-sm leading-6 text-muted-foreground">
+            This site already has published content. It does not complete this agent&apos;s connection flow or replace
+            explicit approval for its next publish.
+          </p>
+          {status.publish.post && (
+            <a
+              href={status.publish.post.url}
+              target="_blank"
+              rel="noopener"
+              className="mt-3 inline-block font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              View existing post
+            </a>
+          )}
+        </Panel>
+      )}
       {connectData && (
         <Panel
           title="API tokens"

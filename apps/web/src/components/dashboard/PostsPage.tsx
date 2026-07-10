@@ -1,9 +1,9 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { Field, FieldLabel, Input, Select, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
-import type { PostSummary } from '@vc/core'
+import type { DashboardPostSummary } from '~/server/posts-page-fn'
 import {
   archivePostMutation,
   loadPostsPage,
@@ -74,9 +74,9 @@ function PostsSkeleton() {
 
 export function PostsPage({ search }: { search: PostsListSearch }) {
   const navigate = useNavigate()
-  const [posts, setPosts] = useState<PostSummary[] | null>(null)
-  const [hasMore, setHasMore] = useState(false)
+  const [posts, setPosts] = useState<DashboardPostSummary[] | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [rowPending, setRowPending] = useState<string | null>(null)
 
@@ -103,6 +103,11 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
       cancelled = true
     }
   }, [search.status, search.search])
+
+  async function publishApprovedVersion(postId: string, versionNumber: number | null) {
+    if (versionNumber === null) return { kind: 'error' as const, code: 'not_found' }
+    return publishPostMutation({ data: { postId, expectedVersionNumber: versionNumber } })
+  }
 
   async function runRowMutation(
     key: string,
@@ -233,9 +238,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         pending={rowPending === `${post.id}:publish`}
                         pendingText="Publishing…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, () =>
-                            publishPostMutation({ data: { postId: post.id } }),
-                          )
+                          void runRowMutation(`${post.id}:publish`, () => publishApprovedVersion(post.id, post.versionNumber))
                         }
                       >
                         Publish
@@ -299,9 +302,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         pending={rowPending === `${post.id}:publish`}
                         pendingText="Publishing…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, () =>
-                            publishPostMutation({ data: { postId: post.id } }),
-                          )
+                          void runRowMutation(`${post.id}:publish`, () => publishApprovedVersion(post.id, post.versionNumber))
                         }
                       >
                         Publish

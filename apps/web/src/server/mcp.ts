@@ -1,11 +1,12 @@
 import { AppError, RateLimitError, type Actor } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { FORM_STATUS } from "@vc/config";
-import { mcpInstructions, mcpTools } from "@vc/mcp";
+import { mcpInstructions } from "@vc/mcp";
 import {
   mcpToolNames as contractToolNames,
   operations,
   operationsByToolName,
+  zodToInputJsonSchema,
   zodToJsonSchema,
   type McpToolName,
   type OperationAnnotations,
@@ -19,7 +20,6 @@ import type { OperationContext } from "./operations";
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
 type ToolContent = { type: "text"; text: string };
 
-const mcpToolsByName = new Map(mcpTools.map((tool) => [tool.name, tool]));
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -103,7 +103,6 @@ async function callTool(name: McpToolName, actor: Actor, siteId: string, workspa
 function listedTools() {
   return {
     tools: operations.map((op) => {
-      const catalog = mcpToolsByName.get(op.toolName);
       const annotations: Record<string, boolean> = {};
       const hints = op.annotations as OperationAnnotations;
       if (hints.readOnly) annotations.readOnlyHint = true;
@@ -111,8 +110,8 @@ function listedTools() {
       if (hints.idempotent) annotations.idempotentHint = true;
       return {
         name: op.toolName,
-        description: catalog?.description ?? op.description,
-        inputSchema: catalog?.inputSchema ?? {},
+        description: op.description,
+        inputSchema: zodToInputJsonSchema(op.requestSchema),
         outputSchema: outputSchemaFor(op.responseSchema).schema,
         annotations,
         _meta: {

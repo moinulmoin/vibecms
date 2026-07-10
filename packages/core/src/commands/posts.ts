@@ -1,5 +1,5 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
-import { BillingRequiredError, NotFoundError } from "../errors";
+import { BillingRequiredError, ConflictError, NotFoundError } from "../errors";
 import { requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
@@ -11,11 +11,11 @@ export type PostMutationHistory = {
 
 export type PostRepository = {
   createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt">, actor: Actor, history: PostMutationHistory): Promise<Post>;
-  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory): Promise<Post | null>;
+  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory): Promise<{ post: Post; versionNumber: number } | null>;
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  publishPostWithHistory(siteId: string, postId: string, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean }>;
+  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
   listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
   getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
@@ -77,17 +77,31 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
   return after;
 }
 
-export async function publishPost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; billingStatus: BillingStatus }) {
+export async function publishPost(
+  repo: PostRepository,
+  actor: Actor,
+  input: { siteId: string; postId: string; expectedVersionNumber: number; billingStatus: BillingStatus },
+) {
   requireScope(actor, "posts:publish");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  // The free-publish cap is enforced atomically in the repository's conditional
-  // write (D1 serializes the statement), closing the read-then-write race.
-  const { post, capReached } = await repo.publishPostWithHistory(input.siteId, input.postId, actor, {
-    changeSummary: "Published post",
-    activityAction: "post.published",
-    activitySummary: `Published ${before.title}`,
-  }, { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT });
+  // The version approval and free-publish cap are enforced in the repository's
+  // atomic conditional write. A concurrent edit therefore cannot be published.
+  const { post, capReached, versionConflict } = await repo.publishPostWithHistory(
+    input.siteId,
+    input.postId,
+    input.expectedVersionNumber,
+    actor,
+    {
+      changeSummary: "Published post",
+      activityAction: "post.published",
+      activitySummary: `Published ${before.title}`,
+    },
+    { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT },
+  );
+  if (versionConflict) {
+    throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
+  }
   if (capReached) throw new BillingRequiredError("Subscribe to publish more than one post");
   if (!post) throw new NotFoundError("Post not found");
   return post;
@@ -103,7 +117,7 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
     activitySummary: `Archived ${before.title}`,
   });
   if (!after) throw new NotFoundError("Post not found");
-  return after;
+  return after.post;
 }
 
 export async function getPost(repo: PostRepository, actor: Actor, siteId: string, postId: string) {
@@ -146,5 +160,5 @@ export async function restorePostVersion(repo: PostRepository, actor: Actor, inp
     activitySummary: `Restored "${target.title}" to v${input.versionNumber}`,
   });
   if (!after) throw new NotFoundError("Post not found");
-  return after;
+  return after.post;
 }

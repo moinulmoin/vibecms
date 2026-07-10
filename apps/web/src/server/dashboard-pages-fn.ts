@@ -15,6 +15,12 @@ import {
 import { resolveAppRouterContext } from '~/server/resolve-app-router-context.server'
 import { getSitePublicBaseUrl } from '~/server/site-public-url'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '~/server/custom-domains'
+import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
+import {
+  clearVoiceProfileForApp,
+  getVoiceProfileSettings,
+  updateVoiceProfileForApp,
+} from '~/server/voice-profile'
 
 async function requireApp() {
   const ctx = await resolveAppRouterContext()
@@ -36,8 +42,9 @@ export const completeSetupMutation = createServerFn({ method: 'POST' })
 
 export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async () => {
   const app = await requireApp()
-  const [site, billing, customDomains] = await Promise.all([
+  const [site, voiceProfile, billing, customDomains] = await Promise.all([
     getSiteSettings(app),
+    getVoiceProfileSettings(app),
     getBilling(app.workspaceId),
     listCustomDomainsForApp(app),
   ])
@@ -47,6 +54,7 @@ export const loadSettingsPage = createServerFn({ method: 'GET' }).handler(async 
   const publicBaseUrl = site.slug ? await getSitePublicBaseUrl(app.siteId, site.slug) : null
   return {
     site,
+    voiceProfile,
     customDomains,
     billingStatus: billing.status,
     selfHosted,
@@ -71,6 +79,18 @@ export const updateSiteSettingsMutation = createServerFn({ method: 'POST' })
     const app = await requireApp()
     return updateSiteSettingsForApp(app, data)
   })
+
+export const updateVoiceProfileMutation = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => data as VoiceProfileSettingsInput)
+  .handler(async ({ data }) => {
+    const app = await requireApp()
+    return updateVoiceProfileForApp(app, data)
+  })
+
+export const clearVoiceProfileMutation = createServerFn({ method: 'POST' }).handler(async () => {
+  const app = await requireApp()
+  return clearVoiceProfileForApp(app)
+})
 
 export const createApiKeyMutation = createServerFn({ method: 'POST' })
   .validator((data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' }) => data)

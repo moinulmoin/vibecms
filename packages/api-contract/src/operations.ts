@@ -145,7 +145,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Publish a draft so it appears on the public blog.",
+      "Publish exactly the approved draft version. Pass the latest versionNumber as expectedVersionNumber; a newer edit returns CONFLICT without publishing.",
       "posts:publish",
       writeErrors,
     ),

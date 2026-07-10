@@ -15,6 +15,7 @@ export interface DashboardRecentPost {
   status: Post["status"];
   updatedAt: number;
   publishedAt: number | null;
+  versionNumber: number | null;
 }
 
 // camelCase projection of activity_events.{action,summary,actor_name,created_at} for the dashboard feed.
@@ -73,6 +74,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               status: posts.status,
               updatedAt: posts.updatedAt,
               publishedAt: posts.publishedAt,
+              versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
             })
             .from(posts)
             .where(eq(posts.siteId, siteId))
@@ -129,6 +131,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           status: normalizePostStatus(post.status),
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
+          versionNumber: post.versionNumber,
         })),
         recentActivity: activityRows,
         activeDefaultHostname: domainRows[0]?.hostname ?? null,

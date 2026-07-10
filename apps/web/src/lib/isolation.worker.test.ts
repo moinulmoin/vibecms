@@ -223,6 +223,7 @@ describe("b. scope enforcement", () => {
       publishPost(repo, readOnlyActor, {
         siteId: "site-a",
         postId: "post-a",
+        expectedVersionNumber: 1,
         billingStatus: "none",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
@@ -304,14 +305,14 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
       postId: created.id,
       title: "Patch Fields Post v2",
     });
-    expect(preserved.canonicalUrl).toBe("https://example.com/keep");
+    expect(preserved.post.canonicalUrl).toBe("https://example.com/keep");
 
     const cleared = await updatePost(repo, fullActor, {
       siteId: "site-a",
       postId: created.id,
       canonicalUrl: null,
     });
-    expect(cleared.canonicalUrl).toBeNull();
+    expect(cleared.post.canonicalUrl).toBeNull();
   });
   it("restorePostVersion reverts canonicalUrl from the version snapshot", async () => {
     const repo = createD1PostRepository(env.DB);

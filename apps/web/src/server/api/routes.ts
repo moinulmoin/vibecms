@@ -92,6 +92,7 @@ const listPostsResponseSchema = z.object({
 
 const postIdParamsSchema = getPostRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
+const publishPostBodySchema = publishPostRequestSchema.omit({ postId: true });
 
 const postVersionParamsSchema = z.object({
   postId: z.string().min(1),
@@ -200,14 +201,18 @@ export const publishPostRoute = createRoute({
   description: publishPostOpDef.description,
   security: bearerSecurity,
   request: {
-    params: publishPostRequestSchema,
+    params: postIdParamsSchema,
+    body: {
+      content: { "application/json": { schema: publishPostBodySchema } },
+      required: true,
+    },
   },
   responses: {
     200: {
       description: "Published post",
       content: { "application/json": { schema: postDtoSchema } },
     },
-    ...routeErrors(400, 401, 402, 403, 404, 429, 500),
+    ...routeErrors(400, 401, 402, 403, 404, 409, 429, 500),
   },
 });
 

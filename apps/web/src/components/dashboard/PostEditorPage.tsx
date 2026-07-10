@@ -181,7 +181,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [selectedToc, setSelectedToc] = useState<boolean>(false)
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
-
+  const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
   // Track the editor form so Publish/Archive can persist unsaved edits first
   // (they navigate programmatically and would otherwise discard them).
   const formRef = useRef<HTMLFormElement>(null)
@@ -201,6 +201,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setAssets(result.assets)
         setMissing(result.missing)
         setPresetId(result.presetId)
+        setCurrentVersionNumber(result.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
         setSelectedLayout(result.post?.presentation?.layout ?? cap.default.layout)
         setSelectedToc(result.post?.presentation?.toc ?? cap.default.toc)
@@ -252,6 +253,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setPost(refreshed.post)
         setAssets(refreshed.assets)
         setMissing(refreshed.missing)
+        setCurrentVersionNumber(refreshed.currentVersionNumber)
         setHasPriorPresentation(presentation !== null)
         setPresentationDirty(false)
         return
@@ -262,6 +264,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         if (result.kind === 'ok') {
           const refreshed = await loadPostEditorPage({ data: { postId } })
           setPost(refreshed.post)
+          setCurrentVersionNumber(refreshed.currentVersionNumber)
           setHasPriorPresentation(presentation !== null)
           setPresentationDirty(false)
         }
@@ -273,12 +276,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
-  // Persist the open editor form before a programmatic action (publish/archive)
-  // so unsaved edits are never silently discarded. Returns false if the save was
-  // attempted and failed (caller should stop).
-  async function persistIfDirty(): Promise<boolean> {
+  async function persistIfDirty(): Promise<number | null | false> {
     const form = formRef.current
-    if (!postId || !form || !isFormDirty()) return true
+    if (!postId || !form || !isFormDirty()) return currentVersionNumber
     if (!form.checkValidity()) {
       form.reportValidity()
       return false
@@ -298,15 +298,18 @@ function PostEditorShell({ postId }: { postId?: string }) {
     setHasPriorPresentation(presentation !== null)
     setPresentationDirty(false)
     captureBaseline()
-    return true
+    const savedVersionNumber = result.versionNumber ?? null
+    setCurrentVersionNumber(savedVersionNumber)
+    return savedVersionNumber
   }
-
   async function handlePublish() {
     if (!postId) return
     setPublishPending(true)
     try {
-      if (!(await persistIfDirty())) return
-      const result = await publishPostMutation({ data: { postId } })
+      const savedVersionNumber = await persistIfDirty()
+      if (savedVersionNumber === false) return
+      if (savedVersionNumber === null) return
+      const result = await publishPostMutation({ data: { postId, expectedVersionNumber: savedVersionNumber } })
       await navigate({
         to: '/dashboard/posts',
         search: statusSearchFromMutation(result),
@@ -320,7 +323,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
     if (!postId) return
     setArchivePending(true)
     try {
-      if (!(await persistIfDirty())) return
+      const savedVersionNumber = await persistIfDirty()
+      if (savedVersionNumber === false) return
       const result = await archivePostMutation({ data: { postId } })
       await navigate({
         to: '/dashboard/posts',

@@ -48,7 +48,10 @@ import {
   removeCustomDomainMutation,
   loadSettingsPage,
   updateSiteSettingsMutation,
+  updateVoiceProfileMutation,
+  clearVoiceProfileMutation,
 } from '~/server/dashboard-pages-fn'
+import type { VoiceProfileSettings } from '~/server/voice-profile'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 type SettingsPageData = {
   site: SiteSettingsForm
@@ -57,6 +60,7 @@ type SettingsPageData = {
   selfHosted: boolean
   isOwner: boolean
   publicBaseUrl: string | null
+  voiceProfile: VoiceProfileSettings
 }
 type SiteSettingsForm = {
   name: string
@@ -149,12 +153,7 @@ export async function getPost(id: string) {
 | ------ | ------- | -------- |
 | Minimal | Airy | General writing |
 | Editorial | Comfortable | Narrative |
-| Technical | Tight | Docs and reference |
-| Product | Clean | Launch posts |
-
-> Style is a point of view - pick the preset that fits your content.
 `
-
 const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
 export function SettingsPage() {
@@ -163,12 +162,17 @@ export function SettingsPage() {
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
-  const [formPending, setFormPending] = useState<'site' | 'theme' | 'appearance' | 'domain' | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'theme' | 'appearance' | 'domain' | 'voice' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal')
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
   const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
+  const [voiceAudience, setVoiceAudience] = useState('')
+  const [voiceSummary, setVoiceSummary] = useState('')
+  const [voicePreferRules, setVoicePreferRules] = useState<string[]>([])
+  const [voiceAvoidRules, setVoiceAvoidRules] = useState<string[]>([])
+  const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -180,6 +184,11 @@ export function SettingsPage() {
         setSelectedAccent(loaded.site.themeAccent)
         setSelectedFont(loaded.site.themeFont)
         setSelectedMode(loaded.site.themeMode)
+        setVoiceAudience(loaded.voiceProfile.audience)
+        setVoiceSummary(loaded.voiceProfile.voiceSummary)
+        setVoicePreferRules(loaded.voiceProfile.preferRules)
+        setVoiceAvoidRules(loaded.voiceProfile.avoidRules)
+        setVoiceRepresentativeIds(loaded.voiceProfile.representativePostIds)
         }
       })
       .catch(() => {
@@ -309,6 +318,67 @@ export function SettingsPage() {
     }
   }
 
+  async function handleVoiceProfileSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFormPending('voice')
+    try {
+      const result = await updateVoiceProfileMutation({
+        data: {
+          audience: voiceAudience || undefined,
+          voiceSummary: voiceSummary || undefined,
+          preferRules: voicePreferRules,
+          avoidRules: voiceAvoidRules,
+          representativePostIds: voiceRepresentativeIds,
+        },
+      })
+      if (result.kind === 'ok') {
+        const refreshed = await loadSettingsPage()
+        setData(refreshed)
+        setVoiceAudience(refreshed.voiceProfile.audience)
+        setVoiceSummary(refreshed.voiceProfile.voiceSummary)
+        setVoicePreferRules(refreshed.voiceProfile.preferRules)
+        setVoiceAvoidRules(refreshed.voiceProfile.avoidRules)
+        setVoiceRepresentativeIds(refreshed.voiceProfile.representativePostIds)
+      }
+      await navigate({
+        to: '/dashboard/settings',
+        search: {
+          ok: result.kind === 'ok' ? result.code : undefined,
+          error: result.kind === 'ok' ? undefined : result.code,
+          tab: 'voice',
+        },
+      })
+    } finally {
+      setFormPending(null)
+    }
+  }
+
+  async function handleVoiceProfileClear() {
+    setFormPending('voice')
+    try {
+      const result = await clearVoiceProfileMutation()
+      if (result.kind === 'ok') {
+        const refreshed = await loadSettingsPage()
+        setData(refreshed)
+        setVoiceAudience(refreshed.voiceProfile.audience)
+        setVoiceSummary(refreshed.voiceProfile.voiceSummary)
+        setVoicePreferRules(refreshed.voiceProfile.preferRules)
+        setVoiceAvoidRules(refreshed.voiceProfile.avoidRules)
+        setVoiceRepresentativeIds(refreshed.voiceProfile.representativePostIds)
+      }
+      await navigate({
+        to: '/dashboard/settings',
+        search: {
+          ok: result.kind === 'ok' ? result.code : undefined,
+          error: result.kind === 'ok' ? undefined : result.code,
+          tab: 'voice',
+        },
+      })
+    } finally {
+      setFormPending(null)
+    }
+  }
+
   if (loadError) return <LoadError message={loadError} />
   if (!data) {
     return (
@@ -342,6 +412,7 @@ export function SettingsPage() {
         <div className="overflow-x-auto">
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="voice">Voice</TabsTrigger>
             <TabsTrigger value="domain">Domain</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="data">Data</TabsTrigger>
@@ -607,6 +678,184 @@ export function SettingsPage() {
           </PendingSubmitButton>
         </form>
       </Panel>
+        </TabsContent>
+        <TabsContent value="voice" className="grid gap-4">
+          <Panel title="Voice Profile" meta="Writing guidance for AI agents">
+            <p className="mb-4 font-sans text-sm text-muted-foreground">
+              Define your site's voice for AI agents. This profile is read-only to agents; you control it here.
+            </p>
+            <form className="grid max-w-3xl gap-5" onSubmit={(e) => void handleVoiceProfileSave(e)}>
+              <Field>
+                <FieldLabel htmlFor="voice-audience">Target audience</FieldLabel>
+                <Textarea
+                  id="voice-audience"
+                  value={voiceAudience}
+                  onChange={(e) => setVoiceAudience(e.target.value)}
+                  maxLength={300}
+                  rows={2}
+                  placeholder="Who are you writing for? (e.g., 'Technical developers building SaaS products')"
+                />
+                <p className="mt-1 font-sans text-xs text-muted-foreground">
+                  {voiceAudience.length}/300 characters
+                </p>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="voice-summary">Voice summary</FieldLabel>
+                <Textarea
+                  id="voice-summary"
+                  value={voiceSummary}
+                  onChange={(e) => setVoiceSummary(e.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Describe your writing style (e.g., 'Concise, technical, with practical examples')"
+                />
+                <p className="mt-1 font-sans text-xs text-muted-foreground">
+                  {voiceSummary.length}/500 characters
+                </p>
+              </Field>
+              <FieldSet>
+                <FieldLegend variant="label">Voice guidelines (max 12 total)</FieldLegend>
+                <div className="space-y-3">
+                  <div>
+                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Prefer (do this)</FieldLabel>
+                    <Textarea
+                      id="voice-prefer-rules"
+                      value={voicePreferRules.join('\n')}
+                      onChange={(e) => setVoicePreferRules(e.target.value.split('\n').filter(r => r.trim()))}
+                      rows={4}
+                      placeholder="One guideline per line
+Use active voice
+Include code examples"
+                    />
+                    <p className="mt-1 font-sans text-xs text-muted-foreground">
+                      {voicePreferRules.length} guidelines
+                    </p>
+                    {voicePreferRules.some(r => r.length > 200) && (
+                      <p className="mt-1 font-sans text-xs text-amber-600 dark:text-amber-400">
+                        {voicePreferRules.filter(r => r.length > 200).length} line(s) exceed 200 characters (server will reject)
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Avoid (don't do this)</FieldLabel>
+                    <Textarea
+                      id="voice-avoid-rules"
+                      value={voiceAvoidRules.join('\n')}
+                      onChange={(e) => setVoiceAvoidRules(e.target.value.split('\n').filter(r => r.trim()))}
+                      rows={4}
+                      placeholder="One guideline per line
+Avoid jargon
+Don't use passive voice"
+                    />
+                    <p className="mt-1 font-sans text-xs text-muted-foreground">
+                      {voiceAvoidRules.length} guidelines
+                    </p>
+                    {voiceAvoidRules.some(r => r.length > 200) && (
+                      <p className="mt-1 font-sans text-xs text-amber-600 dark:text-amber-400">
+                        {voiceAvoidRules.filter(r => r.length > 200).length} line(s) exceed 200 characters (server will reject)
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {voicePreferRules.length + voiceAvoidRules.length > 12 && (
+                  <p className="mt-2 font-sans text-xs text-amber-600 dark:text-amber-400">
+                    Total guidelines exceed maximum of 12
+                  </p>
+                )}
+              </FieldSet>
+              <FieldSet>
+                <FieldLegend variant="label">Representative posts (max 3)</FieldLegend>
+                <p className="mb-3 font-sans text-xs text-muted-foreground">
+                  Select published posts that best represent your site's voice. Agents use these as style references.
+                </p>
+                {data.voiceProfile.publishedPosts.length > 0 || voiceRepresentativeIds.length > 0 ? (
+                  <div className="space-y-2">
+                    {data.voiceProfile.publishedPosts.map((post) => (
+                      <Field key={post.id} orientation="horizontal">
+                        <input
+                          type="checkbox"
+                          id={`post-${post.id}`}
+                          checked={voiceRepresentativeIds.includes(post.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              if (voiceRepresentativeIds.length < 3) {
+                                setVoiceRepresentativeIds([...voiceRepresentativeIds, post.id])
+                              }
+                            } else {
+                              setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== post.id))
+                            }
+                          }}
+                          disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= 3}
+                          className="mt-1 accent-[var(--brand-bright)]"
+                        />
+                        <label htmlFor={`post-${post.id}`} className="flex-1 cursor-pointer">
+                          <div className="font-sans text-sm font-medium">{post.title}</div>
+                          <div className="font-sans text-xs text-muted-foreground">{post.slug}</div>
+                        </label>
+                      </Field>
+                    ))}
+                    {voiceRepresentativeIds
+                      .filter(id => !data.voiceProfile.publishedPosts.some(p => p.id === id))
+                      .map((staleId) => (
+                        <Field key={staleId} orientation="horizontal">
+                          <input
+                            type="checkbox"
+                            id={`post-${staleId}`}
+                            checked={true}
+                            onChange={(e) => {
+                              if (!e.target.checked) {
+                                setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== staleId))
+                              }
+                            }}
+                            className="mt-1 accent-[var(--brand-bright)]"
+                          />
+                          <label htmlFor={`post-${staleId}`} className="flex-1 cursor-pointer">
+                            <div className="font-sans text-sm font-medium text-muted-foreground">Archived or missing post</div>
+                            <div className="font-sans text-xs text-muted-foreground">ID: {staleId}</div>
+                          </label>
+                        </Field>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="font-sans text-sm text-muted-foreground">
+                    No published posts available. Publish posts first to use them as voice references.
+                  </p>
+                )}
+              </FieldSet>
+              {data.voiceProfile.warnings.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+                  <p className="font-display text-sm font-medium text-amber-900 dark:text-amber-100">Warnings</p>
+                  <ul className="mt-2 space-y-1 font-sans text-xs text-amber-800 dark:text-amber-200">
+                    {data.voiceProfile.warnings.map((warning, i) => (
+                      <li key={i}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <PendingSubmitButton
+                  className="w-fit"
+                  pending={formPending === 'voice'}
+                  pendingText="Saving voice profile..."
+                  disabled={voicePreferRules.length + voiceAvoidRules.length > 12}
+                >
+                  Save voice profile
+                </PendingSubmitButton>
+                {data.voiceProfile.configured && (
+                  <SpaConfirmButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    confirmLabel="Confirm clear"
+                    helperText="This will remove your voice profile. Agents will no longer receive voice guidance."
+                    onConfirm={() => void handleVoiceProfileClear()}
+                  >
+                    Clear voice profile
+                  </SpaConfirmButton>
+                )}
+              </div>
+            </form>
+          </Panel>
         </TabsContent>
         <TabsContent value="domain" className="grid gap-4">
       {isOwner ? (

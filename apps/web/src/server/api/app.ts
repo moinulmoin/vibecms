@@ -198,7 +198,8 @@ apiV1App.openapi(updatePostRoute, async (c) => {
 
 apiV1App.openapi(publishPostRoute, async (c) => {
   const { postId } = c.req.valid("param");
-  const post = await publishPostOp(c.get("ctx"), { postId });
+  const { expectedVersionNumber } = c.req.valid("json");
+  const post = await publishPostOp(c.get("ctx"), { postId, expectedVersionNumber });
   return c.json(post, 200);
 });
 

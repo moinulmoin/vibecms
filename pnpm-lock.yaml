@@ -227,13 +227,6 @@ importers:
         version: 6.0.3
 
   packages/mcp:
-    dependencies:
-      '@vc/core':
-        specifier: workspace:*
-        version: link:../core
-      '@vc/validators':
-        specifier: workspace:*
-        version: link:../validators
     devDependencies:
       typescript:
         specifier: 6.0.3

@@ -239,8 +239,13 @@ Run the same checks the dev dogfood covered, now against `https://<your-domain>`
       `billing_customers.status = 'active'`.
 - [ ] **Paid surfaces** unlock after subscribing: publish more than one post, media upload,
       and the public blog becomes search-indexable (no `noindex`).
-- [ ] **Agent path**: `claude mcp add --transport http vibecms https://<your-domain>/mcp
-      --header "Authorization: Bearer <token>"`, then exercise a couple of tools.
+- [ ] **Agent path**: create a disposable Publisher token under Dashboard → Connect; run
+      `claude mcp add --transport http vibecms https://<your-domain>/mcp --header
+      "Authorization: Bearer <token>"`; install `vibecms-core` and `vibecms-writing`;
+      prove `sites.get` with the valid token and `401` with an invalid token; draft and
+      preview a post; confirm a stale `expectedVersionNumber` is rejected; explicitly
+      approve and publish the latest version; verify the dashboard and tool response show
+      the returned live URL; then revoke the disposable token.
 - [ ] **Real rate limits** (only active when `APP_ENV=production`): exceed the free API
       tier on `/api/posts` and confirm `429 {"error":"RATE_LIMIT"}`; send >5 OTP codes to
       one email within an hour and confirm the 6th is blocked.

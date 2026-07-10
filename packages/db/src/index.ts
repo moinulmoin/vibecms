@@ -7,6 +7,7 @@ export * from "./repositories/subscribers";
 export * from "./repositories/activity";
 export * from "./repositories/domains";
 export * from "./repositories/sites";
+export * from "./repositories/voice-profiles";
 export * from "./repositories/usage";
 export * from "./repositories/rate-limits";
 export * from "./repositories/api-keys";

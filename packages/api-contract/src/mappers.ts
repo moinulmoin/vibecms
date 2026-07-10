@@ -11,6 +11,21 @@ type SiteMapperRow = {
   updatedAt: number;
 };
 
+type SiteVoiceProfileMapper = {
+  audience: string | null;
+  voiceSummary: string | null;
+  guidelines: Array<{
+    kind: "prefer" | "avoid";
+    text: string;
+    source: { kind: "explicit" } | { kind: "approved_edit"; postId: string; versionNumber: number };
+  }>;
+  representativePosts: Array<{ id: string; title: string; slug: string; updatedAt: number }>;
+  warnings: string[];
+  updatedBy: { type: "human"; id: string; name: string };
+  createdAt: number;
+  updatedAt: number;
+};
+
 // camelCase input from db.activity.listBySite (the ActivityEventRow fields projected to ActivityDto).
 type ActivityMapperRow = {
   id: string;
@@ -24,7 +39,11 @@ type ActivityMapperRow = {
   createdAt: number;
 };
 
-export function mapSiteRow(row: SiteMapperRow | null, url: string | null): SiteDto | null {
+export function mapSiteRow(
+  row: SiteMapperRow | null,
+  url: string | null,
+  voiceProfile: SiteVoiceProfileMapper | null = null,
+): SiteDto | null {
   if (!row) return null;
   return {
     id: row.id,
@@ -32,6 +51,29 @@ export function mapSiteRow(row: SiteMapperRow | null, url: string | null): SiteD
     slug: row.slug,
     description: row.description,
     url,
+    voiceProfile: voiceProfile
+      ? {
+          configured: true,
+          audience: voiceProfile.audience,
+          voiceSummary: voiceProfile.voiceSummary,
+          guidelines: voiceProfile.guidelines,
+          representativePosts: voiceProfile.representativePosts,
+          warnings: voiceProfile.warnings,
+          updatedByName: voiceProfile.updatedBy.name,
+          createdAt: voiceProfile.createdAt,
+          updatedAt: voiceProfile.updatedAt,
+        }
+      : {
+          configured: false,
+          audience: null,
+          voiceSummary: null,
+          guidelines: [],
+          representativePosts: [],
+          warnings: [],
+          updatedByName: null,
+          createdAt: null,
+          updatedAt: null,
+        },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

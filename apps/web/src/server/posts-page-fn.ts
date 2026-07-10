@@ -22,6 +22,10 @@ async function requireApp() {
   return ctx.app
 }
 
+function repository() {
+  return createD1PostRepository(env.DB)
+}
+
 function parseTags(raw: string | undefined) {
   if (!raw) return []
   return raw
@@ -58,6 +62,21 @@ function parsePostPayload(data: {
 
 const POSTS_PAGE_SIZE = 24
 
+// Dashboard-specific post summary with versionNumber for publish approval
+export interface DashboardPostSummary {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  coverAssetId: string | null
+  status: Post['status']
+  publishedAt: number | null
+  tags: string[]
+  createdAt: number
+  updatedAt: number
+  versionNumber: number | null
+}
+
 export const loadPostsPage = createServerFn({ method: 'GET' })
   .validator((data: { status?: string; search?: string; offset?: number }) => data)
   .handler(async ({ data }) => {
@@ -69,8 +88,15 @@ export const loadPostsPage = createServerFn({ method: 'GET' })
     const offset = Math.min(Math.max(data.offset ?? 0, 0), 10_000)
     // Fetch one extra to know whether another page exists, without a count query.
     const fetched = await getPosts(app, status, data.search?.trim() || undefined, POSTS_PAGE_SIZE + 1, offset)
-    const hasMore = fetched.length > POSTS_PAGE_SIZE
-    return { posts: hasMore ? fetched.slice(0, POSTS_PAGE_SIZE) : fetched, hasMore }
+    // Add versionNumber for dashboard use
+    const postsWithVersions: DashboardPostSummary[] = await Promise.all(
+      fetched.map(async (post) => {
+        const versions = await listPostVersions(repository(), app.actor, { siteId: app.siteId, postId: post.id })
+        return { ...post, versionNumber: versions[0]?.versionNumber ?? null }
+      })
+    )
+    const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
+    return { posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions, hasMore }
   })
 
 export const loadPostEditorPage = createServerFn({ method: 'GET' })
@@ -81,16 +107,22 @@ export const loadPostEditorPage = createServerFn({ method: 'GET' })
     const theme = await createDataAccess(env.DB).sites.getSiteTheme(app.siteId)
     const presetId = resolvePresetId(theme)
     if (!data.postId) {
-      return { mode: 'new' as const, post: null, assets, missing: false, presetId }
+      return { mode: 'new' as const, post: null, assets, missing: false, presetId, currentVersionNumber: null }
     }
     const repo = createD1PostRepository(env.DB)
     const post = await repo.getPost(app.siteId, data.postId)
+    let currentVersionNumber: number | null = null
+    if (post) {
+      const versions = await repo.listPostVersions(app.siteId, data.postId)
+      currentVersionNumber = versions[0]?.versionNumber ?? null
+    }
     return {
       mode: 'edit' as const,
       post: post as Post | null,
       assets,
       missing: !post,
       presetId,
+      currentVersionNumber,
     }
   })
 
@@ -133,10 +165,10 @@ export const updatePostMutation = createServerFn({ method: 'POST' })
   })
 
 export const publishPostMutation = createServerFn({ method: 'POST' })
-  .validator((data: { postId: string }) => data)
+  .validator((data: { postId: string; expectedVersionNumber: number }) => data)
   .handler(async ({ data }) => {
     const app = await requireApp()
-    return publishPostForApp(app, data.postId)
+    return publishPostForApp(app, data.postId, data.expectedVersionNumber)
   })
 
 export const archivePostMutation = createServerFn({ method: 'POST' })

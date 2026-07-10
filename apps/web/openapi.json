@@ -62,6 +62,153 @@
                         "null"
                       ]
                     },
+                    "voiceProfile": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "audience": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "voiceSummary": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "guidelines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "prefer",
+                                  "avoid"
+                                ]
+                              },
+                              "text": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "explicit"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "approved_edit"
+                                        ]
+                                      },
+                                      "postId": {
+                                        "type": "string"
+                                      },
+                                      "versionNumber": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "postId",
+                                      "versionNumber"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "text",
+                              "source"
+                            ]
+                          }
+                        },
+                        "representativePosts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "slug",
+                              "updatedAt"
+                            ]
+                          }
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "updatedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "configured",
+                        "audience",
+                        "voiceSummary",
+                        "guidelines",
+                        "representativePosts",
+                        "warnings",
+                        "updatedByName",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    },
                     "createdAt": {
                       "type": "number"
                     },
@@ -75,6 +222,7 @@
                     "slug",
                     "description",
                     "url",
+                    "voiceProfile",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -568,13 +716,15 @@
                     "type": "string",
                     "maxLength": 500000
                   },
-                  "seoTitle": {
-                    "type": "string",
-                    "maxLength": 70
-                  },
-                  "seoDescription": {
-                    "type": "string",
-                    "maxLength": 180
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "maxItems": 20,
+                    "default": []
                   },
                   "coverAssetId": {
                     "type": [
@@ -590,15 +740,13 @@
                     ],
                     "maxLength": 2048
                   },
-                  "tags": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 40
-                    },
-                    "maxItems": 20,
-                    "default": []
+                  "seoTitle": {
+                    "type": "string",
+                    "maxLength": 70
+                  },
+                  "seoDescription": {
+                    "type": "string",
+                    "maxLength": 180
                   },
                   "presentation": {
                     "type": [
@@ -618,7 +766,6 @@
                         "type": "boolean"
                       }
                     },
-                    "default": null,
                     "additionalProperties": false
                   }
                 },
@@ -1324,14 +1471,6 @@
                     "type": "string",
                     "maxLength": 500000
                   },
-                  "seoTitle": {
-                    "type": "string",
-                    "maxLength": 70
-                  },
-                  "seoDescription": {
-                    "type": "string",
-                    "maxLength": 180
-                  },
                   "tags": {
                     "type": "array",
                     "items": {
@@ -1354,6 +1493,14 @@
                       "null"
                     ],
                     "maxLength": 2048
+                  },
+                  "seoTitle": {
+                    "type": "string",
+                    "maxLength": 70
+                  },
+                  "seoDescription": {
+                    "type": "string",
+                    "maxLength": 180
                   },
                   "presentation": {
                     "type": [
@@ -1729,7 +1876,7 @@
     "/api/v1/posts/{postId}/publish": {
       "post": {
         "operationId": "publishPost",
-        "description": "Publish a draft so it appears on the public blog. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Publish exactly the approved draft version. Pass the latest versionNumber as expectedVersionNumber; a newer edit returns CONFLICT without publishing. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
         "security": [
           {
             "bearerAuth": []
@@ -1746,6 +1893,26 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersionNumber": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "expectedVersionNumber"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Published post",
@@ -1997,6 +2164,37 @@
           },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {

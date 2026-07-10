@@ -1,6 +1,14 @@
-import type { z } from "zod";
+import { z } from "zod";
 
 type JsonSchema = Record<string, unknown>;
+
+/**
+ * Full JSON Schema for request inputs. Input mode keeps fields with Zod
+ * defaults optional, matching what request parsing actually accepts.
+ */
+export function zodToInputJsonSchema(schema: z.ZodTypeAny): JsonSchema {
+  return z.toJSONSchema(schema, { io: "input" }) as JsonSchema;
+}
 
 /**
  * Minimal zod → JSON Schema for MCP outputSchema (Zod 4).

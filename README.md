@@ -22,14 +22,16 @@ Write in Markdown, manage media and versions, and let agents write, draft, and p
 
 ## Connect an MCP client
 
-vibecms exposes MCP over normal HTTPS. Create a scoped token in **Settings → Agent Access Token**, then give your agent:
+vibecms exposes standards-based MCP over Streamable HTTP. In the dashboard, open **Connect**, create a scoped token, and copy it once.
 
-```txt
-MCP URL: https://your-vibecms-domain.com/mcp
-Authorization: Bearer vc_...
+Claude Code is the primary example:
+
+```sh
+claude mcp add --transport http vibecms https://your-vibecms-domain.com/mcp \
+  --header "Authorization: Bearer vc_..."
 ```
 
-Direct HTTP MCP clients can use this shape:
+Any compatible MCP client uses the same endpoint and bearer credential:
 
 ```json
 {
@@ -45,16 +47,30 @@ Direct HTTP MCP clients can use this shape:
 }
 ```
 
-Verify the endpoint:
+Install the client-independent safety and writing skills:
+
+```sh
+npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing
+```
+
+Verify credentials with a protected read—not `tools/list`, which is intentionally available for tool discovery:
 
 ```sh
 curl https://your-vibecms-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer vc_..." \
-  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sites.get","arguments":{}}}'
 ```
 
-The REST `/api/v1` API mirrors the MCP tools with full read/write parity (create, update, publish). The legacy `/api/posts` endpoint below is read/list only — lists return summaries without full Markdown, so fetch a single post's body through `/api/v1` or MCP `posts.get`:
+A valid token returns the current site in `structuredContent`; an invalid or missing token returns `401`. The approval-first publishing flow is:
+
+```txt
+sites.get -> posts.format_guide -> draft -> posts.preview
+  -> latest saved version -> explicit approval
+  -> posts.publish(postId, expectedVersionNumber) -> returned URL
+```
+
+The REST `/api/v1` API mirrors the MCP tools with full read/write parity. The legacy `/api/posts` endpoint below is read/list only—lists return summaries without full Markdown, so fetch a single post body through `/api/v1` or MCP `posts.get`:
 
 ```sh
 curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
@@ -62,8 +78,6 @@ curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
 ```
 
 Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
-
-Some older MCP clients only accept local stdio servers. Use an HTTP-to-stdio bridge for those clients only; the vibecms integration itself is just HTTPS plus the bearer token.
 
 ## License
 

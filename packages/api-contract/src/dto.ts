@@ -8,12 +8,45 @@ const presentationSchema = z
 
 export const postStatusSchema = z.enum(["draft", "published", "archived"]);
 
+export const voiceGuidelineSourceDtoSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("explicit") }).strict(),
+  z.object({
+    kind: z.literal("approved_edit"),
+    postId: z.string(),
+    versionNumber: z.number().int().positive(),
+  }).strict(),
+]);
+
+export const voiceGuidelineDtoSchema = z.object({
+  kind: z.enum(["prefer", "avoid"]),
+  text: z.string(),
+  source: voiceGuidelineSourceDtoSchema,
+});
+
+export const siteVoiceProfileDtoSchema = z.object({
+  configured: z.boolean(),
+  audience: z.string().nullable(),
+  voiceSummary: z.string().nullable(),
+  guidelines: z.array(voiceGuidelineDtoSchema),
+  representativePosts: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    slug: z.string(),
+    updatedAt: z.number(),
+  })),
+  warnings: z.array(z.string()),
+  updatedByName: z.string().nullable(),
+  createdAt: z.number().nullable(),
+  updatedAt: z.number().nullable(),
+});
+
 export const siteDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable(),
   url: z.string().nullable(),
+  voiceProfile: siteVoiceProfileDtoSchema,
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -90,6 +123,7 @@ export const postVersionDtoSchema = postVersionSummaryDtoSchema.extend({
 });
 
 export type SiteDto = z.infer<typeof siteDtoSchema>;
+export type SiteVoiceProfileDto = z.infer<typeof siteVoiceProfileDtoSchema>;
 export type PostSummaryDto = z.infer<typeof postSummaryDtoSchema>;
 export type PostDto = z.infer<typeof postDtoSchema>;
 export type AssetDto = z.infer<typeof assetDtoSchema>;

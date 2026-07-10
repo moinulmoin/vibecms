@@ -178,4 +178,4 @@ Authorization: Bearer vc_...
 
 Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Self-hosted deployments can add their own limits, but vibecms does not enforce hosted quotas when `SELF_HOSTED=true`.
 
-Create the token in Settings, copy it once, and pass it as the bearer token. Agents can write, draft, publish, upload media, and inspect activity only when the token has the matching scopes.
+Create the token under **Dashboard → Connect**, copy it once, and pass it as the bearer token. Agents can draft, publish, upload media, and inspect activity only when the token has matching scopes. Install `vibecms-core` and `vibecms-writing` with `npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing` so the client follows the approval-first editorial workflow.

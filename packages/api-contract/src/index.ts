@@ -4,4 +4,4 @@ export * from "./dto";
 export * from "./mappers";
 export * from "./requests";
 export * from "./operations";
-export { zodToJsonSchema } from "./json-schema";
+export { zodToInputJsonSchema, zodToJsonSchema } from "./json-schema";

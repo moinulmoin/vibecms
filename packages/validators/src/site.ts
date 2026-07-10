@@ -34,3 +34,55 @@ export const createSiteInput = z.object({
     .refine((value) => !isReservedSiteSlug(value), { message: "That name is reserved." }),
   description: z.string().trim().max(300).optional(),
 }).strict();
+
+export const VOICE_PROFILE_MAX_GUIDELINES = 12;
+export const VOICE_PROFILE_MAX_REPRESENTATIVE_POSTS = 3;
+
+export const voiceGuidelineSourceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("explicit") }).strict(),
+  z.object({
+    kind: z.literal("approved_edit"),
+    postId: z.string().trim().min(1).max(120),
+    versionNumber: z.number().int().positive(),
+  }).strict(),
+]);
+
+export const voiceGuidelineSchema = z.object({
+  kind: z.enum(["prefer", "avoid"]),
+  text: z.string().trim().min(1).max(200),
+  source: voiceGuidelineSourceSchema,
+}).strict();
+
+const representativePostIdsSchema = z
+  .array(z.string().trim().min(1).max(120))
+  .max(VOICE_PROFILE_MAX_REPRESENTATIVE_POSTS)
+  .refine((ids) => new Set(ids).size === ids.length, "Representative posts must be unique");
+
+export const siteVoiceProfileInputSchema = z.object({
+  audience: z.string().trim().max(300).nullable(),
+  voiceSummary: z.string().trim().max(500).nullable(),
+  guidelines: z.array(voiceGuidelineSchema).max(VOICE_PROFILE_MAX_GUIDELINES),
+  representativePostIds: representativePostIdsSchema,
+}).strict();
+
+export const voiceProfileSettingsInputSchema = z.object({
+  audience: z.string().trim().max(300).optional(),
+  voiceSummary: z.string().trim().max(500).optional(),
+  preferRules: z.array(z.string().trim().min(1).max(200)).max(VOICE_PROFILE_MAX_GUIDELINES),
+  avoidRules: z.array(z.string().trim().min(1).max(200)).max(VOICE_PROFILE_MAX_GUIDELINES),
+  representativePostIds: representativePostIdsSchema,
+}).strict().superRefine((value, context) => {
+  if (value.preferRules.length + value.avoidRules.length > VOICE_PROFILE_MAX_GUIDELINES) {
+    context.addIssue({
+      code: "too_big",
+      origin: "array",
+      maximum: VOICE_PROFILE_MAX_GUIDELINES,
+      inclusive: true,
+      path: ["preferRules"],
+      message: `Use at most ${VOICE_PROFILE_MAX_GUIDELINES} voice rules in total`,
+    });
+  }
+});
+
+export type SiteVoiceProfileInput = z.infer<typeof siteVoiceProfileInputSchema>;
+export type VoiceProfileSettingsInput = z.infer<typeof voiceProfileSettingsInputSchema>;

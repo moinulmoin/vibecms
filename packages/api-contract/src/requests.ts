@@ -50,12 +50,12 @@ export const createPostRequestSchema = z.object({
   slug,
   excerpt: excerptField.optional(),
   contentMarkdown: contentField,
-  seoTitle: seoTitleField.optional(),
-  seoDescription: seoDescriptionField.optional(),
+  tags: tagsField.default([]),
   coverAssetId: coverAssetIdRequestField.optional(),
   canonicalUrl: canonicalUrlRequestField.optional(),
-  tags: tagsField.default([]),
-  presentation: presentationField.optional().default(null),
+  seoTitle: seoTitleField.optional(),
+  seoDescription: seoDescriptionField.optional(),
+  presentation: presentationField.optional(),
 }).strict();
 
 export const updatePostRequestSchema = z.object({
@@ -64,20 +64,22 @@ export const updatePostRequestSchema = z.object({
   slug: slug.optional(),
   excerpt: excerptField.optional(),
   contentMarkdown: contentField.optional(),
-  seoTitle: seoTitleField.optional(),
-  seoDescription: seoDescriptionField.optional(),
   tags: tagsField.optional(),
   coverAssetId: coverAssetIdRequestField.optional(),
   canonicalUrl: canonicalUrlRequestField.optional(),
-  // presentation: undefined = preserve, null = reset to preset default, object = store intent
+  seoTitle: seoTitleField.optional(),
+  seoDescription: seoDescriptionField.optional(),
   presentation: presentationField.optional(),
 }).strict();
 
 export const publishPostRequestSchema = z.object({
   postId: z.string().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1),
 }).strict();
 
-export const archivePostRequestSchema = publishPostRequestSchema;
+export const archivePostRequestSchema = z.object({
+  postId: z.string().min(1),
+}).strict();
 
 const imageMimeEnum = z.enum(allowedImageMimeTypes);
 
@@ -104,21 +106,17 @@ export const getPostVersionRequestSchema = z.object({
   postId: z.string().min(1),
   versionNumber: z.coerce.number().int().min(1),
 }).strict();
-
-export const restorePostVersionRequestSchema = z.object({
-  postId: z.string().min(1),
-  versionNumber: z.coerce.number().int().min(1),
+export const restorePostVersionRequestSchema = getPostVersionRequestSchema;
+export const previewPostRequestSchema = z.object({
+  contentMarkdown: contentField,
+  presetId: z.string().optional(),
+  presentation: presentationField.optional(),
 }).strict();
 
 export const getFormatGuideRequestSchema = z.object({
   presetId: z.string().optional(),
 }).strict();
 
-export const previewPostRequestSchema = z.object({
-  contentMarkdown: contentField,
-  presetId: z.string().optional(),
-  presentation: presentationField.optional(),
-}).strict();
 
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;

@@ -17,7 +17,7 @@ import { getBillingStatus } from '~/server/billing'
 import type { AppUserContext } from '~/server/onboarding'
 import { purgeArticleCache } from '~/server/public-blog-cache'
 
-export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string }
+export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
 
 function repository() {
   return createD1PostRepository(env.DB)
@@ -93,7 +93,7 @@ export async function updatePostForApp(
 ): Promise<MutationResult> {
   try {
     const coverAssetId = await coverAssetIdForSite(app, payload.coverAssetId || null)
-    const post = await updatePost(repository(), app.actor, {
+    const { post, versionNumber } = await updatePost(repository(), app.actor, {
       siteId: app.siteId,
       postId,
       title: payload.title,
@@ -108,23 +108,29 @@ export async function updatePostForApp(
       presentation: payload.presentation,
     })
     await purgeIfPublished(app, post.slug, post.status)
-    return { kind: 'ok', code: 'post_saved', postId }
+    return { kind: 'ok', code: 'post_saved', postId, versionNumber }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }
   }
 }
 
-export async function publishPostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
+export async function publishPostForApp(
+  app: AppUserContext,
+  postId: string,
+  expectedVersionNumber: number,
+): Promise<MutationResult> {
   try {
     const published = await publishPost(repository(), app.actor, {
       siteId: app.siteId,
       postId,
+      expectedVersionNumber,
       billingStatus: await getBillingStatus(app.workspaceId),
     })
     const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
     if (siteSlug) void purgeArticleCache(app.siteId, siteSlug, published.slug)
     return { kind: 'ok', code: 'post_published', postId }
   } catch (error) {
+    if (error instanceof ConflictError) return { kind: 'error', code: 'version_conflict', postId }
     return { kind: 'error', code: postMutationErrorCode(error), postId }
   }
 }

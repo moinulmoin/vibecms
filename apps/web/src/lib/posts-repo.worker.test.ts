@@ -142,6 +142,28 @@ beforeAll(async () => {
     publishedAt: T0,
     updatedAt: T0,
   });
+  // Seed version 1 for the already-published post so idempotent publish can verify expectedVersionNumber
+  await env.DB.prepare(
+    "INSERT INTO post_versions (" +
+      "id, post_id, site_id, version_number, title, slug, content_markdown, status, " +
+      "created_by_type, created_by_id, change_summary, created_at" +
+    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  )
+    .bind(
+      crypto.randomUUID(),
+      "pr-post-pub1",
+      "pr-site-cap",
+      1,
+      "Published One",
+      "pr-post-pub1",
+      "# seed",
+      "published",
+      "api_key",
+      "pr-key-full",
+      "seed",
+      T0,
+    )
+    .run();
 
   // ---- listPosts matrix seed: controlled status + updated_at ordering -----
   await seedPost("pr-list-pub1", "pr-site-list", "Published One", "pr-list-pub1", {
@@ -229,6 +251,7 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
       await publishPost(repo, fullApiActor, {
         siteId: "pr-site-cap",
         postId: second.id,
+        expectedVersionNumber: 1,
         billingStatus: "none",
       });
     } catch (err) {
@@ -256,6 +279,7 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
     const published = await publishPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
       postId: second.id,
+      expectedVersionNumber: 1,
       billingStatus: "active",
     });
 
@@ -263,6 +287,48 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
     expect(published.id).toBe(second.id);
     // Billing-active bypassed the cap -> now two published posts.
     expect(await countPublished("pr-site-cap")).toBe(2);
+  });
+
+  it("rejects publish when expectedVersionNumber is stale (intervening edit)", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const post = await createPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      title: "Version Conflict Test",
+      slug: "pr-version-conflict",
+      contentMarkdown: "# original",
+    });
+    expect(post.status).toBe("draft");
+
+    // Approve version 1
+    const versions = await repo.listPostVersions("pr-site-cap", post.id);
+    const approvedVersion = versions[0];
+    expect(approvedVersion.versionNumber).toBe(1);
+
+    // Edit the post (creates version 2)
+    await repo.updatePostWithHistory("pr-site-cap", post.id, { title: "Updated Title" }, fullApiActor, {
+      changeSummary: "Updated title",
+      activityAction: "post.updated",
+      activitySummary: "Updated post title",
+    });
+
+    // Try to publish with stale expectedVersionNumber (1 instead of 2)
+    let caught: unknown;
+    try {
+      await publishPost(repo, fullApiActor, {
+        siteId: "pr-site-cap",
+        postId: post.id,
+        expectedVersionNumber: 1, // Stale - should be 2
+        billingStatus: "active",
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ConflictError);
+    expect((caught as Error).message).toMatch(/changed since approval/i);
+
+    // The post must still be draft (status unchanged)
+    const stillDraft = await repo.getPost("pr-site-cap", post.id);
+    expect(stillDraft?.status).toBe("draft");
   });
 
   it("re-publishing an already-published post is idempotent (no cap error even with billing off, at cap)", async () => {
@@ -273,11 +339,31 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
     const republished = await publishPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
       postId: "pr-post-pub1",
+      expectedVersionNumber: 1,
       billingStatus: "none",
     });
 
     expect(republished.status).toBe("published");
     expect(republished.id).toBe("pr-post-pub1");
+  });
+
+  it("rejects idempotent publish when expectedVersionNumber is stale for already-published post", async () => {
+    const repo = createD1PostRepository(env.DB);
+    // pr-post-pub1 is already published with version 1
+    // Try to publish with expectedVersionNumber = 999 (stale)
+    let caught: unknown;
+    try {
+      await publishPost(repo, fullApiActor, {
+        siteId: "pr-site-cap",
+        postId: "pr-post-pub1",
+        expectedVersionNumber: 999, // Stale - should be 1
+        billingStatus: "none",
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ConflictError);
+    expect((caught as Error).message).toMatch(/changed since approval/i);
   });
 });
 
