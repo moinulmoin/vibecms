@@ -30,6 +30,10 @@ function formatBytes(bytes: number) {
   return `${(megabytes / 1024).toFixed(1)} GB`
 }
 
+export function postEditorLink(postId: string) {
+  return { to: '/dashboard/posts/$postId/edit' as const, params: { postId } }
+}
+
 function UsageMeter({
   label,
   status,
@@ -214,7 +218,7 @@ export function DashboardOverview() {
         </Link>
       </div>
 
-      <ApiUsagePanel usage={data.apiUsage} />
+
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel
@@ -232,7 +236,11 @@ export function DashboardOverview() {
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                   <strong className="truncate font-display font-semibold text-foreground">
-                    <Link className="no-underline hover:underline" to="/dashboard/posts" search={emptyPostsListSearch}>
+                    <Link
+                      className="no-underline hover:underline"
+                      {...postEditorLink(post.id)}
+                      search={emptyPostEditorSearch}
+                    >
                       {post.title}
                     </Link>
                   </strong>
@@ -290,6 +298,8 @@ export function DashboardOverview() {
           )}
         </Panel>
       </div>
+
+      <ApiUsagePanel usage={data.apiUsage} />
     </>
   )
 }

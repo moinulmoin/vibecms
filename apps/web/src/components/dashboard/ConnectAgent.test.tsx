@@ -22,6 +22,24 @@ describe('ConnectAgent onboarding contract', () => {
     expect(html).not.toContain('mcp-remote')
   })
 
+  it('progressively discloses alternate clients and writing guidance with native details', () => {
+    const disconnected = renderToStaticMarkup(
+      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" />,
+    )
+    const connected = renderToStaticMarkup(
+      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" connected />,
+    )
+
+    expect(disconnected).toContain('<details')
+    expect(disconnected).toContain('Other MCP clients')
+    expect(disconnected).toContain('2. Verify read-only access')
+    expect(disconnected).toContain('3. Draft, review, then approve')
+    expect(disconnected).not.toContain('<details class="group rounded-xl bg-muted/50" open="">')
+    expect(connected).toContain('<details class="group rounded-xl bg-muted/50" open="">')
+    expect(disconnected).toContain('max-w-full overflow-x-auto')
+    expect(disconnected).toContain('break-all')
+  })
+
   it('keeps the protected connection check read-only', () => {
     expect(READ_ONLY_CHECK_PROMPT).toContain('sites.get')
     expect(READ_ONLY_CHECK_PROMPT).toContain('posts.list')

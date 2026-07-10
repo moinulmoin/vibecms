@@ -64,6 +64,7 @@ export function ActivityPage() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -87,10 +88,13 @@ export function ActivityPage() {
     if (!events || loadingMoreRef.current) return
     loadingMoreRef.current = true
     setLoadingMore(true)
+    setLoadMoreError(null)
     try {
       const data = await loadActivityPage({ data: { offset: events.length } })
       setEvents((prev) => [...(prev ?? []), ...data.events])
       setHasMore(data.hasMore)
+    } catch {
+      setLoadMoreError('Could not load more activity. Your current log is still available.')
     } finally {
       loadingMoreRef.current = false
       setLoadingMore(false)
@@ -147,12 +151,24 @@ export function ActivityPage() {
             description="Create a post, upload media, or issue an API token and this log will fill in automatically."
           />
         )}
-        {hasMore ? (
-          <div className="mt-3 flex justify-center">
-            <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-              {loadingMore ? 'Loading…' : 'Load more'}
-            </Button>
-          </div>
+        {hasMore || loadMoreError ? (
+          <>
+            {hasMore ? (
+              <div className="mt-3 flex justify-center">
+                <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
+            ) : null}
+            {loadMoreError ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
+                <span>{loadMoreError}</span>
+                <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void loadMore()}>
+                  Try again
+                </Button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </Panel>
     </>

@@ -284,6 +284,36 @@
   font-style: italic;
 }
 
+/* ── GFM tables ───────────────────────────────────────────────────────── */
+[data-rich-content] {
+  min-width: 0;
+}
+
+[data-rich-content] table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: var(--vc-prose-gap) 0;
+}
+
+[data-rich-content] th,
+[data-rich-content] td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid var(--vc-border);
+}
+
+[data-rich-content] th {
+  background: var(--vc-muted);
+  font-weight: 600;
+}
+
+[data-rich-content] a {
+  overflow-wrap: anywhere;
+}
+
 /* ── Code blocks (pre[data-lang]) ────────────────────────────────────── */
 /* Higher specificity (2 attr) overrides .markdown pre (class+elem).
    Sets all code-block properties so the CSS module need not repeat them. */
@@ -335,6 +365,8 @@
   color: var(--vc-fg);
   padding: 0.15em 0.4em;
   border-radius: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 } /* @layer base */

@@ -20,22 +20,94 @@ type MarkdownEditorProps = {
 
 type EditorMode = 'write' | 'preview'
 
+type PreviewMetadata = {
+  title?: string
+  excerpt?: string
+  coverAssetSrc?: string
+}
+
+export function isPreviewCurrent(
+  draftRevision: number,
+  previewDraftRevision: number,
+  metadataRevision: number,
+  previewMetadataRevision: number,
+) {
+  return draftRevision === previewDraftRevision && metadataRevision === previewMetadataRevision
+}
+
 export function MarkdownEditor({ assets, defaultValue, presetId, presentation }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionRef = useRef({ start: defaultValue.length, end: defaultValue.length })
+  const contentRevisionRef = useRef(0)
+  const metadataRevisionRef = useRef(0)
   const [mode, setMode] = useState<EditorMode>('write')
   const [previewSource, setPreviewSource] = useState(defaultValue)
+  const [previewMetadata, setPreviewMetadata] = useState<PreviewMetadata>({})
+  const [draftRevision, setDraftRevision] = useState(0)
+  const [previewDraftRevision, setPreviewDraftRevision] = useState(0)
+  const [metadataRevision, setMetadataRevision] = useState(0)
+  const [previewMetadataRevision, setPreviewMetadataRevision] = useState(0)
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
 
   const previewResult = useMemo(() => renderRichContent(previewSource), [previewSource])
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? assets[0]
+  const previewIsCurrent = isPreviewCurrent(
+    draftRevision,
+    previewDraftRevision,
+    metadataRevision,
+    previewMetadataRevision,
+  )
+
+  useEffect(() => {
+    const metadataFields = ['post-title', 'post-excerpt', 'post-cover']
+      .map((id) => document.getElementById(id))
+      .filter((field): field is HTMLElement => field instanceof HTMLElement)
+    const markMetadataChanged = () => {
+      metadataRevisionRef.current += 1
+      setMetadataRevision(metadataRevisionRef.current)
+    }
+    metadataFields.forEach((field) => {
+      field.addEventListener('input', markMetadataChanged)
+      field.addEventListener('change', markMetadataChanged)
+    })
+    return () => {
+      metadataFields.forEach((field) => {
+        field.removeEventListener('input', markMetadataChanged)
+        field.removeEventListener('change', markMetadataChanged)
+      })
+    }
+  }, [])
+
+  function updateContentRevision() {
+    contentRevisionRef.current += 1
+    setDraftRevision(contentRevisionRef.current)
+  }
+
+  function readPreviewMetadata(): PreviewMetadata {
+    const title = document.getElementById('post-title')
+    const excerpt = document.getElementById('post-excerpt')
+    const cover = document.getElementById('post-cover')
+    const coverAssetId = cover instanceof HTMLSelectElement ? cover.value : ''
+    return {
+      title: title instanceof HTMLInputElement ? title.value.trim() || undefined : undefined,
+      excerpt: excerpt instanceof HTMLTextAreaElement ? excerpt.value.trim() || undefined : undefined,
+      coverAssetSrc: coverAssetId ? `/media-assets/${coverAssetId}` : undefined,
+    }
+  }
+
+  function refreshPreview() {
+    setPreviewSource(textareaRef.current?.value ?? '')
+    setPreviewMetadata(readPreviewMetadata())
+    setPreviewDraftRevision(contentRevisionRef.current)
+    setPreviewMetadataRevision(metadataRevisionRef.current)
+  }
 
   function showWrite() {
     setMode('write')
   }
 
   function showPreview() {
-    setPreviewSource(textareaRef.current?.value ?? '')
+    refreshPreview()
     setMode('preview')
   }
 
@@ -43,6 +115,11 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     const textarea = textareaRef.current
     if (!textarea) return
     selectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd }
+  }
+
+  function handleContentChange() {
+    rememberSelection()
+    updateContentRevision()
   }
 
   function insertImage() {
@@ -64,7 +141,10 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     textarea.focus()
     textarea.setSelectionRange(nextCaret, nextCaret)
     selectionRef.current = { start: nextCaret, end: nextCaret }
-    if (mode === 'preview') setPreviewSource(nextValue)
+    if (mode === 'preview') {
+      setPreviewSource(nextValue)
+      setPreviewDraftRevision(contentRevisionRef.current)
+    }
   }
 
   return (
@@ -135,7 +215,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
       </div>
 
       <FieldDescription className="font-mono text-[11px] text-muted-foreground">
-        Supports headings, bold, italic, links, lists, code, and quotes.
+        Start with a heading, then use Markdown for links, lists, tables, code, quotes, and images.
       </FieldDescription>
 
       <div className={mode === 'write' ? 'block' : 'hidden'}>
@@ -146,7 +226,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
           className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
           maxLength={500000}
           defaultValue={defaultValue}
-          onChange={rememberSelection}
+          onChange={handleContentChange}
           onClick={rememberSelection}
           onKeyUp={rememberSelection}
           onSelect={rememberSelection}
@@ -158,18 +238,30 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
           className="min-h-[22rem] overflow-x-auto rounded-xl bg-muted/50 p-4 sm:min-h-[32rem] sm:p-5"
           aria-label="Markdown preview"
         >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--hairline)] pb-3">
+            <p className="font-mono text-[11px] text-muted-foreground" aria-live="polite">
+              {previewIsCurrent ? 'Preview is current' : 'Preview is stale after recent edits'}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={refreshPreview}>
+              Refresh preview
+            </Button>
+          </div>
           {previewSource.trim() ? (
             presetId ? (
               <PresentedPostArticle
                 renderResult={previewResult}
                 presetId={presetId}
                 presentation={resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved}
+                title={previewMetadata.title}
+                coverAssetSrc={previewMetadata.coverAssetSrc}
               />
             ) : (
               <RichContentFrame node={previewResult.node} />
             )
           ) : (
-            <p className="font-mono text-xs text-muted-foreground">Nothing to preview yet.</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              Nothing to preview yet. Add a heading or a first paragraph, then refresh this preview.
+            </p>
           )}
         </div>
       ) : null}

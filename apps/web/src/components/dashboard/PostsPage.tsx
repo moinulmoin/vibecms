@@ -56,6 +56,10 @@ function StatusBadge({ status, className }: { status: string; className?: string
   )
 }
 
+export function postListRefreshError(action: 'publish' | 'archive') {
+  return `Post ${action === 'publish' ? 'published' : 'archived'}, but the list could not refresh.`
+}
+
 function PostsSkeleton() {
   return (
     <>
@@ -79,6 +83,9 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
   const [hasMore, setHasMore] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [rowPending, setRowPending] = useState<string | null>(null)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ key: string; message: string; retry: () => void } | null>(null)
+  const [listRefreshError, setListRefreshError] = useState<string | null>(null)
 
   const statusFilter =
     search.status === 'draft' || search.status === 'published' || search.status === 'archived'
@@ -109,25 +116,59 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
     return publishPostMutation({ data: { postId, expectedVersionNumber: versionNumber } })
   }
 
-  async function runRowMutation(
-    key: string,
-    mutate: () => Promise<{ kind: 'ok' | 'error'; code: string }>,
-  ) {
-    setRowPending(key)
+  async function refreshPosts() {
+    setListRefreshError(null)
     try {
-      const result = await mutate()
-      const params = postsListSearch({
-        status: search.status,
-        search: search.search,
-        ...(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
-      })
-      await navigate({ to: '/dashboard/posts', search: params })
       const refreshed = await loadPostsPage({ data: { status: search.status, search: search.search } })
       setPosts(refreshed.posts)
       setHasMore(refreshed.hasMore)
+    } catch {
+      setListRefreshError('The post list could not refresh. Your current list is still available.')
+    }
+  }
+
+  async function runRowMutation(
+    key: string,
+    action: 'publish' | 'archive',
+    mutate: () => Promise<{ kind: 'ok' | 'error'; code: string }>,
+  ) {
+    setRowPending(key)
+    let successCode = ''
+    setRowError(null)
+    try {
+      const result = await mutate()
+      if (result.kind === 'error') {
+        setRowError({
+          key,
+          message: `Could not ${action} this post. Try again.`,
+          retry: () => void runRowMutation(key, action, mutate),
+        })
+        return
+      }
+      successCode = result.code
+    } catch {
+      setRowError({
+        key,
+        message: `Could not ${action} this post. Try again.`,
+        retry: () => void runRowMutation(key, action, mutate),
+      })
+      return
     } finally {
       setRowPending(null)
     }
+
+    try {
+      await navigate({
+        to: '/dashboard/posts',
+        search: postsListSearch({ status: search.status, search: search.search, ok: successCode }),
+      })
+      const refreshed = await loadPostsPage({ data: { status: search.status, search: search.search } })
+      setPosts(refreshed.posts)
+      setHasMore(refreshed.hasMore)
+    } catch {
+      setListRefreshError(postListRefreshError(action))
+    }
+
   }
 
   const loadingMoreRef = useRef(false)
@@ -135,12 +176,15 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
     if (!posts || loadingMoreRef.current) return
     loadingMoreRef.current = true
     setLoadingMore(true)
+    setLoadMoreError(null)
     try {
       const result = await loadPostsPage({
         data: { status: search.status, search: search.search, offset: posts.length },
       })
       setPosts((prev) => [...(prev ?? []), ...result.posts])
       setHasMore(result.hasMore)
+    } catch {
+      setLoadMoreError('Could not load more posts. Your current list is still available.')
     } finally {
       loadingMoreRef.current = false
       setLoadingMore(false)
@@ -238,7 +282,9 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         pending={rowPending === `${post.id}:publish`}
                         pendingText="Publishing…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, () => publishApprovedVersion(post.id, post.versionNumber))
+                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
+                            publishApprovedVersion(post.id, post.versionNumber),
+                          )
                         }
                       >
                         Publish
@@ -251,7 +297,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         helperText="Archiving hides this post from the public blog."
                         disabled={rowPending === `${post.id}:archive`}
                         onConfirm={() =>
-                          runRowMutation(`${post.id}:archive`, () =>
+                          runRowMutation(`${post.id}:archive`, 'archive', () =>
                             archivePostMutation({ data: { postId: post.id } }),
                           )
                         }
@@ -260,6 +306,14 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       </SpaConfirmButton>
                     ) : null}
                   </div>
+                  {rowError?.key.startsWith(`${post.id}:`) ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                      <span>{rowError.message}</span>{' '}
+                      <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={rowError.retry}>
+                        Try again
+                      </Button>
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -302,7 +356,9 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         pending={rowPending === `${post.id}:publish`}
                         pendingText="Publishing…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, () => publishApprovedVersion(post.id, post.versionNumber))
+                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
+                            publishApprovedVersion(post.id, post.versionNumber),
+                          )
                         }
                       >
                         Publish
@@ -315,7 +371,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         helperText="Archiving hides this post from the public blog."
                         disabled={rowPending === `${post.id}:archive`}
                         onConfirm={() =>
-                          runRowMutation(`${post.id}:archive`, () =>
+                          runRowMutation(`${post.id}:archive`, 'archive', () =>
                             archivePostMutation({ data: { postId: post.id } }),
                           )
                         }
@@ -324,13 +380,41 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                       </SpaConfirmButton>
                     ) : null}
                   </div>
+                  {rowError?.key.startsWith(`${post.id}:`) ? (
+                    <div className="col-span-full rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                      <span>{rowError.message}</span>{' '}
+                      <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={rowError.retry}>
+                        Try again
+                      </Button>
+                    </div>
+                  ) : null}
                 </DataRow>
               ))}
             </div>
-            {hasMore ? (
-              <div className="mt-3 flex justify-center">
-                <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                  {loadingMore ? 'Loading…' : 'Load more'}
+            {hasMore || loadMoreError ? (
+              <>
+                {hasMore ? (
+                  <div className="mt-3 flex justify-center">
+                    <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                      {loadingMore ? 'Loading…' : 'Load more'}
+                    </Button>
+                  </div>
+                ) : null}
+                {loadMoreError ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
+                    <span>{loadMoreError}</span>
+                    <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void loadMore()}>
+                      Try again
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+            {listRefreshError ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
+                <span>{listRefreshError}</span>
+                <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void refreshPosts()}>
+                  Reload posts
                 </Button>
               </div>
             ) : null}

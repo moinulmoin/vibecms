@@ -235,6 +235,14 @@
     --glow-primary: oklch(0.8107 0.1705 152.72 / 0.16);
     --hairline: oklch(1 0 0 / 0.12);
     --dot-grid-fill: oklch(1 0 0 / 0.025);
+    --sidebar: oklch(0.165 0.008 244);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--brand-bright);
+    --sidebar-primary-foreground: var(--brand-bright-foreground);
+    --sidebar-accent: oklch(0.23 0.012 173);
+    --sidebar-accent-foreground: var(--foreground);
+    --sidebar-border: oklch(1 0 0 / 0.08);
+    --sidebar-ring: var(--ring);
   }
 }
 

@@ -244,3 +244,27 @@ describe('inline [[toc]] marker – renderer still emits the toc nav', () => {
     expect(html).not.toContain('data-toc');
   });
 });
+
+describe('GFM tables and long inline content – shared renderer resilience', () => {
+  it('preserves table markup and unbroken link/code content for the shared content frame', () => {
+    const longToken = 'very-long-inline-code-token-without-natural-breaks'
+    const longUrl = 'https://example.com/very-long-path-without-natural-breaks'
+    const html = renderRichContentToHtml(
+      `| Column A | Column B |
+| --- | --- |
+| Cell A | Cell B |
+
+[${longUrl}](${longUrl})
+
+\`${longToken}\``,
+    )
+
+    expect(html).toContain('<table>')
+    expect(html).toContain('<thead>')
+    expect(html).toContain('<tbody>')
+    expect(html).toContain('<th>Column A</th>')
+    expect(html).toContain('<td>Cell A</td>')
+    expect(html).toContain(`href="${longUrl}"`)
+    expect(html).toContain(`<code>${longToken}</code>`)
+  })
+})

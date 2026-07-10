@@ -24,6 +24,12 @@ function formatBytes(bytes: number) {
   return `${(megabytes / 1024).toFixed(1)} GB`
 }
 
+export function selectedFileFeedback(files: ArrayLike<{ name: string }> | null) {
+  if (!files?.length) return null
+  if (files.length === 1) return `Selected: ${files[0]?.name ?? 'image'}`
+  return `${files.length} images selected`
+}
+
 function MediaSkeleton() {
   return (
     <>
@@ -66,6 +72,7 @@ export function MediaPage() {
   const [editingAltId, setEditingAltId] = useState<string | null>(null)
   const [altDraft, setAltDraft] = useState('')
   const [altPending, setAltPending] = useState(false)
+  const [selectedFileMessage, setSelectedFileMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleSaveAlt(assetId: string) {
@@ -84,12 +91,17 @@ export function MediaPage() {
     }
   }
 
+  function updateSelectedFiles(files: ArrayLike<{ name: string }> | null) {
+    setSelectedFileMessage(selectedFileFeedback(files))
+  }
+
   function handleDrop(event: React.DragEvent) {
     event.preventDefault()
     setDragActive(false)
     const files = event.dataTransfer?.files
     if (files?.length && fileInputRef.current) {
       fileInputRef.current.files = files
+      updateSelectedFiles(files)
     }
   }
 
@@ -121,6 +133,8 @@ export function MediaPage() {
       if (result.kind === 'ok') {
         const data = await loadMediaPage()
         setAssets(data.assets)
+        setSelectedFileMessage(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
@@ -202,6 +216,11 @@ export function MediaPage() {
               <FieldDescription id="media-file-help" className="max-w-sm">
                 Upload cover art or inline post images. Video and arbitrary files are intentionally blocked.
               </FieldDescription>
+              {selectedFileMessage ? (
+                <p className="mt-2 font-mono text-xs text-primary" role="status">
+                  {selectedFileMessage}
+                </p>
+              ) : null}
               <Input
                 ref={fileInputRef}
                 id="media-file"
@@ -211,6 +230,7 @@ export function MediaPage() {
                 accept={MEDIA.mimeTypes.join(',')}
                 required
                 aria-describedby="media-file-help"
+                onChange={(event) => updateSelectedFiles(event.currentTarget.files)}
               />
             </Field>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -354,6 +374,17 @@ export function MediaPage() {
           <EmptyState
             title="No media yet"
             description="Upload a cover image or inline post image to start building your blog library."
+            action={
+              <Button
+                type="button"
+                onClick={() => {
+                  fileInputRef.current?.focus()
+                  fileInputRef.current?.click()
+                }}
+              >
+                Upload image
+              </Button>
+            }
           />
         )}
       </Panel>

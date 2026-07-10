@@ -15,8 +15,7 @@ const EXTRA_OK: Record<string, FormStatus> = {
 }
 
 /** Maps allowlisted `?ok=` / `?error=` search params to {@link StatusAlert} input. */
-export function useFormStatusFromSearch(): FormStatus | null {
-  const search = useSearch({ strict: false }) as { ok?: string; error?: string }
+export function resolveFormStatus(search: { ok?: string; error?: string }): FormStatus | null {
   const params = new URLSearchParams()
   if (search.error) params.set('error', search.error)
   else if (search.ok) params.set('ok', search.ok)
@@ -25,4 +24,9 @@ export function useFormStatusFromSearch(): FormStatus | null {
   if (search.ok && EXTRA_OK[search.ok]) return EXTRA_OK[search.ok]
   if (search.error) return FORM_STATUS[search.error] ?? FORM_STATUS.unknown
   return null
+}
+
+export function useFormStatusFromSearch(): FormStatus | null {
+  const search = useSearch({ strict: false }) as { ok?: string; error?: string }
+  return resolveFormStatus(search)
 }

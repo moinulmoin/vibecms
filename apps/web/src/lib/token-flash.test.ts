@@ -30,6 +30,14 @@ describe('token flash storage', () => {
     expect(consumeTokenFlash()).toBeNull()
   })
 
+  it('preserves the created key identity across a reload-sized storage round trip', () => {
+    const flash = { token: 'vc_once', name: 'Claude Code', id: 'key-revealed-token' }
+
+    saveTokenFlash(flash)
+
+    expect(consumeTokenFlash()).toEqual(flash)
+  })
+
   it('clears the persisted token when the reveal is hidden', () => {
     saveTokenFlash({ token: 'vc_hidden', name: 'Publishing agent' })
 

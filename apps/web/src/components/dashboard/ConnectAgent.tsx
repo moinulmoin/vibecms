@@ -17,15 +17,15 @@ Do not call posts.publish in the same turn as drafting, and do not publish unles
 
 function CodeBlock({ name, hint, code }: { name: string; hint: string; code: string }) {
   return (
-    <div className="grid gap-2">
-      <div className="flex items-start justify-between gap-3">
+    <div className="grid min-w-0 gap-2">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-[11px] font-medium text-foreground">{name}</p>
           <p className="mt-1 font-sans text-xs text-muted-foreground">{hint}</p>
         </div>
-        <CopyButton value={code} label="Copy" copiedLabel="Copied" iconOnly />
+        <CopyButton value={code} label="Copy" copiedLabel="Copied" iconOnly className="shrink-0" />
       </div>
-      <pre className="overflow-auto rounded-xl bg-muted/50 p-3 font-mono text-xs leading-relaxed text-foreground">
+      <pre className="max-w-full overflow-x-auto rounded-xl bg-muted/50 p-3 font-mono text-xs leading-relaxed text-foreground">
         {code}
       </pre>
     </div>
@@ -56,11 +56,14 @@ export function ConnectAgent({
   mcpUrl,
   token,
   tokenName,
+  connected = false,
   promptOnly = false,
 }: {
   mcpUrl: string
   token?: string
   tokenName?: string
+  /** Opens the writing guidance after authentication has been observed. */
+  connected?: boolean
   /** When true, show only the protected check and approval-first writing prompts. */
   promptOnly?: boolean
 }) {
@@ -92,9 +95,9 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
 }`
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-5">
       {!promptOnly && token ? (
-        <div className="grid gap-3 rounded-2xl bg-muted/50 p-4">
+        <div className="grid min-w-0 gap-3 rounded-2xl bg-muted/50 p-4">
           <div className="space-y-1">
             <p className="font-mono text-[11px] font-medium text-primary">
               {tokenName ?? 'Agent token'}
@@ -103,7 +106,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
               Copy this token now. For security it is shown only once - it is already baked into the snippets below.
             </p>
           </div>
-          <pre className="overflow-auto rounded-xl bg-background/80 p-4 font-mono text-sm text-primary">
+          <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-background/80 p-4 font-mono text-sm text-primary">
             {token}
           </pre>
           <CopyButton value={token} label="Copy token" copiedLabel="Token copied" className="w-fit" />
@@ -113,26 +116,20 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
       {!promptOnly ? (
         <>
           <Section
-            title="MCP endpoint"
-            description="VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client can connect with this URL and a Bearer token."
+            title="1. Add VibeCMS to your agent"
+            description={
+              token
+                ? 'Claude Code is the primary example. VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client uses the same URL and Authorization header.'
+                : 'Use a token you saved previously, or create a new token above to get a ready-to-paste command.'
+            }
           >
-            <div className="flex flex-wrap items-center gap-3">
-              <code className="rounded-xl bg-muted/50 px-3 py-2 font-mono text-sm text-foreground">{mcpUrl}</code>
-              <CopyButton value={mcpUrl} label="Copy URL" copiedLabel="Copied" />
-            </div>
-          </Section>
-
-          <Section
-            title="Add VibeCMS to your agent"
-            description="Claude Code is the primary example. Other standards-compatible clients use the same endpoint and Authorization header."
-          >
-            <div className="grid gap-3">
+            <div className="grid min-w-0 gap-3">
               <CodeBlock name="Claude Code · primary example" hint="Run this once in your terminal." code={claudeCode} />
               <details className="group rounded-xl bg-muted/50">
                 <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
                   Other MCP clients
                 </summary>
-                <div className="grid gap-3 px-3 pb-3">
+                <div className="grid min-w-0 gap-3 px-3 pb-3">
                   <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
                   <CodeBlock
                     name="Cursor"
@@ -146,25 +143,31 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
                   />
                 </div>
               </details>
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <code className="min-w-0 break-all rounded-xl bg-muted/50 px-3 py-2 font-mono text-sm text-foreground">
+                  {mcpUrl}
+                </code>
+                <CopyButton value={mcpUrl} label="Copy MCP URL" copiedLabel="Copied" className="shrink-0" />
+              </div>
             </div>
+          </Section>
+
+          <Section
+            title="Install the VibeCMS skills"
+            description="The MCP server provides capabilities; these two client-independent skills provide the safe operating contract and editorial method."
+          >
+            <CodeBlock
+              name="vibecms-core + vibecms-writing"
+              hint="Install both once in your Agent Skills-compatible client."
+              code={skillsInstall}
+            />
           </Section>
         </>
       ) : null}
 
       <Section
-        title="Install the VibeCMS skills"
-        description="The MCP server provides capabilities; these two client-independent skills provide the safe operating contract and editorial method."
-      >
-        <CodeBlock
-          name="vibecms-core + vibecms-writing"
-          hint="Install both once in your Agent Skills-compatible client."
-          code={skillsInstall}
-        />
-      </Section>
-
-      <Section
-        title="1. Verify read-only access"
-        description="Run a protected check first. It confirms the connection without changing your site."
+        title="2. Verify read-only access"
+        description="Run this protected check next. It confirms the connection without changing your site."
       >
         <CodeBlock
           name="Read-only connection check"
@@ -173,16 +176,22 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
         />
       </Section>
 
-      <Section
-        title="2. Draft, review, then approve"
-        description="This creates a draft and preview, but requires a separate explicit approval before publishing the exact version you reviewed."
-      >
-        <CodeBlock
-          name="Approval-first writing flow"
-          hint="Publishing is deliberately deferred to a later approval message."
-          code={APPROVAL_FIRST_WRITING_PROMPT}
-        />
-      </Section>
+      <details className="group rounded-xl bg-muted/50" open={connected || undefined}>
+        <summary className="cursor-pointer select-none px-3 py-2.5 font-display text-sm font-semibold text-foreground">
+          3. Draft, review, then approve
+        </summary>
+        <div className="grid min-w-0 gap-3 px-3 pb-3">
+          <p className="font-sans text-xs leading-5 text-muted-foreground">
+            This creates a draft and preview, but requires a separate explicit approval before publishing the exact
+            version you reviewed.
+          </p>
+          <CodeBlock
+            name="Approval-first writing flow"
+            hint="Publishing is deliberately deferred to a later approval message."
+            code={APPROVAL_FIRST_WRITING_PROMPT}
+          />
+        </div>
+      </details>
     </div>
   )
 }

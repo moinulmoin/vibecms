@@ -13,6 +13,7 @@ import {
 import { Alert, Button, cn } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useTransition, type ReactNode } from 'react'
+import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   Sidebar,
   SidebarContent,
@@ -190,6 +191,7 @@ export function AppShell({
   authUrl: string
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const formStatus = useFormStatusFromSearch()
   const current = currentProp ?? pathname
 
   return (
@@ -261,6 +263,7 @@ export function AppShell({
             <h1 className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</h1>
           </header>
           <div id="dashboard-main" tabIndex={-1} className="flex flex-1 flex-col gap-4 p-4 outline-none sm:p-6">
+            <StatusAlert status={formStatus} />
             {children}
           </div>
         </SidebarInset>

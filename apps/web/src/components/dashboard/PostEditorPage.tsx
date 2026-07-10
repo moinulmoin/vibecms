@@ -402,7 +402,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
       <PageHeader
         kicker={statusKicker}
         title={post ? 'Edit Post' : 'Create Post'}
-        description="Write in Markdown, attach a cover image, and keep every save versioned for rollback and audit history."
+        description="Write in Markdown, then check the exact public renderer in Preview before you publish."
         action={
           <Button asChild variant="outline">
             <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
@@ -507,59 +507,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 <Field>
                   <FieldLabel
                     className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-seo-title"
-                  >
-                    SEO Title <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                  </FieldLabel>
-                  <Input
-                    id="post-seo-title"
-                    name="seoTitle"
-                    maxLength={70}
-                    defaultValue={post?.seoTitle ?? ''}
-                    placeholder="Falls back to the post title"
-                  />
-                  <div className="flex justify-end">
-                    <CharCounter targetId="post-seo-title" max={70} />
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-seo-description"
-                  >
-                    SEO Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                  </FieldLabel>
-                  <Textarea
-                    id="post-seo-description"
-                    name="seoDescription"
-                    maxLength={180}
-                    rows={3}
-                    defaultValue={post?.seoDescription ?? ''}
-                    placeholder="Falls back to the excerpt"
-                  />
-                  <div className="flex justify-end">
-                    <CharCounter targetId="post-seo-description" max={180} />
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-canonical-url"
-                  >
-                    Canonical URL <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                  </FieldLabel>
-                  <Input
-                    id="post-canonical-url"
-                    name="canonicalUrl"
-                    type="text"
-                    maxLength={2048}
-                    defaultValue={post?.canonicalUrl ?? ''}
-                    placeholder="Overrides the default canonical URL for SEO"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
                     htmlFor="post-tags"
                   >
                     Tags
@@ -582,6 +529,69 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     ))}
                   </Select>
                 </Field>
+                <details className="group rounded-lg border border-[color:var(--hairline)] px-3 py-2">
+                  <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
+                    Search & sharing
+                  </summary>
+                  <FieldDescription className="mt-1 font-sans">
+                    Optional overrides fall back to your post title and excerpt.
+                  </FieldDescription>
+                  <div className="grid gap-4 pt-4">
+                    <Field>
+                      <FieldLabel
+                        className="font-mono text-[11px] font-medium text-muted-foreground"
+                        htmlFor="post-seo-title"
+                      >
+                        SEO Title <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                      </FieldLabel>
+                      <Input
+                        id="post-seo-title"
+                        name="seoTitle"
+                        maxLength={70}
+                        defaultValue={post?.seoTitle ?? ''}
+                        placeholder="Falls back to the post title"
+                      />
+                      <div className="flex justify-end">
+                        <CharCounter targetId="post-seo-title" max={70} />
+                      </div>
+                    </Field>
+                    <Field>
+                      <FieldLabel
+                        className="font-mono text-[11px] font-medium text-muted-foreground"
+                        htmlFor="post-seo-description"
+                      >
+                        SEO Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                      </FieldLabel>
+                      <Textarea
+                        id="post-seo-description"
+                        name="seoDescription"
+                        maxLength={180}
+                        rows={3}
+                        defaultValue={post?.seoDescription ?? ''}
+                        placeholder="Falls back to the excerpt"
+                      />
+                      <div className="flex justify-end">
+                        <CharCounter targetId="post-seo-description" max={180} />
+                      </div>
+                    </Field>
+                    <Field>
+                      <FieldLabel
+                        className="font-mono text-[11px] font-medium text-muted-foreground"
+                        htmlFor="post-canonical-url"
+                      >
+                        Canonical URL <span className="normal-case tracking-normal text-muted-foreground">optional</span>
+                      </FieldLabel>
+                      <Input
+                        id="post-canonical-url"
+                        name="canonicalUrl"
+                        type="text"
+                        maxLength={2048}
+                        defaultValue={post?.canonicalUrl ?? ''}
+                        placeholder="Overrides the default canonical URL for SEO"
+                      />
+                    </Field>
+                  </div>
+                </details>
                 <p className="rounded-xl bg-muted/50 p-3 font-sans text-sm leading-6 text-muted-foreground">
                   Every save creates a post version and activity event, whether the change comes from you, an API token, or
                   an agent.

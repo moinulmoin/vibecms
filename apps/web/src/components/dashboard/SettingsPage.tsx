@@ -73,6 +73,60 @@ type SiteSettingsForm = {
   themeFont: FontId
   themeMode: ThemeMode
 }
+const VOICE_RULE_LINE_LIMIT = 200
+const VOICE_RULE_LIMIT = 12
+const REPRESENTATIVE_POST_LIMIT = 3
+
+export type VoiceRuleValidation = {
+  lineNumbers: number[]
+  ruleCount: number
+  isValid: boolean
+}
+
+export function parseVoiceRules(value: string) {
+  return value.split('\n').filter((line) => line.trim().length > 0)
+}
+
+export function validateVoiceRules(value: string): VoiceRuleValidation {
+  const lines = value.split('\n')
+  const rules = parseVoiceRules(value)
+  const lineNumbers = lines.reduce<number[]>((overlong, line, index) => {
+    if (line.trim().length > 0 && line.length > VOICE_RULE_LINE_LIMIT) overlong.push(index + 1)
+    return overlong
+  }, [])
+
+  return {
+    lineNumbers,
+    ruleCount: rules.length,
+    isValid: lineNumbers.length === 0,
+  }
+}
+
+export type VoiceProfileFormValidation = {
+  prefer: VoiceRuleValidation
+  avoid: VoiceRuleValidation
+  ruleCount: number
+  isValid: boolean
+}
+
+export function validateVoiceProfileForm(preferRules: string, avoidRules: string): VoiceProfileFormValidation {
+  const prefer = validateVoiceRules(preferRules)
+  const avoid = validateVoiceRules(avoidRules)
+  const ruleCount = prefer.ruleCount + avoid.ruleCount
+
+  return {
+    prefer,
+    avoid,
+    ruleCount,
+    isValid: prefer.isValid && avoid.isValid && ruleCount <= VOICE_RULE_LIMIT,
+  }
+}
+
+export function selectRepresentativePost(selectedIds: string[], postId: string, checked: boolean) {
+  if (!checked) return selectedIds.filter((id) => id !== postId)
+  if (selectedIds.includes(postId) || selectedIds.length >= REPRESENTATIVE_POST_LIMIT) return selectedIds
+  return [...selectedIds, postId]
+}
 
 function BillingStatusBadge({ status }: { status: string }) {
   if (status === 'active') {
@@ -170,9 +224,10 @@ export function SettingsPage() {
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
   const [voiceAudience, setVoiceAudience] = useState('')
   const [voiceSummary, setVoiceSummary] = useState('')
-  const [voicePreferRules, setVoicePreferRules] = useState<string[]>([])
-  const [voiceAvoidRules, setVoiceAvoidRules] = useState<string[]>([])
+  const [voicePreferText, setVoicePreferText] = useState('')
+  const [voiceAvoidText, setVoiceAvoidText] = useState('')
   const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
+  const [voiceSaveStatus, setVoiceSaveStatus] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -186,8 +241,8 @@ export function SettingsPage() {
         setSelectedMode(loaded.site.themeMode)
         setVoiceAudience(loaded.voiceProfile.audience)
         setVoiceSummary(loaded.voiceProfile.voiceSummary)
-        setVoicePreferRules(loaded.voiceProfile.preferRules)
-        setVoiceAvoidRules(loaded.voiceProfile.avoidRules)
+        setVoicePreferText(loaded.voiceProfile.preferRules.join('\n'))
+        setVoiceAvoidText(loaded.voiceProfile.avoidRules.join('\n'))
         setVoiceRepresentativeIds(loaded.voiceProfile.representativePostIds)
         }
       })
@@ -198,6 +253,18 @@ export function SettingsPage() {
       cancelled = true
     }
   }, [])
+  const voiceValidation = validateVoiceProfileForm(voicePreferText, voiceAvoidText)
+  const voicePreferDescribedBy = [
+    'voice-prefer-help',
+    voiceValidation.prefer.lineNumbers.length > 0 ? 'voice-prefer-line-error' : null,
+    voiceValidation.ruleCount > VOICE_RULE_LIMIT ? 'voice-rule-count-error' : null,
+  ].filter(Boolean).join(' ')
+  const voiceAvoidDescribedBy = [
+    'voice-avoid-help',
+    voiceValidation.avoid.lineNumbers.length > 0 ? 'voice-avoid-line-error' : null,
+    voiceValidation.ruleCount > VOICE_RULE_LIMIT ? 'voice-rule-count-error' : null,
+  ].filter(Boolean).join(' ')
+
 
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -320,14 +387,16 @@ export function SettingsPage() {
 
   async function handleVoiceProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!voiceValidation.isValid) return
+
     setFormPending('voice')
     try {
       const result = await updateVoiceProfileMutation({
         data: {
           audience: voiceAudience || undefined,
           voiceSummary: voiceSummary || undefined,
-          preferRules: voicePreferRules,
-          avoidRules: voiceAvoidRules,
+          preferRules: voiceValidation.prefer.ruleCount ? parseVoiceRules(voicePreferText) : [],
+          avoidRules: voiceValidation.avoid.ruleCount ? parseVoiceRules(voiceAvoidText) : [],
           representativePostIds: voiceRepresentativeIds,
         },
       })
@@ -336,9 +405,10 @@ export function SettingsPage() {
         setData(refreshed)
         setVoiceAudience(refreshed.voiceProfile.audience)
         setVoiceSummary(refreshed.voiceProfile.voiceSummary)
-        setVoicePreferRules(refreshed.voiceProfile.preferRules)
-        setVoiceAvoidRules(refreshed.voiceProfile.avoidRules)
+        setVoicePreferText(refreshed.voiceProfile.preferRules.join('\n'))
+        setVoiceAvoidText(refreshed.voiceProfile.avoidRules.join('\n'))
         setVoiceRepresentativeIds(refreshed.voiceProfile.representativePostIds)
+        setVoiceSaveStatus('Voice profile saved.')
       }
       await navigate({
         to: '/dashboard/settings',
@@ -362,9 +432,10 @@ export function SettingsPage() {
         setData(refreshed)
         setVoiceAudience(refreshed.voiceProfile.audience)
         setVoiceSummary(refreshed.voiceProfile.voiceSummary)
-        setVoicePreferRules(refreshed.voiceProfile.preferRules)
-        setVoiceAvoidRules(refreshed.voiceProfile.avoidRules)
+        setVoicePreferText(refreshed.voiceProfile.preferRules.join('\n'))
+        setVoiceAvoidText(refreshed.voiceProfile.avoidRules.join('\n'))
         setVoiceRepresentativeIds(refreshed.voiceProfile.representativePostIds)
+        setVoiceSaveStatus('Voice profile cleared. Agents will use your published work without this guidance.')
       }
       await navigate({
         to: '/dashboard/settings',
@@ -402,20 +473,30 @@ export function SettingsPage() {
       <PageHeader
         kicker="Settings"
         title="Workspace Settings"
-        description="Manage billing, your domain, and workspace preferences."
+        description="Set publication defaults, editorial voice, domains, billing, and portable data."
       />
       <Tabs
         value={search.tab ?? 'general'}
         onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value } })}
         className="gap-4"
       >
-        <div className="overflow-x-auto">
-          <TabsList>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="voice">Voice</TabsTrigger>
-            <TabsTrigger value="domain">Domain</TabsTrigger>
-            <TabsTrigger value="billing">Billing</TabsTrigger>
-            <TabsTrigger value="data">Data</TabsTrigger>
+        <div className="overflow-x-auto pb-1">
+          <TabsList aria-label="Workspace settings sections" className="min-w-max">
+            <TabsTrigger value="general" aria-label="Publication settings" className="data-[state=active]:font-semibold">
+              Publication
+            </TabsTrigger>
+            <TabsTrigger value="voice" aria-label="Voice Profile settings" className="data-[state=active]:font-semibold">
+              Voice Profile
+            </TabsTrigger>
+            <TabsTrigger value="domain" aria-label="Domain and DNS settings" className="data-[state=active]:font-semibold">
+              Domain &amp; DNS
+            </TabsTrigger>
+            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="data-[state=active]:font-semibold">
+              Plan &amp; billing
+            </TabsTrigger>
+            <TabsTrigger value="data" aria-label="Export and data settings" className="data-[state=active]:font-semibold">
+              Export &amp; data
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="general" className="grid gap-4">
@@ -680,96 +761,119 @@ export function SettingsPage() {
       </Panel>
         </TabsContent>
         <TabsContent value="voice" className="grid gap-4">
-          <Panel title="Voice Profile" meta="Writing guidance for AI agents">
-            <p className="mb-4 font-sans text-sm text-muted-foreground">
-              Define your site's voice for AI agents. This profile is read-only to agents; you control it here.
+          <Panel title="Voice Profile" meta="Editorial guidance for agents">
+            <p className="mb-4 max-w-2xl font-sans text-sm text-muted-foreground">
+              Set the editorial guardrails agents use when drafting for this publication. They can read this profile; only workspace editors can change it.
             </p>
             <form className="grid max-w-3xl gap-5" onSubmit={(e) => void handleVoiceProfileSave(e)}>
               <Field>
-                <FieldLabel htmlFor="voice-audience">Target audience</FieldLabel>
+                <FieldLabel htmlFor="voice-audience">Reader in view</FieldLabel>
                 <Textarea
                   id="voice-audience"
                   value={voiceAudience}
-                  onChange={(e) => setVoiceAudience(e.target.value)}
+                  onChange={(e) => {
+                    setVoiceSaveStatus(null)
+                    setVoiceAudience(e.target.value)
+                  }}
                   maxLength={300}
                   rows={2}
-                  placeholder="Who are you writing for? (e.g., 'Technical developers building SaaS products')"
+                  placeholder="For example: technical operators building reliable SaaS products"
                 />
                 <p className="mt-1 font-sans text-xs text-muted-foreground">
-                  {voiceAudience.length}/300 characters
+                  Who should feel addressed? {voiceAudience.length}/300 characters
                 </p>
               </Field>
               <Field>
-                <FieldLabel htmlFor="voice-summary">Voice summary</FieldLabel>
+                <FieldLabel htmlFor="voice-summary">Editorial character</FieldLabel>
                 <Textarea
                   id="voice-summary"
                   value={voiceSummary}
-                  onChange={(e) => setVoiceSummary(e.target.value)}
+                  onChange={(e) => {
+                    setVoiceSaveStatus(null)
+                    setVoiceSummary(e.target.value)
+                  }}
                   maxLength={500}
                   rows={3}
-                  placeholder="Describe your writing style (e.g., 'Concise, technical, with practical examples')"
+                  placeholder="For example: Calm, specific, and practical; lead with the useful detail."
                 />
                 <p className="mt-1 font-sans text-xs text-muted-foreground">
-                  {voiceSummary.length}/500 characters
+                  The overall register and rhythm. {voiceSummary.length}/500 characters
                 </p>
               </Field>
               <FieldSet>
-                <FieldLegend variant="label">Voice guidelines (max 12 total)</FieldLegend>
+                <FieldLegend variant="label">Editorial rules</FieldLegend>
+                <p className="mb-3 font-sans text-xs text-muted-foreground">
+                  One rule per line, up to {VOICE_RULE_LIMIT} rules across both lists. Each non-blank line can be up to {VOICE_RULE_LINE_LIMIT} characters; blank lines stay in place while you edit.
+                </p>
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Prefer (do this)</FieldLabel>
+                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Prefer</FieldLabel>
                     <Textarea
                       id="voice-prefer-rules"
-                      value={voicePreferRules.join('\n')}
-                      onChange={(e) => setVoicePreferRules(e.target.value.split('\n').filter(r => r.trim()))}
+                      value={voicePreferText}
+                      onChange={(e) => {
+                        setVoiceSaveStatus(null)
+                        setVoicePreferText(e.target.value)
+                      }}
+                      aria-describedby={voicePreferDescribedBy}
+                      aria-invalid={!voiceValidation.prefer.isValid}
                       rows={4}
-                      placeholder="One guideline per line
-Use active voice
-Include code examples"
+                      placeholder={"One guideline per line\nUse active voice\nInclude concrete examples"}
                     />
-                    <p className="mt-1 font-sans text-xs text-muted-foreground">
-                      {voicePreferRules.length} guidelines
+                    <p id="voice-prefer-help" className="mt-1 font-sans text-xs text-muted-foreground">
+                      {voiceValidation.prefer.ruleCount} of {VOICE_RULE_LIMIT} rules used here
                     </p>
-                    {voicePreferRules.some(r => r.length > 200) && (
-                      <p className="mt-1 font-sans text-xs text-amber-600 dark:text-amber-400">
-                        {voicePreferRules.filter(r => r.length > 200).length} line(s) exceed 200 characters (server will reject)
+                    {voiceValidation.prefer.lineNumbers.length > 0 && (
+                      <p id="voice-prefer-line-error" role="alert" className="mt-1 font-sans text-xs text-destructive">
+                        Shorten line{voiceValidation.prefer.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.prefer.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
                       </p>
                     )}
                   </div>
                   <div>
-                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Avoid (don't do this)</FieldLabel>
+                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Avoid</FieldLabel>
                     <Textarea
                       id="voice-avoid-rules"
-                      value={voiceAvoidRules.join('\n')}
-                      onChange={(e) => setVoiceAvoidRules(e.target.value.split('\n').filter(r => r.trim()))}
+                      value={voiceAvoidText}
+                      onChange={(e) => {
+                        setVoiceSaveStatus(null)
+                        setVoiceAvoidText(e.target.value)
+                      }}
+                      aria-describedby={voiceAvoidDescribedBy}
+                      aria-invalid={!voiceValidation.avoid.isValid}
                       rows={4}
-                      placeholder="One guideline per line
-Avoid jargon
-Don't use passive voice"
+                      placeholder={"One guideline per line\nAvoid jargon\nDo not use passive voice"}
                     />
-                    <p className="mt-1 font-sans text-xs text-muted-foreground">
-                      {voiceAvoidRules.length} guidelines
+                    <p id="voice-avoid-help" className="mt-1 font-sans text-xs text-muted-foreground">
+                      {voiceValidation.avoid.ruleCount} of {VOICE_RULE_LIMIT} rules used here
                     </p>
-                    {voiceAvoidRules.some(r => r.length > 200) && (
-                      <p className="mt-1 font-sans text-xs text-amber-600 dark:text-amber-400">
-                        {voiceAvoidRules.filter(r => r.length > 200).length} line(s) exceed 200 characters (server will reject)
+                    {voiceValidation.avoid.lineNumbers.length > 0 && (
+                      <p id="voice-avoid-line-error" role="alert" className="mt-1 font-sans text-xs text-destructive">
+                        Shorten line{voiceValidation.avoid.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.avoid.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
                       </p>
                     )}
                   </div>
                 </div>
-                {voicePreferRules.length + voiceAvoidRules.length > 12 && (
-                  <p className="mt-2 font-sans text-xs text-amber-600 dark:text-amber-400">
-                    Total guidelines exceed maximum of 12
+                {voiceValidation.ruleCount > VOICE_RULE_LIMIT && (
+                  <p id="voice-rule-count-error" role="alert" className="mt-2 font-sans text-xs text-destructive">
+                    {voiceValidation.ruleCount} rules entered. Keep the combined total to {VOICE_RULE_LIMIT} or fewer before saving.
                   </p>
                 )}
               </FieldSet>
               <FieldSet>
-                <FieldLegend variant="label">Representative posts (max 3)</FieldLegend>
-                <p className="mb-3 font-sans text-xs text-muted-foreground">
-                  Select published posts that best represent your site's voice. Agents use these as style references.
+                <FieldLegend variant="label">Representative posts</FieldLegend>
+                <p id="representative-posts-help" className="mb-3 font-sans text-xs text-muted-foreground">
+                  Select published posts that best demonstrate this voice. Agents use them as reading references, not source material.
                 </p>
+                <p className="mb-3 font-sans text-sm font-medium" aria-live="polite">
+                  {voiceRepresentativeIds.length} of {REPRESENTATIVE_POST_LIMIT} posts selected
+                </p>
+                {voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT && (
+                  <p className="mb-3 font-sans text-xs text-muted-foreground">
+                    The three-post limit is reached. Deselect a post to choose another.
+                  </p>
+                )}
                 {data.voiceProfile.publishedPosts.length > 0 || voiceRepresentativeIds.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="max-h-64 space-y-2 overflow-y-auto pr-1 sm:max-h-80">
                     {data.voiceProfile.publishedPosts.map((post) => (
                       <Field key={post.id} orientation="horizontal">
                         <input
@@ -777,20 +881,16 @@ Don't use passive voice"
                           id={`post-${post.id}`}
                           checked={voiceRepresentativeIds.includes(post.id)}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              if (voiceRepresentativeIds.length < 3) {
-                                setVoiceRepresentativeIds([...voiceRepresentativeIds, post.id])
-                              }
-                            } else {
-                              setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== post.id))
-                            }
+                            setVoiceSaveStatus(null)
+                            setVoiceRepresentativeIds(selectRepresentativePost(voiceRepresentativeIds, post.id, e.target.checked))
                           }}
-                          disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= 3}
-                          className="mt-1 accent-[var(--brand-bright)]"
+                          disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT}
+                          aria-describedby="representative-posts-help"
+                          className="mt-1 accent-[var(--brand-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         />
-                        <label htmlFor={`post-${post.id}`} className="flex-1 cursor-pointer">
-                          <div className="font-sans text-sm font-medium">{post.title}</div>
-                          <div className="font-sans text-xs text-muted-foreground">{post.slug}</div>
+                        <label htmlFor={`post-${post.id}`} className="min-w-0 flex-1 cursor-pointer">
+                          <div className="truncate font-sans text-sm font-medium">{post.title}</div>
+                          <div className="truncate font-sans text-xs text-muted-foreground">{post.slug}</div>
                         </label>
                       </Field>
                     ))}
@@ -804,21 +904,23 @@ Don't use passive voice"
                             checked={true}
                             onChange={(e) => {
                               if (!e.target.checked) {
+                                setVoiceSaveStatus(null)
                                 setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== staleId))
                               }
                             }}
-                            className="mt-1 accent-[var(--brand-bright)]"
+                            aria-describedby="representative-posts-help"
+                            className="mt-1 accent-[var(--brand-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           />
-                          <label htmlFor={`post-${staleId}`} className="flex-1 cursor-pointer">
+                          <label htmlFor={`post-${staleId}`} className="min-w-0 flex-1 cursor-pointer">
                             <div className="font-sans text-sm font-medium text-muted-foreground">Archived or missing post</div>
-                            <div className="font-sans text-xs text-muted-foreground">ID: {staleId}</div>
+                            <div className="truncate font-sans text-xs text-muted-foreground">ID: {staleId}</div>
                           </label>
                         </Field>
                       ))}
                   </div>
                 ) : (
                   <p className="font-sans text-sm text-muted-foreground">
-                    No published posts available. Publish posts first to use them as voice references.
+                    No published posts are available yet. Publish one first to add a reading reference.
                   </p>
                 )}
               </FieldSet>
@@ -837,7 +939,7 @@ Don't use passive voice"
                   className="w-fit"
                   pending={formPending === 'voice'}
                   pendingText="Saving voice profile..."
-                  disabled={voicePreferRules.length + voiceAvoidRules.length > 12}
+                  disabled={!voiceValidation.isValid}
                 >
                   Save voice profile
                 </PendingSubmitButton>
@@ -847,11 +949,16 @@ Don't use passive voice"
                     variant="outline"
                     size="sm"
                     confirmLabel="Confirm clear"
-                    helperText="This will remove your voice profile. Agents will no longer receive voice guidance."
+                    helperText="This removes the editorial guidance and reading references that agents receive."
                     onConfirm={() => void handleVoiceProfileClear()}
                   >
                     Clear voice profile
                   </SpaConfirmButton>
+                )}
+                {voiceSaveStatus && (
+                  <p aria-live="polite" className="font-sans text-sm text-muted-foreground">
+                    {voiceSaveStatus}
+                  </p>
                 )}
               </div>
             </form>

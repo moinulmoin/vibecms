@@ -144,6 +144,7 @@
 
 /* §7: prose root is always measured, even in feature layout — only the cover breaks out. */
 .markdown {
+  min-width: 0;
   max-width: var(--vc-prose-measure);
 }
 

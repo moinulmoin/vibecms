@@ -169,11 +169,11 @@ export function ConnectPage() {
 
   const [connectData, setConnectData] = useState<ConnectPageData | null>(null)
   const [status, setStatus] = useState<OnboardingConnectStatus | null>(null)
-  const [flash, setFlashState] = useState<{ token: string; name: string } | null>(null)
+  const [flash, setFlashState] = useState<{ token: string; name: string; id?: string } | null>(null)
   // Mirror flash in a ref so the once-mounted poll closure observes the latest reveal
   // without restarting the poll loop when the one-time token flash appears or is dismissed.
   const flashRef = useRef(flash)
-  const setFlash = (value: { token: string; name: string } | null) => {
+  const setFlash = (value: { token: string; name: string; id?: string } | null) => {
     flashRef.current = value
     setFlashState(value)
   }
@@ -181,6 +181,9 @@ export function ConnectPage() {
   const [revokePending, setRevokePending] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const tokenRevealRef = useRef<HTMLDivElement>(null)
+  const activeTokenCountRef = useRef(0)
+  const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
 
   const waitingStartedAtRef = useRef<number | null>(null)
   const lastSubRef = useRef<string>('')
@@ -189,6 +192,7 @@ export function ConnectPage() {
   async function refreshTokens() {
     try {
       const data = await loadConnectPage()
+      activeTokenCountRef.current = data.apiKeys.length
       setConnectData(data)
     } catch {
       // Keep stale list; the status toast surfaces the failure.
@@ -200,6 +204,15 @@ export function ConnectPage() {
     setFlash(consumeTokenFlash())
     void refreshTokens()
   }, [])
+
+  // Creation is a security-sensitive moment. Bring the one-time reveal into view and
+  // move focus to its labeled region without stealing focus during ordinary status polls.
+  useEffect(() => {
+    if (flash && mcpUrl) {
+      tokenRevealRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      tokenRevealRef.current?.focus()
+    }
+  }, [flash, mcpUrl])
 
   // Poll the connection/publish status. Monotonic + terminal-sticky: once connected,
   // the display never regresses to waiting; polling stops only after this agent publishes.
@@ -225,8 +238,9 @@ export function ConnectPage() {
           s.connection,
           flashRef.current !== null,
           stickyConnectedRef.current,
+          activeTokenCountRef.current,
+          flashRef.current?.id === s.onboardingKey?.id && s.connection === 'revoked',
         )
-
         const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
         const sub = getSub(displayConn, elapsedMs)
 
@@ -280,8 +294,8 @@ export function ConnectPage() {
         },
       })
       if (result.kind === 'ok') {
-        saveTokenFlash({ token: result.token, name: result.name })
-        setFlash({ token: result.token, name: result.name })
+        saveTokenFlash({ token: result.token, name: result.name, id: result.id })
+        setFlash({ token: result.token, name: result.name, id: result.id })
         // The token exists locally right now. Start the waiting clock immediately and
         // announce waiting so users hear a useful state before the first poll lands —
         // that poll may briefly read no_token/revoked during D1 propagation, which
@@ -330,10 +344,13 @@ export function ConnectPage() {
   }
 
   const live = isOnboardingActivationComplete(status?.publish)
+  const apiKeys = connectData?.apiKeys ?? []
   const displayConn = resolveDisplayConnection(
     status?.connection,
     flash !== null,
     stickyConnectedRef.current,
+    apiKeys.length,
+    flash?.id === status?.onboardingKey?.id && status?.connection === 'revoked',
   )
 
   const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
@@ -343,9 +360,7 @@ export function ConnectPage() {
     status !== null &&
     (displayConn === 'waiting' || displayConn === 'connected' || displayConn === 'revoked')
 
-  const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
   const canManage = connectData?.canManage ?? status?.canManage ?? false
-  const apiKeys = connectData?.apiKeys ?? []
   const livePost = status?.publish?.post
   const liveHeading =
     status?.publish?.actor === 'onboarding_agent'
@@ -397,25 +412,32 @@ export function ConnectPage() {
       )}
 
       {flash && mcpUrl && (
-        <Panel title="Your token is ready">
-          <div className="mb-4 rounded-xl bg-brand-bright/10 p-3 font-sans text-sm leading-6 text-primary">
-            Copy this token now. For security it is shown only once and cannot be retrieved later.
-          </div>
-          <ConnectAgent mcpUrl={mcpUrl} token={flash.token} tokenName={flash.name} />
-          <div className="mt-4 flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                clearTokenFlash()
-                setFlash(null)
-              }}
-            >
-              I&apos;ve copied it - hide
-            </Button>
-          </div>
-        </Panel>
+        <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
+          <Panel title="Your token is ready">
+            <div className="mb-4 rounded-xl bg-brand-bright/10 p-3 font-sans text-sm leading-6 text-primary">
+              Copy this token now. For security it is shown only once and cannot be retrieved later.
+            </div>
+            <ConnectAgent
+              mcpUrl={mcpUrl}
+              token={flash.token}
+              tokenName={flash.name}
+              connected={displayConn === 'connected'}
+            />
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  clearTokenFlash()
+                  setFlash(null)
+                }}
+              >
+                I&apos;ve copied it - hide
+              </Button>
+            </div>
+          </Panel>
+        </div>
       )}
 
       {showSelfTest && selfTestSub && (
@@ -543,7 +565,7 @@ export function ConnectPage() {
                 </div>
               ) : (
                 <EmptyState
-                  title="No tokens yet"
+                  title="No agent connected yet"
                   description="Create a token above to connect an AI agent to this blog over MCP."
                 />
               )}
@@ -556,13 +578,13 @@ export function ConnectPage() {
         </Panel>
       )}
 
-      {!flash && connectData && mcpUrl && !live && (
+      {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && (
         <Panel title="Connect an agent" meta="MCP over HTTPS">
           <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
-            Point any MCP-compatible agent at the endpoint below. Token secrets are shown only once when created;
-            create a new token to connect another agent.
+            Use a token you saved previously. Token secrets are shown only once; create a new token to connect another
+            agent.
           </p>
-          <ConnectAgent mcpUrl={mcpUrl} />
+          <ConnectAgent mcpUrl={mcpUrl} connected={displayConn === 'connected'} />
         </Panel>
       )}
 
