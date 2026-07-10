@@ -30,8 +30,8 @@
     // Dev mirrors prod on a SEPARATE zone (basedui.dev) to avoid the *.vibecms.dev wildcard collision.
     { "pattern": "basedui.dev", "custom_domain": true },
     { "pattern": "app.basedui.dev", "custom_domain": true },
-    // Test tenant blog; arbitrary tenants later need a proxied *.basedui.dev DNS record + a zone_name route.
-    { "pattern": "demo.basedui.dev", "custom_domain": true }
+    // Tenant blog subdomains require a proxied *.basedui.dev DNS record.
+    { "pattern": "*.basedui.dev/*", "zone_name": "basedui.dev" }
   ],
   "workers_dev": false,
   "preview_urls": false,
