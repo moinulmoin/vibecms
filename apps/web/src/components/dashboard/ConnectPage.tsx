@@ -135,7 +135,7 @@ function TokenRow({
 }: {
   apiKey: ApiKeyListItem
   pending: boolean
-  onDelete: (keyId: string) => void
+  onDelete: (keyId: string) => Promise<void>
 }) {
   return (
     <article className="grid gap-3 rounded-2xl bg-muted/50 p-4">
@@ -149,12 +149,13 @@ function TokenRow({
         </div>
         <SpaConfirmButton
           size="sm"
-          confirmLabel="Confirm delete"
-          helperText="Deleting permanently blocks this token. The secret cannot be recovered."
+          confirmLabel="Confirm revoke"
+          pendingLabel="Revoking…"
+          helperText="Revoking blocks this token immediately. It stays in activity and audit history."
           disabled={pending}
           onConfirm={() => onDelete(apiKey.id)}
         >
-          Delete token
+          Revoke token
         </SpaConfirmButton>
       </div>
       <div className="font-mono text-xs text-muted-foreground">
@@ -320,7 +321,7 @@ export function ConnectPage() {
       await refreshTokens()
       await navigate({
         to: '/dashboard/connect',
-        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: 'token_deleted' } : { error: result.code }),
+        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
     } finally {
       setRevokePending(null)
@@ -559,7 +560,7 @@ export function ConnectPage() {
                       key={key.id}
                       apiKey={key}
                       pending={revokePending === key.id}
-                      onDelete={(id) => void handleDelete(id)}
+                      onDelete={handleDelete}
                     />
                   ))}
                 </div>
