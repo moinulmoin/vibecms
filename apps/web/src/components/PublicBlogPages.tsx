@@ -71,7 +71,7 @@ function PublicShell({
         <a href={homeHref} className={styles.publicBrand}>
           {site.name}
         </a>
-        {site.description ? <p>{site.description}</p> : null}
+        {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
       </header>
       {children}
       <footer>
@@ -93,8 +93,17 @@ export function PublicBlogIndexView({
 
   return (
     <PublicShell site={site} basePath={basePath} indexable={indexable}>
-      <form method="get" action={indexHref} className={styles.searchForm}>
+      <form
+        method="get"
+        action={indexHref}
+        className={styles.searchForm}
+        role="search"
+      >
+        <label htmlFor="public-blog-search" className={styles.searchLabel}>
+          Search posts
+        </label>
         <input
+          id="public-blog-search"
           type="search"
           name="q"
           defaultValue={searchQuery}
@@ -198,7 +207,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         <a href={indexHref} className={styles.publicBrand}>
           {site.name}
         </a>
-        {site.description ? <p>{site.description}</p> : null}
+        {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
       </header>
       <a href={indexHref} className={styles.backLink}>
         {"\u2190"} All posts

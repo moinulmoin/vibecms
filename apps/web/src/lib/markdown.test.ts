@@ -268,3 +268,39 @@ describe('GFM tables and long inline content – shared renderer resilience', ()
     expect(html).toContain(`<code>${longToken}</code>`)
   })
 })
+
+// ─── Group H: GFM task-list + strikethrough rendered markup contract ─────────
+//
+// remark-gfm turns `- [x]`/`- [ ]` into <ul class="contains-task-list"> with
+// <li class="task-list-item"> + <input type="checkbox">, and ~~…~~ into <del>.
+// rehype-sanitize is an allowlist, so these tests defend that this GFM markup
+// survives the sanitizer (isn't silently stripped) and carries its checked
+// state — the observable contract the stylesheet targets.
+
+describe('GFM task-list and strikethrough – rendered markup contract', () => {
+  it('strikethrough renders <del> for ~~…~~ (single and multi-word)', () => {
+    const html = renderRichContentToHtml('~~gone~~ and ~~multi word~~');
+    expect(html).toContain('<del>gone</del>');
+    expect(html).toContain('<del>multi word</del>');
+  });
+
+  it('task list survives sanitize: contains-task-list + task-list-item + checkbox', () => {
+    const html = renderRichContentToHtml('- [x] Done\n- [ ] Todo');
+    expect(html).toContain('class="contains-task-list"');
+    expect(html).toContain('class="task-list-item"');
+    expect(html).toContain('type="checkbox"');
+  });
+
+  it('- [x] emits a checked checkbox; - [ ] omits checked', () => {
+    const checked = renderRichContentToHtml('- [x] Done');
+    const unchecked = renderRichContentToHtml('- [ ] Todo');
+    expect(checked).toContain('checked=""');
+    expect(unchecked).not.toContain('checked=""');
+  });
+
+  it('nested task list nests contains-task-list under a task-list-item', () => {
+    const html = renderRichContentToHtml('- [ ] parent\n  - [ ] child');
+    expect(html.match(/class="contains-task-list"/g)).toHaveLength(2);
+    expect(html).toContain('class="task-list-item"');
+  });
+});

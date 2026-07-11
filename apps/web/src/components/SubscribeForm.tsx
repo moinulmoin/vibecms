@@ -94,6 +94,7 @@ export function SubscribeForm({ siteSlug, placement }: Props) {
           <div className={styles.emailInput}>
             <Input
               id="sf-email"
+              className={styles.input}
               type="email"
               name="email"
               placeholder="you@example.com"

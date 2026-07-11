@@ -1,19 +1,22 @@
-/* presets.css - single base theme (minimal) design token block
+/* presets.css - the one-base Theme Customizer design token block.
    Imported in styles.css AFTER vc-rich-content.css.
 
-   v2 (Theme Customizer): ONE base = minimal. The editorial/technical/product
-   presets are gone; per-site flavor now comes from customizer variables
-   (--vc-accent, --vc-font-body, --vc-font-heading) injected on the same root,
-   not from separate neutral palettes. Semantic callout hues stay fixed.
+   Contract: ONE base token palette applies to every valid persisted preset ID
+   -- minimal, editorial, technical, product. All four resolve to the same
+   surface/type/code/callout/figure/quote tokens; there are no per-preset neutral
+   palettes or deprecated preset-specific colors. Per-site flavor comes from
+   customizer variables (--vc-accent, --vc-font-body, --vc-font-heading) injected
+   on the same root. Semantic callout hues are fixed (not derived from the accent).
 
-   Mechanism: data-rich-content and data-vc-theme="minimal" live on the SAME root
-   element (RichContentFrame). This block mirrors the [data-rich-content] defaults
-   in vc-rich-content.css token-for-token (must stay equal).
+   Mechanism: data-rich-content and data-vc-theme="<id>" live on the SAME root
+   element (RichContentFrame / public page root). The base selectors below list
+   all four valid IDs and mirror the [data-rich-content] defaults in
+   vc-rich-content.css token-for-token (must stay equal).
 
-   Dark mode:
+   Dark mode (works for every preset ID):
    - System default: @media (prefers-color-scheme: dark) nested in the base block
-   - Force dark:     [data-vc-theme="minimal"][data-vc-mode="dark"] - higher specificity
-   - Force light:    [data-vc-theme="minimal"][data-vc-mode="light"] - highest
+   - Force dark:     [data-vc-theme="<id>"][data-vc-mode="dark"] - higher specificity
+   - Force light:    [data-vc-theme="<id>"][data-vc-mode="light"] - highest
                      specificity, re-declares light tokens to beat the media query
 
    Accent family (--vc-link, --vc-link-hover, --vc-quote-border) derives from
@@ -25,11 +28,15 @@
 @layer base {
 
 /* ==========================================================================
-   MINIMAL - default, Geist sans, airy neutral, general purpose
-   Values MUST equal the current [data-rich-content] defaults in vc-rich-content.css.
+   ONE BASE - applies to minimal, editorial, technical, product (default Geist
+   sans, airy neutral, general purpose). Values MUST equal the current
+   [data-rich-content] defaults in vc-rich-content.css.
    ========================================================================== */
 
-[data-vc-theme="minimal"] {
+[data-vc-theme="minimal"],
+[data-vc-theme="editorial"],
+[data-vc-theme="technical"],
+[data-vc-theme="product"] {
   color-scheme: light;
   /* Surface */
   --vc-bg:              oklch(98.7% 0.004 106);
@@ -124,8 +131,11 @@
   }
 }
 
-/* minimal - force dark (overrides media query via higher specificity) */
-[data-vc-theme="minimal"][data-vc-mode="dark"] {
+/* force dark - overrides system-dark media query via higher specificity; all preset IDs */
+[data-vc-theme="minimal"][data-vc-mode="dark"],
+[data-vc-theme="editorial"][data-vc-mode="dark"],
+[data-vc-theme="technical"][data-vc-mode="dark"],
+[data-vc-theme="product"][data-vc-mode="dark"] {
   color-scheme: dark;
   --vc-bg:              oklch(15%   0.008 168);
   --vc-fg:              oklch(93.6% 0.008 155);
@@ -163,8 +173,11 @@
   --vc-caption-fg:      oklch(72%   0.014 155);
 }
 
-/* minimal - force light (re-sets color tokens to beat system dark media query) */
-[data-vc-theme="minimal"][data-vc-mode="light"] {
+/* force light - re-sets color tokens to beat system-dark media query; all preset IDs */
+[data-vc-theme="minimal"][data-vc-mode="light"],
+[data-vc-theme="editorial"][data-vc-mode="light"],
+[data-vc-theme="technical"][data-vc-mode="light"],
+[data-vc-theme="product"][data-vc-mode="light"] {
   color-scheme: light;
   --vc-bg:              oklch(98.7% 0.004 106);
   --vc-fg:              oklch(22%   0.006 106);

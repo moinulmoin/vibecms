@@ -1,54 +1,76 @@
 /* subscribe-form.module.css
-   Uses --vc-* design tokens so the widget tracks the preset and dark mode
-   automatically. No --vc-* tokens are defined here; they come from the
-   enclosing [data-vc-theme] / [data-rich-content] ancestor on the public
-   blog page. The widget scopes its own surface tokens so it can sit outside
-   that ancestor as well (footers, standalone placements).
+   Article-end + footer subscription, restyled as a restrained, rule-separated
+   continuation of the article body (no filled/tinted card). All visual roles
+   come from --vc-* tokens declared on the enclosing public <main
+   data-vc-theme> ancestor (presets.css / vc-rich-content.css), so the widget
+   tracks the active preset, the per-site accent, and light/dark mode
+   automatically.
+
+   The @vc/ui Input/Button primitives carry app-side defaults (shadcn tokens,
+   a dark primary-button gradient, shadow + ring hairlines) that do NOT track
+   the public theme; the rules below neutralize that leakage so only --vc-*
+   surface/accent roles reach the rendered control.
 */
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.875rem;
   width: 100%;
   font-family: var(--vc-font-body, ui-sans-serif, system-ui, sans-serif);
   color: var(--vc-fg, inherit);
 }
 
-/* placement="end" - after the article body */
+/* placement="end" - a quiet section continuation after the article body.
+   A section-gap break clears the article, then the rule hugs the form's own
+   content (tight padding-top) so the line reads as the section's top edge,
+   not a divider floating in dead space. No background, no boxed card. Width
+   tracks the prose measure so it aligns with the article column. */
 .formEnd {
-  margin-top: 3rem;
-  padding: 1.5rem;
-  border: 1px solid var(--vc-border, oklch(91% 0.006 106));
-  border-radius: var(--vc-radius, 10px);
-  background: var(--vc-muted, oklch(97% 0.006 106));
+  max-width: var(--vc-prose-measure, 68ch);
+  margin-top: var(--vc-section-gap, 2.75rem);
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--vc-border, oklch(91% 0.006 106));
 }
 
-/* placement="footer" - compact, inline */
+/* placement="footer" - compact, inline, separated by the same thin rule.
+   margin-top clears the post list so the rule isn't glued to the last entry. */
 .formFooter {
-  padding: 1rem 0;
+  gap: 0.5rem;
+  margin-top: var(--vc-section-gap, 2.75rem);
+  padding-top: 1.5rem;
   border-top: 1px solid var(--vc-border, oklch(91% 0.006 106));
 }
 
 .heading {
-  margin: 0 0 0.25rem;
+  margin: 0;
+  font-family: var(--vc-font-heading, var(--vc-font-body, ui-sans-serif, system-ui, sans-serif));
   font-size: 1rem;
   font-weight: 600;
-  color: var(--vc-fg, inherit);
   line-height: 1.4;
+  color: var(--vc-fg, inherit);
+}
+
+.formFooter .heading {
+  font-size: 0.9375rem;
 }
 
 .subtext {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.875rem;
-  color: var(--vc-muted-fg, oklch(54% 0.012 106));
   line-height: 1.5;
+  color: var(--vc-muted-fg, oklch(54% 0.012 106));
 }
 
+.formFooter .subtext {
+  font-size: 0.8125rem;
+}
+
+/* Input + submit read as one coherent control row. */
 .row {
   display: flex;
   gap: 0.5rem;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
 }
 
@@ -56,23 +78,76 @@
   flex: 1 1 14rem;
   min-width: 0;
 }
-/* Track the active preset surface (overrides the @vc/ui dark-ish default on the public page) */
-.form input {
-  background: var(--vc-card);
-  color: var(--vc-fg);
+
+/* Override @vc/ui Input app defaults so the field tracks the public theme:
+   vc surface bg, vc border, no app shadow/ring hairline, accent focus. */
+.input {
+  background-color: var(--vc-card, oklch(100% 0 0));
+  color: var(--vc-fg, inherit);
+  border: 1px solid var(--vc-border, oklch(91% 0.006 106));
+  border-radius: var(--vc-radius, 8px);
+  box-shadow: none;
+  font-family: var(--vc-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
+.input::placeholder {
+  color: var(--vc-muted-fg, oklch(54% 0.012 106));
+}
+
+.input:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 45%, var(--vc-border, oklch(91% 0.006 106)));
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--vc-accent, oklch(45% 0.11 154));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 30%, transparent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input[aria-invalid="true"] {
+  border-color: oklch(50% 0.18 25);
+  box-shadow: 0 0 0 3px oklch(50% 0.18 25 / 0.16);
+}
+
+/* Submit = the one deliberate accent surface. background-image: none kills the
+   @vc/ui primary-button dark gradient so only the flat vc accent shows. */
 .submitBtn {
   flex-shrink: 0;
-  background: var(--vc-accent, oklch(45% 0.11 154));
+  background-color: var(--vc-accent, oklch(45% 0.11 154));
+  background-image: none;
   color: var(--vc-accent-fg, oklch(98.7% 0.004 106));
+  border: 1px solid transparent;
+  border-radius: var(--vc-radius, 8px);
+  box-shadow: none;
+  font-family: var(--vc-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-weight: 600;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .submitBtn:hover:not(:disabled) {
-  opacity: 0.9;
+  background-color: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)), #000 12%);
+  background-image: none;
 }
 
-/* Visually-hidden honeypot; never shown to real users */
+.submitBtn:focus-visible {
+  outline: 2px solid var(--vc-accent, oklch(45% 0.11 154));
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Visually-hidden honeypot; never shown to real users. */
 .honeypot {
   position: absolute;
   width: 1px;
@@ -87,19 +162,43 @@
 
 .consentNote {
   font-size: 0.75rem;
-  color: var(--vc-muted-fg, oklch(54% 0.012 106));
   line-height: 1.4;
-  margin-top: 0.25rem;
+  color: var(--vc-muted-fg, oklch(54% 0.012 106));
 }
 
+/* Calm confirmation; accent stays reserved for interactive emphasis. */
 .successMsg {
-  font-size: 0.875rem;
-  color: var(--vc-accent, oklch(45% 0.11 154));
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
   line-height: 1.5;
+  color: var(--vc-fg, inherit);
 }
 
+/* Semantic error color (the only permitted hardcoded palette value). */
 .errorMsg {
-  font-size: 0.875rem;
-  color: oklch(50% 0.18 25);
+  margin: 0;
+  font-size: 0.8125rem;
   line-height: 1.5;
+  color: oklch(50% 0.18 25);
+}
+
+/* Stack the control row only on very narrow viewports. */
+@media (max-width: 420px) {
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Column orientation reinterprets the row .emailInput "flex: 1 1 14rem" as a
+     VERTICAL main-size basis, inflating the input container to ~14rem tall and
+     shoving the submit button far down the column. Reset to content height. */
+  .emailInput {
+    flex: 0 0 auto;
+  }
+
+  .emailInput,
+  .submitBtn {
+    width: 100%;
+  }
 }

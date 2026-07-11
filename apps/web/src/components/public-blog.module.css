@@ -22,12 +22,22 @@
   color: inherit;
   text-decoration: none;
   font-size: 28px;
-  font-weight: 900;
-  letter-spacing: -0.05em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .publicBrand:hover {
   color: var(--vc-accent);
+}
+
+/* Masthead tagline — muted so it reads as a quiet descriptor beside the brand,
+   not a second headline competing for the foreground. Shares the header
+   baseline row; wraps under the brand on narrow viewports. */
+.publicTagline {
+  margin: 0;
+  color: var(--vc-muted-fg);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 /* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
@@ -176,6 +186,37 @@
   font-weight: 600;
 }
 
+/* h4–h6 complete the heading hierarchy (h1–h3 live above). Each step shrinks one
+   notch under the same heading-scale factor; h6 closes the ladder as a small,
+   muted semibold label. */
+.markdown h4 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(17px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown h5 {
+  margin-top: 20px;
+  margin-bottom: 6px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(15px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown h6 {
+  margin-top: 18px;
+  margin-bottom: 6px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(13.5px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--vc-muted-fg);
+}
+
 .markdown p {
   max-width: var(--vc-prose-measure);
   font-size: 19px;
@@ -214,6 +255,48 @@
 .markdown li {
   margin-bottom: 0.4rem;
   line-height: var(--vc-prose-leading);
+}
+
+/* Nested lists stay tight: a list inside a list item doesn't re-add the full
+   standalone-list margins. */
+.markdown li > ul,
+.markdown li > ol {
+  margin: 0.25rem 0;
+}
+
+/* GFM task lists — remark-gfm emits the GLOBAL classes .contains-task-list and
+   .task-list-item (they are not module locals), so they are referenced via
+   :global(). No bullet markers; the native checkbox carries the checked state. */
+.markdown :global(.contains-task-list) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.markdown :global(.task-list-item) {
+  list-style: none;
+}
+
+.markdown :global(.task-list-item) input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.5em 0 0;
+  vertical-align: -0.16em;
+  accent-color: var(--vc-accent);
+  cursor: default;
+}
+
+/* A task list nested under a task item indents to show hierarchy. */
+.markdown :global(.task-list-item) :global(.contains-task-list) {
+  margin: 0.25rem 0 0.25rem 1.5rem;
+}
+
+/* Long unbreakable tokens (URLs, code) wrap inside the measure instead of
+   overflowing the prose column. overflow-wrap is inherited, so inline <code>
+   within a paragraph wraps too; fenced <pre> keeps its horizontal scroll. */
+.markdown p,
+.markdown li,
+.markdown blockquote {
+  overflow-wrap: break-word;
 }
 
 .markdown code {
@@ -264,6 +347,11 @@
   font-style: italic;
 }
 
+/* Strikethrough (GFM ~~…~~) — explicit line-through, browser-independent. */
+.markdown del {
+  text-decoration: line-through;
+}
+
 /* §1: hr = a centered short mark (an intentional pause, not a wall-to-wall line). */
 .markdown hr {
   border: none;
@@ -297,49 +385,92 @@
 
 /* ── Search form + listing banners ─────────────────────────────────────────── */
 
+/* §1: search = ONE integrated bordered control (input + submit share a single
+   border + radius), borrowing the compact search treatment from OpenAI Developers.
+   The form itself is the bordered box; the input is transparent inside it and the
+   submit button sits inline, separated by a hairline divider. Accent is reserved
+   for the focus ring. */
 .searchForm {
+  position: relative;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
   margin-bottom: var(--vc-section-gap);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
-/* §1: search = a quiet filled input (subtle bg tint + radius), no underline border. */
+/* Accessible name for the search field — visually hidden, never the placeholder. */
+.searchLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .searchInput {
-  flex: 1;
-  background: var(--vc-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
   border: none;
-  border-radius: var(--vc-radius);
+  border-radius: calc(var(--vc-radius) - 1px) 0 0 calc(var(--vc-radius) - 1px);
   color: var(--vc-fg);
   font-family: var(--vc-font-body);
   font-size: 1rem;
-  padding: 0.5rem 0.875rem;
+  padding: 0.7rem 0.875rem;
   outline: none;
-  transition: background 180ms ease, box-shadow 180ms ease;
 }
 
 .searchInput::placeholder {
   color: var(--vc-muted-fg);
 }
 
-.searchInput:focus {
-  background: var(--vc-code-inline-bg);
-  box-shadow: 0 0 0 1px var(--vc-border);
+/* Accent reserved for interactive emphasis: the whole control picks up an accent
+   ring when the field (or button) is focused. */
+.searchForm:focus-within {
+  border-color: var(--vc-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent) 30%, transparent);
 }
 
 .searchButton {
+  flex: 0 0 auto;
   background: transparent;
   border: none;
+  border-left: 1px solid var(--vc-border);
+  border-radius: 0 calc(var(--vc-radius) - 1px) calc(var(--vc-radius) - 1px) 0;
   color: var(--vc-muted-fg);
   font-family: var(--vc-font-body);
   font-size: 0.9rem;
   cursor: pointer;
-  padding: 0.5rem 0.5rem 0.5rem 0.25rem;
+  padding: 0.7rem 1rem;
   transition: color 180ms ease;
 }
 
 .searchButton:hover {
   color: var(--vc-fg);
+}
+
+/* ── Focus states ─────────────────────────────────────────────────────────── */
+
+/* One deliberate keyboard-focus language across every public link: a 2px accent
+   outline lifted 2px off the target with a small radius, so inline links don't
+   read as a hard rectangle. Text-entry controls keep their own ring above. */
+.publicBrand:focus-visible,
+.postCard h2 a:focus-visible,
+.backLink:focus-visible,
+.tagLink:focus-visible,
+.tocItemH2 > a:focus-visible,
+.tocItemH3 > a:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .listingBanner {
