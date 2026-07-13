@@ -7,6 +7,7 @@ import {
   ExitIcon,
   FileTextIcon,
   GearIcon,
+  IdCardIcon,
   ImageIcon,
   Link2Icon,
 } from '@radix-ui/react-icons'
@@ -45,19 +46,27 @@ import { setupAuthClient } from '~/lib/auth-client'
 
 type NavItem = { label: string; to: string; Icon: typeof DashboardIcon }
 
-const navItems: NavItem[] = [
-  { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
-  { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
-  { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
-  { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
-  { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
-  { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
+const navGroups: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Blog',
+    items: [
+      { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
+      { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
+      { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
+    ],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
+      { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
+      { label: 'Billing', to: '/dashboard/billing', Icon: IdCardIcon },
+      { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
+    ],
+  },
 ]
 
-// Titles for non-nav routes so the top bar never falls through to "Overview".
-const EXTRA_TITLES: Record<string, string> = {
-  '/dashboard/billing': 'Billing',
-}
+const navItems: NavItem[] = navGroups.flatMap((group) => group.items)
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en', {
@@ -99,11 +108,7 @@ function pageTitle(current: string) {
   const match = [...navItems]
     .sort((a, b) => b.to.length - a.to.length)
     .find((item) => current === item.to || (item.to !== '/dashboard' && current.startsWith(item.to)))
-  if (match) return match.label
-  const extra = Object.keys(EXTRA_TITLES)
-    .sort((a, b) => b.length - a.length)
-    .find((path) => current === path || current.startsWith(path))
-  return extra ? EXTRA_TITLES[extra] : 'Overview'
+  return match ? match.label : 'Overview'
 }
 
 function UserMenu({ userEmail, authUrl }: { userEmail?: string; authUrl: string }) {
@@ -219,29 +224,31 @@ export function AppShell({
           </SidebarHeader>
 
           <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-              <SidebarMenu>
-                {navItems.map(({ label, to, Icon }) => {
-                  const active = current === to || (to !== '/dashboard' && current.startsWith(to))
-                  return (
-                    <SidebarMenuItem key={to}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        tooltip={label}
-                        className="[&[data-active=true]_svg]:text-primary"
-                      >
-                        <Link to={to}>
-                          <Icon aria-hidden="true" />
-                          <span>{label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroup>
+            {navGroups.map((group) => (
+              <SidebarGroup key={group.label}>
+                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {group.items.map(({ label, to, Icon }) => {
+                    const active = current === to || (to !== '/dashboard' && current.startsWith(to))
+                    return (
+                      <SidebarMenuItem key={to}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          tooltip={label}
+                          className="[&[data-active=true]_svg]:text-primary"
+                        >
+                          <Link to={to}>
+                            <Icon aria-hidden="true" />
+                            <span>{label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter>
@@ -361,13 +368,23 @@ export function EmptyState({
   title,
   description,
   action,
+  icon,
 }: {
   title: string
   description: string
   action?: ReactNode
+  icon?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-[color:var(--hairline)] px-4 py-8 text-center">
+    <div className="flex flex-col items-center rounded-xl border border-dashed border-[color:var(--hairline)] px-4 py-10 text-center">
+      {icon ? (
+        <div
+          aria-hidden="true"
+          className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5"
+        >
+          {icon}
+        </div>
+      ) : null}
       <p className="font-display text-base font-semibold text-foreground">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}

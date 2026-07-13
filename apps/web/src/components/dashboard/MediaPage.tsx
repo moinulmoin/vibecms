@@ -2,7 +2,7 @@
 
 import { MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import { Pencil1Icon, TrashIcon, UploadIcon } from '@radix-ui/react-icons'
+import { ImageIcon, Pencil1Icon, TrashIcon, UploadIcon } from '@radix-ui/react-icons'
 import { Field, FieldDescription, FieldLabel, Input } from '@vc/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
@@ -372,6 +372,7 @@ export function MediaPage() {
           </div>
         ) : (
           <EmptyState
+            icon={<ImageIcon />}
             title="No media yet"
             description="Upload a cover image or inline post image to start building your blog library."
             action={

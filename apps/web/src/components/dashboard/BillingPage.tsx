@@ -4,7 +4,6 @@ import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
 import { CheckIcon } from '@radix-ui/react-icons'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
@@ -85,9 +84,14 @@ export function BillingPage() {
 
   if (!data) {
     return (
-      <OnboardingFrame phase="Billing">
-        <Skeleton className="h-[30rem] rounded-xl" />
-      </OnboardingFrame>
+      <>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-full max-w-2xl" />
+        </div>
+        <Skeleton className="h-[26rem] max-w-2xl rounded-2xl" />
+      </>
     )
   }
 
@@ -119,8 +123,7 @@ export function BillingPage() {
         title={isActive ? "You're subscribed" : 'Subscribe to publish'}
         description="Manage your Polar subscription and customer portal."
       />
-      <OnboardingFrame phase="Billing">
-        <div className="grid gap-4">
+      <div className="grid max-w-2xl gap-4">
           <Panel
             title={PRICING.monthlyLabel}
             meta={
@@ -202,8 +205,7 @@ export function BillingPage() {
                 : 'Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload media, and make your blog search-indexable. Cancel anytime from the customer portal.'}
             </p>
           </Panel>
-        </div>
-      </OnboardingFrame>
+      </div>
     </>
   )
 }

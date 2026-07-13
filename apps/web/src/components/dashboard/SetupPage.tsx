@@ -1,6 +1,6 @@
 'use client'
 
-import { BRAND, MEDIA } from '@vc/config'
+import { BRAND } from '@vc/config'
 import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from '@vc/ui'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -107,39 +107,17 @@ export function SetupPage() {
   if (loadError) return <LoadError message={loadError} />
   if (!site)
     return (
-      <OnboardingFrame phase="Blog setup">
-        <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Skeleton className="h-[68px] rounded-xl" />
-            <Skeleton className="h-[68px] rounded-xl" />
-          </div>
-          <Skeleton className="h-[28rem] rounded-xl" />
-        </div>
+      <OnboardingFrame step={1}>
+        <Skeleton className="h-[28rem] rounded-xl" />
       </OnboardingFrame>
     )
 
   return (
-    <OnboardingFrame phase="Blog setup">
+    <OnboardingFrame step={1}>
       <div className="grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl bg-muted/50 p-4">
-            <strong className="block font-display text-base font-semibold tabular-nums text-foreground">1 blog</strong>
-            <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
-              per subscription
-            </span>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-4">
-            <strong className="block font-display text-base font-semibold tabular-nums text-foreground">
-              {MEDIA.paidStorageLabel}
-            </strong>
-            <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
-              media storage
-            </span>
-          </div>
-        </div>
-        <Panel title="Create your hosted blog" meta={<span className="font-mono text-[11px] text-muted-foreground">Blog setup</span>}>
+        <Panel title="Create your hosted blog">
           <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
-            Only the essentials. You can edit posts, media, tokens, and billing after this.
+            Only the essentials. Everything here can be changed later.
           </p>
           <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
             <FieldGroup className="gap-4">

@@ -18,7 +18,7 @@ import {
   type ThemeMode,
 } from '@vc/config'
 import type { CustomDomainsPanel, CustomDomainView } from '~/server/custom-domains'
-import { DownloadIcon } from '@radix-ui/react-icons'
+import { DownloadIcon, GlobeIcon } from '@radix-ui/react-icons'
 import {
   Field,
   FieldLabel,
@@ -1011,7 +1011,11 @@ export function SettingsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState title="No custom domains" description="Add a domain above to serve your blog on your own URL." />
+            <EmptyState
+              icon={<GlobeIcon />}
+              title="No custom domains"
+              description="Add a domain above to serve your blog on your own URL."
+            />
           )}
         </Panel>
       ) : null}

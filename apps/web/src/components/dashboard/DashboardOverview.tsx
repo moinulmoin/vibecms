@@ -1,4 +1,5 @@
 import { BRAND, MEDIA } from '@vc/config'
+import { ActivityLogIcon, FileTextIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '~/server/cms-dashboard'
@@ -255,6 +256,7 @@ export function DashboardOverview() {
             </div>
           ) : (
             <EmptyState
+              icon={<FileTextIcon />}
               title="No posts yet"
               description="Create the first post manually, then connect an agent token when you are ready for agents to help."
               action={
@@ -292,6 +294,7 @@ export function DashboardOverview() {
             </div>
           ) : (
             <EmptyState
+              icon={<ActivityLogIcon />}
               title="No activity yet"
               description="Create a post, upload media, or issue an API token and this log fills in automatically."
             />

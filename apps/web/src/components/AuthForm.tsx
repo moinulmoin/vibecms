@@ -1,7 +1,9 @@
 import { setupAuthClient } from '~/lib/auth-client'
 import { Button, Field, FieldDescription, FieldGroup, FieldLabel, Input, Alert } from '@vc/ui'
-import { ReloadIcon } from '@radix-ui/react-icons'
+import { REGEXP_ONLY_DIGITS } from 'input-otp'
 import { useState } from 'react'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '~/components/ui/input-otp'
+import { Spinner } from '~/components/ui/spinner'
 
 type Step = 'email' | 'otp'
 
@@ -126,7 +128,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               <Button className="h-11 w-full rounded-xl" type="submit" disabled={loading} aria-busy={loading || undefined}>
                 {loading ? (
                   <>
-                    <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
+                    <Spinner aria-hidden="true" />
                     Sending code…
                   </>
                 ) : (
@@ -135,7 +137,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               </Button>
             </Field>
             <FieldDescription className="text-center">
-              No password needed. New here? Entering your email creates your account.
+              New here? Entering your email creates your account.
             </FieldDescription>
           </FieldGroup>
         </form>
@@ -154,18 +156,28 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               >
                 6-digit code
               </FieldLabel>
-              <Input
+              <InputOTP
                 id="otp"
-                name="otp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]*"
                 maxLength={6}
+                pattern={REGEXP_ONLY_DIGITS}
                 value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))}
-                required
+                onChange={setOtp}
+                onComplete={() => {
+                  if (!loading) verifyCode()
+                }}
                 autoFocus
-              />
+                disabled={loading}
+              >
+                <InputOTPGroup className="w-full">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className="h-12 flex-1 font-mono text-base first:rounded-l-xl last:rounded-r-xl"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
             </Field>
             <Field>
               <Button
@@ -176,7 +188,7 @@ export function AuthForm({ authUrl, googleEnabled }: { authUrl: string; googleEn
               >
                 {loading ? (
                   <>
-                    <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
+                    <Spinner aria-hidden="true" />
                     Verifying…
                   </>
                 ) : (

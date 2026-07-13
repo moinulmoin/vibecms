@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createDataAccess, type ActivityEventRow } from '@vc/db'
 import { env } from 'cloudflare:workers'
-import { getBilling, getBillingStatus, isSelfHosted } from '~/server/billing'
+import { getBilling, isSelfHosted } from '~/server/billing'
 import { getActivity } from '~/server/cms'
 import { canManageApiKeys, createApiKeyForApp, listApiKeys, revokeApiKeyForApp } from '~/server/api-keys'
 import type { ApiKeyListItem } from '~/server/api-keys'
@@ -157,14 +157,6 @@ export const loadConnectPage = createServerFn({ method: 'GET' }).handler(async (
   const apiKeys = await listApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
   return { canManage, mcpUrl, apiKeys }
-})
-
-export const loadBillingRequiredPage = createServerFn({ method: 'GET' }).handler(async () => {
-  const app = await requireApp()
-  const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
-  if (isSelfHosted()) return { redirectToApp: true as const, billingStatus: 'active' as const, isOwner }
-  const billingStatus = await getBillingStatus(app.workspaceId)
-  return { redirectToApp: false as const, billingStatus, isOwner }
 })
 
 export type OnboardingConnectStatus = {

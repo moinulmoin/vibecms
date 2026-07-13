@@ -5,12 +5,14 @@ import { useEffect, useRef, useState } from 'react'
 import { MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
 import { CopyButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, Input } from '@vc/ui'
-import { CheckIcon } from '@radix-ui/react-icons'
+import { CheckIcon, Link2Icon } from '@radix-ui/react-icons'
 import { Button, EmptyState, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
 import { Skeleton } from '@vc/ui'
 import type { ApiKeyListItem } from '~/server/api-keys'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
+import { Spinner } from '~/components/ui/spinner'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
   createApiKeyMutation,
@@ -455,10 +457,7 @@ export function ConnectPage() {
               ].join(' ')}
             >
               {selfTestSub === 'waiting' && (
-                <span
-                  className="mt-0.5 inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none"
-                  aria-hidden="true"
-                />
+                <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
               )}
               <span>
                 {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
@@ -515,38 +514,28 @@ export function ConnectPage() {
                 </div>
                 <FieldSet className="gap-3">
                   <FieldLegend>Capabilities</FieldLegend>
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <RadioGroup name="preset" defaultValue="publish" className="grid gap-2 sm:grid-cols-3">
                     {TOKEN_PRESETS.map((preset) => (
-                      <Field
+                      <label
                         key={preset.id}
-                        orientation="horizontal"
-                        className="rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40"
+                        htmlFor={`preset-${preset.id}`}
+                        className="flex cursor-pointer items-start gap-3 rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/40"
                       >
-                        <input
-                          id={`preset-${preset.id}`}
-                          className="mt-1 accent-[var(--brand-bright)]"
-                          type="radio"
-                          name="preset"
-                          value={preset.id}
-                          defaultChecked={preset.recommended}
-                        />
+                        <RadioGroupItem id={`preset-${preset.id}`} value={preset.id} className="mt-0.5" />
                         <span>
-                          <FieldLabel
-                            htmlFor={`preset-${preset.id}`}
-                            className="flex items-center gap-1.5 font-display text-sm font-medium"
-                          >
+                          <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
                             {preset.label}
                             {preset.recommended && (
                               <span className="font-mono text-[0.6rem] text-primary">default</span>
                             )}
-                          </FieldLabel>
+                          </span>
                           <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
                             {preset.description}
                           </span>
                         </span>
-                      </Field>
+                      </label>
                     ))}
-                  </div>
+                  </RadioGroup>
                 </FieldSet>
                 <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
                   Create token
@@ -566,6 +555,7 @@ export function ConnectPage() {
                 </div>
               ) : (
                 <EmptyState
+                  icon={<Link2Icon />}
                   title="No agent connected yet"
                   description="Create a token above to connect an AI agent to this blog over MCP."
                 />

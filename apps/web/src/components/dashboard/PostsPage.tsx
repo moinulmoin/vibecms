@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { FileTextIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { Field, FieldLabel, Input, Select, cn } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/server/posts-page-fn'
@@ -421,6 +422,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
           </>
         ) : (
           <EmptyState
+            icon={hasFilters ? <MagnifyingGlassIcon /> : <FileTextIcon />}
             title={hasFilters ? 'No posts match' : 'No posts yet'}
             description={
               hasFilters

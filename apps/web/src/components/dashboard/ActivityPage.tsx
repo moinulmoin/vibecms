@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { ActivityLogIcon } from '@radix-ui/react-icons'
 import {
   Button,
   DataRow,
@@ -147,6 +148,7 @@ export function ActivityPage() {
           </div>
         ) : (
           <EmptyState
+            icon={<ActivityLogIcon />}
             title="No activity yet"
             description="Create a post, upload media, or issue an API token and this log will fill in automatically."
           />
