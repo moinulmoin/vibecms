@@ -284,3 +284,82 @@ describe("subscribe form rendered-control contract", () => {
     expect(end).toContain(SUBSCRIBE_CONSENT_TEXT);
   });
 });
+
+describe("public editorial article rendering", () => {
+  const articleSite = {
+    ...site,
+    name: "Site One",
+    theme: "editorial",
+  };
+
+  const articlePost = {
+    ...post,
+    id: "post-editorial",
+    title: "Structured Article",
+    excerpt: "A multi-section exploration of ideas worth sharing.",
+    content_markdown:
+      "# Structured Article\n\nOpening paragraph.\n\n## First Section\n\nContent for the first section.\n\n### Sub-point Alpha\n\nA deeper detail.\n\n## Second Section\n\nContent for the second section.\n\n## Third Section\n\nClosing thoughts.\n",
+    presentation_json: JSON.stringify({ toc: true }),
+    presentation: { toc: true },
+  };
+
+  let markup: string;
+  beforeAll(() => {
+    markup = renderToStaticMarkup(
+      createElement(PublicBlogPostView, {
+        data: {
+          site: articleSite,
+          post: articlePost,
+          basePath: "",
+          canonicalUrl: "/structured-article",
+          origin: "https://site-1.basedui.dev",
+          indexable: true,
+          cacheTags: [],
+        } satisfies PublicPostLoaderData,
+      }),
+    );
+  });
+
+  it("renders the article-page marker on the page main", () => {
+    expect(markup).toContain('data-vc-article-page=""');
+  });
+
+  it("emits exactly one semantic H1 and does not duplicate the body title as H2", () => {
+    const h1Matches = markup.match(/<h1[ >]/g);
+    expect(h1Matches).toHaveLength(1);
+
+    // The matching leading H1 is removed from the rendered body, so the
+    // article title must not appear again as an H2.
+    expect(markup).not.toMatch(/<h2[^>]*>Structured Article<\/h2>/);
+  });
+
+  it("renders the deck and byline before body content", () => {
+    const deckIndex = markup.indexOf("A multi-section exploration of ideas worth sharing.");
+    const bylineIndex = markup.indexOf("By Site One");
+    const bodyStart = markup.indexOf("data-rich-content");
+
+    expect(deckIndex).toBeGreaterThanOrEqual(0);
+    expect(bylineIndex).toBeGreaterThanOrEqual(0);
+    expect(deckIndex).toBeLessThan(bodyStart);
+    expect(bylineIndex).toBeLessThan(bodyStart);
+  });
+
+  it("produces narrow TOC disclosure markup for structured headings", () => {
+    // Three H2/H3 headings trigger the <details> TOC disclosure.
+    expect(markup).toContain("<details");
+    expect(markup).toContain("<summary");
+    expect(markup).toContain("On this page");
+
+    // All outline entries appear as links.
+    expect(markup).toContain(">First Section</a>");
+    expect(markup).toContain(">Sub-point Alpha</a>");
+    expect(markup).toContain(">Second Section</a>");
+    expect(markup).toContain(">Third Section</a>");
+  });
+
+  it("produces desktop navigation TOC rail markup", () => {
+    // The sticky sidebar nav is rendered alongside the body.
+    expect(markup).toContain('<nav');
+    expect(markup).toContain('aria-label="On this page"');
+  });
+});

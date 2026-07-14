@@ -15,6 +15,13 @@ export interface RenderResult {
 export interface RenderOpts {
   readonly presetId?: string;
   readonly className?: string;
+  /**
+   * When set (nonempty), a leading top-level H1 whose normalized visible text
+   * exactly matches this title is removed (not downgraded to H2). Normalization
+   * collapses whitespace and trims; matching is case-sensitive and exact. All
+   * other H1s retain the existing downgrade-to-H2 behavior.
+   */
+  readonly pageTitle?: string;
 }
 
 export interface RichContentFrameProps {

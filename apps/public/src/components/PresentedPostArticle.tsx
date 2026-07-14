@@ -37,6 +37,8 @@ export interface PresentedPostArticleProps {
   presetId: string;
   presentation: ResolvedPresentation;
   title?: string;
+  excerpt?: string;
+  byline?: string;
   coverAssetSrc?: string;
   dateText?: string;
   updatedDateText?: string;
@@ -51,6 +53,8 @@ export function PresentedPostArticle({
   presetId,
   presentation,
   title,
+  excerpt,
+  byline,
   coverAssetSrc,
   dateText,
   updatedDateText,
@@ -63,8 +67,8 @@ export function PresentedPostArticle({
   const isFeature = presentation.layout === "feature";
   const { outline } = renderResult;
   const hasToc = presentation.toc && outline.length >= 3;
-  const hasHeroChrome = Boolean(title || dateText || updatedDateText || coverAssetSrc);
   const metaSegments: string[] = [
+    byline ? `By ${byline}` : undefined,
     dateText,
     updatedDateText ? `Updated ${updatedDateText}` : undefined,
     readingMinutes != null ? `${readingMinutes} min read` : undefined,
@@ -98,44 +102,26 @@ export function PresentedPostArticle({
     <article
       className={styles.article}
       data-vc-layout={presentation.layout}
+      data-vc-has-toc={hasToc ? "" : undefined}
       style={themeAttrs?.style}
       {...(themeAttrs?.mode === "light" || themeAttrs?.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
     >
-      {isFeature ? (
-        hasHeroChrome ? (
-          <div className={styles.featureHero}>
-            {coverAssetSrc ? (
-              <img
-                className={styles.featureCover}
-                src={coverAssetSrc}
-                alt={title ? `Cover for ${title}` : "Cover image"}
-                width={860}
-                height={520}
-                loading="eager"
-              />
-            ) : null}
-            {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
-            {metaLine}
-            {tagRow}
-          </div>
-        ) : null
-      ) : (
-        <>
-          {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
-          {coverAssetSrc ? (
-            <img
-              className={styles.heroImage}
-              src={coverAssetSrc}
-              alt={title ? `Cover for ${title}` : "Cover image"}
-              width={860}
-              height={520}
-              loading="lazy"
-            />
-          ) : null}
-          {metaLine}
-          {tagRow}
-        </>
-      )}
+      <header className={styles.articleHeader}>
+        {tagRow}
+        {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
+        {excerpt ? <p className={styles.articleDeck}>{excerpt}</p> : null}
+        {metaLine}
+      </header>
+      {coverAssetSrc ? (
+        <img
+          className={isFeature ? styles.featureCover : styles.heroImage}
+          src={coverAssetSrc}
+          alt={title ? `Cover for ${title}` : "Cover image"}
+          width={860}
+          height={520}
+          loading={isFeature ? "eager" : "lazy"}
+        />
+      ) : null}
       {hasToc ? (
         <details className={styles.tocDetails}>
           <summary className={styles.tocSummary}>On this page</summary>

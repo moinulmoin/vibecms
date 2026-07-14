@@ -65,23 +65,25 @@ return (
         <div className={subscribeStyles.honeypot} aria-hidden="true">
           <input name="company" type="text" tabIndex={-1} autoComplete="off" />
         </div>
-        <label className={subscribeStyles.label} htmlFor={`email-footer-${site.slug}`}>
-          Email
-        </label>
-        <input
-          id={`email-footer-${site.slug}`}
-          name="email"
-          type="email"
-          required
-          className={subscribeStyles.input}
-          placeholder="you@example.com"
-        />
-        <button type="submit" className={subscribeStyles.button}>
-          Join the list
-        </button>
-        <p className={subscribeStyles.consent}>{SUBSCRIBE_CONSENT_TEXT}</p>
-        <p className={subscribeStyles.error} hidden data-subscribe-error />
-        <p className={subscribeStyles.success} hidden data-subscribe-success>
+        <div className={subscribeStyles.row}>
+          <label className={subscribeStyles.emailLabel} htmlFor={`email-footer-${site.slug}`}>
+            Email address
+          </label>
+          <input
+            id={`email-footer-${site.slug}`}
+            name="email"
+            type="email"
+            required
+            className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
+            placeholder="you@example.com"
+          />
+          <button type="submit" className={subscribeStyles.submitBtn}>
+            Join the list
+          </button>
+        </div>
+        <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
+        <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
+        <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
           You&apos;re on the list. We&apos;ll email you when delivery launches.
         </p>
       </form>
@@ -177,21 +179,20 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   };
   const themeAttrs = resolveSiteTheme(siteTheme);
   const { resolved } = resolvePresentation(presetId, post.presentation);
-  const renderResult = renderRichContent(post.content_markdown, { presetId });
+  const renderResult = renderRichContent(post.content_markdown, { presetId, pageTitle: post.title });
   const coverAssetSrc = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : undefined;
   const dateText = post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : undefined;
   const updatedDateText = shouldShowUpdatedDate(post.published_at, post.updated_at)
     ? new Date(post.updated_at * 1000).toLocaleDateString()
     : undefined;
   const readingMinutes = readingTimeMinutes(post.content_markdown);
-  const hasToc = resolved.toc && renderResult.outline.length >= 3;
   const tags = parseTags(post.tags_json);
 
   return (
     <main
       className={styles.publicPage}
       data-vc-theme={presetId}
-      data-vc-toc-rail={hasToc ? "" : undefined}
+      data-vc-article-page=""
       style={themeAttrs.style}
       {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
     >
@@ -209,6 +210,8 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         presetId={presetId}
         presentation={resolved}
         title={post.title}
+        excerpt={post.excerpt ?? undefined}
+        byline={site.name}
         coverAssetSrc={coverAssetSrc}
         dateText={dateText}
         updatedDateText={updatedDateText}
@@ -223,23 +226,25 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         <div className={subscribeStyles.honeypot} aria-hidden="true">
           <input name="company" type="text" tabIndex={-1} autoComplete="off" />
         </div>
-        <label className={subscribeStyles.label} htmlFor={`email-end-${site.slug}`}>
-          Email
-        </label>
-        <input
-          id={`email-end-${site.slug}`}
-          name="email"
-          type="email"
-          required
-          className={subscribeStyles.input}
-          placeholder="you@example.com"
-        />
-        <button type="submit" className={subscribeStyles.button}>
-          Join the list
-        </button>
-        <p className={subscribeStyles.consent}>{SUBSCRIBE_CONSENT_TEXT}</p>
-        <p className={subscribeStyles.error} hidden data-subscribe-error />
-        <p className={subscribeStyles.success} hidden data-subscribe-success>
+        <div className={subscribeStyles.row}>
+          <label className={subscribeStyles.emailLabel} htmlFor={`email-end-${site.slug}`}>
+            Email address
+          </label>
+          <input
+            id={`email-end-${site.slug}`}
+            name="email"
+            type="email"
+            required
+            className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
+            placeholder="you@example.com"
+          />
+          <button type="submit" className={subscribeStyles.submitBtn}>
+            Join the list
+          </button>
+        </div>
+        <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
+        <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
+        <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
           You&apos;re on the list. We&apos;ll email you when delivery launches.
         </p>
       </form>

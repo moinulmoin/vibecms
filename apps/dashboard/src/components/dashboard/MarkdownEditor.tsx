@@ -49,7 +49,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
   const [previewMetadataRevision, setPreviewMetadataRevision] = useState(0)
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
 
-  const previewResult = useMemo(() => renderRichContent(previewSource), [previewSource])
+  const previewResult = useMemo(() => renderRichContent(previewSource, { pageTitle: previewMetadata.title }), [previewSource, previewMetadata.title])
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? assets[0]
   const previewIsCurrent = isPreviewCurrent(
     draftRevision,
@@ -253,6 +253,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
                 presetId={presetId}
                 presentation={resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved}
                 title={previewMetadata.title}
+                excerpt={previewMetadata.excerpt}
                 coverAssetSrc={previewMetadata.coverAssetSrc}
               />
             ) : (

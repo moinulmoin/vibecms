@@ -47,6 +47,10 @@ export interface PresentedPostArticleProps {
   presetId: string;
   presentation: ResolvedPresentation;
   title?: string;
+  /** Editorial deck/lede: larger muted intro paragraph between title and meta. */
+  excerpt?: string;
+  /** Author byline prepended to the meta line as "By {byline}" (By … · date · Updated … · N min read). */
+  byline?: string;
   coverAssetSrc?: string;
   dateText?: string;
   updatedDateText?: string;
@@ -71,6 +75,8 @@ export function PresentedPostArticle({
   presetId,
   presentation,
   title,
+  excerpt,
+  byline,
   coverAssetSrc,
   dateText,
   updatedDateText,
@@ -88,10 +94,10 @@ export function PresentedPostArticle({
   // §3: page-level ToC renders only when the preset supports it AND there are
   // >=3 outline entries. (Previously any single heading triggered it.)
   const hasToc = presentation.toc && outline.length >= 3;
-  const hasHeroChrome = Boolean(title || dateText || updatedDateText || coverAssetSrc);
 
-  // §2: ONE quiet middle-dot meta line — date · Updated … · N min read. No icons, no labels.
+  // §2: ONE quiet middle-dot meta line — byline · date · Updated … · N min read. No icons, no labels.
   const metaSegments: string[] = [
+    byline ? `By ${byline}` : undefined,
     dateText,
     updatedDateText ? `Updated ${updatedDateText}` : undefined,
     readingMinutes != null ? `${readingMinutes} min read` : undefined,
@@ -114,6 +120,9 @@ export function PresentedPostArticle({
       </p>
     ) : null;
 
+  // Editorial deck/lede: a larger muted intro paragraph between the title and meta.
+  const deck = excerpt ? <p className={styles.articleDeck}>{excerpt}</p> : null;
+
   // Shared outline list — rendered twice (desktop rail + mobile <details>). React element
   // descriptions are reusable; the per-item `key` is scoped to each list instance.
   const tocList = (
@@ -130,56 +139,36 @@ export function PresentedPostArticle({
     <article
       className={styles.article}
       data-vc-layout={presentation.layout}
+      data-vc-has-toc={hasToc ? "" : undefined}
       style={themeAttrs?.style}
       {...(themeAttrs?.mode === "light" || themeAttrs?.mode === "dark"
         ? { "data-vc-mode": themeAttrs.mode }
         : {})}
     >
-      {isFeature ? (
-        hasHeroChrome ? (
-          // Feature: full-width cover hero above title; only the cover breaks out (§7).
-          <div className={styles.featureHero}>
-            {coverAssetSrc ? (
-              <img
-                className={styles.featureCover}
-                src={coverAssetSrc}
-                alt={title ? `Cover for ${title}` : "Cover image"}
-                width={860}
-                height={520}
-                loading="eager"
-              />
-            ) : null}
-            {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
-            {metaLine}
-            {tagRow}
-          </div>
-        ) : null
-      ) : (
-        // Standard / essay: title first, then optional cover, then meta + tags.
-        <>
-          {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
-          {coverAssetSrc ? (
-            <img
-              className={styles.heroImage}
-              src={coverAssetSrc}
-              alt={title ? `Cover for ${title}` : "Cover image"}
-              width={860}
-              height={520}
-              loading="lazy"
-            />
-          ) : null}
-          {metaLine}
-          {tagRow}
-        </>
-      )}
-      {/* §3: mobile/narrow ToC — native <details>, collapsed, no box. Hidden >=1100px. */}
+      <header className={styles.articleHeader}>
+        {tagRow}
+        {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
+        {deck}
+        {metaLine}
+      </header>
+      {coverAssetSrc ? (
+        <img
+          className={isFeature ? styles.featureCover : styles.heroImage}
+          src={coverAssetSrc}
+          alt={title ? `Cover for ${title}` : "Cover image"}
+          width={860}
+          height={520}
+          loading={isFeature ? "eager" : "lazy"}
+        />
+      ) : null}
+      {/* §3: mobile/narrow ToC — native <details>, collapsed, no box. Hidden when the rail is shown. */}
       {hasToc ? (
         <details className={styles.tocDetails}>
           <summary className={styles.tocSummary}>On this page</summary>
           {tocList}
         </details>
       ) : null}
-      {/* Body: prose column + sticky right rail (rail shown only >=1100px via CSS). */}
+      {/* Body: prose column + sticky right rail (rail shown only when the shell is wide enough). */}
       <div className={styles.articleBody}>
         <RichContentFrame node={renderResult.node} presetId={presetId} mode={themeAttrs?.mode} className={prose.prose} />
         {hasToc ? (

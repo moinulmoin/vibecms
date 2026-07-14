@@ -65,11 +65,11 @@
 
 .heroImage {
   width: 100%;
-  max-width: var(--vc-prose-measure);
+  max-width: 100%;
   max-height: 520px;
   object-fit: cover;
   border-radius: calc(var(--vc-radius) + 4px);
-  margin: 18px 0 28px;
+  margin: 18px auto 28px;
 }
 
 .postCard h2 {
@@ -94,15 +94,19 @@
 }
 
 .article {
-  max-width: var(--vc-prose-measure);
+  /* Editorial header stage up to 60rem (960px); prose body measured at 70ch.
+     --vc-prose-measure cascades to the rich-content root and text elements.
+     container-type lets the ToC rail activate on the article's own width. */
+  max-width: 60rem;
+  --vc-prose-measure: 70ch;
+  container-type: inline-size;
 }
 
-/* §7: soft title metrics — line-height 1.08, −0.025em tracking, clamp max ~3.4rem, balanced. */
+/* §7: editorial title metrics — line-height 1.08, −0.025em tracking, clamp max ~4rem, balanced. */
 .articleTitle {
   margin: 20px 0 16px;
-  max-width: var(--vc-prose-measure);
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(1.9rem, 5vw, 3.4rem) * var(--vc-heading-scale));
+  font-size: calc(clamp(2.25rem, 5vw, 4rem) * var(--vc-heading-scale));
   line-height: 1.08;
   letter-spacing: -0.025em;
   font-weight: 700;
@@ -117,18 +121,18 @@
 /* §2: ONE quiet meta line — muted (AA), normal tracking, middle-dot separated. No icons/labels. */
 .metaLine {
   color: var(--vc-muted-fg);
-  font-size: 0.9rem;
+  font-family: var(--vc-font-mono);
+  font-size: 0.8125rem;
   line-height: 1.5;
   margin: 0 0 0.5rem;
-  max-width: var(--vc-prose-measure);
 }
 
 /* §2.3 / §6: quiet tag row — sentence-case plain text links, dot-separated, not pills. */
 .tagRow {
   margin: 0 0 1rem;
-  font-size: 0.9rem;
+  font-family: var(--vc-font-mono);
+  font-size: 0.8125rem;
   line-height: 1.6;
-  max-width: var(--vc-prose-measure);
 }
 
 .tagEntry {
@@ -150,6 +154,26 @@
   color: var(--vc-muted-fg);
   opacity: 0.55;
   margin: 0 0.45em;
+}
+
+/* ── Editorial header stage ───────────────────────────────────────────────── */
+
+/* Header stage: tags eyebrow → H1 → deck → byline/date/read-time meta.
+   Capped at the editorial header width (60rem) and centered within the article. */
+.articleHeader {
+  max-width: 60rem;
+  margin-inline: auto;
+}
+
+/* Deck/lede: a larger muted intro paragraph between the title and the meta line.
+   Reads wider than the body prose (larger ch at this font size) for editorial impact. */
+.articleDeck {
+  margin: 0 0 1rem;
+  max-width: var(--vc-prose-measure);
+  font-size: clamp(1.25rem, 2vw, 1.375rem);
+  line-height: 1.5;
+  color: var(--vc-muted-fg);
+  text-wrap: pretty;
 }
 
 /* §7: prose root is always measured, even in feature layout — only the cover breaks out. */
@@ -531,23 +555,13 @@
   }
 }
 
-/* ── Layout: feature ───────────────────────────────────────────────────────── */
+/* ── Cover images ──────────────────────────────────────────────────────────── */
 
-/* Feature layout expands to the full page container width (cover breaks out). */
-.article[data-vc-layout="feature"] {
-  max-width: 100%;
-}
-
-/* Full-width hero container; title + meta sit below the cover. */
-.featureHero {
-  margin-bottom: 28px;
-}
-
-/* Hero cover image: full-width, capped height. Only this breaks out of the measure (§7). */
+/* Feature cover: fills the article shell, capped height. Standard cover uses .heroImage. */
 .featureCover {
   display: block;
   width: 100%;
-  max-height: 540px;
+  max-height: 560px;
   object-fit: cover;
   border-radius: calc(var(--vc-radius) + 4px);
   margin-bottom: 20px;
@@ -555,20 +569,20 @@
 
 /* ── Layout: essay ──────────────────────────────────────────────────────────── */
 
-/* Essay: constrain to the preset prose measure. (Drop cap removed in §7.) */
-.article[data-vc-layout="essay"] {
-  max-width: var(--vc-prose-measure);
-}
+/* Essay: shares the editorial shell — header stage and prose measure inherit from .article. */
 
 /* ── Article body + Table of contents ──────────────────────────────────────── */
 
-/* Body wrapper holds the prose column; the sticky ToC rail joins it >=1100px.
-   The prose itself is always measured via .markdown above. */
+/* Body wrapper holds the prose column; the sticky ToC rail joins it when the
+   article shell is wide enough (container query below). */
 .articleBody {
   display: block;
+  /* Cap the body (prose + rail) at the editorial shell; center it within the article. */
+  max-width: 60rem;
+  margin-inline: auto;
 }
 
-/* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden >=1100px. */
+/* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden when the rail shows. */
 .tocDetails {
   margin: 0 0 var(--vc-section-gap);
   max-width: var(--vc-prose-measure);
@@ -585,7 +599,7 @@
   display: none;
 }
 
-/* §3: sticky right rail — hidden below 1100px (the <details> covers narrow screens). */
+/* §3: sticky right rail — hidden by default (the <details> covers narrow screens). */
 .tocRail {
   display: none;
 }
@@ -656,6 +670,58 @@
   }
 
   .publicPage[data-vc-toc-rail] .tocDetails {
+    display: none;
+  }
+}
+
+/* ── Editorial rich-media breakout (dashboard preview) ────────────────────── */
+
+/* When no ToC is present, the body widens to ~56rem (900px) and figures/code/tables
+   fill it — wider than the 70ch prose column but capped to avoid overflow. Text and
+   headings stay measured for reading rhythm. When a ToC IS present the grid column
+   (or the rich-content root's own max-width) keeps media inside the prose column. */
+.article:not([data-vc-has-toc]) .articleBody {
+  max-width: 56rem;
+}
+.article:not([data-vc-has-toc]) [data-rich-content] {
+  max-width: none;
+}
+
+.article:not([data-vc-has-toc]) [data-rich-content] p,
+.article:not([data-vc-has-toc]) [data-rich-content] ul,
+.article:not([data-vc-has-toc]) [data-rich-content] ol,
+.article:not([data-vc-has-toc]) [data-rich-content] h2,
+.article:not([data-vc-has-toc]) [data-rich-content] h3,
+.article:not([data-vc-has-toc]) [data-rich-content] h4,
+.article:not([data-vc-has-toc]) [data-rich-content] h5,
+.article:not([data-vc-has-toc]) [data-rich-content] h6,
+.article:not([data-vc-has-toc]) [data-rich-content] blockquote,
+.article:not([data-vc-has-toc]) [data-rich-content] hr {
+  max-width: min(var(--vc-prose-measure), 45rem);
+}
+
+/* ── ToC rail: container query (dashboard preview) ────────────────────────── */
+
+/* The sticky right rail joins the prose column when the article's own inline size
+   is wide enough to hold both without overflow. Uses @container (not @media) so
+   the dashboard preview rail respects its own box, not the browser viewport. */
+@container (min-width: 52rem) {
+  .article[data-vc-has-toc] .articleBody {
+    display: grid;
+    grid-template-columns: minmax(0, min(var(--vc-prose-measure), 45rem)) 15rem;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .article[data-vc-has-toc] .tocRail {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .article[data-vc-has-toc] .tocDetails {
     display: none;
   }
 }

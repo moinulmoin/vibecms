@@ -27,7 +27,8 @@
    not a divider floating in dead space. No background, no boxed card. Width
    tracks the prose measure so it aligns with the article column. */
 .formEnd {
-  max-width: var(--vc-prose-measure, 68ch);
+  max-width: var(--vc-prose-measure, 70ch);
+  margin-inline: auto;
   margin-top: var(--vc-section-gap, 2.75rem);
   padding-top: 1.5rem;
   border-top: 1px solid var(--vc-border, oklch(91% 0.006 106));
@@ -82,6 +83,7 @@
 /* Override @vc/ui Input app defaults so the field tracks the public theme:
    vc surface bg, vc border, no app shadow/ring hairline, accent focus. */
 .input {
+  box-sizing: border-box;
   background-color: var(--vc-card, oklch(100% 0 0));
   color: var(--vc-fg, inherit);
   border: 1px solid var(--vc-border, oklch(91% 0.006 106));
@@ -89,6 +91,7 @@
   box-shadow: none;
   font-family: var(--vc-font-body, ui-sans-serif, system-ui, sans-serif);
   font-size: 1rem;
+  padding: 0.65rem 0.875rem;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -128,6 +131,7 @@
   box-shadow: none;
   font-family: var(--vc-font-body, ui-sans-serif, system-ui, sans-serif);
   font-weight: 600;
+  padding: 0.65rem 1.25rem;
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -148,6 +152,7 @@
 }
 
 /* Visually-hidden honeypot; never shown to real users. */
+.emailLabel,
 .honeypot {
   position: absolute;
   width: 1px;

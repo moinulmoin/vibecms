@@ -160,6 +160,38 @@ describe("h1 downgrade", () => {
     expect((html.match(/<h1[ >]/g) || []).length).toBe(0);
     expect(html).toMatch(/<h2[^>]*id="h-top-heading"/);
   });
+
+  it("removes exact-matching leading H1 when pageTitle is supplied", () => {
+    const html = renderRichContentToHtml("# My Article\n\nParagraph", { pageTitle: "My Article" });
+    expect(html).not.toContain("<h1");
+    expect(html).not.toContain("<h2");
+    expect(html).not.toMatch(/<h[12][ >]/);
+  });
+
+  it("removes whitespace-normalized matching leading H1", () => {
+    const html = renderRichContentToHtml("#  My   Article  \n\nParagraph", { pageTitle: "My Article" });
+    expect(html).not.toMatch(/<h[12][ >]/);
+  });
+
+  it("leaves case-different H1 downgraded to H2 when pageTitle does not match", () => {
+    const html = renderRichContentToHtml("# my article\n\nParagraph", { pageTitle: "My Article" });
+    expect(html).not.toContain("<h1");
+    expect(html).toMatch(/<h2[^>]*id="h-my-article"/);
+  });
+
+  it("leaves non-matching H1 downgraded to H2 and in outline", () => {
+    const { outline } = renderRichContent("# Different Title\n\nParagraph", { pageTitle: "My Article" });
+    expect(outline).toEqual([{ depth: 2, text: "Different Title", id: "h-different-title" }]);
+    const html = renderRichContentToHtml("# Different Title\n\nParagraph", { pageTitle: "My Article" });
+    expect(html).toMatch(/<h2[^>]*id="h-different-title"/);
+  });
+
+  it("does not remove matching H1 that is not the leading element", () => {
+    const md = "Some intro text.\n\n# My Article\n\nMore content";
+    const html = renderRichContentToHtml(md, { pageTitle: "My Article" });
+    expect(html).not.toContain("<h1");
+    expect(html).toMatch(/<h2[^>]*id="h-my-article"/);
+  });
 });
 
 describe("GFM task-list and strikethrough", () => {

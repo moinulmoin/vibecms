@@ -89,6 +89,35 @@ function rehypeExternalLinks(): (tree: UnistNode) => void {
   };
 }
 
+interface TitleH1PluginOpts {
+  readonly pageTitle: string;
+}
+
+/**
+ * Removes a leading top-level H1 when its normalized visible text exactly
+ * matches the page title, so a title already shown by the article shell is not
+ * duplicated in the body. Runs before rehypeDowngradeH1; only the first
+ * meaningful root child (ignoring leading blank text nodes) is considered, and
+ * only when it is an H1 that matches. Every other H1 is left untouched for the
+ * existing downgrade-to-H2 behavior.
+ */
+function rehypeRemoveTitleH1(opts: TitleH1PluginOpts): (tree: UnistNode) => void {
+  const title = opts.pageTitle.replace(/\s+/g, " ").trim();
+  return (tree) => {
+    if (!title) return;
+    const root = tree as unknown as HRoot;
+    const children = root.children;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (isBlankTxt(child)) continue;
+      if (isElTag(child, "h1") && hastToText(child).replace(/\s+/g, " ").trim() === title) {
+        children.splice(i, 1);
+      }
+      break;
+    }
+  };
+}
+
 function rehypeDowngradeH1(): (tree: UnistNode) => void {
   return (tree) => {
     const root = tree as unknown as HRoot;
@@ -477,14 +506,20 @@ const sanitizeSchema = {
   },
 };
 
-export function renderRichContent(markdown: string, _opts?: RenderOpts): RenderResult {
+export function renderRichContent(markdown: string, opts?: RenderOpts): RenderResult {
   const outline: OutlineEntry[] = [];
   const warnings: string[] = [];
 
-  const file = unified()
+  const pipeline = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkRehype, { allowDangerousHtml: false })
+    .use(remarkRehype, { allowDangerousHtml: false });
+
+  if (opts?.pageTitle) {
+    pipeline.use(rehypeRemoveTitleH1, { pageTitle: opts.pageTitle });
+  }
+
+  const file = pipeline
     .use(rehypeDowngradeH1)
     .use(rehypeSlug, { prefix: "h-" })
     .use(rehypeTocCollector, { outline, warnings })
