@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const DEFAULT_API_URL = "https://dev.vibecms.dev";
+export const DEFAULT_API_URL = "https://app.vibecms.dev";
 
 const CONFIG_DIR = join(homedir(), ".vibecms");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");

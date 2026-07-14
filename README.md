@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web/public/brand/wordmark.png" alt="vibecms" width="460" />
+  <img src="apps/dashboard/public/brand/wordmark.png" alt="vibecms" width="460" />
   <p><strong>CMS for AI Agents.</strong></p>
 </div>
 
@@ -91,13 +91,16 @@ The vibecms name and marks are covered by the trademark guidelines in `TRADEMARK
 pnpm install
 pnpm typecheck
 pnpm lint
+pnpm test
+pnpm build
 pnpm public:audit
 pnpm db:migrate:local
 pnpm db:seed:local
 pnpm dev
 ```
 
-Database migration SQL lives in `packages/db/drizzle/0001_initial.sql` and is wired to the TanStack worker's D1 binding.
+Database migration SQL lives in `packages/db/drizzle/` and is shared by both Workers.
+Local API development, Astro rendering, migrations, and seed commands share the root `.wrangler/state` directory so both Workers see the same D1 and R2 data.
 
 See `MILESTONES.md` for the milestone-by-milestone build plan and acceptance checks.
 
@@ -109,13 +112,14 @@ vibecms now has a real self-host switch:
 SELF_HOSTED=true
 ```
 
-In self-host mode, Polar is optional, billing gates are disabled, and hosted workspace API quotas are not enforced by default. After signup and blog setup, the owner lands directly on `/app`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
+In self-host mode, Polar is optional, billing gates are disabled, and hosted workspace API quotas are not enforced by default. After signup and blog setup, the owner lands on `/dashboard`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
 
-The repo is intentionally set up as **one repository** for both vibecms Cloud development and self-hosted deploys:
+The repository deploys the same two-Worker topology in hosted and self-hosted modes:
 
-- `apps/web/wrangler.jsonc` is the private/dev hosted Worker config.
-- `wrangler.jsonc` at the repo root is the public self-host Deploy-to-Cloudflare config.
-- `pnpm deploy` uses the root self-host config, applies D1 migrations by binding name (`DB`), and deploys the built Worker.
+- `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc` configure hosted development/production.
+- Root `wrangler.jsonc` configures the self-hosted Hono API + dashboard Worker.
+- Root `wrangler.public.jsonc` configures the self-hosted Astro public-blog Worker.
+- `pnpm deploy` builds both, applies D1 migrations, then deploys API before public.
 
 Deploy button shape, once this repo is public:
 
@@ -123,16 +127,19 @@ Deploy button shape, once this repo is public:
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
-During deploy, set the root `wrangler.jsonc` vars to your deployed Worker URL. Public blogs are **host-only** (tenant identity is the host): set `PUBLIC_BLOG_DOMAIN` to the host that serves blogs. For a single-host self-host deploy, `PUBLIC_BLOG_DOMAIN` and `APP_URL` are the same host — the app, dashboard, and public blog all run on one Worker host and the host-mode resolver returns the single tenant:
+During deploy, configure both root Wrangler files. Public blogs are host-only
+(tenant identity is the host), so the API/dashboard and public blog use separate
+Worker hosts:
 
 ```txt
-APP_URL=https://<your-worker>.<your-subdomain>.workers.dev
-BETTER_AUTH_URL=https://<your-worker>.<your-subdomain>.workers.dev
-PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
+APP_URL=https://vibecms.<your-subdomain>.workers.dev
+BETTER_AUTH_URL=https://vibecms.<your-subdomain>.workers.dev
+PUBLIC_BLOG_DOMAIN=vibecms-public.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 ```
 
-Self-host is single-tenant and host-based: the blog serves at the root of its host (`/`, `/<post-slug>`, `/tag/<tag>`), not under `/blog/<slug>`. Multi-tenant path-mode (`/blog/<site-slug>/*`) has been removed. A future topology may split app and blog onto separate hosts; that is a pre-release decision (see `docs/url-architecture-decision.md`). `PUBLIC_BLOG_DOMAIN=localhost` is only a local development fallback.
+The public blog serves at `/`, `/<post-slug>`, and `/tag/<tag>` on
+`PUBLIC_BLOG_DOMAIN`; removed `/blog/<site-slug>/*` path mode is not supported.
 
 The only required self-host secrets are listed in `.dev.vars.example`:
 
@@ -144,9 +151,9 @@ TOKEN_PEPPER=<generate with openssl rand -hex 32>
 Minimal local/self-host env shape (local URLs are not public hosted URLs):
 
 ```txt
-APP_URL=http://localhost:5173
-BETTER_AUTH_URL=http://localhost:5173
-PUBLIC_BLOG_DOMAIN=localhost
+APP_URL=https://vibecms.example.workers.dev
+BETTER_AUTH_URL=https://vibecms.example.workers.dev
+PUBLIC_BLOG_DOMAIN=vibecms-public.example.workers.dev
 SELF_HOSTED=true
 BETTER_AUTH_SECRET=<generate with openssl rand -hex 32>
 TOKEN_PEPPER=<generate with openssl rand -hex 32>
@@ -156,22 +163,21 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 
 ## Launch notes
 
-- Configure Cloudflare D1/R2 IDs in `apps/web/wrangler.jsonc` before production deploy.
-- Set secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
-- Set `POLAR_PRODUCT_ID`, `POLAR_SERVER`, `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` for the deployed environment.
-- Apply D1 migrations before deploy: `pnpm db:migrate:dev`.
-- Custom domains are intentionally deferred from the MVP; the schema supports domain rows, but hostname provisioning/status checks should ship as a dedicated follow-up.
+- Configure shared Cloudflare D1/R2 IDs in `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc` before production deploy.
+- Set API Worker secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
+- Set product, URL, and host variables in both Worker configs.
+- Run `pnpm deploy:prod`; it migrates first, then deploys the API/dashboard Worker before the public Worker.
 
 For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET` plus `TOKEN_PEPPER` are required as secrets; Polar access token/product/webhook secrets are hosted-SaaS only.
 
 ## Dev deployment
 
-Current Cloudflare dev resources are wired in `apps/web/wrangler.jsonc`:
+Current Cloudflare development resources are wired in `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc`:
 
-- Worker: `vibecms`
-- URL: `https://dev.vibecms.dev`
-- D1 database: `vibecms_dev`
-- R2 bucket: `vibecms-assets`
+- API + dashboard Worker: `vibecms-api-dev` at `https://app.basedui.dev`
+- Public Astro Worker: `vibecms-public-dev` at `https://basedui.dev` and `*.basedui.dev`
+- Shared D1 database: `vibecms_dev`
+- Shared R2 bucket: `vibecms-assets`
 
 Run the full dev deploy/test flow:
 
@@ -183,16 +189,16 @@ pnpm db:seed:dev
 pnpm deploy:dev
 ```
 
-`pnpm deploy:dev` applies remote D1 migrations through the Wrangler `DB` binding, builds the TanStack Start worker, and deploys it (`dist/server/wrangler.json`).
+`pnpm deploy:dev` syncs the development token pepper, applies remote D1 migrations, builds the dashboard assets, deploys the Hono API Worker, then builds and deploys the Astro public Worker.
 
 For Polar billing, create a sandbox product in Polar and update:
 
 ```sh
-# In apps/web/wrangler.jsonc, replace product_dev_placeholder:
+# In apps/api/wrangler.jsonc, replace product_dev_placeholder:
 # "POLAR_PRODUCT_ID": "<your Polar sandbox product id>"
 
-pnpm --filter @vc/web exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/web exec wrangler secret put POLAR_WEBHOOK_SECRET
+pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN
+pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET
 pnpm deploy:dev
 ```
 
@@ -215,7 +221,7 @@ You do not need product, order, refund, file, meter, webhook, or subscription wr
 In Polar, set the webhook endpoint to:
 
 ```text
-https://dev.vibecms.dev/polar/webhook
+https://app.vibecms.dev/polar/webhook
 ```
 
 Subscribe to these webhook events:

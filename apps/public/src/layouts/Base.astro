@@ -1,0 +1,28 @@
+---
+import "../styles/global.css";
+interface Props {
+  title?: string;
+  description?: string;
+  robots?: string;
+  canonical?: string;
+}
+const { title, description, robots, canonical } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {title ? <title>{title}</title> : null}
+    {description ? <meta name="description" content={description} /> : null}
+    {robots ? <meta name="robots" content={robots} /> : null}
+    {canonical ? <link rel="canonical" href={canonical} /> : null}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+    <script is:inline src="/scripts/subscribe-form.js" defer></script>
+    <script is:inline src="/scripts/code-copy.js" defer></script>
+  </body>
+</html>

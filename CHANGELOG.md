@@ -4,6 +4,8 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- **BREAKING (pre-release)**: split the TanStack monolith into three owned applications: a static React dashboard SPA in `apps/dashboard`, a standalone Hono API Worker in `apps/api`, and a standalone Astro public-blog Worker in `apps/public`. Dashboard server functions were replaced by typed same-origin API calls, Hono now owns auth, MCP, REST, billing, mutations, and observability, while Astro owns public HTML, feeds, search, media reads, and subscriber capture over shared D1/R2 bindings. Production and self-host deployment now build and deploy separate API and public Workers. Local API, Astro, migration, and seed commands share one `.wrangler/state`, and Astro uses Cloudflare module bindings rather than the removed `Astro.locals.runtime.env` API.
+
 - OTP email delivery switched from the `@opencoredev/email-sdk` token/REST path to Cloudflare's native `send_email` Workers binding — no API token secret to manage, simpler config (just an onboarded sending domain), and dev now sends real email via the binding instead of only logging.
 - **BREAKING (pre-release)**: removed multi-tenant path-mode (`/blog/<siteSlug>/*`); public blogs are host-only (subdomain + custom domain). Tenant identity is the host and content is the path under it — the `/blog/$siteSlug` route tree, `pathModeBlogRedirect`, the `*BySlug` loaders, and the `PUBLIC_BLOG_URL_MODE`/`publicBlogUsesAppPath()`/`appPublicBlogUrl()` gate are gone. Self-host moves to host-based, single-tenant (topology TBD pre-release). No migration/redirects — vibecms is unreleased and production already ran host-only. See `docs/url-architecture-decision.md`.
 

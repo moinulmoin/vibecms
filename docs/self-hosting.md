@@ -1,181 +1,112 @@
 # Self-host vibecms on Cloudflare
 
-vibecms can run without Polar in `SELF_HOSTED=true` mode. In this mode the app uses your Cloudflare Worker, D1 database, and R2 bucket; billing gates and hosted workspace API quotas are not enforced by default.
+vibecms runs without Polar when `SELF_HOSTED=true`. Hosted billing gates and workspace API quotas are disabled, while media safety limits, scoped tokens, activity, and post versions remain active.
 
-## What self-hosted mode changes
+## Topology
 
-```txt
-SELF_HOSTED=true
-```
+Self-hosting uses the same two-Worker boundary as vibecms Cloud:
 
-- skips the Polar billing gate after onboarding
-- treats the workspace as effectively active
-- allows publishing, media uploads, MCP agent access, REST reads, activity history, and post versions without hosted quota enforcement
-- hides hosted checkout/customer-portal controls in settings
-- ignores `/polar/webhook` payloads
-- keeps image safety limits: JPEG/PNG/WebP/GIF only, 10MB max per image
+1. **API + dashboard Worker**: Hono, Better Auth, REST, MCP, billing adapter, media writes, and the static TanStack Router SPA.
+2. **Public Worker**: Astro SSR for blog pages, feeds, search, Markdown negotiation, and newsletter form forwarding.
 
-Self-hosted mode still needs D1, R2, Better Auth, and the API token pepper.
+Both Workers bind the same D1 database as `DB` and R2 bucket as `ASSETS_BUCKET`. The public Worker calls the API Worker through the `API` service binding. Public blog routes are host-based; the removed `/blog/<site-slug>/*` path mode is not supported.
 
-## Required Cloudflare resources
+Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public.jsonc` configures the Astro public Worker.
 
-```txt
-Worker
-D1 database bound as DB
-R2 bucket bound as ASSETS_BUCKET
-```
+## Required resources
 
-The root `wrangler.jsonc` is the starting point for self-hosting. It declares `DB`, `ASSETS_BUCKET`, self-host vars, and required secrets. The hosted/dev Worker config remains in `apps/web/wrangler.jsonc` so private development resources do not leak into the public self-host config.
+- Two Cloudflare Workers
+- One D1 database, bound to both Workers as `DB`
+- One R2 bucket, bound to both Workers as `ASSETS_BUCKET`
+- One service binding named `API` from public to API
+- A native `send_email` binding named `EMAIL` on the API Worker for real OTP delivery
 
-Self-hosting is meant to be easy for users who already know Cloudflare Workers, D1, and R2. It is not required for vibecms Cloud, and the launch path does not depend on perfect one-click self-hosting. A clean self-host deploy still needs real Cloudflare resources and secrets.
+Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in both root Wrangler configs before deploying.
 
-Once the repository is public, the README can expose a Deploy to Cloudflare button after the clean-account flow is rehearsed:
+## Variables and secrets
 
-```md
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
-```
-
-Cloudflare's deploy flow should run the root `deploy` script:
-
-```sh
-pnpm deploy
-```
-
-That script runs `pnpm build:self-host` (which sets `CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=../../wrangler.jsonc` and builds `@vc/web`), applies D1 migrations with `pnpm db:migrate:self-host:remote`, and deploys with `wrangler deploy --config dist/server/wrangler.json`. If automatic provisioning does not create a real D1 database and R2 bucket for the user, they must create those resources and update root `wrangler.jsonc` first.
-
-## Required variables and secrets
-
-Wrangler vars (in root `wrangler.jsonc`):
+API/dashboard Worker variables:
 
 ```txt
 APP_ENV=production
-APP_URL=https://<your-worker>.<your-subdomain>.workers.dev
-BETTER_AUTH_URL=https://<your-worker>.<your-subdomain>.workers.dev
-PUBLIC_BLOG_DOMAIN=<your-worker>.<your-subdomain>.workers.dev
+APP_URL=https://vibecms.<your-subdomain>.workers.dev
+BETTER_AUTH_URL=https://vibecms.<your-subdomain>.workers.dev
+PUBLIC_BLOG_DOMAIN=vibecms-public.<your-subdomain>.workers.dev
 SELF_HOSTED=true
+EMAIL_FROM=vibecms <login@your-domain.com>
 ```
 
-Self-host is **single-tenant and host-based**: the public blog serves at the root of its host (`/`, `/<post-slug>`, `/tag/<tag>`, `/feed.xml`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`), and the host-mode resolver (`resolveSite`) returns the single tenant. Multi-tenant path-mode (`/blog/<site-slug>/*`) has been removed — there is no `PUBLIC_BLOG_URL_MODE` to set. With `PUBLIC_BLOG_DOMAIN` equal to `APP_URL` (the default single-host shape above), the app, dashboard, and blog share one Worker host. A future topology may split the app and blog onto separate hosts (e.g. `app.<your-domain>` + `<your-blog-domain>` or a wildcard); that is a pre-release decision (see `docs/url-architecture-decision.md`). `PUBLIC_BLOG_DOMAIN=localhost` is supported only for local development and is not a public URL.
+The public Worker uses the same `APP_URL`, `PUBLIC_BLOG_DOMAIN`, and `SELF_HOSTED=true` values.
 
-Wrangler secrets:
-
-```txt
-BETTER_AUTH_SECRET=<random 32+ byte secret>
-TOKEN_PEPPER=<random 32+ byte secret>
-```
-
-Generate secrets locally with:
+Set API Worker secrets from the repository root:
 
 ```sh
-openssl rand -hex 32
+pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
 ```
 
-Then set them (from repo root, against the self-host config when using root wrangler):
+Generate each secret with `openssl rand -hex 32`. Do not configure Polar secrets unless you intentionally want to exercise hosted billing.
+
+## Sign-in email and optional Google OAuth
+
+Enable Cloudflare Email Sending for your sender domain, keep the `EMAIL` binding in root `wrangler.jsonc`, and set `EMAIL_FROM` to an address on that domain:
 
 ```sh
-pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
-pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler email sending enable <your-domain> --config ../../wrangler.jsonc
 ```
 
-Do not set Polar secrets for self-hosted mode unless you intentionally want to test the hosted billing adapter.
+Without the binding, self-hosted OTP codes are written to Worker logs for operator testing; that is not suitable for real users.
 
-## Sign-in (passwordless email + optional Google)
-
-Sign-in is passwordless: users enter their email and receive a 6-digit code. Verifying the code creates the account on first use, so the email is always confirmed - there is no separate password to manage or reset.
-
-To deliver codes by email in production, OTP email is sent through a native `send_email`
-Workers binding named `EMAIL`, declared in `wrangler.jsonc` as
-`"send_email": [{ "name": "EMAIL" }]`. No API token secret is needed — the Worker itself
-is the sending identity — so there is no `wrangler secret put` step for email. Two things
-are required instead:
-
-1. Onboard **your own** sending domain to Cloudflare Email Sending and add the
-   SPF/DKIM/DMARC records Cloudflare provides:
+Google sign-in is optional. Set both values or neither:
 
 ```sh
-npx wrangler email sending enable <your-domain>
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
 ```
 
-2. Set `EMAIL_FROM` (a var in `wrangler.jsonc`) to a sender on the domain you onboarded,
-   e.g. `vibecms <login@yourdomain.com>`, and confirm the `EMAIL` `send_email` binding is
-   present in your `wrangler.jsonc`.
+Use `<APP_URL>/api/auth/callback/google` as the authorized redirect URI.
 
-When the `EMAIL` binding is present the Worker sends real email; without it, codes are
-logged to the Worker console (`wrangler tail`) instead of emailed — useful for local
-testing, not for real users.
+## Deploy
 
-To add a "Continue with Google" button, set both Google OAuth credentials as secrets (set both or omit both):
+From the repository root:
 
 ```sh
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
-```
-
-In the Google Cloud Console, set the authorized redirect URI to `<APP_URL>/api/auth/callback/google`. When the credentials are absent, the button is hidden and email sign-in is the only option.
-
-## Manual deploy flow
-
-1. Fork/clone the repo.
-2. Create or select a Cloudflare D1 database and R2 bucket.
-3. Update root `wrangler.jsonc` with your Worker name, real D1 database id, R2 bucket name, `SELF_HOSTED=true`, and the public URL vars above.
-4. Set secrets (see above).
-5. Deploy in one step from the repo root:
-
-```sh
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build:self-host
 pnpm deploy
 ```
 
-`pnpm deploy` is equivalent to:
+`pnpm deploy` performs this order:
 
-```sh
-pnpm build:self-host
-pnpm db:migrate:self-host:remote
-pnpm --filter @vc/web exec wrangler deploy --config dist/server/wrangler.json
-```
+1. Build dashboard assets and both Workers.
+2. Apply all D1 migrations through root `wrangler.jsonc`.
+3. Deploy the API/dashboard Worker.
+4. Deploy the Astro public Worker generated from `wrangler.public.jsonc`.
 
-6. Open the deployed URL.
-7. Create the first account.
-8. Complete blog setup.
-9. You should land directly on `/dashboard` instead of `/dashboard/billing`.
+The API Worker must deploy first because the public Worker service binding targets it.
 
-Local migrations only (no deploy):
+After deploy, open `APP_URL`, create the first account, and complete blog setup. Self-hosted onboarding skips Polar and lands on `/dashboard`.
+
+Local migration commands:
 
 ```sh
 pnpm db:migrate:self-host:local
 pnpm db:migrate:self-host:remote
 ```
 
-## Deploy button target
+## MCP
 
-The self-host target is:
-
-```txt
-User brings or provisions Cloudflare resources
-User supplies APP_URL, BETTER_AUTH_SECRET, TOKEN_PEPPER
-Migrations run
-First account becomes owner
-Dashboard opens without Polar
-```
-
-Before turning on the public deploy button, finish this release checklist:
-
-- make the GitHub repo public
-- replace the placeholder `https://github.com/moinulmoin/vibecms` button URL if the owner/repo changes
-- rehearse the Deploy to Cloudflare flow from a clean account
-- verify the deploy UI prompts cleanly for URL vars and required secrets
-- rotate/remove any local development secrets before publishing
-
-`SELF_HOSTED=true` is the product-level switch that makes the app self-hostable without billing.
-
-## MCP in self-hosted mode
-
-Self-hosted MCP uses the same remote HTTP endpoint as hosted vibecms:
+Agents connect to the API Worker:
 
 ```txt
-https://<your-worker>.<your-subdomain>.workers.dev/mcp
+https://vibecms.<your-subdomain>.workers.dev/mcp
 Authorization: Bearer vc_...
 ```
 
-Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Self-hosted deployments can add their own limits, but vibecms does not enforce hosted quotas when `SELF_HOSTED=true`.
+Create the scoped token under **Dashboard → Connect** and copy it once. The same REST/MCP permission and approval-first publishing rules apply in hosted and self-hosted modes.
 
-Create the token under **Dashboard → Connect**, copy it once, and pass it as the bearer token. Agents can draft, publish, upload media, and inspect activity only when the token has matching scopes. Install `vibecms-core` and `vibecms-writing` with `npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing` so the client follows the approval-first editorial workflow.
+## Deploy button readiness
+
+Before exposing a public Deploy to Cloudflare button, rehearse the two-Worker flow from a clean Cloudflare account and verify that D1/R2 provisioning, both host variables, secrets, the service binding, migrations, and deployment order are all handled correctly.

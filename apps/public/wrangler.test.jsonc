@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms-public-test",
+  "compatibility_date": "2026-07-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms_test",
+      "database_id": "test-db-00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/drizzle"
+    }
+  ],
+  "vars": {
+    "APP_ENV": "development",
+    "APP_URL": "https://app.basedui.dev",
+    "PUBLIC_BLOG_DOMAIN": "basedui.dev",
+    "SELF_HOSTED": "false"
+  }
+}
