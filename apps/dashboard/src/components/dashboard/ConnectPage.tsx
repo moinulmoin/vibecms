@@ -470,9 +470,9 @@ export function ConnectPage() {
           )}
 
           {!loading && live && status && (
-            <div className="grid gap-4">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
               <Panel title="Your first post is live">
-                <div className="grid gap-4">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                   {livePost && (
                     <div className="grid gap-1">
                       <p className="font-display text-lg font-semibold text-foreground">
