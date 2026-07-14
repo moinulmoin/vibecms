@@ -87,6 +87,58 @@ export const dashboardDataSchema = z.object({
       created_at: z.number(),
     }),
   ),
+  activationPost: z
+    .object({
+      id: z.string(),
+      title: z.string(),
+      slug: z.string(),
+      publishedAt: z.number(),
+      url: z.string().nullable(),
+      actorName: z.string(),
+    })
+    .nullable(),
+})
+
+export const activationKeyInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.number(),
+  lastUsedAt: z.number().nullable(),
+  revokedAt: z.number().nullable(),
+})
+
+export const activationFirstPostSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('waiting') }),
+  z.object({
+    state: z.literal('draft'),
+    post: z.object({
+      id: z.string(),
+      title: z.string(),
+      slug: z.string(),
+      updatedAt: z.number(),
+      versionNumber: z.number(),
+    }),
+  }),
+  z.object({
+    state: z.literal('live'),
+    post: z.object({
+      id: z.string(),
+      title: z.string(),
+      slug: z.string(),
+      publishedAt: z.number(),
+      url: z.string().nullable(),
+    }),
+    actorName: z.string(),
+  }),
+])
+
+export const onboardingConnectStatusSchema = z.object({
+  canManage: z.boolean(),
+  mcpUrl: z.string(),
+  publicBaseUrl: z.string().nullable(),
+  key: activationKeyInfoSchema.nullable(),
+  connection: z.enum(['no_token', 'waiting', 'connected', 'revoked']),
+  firstPost: activationFirstPostSchema,
 })
 
 export const settingsPageDataSchema = z.object({

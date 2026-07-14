@@ -23,6 +23,7 @@ import {
   appRouterContextSchema,
   dashboardDataSchema,
   mutationResultSchema,
+  onboardingConnectStatusSchema,
   settingsPageDataSchema,
 } from '~/lib/dashboard-response-schemas'
 
@@ -204,8 +205,18 @@ export function loadConnectPage(signal?: AbortSignal) {
   return dashboardFetch<ConnectPageData>('/api/dashboard/connect', { method: 'GET', signal })
 }
 
-export function loadOnboardingStatus(signal?: AbortSignal) {
-  return dashboardFetch<OnboardingConnectStatus>('/api/dashboard/onboarding-status', { method: 'GET', signal })
+export function loadOnboardingStatus(options?: { keyId?: string | null; signal?: AbortSignal }) {
+  const params = new URLSearchParams()
+  if (options?.keyId) params.set('keyId', options.keyId)
+  const query = params.toString()
+  const path = query
+    ? `/api/dashboard/onboarding-status?${query}`
+    : '/api/dashboard/onboarding-status'
+  return dashboardFetch<OnboardingConnectStatus>(
+    path,
+    { method: 'GET', signal: options?.signal },
+    onboardingConnectStatusSchema,
+  )
 }
 
 export function loadPostsPage(

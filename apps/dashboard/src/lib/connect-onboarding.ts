@@ -1,7 +1,7 @@
-export type OnboardingPublishState = 'none' | 'live' | 'already_live'
+export type ActivationFirstPostState = 'waiting' | 'draft' | 'live'
 
 export function isOnboardingActivationComplete(
-  publish: { state: OnboardingPublishState } | null | undefined,
+  firstPost: { state: ActivationFirstPostState } | null | undefined,
 ): boolean {
-  return publish?.state === 'live'
+  return firstPost?.state === 'live'
 }

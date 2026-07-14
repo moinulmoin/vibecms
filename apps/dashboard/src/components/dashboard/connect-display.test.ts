@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveDisplayConnection } from './connect-display'
+import { resolveDisplayConnection, shouldClearMissingActivationKey } from './connect-display'
 
 describe('resolveDisplayConnection', () => {
   describe('fresh token flash suppresses D1-propagation lag', () => {
@@ -17,8 +17,12 @@ describe('resolveDisplayConnection', () => {
       expect(resolveDisplayConnection('revoked', false, false, 0)).toBe('no_token')
     })
 
-    it('reports revocation for the currently revealed token when the server identifies that exact key', () => {
+    it('reports revocation for the exact selected token during the reveal', () => {
       expect(resolveDisplayConnection('revoked', true, false, 0, true)).toBe('revoked')
+    })
+
+    it('keeps an exact selected revocation actionable after reload', () => {
+      expect(resolveDisplayConnection('revoked', false, false, 0, true)).toBe('revoked')
     })
 
     it('reports revoked for an active previously saved token', () => {
@@ -43,5 +47,17 @@ describe('resolveDisplayConnection', () => {
 
   it('treats an undefined read as no_token', () => {
     expect(resolveDisplayConnection(undefined, false, false, 0)).toBe('no_token')
+  })
+})
+
+describe('shouldClearMissingActivationKey', () => {
+  it('allows three fresh-key misses for propagation lag, then recovers', () => {
+    expect(shouldClearMissingActivationKey(true, 1)).toBe(false)
+    expect(shouldClearMissingActivationKey(true, 3)).toBe(false)
+    expect(shouldClearMissingActivationKey(true, 4)).toBe(true)
+  })
+
+  it('clears a missing selection immediately when no fresh reveal matches', () => {
+    expect(shouldClearMissingActivationKey(false, 1)).toBe(true)
   })
 })

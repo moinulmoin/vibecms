@@ -1,5 +1,5 @@
 import type { BillingStatus, Post } from '@vc/core'
-import { createDataAccess } from '@vc/db'
+import { createDataAccess, type ActivationPost } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '@/server/billing'
 import type { AppUserContext } from '@/server/onboarding'
@@ -32,6 +32,14 @@ export type DashboardData = {
     publishedAt: number | null
   }>
   recentActivity: ActivityRow[]
+  activationPost: null | {
+    id: string
+    title: string
+    slug: string
+    publishedAt: number
+    url: string | null
+    actorName: string
+  }
 }
 
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {
@@ -55,9 +63,15 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     hostname = null
   }
 
+  const publicBaseUrl = agg.site ? publicUrlForHostname(hostname) : null
+  // activationPost surfaces the durable live agent proof on Overview; the URL is
+  // derived from the same live proof and the active public base URL (never fabricated).
+  const proof = await db.dashboard.getActivationPost(app.siteId)
+  const activationPost = toActivationPost(proof, publicBaseUrl)
+
   return {
     site: agg.site,
-    publicUrl: agg.site ? publicUrlForHostname(hostname) : null,
+    publicUrl: publicBaseUrl,
     publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
     billing: { status: billingStatus },
     apiUsage,
@@ -72,5 +86,23 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
       actor_name: a.actorName,
       created_at: a.createdAt,
     })),
+    activationPost,
+  }
+}
+
+// Only a live api_key-published post activates the Overview banner. The URL is
+// appended when a public base URL resolves; otherwise the proof carries no URL.
+function toActivationPost(
+  proof: ActivationPost,
+  publicBaseUrl: string | null,
+): DashboardData['activationPost'] {
+  if (proof.state !== 'live') return null
+  return {
+    id: proof.post.id,
+    title: proof.post.title,
+    slug: proof.post.slug,
+    publishedAt: proof.post.publishedAt,
+    url: publicBaseUrl ? `${publicBaseUrl}/${proof.post.slug}` : null,
+    actorName: proof.actorName,
   }
 }

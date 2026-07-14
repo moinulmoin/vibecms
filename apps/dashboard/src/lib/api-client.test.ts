@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DashboardApiError, dashboardFetch, dashboardPost } from '~/lib/api-client'
+import { DashboardApiError, dashboardFetch, dashboardPost, loadOnboardingStatus } from '~/lib/api-client'
 import { mutationResultSchema } from '~/lib/dashboard-response-schemas'
 
 afterEach(() => {
@@ -74,5 +74,51 @@ describe('dashboardPost', () => {
       DashboardApiError,
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('loadOnboardingStatus', () => {
+  it('encodes keyId as a query parameter when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          canManage: true,
+          mcpUrl: 'https://app.example.com/api/mcp',
+          publicBaseUrl: 'https://app.example.com',
+          key: null,
+          connection: 'no_token',
+          firstPost: { state: 'waiting' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await loadOnboardingStatus({ keyId: 'key_abc+123' })
+
+    const calledUrl = fetchMock.mock.calls[0][0] as string
+    expect(calledUrl).toContain('keyId=key_abc%2B123')
+  })
+
+  it('omits keyId from the URL when not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          canManage: true,
+          mcpUrl: 'https://app.example.com/api/mcp',
+          publicBaseUrl: null,
+          key: null,
+          connection: 'no_token',
+          firstPost: { state: 'waiting' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await loadOnboardingStatus()
+
+    const calledUrl = fetchMock.mock.calls[0][0] as string
+    expect(calledUrl).toBe('/api/dashboard/onboarding-status')
   })
 })

@@ -5,6 +5,41 @@ import { CheckIcon } from '@radix-ui/react-icons'
 
 const STEPS = ['Blog setup', 'Connect agent', 'First post'] as const
 
+export function OnboardingStepper({ step }: { step: number }) {
+  return (
+    <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-[11px] sm:gap-4">
+      {STEPS.map((label, index) => {
+        const position = index + 1
+        const state = position < step ? 'done' : position === step ? 'current' : 'todo'
+        return (
+          <li
+            key={label}
+            aria-current={state === 'current' ? 'step' : undefined}
+            className="flex items-center gap-1.5"
+          >
+            {state === 'done' ? (
+              <CheckIcon className="size-3.5 text-primary" aria-hidden="true" />
+            ) : (
+              <span className={state === 'current' ? 'text-primary' : 'text-muted-foreground/70'}>
+                0{position}
+              </span>
+            )}
+            <span
+              className={
+                state === 'current'
+                  ? 'font-medium text-foreground'
+                  : 'hidden text-muted-foreground/70 sm:inline'
+              }
+            >
+              {label}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 export function OnboardingFrame({
   children,
   step = 1,
@@ -26,36 +61,7 @@ export function OnboardingFrame({
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
           </Link>
-          <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-[11px] sm:gap-4">
-            {STEPS.map((label, index) => {
-              const position = index + 1
-              const state = position < step ? 'done' : position === step ? 'current' : 'todo'
-              return (
-                <li
-                  key={label}
-                  aria-current={state === 'current' ? 'step' : undefined}
-                  className="flex items-center gap-1.5"
-                >
-                  {state === 'done' ? (
-                    <CheckIcon className="size-3.5 text-primary" aria-hidden="true" />
-                  ) : (
-                    <span className={state === 'current' ? 'text-primary' : 'text-muted-foreground/70'}>
-                      0{position}
-                    </span>
-                  )}
-                  <span
-                    className={
-                      state === 'current'
-                        ? 'font-medium text-foreground'
-                        : 'hidden text-muted-foreground/70 sm:inline'
-                    }
-                  >
-                    {label}
-                  </span>
-                </li>
-              )
-            })}
-          </ol>
+          <OnboardingStepper step={step} />
         </div>
         <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">
           {title}

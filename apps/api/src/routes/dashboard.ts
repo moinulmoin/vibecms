@@ -42,6 +42,9 @@ function guardDashboardPost(request: Request): Response | undefined {
 
 export const dashboardRoutes = new Hono()
 
+// keyId query is optional; when present it must be a UUID (the api_keys.id shape).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 dashboardRoutes.get('/context', async (c) => {
   const ctx = await resolveAppSessionContext(c.req.raw)
   return c.json({
@@ -174,7 +177,11 @@ dashboardRoutes.get('/connect', async (c) => {
 dashboardRoutes.get('/onboarding-status', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  return c.json(await loadOnboardingStatus(auth.app))
+  const keyId = c.req.query('keyId')
+  if (keyId !== undefined && !UUID_RE.test(keyId)) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'keyId must be a UUID' } }, 400)
+  }
+  return c.json(await loadOnboardingStatus(auth.app, keyId))
 })
 
 dashboardRoutes.get('/posts', async (c) => {

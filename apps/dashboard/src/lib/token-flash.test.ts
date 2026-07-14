@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearTokenFlash, consumeTokenFlash, saveTokenFlash } from './token-flash'
+import {
+  clearActivationKeyId,
+  clearTokenFlash,
+  consumeTokenFlash,
+  getActivationKeyId,
+  saveTokenFlash,
+} from './token-flash'
 
 const values = new Map<string, string>()
 
@@ -36,6 +42,11 @@ describe('token flash storage', () => {
     saveTokenFlash(flash)
 
     expect(consumeTokenFlash()).toEqual(flash)
+    expect(getActivationKeyId()).toBe(flash.id)
+
+    clearActivationKeyId()
+
+    expect(getActivationKeyId()).toBeNull()
   })
 
   it('clears the persisted token when the reveal is hidden', () => {

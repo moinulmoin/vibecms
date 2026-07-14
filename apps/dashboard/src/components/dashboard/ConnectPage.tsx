@@ -1,12 +1,12 @@
 'use client'
 
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
 import { CopyButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, Input } from '@vc/ui'
 import { CheckIcon, Link2Icon } from '@radix-ui/react-icons'
-import { Button, EmptyState, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
+import { Button, EmptyState, LoadError, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
 import { Skeleton } from '@vc/ui'
 import type { ApiKeyListItem } from '~/types/dashboard'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
@@ -14,18 +14,29 @@ import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
 import { Spinner } from '~/components/ui/spinner'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+import { OnboardingStepper } from '~/components/dashboard/OnboardingFrame'
 import {
+  checkoutBillingMutation,
   createApiKeyMutation,
   loadConnectPage,
   loadOnboardingStatus,
   revokeApiKeyMutation,
 } from '~/lib/api-client'
 import type { ConnectPageData, OnboardingConnectStatus } from '~/types/dashboard'
-import { dashboardStatusSearch } from '~/lib/dashboard-search'
-import { clearTokenFlash, consumeTokenFlash, saveTokenFlash } from '~/lib/token-flash'
-import { checkoutBillingMutation } from '~/lib/api-client'
+import {
+  dashboardStatusSearch,
+  emptyDashboardStatusSearch,
+  emptyPostEditorSearch,
+} from '~/lib/dashboard-search'
+import {
+  clearActivationKeyId,
+  clearTokenFlash,
+  consumeTokenFlash,
+  getActivationKeyId,
+  saveTokenFlash,
+} from '~/lib/token-flash'
 import { isOnboardingActivationComplete } from '~/lib/connect-onboarding'
-import { resolveDisplayConnection } from './connect-display'
+import { resolveDisplayConnection, shouldClearMissingActivationKey } from './connect-display'
 
 const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
 
@@ -162,7 +173,7 @@ function TokenRow({
         <SpaConfirmButton
           size="sm"
           confirmLabel="Confirm revoke"
-          pendingLabel="Revoking…"
+          pendingLabel="Revoking..."
           helperText="Revoking blocks this token immediately. It stays in activity and audit history."
           disabled={pending}
           onConfirm={() => onDelete(apiKey.id)}
@@ -194,6 +205,8 @@ export function ConnectPage() {
   const [revokePending, setRevokePending] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const [connectLoadFailed, setConnectLoadFailed] = useState(false)
+  const [statusLoadFailed, setStatusLoadFailed] = useState(false)
   const tokenRevealRef = useRef<HTMLDivElement>(null)
   const activeTokenCountRef = useRef(0)
   const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
@@ -201,14 +214,17 @@ export function ConnectPage() {
   const waitingStartedAtRef = useRef<number | null>(null)
   const lastSubRef = useRef<string>('')
   const stickyConnectedRef = useRef(false)
+  const selectedKeyMissCountRef = useRef(0)
 
   async function refreshTokens() {
     try {
       const data = await loadConnectPage()
       activeTokenCountRef.current = data.apiKeys.length
       setConnectData(data)
+      setConnectLoadFailed(false)
     } catch {
       // Keep stale list; the status toast surfaces the failure.
+      setConnectLoadFailed(true)
     }
   }
 
@@ -227,7 +243,7 @@ export function ConnectPage() {
     }
   }, [flash, mcpUrl])
 
-  // Poll the connection/publish status. Monotonic + terminal-sticky: once connected,
+  // Poll the connection/first-post status. Monotonic + terminal-sticky: once connected,
   // the display never regresses to waiting; polling stops only after this agent publishes.
   useEffect(() => {
     let cancelled = false
@@ -236,8 +252,26 @@ export function ConnectPage() {
     async function poll() {
       if (cancelled) return
       try {
-        const s = await loadOnboardingStatus()
+        const storedKeyId = getActivationKeyId()
+        const s = await loadOnboardingStatus({
+          keyId: storedKeyId ?? undefined,
+        })
         if (cancelled) return
+        setStatusLoadFailed(false)
+
+        // A fresh reveal bridges short D1 propagation lag, but cannot pin a
+        // missing exact key forever. After four consecutive misses, clear the
+        // stale selection so the next poll can fall back to the site's latest key.
+        if (storedKeyId && s.key === null) {
+          selectedKeyMissCountRef.current += 1
+          const freshFlashMatches = flashRef.current?.id === storedKeyId
+          if (shouldClearMissingActivationKey(freshFlashMatches, selectedKeyMissCountRef.current)) {
+            clearActivationKeyId()
+            selectedKeyMissCountRef.current = 0
+          }
+        } else {
+          selectedKeyMissCountRef.current = 0
+        }
 
         if (s.connection === 'connected') stickyConnectedRef.current = true
 
@@ -252,18 +286,18 @@ export function ConnectPage() {
           flashRef.current !== null,
           stickyConnectedRef.current,
           activeTokenCountRef.current,
-          flashRef.current?.id === s.onboardingKey?.id && s.connection === 'revoked',
+          storedKeyId === s.key?.id && s.connection === 'revoked',
         )
         const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
         const sub = getSub(displayConn, elapsedMs)
 
-        // Once onboarding is complete (live), connection announcements are stale — a later
-        // token revocation must not strand "this token can't be used" in the sr-only region
-        // while the visible page shows the live reveal. Clear it and stop announcing.
-        const live = isOnboardingActivationComplete(s.publish)
-        const key = live ? '__live__' : `${displayConn}|${s.publish?.state ?? ''}|${sub ?? ''}`
-        if (key !== lastSubRef.current) {
-          lastSubRef.current = key
+        // Once activation is complete (live), connection announcements are stale.
+        const live = isOnboardingActivationComplete(s.firstPost)
+        const subKey = live
+          ? '__live__'
+          : `${displayConn}|${s.firstPost.state}|${sub ?? ''}`
+        if (subKey !== lastSubRef.current) {
+          lastSubRef.current = subKey
           if (live) {
             setAnnouncement('')
           } else {
@@ -279,7 +313,10 @@ export function ConnectPage() {
           timerId = window.setTimeout(poll, interval)
         }
       } catch {
-        if (!cancelled) timerId = window.setTimeout(poll, 5_000)
+        if (!cancelled) {
+          setStatusLoadFailed(true)
+          timerId = window.setTimeout(poll, 5_000)
+        }
       }
     }
 
@@ -308,9 +345,7 @@ export function ConnectPage() {
         saveTokenFlash({ token: result.token, name: result.name, id: result.id })
         setFlash({ token: result.token, name: result.name, id: result.id })
         // The token exists locally right now. Start the waiting clock immediately and
-        // announce waiting so users hear a useful state before the first poll lands —
-        // that poll may briefly read no_token/revoked during D1 propagation, which
-        // resolveDisplayConnection suppresses as waiting while the flash is present.
+        // announce waiting so users hear a useful state before the first poll lands.
         waitingStartedAtRef.current = Date.now()
         setAnnouncement(announcementFor('waiting'))
         await refreshTokens()
@@ -354,14 +389,18 @@ export function ConnectPage() {
     }
   }
 
-  const live = isOnboardingActivationComplete(status?.publish)
+  const live = isOnboardingActivationComplete(status?.firstPost)
+  const draft = status?.firstPost.state === 'draft' ? status.firstPost : null
+  const livePost = status?.firstPost.state === 'live' ? status.firstPost.post : null
+  const liveActorName = status?.firstPost.state === 'live' ? status.firstPost.actorName : null
   const apiKeys = connectData?.apiKeys ?? []
+  const selectedKeyId = getActivationKeyId()
   const displayConn = resolveDisplayConnection(
     status?.connection,
     flash !== null,
     stickyConnectedRef.current,
     apiKeys.length,
-    flash?.id === status?.onboardingKey?.id && status?.connection === 'revoked',
+    selectedKeyId === status?.key?.id && status?.connection === 'revoked',
   )
 
   const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
@@ -369,32 +408,34 @@ export function ConnectPage() {
   const showSelfTest =
     !live &&
     status !== null &&
-    (displayConn === 'waiting' || displayConn === 'connected' || displayConn === 'revoked')
+    (displayConn === 'revoked' ||
+      (!draft && (displayConn === 'waiting' || displayConn === 'connected')))
 
   const canManage = connectData?.canManage ?? status?.canManage ?? false
-  const livePost = status?.publish?.post
-  const liveHeading =
-    status?.publish?.actor === 'onboarding_agent'
-      ? 'Your agent published your first live post.'
-      : 'Your first post is live.'
+  const loading = !connectData && !status
+  const showInitialError = loading && connectLoadFailed && statusLoadFailed
+
+  const activationStep = live ? 4 : draft || displayConn === 'connected' ? 3 : 2
 
   const pageKicker = live ? 'Live' : 'Connect'
   const pageTitle = live
-    ? liveHeading
-    : displayConn === 'connected'
-      ? 'Agent connected'
-      : flash !== null
-        ? 'Token created'
-        : 'Connect your agent'
+    ? 'Your first post is live'
+    : draft
+      ? 'Agent draft ready for review'
+      : displayConn === 'connected'
+        ? 'Agent connected'
+        : flash !== null
+          ? 'Token created'
+          : 'Connect your agent'
   const pageDesc = live
     ? undefined
-    : displayConn === 'connected'
-      ? 'Your agent authenticated. Verify read-only access, then use the approval-first flow to prepare a draft.'
-      : flash !== null
-        ? 'Copy the token and config below now. It is shown only once.'
-        : 'Create a scoped API token, connect any compatible MCP agent, and keep token management in the dashboard.'
-
-  const loading = !connectData && !status
+    : draft
+      ? 'Your agent saved a draft. Review it, then approve publishing when you are ready.'
+      : displayConn === 'connected'
+        ? 'Your agent authenticated. Ask it to prepare a draft, then approve publishing when you are ready.'
+        : flash !== null
+          ? 'Copy the token and config below now. It is shown only once.'
+          : 'Create a scoped API token, connect any compatible MCP agent, and keep token management in the dashboard.'
 
   return (
     <>
@@ -408,99 +449,184 @@ export function ConnectPage() {
         {live ? '' : announcement}
       </div>
 
-      <PageHeader kicker={pageKicker} title={pageTitle} description={pageDesc} />
+      <OnboardingStepper step={activationStep} />
 
-      {loading && (
+      {showInitialError ? (
+        <LoadError message="Could not load connect status. Check your connection and try again." />
+      ) : (
         <>
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-full max-w-2xl" />
-          </div>
-          <Skeleton className="h-32 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
+          <PageHeader kicker={pageKicker} title={pageTitle} description={pageDesc} />
+
+          {loading && (
+            <>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-full max-w-2xl" />
+              </div>
+              <Skeleton className="h-32 rounded-2xl" />
+              <Skeleton className="h-72 rounded-2xl" />
+            </>
+          )}
+
+          {flash && mcpUrl && displayConn !== 'revoked' && (
+            <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
+              <Panel title="Your token is ready">
+                <div className="mb-4 rounded-xl bg-muted p-3 font-sans text-sm leading-6 text-foreground">
+                  Copy this token now. For security it is shown only once and cannot be retrieved later.
+                </div>
+                <ConnectAgent
+                  mcpUrl={mcpUrl}
+                  token={flash.token}
+                  tokenName={flash.name}
+                  connected={displayConn === 'connected'}
+                />
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      clearTokenFlash()
+                      setFlash(null)
+                    }}
+                  >
+                    I&apos;ve copied it - hide
+                  </Button>
+                </div>
+              </Panel>
+            </div>
+          )}
+
+          {showSelfTest && selfTestSub && (
+            <Panel title="Connection status">
+              <div className="grid gap-3">
+                <div
+                  className={[
+                    'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
+                    selfTestSub === 'revoked'
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-muted/50 text-foreground',
+                  ].join(' ')}
+                >
+                  {selfTestSub === 'waiting' && (
+                    <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
+                  )}
+                  {selfTestSub === 'connected' && (
+                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  )}
+                  <span>
+                    {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
+                    {selfTestSub === 'stalled' &&
+                      "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
+                    {selfTestSub === 'recovery' &&
+                      'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
+                    {selfTestSub === 'connected' &&
+                      'Connected. vibecms saw your agent authenticate. Run the read-only check, then ask your agent to prepare a draft.'}
+                    {selfTestSub === 'revoked' &&
+                      "This token can't be used anymore. Create a new token below to connect an agent."}
+                  </span>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {draft && (
+            <Panel title="Agent draft ready for review">
+              <div className="grid gap-3">
+                <p className="font-sans text-sm leading-6 text-muted-foreground">
+                  Your agent saved a draft. Review it, then approve publishing when you are ready.
+                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <strong className="truncate font-display font-semibold text-foreground">
+                      <Link
+                        className="no-underline hover:underline"
+                        to="/dashboard/posts/$postId/edit"
+                        params={{ postId: draft.post.id }}
+                        search={emptyPostEditorSearch}
+                      >
+                        {draft.post.title}
+                      </Link>
+                    </strong>
+                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                      Version {draft.post.versionNumber} · {formatDate(draft.post.updatedAt)}
+                    </p>
+                  </div>
+                  <Button asChild variant="link" size="sm">
+                    <Link
+                      to="/dashboard/posts/$postId/edit"
+                      params={{ postId: draft.post.id }}
+                      search={emptyPostEditorSearch}
+                    >
+                      Review draft
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {!loading && live && status && (
+            <div className="grid gap-4">
+              <Panel title="Your first post is live">
+                <div className="grid gap-4">
+                  {livePost && (
+                    <div className="grid gap-1">
+                      <p className="font-display text-lg font-semibold text-foreground">
+                        {livePost.title}
+                      </p>
+                      {liveActorName && (
+                        <p className="font-sans text-sm text-muted-foreground">
+                          Published by {liveActorName}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="font-sans text-sm leading-6 text-muted-foreground">
+                    {livePost?.url
+                      ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
+                      : 'The publish is recorded. The public link will appear when the default domain is active.'}
+                  </p>
+                  {livePost?.url ? (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+                      <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
+                        {livePost.url}
+                      </span>
+                      <a
+                        href={livePost.url}
+                        target="_blank"
+                        rel="noopener"
+                        className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        Open article
+                      </a>
+                      <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
+                      The post is published. Its public URL will appear when the default domain is active.
+                    </p>
+                  )}
+                </div>
+              </Panel>
+
+              <div className="flex justify-end">
+                <Button asChild>
+                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
+                    Continue to Overview
+                  </Link>
+                </Button>
+              </div>
+
+              <Panel title="Publish more posts">
+                <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
+              </Panel>
+            </div>
+          )}
         </>
       )}
 
-      {flash && mcpUrl && (
-        <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
-          <Panel title="Your token is ready">
-            <div className="mb-4 rounded-xl bg-brand-bright/10 p-3 font-sans text-sm leading-6 text-primary">
-              Copy this token now. For security it is shown only once and cannot be retrieved later.
-            </div>
-            <ConnectAgent
-              mcpUrl={mcpUrl}
-              token={flash.token}
-              tokenName={flash.name}
-              connected={displayConn === 'connected'}
-            />
-            <div className="mt-4 flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  clearTokenFlash()
-                  setFlash(null)
-                }}
-              >
-                I&apos;ve copied it - hide
-              </Button>
-            </div>
-          </Panel>
-        </div>
-      )}
-
-      {showSelfTest && selfTestSub && (
-        <Panel title="Connection status">
-          <div className="grid gap-3">
-            <div
-              className={[
-                'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
-                selfTestSub === 'connected'
-                  ? 'bg-brand-bright/10 text-primary'
-                  : selfTestSub === 'revoked'
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-muted/50 text-foreground',
-              ].join(' ')}
-            >
-              {selfTestSub === 'waiting' && (
-                <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
-              )}
-              <span>
-                {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
-                {selfTestSub === 'stalled' &&
-                  "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
-                {selfTestSub === 'recovery' &&
-                  'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
-                {selfTestSub === 'connected' &&
-                  'Connected. VibeCMS saw your agent authenticate. Run the read-only check, then use the approval-first writing flow.'}
-                {selfTestSub === 'revoked' &&
-                  "This token can't be used anymore. Create a new token below to connect an agent."}
-              </span>
-            </div>
-          </div>
-        </Panel>
-      )}
-
-      {status?.publish?.state === 'already_live' && (
-        <Panel title="Existing live content" meta="Context only">
-          <p className="font-sans text-sm leading-6 text-muted-foreground">
-            This site already has published content. It does not complete this agent&apos;s connection flow or replace
-            explicit approval for its next publish.
-          </p>
-          {status.publish.post && (
-            <a
-              href={status.publish.post.url}
-              target="_blank"
-              rel="noopener"
-              className="mt-3 inline-block font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              View existing post
-            </a>
-          )}
-        </Panel>
-      )}
       {connectData && (
         <Panel
           title="API tokens"
@@ -577,7 +703,7 @@ export function ConnectPage() {
         </Panel>
       )}
 
-      {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && (
+      {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (
         <Panel title="Connect an agent" meta="MCP over HTTPS">
           <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
             Use a token you saved previously. Token secrets are shown only once; create a new token to connect another
@@ -585,38 +711,6 @@ export function ConnectPage() {
           </p>
           <ConnectAgent mcpUrl={mcpUrl} connected={displayConn === 'connected'} />
         </Panel>
-      )}
-
-      {live && status && (
-        <div className="grid gap-4">
-          <div className="rounded-2xl bg-brand-bright/5 px-5 pb-5 pt-4">
-            <p className="font-sans text-sm leading-6 text-muted-foreground">
-              This is your included free publish. People with the link can read it now; search engines won&apos;t index it
-              until you upgrade.
-            </p>
-            {livePost && (
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-background/60 px-3 py-2.5">
-                <span className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Live URL
-                </span>
-                <span className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">{livePost.url}</span>
-                <a
-                  href={livePost.url}
-                  target="_blank"
-                  rel="noopener"
-                  className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Open post
-                </a>
-                <CopyButton value={livePost.url} label="Copy URL" copiedLabel="Copied" iconOnly />
-              </div>
-            )}
-          </div>
-
-          <Panel title="Continue publishing">
-            <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
-          </Panel>
-        </div>
       )}
     </>
   )

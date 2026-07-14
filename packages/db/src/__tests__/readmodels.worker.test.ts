@@ -114,10 +114,20 @@ async function seed(): Promise<void> {
     T,
     T,
   );
+  await exec(
+    "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "rm-site-activation",
+    "rm-ws",
+    "RM Activation Site",
+    "rm-site-activation",
+    T,
+    T,
+  );
 
   await seedDashboardSite();
   await seedExportSite();
   await seedMediaSite();
+  await seedActivationSite();
 }
 
 // Posts (incl. one 'scheduled' via raw SQL — the DB CHECK permits it even
@@ -282,6 +292,47 @@ async function seedDashboardSite(): Promise<void> {
     "active",
     T,
     T,
+  );
+}
+
+// Activation-proof fixtures for getActivationPost on rm-site-activation: an
+// api_key-published post (live), an api_key-created draft (draft), a
+// human-only published post (must NOT count), and a post version on the draft.
+async function seedActivationSite(): Promise<void> {
+  const site = "rm-site-activation";
+  const insPost = (
+    id: string, slug: string, status: string, publishedAt: number | null, updatedAt: number,
+    byType: string, byId: string,
+  ) =>
+    exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, site, id, slug, `# ${id}`, status, publishedAt, "[]", byType, byId, byType, byId, T, updatedAt,
+    );
+  const insAct = (
+    id: string, actorType: string, actorId: string, actorName: string, action: string,
+    entityId: string, createdAt: number,
+  ) =>
+    exec(
+      "INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, site, actorType, actorId, actorName, action, "post", entityId, `${action} ${entityId}`, createdAt,
+    );
+
+  // api_key published post -> LIVE activation proof.
+  await insPost("rm-act-live", "live-agent", "published", T + 5, T + 60, "api_key", "rm-key-agent");
+  await insAct("rm-act-live-evt", "api_key", "rm-key-agent", "Agent Key", "post.published", "rm-act-live", T + 60);
+
+  // api_key draft post -> DRAFT activation proof (only when no live post exists).
+  await insPost("rm-act-draft", "draft-agent", "draft", null, T + 40, "api_key", "rm-key-agent");
+  await insAct("rm-act-draft-evt", "api_key", "rm-key-agent", "Agent Key", "post.created", "rm-act-draft", T + 40);
+
+  // Human-only published post -> must NEVER activate (excluded by actor_type).
+  await insPost("rm-act-human", "human-post", "published", T + 5, T + 70, "human", "rm-user-human");
+  await insAct("rm-act-human-evt", "human", "rm-user-human", "Human User", "post.published", "rm-act-human", T + 70);
+
+  // A post version on the draft so versionNumber resolves to 3 (not 0).
+  await exec(
+    "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "rm-act-pv-1", "rm-act-draft", site, 3, "rm-act-draft", "draft-agent", "# draft", "draft", "[]", "api_key", "rm-key-agent", T,
   );
 }
 
@@ -562,5 +613,81 @@ describe("assets.getAssetForServe — by-id, not site-scoped", () => {
 
   it("returns null for an unknown asset id", async () => {
     expect(await da.assets.getAssetForServe("rm-asset-unknown")).toBeNull();
+  });
+});
+
+// ===========================================================================
+// dashboard.getActivationPost — site-level api_key activation proof
+// ===========================================================================
+
+describe("dashboard.getActivationPost — live wins, draft fallback, human excluded", () => {
+  it("returns the live api_key-published post and ignores human-only publishes", async () => {
+    const proof = await da.dashboard.getActivationPost("rm-site-activation");
+    // The human post (rm-act-human) was published LATER (T+70) than the agent
+    // post (T+60). If actor_type were not filtered, the human post would win.
+    expect(proof.state).toBe("live");
+    if (proof.state !== "live") return;
+    expect(proof.post.id).toBe("rm-act-live");
+    expect(proof.post).toMatchObject({ title: "rm-act-live", slug: "live-agent", publishedAt: T + 5 });
+    expect(proof.actorName).toBe("Agent Key");
+  });
+
+  it("uses the publish activity time when a legacy published row has no publishedAt", async () => {
+    await exec(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "rm-site-live-null-time", "rm-ws", "RM Live Null Time", "rm-site-live-null-time", T, T,
+    );
+    await exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-live-null-time", "rm-site-live-null-time", "Null Time", "null-time", "# live", "published", null, "[]", "api_key", "rm-null-key", "api_key", "rm-null-key", T, T + 42,
+    );
+    await exec(
+      "INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-live-null-event", "rm-site-live-null-time", "api_key", "rm-null-key", "Null Key", "post.published", "post", "rm-live-null-time", "published", T + 42,
+    );
+
+    const proof = await da.dashboard.getActivationPost("rm-site-live-null-time");
+    expect(proof.state).toBe("live");
+    if (proof.state !== "live") return;
+    expect(proof.post.publishedAt).toBe(T + 42);
+  });
+
+  it("falls back to the latest api_key draft only when no live post exists", async () => {
+    // On rm-site-full every activity is actor_type='system' (no api_key rows),
+    // and the published posts were never attributed to an api_key -> waiting.
+    const proof = await da.dashboard.getActivationPost("rm-site-full");
+    expect(proof.state).toBe("waiting");
+  });
+
+  it("returns waiting on a site with no api_key activity", async () => {
+    const proof = await da.dashboard.getActivationPost("rm-site-empty");
+    expect(proof.state).toBe("waiting");
+  });
+});
+
+describe("dashboard.getActivationPost — draft attribution with versionNumber", () => {
+  it("returns the api_key draft (with current max version) when only a draft exists", async () => {
+    // Seed an isolated site with ONLY an api_key draft (no live post).
+    await exec(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "rm-site-draft-only", "rm-ws", "RM Draft Only", "rm-site-draft-only", T, T,
+    );
+    await exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-do-draft", "rm-site-draft-only", "rm-do-draft", "do-draft", "# d", "draft", null, "[]", "api_key", "rm-do-key", "api_key", "rm-do-key", T, T + 30,
+    );
+    await exec(
+      "INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-do-evt", "rm-site-draft-only", "api_key", "rm-do-key", "DO Key", "post.created", "post", "rm-do-draft", "created", T + 30,
+    );
+    await exec(
+      "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-do-pv-2", "rm-do-draft", "rm-site-draft-only", 2, "rm-do-draft", "do-draft", "# d", "draft", "[]", "api_key", "rm-do-key", T,
+    );
+
+    const proof = await da.dashboard.getActivationPost("rm-site-draft-only");
+    expect(proof.state).toBe("draft");
+    if (proof.state !== "draft") return;
+    expect(proof.post).toMatchObject({ id: "rm-do-draft", slug: "do-draft", updatedAt: T + 30, versionNumber: 2 });
   });
 });

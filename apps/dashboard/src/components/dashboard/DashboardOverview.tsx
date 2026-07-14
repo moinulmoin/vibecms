@@ -13,7 +13,7 @@ function isDashboardPostStatus(value: string): value is DashboardPostStatus {
   return value === 'draft' || value === 'published' || value === 'archived'
 }
 
-function narrowDashboardData(result: DashboardApiResponse): DashboardData {
+export function narrowDashboardData(result: DashboardApiResponse): DashboardData {
   const recentPosts: DashboardData['recentPosts'] = []
   for (const post of result.recentPosts) {
     if (!isDashboardPostStatus(post.status)) continue
@@ -35,10 +35,8 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge } from "@vc/ui"
-import { Card } from "@vc/ui"
+import { Badge, Card, CopyButton, Skeleton } from "@vc/ui"
 import { Progress } from '~/components/ui/progress'
-import { Skeleton } from "@vc/ui"
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -201,6 +199,49 @@ export function DashboardOverview() {
           )}
         </div>
       </Card>
+
+      {data.activationPost && (
+        <Card className="gap-0 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1.5">
+              <p className="font-mono text-[11px] font-medium text-muted-foreground">
+                Latest agent publish
+              </p>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="font-display text-base font-semibold text-foreground">
+                  {data.activationPost.title}
+                </span>
+                <span className="font-sans text-sm text-muted-foreground">
+                  by {data.activationPost.actorName}
+                </span>
+              </div>
+              <p className="font-mono text-xs tabular-nums text-muted-foreground">
+                {formatDateTime(data.activationPost.publishedAt)}
+              </p>
+            </div>
+            {data.activationPost.url ? (
+              <div className="flex shrink-0 items-center gap-2">
+                <a
+                  href={data.activationPost.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Open article
+                </a>
+                <CopyButton
+                  value={data.activationPost.url}
+                  label="Copy link"
+                  copiedLabel="Copied"
+                  iconOnly
+                />
+              </div>
+            ) : (
+              <p className="font-sans text-sm text-muted-foreground">Public URL pending</p>
+            )}
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link

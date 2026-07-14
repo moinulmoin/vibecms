@@ -321,3 +321,79 @@ describe("api-keys repo — listActive is site-scoped", () => {
     expect(bIds).not.toContain("key-akr-scope-a");
   });
 });
+
+describe("api-keys repo — getById is site-scoped and includes revoked rows", () => {
+  it("returns the exact row by id within the site, including a revoked key", async () => {
+    await seedSite("site-akr-getbyid");
+
+    await da.apiKeys.insertKey({
+      id: "key-akr-getbyid-revoked",
+      siteId: "site-akr-getbyid",
+      name: "SelRev",
+      tokenPrefix: "vc_live_akr_gbr",
+      tokenHash: "hash-akr-getbyid-revoked",
+      scopesJson: "[]",
+      actorName: "SelRev",
+      createdByUserId: "user-akr-gbr",
+      timestamp: T,
+    });
+    await da.apiKeys.revoke("site-akr-getbyid", "key-akr-getbyid-revoked", T2);
+
+    // Exact selected key: revoked rows are returned so the app can report
+    // 'revoked' rather than falling back to another token.
+    const row = await da.apiKeys.getById("site-akr-getbyid", "key-akr-getbyid-revoked");
+    expect(row).not.toBeNull();
+    expect(row!.id).toBe("key-akr-getbyid-revoked");
+    expect(row!.revokedAt).toBe(T2);
+  });
+
+  it("returns null when the key id belongs to a different site (no cross-site leak, no fallback)", async () => {
+    await seedSite("site-akr-getbyid-a");
+    await seedSite("site-akr-getbyid-b");
+
+    await da.apiKeys.insertKey({
+      id: "key-akr-getbyid-a",
+      siteId: "site-akr-getbyid-a",
+      name: "A",
+      tokenPrefix: "vc_live_akr_ga",
+      tokenHash: "hash-akr-getbyid-a",
+      scopesJson: "[]",
+      actorName: "GA",
+      createdByUserId: "user-akr-ga",
+      timestamp: T,
+    });
+
+    expect(await da.apiKeys.getById("site-akr-getbyid-b", "key-akr-getbyid-a")).toBeNull();
+  });
+
+  it("returns null for an unknown key id", async () => {
+    await seedSite("site-akr-getbyid-miss");
+    expect(await da.apiKeys.getById("site-akr-getbyid-miss", "key-akr-nope")).toBeNull();
+  });
+});
+
+describe("api-keys repo — markUsed is monotonic (older timestamp cannot regress lastUsedAt)", () => {
+  it("advances lastUsedAt forward but ignores a stale older timestamp", async () => {
+    await seedSite("site-akr-monotonic");
+
+    await da.apiKeys.insertKey({
+      id: "key-akr-monotonic",
+      siteId: "site-akr-monotonic",
+      name: "Mono",
+      tokenPrefix: "vc_live_akr_mono",
+      tokenHash: "hash-akr-monotonic",
+      scopesJson: "[]",
+      actorName: "Mono",
+      createdByUserId: "user-akr-mono",
+      timestamp: T,
+    });
+
+    // First authenticated use at T3 (newer).
+    await da.apiKeys.markUsed("key-akr-monotonic", T3);
+    expect((await da.apiKeys.authenticateByHash("hash-akr-monotonic"))!.lastUsedAt).toBe(T3);
+
+    // A stale call at T2 (older) must NOT regress lastUsedAt back to T2.
+    await da.apiKeys.markUsed("key-akr-monotonic", T2);
+    expect((await da.apiKeys.authenticateByHash("hash-akr-monotonic"))!.lastUsedAt).toBe(T3);
+  });
+});

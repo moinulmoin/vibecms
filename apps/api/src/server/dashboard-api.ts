@@ -1,7 +1,7 @@
 import type { Post } from '@vc/core'
 import { listPostVersions, getPostVersion } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
-import { createDataAccess, createD1PostRepository, type ActivityEventRow } from '@vc/db'
+import { createDataAccess, createD1PostRepository, type ActivationPost } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import {
   createCheckoutSessionForApp,
@@ -64,17 +64,30 @@ export type ConnectPageData = {
   apiKeys: ApiKeyListItem[]
 }
 
+export type OnboardingKey = null | {
+  id: string
+  name: string
+  createdAt: number
+  lastUsedAt: number | null
+  revokedAt: number | null
+}
+
+export type OnboardingFirstPost =
+  | { state: 'waiting' }
+  | { state: 'draft'; post: { id: string; title: string; slug: string; updatedAt: number; versionNumber: number } }
+  | {
+      state: 'live'
+      post: { id: string; title: string; slug: string; publishedAt: number; url: string | null }
+      actorName: string
+    }
+
 export type OnboardingConnectStatus = {
   canManage: boolean
   mcpUrl: string
   publicBaseUrl: string | null
-  onboardingKey: null | { id: string; name: string; createdAt: number; lastUsedAt: number | null; revokedAt: number | null }
+  key: OnboardingKey
   connection: 'no_token' | 'waiting' | 'connected' | 'revoked'
-  publish: null | {
-    state: 'none' | 'live' | 'already_live'
-    post?: { id: string; title: string; slug: string; publishedAt: number | null; url: string }
-    actor: 'onboarding_agent' | 'human' | 'other_agent' | 'unknown'
-  }
+  firstPost: OnboardingFirstPost
 }
 
 function postRepository() {
@@ -221,71 +234,71 @@ export async function loadBillingPage(app: AppUserContext) {
   return { selfHosted: false as const, isOwner, billing }
 }
 
-export async function loadOnboardingStatus(app: AppUserContext): Promise<OnboardingConnectStatus> {
+// Maps the read-model activation proof into the API contract shape, appending a
+// public URL only when a public base URL resolves (never fabricated).
+function toFirstPost(proof: ActivationPost, publicBaseUrl: string | null): OnboardingFirstPost {
+  if (proof.state === 'waiting') return { state: 'waiting' }
+  if (proof.state === 'draft') {
+    return { state: 'draft', post: proof.post }
+  }
+  const post = {
+    id: proof.post.id,
+    title: proof.post.title,
+    slug: proof.post.slug,
+    publishedAt: proof.post.publishedAt,
+    url: publicBaseUrl ? `${publicBaseUrl}/${proof.post.slug}` : null,
+  }
+  return { state: 'live', post, actorName: proof.actorName }
+}
+
+export async function loadOnboardingStatus(
+  app: AppUserContext,
+  keyId?: string,
+): Promise<OnboardingConnectStatus> {
   const canManage = canManageApiKeys(app)
   const mcpUrl = `${env.APP_URL}/mcp`
   const db = createDataAccess(env.DB)
-  const [activeKeyRow, latestKeyRow, siteSlug] = await Promise.all([
-    db.apiKeys.latestActive(app.siteId),
-    db.apiKeys.latestAny(app.siteId),
+
+  // Resolve exactly one key. When keyId is supplied, fetch that site-scoped row
+  // (including revoked) and NEVER fall back to another token. Without keyId,
+  // prefer the newest active key, then the newest key of any state.
+  const keyRow = keyId
+    ? await db.apiKeys.getById(app.siteId, keyId)
+    : (await db.apiKeys.latestActive(app.siteId)) ?? (await db.apiKeys.latestAny(app.siteId))
+
+  const [siteSlug, proof] = await Promise.all([
     db.sites.getSiteSlug(app.siteId),
+    db.dashboard.getActivationPost(app.siteId),
   ])
   const publicBaseUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
-  const keyRow = activeKeyRow ?? latestKeyRow
+  const firstPost = toFirstPost(proof, publicBaseUrl)
+
   if (!keyRow) {
-    return { canManage, mcpUrl, publicBaseUrl, onboardingKey: null, connection: 'no_token', publish: null }
+    return { canManage, mcpUrl, publicBaseUrl, key: null, connection: 'no_token', firstPost }
   }
-  const onboardingKey = {
-    id: keyRow.id,
-    name: keyRow.name,
-    createdAt: keyRow.createdAt,
-    lastUsedAt: keyRow.lastUsedAt,
-    revokedAt: keyRow.revokedAt,
-  }
+
+  // Connection is derived from the selected key only. "connected" is any
+  // non-null lastUsedAt, so a same-second authenticated use still counts (the
+  // old lastUsedAt > createdAt check falsely reported "waiting" within one second).
   let connection: OnboardingConnectStatus['connection']
-  if (!activeKeyRow) connection = 'revoked'
-  else if (activeKeyRow.lastUsedAt != null && activeKeyRow.lastUsedAt > activeKeyRow.createdAt) connection = 'connected'
+  if (keyRow.revokedAt != null) connection = 'revoked'
+  else if (keyRow.lastUsedAt != null) connection = 'connected'
   else connection = 'waiting'
 
-  const [publishedPosts, publishActivities] = await Promise.all([
-    db.dashboard.listPublishedForAttribution(app.siteId, 50),
-    db.activity.listBySiteAndAction(app.siteId, 'post.published', 100),
-  ])
-  const activityByPostId = new Map<string, ActivityEventRow>()
-  for (const a of publishActivities) {
-    if (!activityByPostId.has(a.entityId)) activityByPostId.set(a.entityId, a)
+  return {
+    canManage,
+    mcpUrl,
+    publicBaseUrl,
+    key: {
+      id: keyRow.id,
+      name: keyRow.name,
+      createdAt: keyRow.createdAt,
+      lastUsedAt: keyRow.lastUsedAt,
+      revokedAt: keyRow.revokedAt,
+    },
+    connection,
+    firstPost,
   }
-  const publishedPostIds = new Set(publishedPosts.map((p) => p.id))
-  const agentActivity = publishActivities.find(
-    (a) => a.actorId === keyRow.id && a.createdAt >= keyRow.createdAt && publishedPostIds.has(a.entityId),
-  )
-  let publish: OnboardingConnectStatus['publish']
-  if (agentActivity) {
-    const post = publishedPosts.find((p) => p.id === agentActivity.entityId)
-    if (post && publicBaseUrl) {
-      publish = {
-        state: 'live',
-        post: { id: post.id, title: post.title, slug: post.slug, publishedAt: post.publishedAt, url: `${publicBaseUrl}/${post.slug}` },
-        actor: 'onboarding_agent',
-      }
-    } else {
-      publish = { state: 'live', actor: 'onboarding_agent' }
-    }
-  } else if (publishedPosts.length > 0) {
-    const newestPost = publishedPosts[0]
-    const postActivity = activityByPostId.get(newestPost.id)
-    let actor: 'human' | 'other_agent' | 'unknown'
-    if (postActivity?.actorType === 'human') actor = 'human'
-    else if (postActivity?.actorType === 'api_key' || postActivity?.actorType === 'agent') actor = 'other_agent'
-    else actor = 'unknown'
-    const postEntry = publicBaseUrl
-      ? { id: newestPost.id, title: newestPost.title, slug: newestPost.slug, publishedAt: newestPost.publishedAt, url: `${publicBaseUrl}/${newestPost.slug}` }
-      : undefined
-    publish = { state: 'already_live', ...(postEntry ? { post: postEntry } : {}), actor }
-  } else {
-    publish = { state: 'none', actor: 'unknown' }
-  }
-  return { canManage, mcpUrl, publicBaseUrl, onboardingKey, connection, publish }
 }
 
 export {

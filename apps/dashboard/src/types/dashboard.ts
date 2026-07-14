@@ -52,6 +52,14 @@ export type DashboardData = {
     publishedAt: number | null
   }>
   recentActivity: Array<{ action: string; summary: string; actor_name: string; created_at: number }>
+  activationPost: null | {
+    id: string
+    title: string
+    slug: string
+    publishedAt: number
+    url: string | null
+    actorName: string
+  }
 }
 
 export type BillingSnapshot = {
@@ -82,23 +90,33 @@ export type ConnectPageData = {
   apiKeys: ApiKeyListItem[]
 }
 
+export type ActivationKeyInfo = {
+  id: string
+  name: string
+  createdAt: number
+  lastUsedAt: number | null
+  revokedAt: number | null
+}
+
+export type ActivationFirstPost =
+  | { state: 'waiting' }
+  | {
+      state: 'draft'
+      post: { id: string; title: string; slug: string; updatedAt: number; versionNumber: number }
+    }
+  | {
+      state: 'live'
+      post: { id: string; title: string; slug: string; publishedAt: number; url: string | null }
+      actorName: string
+    }
+
 export type OnboardingConnectStatus = {
   canManage: boolean
   mcpUrl: string
   publicBaseUrl: string | null
-  onboardingKey: null | {
-    id: string
-    name: string
-    createdAt: number
-    lastUsedAt: number | null
-    revokedAt: number | null
-  }
+  key: ActivationKeyInfo | null
   connection: 'no_token' | 'waiting' | 'connected' | 'revoked'
-  publish: null | {
-    state: 'none' | 'live' | 'already_live'
-    post?: { id: string; title: string; slug: string; publishedAt: number | null; url: string }
-    actor: 'onboarding_agent' | 'human' | 'other_agent' | 'unknown'
-  }
+  firstPost: ActivationFirstPost
 }
 
 export type CustomDomainView = {
