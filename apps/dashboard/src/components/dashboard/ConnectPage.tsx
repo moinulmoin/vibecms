@@ -469,6 +469,64 @@ export function ConnectPage() {
             </>
           )}
 
+          {!loading && live && status && (
+            <div className="grid gap-4">
+              <Panel title="Your first post is live">
+                <div className="grid gap-4">
+                  {livePost && (
+                    <div className="grid gap-1">
+                      <p className="font-display text-lg font-semibold text-foreground">
+                        {livePost.title}
+                      </p>
+                      {liveActorName && (
+                        <p className="font-sans text-sm text-muted-foreground">
+                          Published by {liveActorName}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="font-sans text-sm leading-6 text-muted-foreground">
+                    {livePost?.url
+                      ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
+                      : 'The publish is recorded. The public link will appear when the default domain is active.'}
+                  </p>
+                  {livePost?.url ? (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+                      <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
+                        {livePost.url}
+                      </span>
+                      <a
+                        href={livePost.url}
+                        target="_blank"
+                        rel="noopener"
+                        className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        Open article
+                      </a>
+                      <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
+                      The post is published. Its public URL will appear when the default domain is active.
+                    </p>
+                  )}
+                </div>
+              </Panel>
+
+              <div className="flex justify-end">
+                <Button asChild>
+                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
+                    Continue to Overview
+                  </Link>
+                </Button>
+              </div>
+
+              <Panel title="Publish more posts">
+                <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
+              </Panel>
+            </div>
+          )}
+
           {flash && mcpUrl && displayConn !== 'revoked' && (
             <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
               <Panel title="Your token is ready">
@@ -567,63 +625,6 @@ export function ConnectPage() {
             </Panel>
           )}
 
-          {!loading && live && status && (
-            <div className="grid gap-4">
-              <Panel title="Your first post is live">
-                <div className="grid gap-4">
-                  {livePost && (
-                    <div className="grid gap-1">
-                      <p className="font-display text-lg font-semibold text-foreground">
-                        {livePost.title}
-                      </p>
-                      {liveActorName && (
-                        <p className="font-sans text-sm text-muted-foreground">
-                          Published by {liveActorName}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  <p className="font-sans text-sm leading-6 text-muted-foreground">
-                    {livePost?.url
-                      ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
-                      : 'The publish is recorded. The public link will appear when the default domain is active.'}
-                  </p>
-                  {livePost?.url ? (
-                    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
-                      <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
-                        {livePost.url}
-                      </span>
-                      <a
-                        href={livePost.url}
-                        target="_blank"
-                        rel="noopener"
-                        className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        Open article
-                      </a>
-                      <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
-                    </div>
-                  ) : (
-                    <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
-                      The post is published. Its public URL will appear when the default domain is active.
-                    </p>
-                  )}
-                </div>
-              </Panel>
-
-              <div className="flex justify-end">
-                <Button asChild>
-                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
-                    Continue to Overview
-                  </Link>
-                </Button>
-              </div>
-
-              <Panel title="Publish more posts">
-                <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
-              </Panel>
-            </div>
-          )}
         </>
       )}
 
