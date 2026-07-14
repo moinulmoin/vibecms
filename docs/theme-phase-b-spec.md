@@ -131,4 +131,4 @@ analytics, email delivery. No preset-builder, no custom colors.
 - Visual verification is REQUIRED: run the dev server, screenshot post +
   index pages for all four presets × light/dark (16 shots), attach paths in
   the final answer. A build without screenshots is not done.
-- All repo gates green (pnpm -r typecheck; @vc/web test + test:isolation).
+- All repo gates green (`pnpm typecheck`, `pnpm test`, `pnpm build`).

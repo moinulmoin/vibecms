@@ -1,0 +1,50 @@
+---
+import Base from "../layouts/Base.astro";
+import LandingLayout from "../layouts/LandingLayout.astro";
+import { LandingHome } from "../components/landing/LandingHome";
+import { PublicBlogIndexView } from "../components/PublicBlogPages";
+import { appApiDocsUrl, appLoginUrl } from "../lib/landing-links";
+import { isMarketingHost, loadPublicIndexByHost, publicHtmlResponseHeaders } from "../server/public-blog";
+import { siteCacheTag } from "../server/public-blog-cache";
+import { publicDb, publicRuntimeEnv } from "../server/runtime";
+
+const env = publicRuntimeEnv(Astro);
+const rawQ = Astro.url.searchParams.get("q")?.trim().slice(0, 100);
+const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
+const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query);
+
+if (!blog && !isMarketingHost(Astro.request, env)) {
+  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+
+if (blog) {
+  const headers =
+    blog.listing.kind === "search"
+      ? { "cache-control": "no-store", "x-robots-tag": "noindex" }
+      : publicHtmlResponseHeaders(blog.site, env, [siteCacheTag(blog.site.id)]);
+  if (blog.listing.kind !== "search") {
+    Astro.cache.set({ maxAge: 300, swr: 86400, tags: [siteCacheTag(blog.site.id)] });
+  }
+  for (const [key, value] of Object.entries(headers)) {
+    Astro.response.headers.set(key, value);
+  }
+}
+
+const loginUrl = appLoginUrl(env.appUrl);
+const apiDocsUrl = appApiDocsUrl(env.appUrl);
+const ogImage = `${Astro.url.origin}/brand/og.png`;
+const title = blog ? blog.site.default_seo_title || blog.site.name : undefined;
+---
+{blog ? (
+  <Base
+    title={title}
+    description={blog.site.default_seo_description || blog.site.description || undefined}
+    robots={!blog.indexable ? "noindex,nofollow" : undefined}
+  >
+    <PublicBlogIndexView data={blog} />
+  </Base>
+) : (
+  <LandingLayout loginUrl={loginUrl} ogImage={ogImage}>
+    <LandingHome client:load loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
+  </LandingLayout>
+)}

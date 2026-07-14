@@ -5,14 +5,14 @@
  * exercise the authed surfaces (REST, MCP, CLI).
  *
  *   pnpm dev:token                 # mint a full-scope token on the LOCAL D1 (demo_site)
- *   pnpm dev:token --remote        # mint against the deployed dev D1 (https://dev.vibecms.dev)
+ *   pnpm dev:token --remote        # mint against the deployed dev D1 (https://app.basedui.dev)
  *   pnpm dev:token --scopes draft  # draft-only preset (no publish/archive)
  *   pnpm dev:token --site <id>     # a site other than demo_site
  *   pnpm dev:token --revoke        # delete tokens this tool minted (add --remote for dev)
  *   pnpm dev:token --sync-pepper   # push .dev.vars TOKEN_PEPPER to the deployed dev worker
  *
  * Minted rows are marked with created_by_user_id = "dev-token" so --revoke is exact.
- * The token hash uses TOKEN_PEPPER from apps/web/.dev.vars. The local worker reads the
+ * The token hash uses TOKEN_PEPPER from apps/api/.dev.vars. The local worker reads the
  * same file; keep the deployed dev worker in sync via `pnpm dev:sync-pepper` (also run
  * automatically by `pnpm deploy:dev`) so remotely minted tokens verify.
  */
@@ -46,7 +46,7 @@ if (hasFlag("--help") || hasFlag("-h")) {
       "pnpm dev:token - mint a scoped vibecms API token for testing (no email OTP needed)",
       "",
       "  pnpm dev:token                 mint a full-scope token on LOCAL D1 (demo_site)",
-      "  pnpm dev:token --remote        mint against the deployed dev D1 (dev.vibecms.dev)",
+      "  pnpm dev:token --remote        mint against the deployed dev D1 (app.basedui.dev)",
       "  pnpm dev:token --scopes draft  draft-only preset (no publish/archive)",
       "  pnpm dev:token --scopes publish  publish preset (publish, no archive) - matches the app default",
       "  pnpm dev:token --site <id>     target a site other than demo_site",
@@ -63,12 +63,13 @@ if (hasFlag("--help") || hasFlag("-h")) {
 const remote = hasFlag("--remote");
 const target = remote ? "--remote" : "--local";
 const where = remote ? "remote dev" : "local";
-const base = remote ? "https://dev.vibecms.dev" : "http://localhost:3000";
+const persistence = remote ? [] : ["--persist-to", "../../.wrangler/state"];
+const base = remote ? "https://app.basedui.dev" : "http://localhost:3000";
 
 function d1(sql: string): Array<{ results?: unknown[]; meta?: { changes?: number } }> {
   const out = execFileSync(
     "pnpm",
-    ["--filter", "@vc/web", "exec", "wrangler", "d1", "execute", DB, target, "--json", "--command", sql],
+    ["--filter", "@vc/api", "exec", "wrangler", "d1", "execute", DB, target, ...persistence, "--json", "--command", sql],
     { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   const start = out.indexOf("["); // skip any wrangler preamble; --json result set is an array
@@ -89,17 +90,17 @@ if (hasFlag("--sync-pepper")) {
   const pepper = readPepper();
   if (!/^[0-9a-f]{64}$/i.test(pepper)) {
     console.error(
-      "Refusing to sync: TOKEN_PEPPER in apps/web/.dev.vars must be a 64-char hex string " +
+      "Refusing to sync: TOKEN_PEPPER in apps/api/.dev.vars must be a 64-char hex string " +
         "(openssl rand -hex 32). Syncing an empty or placeholder value would break all token auth.",
     );
     process.exit(1);
   }
-  execFileSync("pnpm", ["--filter", "@vc/web", "exec", "wrangler", "secret", "put", "TOKEN_PEPPER"], {
+  execFileSync("pnpm", ["--filter", "@vc/api", "exec", "wrangler", "secret", "put", "TOKEN_PEPPER"], {
     cwd: ROOT,
     input: pepper,
     stdio: ["pipe", "inherit", "inherit"],
   });
-  console.log("Synced TOKEN_PEPPER from apps/web/.dev.vars to the deployed dev worker (vibecms-dev).");
+  console.log("Synced TOKEN_PEPPER from apps/api/.dev.vars to the deployed dev API worker (vibecms-api-dev).");
   process.exit(0);
 }
 
@@ -120,9 +121,9 @@ if (!site[0]?.results?.length) {
 }
 
 function readPepper(): string {
-  const txt = readFileSync(join(ROOT, "apps/web/.dev.vars"), "utf8");
+  const txt = readFileSync(join(ROOT, "apps/api/.dev.vars"), "utf8");
   const m = txt.match(/^TOKEN_PEPPER=(.+)$/m);
-  if (!m) throw new Error("TOKEN_PEPPER not found in apps/web/.dev.vars");
+  if (!m) throw new Error("TOKEN_PEPPER not found in apps/api/.dev.vars");
   return m[1].trim();
 }
 
@@ -141,7 +142,7 @@ try {
   const r = await fetch(`${base}/api/v1/site`, { headers: { Authorization: `Bearer ${token}` } });
   status = r.ok
     ? `token verified (HTTP ${r.status})`
-    : `WARNING: auth returned HTTP ${r.status} - worker TOKEN_PEPPER likely differs from apps/web/.dev.vars.${remote ? " Fix: pnpm dev:sync-pepper" : ""}`;
+    : `WARNING: auth returned HTTP ${r.status} - API Worker TOKEN_PEPPER likely differs from apps/api/.dev.vars.${remote ? " Fix: pnpm dev:sync-pepper" : ""}`;
 } catch {
   status = remote ? "could not reach dev to verify" : "local dev server not running - start it with `pnpm dev`, then retry the curl below";
 }

@@ -1,0 +1,189 @@
+/* Article prose typography — merge class onto RichContentFrame root via className. */
+
+.prose {
+  min-width: 0;
+  max-width: var(--vc-prose-measure);
+  font-family: var(--vc-font-body);
+  color: var(--vc-fg);
+}
+
+.prose h2 {
+  margin-top: var(--vc-section-gap);
+  margin-bottom: 12px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(28px * var(--vc-heading-scale));
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.prose h3 {
+  margin-top: 28px;
+  margin-bottom: 8px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(20px * var(--vc-heading-scale));
+  font-weight: 600;
+}
+
+.prose h4 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(17px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.prose h5 {
+  margin-top: 20px;
+  margin-bottom: 6px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(15px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.prose h6 {
+  margin-top: 18px;
+  margin-bottom: 6px;
+  font-family: var(--vc-font-heading);
+  font-size: calc(13.5px * var(--vc-heading-scale));
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--vc-muted-fg);
+}
+
+.prose p {
+  max-width: var(--vc-prose-measure);
+  font-size: 19px;
+  line-height: var(--vc-prose-leading);
+  margin: 0 0 var(--vc-prose-gap);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+  font-size: 19px;
+  line-height: var(--vc-prose-leading);
+  max-width: var(--vc-prose-measure);
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin-bottom: 0.4rem;
+  line-height: var(--vc-prose-leading);
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose :global(.contains-task-list) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose :global(.task-list-item) {
+  list-style: none;
+}
+
+.prose :global(.task-list-item) input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.5em 0 0;
+  vertical-align: -0.16em;
+  accent-color: var(--vc-accent);
+  cursor: default;
+}
+
+.prose :global(.task-list-item) :global(.contains-task-list) {
+  margin: 0.25rem 0 0.25rem 1.5rem;
+}
+
+.prose p,
+.prose li,
+.prose blockquote {
+  overflow-wrap: break-word;
+}
+
+.prose a {
+  color: var(--vc-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.prose a:hover {
+  color: var(--vc-link-hover);
+}
+
+.prose blockquote {
+  margin: var(--vc-prose-gap) 0;
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  color: var(--vc-quote-fg);
+  border-left: 2px solid var(--vc-border);
+}
+
+.prose blockquote p {
+  color: inherit;
+  font-size: inherit;
+}
+
+.prose strong {
+  font-weight: 700;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose del {
+  text-decoration: line-through;
+}
+
+.prose hr {
+  border: none;
+  text-align: center;
+  margin: var(--vc-section-gap) 0;
+}
+
+.prose hr::after {
+  content: "\00b7\00a0\00b7\00a0\00b7";
+  color: var(--vc-muted-fg);
+  opacity: 0.5;
+  letter-spacing: 0.1em;
+  font-size: 1rem;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--vc-radius);
+  margin: 1.5rem 0;
+}
+
+@media (max-width: 640px) {
+  .prose h2 {
+    font-size: calc(22px * var(--vc-heading-scale));
+  }
+
+  .prose p,
+  .prose ul,
+  .prose ol {
+    font-size: 18px;
+  }
+}
+
+@media print {
+  .prose {
+    max-width: none;
+  }
+}

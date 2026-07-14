@@ -1,261 +1,109 @@
-# vibecms Cloud - production launch runbook
+# vibecms Cloud production launch
 
-Promotes the hosted worker (`apps/web/wrangler.jsonc`, worker name `vibecms`) from
-the current dev/sandbox state to production. Self-hosting has its own path in
-[`self-hosting.md`](./self-hosting.md) and is unaffected.
+This runbook promotes the hosted two-Worker system to `app.vibecms.dev` and `*.vibecms.dev`. Self-hosting uses [`self-hosting.md`](./self-hosting.md).
 
-Each step is copy-paste. Replace every `<...>` placeholder. All `wrangler` commands
-run from the repo root and target the worker in `apps/web/wrangler.jsonc` via the
-`@vc/web` filter. Secrets are stored by Cloudflare (`wrangler secret put`); vars live
-in `apps/web/wrangler.jsonc`.
+## 1. Provision shared data resources
 
-> Heads up: `pnpm deploy:prod` is the production deploy used here (it applies D1
-> migrations to the remote DB bound as `DB`, builds, and runs `wrangler deploy --config dist/server/wrangler.json`). It is
-> deliberately self-contained, not an alias of `deploy:dev`, because after this first
-> release `deploy:dev` becomes the dev-branch deploy - keeping them independent avoids
-> a prod deploy silently shipping to dev later.
-
-## Prerequisites
-
-- `wrangler login` done, on the Cloudflare account that will own production.
-- A domain already added to that Cloudflare account (zone active).
-- Cloudflare Email Sending enabled on your Cloudflare account, with your sending domain onboarded (for OTP email).
-- A **production** [Polar](https://polar.sh) organization - production and sandbox are
-  fully isolated (separate org, token, products, webhook secret), so the sandbox org
-  used for testing cannot be reused.
-
----
-
-## 0. Decide resources and data
-
-The current worker uses D1 `vibecms_dev` and R2 `vibecms-assets`, which hold test/dogfood
-data. Pick one:
-
-### Option A (recommended): fresh production resources
-
-Clean data, isolated from anything you tested with.
-
-```bash
-# create prod D1 + R2
-pnpm --filter @vc/web exec wrangler d1 create vibecms-prod
-pnpm --filter @vc/web exec wrangler r2 bucket create vibecms-assets-prod
+```sh
+pnpm --filter @vc/api exec wrangler d1 create vibecms_prod
+pnpm --filter @vc/api exec wrangler r2 bucket create vibecms-assets-prod
 ```
 
-Then edit `apps/web/wrangler.jsonc`:
+Put the resulting D1 id and R2 bucket name in both production environments:
 
-- `d1_databases[0].database_name` -> `vibecms-prod`
-- `d1_databases[0].database_id` -> the id printed by `d1 create`
-- `r2_buckets[0].bucket_name` -> `vibecms-assets-prod`
+- `apps/api/wrangler.jsonc`
+- `apps/public/wrangler.jsonc`
 
-Keep the bindings named `DB` and `ASSETS_BUCKET` (the code depends on them).
+Both Workers must point at the same database and bucket. Keep the public production service binding targeted at `vibecms-api-prod`.
 
-### Option B: reuse the existing worker, purge test data
+## 2. Configure production hosts
 
-Faster, but production keeps the `vibecms_dev` DB name and you must clear test rows:
+API/dashboard production:
 
-```bash
-pnpm --filter @vc/web exec wrangler d1 execute DB --remote --command \
-  "DELETE FROM activity_events; DELETE FROM post_versions; DELETE FROM posts; DELETE FROM assets; DELETE FROM api_keys; DELETE FROM usage_counters; DELETE FROM rate_limits; DELETE FROM domains; DELETE FROM billing_customers; DELETE FROM memberships; DELETE FROM sites; DELETE FROM workspaces; DELETE FROM session; DELETE FROM account; DELETE FROM verification; DELETE FROM \"user\";"
+```txt
+APP_URL=https://app.vibecms.dev
+BETTER_AUTH_URL=https://app.vibecms.dev
+PUBLIC_BLOG_DOMAIN=vibecms.dev
+SELF_HOSTED=false
 ```
 
----
+Public production uses the same `APP_URL` and `PUBLIC_BLOG_DOMAIN`. Keep the API route on `app.vibecms.dev`; keep the public Worker on `vibecms.dev` and `*.vibecms.dev/*`.
 
-## 1. Rotate production secrets
+## 3. Configure API Worker secrets
 
-Never reuse the dev `BETTER_AUTH_SECRET` / `TOKEN_PEPPER`.
-
-```bash
-# generate two fresh values
-openssl rand -hex 32   # -> BETTER_AUTH_SECRET
-openssl rand -hex 32   # -> TOKEN_PEPPER
-
-pnpm --filter @vc/web exec wrangler secret put BETTER_AUTH_SECRET
-pnpm --filter @vc/web exec wrangler secret put TOKEN_PEPPER
+```sh
+pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --env production
+pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env production
+pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
 ```
 
-> Rotating `TOKEN_PEPPER` invalidates every previously issued agent API token. That is
-> the intent for a clean launch; agents re-mint tokens after go-live.
+Generate Better Auth and token-pepper values independently with `openssl rand -hex 32`. Rotating `TOKEN_PEPPER` invalidates every issued agent token.
 
----
+Google sign-in is optional:
 
-## 2. Email delivery (Cloudflare Email Sending) - required for real OTP
-
-OTP email is sent through a native `send_email` Workers binding named `EMAIL`,
-declared in `apps/web/wrangler.jsonc` as `"send_email": [{ "name": "EMAIL" }]` (present
-in both the top-level dev config and the `env.production` block). The Worker itself is
-the sending identity, so **no API token secret is needed** — there is no
-`wrangler secret put` step for email.
-
-1. Enable **Email Sending** on the Cloudflare account and onboard your sending domain
-   (add the SPF/DKIM/DMARC records Cloudflare provides). The binding only delivers if the
-   sender domain is onboarded:
-
-```bash
-npx wrangler email sending enable <your-domain>
+```sh
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_ID --env production
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --env production
 ```
 
-2. Confirm `EMAIL_FROM` is set in `apps/web/wrangler.jsonc` `vars` (not sensitive) to an
-   address on the domain you onboarded:
+If enabled, authorize `https://app.vibecms.dev/api/auth/callback/google`.
 
-```jsonc
-"EMAIL_FROM": "vibecms <login@<your-domain>>"
+## 4. Configure OTP email
+
+The production API environment declares a native `EMAIL` send-email binding. Enable Cloudflare Email Sending for `vibecms.dev`, publish the supplied SPF/DKIM/DMARC records, and keep `EMAIL_FROM` on the onboarded domain.
+
+```sh
+pnpm --filter @vc/api exec wrangler email sending enable vibecms.dev --env production
 ```
 
-When the `EMAIL` binding is present the Worker sends real email; without it the Worker
-only logs codes to `wrangler tail` (useful for local testing — sign-in is impossible in
-production).
+Production treats a missing hosted email binding as an error; it never logs OTPs as a fallback.
 
----
+## 5. Configure Polar
 
-## 3. Polar billing (production)
+Set production product ids and `POLAR_SERVER=production` in the API production vars. Configure Polar's webhook target:
 
-In your **production** Polar organization (`https://polar.sh/dashboard/<org_slug>`):
-
-1. **Products** -> create two recurring products: a monthly and a yearly plan. Copy each
-   product id.
-2. **Settings -> General -> Developers** -> create an Organization Access Token. Copy it.
-3. **Settings -> Webhooks -> Add Endpoint**:
-   - URL: `https://<your-domain>/polar/webhook`
-   - Generate (or set) a signing secret and copy it.
-   - Subscribe to: `checkout.updated` and all `subscription.*` events
-     (these are the only events the worker acts on - see `billing.ts`).
-
-Set the secrets:
-
-```bash
-pnpm --filter @vc/web exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/web exec wrangler secret put POLAR_WEBHOOK_SECRET
+```txt
+https://app.vibecms.dev/api/polar/webhook
 ```
 
-Update `apps/web/wrangler.jsonc` `vars`:
+The webhook secret must match `POLAR_WEBHOOK_SECRET`. Receipt ids and source timestamps make billing updates idempotent and monotonic.
 
-```jsonc
-"POLAR_SERVER": "production",
-"POLAR_MONTHLY_PRODUCT_ID": "<monthly_product_id>",
-"POLAR_YEARLY_PRODUCT_ID": "<yearly_product_id>"
+## 6. Run release gates
+
+```sh
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm public:audit
+pnpm openapi:check
 ```
 
-Remove the old `"POLAR_PRODUCT_ID": "product_dev_placeholder"` line (the monthly id
-replaces it; the code falls back to `POLAR_PRODUCT_ID` only if `POLAR_MONTHLY_PRODUCT_ID`
-is unset).
-
-> The webhook is what flips a workspace to `active` (status updates only happen via
-> `/polar/webhook`, never the checkout success redirect). If `POLAR_WEBHOOK_SECRET` is
-> unset while `APP_ENV=production`, the webhook endpoint returns 500 by design.
-
----
-
-## 4. (Optional) Google sign-in
-
-Skip to leave email-only sign-in (the button hides itself when unset).
-
-1. Google Cloud Console -> OAuth client (Web application).
-2. Authorized redirect URI: `https://<your-domain>/api/auth/callback/google`
-3. Set both (the button only appears when both exist):
-
-```bash
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_ID
-pnpm --filter @vc/web exec wrangler secret put GOOGLE_CLIENT_SECRET
-```
-
----
-
-## 5. Custom domain and DNS
-
-Recommended topology: **host-only**. Tenant identity is the host, so each blog serves at the
-root of its own host (`<slug>.<your-domain>` or a custom domain). This requires a wildcard DNS
-record and a wildcard route (below). There is no multi-tenant path-mode (`/blog/<slug>/*`).
-
-1. Add the custom domain to the worker. In `apps/web/wrangler.jsonc`:
-
-```jsonc
-"routes": [
-  { "pattern": "<your-domain>", "custom_domain": true },
-  { "pattern": "*.<your-domain>/*", "zone_name": "<your-domain>" }
-],
-"workers_dev": false
-```
-
-   (Or add it via the dashboard: Workers & Pages -> `vibecms` -> Settings -> Domains & Routes
-   -> Add Custom Domain. Cloudflare creates the proxied DNS record automatically.)
-
-2. Point the three URL vars in `apps/web/wrangler.jsonc` `vars` at it:
-
-```jsonc
-"APP_URL": "https://<your-domain>",
-"BETTER_AUTH_URL": "https://<your-domain>",
-"PUBLIC_BLOG_DOMAIN": "<your-domain>"
-```
-
-   Set `PUBLIC_BLOG_DOMAIN` to the blog base domain (e.g. `<your-domain>`). Tenant blogs then
-   serve at `https://<slug>.<your-domain>/<post-slug>` (host-resolved). `APP_URL` may be the
-   apex (shared) or a dedicated app host like `app.<your-domain>`; either is host-only.
-
-> Add a proxied `*.<your-domain>` DNS record in the Cloudflare dashboard so tenant subdomains
-> resolve. Free Universal SSL covers `<your-domain>` and `*.<your-domain>` (one level). For
-> bring-your-own custom domains (e.g. `blog.acme.com`), enable Cloudflare for SaaS post-launch
-> (see `plans/PROD-LAUNCH.md` Step 11).
-
----
-
-## 6. Flip to production
-
-In `apps/web/wrangler.jsonc` `vars`:
-
-```jsonc
-"APP_ENV": "production"
-```
-
-This turns on the real API usage tiers / `429` enforcement and the production Polar
-webhook-secret requirement. Confirm `"SELF_HOSTED": "false"` is still set.
-
-Leave `API_USAGE_TEST_LIMIT` unset in production (it is a dev-only override for forcing a
-small quota).
-
----
+Do not deploy on a failed gate.
 
 ## 7. Deploy
 
-```bash
-pnpm typecheck
-pnpm deploy:prod   # applies D1 migrations to the remote DB, builds, deploys the worker
+```sh
+pnpm deploy:prod
 ```
 
-If you created a fresh D1 in step 0, the migration apply also creates the schema on it.
+The script applies D1 migrations first, deploys `vibecms-api-prod`, then builds and deploys `vibecms-public-prod`. The API Worker must exist before the public service binding is deployed.
 
----
+The manual GitHub Actions workflow `Deploy production` runs the same gates and sequence with an environment approval boundary.
 
-## 8. Verify on the real domain
+## 8. Smoke test
 
-Run the same checks the dev dogfood covered, now against `https://<your-domain>`:
+1. `GET https://app.vibecms.dev/api/health/live` returns 200 and a Worker version id.
+2. `GET https://app.vibecms.dev/api/health/ready` returns 200.
+3. Complete email OTP sign-in and first-site onboarding.
+4. Create a scoped token; run one MCP read and one approval-first draft/publish flow.
+5. Open the published post on its public host and confirm HTML, feed, sitemap, robots, `llms.txt`, and `Accept: text/markdown` behavior.
+6. Upload a valid image; reject an invalid image payload; verify the public media response is immutable and `nosniff`.
+7. Complete Polar checkout and portal flows; replay a webhook id and verify it does not apply twice.
+8. Confirm API logs correlate failures with `X-Request-ID` and contain no authorization, cookie, token, OTP, or request-body values.
 
-- [ ] **OTP email actually arrives** (the one thing dev could not prove): request a code,
-      confirm it lands in a real inbox, sign in. Watch `wrangler tail` if it does not.
-- [ ] **Signup -> setup -> connect -> dashboard** loads; dashboard pages render in light
-      and dark mode.
-- [ ] **Publish gating**: first post publishes free; a second returns "subscribe to
-      publish more"; subscribing (Polar production checkout with a real card) flips the
-      workspace to `active` via `/polar/webhook`; check D1
-      `billing_customers.status = 'active'`.
-- [ ] **Paid surfaces** unlock after subscribing: publish more than one post, media upload,
-      and the public blog becomes search-indexable (no `noindex`).
-- [ ] **Agent path**: create a disposable Publisher token under Dashboard → Connect; run
-      `claude mcp add --transport http vibecms https://<your-domain>/mcp --header
-      "Authorization: Bearer <token>"`; install `vibecms-core` and `vibecms-writing`;
-      prove `sites.get` with the valid token and `401` with an invalid token; draft and
-      preview a post; confirm a stale `expectedVersionNumber` is rejected; explicitly
-      approve and publish the latest version; verify the dashboard and tool response show
-      the returned live URL; then revoke the disposable token.
-- [ ] **Real rate limits** (only active when `APP_ENV=production`): exceed the free API
-      tier on `/api/posts` and confirm `429 {"error":"RATE_LIMIT"}`; send >5 OTP codes to
-      one email within an hour and confirm the 6th is blocked.
-- [ ] **Public blog**: a published (paid) post renders with correct title/OG/canonical,
-      cover image, and markdown; `https://<slug>.<your-domain>/llms.txt` and the post `.md` are reachable.
-- [ ] **Lighthouse** on the public blog and dashboard: LCP / CLS / INP in the green.
+## 9. Rollback
 
-## Rollback
-
-- Vars/domain: revert the `apps/web/wrangler.jsonc` changes and `pnpm deploy:prod`.
-- Secrets: re-`put` the previous value, or `wrangler secret delete <NAME>`.
-- D1 migrations are additive; there is no auto-downgrade. Restore from a D1 export
-  (`wrangler d1 export`) taken before launch if needed.
+API and public versions roll back independently in Cloudflare. Roll back only the affected Worker when possible. D1 migrations are forward-only; before rolling API code back across a migration, verify the older code remains compatible with the current schema.

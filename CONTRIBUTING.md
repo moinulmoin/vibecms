@@ -8,17 +8,19 @@ Thanks for helping improve vibecms.
 pnpm install
 pnpm typecheck
 pnpm lint
+pnpm test
 pnpm build
 ```
 
 For self-host development, copy the example env file and generate local secrets:
 
 ```sh
-cp apps/web/dev.vars.example apps/web/.dev.vars
+cp apps/api/.dev.vars.example apps/api/.dev.vars
 openssl rand -hex 32
 ```
 
 Never commit `.env`, `.dev.vars`, Cloudflare credentials, Polar credentials, or generated API tokens.
+`pnpm dev`, local migrations, and local seeding share the root `.wrangler/state` directory so the Hono API and Astro public Worker use the same D1 and R2 data.
 
 ## Get a dev API token (no email needed)
 
@@ -32,7 +34,7 @@ pnpm dev:token --scopes draft                  # draft-only preset (no publish/a
 pnpm dev:token --revoke                        # clean up (add --remote if you used it)
 ```
 
-It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash uses `TOKEN_PEPPER` from `apps/web/.dev.vars`. Minted tokens are scoped and revocable; never commit them.
+It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash uses `TOKEN_PEPPER` from `apps/api/.dev.vars`. Minted tokens are scoped and revocable; never commit them.
 
 ## Pull requests
 

@@ -40,7 +40,7 @@ export interface ExportReadModel {
   listAllPostsForExport(siteId: string): Promise<ExportPost[]>;
 }
 
-// Export read model extracted from apps/web/src/server/export.ts. Takes a D1Database and builds its own Drizzle client; no env import. The app keeps owner authorization, JSON payload shaping, and the Response.
+// DB-only export read model. The API layer owns authorization, JSON payload shaping, and the Response.
 export function createExportReadModel(db: D1Database): ExportReadModel {
   const client = createDbClient(db);
 

@@ -1,0 +1,101 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms-api-dev",
+  "compatibility_date": "2026-07-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/index.ts",
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms_dev",
+      "database_id": "869d397e-f61f-4206-b8d8-ad3255c415f9",
+      "migrations_dir": "../../packages/db/drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "vibecms-assets"
+    }
+  ],
+  "send_email": [{ "name": "EMAIL" }],
+  "assets": {
+    "directory": "../dashboard/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*"]
+  },
+  "routes": [
+    { "pattern": "app.basedui.dev", "custom_domain": true },
+    { "pattern": "app.basedui.dev/*", "zone_name": "basedui.dev" }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "APP_ENV": "development",
+    "APP_URL": "https://app.basedui.dev",
+    "BETTER_AUTH_URL": "https://app.basedui.dev",
+    "PUBLIC_BLOG_DOMAIN": "basedui.dev",
+    "SELF_HOSTED": "false",
+    "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
+    "POLAR_PRODUCT_ID": "product_dev_placeholder",
+    "POLAR_SERVER": "sandbox"
+  },
+  "env": {
+    "production": {
+      "name": "vibecms-api-prod",
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 0.1
+      },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
+      },
+      "send_email": [{ "name": "EMAIL" }],
+      "assets": {
+        "directory": "../dashboard/dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "vibecms_prod",
+          "database_id": "98ac8ee4-6b93-4500-b2a0-f8011516fe75",
+          "migrations_dir": "../../packages/db/drizzle"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ASSETS_BUCKET",
+          "bucket_name": "vibecms-assets-prod"
+        }
+      ],
+      "routes": [
+        { "pattern": "app.vibecms.dev", "custom_domain": true },
+        { "pattern": "app.vibecms.dev/*", "zone_name": "vibecms.dev" }
+      ],
+      "vars": {
+        "APP_ENV": "production",
+        "APP_URL": "https://app.vibecms.dev",
+        "BETTER_AUTH_URL": "https://app.vibecms.dev",
+        "PUBLIC_BLOG_DOMAIN": "vibecms.dev",
+        "SELF_HOSTED": "false",
+        "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
+        "POLAR_SERVER": "production",
+        "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.vibecms.dev",
+        "POLAR_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
+        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436"
+      }
+    }
+  }
+}

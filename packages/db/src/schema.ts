@@ -33,6 +33,7 @@ export const sites = sqliteTable("sites", {
   faviconAssetId: text("favicon_asset_id"),
   defaultSeoTitle: text("default_seo_title"),
   defaultSeoDescription: text("default_seo_description"),
+  mediaPendingBytes: integer("media_pending_bytes").notNull().default(0),
   status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
   theme: text("theme").notNull().default("minimal"),
   // Theme customizer (Layer 2) — additive, nullable→resolver-default.
@@ -169,6 +170,8 @@ export const billingCustomers = sqliteTable("billing_customers", {
   polarSubscriptionId: text("polar_subscription_id").unique(),
   status: text("status", { enum: ["active", "past_due", "canceled", "unpaid", "none"] }).notNull().default("none"),
   currentPeriodEnd: integer("current_period_end"),
+  webhookEventId: text("webhook_event_id"),
+  webhookUpdatedAt: integer("webhook_updated_at"),
   ...timestamps,
 });
 

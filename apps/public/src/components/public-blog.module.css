@@ -1,0 +1,438 @@
+.publicPage {
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  max-width: 860px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
+}
+
+/* §1: header separates by padding + the title's own weight — no border rule. */
+.publicHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 28px;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.publicBrand {
+  color: inherit;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.publicBrand:hover {
+  color: var(--vc-accent);
+}
+
+/* Masthead tagline — muted so it reads as a quiet descriptor beside the brand,
+   not a second headline competing for the foreground. Shares the header
+   baseline row; wraps under the brand on narrow viewports. */
+.publicTagline {
+  margin: 0;
+  color: var(--vc-muted-fg);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
+.postList {
+  display: grid;
+  gap: 3rem;
+}
+
+.postCard {
+  /* §1: no card border. Separation is the list gap. */
+}
+
+.postCard p {
+  color: var(--vc-muted-fg);
+  line-height: 1.6;
+}
+
+.coverImage {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--vc-radius);
+  margin-bottom: 18px;
+}
+
+.heroImage {
+  width: 100%;
+  max-width: var(--vc-prose-measure);
+  max-height: 520px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin: 18px 0 28px;
+}
+
+.postCard h2 {
+  margin: 6px 0;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(24px, 4vw, 32px) * var(--vc-heading-scale));
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.postCard a,
+.backLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* §4: hover = title color shift only (no hover-card chrome). */
+.postCard h2 a:hover,
+.backLink:hover {
+  color: var(--vc-accent);
+}
+
+.article {
+  max-width: var(--vc-prose-measure);
+}
+
+/* §7: soft title metrics — line-height 1.08, −0.025em tracking, clamp max ~3.4rem, balanced. */
+.articleTitle {
+  margin: 20px 0 16px;
+  max-width: var(--vc-prose-measure);
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(1.9rem, 5vw, 3.4rem) * var(--vc-heading-scale));
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.backLink {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* §2: ONE quiet meta line — muted (AA), normal tracking, middle-dot separated. No icons/labels. */
+.metaLine {
+  color: var(--vc-muted-fg);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: var(--vc-prose-measure);
+}
+
+/* §2.3 / §6: quiet tag row — sentence-case plain text links, dot-separated, not pills. */
+.tagRow {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: var(--vc-prose-measure);
+}
+
+.tagEntry {
+  display: inline;
+}
+
+.tagLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+}
+
+.tagLink:hover {
+  color: var(--vc-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tagSep {
+  color: var(--vc-muted-fg);
+  opacity: 0.55;
+  margin: 0 0.45em;
+}
+
+
+.empty,
+.notFound {
+  color: var(--vc-muted-fg);
+  text-align: center;
+  padding: 4rem 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* ── Search form + listing banners ─────────────────────────────────────────── */
+
+/* §1: search = ONE integrated bordered control (input + submit share a single
+   border + radius), borrowing the compact search treatment from OpenAI Developers.
+   The form itself is the bordered box; the input is transparent inside it and the
+   submit button sits inline, separated by a hairline divider. Accent is reserved
+   for the focus ring. */
+.searchForm {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  margin-bottom: var(--vc-section-gap);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+/* Accessible name for the search field — visually hidden, never the placeholder. */
+.searchLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--vc-radius) - 1px) 0 0 calc(var(--vc-radius) - 1px);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  font-size: 1rem;
+  padding: 0.7rem 0.875rem;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--vc-muted-fg);
+}
+
+/* Accent reserved for interactive emphasis: the whole control picks up an accent
+   ring when the field (or button) is focused. */
+.searchForm:focus-within {
+  border-color: var(--vc-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent) 30%, transparent);
+}
+
+.searchButton {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--vc-border);
+  border-radius: 0 calc(var(--vc-radius) - 1px) calc(var(--vc-radius) - 1px) 0;
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.7rem 1rem;
+  transition: color 180ms ease;
+}
+
+.searchButton:hover {
+  color: var(--vc-fg);
+}
+
+/* ── Focus states ─────────────────────────────────────────────────────────── */
+
+/* One deliberate keyboard-focus language across every public link: a 2px accent
+   outline lifted 2px off the target with a small radius, so inline links don't
+   read as a hard rectangle. Text-entry controls keep their own ring above. */
+.publicBrand:focus-visible,
+.postCard h2 a:focus-visible,
+.backLink:focus-visible,
+.tagLink:focus-visible,
+.tocItemH2 > a:focus-visible,
+.tocItemH3 > a:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.listingBanner {
+  margin-bottom: var(--vc-section-gap);
+}
+
+.listingHeading {
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+@media (max-width: 640px) {
+  .publicPage {
+    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
+  }
+
+  .publicHeader {
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .publicBrand {
+    font-size: 22px;
+  }
+
+  .postCard h2 {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+
+
+  .heroImage {
+    max-height: 320px;
+    border-radius: var(--vc-radius);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicPage,
+  .publicPage *,
+  .publicPage *::before,
+  .publicPage *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Layout: feature ───────────────────────────────────────────────────────── */
+
+/* Feature layout expands to the full page container width (cover breaks out). */
+.article[data-vc-layout="feature"] {
+  max-width: 100%;
+}
+
+/* Full-width hero container; title + meta sit below the cover. */
+.featureHero {
+  margin-bottom: 28px;
+}
+
+/* Hero cover image: full-width, capped height. Only this breaks out of the measure (§7). */
+.featureCover {
+  display: block;
+  width: 100%;
+  max-height: 540px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin-bottom: 20px;
+}
+
+/* ── Layout: essay ──────────────────────────────────────────────────────────── */
+
+/* Essay: constrain to the preset prose measure. (Drop cap removed in §7.) */
+.article[data-vc-layout="essay"] {
+  max-width: var(--vc-prose-measure);
+}
+
+/* ── Article body + Table of contents ──────────────────────────────────────── */
+
+/* Body wrapper holds the prose column; the sticky ToC rail joins it >=1100px.
+   The prose itself is always measured via .markdown above. */
+.articleBody {
+  display: block;
+}
+
+/* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden >=1100px. */
+.tocDetails {
+  margin: 0 0 var(--vc-section-gap);
+  max-width: var(--vc-prose-measure);
+}
+
+.tocSummary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--vc-muted-fg);
+  font-weight: 600;
+}
+
+.tocSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* §3: sticky right rail — hidden below 1100px (the <details> covers narrow screens). */
+.tocRail {
+  display: none;
+}
+
+.tocRailLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--vc-muted-fg);
+  margin: 0 0 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+/* §3: plain quiet links. */
+.tocItemH2 > a,
+.tocItemH3 > a {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  display: block;
+}
+
+.tocItemH2 > a:hover,
+.tocItemH3 > a:hover {
+  color: var(--vc-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* H3 items are indented to show hierarchy. */
+.tocItemH3 {
+  padding-left: 0.85rem;
+}
+
+/* §3: >=1100px — promote the page to a prose + sticky-rail layout.
+   data-vc-toc-rail is set on <main> by PublicBlogPostView only when a rail renders. */
+@media (min-width: 1100px) {
+  .publicPage[data-vc-toc-rail] {
+    max-width: 1080px;
+  }
+
+  .publicPage[data-vc-toc-rail] .article {
+    max-width: 100%;
+  }
+
+  .publicPage[data-vc-toc-rail] .articleBody {
+    display: grid;
+    grid-template-columns: minmax(0, var(--vc-prose-measure)) 15rem;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .publicPage[data-vc-toc-rail] .tocRail {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .publicPage[data-vc-toc-rail] .tocDetails {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .featureCover {
+    max-height: 280px;
+    border-radius: var(--vc-radius);
+  }
+}

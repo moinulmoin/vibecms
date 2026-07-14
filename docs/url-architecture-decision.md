@@ -1,14 +1,14 @@
 # Decision: Host-only public-blog URL model (drop path-mode)
 
-Status: **DECIDED + implementation in progress** (2026-07-05).
-Supersedes path-mode references in README, docs/self-hosting.md, docs/launch-runbook.md, docs/FEATURES.md, plans/002, 007, 008, 020, PROD-LAUNCH.
+Status: **IMPLEMENTED** (updated 2026-07-14).
+Supersedes path-mode references in older plans and archived launch material.
 
 ## Decision
 
 VibeCMS uses a **host-only** URL model for public blogs. Tenant identity is always the **host**; content structure (posts, tags, feed, sitemap, robots, llms.txt) is the **path under that host**. Multi-tenant path-mode (`/blog/<siteSlug>/<postSlug>`) is **removed**.
 
-- **Cloud**: `<slug>.vibecms.dev` (free subdomain) or custom domain (paid, Cloudflare for SaaS). Production already runs host-only (`PUBLIC_BLOG_URL_MODE=subdomain`, `APP_URL=app.vibecms.dev`, `PUBLIC_BLOG_DOMAIN=vibecms.dev`).
-- **Self-hosted** (future, post-release): single-tenant, host-based. Topology to be chosen closer to release (separate app/blog hosts, or a single-site same-host resolver). Not shipped today.
+- **Cloud**: `<slug>.vibecms.dev` (free subdomain) or custom domain (paid, Cloudflare for SaaS), with the dashboard/API on `app.vibecms.dev`.
+- **Self-hosted**: single-tenant and host-based, with separate API/dashboard and public Astro Worker hosts.
 
 ## Rationale
 
@@ -34,10 +34,11 @@ VibeCMS is **unreleased**. No live users, no legacy `/blog/<slug>` links, self-h
 - `defaultHostname(slug)`, `publicBlogBaseDomain()`, `isLocalDefaultHostname()` (default-subdomain creation).
 - `site.slug` (still used for onboarding, default subdomain, reserved-slug validation, subscribe API).
 
-## Open topology decisions (for release, NOT blocking this removal)
+## Resolved topology
 
-1. **Dev dogfooding**: host-based needs `*.dev.vibecms.dev` wildcard DNS/cert (or an alternate dev host strategy). Today dev served path-mode; after removal dev blog-serving requires this. (The dev `/blog/*` 404 already made path-mode unusable there.)
-2. **Self-host topology**: separate app/blog hosts vs. single-site same-host resolver. Decide closer to release.
+- Development uses `app.basedui.dev` for API/dashboard and `basedui.dev` plus `*.basedui.dev` for public blogs.
+- Production uses `app.vibecms.dev` for API/dashboard and `vibecms.dev` plus `*.vibecms.dev` for public blogs.
+- Self-hosting mirrors the two-Worker split; root `wrangler.jsonc` and `wrangler.public.jsonc` share D1/R2 and connect through a service binding.
 
 ## Verification (post-removal)
 
