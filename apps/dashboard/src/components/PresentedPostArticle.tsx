@@ -146,10 +146,10 @@ export function PresentedPostArticle({
         : {})}
     >
       <header className={styles.articleHeader}>
-        {tagRow}
         {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
         {deck}
         {metaLine}
+        {tagRow}
       </header>
       {coverAssetSrc ? (
         <img

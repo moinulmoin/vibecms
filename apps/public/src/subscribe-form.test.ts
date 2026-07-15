@@ -3,7 +3,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PublicPostLoaderData } from "./server/public-blog";
 import { PublicBlogPostView, PublicShell } from "./components/PublicBlogPages";
-import { SUBSCRIBE_CONSENT_TEXT } from "./lib/subscribe-consent";
+import {
+  SUBSCRIBE_BUTTON,
+  SUBSCRIBE_CONSENT_TEXT,
+  SUBSCRIBE_HEADING,
+  SUBSCRIBE_SUBTEXT,
+  SUBSCRIBE_SUCCESS,
+} from "./lib/subscribe-consent";
 
 type SubmitListener = (event: { target: unknown; preventDefault: () => void }) => void;
 
@@ -297,6 +303,7 @@ describe("public editorial article rendering", () => {
     id: "post-editorial",
     title: "Structured Article",
     excerpt: "A multi-section exploration of ideas worth sharing.",
+    tags_json: JSON.stringify(["design", "writing"]),
     content_markdown:
       "# Structured Article\n\nOpening paragraph.\n\n## First Section\n\nContent for the first section.\n\n### Sub-point Alpha\n\nA deeper detail.\n\n## Second Section\n\nContent for the second section.\n\n## Third Section\n\nClosing thoughts.\n",
     presentation_json: JSON.stringify({ toc: true }),
@@ -344,6 +351,17 @@ describe("public editorial article rendering", () => {
     expect(bylineIndex).toBeLessThan(bodyStart);
   });
 
+  it("renders the metadata line before the tag row", () => {
+    // Taxonomy order is title, deck, metadata, then tags; the meta line must
+    // precede the tag links in source order.
+    const metaIndex = markup.indexOf("min read");
+    const tagIndex = markup.indexOf("/tag/design");
+
+    expect(metaIndex).toBeGreaterThanOrEqual(0);
+    expect(tagIndex).toBeGreaterThanOrEqual(0);
+    expect(metaIndex).toBeLessThan(tagIndex);
+  });
+
   it("produces narrow TOC disclosure markup for structured headings", () => {
     // Three H2/H3 headings trigger the <details> TOC disclosure.
     expect(markup).toContain("<details");
@@ -361,5 +379,68 @@ describe("public editorial article rendering", () => {
     // The sticky sidebar nav is rendered alongside the body.
     expect(markup).toContain('<nav');
     expect(markup).toContain('aria-label="On this page"');
+  });
+});
+
+describe("article masthead navigation", () => {
+  const markup = renderToStaticMarkup(
+    createElement(PublicBlogPostView, {
+      data: {
+        site: { ...site, theme: "editorial" },
+        post: { ...post, title: "Masthead Nav Post" },
+        basePath: "",
+        canonicalUrl: "/masthead-nav-post",
+        origin: "https://site-1.basedui.dev",
+        indexable: true,
+        cacheTags: [],
+      } satisfies PublicPostLoaderData,
+    }),
+  );
+
+  it("renders the All posts navigation inside the masthead", () => {
+    // The article masthead carries an explicit All posts nav, not a brand-only header.
+    expect(markup).toContain('aria-label="Posts"');
+    expect(markup).toContain(">All posts</a>");
+  });
+
+  it("does not render a standalone arrow-back link", () => {
+    // The old separate left-arrow back link is gone; only the masthead nav remains.
+    expect(markup).not.toContain("\u2190");
+  });
+});
+
+describe("subscription callout copy and consent", () => {
+  const footerMarkup = renderToStaticMarkup(
+    createElement(PublicShell, { site, basePath: "", indexable: true, children: createElement("div") }),
+  );
+  const endMarkup = renderToStaticMarkup(
+    createElement(PublicBlogPostView, {
+      data: {
+        site,
+        post,
+        basePath: "",
+        canonicalUrl: "/hello",
+        origin: "https://site-1.basedui.dev",
+        indexable: true,
+        cacheTags: [],
+      } satisfies PublicPostLoaderData,
+    }),
+  );
+
+  const visibleTextMarkup = (markup: string) => markup.replaceAll("&#x27;", "'");
+
+  it("renders the exact heading, subtext, and button copy in both placements", () => {
+    for (const markup of [footerMarkup, endMarkup].map(visibleTextMarkup)) {
+      expect(markup).toContain(SUBSCRIBE_HEADING);
+      expect(markup).toContain(SUBSCRIBE_SUBTEXT);
+      expect(markup).toContain(`>${SUBSCRIBE_BUTTON}</button>`);
+    }
+  });
+
+  it("renders the exact success message and consent copy in both placements", () => {
+    for (const markup of [footerMarkup, endMarkup].map(visibleTextMarkup)) {
+      expect(markup).toContain(SUBSCRIBE_SUCCESS);
+      expect(markup).toContain(SUBSCRIBE_CONSENT_TEXT);
+    }
   });
 });

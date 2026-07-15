@@ -40,6 +40,29 @@
   line-height: 1.5;
 }
 
+/* Article masthead: site identity (brand + tagline) left, "All posts"
+   navigation right. Only the article page renders .mastheadNav; the index
+   shell header is unchanged. margin-left: auto parks the nav at the right
+   edge of the shared .publicHeader flex row. */
+.mastheadNav {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+}
+
+.allPostsLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+  font-family: var(--vc-font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: color 150ms ease;
+}
+
+.allPostsLink:hover {
+  color: var(--vc-accent);
+}
+
 /* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
 .postList {
   display: grid;
@@ -69,7 +92,7 @@
   max-height: 520px;
   object-fit: cover;
   border-radius: calc(var(--vc-radius) + 4px);
-  margin: 18px auto 28px;
+  margin: 18px 0 28px;
 }
 
 .postCard h2 {
@@ -102,16 +125,17 @@
   max-width: 1240px;
 }
 
-/* §8: article header stage — narrower than the shell for reading comfort. */
+/* §8: article header stage shares the body's left-anchored edge (no independent
+   centering) and the 63rem content-grid width, so title, deck, meta, and tags
+   never shift relative to the prose column. */
 .articleHeader {
-  max-width: 960px;
-  margin-inline: auto;
+  max-width: 63rem;
 }
 
 /* §8: title — 52-64px desktop, 36-42px mobile, balanced. */
 .articleTitle {
   margin: 0 0 16px;
-  max-width: 960px;
+  max-width: 63rem;
   font-family: var(--vc-font-heading);
   font-size: calc(clamp(2.25rem, 5vw, 4rem) * var(--vc-heading-scale));
   line-height: 1.08;
@@ -123,7 +147,7 @@
 /* §8: excerpt deck — 20-22px, muted, sits between title and metadata. */
 .articleDeck {
   margin: 0 0 1.25rem;
-  max-width: 960px;
+  max-width: 45rem;
   font-size: clamp(1.25rem, 2vw, 1.375rem);
   line-height: 1.5;
   color: var(--vc-muted-fg);
@@ -148,17 +172,17 @@
 .article .metaLine {
   font-family: var(--vc-font-mono);
   font-size: 0.8125rem;
-  max-width: 960px;
+  max-width: 45rem;
   letter-spacing: -0.01em;
 }
 
-/* §2.3 / §6 / §8: quiet tag eyebrow — mono, sentence-case, dot-separated. */
+/* §2.3 / §6 / §8: quiet tag row (after metadata) — mono, sentence-case, dot-separated. */
 .tagRow {
   margin: 0 0 1rem;
   font-size: 0.8125rem;
   font-family: var(--vc-font-mono);
   line-height: 1.6;
-  max-width: 960px;
+  max-width: 45rem;
 }
 
 .tagEntry {
@@ -272,6 +296,7 @@
    outline lifted 2px off the target with a small radius, so inline links don't
    read as a hard rectangle. Text-entry controls keep their own ring above. */
 .publicBrand:focus-visible,
+.allPostsLink:focus-visible,
 .postCard h2 a:focus-visible,
 .backLink:focus-visible,
 .tagLink:focus-visible,
@@ -352,11 +377,11 @@
 }
 
 /* §8: no-TOC editorial breakout — widen the body to ~900px so media, code
-   blocks, and tables extend beyond the 70ch prose column without horizontal
-   overflow. Text elements stay centered at the prose measure. */
+   blocks, and tables extend beyond the prose column without horizontal
+   overflow. Text elements stay flush-left at the prose measure (no
+   re-centering), sharing the header's left-anchored edge. */
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody {
   max-width: 900px;
-  margin-inline: auto;
 }
 
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] {
@@ -373,7 +398,6 @@
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > ol,
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > blockquote {
   max-width: min(var(--vc-prose-measure), 45rem);
-  margin-inline: auto;
 }
 
 /* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden >=1100px. */
@@ -437,15 +461,15 @@
   padding-left: 0.85rem;
 }
 
-/* §3/§8: >=1100px — promote to a prose + sticky-rail grid when the article
-   has a TOC. data-vc-has-toc is set on <article> by PresentedPostArticle. */
+/* §3/§8: >=1100px — promote to a left-anchored prose + sticky-rail grid (no
+   centering) when the article has a TOC, so the rail shares the header's
+   left-anchored edge. data-vc-has-toc is set on <article> by PresentedPostArticle. */
 @media (min-width: 1100px) {
   .publicPage[data-vc-article-page] .article[data-vc-has-toc] .articleBody {
     display: grid;
-    grid-template-columns: minmax(0, min(var(--vc-prose-measure), 45rem)) 15rem;
+    grid-template-columns: minmax(0, 45rem) 15rem;
     gap: 3rem;
     align-items: start;
-    justify-content: center;
   }
 
   .publicPage[data-vc-article-page] .article[data-vc-has-toc] .tocRail {

@@ -9,7 +9,13 @@ import { readingTimeMinutes } from "../lib/reading-time";
 import { shouldShowUpdatedDate } from "../lib/seo-meta";
 import styles from "./public-blog.module.css";
 import { PresentedPostArticle, resolveSiteTheme, type SiteThemeInput } from "./PresentedPostArticle";
-import { SUBSCRIBE_CONSENT_TEXT } from "../lib/subscribe-consent";
+import {
+  SUBSCRIBE_BUTTON,
+  SUBSCRIBE_CONSENT_TEXT,
+  SUBSCRIBE_HEADING,
+  SUBSCRIBE_SUBTEXT,
+  SUBSCRIBE_SUCCESS,
+} from "../lib/subscribe-consent";
 import subscribeStyles from "./subscribe-form.module.css";
 const DEFAULT_LISTING: PublicListingContext = { kind: "index" };
 
@@ -60,8 +66,8 @@ return (
     {children}
     <footer>
       <form className={`${subscribeStyles.form} ${subscribeStyles.formFooter} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
-        <p className={subscribeStyles.heading}>Get future posts when email delivery launches</p>
-        <p className={subscribeStyles.subtext}>Join the early list. No emails until delivery is live.</p>
+        <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
+        <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
         <div className={subscribeStyles.honeypot} aria-hidden="true">
           <input name="company" type="text" tabIndex={-1} autoComplete="off" />
         </div>
@@ -78,13 +84,13 @@ return (
             placeholder="you@example.com"
           />
           <button type="submit" className={subscribeStyles.submitBtn}>
-            Join the list
+            {SUBSCRIBE_BUTTON}
           </button>
         </div>
         <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
         <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
         <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
-          You&apos;re on the list. We&apos;ll email you when delivery launches.
+          {SUBSCRIBE_SUCCESS}
         </p>
       </form>
     </footer>
@@ -201,10 +207,10 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
           {site.name}
         </a>
         {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
+        <nav className={styles.mastheadNav} aria-label="Posts">
+          <a href={indexHref} className={styles.allPostsLink}>All posts</a>
+        </nav>
       </header>
-      <a href={indexHref} className={styles.backLink}>
-        {"\u2190"} All posts
-      </a>
       <PresentedPostArticle
         renderResult={renderResult}
         presetId={presetId}
@@ -221,8 +227,8 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         theme={siteTheme}
       />
       <form className={`${subscribeStyles.form} ${subscribeStyles.formEnd} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
-        <p className={subscribeStyles.heading}>Get future posts when email delivery launches</p>
-        <p className={subscribeStyles.subtext}>Join the early list. No emails until delivery is live.</p>
+        <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
+        <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
         <div className={subscribeStyles.honeypot} aria-hidden="true">
           <input name="company" type="text" tabIndex={-1} autoComplete="off" />
         </div>
@@ -239,13 +245,13 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
             placeholder="you@example.com"
           />
           <button type="submit" className={subscribeStyles.submitBtn}>
-            Join the list
+            {SUBSCRIBE_BUTTON}
           </button>
         </div>
         <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
         <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
         <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
-          You&apos;re on the list. We&apos;ll email you when delivery launches.
+          {SUBSCRIBE_SUCCESS}
         </p>
       </form>
     </main>

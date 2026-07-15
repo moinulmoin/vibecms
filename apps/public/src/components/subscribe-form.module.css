@@ -21,17 +21,19 @@
   color: var(--vc-fg, inherit);
 }
 
-/* placement="end" - a quiet section continuation after the article body.
-   A section-gap break clears the article, then the rule hugs the form's own
-   content (tight padding-top) so the line reads as the section's top edge,
-   not a divider floating in dead space. No background, no boxed card. Width
-   tracks the prose measure so it aligns with the article column. */
+/* placement="end" - an honest, theme-aware tinted card centered after the
+   article body. The tint tracks the active --vc-* preset/accent and flips
+   with light/dark mode; centered and capped at 45rem so it reads as a
+   distinct callout without overwhelming the article column. */
 .formEnd {
-  max-width: var(--vc-prose-measure, 70ch);
+  box-sizing: border-box;
+  max-width: 45rem;
   margin-inline: auto;
   margin-top: var(--vc-section-gap, 2.75rem);
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--vc-border, oklch(91% 0.006 106));
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  background: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 6%, var(--vc-card, oklch(100% 0 0)));
+  border: 1px solid color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 18%, var(--vc-border, oklch(91% 0.006 106)));
+  border-radius: calc(var(--vc-radius, 8px) + 4px);
 }
 
 /* placement="footer" - compact, inline, separated by the same thin rule.

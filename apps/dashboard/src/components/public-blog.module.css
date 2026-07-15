@@ -94,10 +94,12 @@
 }
 
 .article {
-  /* Editorial header stage up to 60rem (960px); prose body measured at 70ch.
-     --vc-prose-measure cascades to the rich-content root and text elements.
-     container-type lets the ToC rail activate on the article's own width. */
-  max-width: 60rem;
+  /* One left-anchored content axis: 45rem prose + 3rem gap + 15rem optional TOC
+     (63rem total). Header, cover, and prose all share this left start; the title
+     may span wider. --vc-prose-measure cascades to the rich-content root and text
+     elements. container-type lets the ToC rail activate on the article's own
+     inline size, not the browser viewport. */
+  max-width: 63rem;
   --vc-prose-measure: 70ch;
   container-type: inline-size;
 }
@@ -158,11 +160,12 @@
 
 /* ── Editorial header stage ───────────────────────────────────────────────── */
 
-/* Header stage: tags eyebrow → H1 → deck → byline/date/read-time meta.
-   Capped at the editorial header width (60rem) and centered within the article. */
+/* Header stage: H1 → deck → byline/date/read-time meta → tags. Left-anchored on
+   the same content axis as the cover and prose (no independent centering), so the
+   title, deck, meta, and tags all start where the body starts; the title may span
+   wider than the 45rem prose measure. */
 .articleHeader {
-  max-width: 60rem;
-  margin-inline: auto;
+  max-width: 63rem;
 }
 
 /* Deck/lede: a larger muted intro paragraph between the title and the meta line.
@@ -577,9 +580,10 @@
    article shell is wide enough (container query below). */
 .articleBody {
   display: block;
-  /* Cap the body (prose + rail) at the editorial shell; center it within the article. */
-  max-width: 60rem;
-  margin-inline: auto;
+  /* Left-anchored on the same axis as the header: prose + rail start where the
+     title starts (no independent centering). The prose column reaches 45rem and
+     the 15rem rail joins it via the container query below. */
+  max-width: 63rem;
 }
 
 /* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden when the rail shows. */
@@ -676,10 +680,11 @@
 
 /* ── Editorial rich-media breakout (dashboard preview) ────────────────────── */
 
-/* When no ToC is present, the body widens to ~56rem (900px) and figures/code/tables
-   fill it — wider than the 70ch prose column but capped to avoid overflow. Text and
-   headings stay measured for reading rhythm. When a ToC IS present the grid column
-   (or the rich-content root's own max-width) keeps media inside the prose column. */
+/* No ToC: the body stays on the same left axis (not re-centered) but widens to
+   ~56rem (900px) so figures/code/tables break out past the 45rem text measure.
+   Text and headings stay measured at min(70ch, 45rem) for reading rhythm; media
+   fills the wider body up to the cap. With a ToC the grid column keeps media
+   inside the prose measure. */
 .article:not([data-vc-has-toc]) .articleBody {
   max-width: 56rem;
 }

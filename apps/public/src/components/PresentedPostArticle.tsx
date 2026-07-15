@@ -107,10 +107,10 @@ export function PresentedPostArticle({
       {...(themeAttrs?.mode === "light" || themeAttrs?.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
     >
       <header className={styles.articleHeader}>
-        {tagRow}
         {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
         {excerpt ? <p className={styles.articleDeck}>{excerpt}</p> : null}
         {metaLine}
+        {tagRow}
       </header>
       {coverAssetSrc ? (
         <img

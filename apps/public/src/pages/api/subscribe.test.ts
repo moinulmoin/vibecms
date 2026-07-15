@@ -3,6 +3,7 @@ import type { APIContext } from "astro";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./subscribe";
+import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from "../../lib/subscribe-consent";
 
 /**
  * The public Astro proxy forwards newsletter writes to the API Worker through
@@ -29,9 +30,8 @@ const PAYLOAD = {
   email: "reader@example.com",
   siteSlug: "acme",
   company: "Acme Inc",
-  consentVersion: "1",
-  consentText:
-    "By submitting your email you agree to receive a notification when email delivery launches. No marketing emails.",
+  consentVersion: SUBSCRIBE_CONSENT_VERSION,
+  consentText: SUBSCRIBE_CONSENT_TEXT,
   source: "https://acme.basedui.dev/",
 };
 

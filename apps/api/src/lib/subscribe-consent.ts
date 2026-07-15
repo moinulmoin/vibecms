@@ -2,6 +2,6 @@
 // Client-safe (no server / cloudflare:workers imports) so the public 'use client'
 // form and the server handler can share one source of truth.
 export const SUBSCRIBE_CONSENT_TEXT =
-  'By submitting your email you agree to receive a notification when email delivery launches. No marketing emails.'
+  'By subscribing, you agree to receive one email when subscriptions launch. No marketing emails.'
 
-export const SUBSCRIBE_CONSENT_VERSION = '1'
+export const SUBSCRIBE_CONSENT_VERSION = '2'

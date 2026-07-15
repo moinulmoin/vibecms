@@ -38,6 +38,8 @@ Nested detail text.
         byline: 'Author',
         dateText: '2026-01-01',
         readingMinutes: 3,
+        tags: ['essay', 'writing'],
+        basePath: '/blog',
         ...overrides,
       }),
     )
@@ -64,9 +66,13 @@ Nested detail text.
     const html = previewHtml()
     const h1Pos = html.indexOf('<h1')
     const deckPos = html.indexOf('An introductory lede paragraph that serves as the excerpt.')
+    const metaPos = html.indexOf('By Author')
+    const tagsPos = html.indexOf('/blog/tag/essay')
     const bodyTextPos = html.indexOf('Body text under the first section heading.')
     expect(h1Pos).toBeLessThan(deckPos)
-    expect(deckPos).toBeLessThan(bodyTextPos)
+    expect(deckPos).toBeLessThan(metaPos)
+    expect(metaPos).toBeLessThan(tagsPos)
+    expect(tagsPos).toBeLessThan(bodyTextPos)
   })
 
   it('renders a TOC with both disclosure and navigation for a structured outline', () => {
