@@ -1,2 +1,17 @@
 @import "@vc/content/styles";
 @import "./presets.css";
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

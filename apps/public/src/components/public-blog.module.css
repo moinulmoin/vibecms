@@ -1,7 +1,13 @@
 .publicPage {
+  width: 100%;
+  min-height: 100vh;
   background: var(--vc-bg);
   color: var(--vc-fg);
   font-family: var(--vc-font-body);
+}
+
+.publicContainer {
+  width: 100%;
   max-width: 860px;
   min-height: 100vh;
   margin: 0 auto;
@@ -120,8 +126,8 @@
   max-width: 100%;
 }
 
-/* §8: article-page shell — wider editorial measure; index/search stay 860px. */
-.publicPage[data-vc-article-page] {
+/* §8: the themed canvas spans the viewport; only article content is constrained. */
+.publicPage[data-vc-article-page] .publicContainer {
   max-width: 1240px;
 }
 
@@ -320,7 +326,7 @@
 }
 
 @media (max-width: 640px) {
-  .publicPage {
+  .publicContainer {
     padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
   }
 
@@ -396,7 +402,8 @@
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h6,
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > ul,
 .publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > ol,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > blockquote {
+.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > blockquote,
+.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > .vc-callout {
   max-width: min(var(--vc-prose-measure), 45rem);
 }
 

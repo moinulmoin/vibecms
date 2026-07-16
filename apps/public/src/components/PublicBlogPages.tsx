@@ -43,59 +43,64 @@ export function PublicShell({
   basePath: string;
   indexable: boolean;
   children: React.ReactNode;
-}) { const homeHref = publicIndexHref(basePath);
-const themeAttrs = resolveSiteTheme({
-  accent: site.theme_accent,
-  font: site.theme_font,
-  mode: site.theme_mode,
-});
-return (
-  <main
-    className={styles.publicPage}
-    data-vc-theme={resolvePresetId(site.theme)}
-    style={themeAttrs.style}
-    {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
-  >
-    {!indexable ? <meta name="robots" content="noindex,nofollow" /> : null}
-    <header className={styles.publicHeader}>
-      <a href={homeHref} className={styles.publicBrand}>
-        {site.name}
-      </a>
-      {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
-    </header>
-    {children}
-    <footer>
-      <form className={`${subscribeStyles.form} ${subscribeStyles.formFooter} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
-        <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
-        <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
-        <div className={subscribeStyles.honeypot} aria-hidden="true">
-          <input name="company" type="text" tabIndex={-1} autoComplete="off" />
-        </div>
-        <div className={subscribeStyles.row}>
-          <label className={subscribeStyles.emailLabel} htmlFor={`email-footer-${site.slug}`}>
-            Email address
-          </label>
-          <input
-            id={`email-footer-${site.slug}`}
-            name="email"
-            type="email"
-            required
-            className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
-            placeholder="you@example.com"
-          />
-          <button type="submit" className={subscribeStyles.submitBtn}>
-            {SUBSCRIBE_BUTTON}
-          </button>
-        </div>
-        <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
-        <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
-        <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
-          {SUBSCRIBE_SUCCESS}
-        </p>
-      </form>
-    </footer>
-  </main>
-); }
+}) {
+  const homeHref = publicIndexHref(basePath);
+  const themeAttrs = resolveSiteTheme({
+    accent: site.theme_accent,
+    font: site.theme_font,
+    mode: site.theme_mode,
+  });
+
+  return (
+    <main
+      className={styles.publicPage}
+      data-vc-theme={resolvePresetId(site.theme)}
+      style={themeAttrs.style}
+      {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
+    >
+      <div className={styles.publicContainer}>
+        {!indexable ? <meta name="robots" content="noindex,nofollow" /> : null}
+        <header className={styles.publicHeader}>
+          <a href={homeHref} className={styles.publicBrand}>
+            {site.name}
+          </a>
+          {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
+        </header>
+        {children}
+        <footer>
+          <form className={`${subscribeStyles.form} ${subscribeStyles.formFooter} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
+            <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
+            <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
+            <div className={subscribeStyles.honeypot} aria-hidden="true">
+              <input name="company" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
+            <div className={subscribeStyles.row}>
+              <label className={subscribeStyles.emailLabel} htmlFor={`email-footer-${site.slug}`}>
+                Email address
+              </label>
+              <input
+                id={`email-footer-${site.slug}`}
+                name="email"
+                type="email"
+                required
+                className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
+                placeholder="you@example.com"
+              />
+              <button type="submit" className={subscribeStyles.submitBtn}>
+                {SUBSCRIBE_BUTTON}
+              </button>
+            </div>
+            <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
+            <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
+            <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
+              {SUBSCRIBE_SUCCESS}
+            </p>
+          </form>
+        </footer>
+      </div>
+    </main>
+  );
+}
 
 export function PublicBlogIndexView({
   data,
@@ -202,58 +207,60 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
       style={themeAttrs.style}
       {...(themeAttrs.mode === "light" || themeAttrs.mode === "dark" ? { "data-vc-mode": themeAttrs.mode } : {})}
     >
-      <header className={styles.publicHeader}>
-        <a href={indexHref} className={styles.publicBrand}>
-          {site.name}
-        </a>
-        {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
-        <nav className={styles.mastheadNav} aria-label="Posts">
-          <a href={indexHref} className={styles.allPostsLink}>All posts</a>
-        </nav>
-      </header>
-      <PresentedPostArticle
-        renderResult={renderResult}
-        presetId={presetId}
-        presentation={resolved}
-        title={post.title}
-        excerpt={post.excerpt ?? undefined}
-        byline={site.name}
-        coverAssetSrc={coverAssetSrc}
-        dateText={dateText}
-        updatedDateText={updatedDateText}
-        readingMinutes={readingMinutes}
-        tags={tags}
-        basePath={basePath}
-        theme={siteTheme}
-      />
-      <form className={`${subscribeStyles.form} ${subscribeStyles.formEnd} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
-        <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
-        <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
-        <div className={subscribeStyles.honeypot} aria-hidden="true">
-          <input name="company" type="text" tabIndex={-1} autoComplete="off" />
-        </div>
-        <div className={subscribeStyles.row}>
-          <label className={subscribeStyles.emailLabel} htmlFor={`email-end-${site.slug}`}>
-            Email address
-          </label>
-          <input
-            id={`email-end-${site.slug}`}
-            name="email"
-            type="email"
-            required
-            className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
-            placeholder="you@example.com"
-          />
-          <button type="submit" className={subscribeStyles.submitBtn}>
-            {SUBSCRIBE_BUTTON}
-          </button>
-        </div>
-        <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
-        <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
-        <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
-          {SUBSCRIBE_SUCCESS}
-        </p>
-      </form>
+      <div className={styles.publicContainer}>
+        <header className={styles.publicHeader}>
+          <a href={indexHref} className={styles.publicBrand}>
+            {site.name}
+          </a>
+          {site.description ? <p className={styles.publicTagline}>{site.description}</p> : null}
+          <nav className={styles.mastheadNav} aria-label="Posts">
+            <a href={indexHref} className={styles.allPostsLink}>All posts</a>
+          </nav>
+        </header>
+        <PresentedPostArticle
+          renderResult={renderResult}
+          presetId={presetId}
+          presentation={resolved}
+          title={post.title}
+          excerpt={post.excerpt ?? undefined}
+          byline={site.name}
+          coverAssetSrc={coverAssetSrc}
+          dateText={dateText}
+          updatedDateText={updatedDateText}
+          readingMinutes={readingMinutes}
+          tags={tags}
+          basePath={basePath}
+          theme={siteTheme}
+        />
+        <form className={`${subscribeStyles.form} ${subscribeStyles.formEnd} vc-subscribe-form`} data-site-slug={site.slug} noValidate>
+          <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
+          <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
+          <div className={subscribeStyles.honeypot} aria-hidden="true">
+            <input name="company" type="text" tabIndex={-1} autoComplete="off" />
+          </div>
+          <div className={subscribeStyles.row}>
+            <label className={subscribeStyles.emailLabel} htmlFor={`email-end-${site.slug}`}>
+              Email address
+            </label>
+            <input
+              id={`email-end-${site.slug}`}
+              name="email"
+              type="email"
+              required
+              className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
+              placeholder="you@example.com"
+            />
+            <button type="submit" className={subscribeStyles.submitBtn}>
+              {SUBSCRIBE_BUTTON}
+            </button>
+          </div>
+          <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
+          <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
+          <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
+            {SUBSCRIBE_SUCCESS}
+          </p>
+        </form>
+      </div>
     </main>
   );
 }
