@@ -107,6 +107,20 @@ If no profile is configured, use the accepted brief, current user language, live
 
 If a representative post warning is present, do not substitute another post silently. Continue without it or ask the user whether another example should be used.
 
+## Default writing baseline
+
+When the Voice Profile or accepted brief is silent, apply this baseline without presenting it as a saved user preference:
+
+- write to one clear audience and use the language that audience uses;
+- lead with the useful point, not scene-setting or promotional throat-clearing;
+- keep one main idea per section and make the sequence easy to follow;
+- prefer active, concrete sentences over jargon, abstractions, and unsupported superlatives;
+- support factual or comparative claims with evidence, examples, or an explicit qualification;
+- keep the voice consistent while letting headlines be bolder, body copy clearer, and calls to action direct;
+- end with the next useful action or conclusion, not a generic summary.
+
+After editing for voice, re-check clarity. A stylish sentence that obscures meaning is a regression.
+
 ## Preference learning requires separate consent
 
 An edit may reveal a reusable rule, for example:

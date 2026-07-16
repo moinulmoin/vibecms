@@ -5,20 +5,20 @@ import { CheckIcon } from '@radix-ui/react-icons'
 
 const STEPS = ['Blog setup', 'Connect agent', 'First post'] as const
 
-export function OnboardingStepper({ step }: { step: number }) {
+export function OnboardingStepper({ step, complete = false }: { step: number; complete?: boolean }) {
   return (
-    <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-[11px] sm:gap-4">
+    <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-xs sm:gap-5 sm:text-[13px]">
       {STEPS.map((label, index) => {
         const position = index + 1
-        const state = position < step ? 'done' : position === step ? 'current' : 'todo'
+        const state = complete || position < step ? 'done' : position === step ? 'current' : 'todo'
         return (
           <li
             key={label}
             aria-current={state === 'current' ? 'step' : undefined}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-2"
           >
             {state === 'done' ? (
-              <CheckIcon className="size-3.5 text-primary" aria-hidden="true" />
+              <CheckIcon className="size-4 text-primary" aria-hidden="true" />
             ) : (
               <span className={state === 'current' ? 'text-primary' : 'text-muted-foreground/70'}>
                 0{position}
@@ -51,8 +51,8 @@ export function OnboardingFrame({
   title?: string
 }) {
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center px-4 py-10 sm:py-16">
-      <header className="mb-8 flex flex-col gap-6">
+    <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
+      <header className="mb-10 flex flex-col gap-7">
         <div className="flex items-center justify-between gap-3">
           <Link
             to="/"

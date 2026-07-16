@@ -417,7 +417,7 @@ export function ConnectPage() {
 
   const activationStep = live ? 4 : draft || displayConn === 'connected' ? 3 : 2
 
-  const pageKicker = live ? 'Live' : 'Connect'
+  const pageKicker = live ? 'Complete' : 'Activation'
   const pageTitle = live
     ? 'Your first post is live'
     : draft
@@ -428,14 +428,14 @@ export function ConnectPage() {
           ? 'Token created'
           : 'Connect your agent'
   const pageDesc = live
-    ? undefined
+    ? 'Your agent published successfully. Open the article, copy its URL, or continue to your dashboard.'
     : draft
       ? 'Your agent saved a draft. Review it, then approve publishing when you are ready.'
       : displayConn === 'connected'
         ? 'Your agent authenticated. Ask it to prepare a draft, then approve publishing when you are ready.'
         : flash !== null
           ? 'Copy the token and config below now. It is shown only once.'
-          : 'Create a scoped API token, connect any compatible MCP agent, and keep token management in the dashboard.'
+          : 'Create one scoped token, connect any compatible MCP agent, and verify the connection here.'
 
   return (
     <>
@@ -449,13 +449,26 @@ export function ConnectPage() {
         {live ? '' : announcement}
       </div>
 
-      <OnboardingStepper step={activationStep} />
+      <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />
 
       {showInitialError ? (
         <LoadError message="Could not load connect status. Check your connection and try again." />
       ) : (
         <>
-          <PageHeader kicker={pageKicker} title={pageTitle} description={pageDesc} />
+          <PageHeader
+            kicker={pageKicker}
+            title={pageTitle}
+            description={pageDesc}
+            action={
+              live ? (
+                <Button asChild>
+                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
+                    Continue to Overview
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
 
           {loading && (
             <>
@@ -471,11 +484,11 @@ export function ConnectPage() {
 
           {!loading && live && status && (
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-              <Panel title="Your first post is live">
+              <Panel title="Publication proof">
                 <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                   {livePost && (
                     <div className="grid gap-1">
-                      <p className="font-display text-lg font-semibold text-foreground">
+                      <p className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
                         {livePost.title}
                       </p>
                       {liveActorName && (
@@ -485,7 +498,7 @@ export function ConnectPage() {
                       )}
                     </div>
                   )}
-                  <p className="font-sans text-sm leading-6 text-muted-foreground">
+                  <p className="font-sans text-base leading-7 text-muted-foreground">
                     {livePost?.url
                       ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
                       : 'The publish is recorded. The public link will appear when the default domain is active.'}
@@ -513,13 +526,6 @@ export function ConnectPage() {
                 </div>
               </Panel>
 
-              <div className="flex justify-end">
-                <Button asChild>
-                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
-                    Continue to Overview
-                  </Link>
-                </Button>
-              </div>
 
               <Panel title="Publish more posts">
                 <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />

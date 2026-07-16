@@ -22,7 +22,7 @@ import {
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch } from '~/lib/dashboard-search'
+import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 
 function StatusBadge({ status, className }: { status: string; className?: string }) {
@@ -200,51 +200,53 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
   return (
     <>
       <PageHeader
-        kicker="Posts"
-        title="Manage Writing"
-        description="Draft, publish, archive, and review every post the dashboard or agents create."
+        kicker="Content"
+        title="Posts"
+        description="Draft, review, publish, and restore every post—whether it came from you or an agent."
         action={
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>New post</Link>
           </Button>
         }
       />
-      <Panel title="All Posts">
-        <form
-          className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-muted/50 p-3"
-          method="get"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const form = event.currentTarget
-            const nextStatus = (form.elements.namedItem('status') as HTMLSelectElement | null)?.value ?? ''
-            const nextSearch = (form.elements.namedItem('search') as HTMLInputElement | null)?.value?.trim() ?? ''
-            void navigate({
-              to: '/dashboard/posts',
-              search: postsListSearch({ status: nextStatus || undefined, search: nextSearch || undefined }),
-            })
-          }}
-        >
-          <Field className="w-full gap-2 sm:w-72">
-            <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-search">
-              Search posts
-            </FieldLabel>
-            <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} className="border-transparent bg-background/70 shadow-sm" />
-          </Field>
-          <Field className="w-full gap-2 sm:w-44">
-            <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
-              Status
-            </FieldLabel>
-            <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''} className="border-transparent bg-background/70 shadow-sm">
-              <option value="">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </Select>
-          </Field>
-          <Button className="h-9" type="submit">
-            Filter
-          </Button>
-        </form>
+      <Panel title="All posts">
+        {posts.length > 0 || hasFilters ? (
+          <form
+            className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-muted/50 p-3"
+            method="get"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const form = event.currentTarget
+              const nextStatus = (form.elements.namedItem('status') as HTMLSelectElement | null)?.value ?? ''
+              const nextSearch = (form.elements.namedItem('search') as HTMLInputElement | null)?.value?.trim() ?? ''
+              void navigate({
+                to: '/dashboard/posts',
+                search: postsListSearch({ status: nextStatus || undefined, search: nextSearch || undefined }),
+              })
+            }}
+          >
+            <Field className="w-full gap-2 sm:w-72">
+              <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-search">
+                Search posts
+              </FieldLabel>
+              <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} className="border-transparent bg-background/70 shadow-sm" />
+            </Field>
+            <Field className="w-full gap-2 sm:w-44">
+              <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
+                Status
+              </FieldLabel>
+              <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''} className="border-transparent bg-background/70 shadow-sm">
+                <option value="">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </Select>
+            </Field>
+            <Button className="h-9" type="submit">
+              Filter
+            </Button>
+          </form>
+        ) : null}
         {posts.length ? (
           <>
             <div className="grid gap-2 md:hidden">
@@ -317,7 +319,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               ))}
             </div>
             <div className="hidden md:grid md:gap-1.5">
-              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-3 pb-1 font-mono text-[10px] font-medium text-muted-foreground">
+              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-4 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 <span>Post</span>
                 <span>Status</span>
                 <span>Updated</span>
@@ -327,7 +329,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 <DataRow className="md:grid-cols-[1.5fr_.55fr_.7fr_1fr] md:items-center" key={post.id}>
                   <div className="min-w-0">
                     <Link
-                      className="font-display text-sm font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
+                      className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
                       data-row-key
                       to="/dashboard/posts/$postId/edit"
                       search={emptyPostEditorSearch}
@@ -335,7 +337,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     >
                       {post.title}
                     </Link>
-                    <p className="mt-1 max-w-xl truncate font-mono text-[11px] text-muted-foreground">
+                    <p className="mt-1 max-w-xl truncate font-mono text-xs text-muted-foreground">
                       <span className="text-primary/90">/{post.slug}</span>
                       <span> · </span>
                       {post.excerpt || 'No excerpt yet'}
@@ -425,7 +427,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             description={
               hasFilters
                 ? 'Clear the filters or try a different search to review existing drafts and published posts.'
-                : 'Create the first post manually, then connect an agent token when you are ready for trusted agents to help.'
+                : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
             }
             action={
               hasFilters ? (
@@ -433,9 +435,18 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   <Link to="/dashboard/posts" search={emptyPostsListSearch}>Clear filters</Link>
                 </Button>
               ) : (
-                <Button asChild>
-                  <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>New post</Link>
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button asChild>
+                    <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
+                      Publish with agent
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
+                      Write manually
+                    </Link>
+                  </Button>
+                </div>
               )
             }
           />

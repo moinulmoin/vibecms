@@ -401,7 +401,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     <>
       <PageHeader
         kicker={statusKicker}
-        title={post ? 'Edit Post' : 'Create Post'}
+        title={post ? 'Edit post' : 'Create post'}
         description="Write in Markdown, then check the exact public renderer in Preview before you publish."
         action={
           <Button asChild variant="outline">

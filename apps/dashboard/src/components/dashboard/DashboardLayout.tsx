@@ -7,7 +7,6 @@ import {
   ExitIcon,
   FileTextIcon,
   GearIcon,
-  IdCardIcon,
   ImageIcon,
   Link2Icon,
 } from '@radix-ui/react-icons'
@@ -20,7 +19,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -46,27 +44,14 @@ import { setupAuthClient } from '~/lib/auth-client'
 
 type NavItem = { label: string; to: string; Icon: typeof DashboardIcon }
 
-const navGroups: { label: string; items: NavItem[] }[] = [
-  {
-    label: 'Blog',
-    items: [
-      { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
-      { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
-      { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
-    ],
-  },
-  {
-    label: 'Workspace',
-    items: [
-      { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
-      { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
-      { label: 'Billing', to: '/dashboard/billing', Icon: IdCardIcon },
-      { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
-    ],
-  },
+const navItems: NavItem[] = [
+  { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
+  { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
+  { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
+  { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
+  { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
+  { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
 ]
-
-const navItems: NavItem[] = navGroups.flatMap((group) => group.items)
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en', {
@@ -222,31 +207,28 @@ export function AppShell({
           </SidebarHeader>
 
           <SidebarContent>
-            {navGroups.map((group) => (
-              <SidebarGroup key={group.label}>
-                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-                <SidebarMenu>
-                  {group.items.map(({ label, to, Icon }) => {
-                    const active = current === to || (to !== '/dashboard' && current.startsWith(to))
-                    return (
-                      <SidebarMenuItem key={to}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={active}
-                          tooltip={label}
-                          className="[&[data-active=true]_svg]:text-primary"
-                        >
-                          <Link to={to}>
-                            <Icon aria-hidden="true" />
-                            <span>{label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                </SidebarMenu>
-              </SidebarGroup>
-            ))}
+            <SidebarGroup>
+              <SidebarMenu>
+                {navItems.map(({ label, to, Icon }) => {
+                  const active = current === to || (to !== '/dashboard' && current.startsWith(to))
+                  return (
+                    <SidebarMenuItem key={to}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={label}
+                        className="[&[data-active=true]_svg]:text-primary"
+                      >
+                        <Link to={to}>
+                          <Icon aria-hidden="true" />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
           </SidebarContent>
 
           <SidebarFooter>
@@ -265,9 +247,13 @@ export function AppShell({
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
-            <h1 className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</h1>
+            <span className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</span>
           </header>
-          <div id="dashboard-main" tabIndex={-1} className="flex flex-1 flex-col gap-4 p-4 outline-none sm:p-6">
+          <div
+            id="dashboard-main"
+            tabIndex={-1}
+            className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-6 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
+          >
             <StatusAlert status={formStatus} />
             {children}
           </div>
@@ -289,15 +275,17 @@ export function PageHeader({
   action?: ReactNode
 }) {
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-2">
-        <p className="font-mono text-[11px] font-medium text-primary">{kicker}</p>
-        <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl">{title}</h2>
+    <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 space-y-2.5">
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-primary">{kicker}</p>
+        <h1 className="text-balance font-display text-3xl font-semibold leading-[1.08] tracking-[-0.035em] text-foreground sm:text-4xl">
+          {title}
+        </h1>
         {description ? (
-          <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>
+          <p className="max-w-3xl text-pretty font-sans text-base leading-7 text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-7">{action}</div> : null}
     </header>
   )
 }
@@ -316,13 +304,13 @@ export function StatCard({
   return (
     <Card
       className={cn(
-        'gap-0 p-4',
+        'gap-0 p-5 sm:p-6',
         interactive && 'h-full transition-colors hover:border-[color:var(--brand-bright)]/30 hover:bg-muted/40',
       )}
     >
-      <p className="font-mono text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</p>
-      {detail ? <p className="mt-1 font-sans text-xs text-muted-foreground">{detail}</p> : null}
+      <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
+      <p className="mt-3 font-display text-3xl font-semibold tabular-nums tracking-[-0.03em] text-foreground">{value}</p>
+      {detail ? <p className="mt-1.5 font-sans text-sm leading-5 text-muted-foreground">{detail}</p> : null}
     </Card>
   )
 }
@@ -339,9 +327,9 @@ export function Panel({
   className?: string
 }) {
   return (
-    <Card className={cn('gap-0 p-4', className)}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-base font-semibold text-foreground">{title}</h2>
+    <Card className={cn('gap-0 p-5 sm:p-6', className)}>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
         {meta}
       </div>
       {children}
@@ -353,7 +341,7 @@ export function DataRow({ children, className }: { children: ReactNode; classNam
   return (
     <div
       className={cn(
-        'grid gap-2 rounded-xl bg-muted/50 px-3 py-2.5 text-sm sm:items-center',
+        'grid gap-2 rounded-xl bg-muted/50 px-4 py-3.5 text-sm sm:items-center',
         className,
       )}
     >
@@ -374,18 +362,18 @@ export function EmptyState({
   icon?: ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-[color:var(--hairline)] px-4 py-10 text-center">
+    <div className="flex flex-col items-center px-4 py-12 text-center sm:py-16">
       {icon ? (
         <div
           aria-hidden="true"
-          className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5"
+          className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5"
         >
           {icon}
         </div>
       ) : null}
-      <p className="font-display text-base font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
-      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+      <p className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</p>
+      <p className="mx-auto mt-2 max-w-lg text-base leading-7 text-muted-foreground">{description}</p>
+      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
     </div>
   )
 }
@@ -395,7 +383,7 @@ export function LoadError({ message }: { message: string }) {
   return (
     <Panel title="Something went wrong">
       <div className="grid gap-3">
-        <p className="font-sans text-sm text-muted-foreground">{message}</p>
+        <p className="font-sans text-base leading-7 text-muted-foreground">{message}</p>
         <Button
           type="button"
           variant="outline"

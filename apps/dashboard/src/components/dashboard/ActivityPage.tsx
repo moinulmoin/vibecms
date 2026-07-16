@@ -108,9 +108,9 @@ export function ActivityPage() {
   return (
     <>
       <PageHeader
-        kicker="Audit Log"
+        kicker="Audit trail"
         title="Activity"
-        description="Every meaningful action - yours, an API token's, or an agent's - is logged here for trust and debugging."
+        description="Every meaningful action from you or an agent, with enough context to debug and trust the system."
       />
       <Panel title="Recent events" meta={<Badge variant="outline">{events.length} shown</Badge>}>
         {events.length ? (
@@ -121,11 +121,11 @@ export function ActivityPage() {
                 key={`${event.action}-${event.created_at}-${event.summary}`}
               >
                 <div className="min-w-0 space-y-1.5">
-                  <p className="text-pretty font-sans text-sm font-medium leading-6 text-foreground">
+                  <p className="text-pretty font-sans text-base font-medium leading-6 text-foreground">
                     {event.summary}
                   </p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                       {labelAction(event.action)}
                     </span>
                     <span aria-hidden className="text-muted-foreground/40">
@@ -140,7 +140,7 @@ export function ActivityPage() {
                     <span className="truncate font-mono text-xs text-muted-foreground">{event.actor_name}</span>
                   </div>
                 </div>
-                <time className="font-mono text-[11px] tabular-nums text-muted-foreground md:text-right">
+                <time className="font-mono text-xs tabular-nums text-muted-foreground md:text-right">
                   {formatDateTime(event.created_at)}
                 </time>
               </DataRow>

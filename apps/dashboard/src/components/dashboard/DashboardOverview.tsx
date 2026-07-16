@@ -153,9 +153,9 @@ export function DashboardOverview() {
   return (
     <>
       <PageHeader
-        kicker="Overview"
+        kicker="Workspace"
         title={siteName}
-        description="Publishing status, media usage, agent access, and recent activity at a glance."
+        description="Your publishing system: what is live, what changed, and where your agents can act."
         action={
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
@@ -165,10 +165,10 @@ export function DashboardOverview() {
         }
       />
 
-      <Card className="gap-0 p-4">
+      <Card className="gap-0 p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-2">
-            <p className="font-mono text-[11px] font-medium text-muted-foreground">
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
               Blog status
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -185,7 +185,7 @@ export function DashboardOverview() {
           </div>
           {data.publicUrl ? (
             <a
-              className="break-all font-mono text-sm font-medium text-primary underline-offset-4 hover:underline"
+              className="break-all font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
               href={data.publicUrl}
               target="_blank"
               rel="noreferrer"
@@ -193,7 +193,7 @@ export function DashboardOverview() {
               {data.publicUrl}
             </a>
           ) : (
-            <p className="font-sans text-sm text-muted-foreground">
+            <p className="font-sans text-base leading-7 text-muted-foreground">
               Public blog URL appears once a deployable default domain is active.
             </p>
           )}
@@ -201,14 +201,14 @@ export function DashboardOverview() {
       </Card>
 
       {data.activationPost && (
-        <Card className="gap-0 p-4">
+        <Card className="gap-0 p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1.5">
-              <p className="font-mono text-[11px] font-medium text-muted-foreground">
+              <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 Latest agent publish
               </p>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="font-display text-base font-semibold text-foreground">
+                <span className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">
                   {data.activationPost.title}
                 </span>
                 <span className="font-sans text-sm text-muted-foreground">
@@ -318,13 +318,24 @@ export function DashboardOverview() {
             <EmptyState
               icon={<FileTextIcon />}
               title="No posts yet"
-              description="Create the first post manually, then connect an agent token when you are ready for agents to help."
+              description={
+                data.tokenCount > 0
+                  ? 'Your agent access is ready. Open Connect to publish the first post through the approval-first flow, or start one manually.'
+                  : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
+              }
               action={
-                <Button asChild>
-                  <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                    New post
-                  </Link>
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button asChild>
+                    <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
+                      Publish with agent
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
+                      Write manually
+                    </Link>
+                  </Button>
+                </div>
               }
             />
           )}

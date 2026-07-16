@@ -13,7 +13,6 @@ import {
   THEME_PRESETS,
   type AccentId,
   type FontId,
-  type StarterLook,
   type StarterLookId,
   type ThemeMode,
   type PresetId,
@@ -30,7 +29,7 @@ import {
   cn,
 } from '@vc/ui'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { renderRichContent, RichContentFrame } from '@vc/content'
 import {
   Button,
@@ -265,7 +264,7 @@ export function SettingsPage() {
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
-  const [formPending, setFormPending] = useState<'site' | 'theme' | 'appearance' | 'domain' | 'voice' | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | 'voice' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<PresetId>(DEFAULT_PRESET_ID)
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
@@ -277,6 +276,7 @@ export function SettingsPage() {
   const [voiceAvoidText, setVoiceAvoidText] = useState('')
   const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
   const [voiceSaveStatus, setVoiceSaveStatus] = useState<string | null>(null)
+  const [voiceEditorOpen, setVoiceEditorOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -346,48 +346,34 @@ export function SettingsPage() {
     setFormPending('theme')
     try {
       const result = await updateSiteSettingsMutation({
-          name: data.site.name,
-          description: data.site.description || undefined,
-          defaultSeoTitle: data.site.defaultSeoTitle,
-          defaultSeoDescription: data.site.defaultSeoDescription || undefined,
-          theme: selectedTheme,
-          themeAccent: data.site.themeAccent,
-          themeFont: data.site.themeFont,
-          themeMode: data.site.themeMode,
+        name: data.site.name,
+        description: data.site.description || undefined,
+        defaultSeoTitle: data.site.defaultSeoTitle,
+        defaultSeoDescription: data.site.defaultSeoDescription || undefined,
+        theme: selectedTheme,
+        themeAccent: selectedAccent,
+        themeFont: selectedFont,
+        themeMode: selectedMode,
       })
       if (result.kind === 'ok') {
-        setData((prev) => prev ? { ...prev, site: { ...prev.site, theme: selectedTheme } } : prev)
+        setData((prev) => prev ? {
+          ...prev,
+          site: {
+            ...prev.site,
+            theme: selectedTheme,
+            themeAccent: selectedAccent,
+            themeFont: selectedFont,
+            themeMode: selectedMode,
+          },
+        } : prev)
       }
       await navigate({
         to: '/dashboard/settings',
-        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
-      })
-    } finally {
-      setFormPending(null)
-    }
-  }
-
-  async function handleAppearanceSave(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!data) return
-    setFormPending('appearance')
-    try {
-      const result = await updateSiteSettingsMutation({
-          name: data.site.name,
-          description: data.site.description || undefined,
-          defaultSeoTitle: data.site.defaultSeoTitle,
-          defaultSeoDescription: data.site.defaultSeoDescription || undefined,
-          theme: data.site.theme,
-          themeAccent: selectedAccent,
-          themeFont: selectedFont,
-          themeMode: selectedMode,
-      })
-      if (result.kind === 'ok') {
-        setData((prev) => prev ? { ...prev, site: { ...prev.site, themeAccent: selectedAccent, themeFont: selectedFont, themeMode: selectedMode } } : prev)
-      }
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
+        search: (prev) => ({
+          ok: result.kind === 'ok' ? result.code : undefined,
+          error: result.kind === 'ok' ? undefined : result.code,
+          tab: prev.tab,
+        }),
       })
     } finally {
       setFormPending(null)
@@ -436,11 +422,11 @@ export function SettingsPage() {
     setFormPending('voice')
     try {
       const result = await updateVoiceProfileMutation({
-          audience: voiceAudience || undefined,
-          voiceSummary: voiceSummary || undefined,
-          preferRules: voiceValidation.prefer.ruleCount ? parseVoiceRules(voicePreferText) : [],
-          avoidRules: voiceValidation.avoid.ruleCount ? parseVoiceRules(voiceAvoidText) : [],
-          representativePostIds: voiceRepresentativeIds,
+        audience: voiceAudience || undefined,
+        voiceSummary: voiceSummary || undefined,
+        preferRules: voiceValidation.prefer.ruleCount ? parseVoiceRules(voicePreferText) : [],
+        avoidRules: voiceValidation.avoid.ruleCount ? parseVoiceRules(voiceAvoidText) : [],
+        representativePostIds: voiceRepresentativeIds,
       })
       if (result.kind === 'ok') {
         const refreshed = await loadSettingsPage()
@@ -452,6 +438,7 @@ export function SettingsPage() {
         setVoiceAvoidText(normalized.voiceProfile.avoidRules.join('\n'))
         setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
         setVoiceSaveStatus('Voice profile saved.')
+        setVoiceEditorOpen(false)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -479,7 +466,8 @@ export function SettingsPage() {
         setVoicePreferText(normalized.voiceProfile.preferRules.join('\n'))
         setVoiceAvoidText(normalized.voiceProfile.avoidRules.join('\n'))
         setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
-        setVoiceSaveStatus('Voice profile cleared. Agents will use your published work without this guidance.')
+        setVoiceSaveStatus('Voice profile cleared. Agents will use the VibeCMS writing baseline and the current brief.')
+        setVoiceEditorOpen(false)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -511,13 +499,21 @@ export function SettingsPage() {
   }
 
   const { site, customDomains, billingStatus, selfHosted, isOwner } = data
+  const previewAccent = ACCENTS.find((accent) => accent.id === selectedAccent) ?? ACCENTS[0]
+  const previewFont = FONTS.find((font) => font.id === selectedFont) ?? FONTS[0]
+  const previewStyle = {
+    '--vc-accent-light': previewAccent.oklchLight,
+    '--vc-accent-dark': previewAccent.oklchDark,
+    '--vc-font-body': previewFont.bodyStack,
+    '--vc-font-heading': previewFont.headingStack,
+  } as CSSProperties
 
   return (
     <>
       <PageHeader
-        kicker="Settings"
-        title="Workspace Settings"
-        description="Set publication defaults, editorial voice, domains, billing, and portable data."
+        kicker="Workspace"
+        title="Settings"
+        description="Blog defaults, agent voice, domain, plan, and data."
       />
       <Tabs
         value={search.tab ?? 'general'}
@@ -526,40 +522,40 @@ export function SettingsPage() {
       >
         <div className="overflow-x-auto pb-1">
           <TabsList aria-label="Workspace settings sections" className="min-w-max">
-            <TabsTrigger value="general" aria-label="Publication settings" className="data-[state=active]:font-semibold">
-              Publication
+            <TabsTrigger value="general" aria-label="Site and theme settings" className="data-[state=active]:font-semibold">
+              Site
             </TabsTrigger>
-            <TabsTrigger value="voice" aria-label="Voice Profile settings" className="data-[state=active]:font-semibold">
-              Voice Profile
+            <TabsTrigger value="voice" aria-label="Writing voice settings" className="data-[state=active]:font-semibold">
+              Voice
             </TabsTrigger>
-            <TabsTrigger value="domain" aria-label="Domain and DNS settings" className="data-[state=active]:font-semibold">
-              Domain &amp; DNS
+            <TabsTrigger value="domain" aria-label="Domain settings" className="data-[state=active]:font-semibold">
+              Domain
             </TabsTrigger>
             <TabsTrigger value="billing" aria-label="Plan and billing settings" className="data-[state=active]:font-semibold">
-              Plan &amp; billing
+              Plan
             </TabsTrigger>
-            <TabsTrigger value="data" aria-label="Export and data settings" className="data-[state=active]:font-semibold">
-              Export &amp; data
+            <TabsTrigger value="data" aria-label="Data export settings" className="data-[state=active]:font-semibold">
+              Data
             </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="general" className="grid gap-4">
-      <Panel title="Site" meta="Name & SEO defaults">
-        <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
+          <Panel title="Site" meta="Name & SEO defaults">
+            <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
+              <Field>
+                <FieldLabel htmlFor="site-name">Blog name</FieldLabel>
+                <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="site-description">Description</FieldLabel>
+                <Textarea id="site-description" name="description" maxLength={220} rows={3} defaultValue={site.description} />
+              </Field>
           <Field>
-            <FieldLabel htmlFor="site-name">Blog name</FieldLabel>
-            <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="site-description">Description</FieldLabel>
-            <Textarea id="site-description" name="description" maxLength={220} rows={3} defaultValue={site.description} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="default-seo-title">Default SEO title</FieldLabel>
+            <FieldLabel htmlFor="default-seo-title">SEO title</FieldLabel>
             <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="default-seo-description">Default SEO description</FieldLabel>
+            <FieldLabel htmlFor="default-seo-description">Meta description</FieldLabel>
             <Textarea
               id="default-seo-description"
               name="defaultSeoDescription"
@@ -569,249 +565,247 @@ export function SettingsPage() {
             />
           </Field>
           <PendingSubmitButton className="w-fit" pending={formPending === 'site'} pendingText="Saving…">
-            Save site settings
+            Save
           </PendingSubmitButton>
         </form>
       </Panel>
-      <Panel title="Public blog" meta="Theme">
-        <p className="mb-4 font-sans text-sm text-muted-foreground">
-          Changes public blog appearance and future agent guidance. Does not rewrite existing content.
-        </p>
-        <form className="grid gap-4" onSubmit={(e) => void handleThemeSave(e)}>
-          <FieldSet>
-            <FieldLegend className="sr-only">Preset</FieldLegend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {PRESET_IDS.map((id) => {
-                const preset = THEME_PRESETS[id]
-                const isCurrent = site.theme === id
-                const isDefault = id === DEFAULT_PRESET_ID
-                return (
-                  <Field
-                    key={id}
-                    orientation="horizontal"
-                    className={cn(
-                      'rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
-                      'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
-                    )}
-                  >
-                    <input
-                      id={`theme-${id}`}
-                      className="mt-1 accent-[var(--brand-bright)]"
-                      type="radio"
-                      name="theme"
-                      value={id}
-                      checked={selectedTheme === id}
-                      onChange={() => setSelectedTheme(id)}
-                    />
-                    <span>
-                      <FieldLabel
-                        htmlFor={`theme-${id}`}
-                        className="flex flex-wrap items-center gap-1.5 font-display text-sm font-medium"
+          <Panel title="Theme" meta="Public blog appearance">
+            <p className="mb-5 max-w-3xl font-sans text-base leading-7 text-muted-foreground">
+              Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
+            </p>
+            <form
+              className="grid gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start"
+              onSubmit={(e) => void handleThemeSave(e)}
+            >
+              <div className="grid gap-5">
+                <FieldSet>
+                  <FieldLegend variant="label">Style</FieldLegend>
+                  <div className="grid gap-2">
+                    {PRESET_IDS.map((id) => {
+                      const preset = THEME_PRESETS[id]
+                      const isCurrent = site.theme === id
+                      return (
+                        <Field
+                          key={id}
+                          orientation="horizontal"
+                          className={cn(
+                            'rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
+                            'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
+                          )}
+                        >
+                          <input
+                            id={`theme-${id}`}
+                            className="mt-1 accent-[var(--brand-bright)]"
+                            type="radio"
+                            name="theme"
+                            value={id}
+                            checked={selectedTheme === id}
+                            onChange={() => {
+                              setSelectedTheme(id)
+                              const look = id === 'minimal' ? undefined : STARTER_LOOKS[id as StarterLookId]
+                              if (look) {
+                                setSelectedAccent(look.accent)
+                                if ('font' in look && look.font) setSelectedFont(look.font)
+                              }
+                            }}
+                          />
+                          <span>
+                            <FieldLabel
+                              htmlFor={`theme-${id}`}
+                              className="flex flex-wrap items-center gap-1.5 font-display text-base font-medium"
+                            >
+                              {preset.name}
+                              {isCurrent && (
+                                <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
+                                  Live
+                                </Badge>
+                              )}
+                            </FieldLabel>
+                            <span className="mt-1 block font-sans text-sm leading-6 text-muted-foreground">
+                              {preset.designIntent}
+                            </span>
+                          </span>
+                        </Field>
+                      )
+                    })}
+                  </div>
+                </FieldSet>
+
+                <FieldSet>
+                  <FieldLegend variant="label">Accent</FieldLegend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ACCENTS.map((accent) => (
+                      <Field
+                        key={accent.id}
+                        orientation="horizontal"
+                        className={cn(
+                          'cursor-pointer rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
+                          'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
+                        )}
                       >
-                        {preset.name}
-                        {isCurrent && (
-                          <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
-                            Current live theme
-                          </Badge>
+                        <input
+                          id={`accent-${accent.id}`}
+                          className="sr-only"
+                          type="radio"
+                          name="accent"
+                          value={accent.id}
+                          checked={selectedAccent === accent.id}
+                          onChange={() => setSelectedAccent(accent.id)}
+                        />
+                        <span
+                          aria-hidden
+                          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
+                          style={{ backgroundColor: accent.oklchLight }}
+                        />
+                        <FieldLabel htmlFor={`accent-${accent.id}`} className="font-sans text-sm font-medium">
+                          {accent.name}
+                        </FieldLabel>
+                      </Field>
+                    ))}
+                  </div>
+                </FieldSet>
+
+                <FieldSet>
+                  <FieldLegend variant="label">Type</FieldLegend>
+                  <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+                    {FONTS.map((font) => (
+                      <button
+                        key={font.id}
+                        type="button"
+                        onClick={() => setSelectedFont(font.id)}
+                        aria-pressed={selectedFont === font.id}
+                        className={cn(
+                          'rounded-md px-3 py-1.5 font-sans text-sm transition-colors',
+                          selectedFont === font.id
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground',
                         )}
-                        {isDefault && (
-                          <Badge variant="outline" className="font-mono text-[0.65rem]">
-                            Default
-                          </Badge>
+                      >
+                        {font.name}
+                      </button>
+                    ))}
+                  </div>
+                </FieldSet>
+
+                <FieldSet>
+                  <FieldLegend variant="label">Default mode</FieldLegend>
+                  <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+                    {THEME_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setSelectedMode(mode)}
+                        aria-pressed={selectedMode === mode}
+                        className={cn(
+                          'rounded-md px-3 py-1.5 font-sans text-sm capitalize transition-colors',
+                          selectedMode === mode
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground',
                         )}
-                      </FieldLabel>
-                      <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                        {preset.designIntent}
-                      </span>
-                    </span>
-                  </Field>
-                )
-              })}
-            </div>
-          </FieldSet>
-          {selectedTheme !== site.theme && (
-            <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
-              Theme not yet saved.
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
-            <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving theme...">
-              Save theme
-            </PendingSubmitButton>
-            {data.publicBaseUrl ? (
-              <Button asChild variant="outline">
-                <a href={data.publicBaseUrl} target="_blank" rel="noopener noreferrer">
-                  View public blog
-                </a>
-              </Button>
-            ) : null}
-          </div>
-        </form>
-        <div className="mt-6 rounded-2xl border bg-muted/30 p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="font-display text-xs font-medium text-muted-foreground">
-              Illustrative preview
-            </p>
-            <div className="flex gap-1 rounded-lg border bg-background p-0.5 text-xs">
-              {(['light', 'system', 'dark'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setPreviewMode(mode)}
-                  className={cn(
-                    'rounded-md px-2 py-1 capitalize transition-colors',
-                    previewMode === mode
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="overflow-hidden rounded-xl border">
-            <RichContentFrame node={SAMPLE_RENDER.node} presetId={selectedTheme} mode={previewMode} />
-          </div>
-        </div>
-      </Panel>
-      <Panel title="Appearance" meta="Accent, font & mode">
-        <p className="mb-4 font-sans text-sm text-muted-foreground">
-          Customize your blog's accent color, typeface, and light/dark mode. Applies to the public blog only and does not rewrite existing content.
-        </p>
-        <form className="grid gap-5" onSubmit={(e) => void handleAppearanceSave(e)}>
-          <FieldSet>
-            <FieldLegend variant="label">Starter looks</FieldLegend>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(STARTER_LOOKS) as StarterLookId[]).map((id) => {
-                const look: StarterLook = STARTER_LOOKS[id]
-                const isActive =
-                  selectedAccent === look.accent &&
-                  (look.font === undefined || selectedFont === look.font)
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedAccent(look.accent)
-                      if (look.font) setSelectedFont(look.font)
-                    }}
-                    aria-pressed={isActive}
-                    className={cn(
-                      'rounded-lg border px-3 py-1.5 font-sans text-sm capitalize transition-colors',
-                      isActive
-                        ? 'border-brand-bright/40 bg-brand-bright/10 text-primary'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    {id}
-                  </button>
-                )
-              })}
-            </div>
-          </FieldSet>
-          <FieldSet>
-            <FieldLegend variant="label">Accent color</FieldLegend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {ACCENTS.map((accent) => {
-                const isSelected = selectedAccent === accent.id
-                return (
-                  <Field
-                    key={accent.id}
-                    orientation="horizontal"
-                    className={cn(
-                      'cursor-pointer rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
-                      'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
-                    )}
-                  >
-                    <input
-                      id={`accent-${accent.id}`}
-                      className="sr-only"
-                      type="radio"
-                      name="accent"
-                      value={accent.id}
-                      checked={isSelected}
-                      onChange={() => setSelectedAccent(accent.id)}
-                    />
-                    <span
-                      aria-hidden
-                      className="h-5 w-5 shrink-0 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
-                      style={{ backgroundColor: accent.oklchLight }}
-                    />
-                    <FieldLabel
-                      htmlFor={`accent-${accent.id}`}
-                      className="font-sans text-sm font-medium"
-                    >
-                      {accent.name}
-                    </FieldLabel>
-                  </Field>
-                )
-              })}
-            </div>
-          </FieldSet>
-          <FieldSet>
-            <FieldLegend variant="label">Font</FieldLegend>
-            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
-              {FONTS.map((font) => (
-                <button
-                  key={font.id}
-                  type="button"
-                  onClick={() => setSelectedFont(font.id)}
-                  aria-pressed={selectedFont === font.id}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 font-sans text-sm transition-colors',
-                    selectedFont === font.id
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {font.name}
-                </button>
-              ))}
-            </div>
-          </FieldSet>
-          <FieldSet>
-            <FieldLegend variant="label">Mode</FieldLegend>
-            <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
-              {THEME_MODES.map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setSelectedMode(mode)}
-                  aria-pressed={selectedMode === mode}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 font-sans text-sm capitalize transition-colors',
-                    selectedMode === mode
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-          </FieldSet>
-          {(selectedAccent !== site.themeAccent ||
-            selectedFont !== site.themeFont ||
-            selectedMode !== site.themeMode) && (
-            <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
-              Appearance changes not yet saved.
-            </p>
-          )}
-          <PendingSubmitButton className="w-fit" pending={formPending === 'appearance'} pendingText="Saving appearance...">
-            Save appearance
-          </PendingSubmitButton>
-        </form>
-      </Panel>
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </FieldSet>
+
+                {(selectedTheme !== site.theme ||
+                  selectedAccent !== site.themeAccent ||
+                  selectedFont !== site.themeFont ||
+                  selectedMode !== site.themeMode) && (
+                  <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
+                    Changes not yet saved.
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving…">
+                    Save changes
+                  </PendingSubmitButton>
+                  {data.publicBaseUrl ? (
+                    <Button asChild variant="outline">
+                      <a href={data.publicBaseUrl} target="_blank" rel="noopener noreferrer">
+                        View blog
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                    Live preview
+                  </p>
+                  <div className="flex gap-1 rounded-lg border bg-background p-0.5 text-xs">
+                    {(['light', 'system', 'dark'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setPreviewMode(mode)}
+                        aria-pressed={previewMode === mode}
+                        className={cn(
+                          'rounded-md px-2 py-1 capitalize transition-colors',
+                          previewMode === mode
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={previewStyle}>
+                  <RichContentFrame
+                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] text-[var(--vc-fg)]"
+                    node={SAMPLE_RENDER.node}
+                    presetId={selectedTheme}
+                    mode={previewMode}
+                  />
+                </div>
+              </div>
+            </form>
+          </Panel>
         </TabsContent>
         <TabsContent value="voice" className="grid gap-4">
-          <Panel title="Voice Profile" meta="Editorial guidance for agents">
-            <p className="mb-4 max-w-2xl font-sans text-sm text-muted-foreground">
-              Set the editorial guardrails agents use when drafting for this publication. They can read this profile; only workspace editors can change it.
-            </p>
+          <Panel title="Writing voice" meta={data.voiceProfile.configured ? 'Custom' : 'VibeCMS default'}>
+            <div className="mb-5 rounded-2xl bg-muted/50 p-4 md:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-2xl">
+                  <p className="font-display text-base font-medium text-foreground">
+                    {data.voiceProfile.configured ? 'Your voice profile is active' : 'A strong baseline, with no setup'}
+                  </p>
+                  <p className="mt-2 font-sans text-sm leading-6 text-muted-foreground">
+                    {data.voiceProfile.configured
+                      ? (data.voiceProfile.voiceSummary || 'Agents follow your saved audience, style rules, and example posts.')
+                      : 'Clear, specific, and practical. Agents use the reader’s language, keep one idea per section, support claims with evidence, and end with a concrete next step.'}
+                  </p>
+                  {data.voiceProfile.configured && data.voiceProfile.audience ? (
+                    <p className="mt-2 font-sans text-xs text-muted-foreground">
+                      Audience: {data.voiceProfile.audience}
+                    </p>
+                  ) : null}
+                  {voiceSaveStatus ? (
+                    <p aria-live="polite" className="mt-2 font-sans text-xs text-muted-foreground">
+                      {voiceSaveStatus}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-expanded={voiceEditorOpen}
+                  onClick={() => setVoiceEditorOpen((open) => !open)}
+                >
+                  {voiceEditorOpen ? 'Close' : data.voiceProfile.configured ? 'Edit voice' : 'Customize voice'}
+                </Button>
+              </div>
+            </div>
+            {voiceEditorOpen && (
             <form className="grid max-w-3xl gap-5" onSubmit={(e) => void handleVoiceProfileSave(e)}>
               <Field>
-                <FieldLabel htmlFor="voice-audience">Reader in view</FieldLabel>
+                <FieldLabel htmlFor="voice-audience">Audience</FieldLabel>
                 <Textarea
                   id="voice-audience"
                   value={voiceAudience}
@@ -828,7 +822,7 @@ export function SettingsPage() {
                 </p>
               </Field>
               <Field>
-                <FieldLabel htmlFor="voice-summary">Editorial character</FieldLabel>
+                <FieldLabel htmlFor="voice-summary">Tone</FieldLabel>
                 <Textarea
                   id="voice-summary"
                   value={voiceSummary}
@@ -845,13 +839,13 @@ export function SettingsPage() {
                 </p>
               </Field>
               <FieldSet>
-                <FieldLegend variant="label">Editorial rules</FieldLegend>
+                <FieldLegend variant="label">Style rules</FieldLegend>
                 <p className="mb-3 font-sans text-xs text-muted-foreground">
-                  One rule per line, up to {VOICE_RULE_LIMIT} rules across both lists. Each non-blank line can be up to {VOICE_RULE_LINE_LIMIT} characters; blank lines stay in place while you edit.
+                  One rule per line. Up to {VOICE_RULE_LIMIT} rules total.
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Prefer</FieldLabel>
+                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Do</FieldLabel>
                     <Textarea
                       id="voice-prefer-rules"
                       value={voicePreferText}
@@ -874,7 +868,7 @@ export function SettingsPage() {
                     )}
                   </div>
                   <div>
-                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Avoid</FieldLabel>
+                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Don’t</FieldLabel>
                     <Textarea
                       id="voice-avoid-rules"
                       value={voiceAvoidText}
@@ -904,7 +898,7 @@ export function SettingsPage() {
                 )}
               </FieldSet>
               <FieldSet>
-                <FieldLegend variant="label">Representative posts</FieldLegend>
+                <FieldLegend variant="label">Example posts</FieldLegend>
                 <p id="representative-posts-help" className="mb-3 font-sans text-xs text-muted-foreground">
                   Select published posts that best demonstrate this voice. Agents use them as reading references, not source material.
                 </p>
@@ -985,7 +979,7 @@ export function SettingsPage() {
                   pendingText="Saving voice profile..."
                   disabled={!voiceValidation.isValid}
                 >
-                  Save voice profile
+                  Save
                 </PendingSubmitButton>
                 {data.voiceProfile.configured && (
                   <SpaConfirmButton
@@ -996,16 +990,12 @@ export function SettingsPage() {
                     helperText="This removes the editorial guidance and reading references that agents receive."
                     onConfirm={() => void handleVoiceProfileClear()}
                   >
-                    Clear voice profile
+                    Reset to default
                   </SpaConfirmButton>
-                )}
-                {voiceSaveStatus && (
-                  <p aria-live="polite" className="font-sans text-sm text-muted-foreground">
-                    {voiceSaveStatus}
-                  </p>
                 )}
               </div>
             </form>
+            )}
           </Panel>
         </TabsContent>
         <TabsContent value="domain" className="grid gap-4">
@@ -1090,13 +1080,24 @@ export function SettingsPage() {
             ) : isOwner ? (
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Button asChild>
-                  <Link to="/dashboard/billing" search={emptyDashboardStatusSearch}>Subscribe / manage billing</Link>
+                  <Link to="/dashboard/billing" search={emptyDashboardStatusSearch}>
+                    {billingStatus === 'active' ? 'Manage billing' : 'Subscribe to publish'}
+                  </Link>
                 </Button>
               </div>
             ) : (
               <p className="font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
             )}
           </div>
+        </div>
+      </Panel>
+      <Panel title="Plan includes" meta={PRICING.planName}>
+        <div className="grid gap-2 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+          {ENTITLEMENTS.map((entitlement) => (
+            <span className="rounded-xl bg-muted/50 px-3 py-2.5 leading-5" key={entitlement}>
+              {entitlement}
+            </span>
+          ))}
         </div>
       </Panel>
         </TabsContent>
@@ -1116,15 +1117,6 @@ export function SettingsPage() {
           </div>
         </Panel>
       ) : null}
-      <Panel title="Plan Includes" meta={PRICING.planName}>
-        <div className="grid gap-2 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
-          {ENTITLEMENTS.map((entitlement) => (
-            <span className="rounded-xl bg-muted/50 px-3 py-2.5 leading-5" key={entitlement}>
-              {entitlement}
-            </span>
-          ))}
-        </div>
-      </Panel>
         </TabsContent>
       </Tabs>
     </>

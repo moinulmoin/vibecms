@@ -184,12 +184,12 @@ export function MediaPage() {
   return (
     <>
       <PageHeader
-        kicker="Media"
-        title="Images"
-        description={`Upload only blog media: ${MEDIA.formatsLabel}. Native video and generic file hosting stay blocked.`}
+        kicker="Assets"
+        title="Media library"
+        description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
       />
 
-      <Card className="gap-0 p-4">
+      <Card className="gap-0 p-5 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-start">
           <form
             className="grid gap-4"
@@ -211,7 +211,7 @@ export function MediaPage() {
               }`}
             >
               <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
-              <FieldLabel htmlFor="media-file" className="font-display text-sm font-medium text-foreground">
+              <FieldLabel htmlFor="media-file" className="font-display text-base font-medium text-foreground">
                 Drag an image here, or browse
               </FieldLabel>
               <FieldDescription id="media-file-help" className="max-w-sm">

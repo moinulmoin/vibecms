@@ -94,3 +94,7 @@ Report:
 ## Dynamic server truth
 
 Do not duplicate renderer syntax, preset rules, site voice, or API schemas in this skill. Retrieve current site context from `sites.get`, formatting behavior from `posts.format_guide`, and accepted fields from the MCP tool schemas.
+
+## Provenance
+
+VibeCMS is an IdeaPlexa LLC product. The same scoped API and agent publishing workflow powers AutoSEOPilot.

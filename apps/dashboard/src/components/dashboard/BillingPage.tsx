@@ -98,9 +98,9 @@ export function BillingPage() {
     return (
       <>
         <PageHeader
-          kicker="Billing"
-          title="Workspace billing"
-          description="Polar checkout is disabled for self-hosted workspaces."
+          kicker="Plan"
+          title="Self-hosted workspace"
+          description="Billing stays disabled while publishing, media, and agent access run on your Cloudflare resources."
         />
         <Panel title="Self-hosted" meta={<Badge variant="outline">SELF_HOSTED=true</Badge>}>
           <p className="font-sans text-sm text-muted-foreground">
@@ -118,34 +118,38 @@ export function BillingPage() {
   return (
     <>
       <PageHeader
-        kicker="Billing"
-        title={isActive ? "You're subscribed" : 'Subscribe to publish'}
-        description="Manage your Polar subscription and customer portal."
+        kicker="Plan"
+        title="Billing"
+        description={
+          isActive
+            ? 'Manage your subscription and customer portal.'
+            : 'Subscribe to publish more posts, upload media, and make your public blog indexable.'
+        }
       />
       <div className="grid max-w-2xl gap-4">
           <Panel
             title={PRICING.monthlyLabel}
             meta={
               <span className="flex items-center gap-2">
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   {PRICING.planName}
                 </span>
                 <BillingStatusBadge status={billing.status} />
               </span>
             }
           >
-            <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
+            <p className="mb-5 font-sans text-base leading-7 text-muted-foreground">
               or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
             </p>
-            <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
+            <ul className="grid gap-3 rounded-xl bg-muted/50 p-4 text-base leading-6">
               {ENTITLEMENTS.map((entitlement) => (
                 <li key={entitlement} className="flex items-start gap-2.5">
-                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  <CheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
                   <span className="font-sans text-foreground">{entitlement}</span>
                 </li>
               ))}
               <li className="flex items-start gap-2.5">
-                <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
                 <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
               </li>
             </ul>
@@ -196,9 +200,9 @@ export function BillingPage() {
                 </div>
               )
             ) : (
-              <p className="mt-5 font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
+              <p className="mt-5 font-sans text-base leading-7 text-muted-foreground">Only workspace owners can manage billing.</p>
             )}
-            <p className="mt-5 font-mono text-[11px] leading-5 text-muted-foreground">
+            <p className="mt-5 font-mono text-xs leading-5 text-muted-foreground">
               {isActive
                 ? 'Your plan is active: unlimited publishing, media uploads, and search indexing are on. Cancel anytime from the customer portal.'
                 : 'Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload media, and make your blog search-indexable. Cancel anytime from the customer portal.'}
