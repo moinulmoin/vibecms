@@ -4,12 +4,17 @@ import { app, redactErrorText } from './index'
 
 describe('API Worker request hardening', () => {
   it('rejects an oversized auth body before dispatch', async () => {
-    const response = await app.fetch(
-      new Request('https://app.basedui.dev/api/auth/sign-in/email-otp', {
+    const body = 'x'.repeat(64 * 1024 + 1)
+    const response = await app.request(
+      '/api/auth/sign-in/email-otp',
+      {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: 'x'.repeat(64 * 1024 + 1),
-      }),
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(body.length),
+        },
+        body,
+      },
       env,
     )
 
