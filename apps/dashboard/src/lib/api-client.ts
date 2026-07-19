@@ -151,6 +151,7 @@ export function updateSiteSettingsMutation(data: {
   description?: string
   defaultSeoTitle?: string
   defaultSeoDescription?: string
+  defaultSocialAssetId?: string | null
   theme?: string
   themeAccent?: string | null
   themeFont?: string | null

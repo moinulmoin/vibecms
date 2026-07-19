@@ -1,12 +1,14 @@
 ---
 import "../styles/global.css";
+import type { ResolvedSocialImage } from "../lib/seo-meta";
 interface Props {
   title?: string;
   description?: string;
   robots?: string;
   canonical?: string;
+  socialImage?: ResolvedSocialImage;
 }
-const { title, description, robots, canonical } = Astro.props;
+const { title, description, robots, canonical, socialImage } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -18,6 +20,20 @@ const { title, description, robots, canonical } = Astro.props;
     {robots ? <meta name="robots" content={robots} /> : null}
     {canonical ? <link rel="canonical" href={canonical} /> : null}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {title && socialImage ? <meta property="og:title" content={title} /> : null}
+    {description && socialImage ? <meta property="og:description" content={description} /> : null}
+    {canonical && socialImage ? <meta property="og:url" content={canonical} /> : null}
+    {socialImage ? <meta property="og:type" content="website" /> : null}
+    {socialImage ? <meta property="og:image" content={socialImage.url} /> : null}
+    {socialImage ? <meta property="og:image:type" content={socialImage.mimeType} /> : null}
+    {socialImage?.width ? <meta property="og:image:width" content={String(socialImage.width)} /> : null}
+    {socialImage?.height ? <meta property="og:image:height" content={String(socialImage.height)} /> : null}
+    {socialImage ? <meta property="og:image:alt" content={socialImage.alt} /> : null}
+    {socialImage ? <meta name="twitter:card" content="summary_large_image" /> : null}
+    {title && socialImage ? <meta name="twitter:title" content={title} /> : null}
+    {description && socialImage ? <meta name="twitter:description" content={description} /> : null}
+    {socialImage ? <meta name="twitter:image" content={socialImage.url} /> : null}
+    {socialImage ? <meta name="twitter:image:alt" content={socialImage.alt} /> : null}
     <slot name="head" />
   </head>
   <body>

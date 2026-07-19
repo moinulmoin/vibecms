@@ -10,7 +10,7 @@ const pricingChecklist = [
   "Typed REST API & CLI",
   "Unlimited drafts",
   `${MEDIA.paidStorageLabel} media on R2`,
-  "RSS, sitemap & llms.txt",
+  "SEO & AI visibility built in",
   "Fast managed hosting",
 ] as const;
 

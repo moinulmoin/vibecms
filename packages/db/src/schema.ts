@@ -33,6 +33,7 @@ export const sites = sqliteTable("sites", {
   faviconAssetId: text("favicon_asset_id"),
   defaultSeoTitle: text("default_seo_title"),
   defaultSeoDescription: text("default_seo_description"),
+  defaultSocialAssetId: text("default_social_asset_id"),
   mediaPendingBytes: integer("media_pending_bytes").notNull().default(0),
   status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
   theme: text("theme").notNull().default("minimal"),

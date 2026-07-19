@@ -264,11 +264,11 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
 
         if (isImgOnly) {
           const imgEl = sig[0] as HElement;
-          if (hasEmptyAlt(imgEl)) opts.warnings.push("Image is missing alt text");
+          if (hasEmptyAlt(imgEl)) opts.warnings.push(MISSING_IMAGE_ALT_WARNING);
         } else if (isImgWithCaption) {
           const imgEl = sig[0] as HElement;
           const captionEms = sig.slice(1) as HElement[];
-          if (hasEmptyAlt(imgEl)) opts.warnings.push("Image is missing alt text");
+          if (hasEmptyAlt(imgEl)) opts.warnings.push(MISSING_IMAGE_ALT_WARNING);
 
           children[i] = {
             type: "element",
@@ -282,7 +282,7 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
         } else {
           for (const child of curr.children) {
             if (isEl(child) && isElTag(child, "img") && hasEmptyAlt(child)) {
-              opts.warnings.push("Image is missing alt text");
+              opts.warnings.push(MISSING_IMAGE_ALT_WARNING);
             }
           }
         }
@@ -565,6 +565,7 @@ export function renderRichContentToHtml(markdown: string, opts?: RenderOpts): st
   return renderRichContentResultToHtml(renderRichContent(markdown, opts), opts);
 }
 
+export const MISSING_IMAGE_ALT_WARNING = "Image is missing alt text";
 export function validateRichContent(
   markdown: string,
   opts?: ValidateRichContentOpts,

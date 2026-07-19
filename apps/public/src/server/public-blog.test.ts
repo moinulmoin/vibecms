@@ -6,6 +6,7 @@ import {
   stripMarkdownSuffix,
 } from "./public-blog";
 import { articleCacheTag, articleCacheTags, siteCacheTag } from "./public-blog-cache";
+import { publicOrigin } from "./public-url";
 
 const site = {
   id: "site-1",
@@ -19,6 +20,11 @@ const site = {
   description: null,
   default_seo_title: null,
   default_seo_description: null,
+  default_social_asset_id: null,
+  default_social_asset_mime_type: null,
+  default_social_asset_width: null,
+  default_social_asset_height: null,
+  default_social_asset_alt_text: null,
   billing_status: "active",
   current_period_end: null,
   published_count: 1,
@@ -39,6 +45,16 @@ describe("markdown negotiation", () => {
   it("blocks reserved slugs", () => {
     expect(RESERVED_ROOT_SLUGS.has("feed.xml")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("__vc-health")).toBe(true);
+  });
+});
+
+describe("public origin normalization", () => {
+  it("forces HTTPS for deployed hosts", () => {
+    expect(publicOrigin("http://demo.example.com/post")).toBe("https://demo.example.com");
+  });
+
+  it("preserves the local development protocol and port", () => {
+    expect(publicOrigin("http://demo.localhost:4321/post")).toBe("http://demo.localhost:4321");
   });
 });
 

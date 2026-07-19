@@ -150,6 +150,7 @@ export type SiteSettingsForm = {
   description: string
   defaultSeoTitle: string
   defaultSeoDescription: string
+  defaultSocialAssetId: string | null
   theme: string
   slug: string
   themeAccent: string
@@ -159,6 +160,7 @@ export type SiteSettingsForm = {
 
 export type SettingsPageData = {
   site: SiteSettingsForm
+  assets: Asset[]
   customDomains: CustomDomainsPanel
   billingStatus: string
   selfHosted: boolean

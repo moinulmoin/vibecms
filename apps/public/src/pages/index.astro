@@ -4,9 +4,11 @@ import LandingLayout from "../layouts/LandingLayout.astro";
 import { LandingHome } from "../components/landing/LandingHome";
 import { PublicBlogIndexView } from "../components/PublicBlogPages";
 import { appApiDocsUrl, appLoginUrl } from "../lib/landing-links";
+import { resolveSocialImage } from "../lib/seo-meta";
 import { isMarketingHost, loadPublicIndexByHost, publicHtmlResponseHeaders } from "../server/public-blog";
 import { siteCacheTag } from "../server/public-blog-cache";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
+import { publicOrigin } from "../server/public-url";
 
 const env = publicRuntimeEnv(Astro);
 const rawQ = Astro.url.searchParams.get("q")?.trim().slice(0, 100);
@@ -32,14 +34,20 @@ if (blog) {
 
 const loginUrl = appLoginUrl(env.appUrl);
 const apiDocsUrl = appApiDocsUrl(env.appUrl);
-const ogImage = `${Astro.url.origin}/brand/og.png`;
+const origin = publicOrigin(Astro.url);
+const ogImage = `${origin}/brand/og.png`;
 const title = blog ? blog.site.default_seo_title || blog.site.name : undefined;
+const description = blog ? blog.site.default_seo_description || blog.site.description || undefined : undefined;
+const socialImage = blog ? resolveSocialImage(origin, null, blog.site) : undefined;
+const canonical = blog ? new URL("/", origin).href : undefined;
 ---
 {blog ? (
   <Base
     title={title}
-    description={blog.site.default_seo_description || blog.site.description || undefined}
+    description={description}
     robots={!blog.indexable ? "noindex,nofollow" : undefined}
+    canonical={canonical}
+    socialImage={socialImage}
   >
     <PublicBlogIndexView data={blog} />
   </Base>

@@ -137,11 +137,12 @@ export async function loadSetupPage(app: AppUserContext) {
 }
 
 export async function loadSettingsPage(app: AppUserContext) {
-  const [site, voiceProfile, billing, customDomains] = await Promise.all([
+  const [site, voiceProfile, billing, customDomains, assets] = await Promise.all([
     getSiteSettings(app),
     getVoiceProfileSettings(app),
     getBilling(app.workspaceId),
     listCustomDomainsForApp(app),
+    getMedia(app),
   ])
   const selfHosted = isSelfHosted()
   const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
@@ -151,6 +152,7 @@ export async function loadSettingsPage(app: AppUserContext) {
     site,
     voiceProfile,
     customDomains,
+    assets,
     billingStatus: billing.status,
     selfHosted,
     isOwner,

@@ -2,14 +2,27 @@
 
 import { renderRichContent, RichContentFrame } from '@vc/content'
 import { PresentedPostArticle } from '~/components/PresentedPostArticle'
-import { resolvePresentation, type Presentation } from '@vc/config'
-import { Button, FieldDescription, Select, Textarea } from '@vc/ui'
-import { EyeOpenIcon, ImageIcon, Pencil2Icon } from '@radix-ui/react-icons'
+import { MEDIA, resolvePresentation, type Presentation } from '@vc/config'
+import { Button, Field, FieldDescription, FieldLabel, Input, Textarea } from '@vc/ui'
+import { EyeOpenIcon, ImageIcon, Pencil2Icon, UploadIcon } from '@radix-ui/react-icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { loadMediaPage } from '~/lib/api-client'
+import { parseMutationResultJson } from '~/lib/mutation-result'
 
 type MarkdownAsset = {
   id: string
   filename: string
+  altText: string | null
+  width: number | null
+  height: number | null
 }
 type MarkdownEditorProps = {
   assets: MarkdownAsset[]
@@ -48,9 +61,14 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
   const [metadataRevision, setMetadataRevision] = useState(0)
   const [previewMetadataRevision, setPreviewMetadataRevision] = useState(0)
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
+  const [availableAssets, setAvailableAssets] = useState(assets)
+  const [imagePickerOpen, setImagePickerOpen] = useState(false)
+  const [imageAltText, setImageAltText] = useState(assets[0]?.altText ?? '')
+  const [imageUploadPending, setImageUploadPending] = useState(false)
+  const [imagePickerError, setImagePickerError] = useState<string | null>(null)
 
   const previewResult = useMemo(() => renderRichContent(previewSource, { pageTitle: previewMetadata.title }), [previewSource, previewMetadata.title])
-  const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? assets[0]
+  const selectedAsset = availableAssets.find((asset) => asset.id === selectedAssetId) ?? availableAssets[0]
   const previewIsCurrent = isPreviewCurrent(
     draftRevision,
     previewDraftRevision,
@@ -58,6 +76,14 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     previewMetadataRevision,
   )
 
+  useEffect(() => {
+    setAvailableAssets(assets)
+    setSelectedAssetId((current) => {
+      if (assets.some((asset) => asset.id === current)) return current
+      setImageAltText(assets[0]?.altText ?? '')
+      return assets[0]?.id ?? ''
+    })
+  }, [assets])
   useEffect(() => {
     const metadataFields = ['post-title', 'post-excerpt', 'post-cover']
       .map((id) => document.getElementById(id))
@@ -122,11 +148,62 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     updateContentRevision()
   }
 
+  async function handleImageUpload(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
+    const altText = String(form.get('altText') ?? '').trim()
+    if (!altText) {
+      setImagePickerError('Describe the image before uploading.')
+      return
+    }
+
+    setImageUploadPending(true)
+    setImagePickerError(null)
+    try {
+      const priorIds = new Set(availableAssets.map((asset) => asset.id))
+      const response = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+      })
+      if (response.status === 401) {
+        window.location.assign('/login')
+        return
+      }
+      const result = parseMutationResultJson(await response.json())
+      if (result.kind !== 'ok') {
+        setImagePickerError(
+          result.code === 'billing_required'
+            ? 'A paid plan is required to upload images.'
+            : result.code === 'upload_too_large'
+              ? `Images must be ${MEDIA.maxImageLabel} or smaller.`
+              : 'The image could not be uploaded. Check the file type and try again.',
+        )
+        return
+      }
+
+      const loaded = await loadMediaPage()
+      setAvailableAssets(loaded.assets)
+      const uploaded = loaded.assets.find((asset) => !priorIds.has(asset.id)) ?? loaded.assets[0]
+      if (uploaded) {
+        setSelectedAssetId(uploaded.id)
+        setImageAltText(uploaded.altText ?? altText)
+      }
+      formElement.reset()
+    } catch {
+      setImagePickerError('The image could not be uploaded. Try again.')
+    } finally {
+      setImageUploadPending(false)
+    }
+  }
+
   function insertImage() {
     const textarea = textareaRef.current
-    if (!textarea || !selectedAsset) return
+    const altText = imageAltText.trim()
+    if (!textarea || !selectedAsset || !altText) return
 
-    const imageMarkdown = `![${altTextFor(selectedAsset.filename)}](/media-assets/${selectedAsset.id})`
+    const imageMarkdown = `![${escapeMarkdownAlt(altText)}](/media-assets/${selectedAsset.id})`
     const value = textarea.value
     const { start, end } = selectionRef.current
     const before = value.slice(0, start)
@@ -145,6 +222,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
       setPreviewSource(nextValue)
       setPreviewDraftRevision(contentRevisionRef.current)
     }
+    setImagePickerOpen(false)
   }
 
   return (
@@ -178,41 +256,139 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
             Preview
           </Button>
         </div>
-        {assets.length > 0 ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select
-              aria-label="Image to insert"
-              className="h-9 min-w-0 font-mono text-xs sm:w-56"
-              value={selectedAssetId}
-              onChange={(event) => setSelectedAssetId(event.currentTarget.value)}
-            >
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.filename}
-                </option>
-              ))}
-            </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 justify-center gap-1.5 font-mono text-[11px]"
+          onClick={() => {
+            rememberSelection()
+            setImagePickerError(null)
+            setImagePickerOpen(true)
+          }}
+        >
+          <ImageIcon className="size-4" aria-hidden="true" />
+          Add image
+        </Button>
+      </div>
+      <Dialog open={imagePickerOpen} onOpenChange={setImagePickerOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Add image</DialogTitle>
+            <DialogDescription>
+              Choose an image or upload a new one, then write alt text for this article.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_17rem]">
+            <section className="min-w-0 space-y-3">
+              <div>
+                <h3 className="font-display text-base font-medium">Media library</h3>
+                <p className="text-sm text-muted-foreground">Select an image already in your workspace.</p>
+              </div>
+              {availableAssets.length > 0 ? (
+                <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                  {availableAssets.map((asset) => {
+                    const selected = asset.id === selectedAsset?.id
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        className={`min-w-0 rounded-lg bg-muted/50 p-2 text-left transition-colors hover:bg-muted ${
+                          selected ? 'ring-2 ring-brand-bright/50' : ''
+                        }`}
+                        aria-pressed={selected}
+                        onClick={() => {
+                          setSelectedAssetId(asset.id)
+                          setImageAltText(asset.altText ?? '')
+                          setImagePickerError(null)
+                        }}
+                      >
+                        <img
+                          src={`/media-assets/${asset.id}`}
+                          alt=""
+                          className="aspect-[4/3] w-full rounded-md object-cover"
+                        />
+                        <span className="mt-2 block truncate font-mono text-[11px]">{asset.filename}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+                  No images yet. Upload the first one here.
+                </p>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h3 className="font-display text-base font-medium">Upload new</h3>
+                <p className="text-sm text-muted-foreground">{MEDIA.formatsLabel}, up to {MEDIA.maxImageLabel}.</p>
+              </div>
+              <form className="grid gap-3" onSubmit={(event) => void handleImageUpload(event)}>
+                <Field>
+                  <FieldLabel htmlFor="editor-image-file">Image</FieldLabel>
+                  <Input
+                    id="editor-image-file"
+                    type="file"
+                    name="file"
+                    accept={MEDIA.mimeTypes.join(',')}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="editor-upload-alt">Alt text</FieldLabel>
+                  <Input
+                    id="editor-upload-alt"
+                    name="altText"
+                    maxLength={180}
+                    placeholder="Describe what the image shows"
+                    required
+                  />
+                </Field>
+                <Button type="submit" variant="outline" disabled={imageUploadPending}>
+                  <UploadIcon className="size-4" aria-hidden="true" />
+                  {imageUploadPending ? 'Uploading…' : 'Upload'}
+                </Button>
+              </form>
+            </section>
+          </div>
+
+          {selectedAsset ? (
+            <Field>
+              <FieldLabel htmlFor="editor-image-alt">Alt text in this article</FieldLabel>
+              <Input
+                id="editor-image-alt"
+                value={imageAltText}
+                maxLength={180}
+                placeholder="Describe the image in context"
+                onChange={(event) => setImageAltText(event.currentTarget.value)}
+              />
+              <FieldDescription>
+                Required for accessibility and publishing. This becomes the text inside <code>![…]</code>.
+              </FieldDescription>
+            </Field>
+          ) : null}
+
+          {imagePickerError ? (
+            <p className="text-sm text-destructive" role="alert">{imagePickerError}</p>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setImagePickerOpen(false)}>
+              Cancel
+            </Button>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 justify-center gap-1.5 font-mono text-[11px]"
               onClick={insertImage}
+              disabled={!selectedAsset || !imageAltText.trim()}
             >
-              <ImageIcon className="size-4" aria-hidden="true" />
               Insert image
             </Button>
-          </div>
-        ) : (
-          <FieldDescription className="font-sans">
-            No image assets yet.{' '}
-            <a className="font-medium text-primary underline underline-offset-4" href="/dashboard/media">
-              Upload images
-            </a>{' '}
-            to insert them here.
-          </FieldDescription>
-        )}
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <FieldDescription className="font-mono text-[11px] text-muted-foreground">
         Start with a heading, then use Markdown for links, lists, tables, code, quotes, and images.
@@ -381,12 +557,6 @@ export function serializeForm(form: HTMLFormElement) {
     .join('\n')
 }
 
-function altTextFor(filename: string) {
-  return (
-    filename
-      .replace(/\.[^.]+$/, '')
-      .replace(/[-_]+/g, ' ')
-      .replace(/[\[\]]/g, '')
-      .trim() || 'image'
-  )
+function escapeMarkdownAlt(altText: string) {
+  return altText.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
 }

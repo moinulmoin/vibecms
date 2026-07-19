@@ -17,6 +17,7 @@ import {
   type ThemeMode,
   type PresetId,
 } from '@vc/config'
+import type { Asset } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView } from '~/types/dashboard'
 import { DownloadIcon, GlobeIcon } from '@radix-ui/react-icons'
 import {
@@ -27,6 +28,7 @@ import {
   Input,
   Textarea,
   cn,
+  Select,
 } from '@vc/ui'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState, type CSSProperties } from 'react'
@@ -57,6 +59,7 @@ import { settingsPageDataSchema } from '~/lib/dashboard-response-schemas'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 type SettingsPageData = {
   site: SiteSettingsForm
+  assets: Asset[]
   customDomains: CustomDomainsPanel
   billingStatus: string
   selfHosted: boolean
@@ -69,6 +72,7 @@ type SiteSettingsForm = {
   description: string
   defaultSeoTitle: string
   defaultSeoDescription: string
+  defaultSocialAssetId: string | null
   theme: PresetId
   slug: string
   themeAccent: AccentId
@@ -270,6 +274,7 @@ export function SettingsPage() {
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
   const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
+  const [selectedSocialAssetId, setSelectedSocialAssetId] = useState('')
   const [voiceAudience, setVoiceAudience] = useState('')
   const [voiceSummary, setVoiceSummary] = useState('')
   const [voicePreferText, setVoicePreferText] = useState('')
@@ -289,6 +294,7 @@ export function SettingsPage() {
         setSelectedAccent(normalized.site.themeAccent)
         setSelectedFont(normalized.site.themeFont)
         setSelectedMode(normalized.site.themeMode)
+        setSelectedSocialAssetId(normalized.site.defaultSocialAssetId ?? '')
         setVoiceAudience(normalized.voiceProfile.audience)
         setVoiceSummary(normalized.voiceProfile.voiceSummary)
         setVoicePreferText(normalized.voiceProfile.preferRules.join('\n'))
@@ -314,6 +320,7 @@ export function SettingsPage() {
     voiceValidation.avoid.lineNumbers.length > 0 ? 'voice-avoid-line-error' : null,
     voiceValidation.ruleCount > VOICE_RULE_LIMIT ? 'voice-rule-count-error' : null,
   ].filter(Boolean).join(' ')
+  const selectedSocialAsset = data?.assets.find((asset) => asset.id === selectedSocialAssetId) ?? null
 
 
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
@@ -326,6 +333,7 @@ export function SettingsPage() {
           description: String(form.get('description') ?? '') || undefined,
           defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
           defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
+          defaultSocialAssetId: selectedSocialAssetId || null,
           theme: data?.site.theme ?? selectedTheme,
           themeAccent: data?.site.themeAccent,
           themeFont: data?.site.themeFont,
@@ -564,7 +572,53 @@ export function SettingsPage() {
               defaultValue={site.defaultSeoDescription}
             />
           </Field>
-          <PendingSubmitButton className="w-fit" pending={formPending === 'site'} pendingText="Saving…">
+          <Field>
+            <FieldLabel htmlFor="default-social-image">Default social image</FieldLabel>
+            <Select
+              id="default-social-image"
+              name="defaultSocialAssetId"
+              value={selectedSocialAssetId}
+              onChange={(event) => setSelectedSocialAssetId(event.currentTarget.value)}
+              aria-describedby="default-social-image-help"
+            >
+              <option value="">No default image</option>
+              {data.assets.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.filename}{asset.altText ? '' : ' — add alt text first'}
+                </option>
+              ))}
+            </Select>
+            <p id="default-social-image-help" className="text-sm leading-6 text-muted-foreground">
+              Used for posts without a featured image and for shared blog pages. A 1200 × 630 image works best.
+              {' '}Manage images and alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="text-foreground underline underline-offset-4">Media</Link>.
+            </p>
+            {selectedSocialAsset ? (
+              <div className="flex min-w-0 items-center gap-3 pt-1">
+                <img
+                  src={`/media-assets/${selectedSocialAsset.id}`}
+                  alt={selectedSocialAsset.altText ?? ''}
+                  className="h-16 w-28 shrink-0 rounded-md object-cover"
+                />
+                <div className="min-w-0 text-sm">
+                  <p className="truncate font-medium text-foreground">{selectedSocialAsset.filename}</p>
+                  <p className="text-muted-foreground">
+                    {selectedSocialAsset.width && selectedSocialAsset.height
+                      ? `${selectedSocialAsset.width} × ${selectedSocialAsset.height}`
+                      : 'Dimensions unavailable'}
+                  </p>
+                  {!selectedSocialAsset.altText ? (
+                    <p className="text-destructive">Add alt text before saving.</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </Field>
+          <PendingSubmitButton
+            className="w-fit"
+            pending={formPending === 'site'}
+            pendingText="Saving…"
+            disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
+          >
             Save
           </PendingSubmitButton>
         </form>

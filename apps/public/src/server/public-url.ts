@@ -10,12 +10,18 @@ export function defaultHostname(slug: string, env: PublicRuntimeEnv) {
 
 export function isLocalDefaultHostname(hostname: string) {
   const host = hostname.toLowerCase();
-  return host === "localhost" || host.endsWith(".localhost");
+  return host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host === "::1";
 }
 
 export function publicUrlForHostname(hostname: string | null) {
   if (!hostname) return null;
   return `${isLocalDefaultHostname(hostname) ? "http" : "https"}://${hostname}`;
+}
+
+export function publicOrigin(url: URL | string) {
+  const parsed = typeof url === "string" ? new URL(url) : url;
+  const protocol = isLocalDefaultHostname(parsed.hostname) ? parsed.protocol : "https:";
+  return `${protocol}//${parsed.host}`;
 }
 
 export function parsePublicRuntimeEnv(raw: Env): PublicRuntimeEnv {

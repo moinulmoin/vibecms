@@ -11,6 +11,7 @@ import {
 } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
 import { siteCacheTag } from "./public-blog-cache";
+import { publicOrigin } from "./public-url";
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
 
@@ -50,9 +51,10 @@ function productLlmsTxt(origin: string, env: PublicRuntimeEnv): Response {
 export async function handleFeed(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
-  const origin = new URL(request.url).origin;
+  const requestUrl = new URL(request.url);
+  const origin = publicOrigin(requestUrl);
   const posts = await listPublishedPosts(db, site.id);
-  const xml = buildRssXml(site, origin, posts, new URL(request.url).href, (post) =>
+  const xml = buildRssXml(site, origin, posts, new URL(`${requestUrl.pathname}${requestUrl.search}`, origin).href, (post) =>
     renderRichContentToHtml(post.content_markdown),
   );
   return new Response(xml, {
@@ -67,9 +69,9 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
 
 export async function handleSitemap(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
   const site = await resolveSite(request, db, env);
-  if (!site) return isMarketingHost(request, env) ? productSitemap(new URL(request.url).origin) : notFound();
+  if (!site) return isMarketingHost(request, env) ? productSitemap(publicOrigin(request.url)) : notFound();
   if (!isPublicBlogIndexable(site, env)) return notFound();
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request.url);
   const posts = await listPublishedPosts(db, site.id);
   const xml = buildSitemapXml(origin, posts);
   return new Response(xml, {
@@ -83,7 +85,7 @@ export async function handleSitemap(db: D1Database, request: Request, env: Publi
 
 export async function handleRobots(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
   const site = await resolveSite(request, db, env);
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request.url);
   const indexable = (site ? isPublicBlogIndexable(site, env) : false) || isMarketingHost(request, env);
   const body = indexable
     ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
@@ -118,6 +120,6 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
 
 export async function handleLlmsTxt(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
   const site = await resolveSite(request, db, env);
-  if (!site) return isMarketingHost(request, env) ? productLlmsTxt(new URL(request.url).origin, env) : notFound();
-  return renderLlmsTxt(site, new URL(request.url).origin, "", await listPublishedPosts(db, site.id), env);
+  if (!site) return isMarketingHost(request, env) ? productLlmsTxt(publicOrigin(request.url), env) : notFound();
+  return renderLlmsTxt(site, publicOrigin(request.url), "", await listPublishedPosts(db, site.id), env);
 }

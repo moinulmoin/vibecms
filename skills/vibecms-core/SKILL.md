@@ -21,7 +21,7 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, and current Voice Profile.
 2. **Load live formatting guidance.** Call `posts.format_guide` without a preset override unless the user explicitly requests an alternate presentation target.
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
-4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update`; `contentMarkdown` must contain the complete body.
+4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
 5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number.
 6. **Bind the approval request.** Call `posts.versions.list`. Identify the newest `versionNumber`, then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
 7. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.

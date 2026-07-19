@@ -5,6 +5,7 @@ import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
 import { defaultHostname } from './public-url'
+import { scheduleSitePurge } from './purge-scheduler'
 
 type AuthSessionUser = { id: string; name: string; email: string }
 
@@ -89,6 +90,7 @@ export type SiteSettingsPayload = {
   description?: string
   defaultSeoTitle: string
   defaultSeoDescription?: string
+  defaultSocialAssetId?: string | null
   theme: string
   // Theme customizer (Layer 2) — optional until the Appearance UI ships them.
   // null/undefined accent|font = use resolver default; mode resolves to 'system'.
@@ -105,6 +107,7 @@ export async function getSiteSettings(app: AppUserContext) {
     description: site?.description ?? '',
     defaultSeoTitle: site?.defaultSeoTitle ?? '',
     defaultSeoDescription: site?.defaultSeoDescription ?? '',
+    defaultSocialAssetId: site?.defaultSocialAssetId ?? null,
     theme: resolvePresetId(site?.theme),
     slug: site?.slug ?? '',
     themeAccent: resolveAccent(site?.themeAccent),
@@ -168,10 +171,31 @@ export async function updateSiteSettingsForApp(
   const themeMode = resolveMode(payload.themeMode)
 
   const db = createDataAccess(env.DB)
+  const currentSite = await db.sites.getSiteSettings(app.siteId)
+  const defaultSocialAssetId =
+    payload.defaultSocialAssetId === undefined
+      ? currentSite?.defaultSocialAssetId ?? null
+      : payload.defaultSocialAssetId?.trim() || null
+  if (defaultSocialAssetId) {
+    const asset = await db.assets.getAsset(app.siteId, defaultSocialAssetId)
+    if (!asset) return { kind: 'error', code: 'invalid_social_image' }
+    if (!asset.altText) return { kind: 'error', code: 'social_image_alt_required' }
+  }
+
   await db.sites.updateSiteSettings({
     timestamp,
     siteId: app.siteId,
-    site: { name, description, defaultSeoTitle, defaultSeoDescription, theme, themeAccent, themeFont, themeMode },
+    site: {
+      name,
+      description,
+      defaultSeoTitle,
+      defaultSeoDescription,
+      defaultSocialAssetId,
+      theme,
+      themeAccent,
+      themeFont,
+      themeMode,
+    },
     activity: {
       id: crypto.randomUUID(),
       actorType: app.actor.type,
@@ -181,6 +205,7 @@ export async function updateSiteSettingsForApp(
       summary: 'Updated site settings',
     },
   })
+  if (currentSite) scheduleSitePurge(app.siteId, currentSite.slug)
 
   return { kind: 'ok', code: 'site_saved' }
 }

@@ -1,9 +1,11 @@
 ---
 import Base from "../../layouts/Base.astro";
 import { PublicBlogIndexView } from "../../components/PublicBlogPages";
+import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicTagByHost, publicHtmlResponseHeaders } from "../../server/public-blog";
 import { siteCacheTag } from "../../server/public-blog-cache";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
+import { publicOrigin } from "../../server/public-url";
 
 const env = publicRuntimeEnv(Astro);
 const tag = Astro.params.tag ?? "";
@@ -15,7 +17,18 @@ Astro.cache.set({ maxAge: 300, swr: 86400, tags: [siteCacheTag(blog.site.id)] })
 for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, [siteCacheTag(blog.site.id)]))) {
   Astro.response.headers.set(key, value);
 }
+const title = `Posts tagged ${tag} - ${blog.site.name}`;
+const description = blog.site.default_seo_description || blog.site.description || undefined;
+const origin = publicOrigin(Astro.url);
+const canonical = new URL(Astro.url.pathname, origin).href;
+const socialImage = resolveSocialImage(origin, null, blog.site);
 ---
-<Base title={`Posts tagged ${tag} - ${blog.site.name}`} robots={!blog.indexable ? "noindex,nofollow" : undefined}>
+<Base
+  title={title}
+  description={description}
+  canonical={canonical}
+  socialImage={socialImage}
+  robots={!blog.indexable ? "noindex,nofollow" : undefined}
+>
   <PublicBlogIndexView data={blog} />
 </Base>

@@ -31,6 +31,7 @@ import {
 import type { Actor } from "@vc/core";
 import { enforceApiBudget } from "./usage";
 import { getSiteOp, getPostOp, type OperationContext } from "./operations";
+import { assertPostImagesPublishable } from "./publishing-images";
 
 // ---------------------------------------------------------------------------
 // Actors
@@ -154,6 +155,45 @@ describe("c. quota enforcement", () => {
         kind: "read",
       }),
     ).rejects.toBeInstanceOf(RateLimitError);
+  });
+});
+
+describe("d. publication image validation", () => {
+  it("rejects empty inline image alt text", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      `INSERT INTO posts (
+        id, site_id, title, slug, content_markdown,
+        created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'api_key', 'key-full', 'api_key', 'key-full', ?, ?)`,
+    ).bind("post-image-inline", "site-a", "Inline image", "inline-image", "![](/media-assets/example)", ts, ts).run();
+
+    await expect(assertPostImagesPublishable("site-a", "post-image-inline"))
+      .rejects.toMatchObject({ code: "IMAGE_ALT_REQUIRED" });
+  });
+
+  it("requires stored alt text for a featured image", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      `INSERT INTO assets (
+        id, site_id, r2_key, filename, mime_type, size_bytes,
+        created_by_type, created_by_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'api_key', 'key-full', ?, ?)`,
+    ).bind("asset-cover-alt", "site-a", "site-a/cover.png", "cover.png", "image/png", 128, ts, ts).run();
+    await env.DB.prepare(
+      `INSERT INTO posts (
+        id, site_id, title, slug, content_markdown, cover_asset_id,
+        created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'api_key', 'key-full', 'api_key', 'key-full', ?, ?)`,
+    ).bind("post-image-cover", "site-a", "Featured image", "featured-image", "# Article", "asset-cover-alt", ts, ts).run();
+
+    await expect(assertPostImagesPublishable("site-a", "post-image-cover"))
+      .rejects.toMatchObject({ code: "IMAGE_ALT_REQUIRED" });
+
+    await env.DB.prepare("UPDATE assets SET alt_text = ? WHERE id = ?")
+      .bind("A green field under a clear sky", "asset-cover-alt")
+      .run();
+    await expect(assertPostImagesPublishable("site-a", "post-image-cover")).resolves.toBeUndefined();
   });
 });
 

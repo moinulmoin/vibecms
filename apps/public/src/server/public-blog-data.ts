@@ -15,6 +15,11 @@ export type SiteRow = {
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
+  default_social_asset_id: string | null;
+  default_social_asset_mime_type: string | null;
+  default_social_asset_width: number | null;
+  default_social_asset_height: number | null;
+  default_social_asset_alt_text: string | null;
   billing_status: string | null;
   current_period_end: number | null;
   published_count: number | null;
@@ -32,6 +37,10 @@ export type PostRow = {
   seo_title: string | null;
   seo_description: string | null;
   canonical_url: string | null;
+  cover_asset_mime_type: string | null;
+  cover_asset_width: number | null;
+  cover_asset_height: number | null;
+  cover_asset_alt_text: string | null;
   tags_json: string;
   presentation_json: string | null;
 };
@@ -51,6 +60,11 @@ function toSiteRow(row: PublicSiteRow): SiteRow {
     description: row.description,
     default_seo_title: row.defaultSeoTitle,
     default_seo_description: row.defaultSeoDescription,
+    default_social_asset_id: row.defaultSocialAssetId,
+    default_social_asset_mime_type: row.defaultSocialAssetMimeType,
+    default_social_asset_width: row.defaultSocialAssetWidth,
+    default_social_asset_height: row.defaultSocialAssetHeight,
+    default_social_asset_alt_text: row.defaultSocialAssetAltText,
     billing_status: row.billingStatus,
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,
@@ -69,6 +83,10 @@ function toPostRow(row: PublicPostRow): PostRow {
     updated_at: row.updatedAt,
     seo_title: row.seoTitle,
     seo_description: row.seoDescription,
+    cover_asset_mime_type: row.coverAssetMimeType,
+    cover_asset_width: row.coverAssetWidth,
+    cover_asset_height: row.coverAssetHeight,
+    cover_asset_alt_text: row.coverAssetAltText,
     canonical_url: row.canonicalUrl,
     tags_json: row.tagsJson,
     presentation_json: null,

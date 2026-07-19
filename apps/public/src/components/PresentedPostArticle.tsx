@@ -40,6 +40,9 @@ export interface PresentedPostArticleProps {
   excerpt?: string;
   byline?: string;
   coverAssetSrc?: string;
+  coverAssetAlt?: string;
+  coverAssetWidth?: number;
+  coverAssetHeight?: number;
   dateText?: string;
   updatedDateText?: string;
   readingMinutes?: number;
@@ -56,6 +59,9 @@ export function PresentedPostArticle({
   excerpt,
   byline,
   coverAssetSrc,
+  coverAssetAlt,
+  coverAssetWidth,
+  coverAssetHeight,
   dateText,
   updatedDateText,
   readingMinutes,
@@ -116,9 +122,9 @@ export function PresentedPostArticle({
         <img
           className={isFeature ? styles.featureCover : styles.heroImage}
           src={coverAssetSrc}
-          alt={title ? `Cover for ${title}` : "Cover image"}
-          width={860}
-          height={520}
+          alt={coverAssetAlt ?? (title ? `Cover for ${title}` : "Cover image")}
+          width={coverAssetWidth ?? 860}
+          height={coverAssetHeight ?? 520}
           loading={isFeature ? "eager" : "lazy"}
         />
       ) : null}

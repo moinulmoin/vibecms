@@ -254,6 +254,7 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         description: "Settings description",
         defaultSeoTitle: "Settings SEO Title",
         defaultSeoDescription: "Settings SEO Description",
+        defaultSocialAssetId: null,
         theme: "editorial",
         themeAccent: null,
         themeFont: null,

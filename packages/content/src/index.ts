@@ -1,5 +1,6 @@
 export {
   RENDERER_VERSION,
+  MISSING_IMAGE_ALT_WARNING,
   renderRichContent,
   renderRichContentToHtml,
   renderRichContentResultToHtml,

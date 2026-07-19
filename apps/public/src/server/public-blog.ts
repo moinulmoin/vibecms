@@ -11,6 +11,7 @@ import {
 } from "./public-blog-data";
 import type { PublicRuntimeEnv } from "../env";
 import { articleCacheTags, publicCacheControl, siteCacheTag } from "./public-blog-cache";
+import { publicOrigin } from "./public-url";
 
 export { isMarketingHost } from "./public-blog-data";
 
@@ -102,7 +103,7 @@ async function publicPostMarkdownResponse(
 ) {
   const post = await getPublishedPost(db, site.id, slug);
   if (!post) return notFound();
-  const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, request.url).href;
+  const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, publicOrigin(request.url)).href;
   return new Response(buildPostMarkdown(post, canonicalUrl), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
@@ -162,7 +163,7 @@ export async function loadPublicPostByHost(
   if (!site) return null;
   const post = await getPublishedPost(db, site.id, postSlug);
   if (!post) return null;
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request.url);
   return {
     site,
     post,

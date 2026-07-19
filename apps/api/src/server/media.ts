@@ -4,7 +4,7 @@ import { createDataAccess, createD1AssetRepository } from '@vc/db'
 import { allowedImageMimeTypes } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
-import { validateDeclaredImageMime } from '@/server/media-bytes'
+import { readImageDimensions, validateDeclaredImageMime } from '@/server/media-bytes'
 import { MediaQuotaError, releaseMediaReservation, reserveMediaBytes } from '@/server/media-quota'
 
 type UploadErrorCode =
@@ -43,6 +43,8 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   if (!validateDeclaredImageMime(file.type, bytes)) throw new UploadError('upload_type')
+  const imageDimensions = readImageDimensions(file.type, bytes)
+  if (!imageDimensions) throw new UploadError('upload_type')
 
   let reserved = false
   try {
@@ -65,6 +67,8 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
         filename,
         mimeType: file.type,
         sizeBytes: file.size,
+        width: imageDimensions.width,
+        height: imageDimensions.height,
         altText,
       })
     } catch (error) {
@@ -109,6 +113,7 @@ export async function updateAssetAltForApp(
     await updateAssetAltText(repository(), app.actor, app.siteId, assetId, altText)
     return { kind: 'ok', code: 'media_updated' }
   } catch (error) {
+    if (error instanceof ConflictError) return { kind: 'error', code: 'alt_required_in_use' }
     if (error instanceof NotFoundError) return { kind: 'error', code: 'not_found' }
     return { kind: 'error', code: 'unknown' }
   }

@@ -32,6 +32,7 @@ export interface SiteSettings {
   description: string | null;
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
+  defaultSocialAssetId: string | null;
   theme: string | null;
   slug: string;
   // Theme customizer (Layer 2) — nullable→resolver-default on read.
@@ -84,6 +85,7 @@ export interface UpdateSiteSettingsInput {
     description: string | null;
     defaultSeoTitle: string;
     defaultSeoDescription: string | null;
+    defaultSocialAssetId: string | null;
     theme: string;
     // Theme customizer (Layer 2) — null accent/font = use resolver default.
     themeAccent: string | null;
@@ -180,6 +182,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           description: sites.description,
           defaultSeoTitle: sites.defaultSeoTitle,
           defaultSeoDescription: sites.defaultSeoDescription,
+          defaultSocialAssetId: sites.defaultSocialAssetId,
           theme: sites.theme,
           slug: sites.slug,
           themeAccent: sites.themeAccent,
@@ -311,6 +314,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           description: input.site.description,
           defaultSeoTitle: input.site.defaultSeoTitle,
           defaultSeoDescription: input.site.defaultSeoDescription,
+          defaultSocialAssetId: input.site.defaultSocialAssetId,
           theme: input.site.theme,
           themeAccent: input.site.themeAccent,
           themeFont: input.site.themeFont,

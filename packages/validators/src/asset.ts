@@ -13,5 +13,7 @@ export const createAssetInput = z.object({
   filename: z.string().min(1).max(180),
   mimeType: z.enum(allowedImageMimeTypes),
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
   altText: z.string().trim().max(180).optional(),
 }).strict();

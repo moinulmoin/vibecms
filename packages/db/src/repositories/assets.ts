@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { ActivityInput, Actor, Asset, AssetRepository } from "@vc/core";
-import { assets, posts, type AssetRow } from "../schema";
+import { assets, posts, sites, type AssetRow } from "../schema";
 import { createDbClient } from "../client";
 import { createActivityRepository } from "./activity";
 
@@ -109,6 +109,15 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
         .select({ id: posts.id })
         .from(posts)
         .where(and(eq(posts.siteId, siteId), eq(posts.coverAssetId, assetId)))
+        .limit(1);
+      return rows.length > 0;
+    },
+
+    async isAssetReferencedAsSiteSocialImage(siteId: string, assetId: string) {
+      const rows = await client
+        .select({ id: sites.id })
+        .from(sites)
+        .where(and(eq(sites.id, siteId), eq(sites.defaultSocialAssetId, assetId)))
         .limit(1);
       return rows.length > 0;
     },

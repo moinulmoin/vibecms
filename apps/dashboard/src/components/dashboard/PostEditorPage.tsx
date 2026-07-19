@@ -1,7 +1,7 @@
 'use client'
 
 import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
-import { THEME_PRESETS, resolvePresetId } from '@vc/config'
+import { MEDIA, THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
@@ -11,6 +11,7 @@ import {
   getPostVersionFn,
   listPostVersionsFn,
   loadPostEditorPage,
+  loadMediaPage,
   publishPostMutation,
   restorePostVersionFn,
   updatePostMutation,
@@ -21,9 +22,9 @@ import { Skeleton } from "@vc/ui"
 import { Switch } from '~/components/ui/switch'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon } from '@radix-ui/react-icons'
+import { CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
 import {
   Sheet,
   SheetContent,
@@ -42,6 +43,7 @@ import {
 } from '~/components/ui/dialog'
 import { Separator } from "@vc/ui"
 import { diffLines, type DiffLine } from '~/lib/diff'
+import { parseMutationResultJson } from '~/lib/mutation-result'
 
 function tagsFromForm(form: FormData) {
   const raw = form.get('tags')
@@ -182,6 +184,11 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
+  const [selectedCoverAssetId, setSelectedCoverAssetId] = useState('')
+  const [coverUploadPending, setCoverUploadPending] = useState(false)
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
+  const coverFileInputRef = useRef<HTMLInputElement>(null)
+  const coverAltInputRef = useRef<HTMLInputElement>(null)
   // Track the editor form so Publish/Archive can persist unsaved edits first
   // (they navigate programmatically and would otherwise discard them).
   const formRef = useRef<HTMLFormElement>(null)
@@ -200,6 +207,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setPost(result.post)
         setAssets(result.assets)
         setMissing(result.missing)
+        setSelectedCoverAssetId(result.post?.coverAssetId ?? '')
         setPresetId(result.presetId)
         setCurrentVersionNumber(result.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
@@ -224,7 +232,51 @@ function PostEditorShell({ postId }: { postId?: string }) {
   useEffect(() => {
     if (!loading && !missing) captureBaseline()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [loading, missing, formKey, post])
+  async function handleCoverUpload() {
+    const file = coverFileInputRef.current?.files?.[0]
+    const altText = coverAltInputRef.current?.value.trim() ?? ''
+    if (!file || !altText) {
+      setCoverUploadError('Choose an image and describe it before uploading.')
+      return
+    }
+
+    const form = new FormData()
+    form.set('file', file)
+    form.set('altText', altText)
+    setCoverUploadPending(true)
+    setCoverUploadError(null)
+    try {
+      const priorIds = new Set(assets.map((asset) => asset.id))
+      const response = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+      })
+      if (response.status === 401) {
+        await navigate({ to: '/login' })
+        return
+      }
+      const result = parseMutationResultJson(await response.json())
+      if (result.kind !== 'ok') {
+        setCoverUploadError(result.code === 'upload_too_large'
+          ? `Images must be ${MEDIA.maxImageLabel} or smaller.`
+          : 'The image could not be uploaded. Check the file type and try again.')
+        return
+      }
+      const loaded = await loadMediaPage()
+      setAssets(loaded.assets)
+      const uploaded = loaded.assets.find((asset) => !priorIds.has(asset.id)) ?? loaded.assets[0]
+      if (uploaded) setSelectedCoverAssetId(uploaded.id)
+      if (coverFileInputRef.current) coverFileInputRef.current.value = ''
+      if (coverAltInputRef.current) coverAltInputRef.current.value = ''
+    } catch {
+      setCoverUploadError('The image could not be uploaded. Try again.')
+    } finally {
+      setCoverUploadPending(false)
+    }
+  }
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -396,6 +448,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
 
   const statusKicker = post ? post.status : 'New post'
   const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
+  const selectedCoverAsset = assets.find((asset) => asset.id === selectedCoverAssetId) ?? null
 
   return (
     <>
@@ -513,23 +566,86 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   </FieldLabel>
                   <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
                 </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-cover"
+            <Field>
+              <FieldLabel htmlFor="post-cover">Featured image</FieldLabel>
+              <Select
+                id="post-cover"
+                name="coverAssetId"
+                value={selectedCoverAssetId}
+                onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
+              >
+                <option value="">No featured image</option>
+                {assets.map((asset) => (
+                  <option key={asset.id} value={asset.id}>{asset.filename}</option>
+                ))}
+              </Select>
+              <FieldDescription>
+                Appears above the article and becomes its Open Graph and Twitter image.
+              </FieldDescription>
+              {selectedCoverAsset ? (
+                <div className="flex min-w-0 items-center gap-3 pt-1">
+                  <img
+                    src={`/media-assets/${selectedCoverAsset.id}`}
+                    alt=""
+                    className="h-20 w-32 shrink-0 rounded-md object-cover"
+                  />
+                  <div className="min-w-0 text-sm">
+                    <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
+                    <p className="text-muted-foreground">
+                      {selectedCoverAsset.width && selectedCoverAsset.height
+                        ? `${selectedCoverAsset.width} × ${selectedCoverAsset.height}`
+                        : 'Dimensions unavailable'}
+                    </p>
+                    {selectedCoverAsset.altText ? (
+                      <p className="line-clamp-2 text-muted-foreground">{selectedCoverAsset.altText}</p>
+                    ) : (
+                      <p className="text-destructive">
+                        Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link> before publishing.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+              <details className="rounded-lg bg-muted/50 p-3">
+                <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
+                  Upload a new image
+                </summary>
+                <div className="grid gap-3 pt-3">
+                  <Field>
+                    <FieldLabel htmlFor="post-cover-upload">Image</FieldLabel>
+                    <Input
+                      ref={coverFileInputRef}
+                      id="post-cover-upload"
+                      type="file"
+                      accept={MEDIA.mimeTypes.join(',')}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="post-cover-upload-alt">Alt text</FieldLabel>
+                    <Input
+                      ref={coverAltInputRef}
+                      id="post-cover-upload-alt"
+                      maxLength={180}
+                      placeholder="Describe what the image shows"
+                    />
+                  </Field>
+                  {coverUploadError ? (
+                    <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-fit"
+                    disabled={coverUploadPending}
+                    onClick={() => void handleCoverUpload()}
                   >
-                    Cover Image
-                  </FieldLabel>
-                  <Select id="post-cover" name="coverAssetId" defaultValue={post?.coverAssetId ?? ''}>
-                    <option value="">No cover image</option>
-                    {assets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
-                        {asset.filename}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <details className="group rounded-lg border border-[color:var(--hairline)] px-3 py-2">
+                    <UploadIcon className="size-4" aria-hidden="true" />
+                    {coverUploadPending ? 'Uploading…' : 'Upload and select'}
+                  </Button>
+                </div>
+              </details>
+            </Field>
+                <details className="rounded-xl bg-muted/50 p-3">
                   <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
                     Search & sharing
                   </summary>

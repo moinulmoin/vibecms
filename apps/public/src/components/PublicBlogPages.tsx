@@ -225,6 +225,9 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
           excerpt={post.excerpt ?? undefined}
           byline={site.name}
           coverAssetSrc={coverAssetSrc}
+          coverAssetAlt={post.cover_asset_alt_text ?? undefined}
+          coverAssetWidth={post.cover_asset_width ?? undefined}
+          coverAssetHeight={post.cover_asset_height ?? undefined}
           dateText={dateText}
           updatedDateText={updatedDateText}
           readingMinutes={readingMinutes}

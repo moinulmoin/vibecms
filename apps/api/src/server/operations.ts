@@ -16,6 +16,7 @@ import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
 import { uploadAsset } from "./media";
 import { scheduleArticlePurge } from "./purge-scheduler";
+import { assertPostImagesPublishable } from "./publishing-images";
 import { getSitePublicBaseUrl } from "./site-public-url";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
@@ -203,6 +204,7 @@ export async function publishPostOp(
   ctx: OperationContext,
   input: { postId: string; expectedVersionNumber: number },
 ) {
+  await assertPostImagesPublishable(ctx.siteId, input.postId);
   const published = await publishPost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,

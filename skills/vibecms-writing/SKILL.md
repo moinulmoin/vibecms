@@ -69,6 +69,14 @@ Editorial standards:
 - Keep uncertainty visible rather than smoothing it into false confidence.
 - Do not copy exemplar wording. Exemplars are evidence of rhythm, structure, tone, and editorial choices.
 
+Image standards:
+
+- Upload an image once with `assets.upload`, including concise alt text that describes the useful visual content.
+- Use the returned asset ID as `coverAssetId` for the featured image, or the returned `/media-assets/<id>` URL inside Markdown for an inline image.
+- Never publish empty image syntax such as `![](...)`. If `posts.preview` reports missing alt text, revise the Markdown and preview again.
+- Reuse an existing library asset when it is the right image; do not upload duplicates.
+- Image generation is outside this skill. Only use an image the user supplied or explicitly approved.
+
 ### 4. Hand off for safe saving and preview
 
 Give the full draft to `vibecms-core`. After it is saved, ensure the exact saved Markdown is rendered with `posts.preview`. Review the outline, warnings, and resolved presentation.

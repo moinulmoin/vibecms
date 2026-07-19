@@ -16,6 +16,7 @@ import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '@/server/billing'
 import type { AppUserContext } from '@/server/onboarding'
 import { scheduleArticlePurge } from '@/server/purge-scheduler'
+import { assertPostImagesPublishable } from '@/server/publishing-images'
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
 
@@ -29,6 +30,7 @@ export function postMutationErrorCode(error: unknown): string {
   if (error instanceof ForbiddenError) return 'owner_required'
   if (error instanceof ConflictError) return 'slug_conflict'
   if (error instanceof ValidationError) return 'unknown'
+  if (error instanceof AppError && error.code === 'IMAGE_ALT_REQUIRED') return 'image_alt_required'
   if (error instanceof AppError && error.code === 'INVALID_COVER_ASSET') return 'invalid_cover_asset'
   if (error instanceof AppError && error.code === 'BILLING_REQUIRED') return 'billing_required'
   if (error instanceof AppError && error.code === 'NOT_FOUND') return 'not_found'
@@ -120,6 +122,7 @@ export async function publishPostForApp(
   expectedVersionNumber: number,
 ): Promise<MutationResult> {
   try {
+    await assertPostImagesPublishable(app.siteId, postId)
     const published = await publishPost(repository(), app.actor, {
       siteId: app.siteId,
       postId,

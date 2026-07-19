@@ -19,6 +19,10 @@ export interface SeoPostInput {
   published_at: number | null;
   updated_at: number | null;
   cover_asset_id: string | null;
+  cover_asset_mime_type?: string | null;
+  cover_asset_width?: number | null;
+  cover_asset_height?: number | null;
+  cover_asset_alt_text?: string | null;
   seo_title: string | null;
   seo_description: string | null;
   canonical_url: string | null;
@@ -27,6 +31,11 @@ export interface SeoPostInput {
 /** Minimal site identity consumed by the SEO builders. */
 export interface SeoSiteInput {
   name: string;
+  default_social_asset_id?: string | null;
+  default_social_asset_mime_type?: string | null;
+  default_social_asset_width?: number | null;
+  default_social_asset_height?: number | null;
+  default_social_asset_alt_text?: string | null;
 }
 
 /** Resolve `path` against `origin` and return the absolute href. */
@@ -34,17 +43,52 @@ export function absoluteUrlPath(origin: string, path: string): string {
   return new URL(path, origin).href;
 }
 
+export type ResolvedSocialImage = {
+  url: string;
+  alt: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  source: 'post' | 'site' | 'brand';
+};
+
 /**
- * OG / Twitter share image. Falls back to the brand card when a post has no
- * cover asset. (The JSON-LD builder does NOT share this fallback — see
- * `buildBlogPostingJsonLd`.)
+ * One deterministic image decision shared by Open Graph, Twitter, and
+ * structured data: post featured image → site default → VibeCMS fallback.
  */
-export function resolveOgImageUrl(
+export function resolveSocialImage(
   origin: string,
-  coverAssetId: string | null,
-): string {
-  if (coverAssetId) return `${origin}/media-assets/${coverAssetId}`;
-  return `${origin}/brand/og.png`;
+  post: SeoPostInput | null,
+  site: SeoSiteInput,
+): ResolvedSocialImage {
+  if (post?.cover_asset_id) {
+    return {
+      url: absoluteUrlPath(origin, `/media-assets/${post.cover_asset_id}`),
+      alt: post.cover_asset_alt_text || post.title,
+      mimeType: post.cover_asset_mime_type || 'image/jpeg',
+      width: post.cover_asset_width ?? null,
+      height: post.cover_asset_height ?? null,
+      source: 'post',
+    };
+  }
+  if (site.default_social_asset_id) {
+    return {
+      url: absoluteUrlPath(origin, `/media-assets/${site.default_social_asset_id}`),
+      alt: site.default_social_asset_alt_text || `${site.name} social preview`,
+      mimeType: site.default_social_asset_mime_type || 'image/jpeg',
+      width: site.default_social_asset_width ?? null,
+      height: site.default_social_asset_height ?? null,
+      source: 'site',
+    };
+  }
+  return {
+    url: absoluteUrlPath(origin, '/brand/og.png'),
+    alt: 'VibeCMS',
+    mimeType: 'image/png',
+    width: 1200,
+    height: 630,
+    source: 'brand',
+  };
 }
 
 /** W3C date (`YYYY-MM-DD`); empty string for null/undefined/NaN. */
@@ -100,8 +144,10 @@ export function buildBlogPostingJsonLd(input: {
   site: SeoSiteInput;
   origin: string;
   canonicalUrl: string;
+  socialImage?: ResolvedSocialImage;
 }): Record<string, unknown> {
   const { post, site, origin, canonicalUrl } = input;
+  const socialImage = input.socialImage ?? resolveSocialImage(origin, post, site);
 
   const obj: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -124,10 +170,7 @@ export function buildBlogPostingJsonLd(input: {
   const dateModified = formatIsoDate(post.updated_at);
   if (dateModified) obj.dateModified = dateModified;
 
-  // Image is emitted ONLY with a real cover; no brand-card fallback here.
-  if (post.cover_asset_id) {
-    obj.image = absoluteUrlPath(origin, `/media-assets/${post.cover_asset_id}`);
-  }
+  obj.image = socialImage.url;
 
   return obj;
 }
@@ -156,7 +199,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const effectiveCanonical = post.canonical_url || canonicalUrl;
   const absoluteCanonical = absoluteUrlPath(origin, effectiveCanonical);
-  const ogImage = resolveOgImageUrl(origin, post.cover_asset_id);
+  const socialImage = resolveSocialImage(origin, post, site);
 
   const meta: Array<Record<string, unknown>> = [{ title: seoTitle }];
   if (seoDescription) {
@@ -168,14 +211,21 @@ export function buildPostHeadContent(input: PostHeadInput): {
   }
   meta.push({ property: 'og:type', content: 'article' });
   meta.push({ property: 'og:url', content: absoluteCanonical });
-  meta.push({ property: 'og:image', content: ogImage });
+  meta.push({ property: 'og:image', content: socialImage.url });
+  meta.push({ property: 'og:image:type', content: socialImage.mimeType });
+  if (socialImage.width) meta.push({ property: 'og:image:width', content: String(socialImage.width) });
+  if (socialImage.height) meta.push({ property: 'og:image:height', content: String(socialImage.height) });
+  meta.push({ property: 'og:image:alt', content: socialImage.alt });
   meta.push({ property: 'og:site_name', content: site.name });
   const publishedIso = formatIsoDate(post.published_at);
   if (publishedIso) meta.push({ property: 'article:published_time', content: publishedIso });
   const modifiedIso = formatIsoDate(post.updated_at);
   if (modifiedIso) meta.push({ property: 'article:modified_time', content: modifiedIso });
   meta.push({ name: 'twitter:card', content: 'summary_large_image' });
-  meta.push({ name: 'twitter:image', content: ogImage });
+  meta.push({ name: 'twitter:title', content: seoTitle });
+  if (seoDescription) meta.push({ name: 'twitter:description', content: seoDescription });
+  meta.push({ name: 'twitter:image', content: socialImage.url });
+  meta.push({ name: 'twitter:image:alt', content: socialImage.alt });
   if (!indexable) {
     meta.push({ name: 'robots', content: 'noindex,nofollow' });
   }
@@ -188,7 +238,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
     {
       type: 'application/ld+json',
       children: serializeJsonLd(
-        buildBlogPostingJsonLd({ post, site, origin, canonicalUrl: effectiveCanonical }),
+        buildBlogPostingJsonLd({ post, site, origin, canonicalUrl: effectiveCanonical, socialImage }),
       ),
     },
   ];

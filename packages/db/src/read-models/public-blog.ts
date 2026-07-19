@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import type { Presentation } from "@vc/config";
 import { createDbClient } from "../client";
-import { billingCustomers, domains, posts, sites } from "../schema";
+import { assets, billingCustomers, domains, posts, sites } from "../schema";
 
 // Public site read model: site fields + LEFT-joined billing status/period + correlated published count.
 export interface PublicSiteRow {
@@ -17,6 +17,11 @@ export interface PublicSiteRow {
   description: string | null;
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
+  defaultSocialAssetId: string | null;
+  defaultSocialAssetMimeType: string | null;
+  defaultSocialAssetWidth: number | null;
+  defaultSocialAssetHeight: number | null;
+  defaultSocialAssetAltText: string | null;
   billingStatus: string | null;
   currentPeriodEnd: number | null;
   publishedCount: number;
@@ -30,6 +35,10 @@ export interface PublicPostRow {
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
+  coverAssetMimeType: string | null;
+  coverAssetWidth: number | null;
+  coverAssetHeight: number | null;
+  coverAssetAltText: string | null;
   publishedAt: number | null;
   updatedAt: number;
   seoTitle: string | null;
@@ -57,6 +66,22 @@ const publishedColumns = {
   seoTitle: posts.seoTitle,
   seoDescription: posts.seoDescription,
   canonicalUrl: posts.canonicalUrl,
+  coverAssetMimeType: sql<string | null>`(
+    select ${assets.mimeType} from ${assets}
+    where ${assets.id} = ${posts.coverAssetId} and ${assets.siteId} = ${posts.siteId}
+  )`,
+  coverAssetWidth: sql<number | null>`(
+    select ${assets.width} from ${assets}
+    where ${assets.id} = ${posts.coverAssetId} and ${assets.siteId} = ${posts.siteId}
+  )`.mapWith(Number),
+  coverAssetHeight: sql<number | null>`(
+    select ${assets.height} from ${assets}
+    where ${assets.id} = ${posts.coverAssetId} and ${assets.siteId} = ${posts.siteId}
+  )`.mapWith(Number),
+  coverAssetAltText: sql<string | null>`(
+    select ${assets.altText} from ${assets}
+    where ${assets.id} = ${posts.coverAssetId} and ${assets.siteId} = ${posts.siteId}
+  )`,
   tagsJson: posts.tagsJson,
 };
 
@@ -73,6 +98,23 @@ const siteResolveColumns = {
   description: sites.description,
   defaultSeoTitle: sites.defaultSeoTitle,
   defaultSeoDescription: sites.defaultSeoDescription,
+  defaultSocialAssetId: sites.defaultSocialAssetId,
+  defaultSocialAssetMimeType: sql<string | null>`(
+    select ${assets.mimeType} from ${assets}
+    where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
+  )`,
+  defaultSocialAssetWidth: sql<number | null>`(
+    select ${assets.width} from ${assets}
+    where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
+  )`.mapWith(Number),
+  defaultSocialAssetHeight: sql<number | null>`(
+    select ${assets.height} from ${assets}
+    where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
+  )`.mapWith(Number),
+  defaultSocialAssetAltText: sql<string | null>`(
+    select ${assets.altText} from ${assets}
+    where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
+  )`,
   billingStatus: billingCustomers.status,
   currentPeriodEnd: billingCustomers.currentPeriodEnd,
   publishedCount: sql<number>`(select count(*) from ${posts} where ${posts.siteId} = ${sites.id} and ${posts.status} = 'published')`.mapWith(Number),
