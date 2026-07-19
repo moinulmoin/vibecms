@@ -1,5 +1,7 @@
 import type {
   AddCustomDomainResult,
+  AnalyticsPageData,
+  AnalyticsRange,
   ActivityPageLoad,
   ApiKeyMutationResult,
   AppRouterContext,
@@ -21,6 +23,7 @@ import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
 import type { z } from 'zod'
 import {
   appRouterContextSchema,
+  analyticsPageDataSchema,
   dashboardDataSchema,
   mutationResultSchema,
   onboardingConnectStatusSchema,
@@ -129,6 +132,14 @@ export function loadAppRouterContext(signal?: AbortSignal) {
 
 export function loadDashboardOverview(signal?: AbortSignal) {
   return dashboardFetch('/api/dashboard/overview', { method: 'GET', signal }, dashboardDataSchema)
+}
+
+export function loadAnalyticsPage(range: AnalyticsRange, signal?: AbortSignal) {
+  return dashboardFetch<AnalyticsPageData>(
+    `/api/dashboard/analytics?range=${range}`,
+    { method: 'GET', signal },
+    analyticsPageDataSchema,
+  )
 }
 
 export function loadSetupPage(signal?: AbortSignal) {

@@ -26,6 +26,9 @@ requireConfig(productionApiConfig, '"app.vibecms.dev/*"', "the exact API app-hos
 requireConfig(productionApiConfig, '"CUSTOM_HOSTNAME_CNAME_TARGET": "cname.vibecms.dev"', "the custom-hostname CNAME target");
 requireConfig(productionPublicConfig, '"*.vibecms.dev/*"', "the public wildcard route");
 requireConfig(productionPublicConfig, '"service": "vibecms-api-prod"', "the public-to-API service binding");
+requireConfig(productionApiConfig, '"ANALYTICS_DATASET": "vibecms_page_views_prod"', "the production analytics query dataset");
+requireConfig(productionApiConfig, '"CLOUDFLARE_ZONE_ID": "ba566759d1d48dfe268050968fe631af"', "the production zone ID");
+requireConfig(productionPublicConfig, '"dataset": "vibecms_page_views_prod"', "the production Analytics Engine binding");
 
 for (const [name, source] of [
   ["API", productionApiConfig],
@@ -52,8 +55,8 @@ const requiredSecrets = [
   "TOKEN_PEPPER",
   "POLAR_ACCESS_TOKEN",
   "POLAR_WEBHOOK_SECRET",
-  "CLOUDFLARE_ZONE_ID",
   "CACHE_PURGE_API_TOKEN",
+  "ANALYTICS_API_TOKEN",
   "CUSTOM_HOSTNAME_API_TOKEN",
 ];
 const missingSecrets = requiredSecrets.filter((name) => !secretNames.has(name));

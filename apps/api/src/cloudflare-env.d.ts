@@ -27,5 +27,8 @@ declare namespace Cloudflare {
     CACHE_PURGE_API_TOKEN?: string;
     CUSTOM_HOSTNAME_API_TOKEN?: string;
     CUSTOM_HOSTNAME_CNAME_TARGET?: string;
+    ANALYTICS_ACCOUNT_ID?: string;
+    ANALYTICS_DATASET?: string;
+    ANALYTICS_API_TOKEN?: string;
   }
 }

@@ -18,6 +18,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settin
 import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
 import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
 import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
+import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as DashboardActivityRouteImport } from './routes/dashboard/activity'
 import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
 import { Route as DashboardSettingsTokenCreatedRouteImport } from './routes/dashboard/settings/token-created'
@@ -69,6 +70,11 @@ const DashboardBillingRoute = DashboardBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardActivityRoute = DashboardActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/activity': typeof DashboardActivityRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/activity'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard/activity'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/activity'
+    | '/dashboard/analytics'
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
@@ -267,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardBillingRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/analytics': {
+      id: '/dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/activity': {
       id: '/dashboard/activity'
       path: '/activity'
@@ -318,6 +337,7 @@ const DashboardSettingsRouteWithChildren =
 
 interface DashboardRouteRouteChildren {
   DashboardActivityRoute: typeof DashboardActivityRoute
+  DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBillingRoute: typeof DashboardBillingRoute
   DashboardConnectRoute: typeof DashboardConnectRoute
   DashboardMediaRoute: typeof DashboardMediaRoute
@@ -330,6 +350,7 @@ interface DashboardRouteRouteChildren {
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardActivityRoute: DashboardActivityRoute,
+  DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBillingRoute: DashboardBillingRoute,
   DashboardConnectRoute: DashboardConnectRoute,
   DashboardMediaRoute: DashboardMediaRoute,

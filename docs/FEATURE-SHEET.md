@@ -89,6 +89,11 @@ Three things make it worth paying for:
 - Public responses carry `s-maxage=300` plus stale-while-revalidate.
 - Per-article cache tags with automatic purge on publish/update/archive (Cloudflare zone purge, fail-open).
 
+### Reader and AI discovery analytics
+- Paid dashboard analytics with 7/30/90-day page-view trends, previous-period comparison, top posts, and referring domains; Workers Analytics Engine retains 90 days.
+- AI referrals are separated from general referrers. Named AI crawler activity covers OpenAI, Anthropic, Perplexity, Meta, Google, Common Crawl, and other operators using Cloudflare's official crawler catalog.
+- Crawler reporting uses Cloudflare request analytics so CDN cache hits remain visible; the source permits a 7-day lookback and identifies agents by published user-agent token, which can be spoofed.
+
 ### Custom domains
 - Bring-your-own domain per blog (owner + paid): add / list / remove in Settings.
 - CNAME instruction plus live status badges (pending/active/failed) and verification errors.
@@ -104,19 +109,20 @@ Three things make it worth paying for:
 - `posts.preview` + `posts.format_guide` give agents theme-aware guidance before they write.
 
 ### Dashboard
-- Overview (blog status, published/draft counts, media used, active tokens, API usage, recent posts/activity), Posts, Media, Activity, Settings, Connect, Billing, Setup.
+- Overview (blog status, published/draft counts, media used, active tokens, API usage, recent posts/activity), Analytics, Posts, Media, Activity, Settings, Connect, Billing, Setup.
 - Connect-an-agent flow: one-click token, copy-paste MCP snippets for Claude Code, Codex CLI, Cursor, generic HTTP-MCP, and a stdio bridge, a live polling self-test, recovery states, and a starter prompt.
 - Consistent inline success/error alerts via the `?ok=`/`?error=` pattern.
 
 ### Billing and plans
 - Polar checkout (monthly + yearly) plus customer portal (owner-only); webhook flips subscription status.
 - Free tier: drafting + agent tokens + 1 published (noindex) post.
-- Paid unlocks: unlimited indexed publishing, media uploads, search indexing, custom domains.
+- Paid unlocks: unlimited indexed publishing, media uploads, search indexing, custom domains, and reader + AI discovery analytics.
 
 ### Quotas, security, and privacy
 - API/MCP rate limits (per-minute/day/month, per-token), tiered free vs paid, with `X-RateLimit-*` headers.
 - CSRF same-origin protection on dashboard mutations and media endpoints.
 - Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA (privacy-preserving).
+- Reader analytics is first-party and cookie-free: no IP address, full referrer URL, user agent, persistent visitor ID, or visitor profile is stored. Only the post/site IDs and external referrer hostname are written; DNT and Global Privacy Control opt out.
 
 ### Data ownership and self-hosting
 - Owner-only full JSON export of every post (drafts/published/archived) at `/api/export.json`, no lock-in.
@@ -128,7 +134,7 @@ Three things make it worth paying for:
 
 **vibecms Cloud: $19/month or $190/year** (annual is about 2 months free). Decided and wired across the whole product.
 
-Plan includes: 1 hosted blog, unlimited posts, scoped MCP access, activity history, post version history, 5 GB media storage.
+Plan includes: 1 hosted blog, unlimited posts, scoped MCP access, activity history, post version history, reader + AI discovery analytics, and 5 GB media storage.
 
 ---
 

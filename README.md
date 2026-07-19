@@ -205,10 +205,10 @@ pnpm deploy:dev
 Recommended sandbox product setup:
 
 - Recurring subscription product.
-- Price: $9/month, or $99/year if you create a yearly product/price in Polar.
+- Price: $19/month, or $190/year if you create a yearly product/price in Polar.
 - Use the monthly product for `POLAR_MONTHLY_PRODUCT_ID` or the legacy `POLAR_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`; otherwise yearly checkout falls back to the monthly product.
 - In hosted mode, new workspaces stay behind the Polar checkout gate until checkout/webhooks mark billing active. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
-- Launch entitlement: 1 hosted blog, unlimited posts, 5GB media, scoped agent access, activity history, and post version history.
+- Launch entitlement: 1 hosted blog, unlimited posts, 5 GB media, scoped agent access, activity and version history, and reader + AI discovery analytics.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 
 Recommended minimum Polar organization access token scopes:

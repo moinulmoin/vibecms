@@ -99,6 +99,39 @@ export const dashboardDataSchema = z.object({
     .nullable(),
 })
 
+const analyticsBaseSchema = z.object({ retentionDays: z.number().int().positive() })
+
+export const analyticsPageDataSchema = z.discriminatedUnion('status', [
+  analyticsBaseSchema.extend({ status: z.literal('locked') }),
+  analyticsBaseSchema.extend({
+    status: z.literal('unavailable'),
+    reason: z.enum(['self_hosted', 'not_configured', 'query_failed']),
+  }),
+  analyticsBaseSchema.extend({
+    status: z.literal('available'),
+    rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+    views: z.number(),
+    previousViews: z.number(),
+    trendPercent: z.number().nullable(),
+    aiReferralViews: z.number(),
+    series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })),
+    topPosts: z.array(
+      z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() }),
+    ),
+    referrers: z.array(
+      z.object({ domain: z.string(), views: z.number(), ai: z.boolean(), operator: z.string().nullable() }),
+    ),
+    aiCrawlers: z.object({
+      status: z.enum(['available', 'unavailable']),
+      lookbackDays: z.number().int().positive(),
+      requests: z.number(),
+      agents: z.array(
+        z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() }),
+      ),
+    }),
+  }),
+])
+
 export const activationKeyInfoSchema = z.object({
   id: z.string(),
   name: z.string(),

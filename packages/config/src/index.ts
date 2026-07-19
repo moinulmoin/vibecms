@@ -50,6 +50,7 @@ export const ENTITLEMENTS = [
   "Unlimited posts",
   "Scoped MCP access",
   "Activity & version history",
+  "Reader & AI discovery analytics",
 ] as const;
 
 export type FormStatusVariant = "success" | "error";

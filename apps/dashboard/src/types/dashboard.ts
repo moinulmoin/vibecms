@@ -62,6 +62,30 @@ export type DashboardData = {
   }
 }
 
+export type AnalyticsRange = 7 | 30 | 90
+
+export type AnalyticsPageData =
+  | { status: 'locked'; retentionDays: number }
+  | { status: 'unavailable'; retentionDays: number; reason: 'self_hosted' | 'not_configured' | 'query_failed' }
+  | {
+      status: 'available'
+      rangeDays: AnalyticsRange
+      retentionDays: number
+      views: number
+      previousViews: number
+      trendPercent: number | null
+      aiReferralViews: number
+      series: Array<{ date: string; views: number; aiCrawlerRequests: number }>
+      topPosts: Array<{ postId: string; slug: string; title: string; views: number }>
+      referrers: Array<{ domain: string; views: number; ai: boolean; operator: string | null }>
+      aiCrawlers: {
+        status: 'available' | 'unavailable'
+        lookbackDays: number
+        requests: number
+        agents: Array<{ agent: string; operator: string; category: string; requests: number }>
+      }
+    }
+
 export type BillingSnapshot = {
   status: BillingStatus
   currentPeriodEnd: number | null

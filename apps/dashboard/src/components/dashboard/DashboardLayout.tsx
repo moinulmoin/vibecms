@@ -10,9 +10,10 @@ import {
   ImageIcon,
   Link2Icon,
 } from '@radix-ui/react-icons'
+import { ChartNoAxesCombined } from 'lucide-react'
 import { Alert, Button, cn } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useTransition, type ReactNode } from 'react'
+import { useTransition, type ComponentType, type ReactNode } from 'react'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   Sidebar,
@@ -42,10 +43,11 @@ import { Separator } from "@vc/ui"
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
 
-type NavItem = { label: string; to: string; Icon: typeof DashboardIcon }
+type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?: boolean }> }
 
 const navItems: NavItem[] = [
   { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
+  { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
   { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
   { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
   { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
@@ -220,7 +222,7 @@ export function AppShell({
                         className="[&[data-active=true]_svg]:text-primary"
                       >
                         <Link to={to}>
-                          <Icon aria-hidden="true" />
+                          <Icon aria-hidden />
                           <span>{label}</span>
                         </Link>
                       </SidebarMenuButton>

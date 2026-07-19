@@ -59,40 +59,36 @@ pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env producti
 pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
 ```
 
-Cache purge secrets (required to enable zone-level CDN cache invalidation on publish/archive):
+Cache purge secret (required to enable zone-level CDN cache invalidation on publish/archive).
+The public `vibecms.dev` zone ID is committed in `apps/api/wrangler.jsonc`.
 
 ```bash
-# Cloudflare zone ID - find in the vibecms.dev zone overview in the CF dashboard
-pnpm --filter @vc/api exec wrangler secret put CLOUDFLARE_ZONE_ID --env production
-
 # CF API token with Cache Purge permission scoped to vibecms.dev
 # Create at: dash.cloudflare.com/profile/api-tokens -> "Create Token" -> "Cache Purge" template
 pnpm --filter @vc/api exec wrangler secret put CACHE_PURGE_API_TOKEN --env production
 ```
 
+Analytics query secret (required for the paid Analytics dashboard):
+
+```bash
+# Create a custom read-only token restricted to this account and the vibecms.dev
+# zone with Account Analytics: Read and Zone Analytics: Read. Do not use the
+# broader "Read analytics and logs" template.
+pnpm --filter @vc/api exec wrangler secret put ANALYTICS_API_TOKEN --env production
+```
+
 ---
 
-## Step 4 - Create Polar prod products [GATED ON PRICING DECISION]
+## Step 4 - Verify Polar prod products
 
-> **This step is blocked until the $19/mo and $190/yr prices are confirmed.**
-> Do not proceed past this step until the pricing decision is made.
-> Deploy in Step 6 can still run without billing configured; the Upgrade flow will
-> return `polar_unconfigured` until these are set.
-
-Once prices are decided:
-
-1. Log into polar.sh -> your organization -> Products -> Create Product.
-2. Create a monthly product at $19/mo. Copy the product id.
-3. Create a yearly product at $190/yr. Copy the product id.
-4. Update the product IDs in `apps/api/wrangler.jsonc` under `env.production.vars`, commit, and redeploy:
-   ```jsonc
-   "POLAR_PRODUCT_ID": "<monthly product id>",
-   "POLAR_YEARLY_PRODUCT_ID": "<yearly product id>"
-   ```
-5. In the Polar dashboard, add the webhook endpoint:
+1. Log into polar.sh -> your organization -> Products.
+2. Confirm the committed monthly and yearly products remain active at $19/month and $190/year.
+3. Confirm their IDs match `POLAR_PRODUCT_ID` and `POLAR_YEARLY_PRODUCT_ID` under
+   `apps/api/wrangler.jsonc` -> `env.production.vars`.
+4. Confirm the webhook endpoint is active:
    - URL: `https://app.vibecms.dev/api/polar/webhook`
    - Events: `subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.revoked`
-   - Copy the signing secret and set it: (already done in Step 3 if you ran it then, otherwise run now)
+   - Copy the signing secret and set it if Step 3 did not:
      ```bash
      pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
      ```
@@ -226,10 +222,15 @@ back to `caches.default.delete()` against the article's host URL.
    previously cached page is no longer served within ~30 seconds via cache purge).
 7. Test the Upgrade flow (billing button -> Polar checkout) once the Polar product is
    configured (Step 4).
+8. Open a published post in a normal browser, wait for Analytics Engine ingestion, then confirm
+   `/dashboard/analytics` reports the page view and loads its AI crawler panel without a query error.
+9. Before inviting readers, publish a privacy disclosure covering the exact reader-analytics
+   contract: post/site IDs and external referrer hostname, 90-day retention, no cookies/IP/user
+   agents/visitor identifiers, and DNT + Global Privacy Control opt-out.
 
 ---
 
-## Step 11 - Enable user custom domains (Cloudflare for SaaS) [post-launch]
+## Step 11 - Enable user custom domains (Cloudflare for SaaS)
 
 Lets a paid blog serve on its own domain (e.g. `blog.acme.com`). All app code ships behind
 this config: until the secrets below are set, "Add domain" stores a `pending` row and makes
@@ -270,8 +271,9 @@ Expected once SSL is active: `HTTP/2 200`.
 | `GOOGLE_CLIENT_SECRET` | No (OAuth optional) | Google sign-in |
 | `POLAR_ACCESS_TOKEN` | Yes (billing) | Polar checkout + subscription API |
 | `POLAR_WEBHOOK_SECRET` | Yes (billing) | Validates incoming Polar webhook events |
-| `CLOUDFLARE_ZONE_ID` | Yes (caching) | Zone for cache-tag purge API |
+| `CLOUDFLARE_ZONE_ID` (var) | Yes (caching + analytics) | Committed `vibecms.dev` zone for cache purge and crawler queries |
 | `CACHE_PURGE_API_TOKEN` | Yes (caching) | CF API token with Cache Purge permission |
+| `ANALYTICS_API_TOKEN` | Yes (analytics) | Read-only Account Analytics + Zone Analytics queries |
 | `CUSTOM_HOSTNAME_API_TOKEN` | Yes | CF token (SSL and Certificates: Edit) to provision custom hostnames |
 | `CUSTOM_HOSTNAME_CNAME_TARGET` (var) | Yes (custom domains) | Committed CNAME target for customer DNS |
 

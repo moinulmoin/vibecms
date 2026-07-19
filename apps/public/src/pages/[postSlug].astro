@@ -51,4 +51,5 @@ const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in
     {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
   </Fragment>
   <PublicBlogPostView data={blog} />
+  <script is:inline src="/scripts/page-view.js" data-post-slug={blog.post.slug} defer></script>
 </Base>

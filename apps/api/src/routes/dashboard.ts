@@ -13,6 +13,7 @@ import {
   getPostVersionForDashboard,
   listPostVersionsForDashboard,
   loadActivityPage,
+  loadAnalyticsPage,
   loadBillingPage,
   loadConnectPage,
   loadDashboardOverview,
@@ -166,6 +167,14 @@ dashboardRoutes.get('/activity', async (c) => {
   if ('error' in auth) return auth.error
   const offset = Number(c.req.query('offset') ?? '0')
   return c.json(await loadActivityPage(auth.app, Number.isFinite(offset) ? offset : 0))
+})
+
+dashboardRoutes.get('/analytics', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const requestedRange = Number(c.req.query('range') ?? '30')
+  const rangeDays = requestedRange === 7 || requestedRange === 90 ? requestedRange : 30
+  return c.json(await loadAnalyticsPage(auth.app, rangeDays))
 })
 
 dashboardRoutes.get('/connect', async (c) => {
