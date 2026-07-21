@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, LockKeyhole } from 'lucide-react'
+import { BarChartIcon, LockClosedIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { Badge, Button, Card, Skeleton } from '@vc/ui'
 import { useEffect, useMemo, useState } from 'react'
@@ -7,7 +7,7 @@ import { loadAnalyticsPage } from '~/lib/api-client'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 
-const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90]
+const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
 const dateLabel = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
@@ -64,7 +64,7 @@ function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (v
           aria-pressed={value === option}
           onClick={() => onChange(option)}
         >
-          {option}d
+          {option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}
         </Button>
       ))}
     </div>
@@ -72,14 +72,25 @@ function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (v
 }
 
 function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  const allTime = data.rangeDays === 'all'
   const metrics = [
-    { label: 'Page views', value: compactNumber.format(data.views), detail: trendLabel(data.trendPercent) },
-    { label: 'Previous period', value: compactNumber.format(data.previousViews), detail: `${data.rangeDays} days before this range` },
+    {
+      label: allTime ? 'Lifetime views' : 'Page views',
+      value: compactNumber.format(data.views),
+      detail: allTime ? 'Since analytics collection began' : trendLabel(data.trendPercent),
+    },
+    {
+      label: allTime ? 'Detailed history' : 'Previous period',
+      value: allTime ? '1 year' : data.previousViews === null ? '—' : compactNumber.format(data.previousViews),
+      detail: allTime ? 'Older history is retained monthly' : `${data.rangeDays} days before this range`,
+    },
     { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Human visits sent by AI services' },
     {
       label: 'AI crawler requests',
       value: data.aiCrawlers.status === 'available' ? compactNumber.format(data.aiCrawlers.requests) : '—',
-      detail: data.aiCrawlers.status === 'available' ? `Last ${data.aiCrawlers.lookbackDays} days` : 'Crawler feed is not configured',
+      detail: data.aiCrawlers.status === 'available'
+        ? allTime ? 'Since collection began' : `Last ${data.aiCrawlers.lookbackDays} days`
+        : 'Crawler feed is not configured',
     },
   ]
 
@@ -115,13 +126,13 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
       meta={
         <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-muted-foreground">
           <span className="flex items-center gap-2"><span className="size-2 rounded-full bg-foreground" />Views</span>
-          <span className="flex items-center gap-2"><span className="size-2 rounded-full bg-brand-bright" />AI crawlers · {data.aiCrawlers.lookbackDays}d</span>
+          <span className="flex items-center gap-2"><span className="size-2 rounded-full bg-brand-bright" />AI crawlers · {data.rangeDays === 'all' ? 'all time' : `${data.aiCrawlers.lookbackDays}d`}</span>
         </div>
       }
     >
       {data.views === 0 && data.aiCrawlers.requests === 0 ? (
         <EmptyState
-          icon={<ChartNoAxesCombined />}
+          icon={<BarChartIcon />}
           title="No traffic recorded yet"
           description="Open a published post to verify collection. New page views appear here within a few minutes."
           action={
@@ -132,7 +143,7 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
         />
       ) : (
         <div>
-          <div className="relative h-56 w-full" role="img" aria-label={`Daily page views and AI crawler requests over ${data.rangeDays} days`}>
+          <div className="relative h-56 w-full" role="img" aria-label={`${data.seriesGranularity === 'month' ? 'Monthly' : 'Daily'} page views and AI crawler requests for ${data.rangeDays === 'all' ? 'all time' : `${data.rangeDays} days`}`}>
             <svg viewBox="0 0 1000 200" preserveAspectRatio="none" className="h-full w-full overflow-visible" aria-hidden="true">
               {[20, 60, 100, 140, 180].map((y) => (
                 <line key={y} x1="0" x2="1000" y1={y} y2={y} stroke="currentColor" className="text-border" strokeWidth="1" vectorEffect="non-scaling-stroke" />
@@ -211,7 +222,7 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
     >
       <div className="mb-5 max-w-3xl space-y-2">
         <p className="text-base leading-7 text-muted-foreground">
-          Requests from published AI crawler identities over the last {data.aiCrawlers.lookbackDays} days, including ChatGPT, Claude, Perplexity, and other major operators.
+          Requests from published AI crawler identities {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
         </p>
         <p className="font-mono text-xs leading-5 text-muted-foreground">
           Identity is matched from Cloudflare request analytics using official user-agent tokens. User agents can be spoofed.
@@ -222,7 +233,7 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
           AI crawler reporting is not configured for this deployment. Human page views and AI referrals are still tracked.
         </p>
       ) : data.aiCrawlers.agents.length === 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">No AI crawler requests in the last {data.aiCrawlers.lookbackDays} days.</p>
+        <p className="text-sm leading-6 text-muted-foreground">No AI crawler requests {data.rangeDays === 'all' ? 'since collection began' : `in the last ${data.aiCrawlers.lookbackDays} days`}.</p>
       ) : (
         <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
           {data.aiCrawlers.agents.map((crawler) => (
@@ -240,14 +251,14 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
   )
 }
 
-function LockedAnalytics({ retentionDays }: { retentionDays: number }) {
+function LockedAnalytics() {
   return (
     <Panel title="Analytics is included with vibecms Cloud">
       <div className="max-w-2xl py-4">
-        <span className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground"><LockKeyhole className="size-5" /></span>
+        <span className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground"><LockClosedIcon className="size-5" /></span>
         <h2 className="mt-6 font-display text-2xl font-semibold tracking-[-0.025em] text-foreground">See what readers and AI systems discover.</h2>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          Unlock page-view trends, top posts, referring domains, AI referrals, and named crawler activity with {retentionDays}-day reporting.
+          Unlock lifetime page-view totals, one year of daily trends, older monthly history, top posts, referring domains, AI referrals, and named crawler activity.
         </p>
         <Button asChild className="mt-6"><a href="/dashboard/settings#plan">View plan</a></Button>
       </div>
@@ -287,7 +298,7 @@ export function AnalyticsPage() {
         action={data.status === 'available' ? headerAction : undefined}
       />
 
-      {data.status === 'locked' ? <LockedAnalytics retentionDays={data.retentionDays} /> : null}
+      {data.status === 'locked' ? <LockedAnalytics /> : null}
       {data.status === 'unavailable' ? (
         <Panel title="Analytics unavailable">
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
@@ -309,7 +320,7 @@ export function AnalyticsPage() {
           </div>
           <AiCrawlerPanel data={data} />
           <p className="font-mono text-xs leading-5 text-muted-foreground">
-            {data.retentionDays}-day retention · Cookie-free · DNT and Global Privacy Control respected · No IP addresses or visitor identifiers stored
+            Lifetime totals · One year of daily detail · Older history retained monthly · Cookie-free · DNT and Global Privacy Control respected · No IP addresses or visitor identifiers stored
           </p>
         </>
       ) : null}

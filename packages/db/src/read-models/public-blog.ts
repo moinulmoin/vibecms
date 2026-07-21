@@ -25,6 +25,7 @@ export interface PublicSiteRow {
   billingStatus: string | null;
   currentPeriodEnd: number | null;
   publishedCount: number;
+  resolvedDomainType?: "default" | "custom";
 }
 
 // Published-post list projection (detail adds presentation_json + parsed presentation).
@@ -153,7 +154,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
     async resolveSiteByHost(host: string) {
       // domains INNER JOIN sites LEFT JOIN billing_customers; active domain + active site filters.
       const rows = await client
-        .select(siteResolveColumns)
+        .select({ ...siteResolveColumns, resolvedDomainType: domains.type })
         .from(domains)
         .innerJoin(sites, eq(sites.id, domains.siteId))
         .leftJoin(billingCustomers, eq(billingCustomers.workspaceId, sites.workspaceId))

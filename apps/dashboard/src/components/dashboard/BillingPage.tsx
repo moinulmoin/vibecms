@@ -5,8 +5,7 @@ import { CheckIcon } from '@radix-ui/react-icons'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Badge } from "@vc/ui"
-import { Skeleton } from "@vc/ui"
+import { Alert, Badge, Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import type { BillingSnapshot, BillingPageLoadResult } from '~/types/dashboard'
@@ -153,6 +152,13 @@ export function BillingPage() {
                 <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
               </li>
             </ul>
+            {isActive ? (
+              <Alert className="mt-5" title="If you cancel">
+                Paid access ends when the subscription ends. More publishing, media uploads, custom domains,
+                search indexing, analytics, and paid API limits will lock. Existing posts stay online, and your
+                drafts, media, domains, versions, and analytics history are kept for you if you resubscribe.
+              </Alert>
+            ) : null}
             {isOwner ? (
               isActive ? (
                 <div className="mt-5 grid gap-2">
@@ -202,10 +208,16 @@ export function BillingPage() {
             ) : (
               <p className="mt-5 font-sans text-base leading-7 text-muted-foreground">Only workspace owners can manage billing.</p>
             )}
+            {billing.status === 'canceled' ? (
+              <Alert className="mt-5" title="Your data is retained">
+                Existing posts remain online, but search indexing and paid tools are locked. Drafts, media,
+                domains, versions, and analytics history will be available again if you resubscribe.
+              </Alert>
+            ) : null}
             <p className="mt-5 font-mono text-xs leading-5 text-muted-foreground">
               {isActive
-                ? 'Your plan is active: unlimited publishing, media uploads, and search indexing are on. Cancel anytime from the customer portal.'
-                : 'Drafting, agent access, and your first published post are free. Subscribe to publish more posts, upload media, and make your blog search-indexable. Cancel anytime from the customer portal.'}
+                ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
+                : 'Drafting, agent access, and your first published post stay free. Subscribe to unlock every paid feature immediately.'}
             </p>
           </Panel>
       </div>

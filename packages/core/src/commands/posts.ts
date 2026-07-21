@@ -1,6 +1,6 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
 import { BillingRequiredError, ConflictError, NotFoundError } from "../errors";
-import { requireScope } from "../policies";
+import { hasActiveSubscription, requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
 export type PostMutationHistory = {
@@ -97,7 +97,7 @@ export async function publishPost(
       activityAction: "post.published",
       activitySummary: `Published ${before.title}`,
     },
-    { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT },
+    { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT },
   );
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");

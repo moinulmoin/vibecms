@@ -1,5 +1,5 @@
+import { hasActiveSubscription } from '@vc/core'
 import { MEDIA } from '@vc/config'
-import { createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBillingStatusForSite } from '@/server/billing'
 import { isSelfHosted } from '@/server/billing'
@@ -16,7 +16,7 @@ export class MediaQuotaError extends Error {
 export async function reserveMediaBytes(siteId: string, sizeBytes: number): Promise<void> {
   if (isSelfHosted()) return
   const billingStatus = await getBillingStatusForSite(siteId)
-  if (billingStatus !== 'active') throw new MediaQuotaError('billing_required')
+  if (!hasActiveSubscription(billingStatus)) throw new MediaQuotaError('billing_required')
   const limit = MEDIA.paidStorageBytes
   const result = await env.DB.prepare(
     `UPDATE sites

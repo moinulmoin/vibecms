@@ -109,10 +109,11 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
   }),
   analyticsBaseSchema.extend({
     status: z.literal('available'),
-    rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+    rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]),
     views: z.number(),
-    previousViews: z.number(),
+    previousViews: z.number().nullable(),
     trendPercent: z.number().nullable(),
+    seriesGranularity: z.enum(['day', 'month']),
     aiReferralViews: z.number(),
     series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })),
     topPosts: z.array(

@@ -1,5 +1,7 @@
+export { hasActiveSubscription } from "@vc/config";
 import { ForbiddenError } from "./errors";
 import type { Actor, Scope } from "./types";
+
 
 export function can(actor: Actor, scope: Scope): boolean {
   if (actor.type === "system") return true;

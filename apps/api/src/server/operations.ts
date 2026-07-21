@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -58,7 +58,7 @@ function postPublicUrl(base: string | null, post: { status: string; slug: string
 
 async function requireBillableSite(siteId: string) {
   const billingStatus = await getBillingStatusForSite(siteId);
-  if (billingStatus !== "active") {
+  if (!hasActiveSubscription(billingStatus)) {
     throw new AppError("BILLING_REQUIRED", "An active subscription is required for MCP writes", 402);
   }
   return billingStatus;

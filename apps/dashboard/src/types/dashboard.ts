@@ -62,7 +62,7 @@ export type DashboardData = {
   }
 }
 
-export type AnalyticsRange = 7 | 30 | 90
+export type AnalyticsRange = 7 | 30 | 90 | 365 | 'all'
 
 export type AnalyticsPageData =
   | { status: 'locked'; retentionDays: number }
@@ -72,8 +72,9 @@ export type AnalyticsPageData =
       rangeDays: AnalyticsRange
       retentionDays: number
       views: number
-      previousViews: number
+      previousViews: number | null
       trendPercent: number | null
+      seriesGranularity: 'day' | 'month'
       aiReferralViews: number
       series: Array<{ date: string; views: number; aiCrawlerRequests: number }>
       topPosts: Array<{ postId: string; slug: string; title: string; views: number }>

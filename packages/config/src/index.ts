@@ -34,6 +34,10 @@ export const API_USAGE_LIMITS = {
   },
 } as const;
 
+export function hasActiveSubscription(status: string | null | undefined): boolean {
+  return status === "active";
+}
+
 /** Max active (non-revoked) API tokens per workspace. Leak/abuse guard; owners revoke to free slots. */
 export const API_TOKENS_MAX = 10;
 

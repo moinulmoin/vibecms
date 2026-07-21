@@ -172,8 +172,16 @@ dashboardRoutes.get('/activity', async (c) => {
 dashboardRoutes.get('/analytics', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const requestedRange = Number(c.req.query('range') ?? '30')
-  const rangeDays = requestedRange === 7 || requestedRange === 90 ? requestedRange : 30
+  const requestedRange = c.req.query('range') ?? '30'
+  const rangeDays = requestedRange === '7'
+    ? 7
+    : requestedRange === '90'
+      ? 90
+      : requestedRange === '365'
+        ? 365
+        : requestedRange === 'all'
+          ? 'all'
+          : 30
   return c.json(await loadAnalyticsPage(auth.app, rangeDays))
 })
 

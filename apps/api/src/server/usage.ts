@@ -1,5 +1,5 @@
 import { API_USAGE_LIMITS } from "@vc/config";
-import { RateLimitError, type BillingStatus } from "@vc/core";
+import { hasActiveSubscription, RateLimitError, type BillingStatus } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { createDataAccess, type UsageRepository } from "@vc/db";
 import { getBillingStatus, isSelfHosted } from "./billing";
@@ -70,7 +70,7 @@ function planFor(status?: BillingStatus): LimitPlan {
   const testPlan = testLimitPlan();
   if (testPlan) return testPlan;
   if (String(env.APP_ENV) === "development" || String(env.APP_ENV) === "test") return API_USAGE_LIMITS.dev;
-  return status === "active" ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
+  return hasActiveSubscription(status) ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
 }
 
 function workspaceCounterId(workspaceId: string, metric: string, period: string) {

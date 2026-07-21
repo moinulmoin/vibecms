@@ -176,6 +176,34 @@ export const billingCustomers = sqliteTable("billing_customers", {
   ...timestamps,
 });
 
+export const analyticsRollups = sqliteTable("analytics_rollups", {
+  id: text("id").primaryKey(),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  granularity: text("granularity", { enum: ["day", "month"] }).notNull(),
+  periodStart: text("period_start").notNull(),
+  kind: text("kind", { enum: ["page", "post", "referrer", "crawler"] }).notNull(),
+  dimension: text("dimension").notNull().default(""),
+  label: text("label"),
+  value: integer("value").notNull().default(0),
+  ...timestamps,
+}, (table) => [
+  uniqueIndex("idx_analytics_rollups_unique").on(
+    table.siteId,
+    table.granularity,
+    table.periodStart,
+    table.kind,
+    table.dimension,
+  ),
+  index("idx_analytics_rollups_site_period").on(table.siteId, table.granularity, table.periodStart),
+  index("idx_analytics_rollups_site_kind").on(table.siteId, table.kind, table.granularity, table.periodStart),
+]);
+
+export const analyticsRollupState = sqliteTable("analytics_rollup_state", {
+  siteId: text("site_id").primaryKey().references(() => sites.id, { onDelete: "cascade" }),
+  lastRolledDate: text("last_rolled_date"),
+  ...timestamps,
+});
+
 export const usageCounters = sqliteTable("usage_counters", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
@@ -282,6 +310,10 @@ export type ActivityEventRow = typeof activityEvents.$inferSelect;
 export type ActivityEventInsert = typeof activityEvents.$inferInsert;
 export type BillingCustomerRow = typeof billingCustomers.$inferSelect;
 export type BillingCustomerInsert = typeof billingCustomers.$inferInsert;
+export type AnalyticsRollupRow = typeof analyticsRollups.$inferSelect;
+export type AnalyticsRollupInsert = typeof analyticsRollups.$inferInsert;
+export type AnalyticsRollupStateRow = typeof analyticsRollupState.$inferSelect;
+export type AnalyticsRollupStateInsert = typeof analyticsRollupState.$inferInsert;
 export type UsageCounterRow = typeof usageCounters.$inferSelect;
 export type UsageCounterInsert = typeof usageCounters.$inferInsert;
 export type RateLimitRow = typeof rateLimits.$inferSelect;

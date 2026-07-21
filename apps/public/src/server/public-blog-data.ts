@@ -1,4 +1,4 @@
-import type { Presentation } from "@vc/config";
+import { hasActiveSubscription, type Presentation } from "@vc/config";
 import { createDataAccess, type PublicPostDetailRow, type PublicPostRow, type PublicSiteRow } from "@vc/db";
 import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
@@ -23,6 +23,7 @@ export type SiteRow = {
   billing_status: string | null;
   current_period_end: number | null;
   published_count: number | null;
+  resolved_domain_type?: "default" | "custom" | null;
 };
 
 export type PostRow = {
@@ -68,6 +69,7 @@ function toSiteRow(row: PublicSiteRow): SiteRow {
     billing_status: row.billingStatus,
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,
+    resolved_domain_type: row.resolvedDomainType ?? null,
   };
 }
 
@@ -126,7 +128,8 @@ export async function resolveSite(request: Request, db: D1Database, env: PublicR
   }
   if (isMarketingHost(request, env)) return null;
   const row = await readModel.resolveSiteByHost(normalizeHost(request));
-  return row ? toSiteRow(row) : null;
+  if (!row || (row.resolvedDomainType === "custom" && !hasActiveSubscription(row.billingStatus))) return null;
+  return toSiteRow(row);
 }
 
 export async function getPublishedPost(db: D1Database, siteId: string, slug: string): Promise<PostDetailRow | null> {
@@ -142,7 +145,7 @@ export async function listPublishedPosts(db: D1Database, siteId: string): Promis
 }
 
 export function isPublicBlogIndexable(site: SiteRow, env: PublicRuntimeEnv) {
-  return env.selfHosted || site.billing_status === "active";
+  return env.selfHosted || hasActiveSubscription(site.billing_status);
 }
 
 export async function listPublishedPostsByTag(db: D1Database, siteId: string, tag: string): Promise<PostRow[]> {
