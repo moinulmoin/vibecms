@@ -6,7 +6,7 @@ Update this whenever a feature is added, removed, or planned.
 - `CHANGELOG.md` = code release notes (per-commit/version).
 - This file = product/feature state and roadmap.
 
-Last updated: 2026-06-23
+Last updated: 2026-07-19
 
 ---
 
@@ -65,6 +65,12 @@ Last updated: 2026-06-23
 - Per-post OG/meta/canonical; `noindex` for unpaid/trial blogs.
 - Public caching (`s-maxage=300` + per-article cache tag) with publish/update/archive purge.
 
+
+### Reader and AI discovery analytics
+- Cookie-free first-party page views in Workers Analytics Engine with 90-day retention, 7/30/90-day trends, top posts, and referring domains.
+- No IP address, user agent, full referrer URL, persistent visitor ID, or visitor profile is stored; DNT and Global Privacy Control opt out.
+- AI referrals are identified by referrer hostname. AI crawler activity uses Cloudflare request analytics and its official crawler catalog (7-day lookback; user-agent identity is explicitly labeled as spoofable).
+
 ### Agent surfaces
 - MCP server at `POST /mcp` with 18 tools (sites/posts/assets/activity/versions + `posts.format_guide` + `posts.preview`).
 - REST API `/api/v1` (17 operations) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
@@ -73,7 +79,7 @@ Last updated: 2026-06-23
 - Typed `coverAssetId` + `canonicalUrl` on posts.create/update (set/clear cover, set canonical); persisted to posts + version snapshots and reverted by restore.
 
 ### Dashboard
-- Overview, Posts, Media, Activity, Settings, Connect, Billing, Setup.
+- Overview, Analytics, Posts, Media, Activity, Settings, Connect, Billing, Setup.
 - Connect-an-agent flow with MCP config snippets (Claude Code, Codex CLI, Cursor, generic HTTP-MCP, stdio) + a polling connection self-test + starter prompt.
 - Inline alerts via 303 `?ok=`/`?error=`.
 
@@ -82,7 +88,7 @@ Last updated: 2026-06-23
 
 ### Billing (hosted)
 - Polar checkout + customer portal (owner-only); webhook flips subscription status.
-- Free tier: drafting + agent tokens + 1 published post (noindex); subscription unlocks more publishes, media, and search indexing.
+- Free tier: drafting + agent tokens + 1 published post (noindex); subscription unlocks more publishes, media, search indexing, custom domains, and reader + AI discovery analytics.
 
 ### Quotas, security, export
 - API/MCP quota counters (hosted); CSRF on server functions + selected POSTs; subscriber capture with consent + IP/UA hashing.

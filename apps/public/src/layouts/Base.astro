@@ -1,0 +1,47 @@
+---
+import "../styles/global.css";
+import "../styles/tenant.css";
+import type { ResolvedSocialImage } from "../lib/seo-meta";
+import subscribeFormScriptUrl from "../scripts/subscribe-form.js?url";
+import codeCopyScriptUrl from "../scripts/code-copy.js?url";
+interface Props {
+  title?: string;
+  description?: string;
+  robots?: string;
+  canonical?: string;
+  socialImage?: ResolvedSocialImage;
+}
+const { title, description, robots, canonical, socialImage } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {title ? <title>{title}</title> : null}
+    {description ? <meta name="description" content={description} /> : null}
+    {robots ? <meta name="robots" content={robots} /> : null}
+    {canonical ? <link rel="canonical" href={canonical} /> : null}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {title && socialImage ? <meta property="og:title" content={title} /> : null}
+    {description && socialImage ? <meta property="og:description" content={description} /> : null}
+    {canonical && socialImage ? <meta property="og:url" content={canonical} /> : null}
+    {socialImage ? <meta property="og:type" content="website" /> : null}
+    {socialImage ? <meta property="og:image" content={socialImage.url} /> : null}
+    {socialImage ? <meta property="og:image:type" content={socialImage.mimeType} /> : null}
+    {socialImage?.width ? <meta property="og:image:width" content={String(socialImage.width)} /> : null}
+    {socialImage?.height ? <meta property="og:image:height" content={String(socialImage.height)} /> : null}
+    {socialImage ? <meta property="og:image:alt" content={socialImage.alt} /> : null}
+    {socialImage ? <meta name="twitter:card" content="summary_large_image" /> : null}
+    {title && socialImage ? <meta name="twitter:title" content={title} /> : null}
+    {description && socialImage ? <meta name="twitter:description" content={description} /> : null}
+    {socialImage ? <meta name="twitter:image" content={socialImage.url} /> : null}
+    {socialImage ? <meta name="twitter:image:alt" content={socialImage.alt} /> : null}
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+    <script is:inline src={subscribeFormScriptUrl} defer></script>
+    <script is:inline src={codeCopyScriptUrl} defer></script>
+  </body>
+</html>

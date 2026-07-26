@@ -1,0 +1,57 @@
+{
+  // Self-hosted Astro public-blog Worker. It shares D1/R2 with the API Worker and
+  // forwards newsletter subscriptions through a service binding.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms-public",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-07-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    }
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibecms",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "packages/db/drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "vibecms-media"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "cache": {
+    "enabled": true
+  },
+  "services": [
+    {
+      "binding": "API",
+      "service": "vibecms"
+    }
+  ],
+  "vars": {
+    "APP_ENV": "production",
+    "APP_URL": "https://vibecms.example.workers.dev",
+    "PUBLIC_BLOG_DOMAIN": "vibecms-public.example.workers.dev",
+    "SELF_HOSTED": "true"
+  }
+}

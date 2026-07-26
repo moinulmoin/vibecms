@@ -1,0 +1,243 @@
+/* Shared presented-post article structure — public SSR + dashboard preview. */
+
+.article {
+  /* One left-anchored content axis: 45rem prose + 3rem gap + 15rem optional TOC
+     (63rem total). Header, cover, and prose all share this left start; the title
+     may span wider. --vc-prose-measure cascades to the rich-content root and text
+     elements. container-type lets the ToC rail activate on the article's own
+     inline size, not the browser viewport. */
+  max-width: 63rem;
+  --vc-prose-measure: 70ch;
+  container-type: inline-size;
+}
+
+/* Header stage: H1 → deck → byline/date/read-time meta → tags. */
+.articleHeader {
+  max-width: 63rem;
+}
+
+/* Title — 52-64px desktop, 36-42px mobile, balanced. */
+.articleTitle {
+  margin: 0 0 16px;
+  max-width: 63rem;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(2.25rem, 5vw, 4rem) * var(--vc-heading-scale));
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+/* Excerpt deck — 20-22px, muted, sits between title and metadata. */
+.articleDeck {
+  margin: 0 0 1.25rem;
+  max-width: 45rem;
+  font-size: clamp(1.25rem, 2vw, 1.375rem);
+  line-height: 1.5;
+  color: var(--vc-muted-fg);
+  text-wrap: pretty;
+}
+
+/* ONE quiet meta line — muted (AA), middle-dot separated. No icons/labels. */
+.metaLine {
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: 45rem;
+  letter-spacing: -0.01em;
+}
+
+/* Quiet tag row — mono, sentence-case, dot-separated. */
+.tagRow {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  font-family: var(--vc-font-mono);
+  line-height: 1.6;
+  max-width: 45rem;
+}
+
+.tagEntry {
+  display: inline;
+}
+
+.tagLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+}
+
+.tagLink:hover {
+  color: var(--vc-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tagSep {
+  color: var(--vc-muted-fg);
+  opacity: 0.55;
+  margin: 0 0.45em;
+}
+
+/* Standard cover — measured to the prose column. */
+.heroImage {
+  width: 100%;
+  max-width: var(--vc-prose-measure);
+  max-height: 520px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin: 18px 0 28px;
+}
+
+/* Feature cover — full article width, taller cap for impact. */
+.featureCover {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: cover;
+  border-radius: calc(var(--vc-radius) + 4px);
+  margin: 0 0 28px;
+}
+
+/* Body wrapper holds the prose column; the sticky ToC rail joins via @container. */
+.articleBody {
+  display: block;
+  max-width: 63rem;
+}
+
+/* No-TOC editorial breakout — widen body so media/code/tables extend beyond the
+   prose column. Text elements stay flush-left at the prose measure. */
+.article:not([data-vc-has-toc]) .articleBody {
+  max-width: 900px;
+}
+
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) {
+  max-width: 100%;
+}
+
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > p,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h2,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h3,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h4,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h5,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h6,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > ul,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > ol,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > blockquote,
+.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > .vc-callout {
+  max-width: min(var(--vc-prose-measure), 45rem);
+}
+
+/* Narrow-surface ToC — native <details>, collapsed. Hidden when the rail shows. */
+.tocDetails {
+  margin: 0 0 var(--vc-section-gap);
+  max-width: var(--vc-prose-measure);
+}
+
+.tocSummary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--vc-muted-fg);
+  font-weight: 600;
+}
+
+.tocSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* Sticky right rail — hidden until the article container is wide enough. */
+.tocRail {
+  display: none;
+}
+
+.tocRailLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--vc-muted-fg);
+  margin: 0 0 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.tocItemH2 > a,
+.tocItemH3 > a {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  display: block;
+}
+
+.tocItemH2 > a:hover,
+.tocItemH3 > a:hover {
+  color: var(--vc-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tocItemH3 {
+  padding-left: 0.85rem;
+}
+
+.tagLink:focus-visible,
+.tocItemH2 > a:focus-visible,
+.tocItemH3 > a:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ToC rail joins the prose column when the article's own inline size holds both.
+   Uses @container (not viewport @media) so dashboard preview matches public. */
+@container (min-width: 52rem) {
+  .article[data-vc-has-toc] .articleBody {
+    display: grid;
+    grid-template-columns: minmax(0, min(var(--vc-prose-measure), 45rem)) 15rem;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .article[data-vc-has-toc] .tocRail {
+    display: block;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .article[data-vc-has-toc] .tocDetails {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .heroImage {
+    max-height: 320px;
+    border-radius: var(--vc-radius);
+  }
+
+  .featureCover {
+    max-height: 280px;
+    border-radius: var(--vc-radius);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article,
+  .article *,
+  .article *::before,
+  .article *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

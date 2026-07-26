@@ -10,10 +10,10 @@ Prereqs: Cloudflare account upgraded to Workers Paid ($5/mo), `wrangler login` a
 ## Step 1 - Create the prod D1 database
 
 ```bash
-pnpm --filter @vc/web-next exec wrangler d1 create vibecms_prod
+pnpm --filter @vc/api exec wrangler d1 create vibecms_prod
 ```
 
-Copy the `database_id` from the output, then update `apps/web-next/wrangler.jsonc`:
+Copy the `database_id` from the output into both `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc`:
 
 ```jsonc
 // env.production -> d1_databases[0]
@@ -27,7 +27,7 @@ Commit that change before proceeding.
 ## Step 2 - Create the prod R2 bucket
 
 ```bash
-pnpm --filter @vc/web-next exec wrangler r2 bucket create vibecms-assets-prod
+pnpm --filter @vc/api exec wrangler r2 bucket create vibecms-assets-prod
 ```
 
 No config change needed - the bucket name `vibecms-assets-prod` is already in `wrangler.jsonc env.production`.
@@ -41,112 +41,111 @@ All commands target `--env production` so they are stored against the prod envir
 
 ```bash
 # Token pepper - generate: openssl rand -hex 32
-pnpm --filter @vc/web-next exec wrangler secret put TOKEN_PEPPER --env production
+pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --env production
 
 # Better Auth secret - generate: openssl rand -hex 32
-pnpm --filter @vc/web-next exec wrangler secret put BETTER_AUTH_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --env production
 
 # Google OAuth (created at console.cloud.google.com - add https://app.vibecms.dev/api/auth/callback/google)
-pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_ID --env production
-pnpm --filter @vc/web-next exec wrangler secret put GOOGLE_CLIENT_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_ID --env production
+pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --env production
 
 # OTP email uses the native `send_email` Workers binding (named EMAIL, declared in
 # wrangler.jsonc) - no secret needed. Just ensure the sending domain is onboarded to
-# Cloudflare Email Sending (verified in Step 8 / Step 10).
+# Cloudflare Email Sending (verify before first OTP sign-in in Step 9).
 
 # Polar billing (see Step 4 below for POLAR_PRODUCT_ID - set access token + webhook secret now)
-pnpm --filter @vc/web-next exec wrangler secret put POLAR_ACCESS_TOKEN --env production
-pnpm --filter @vc/web-next exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env production
+pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
 ```
 
-Cache purge secrets (required to enable zone-level CDN cache invalidation on publish/archive):
+Cache purge secret (required to enable zone-level CDN cache invalidation on publish/archive).
+The public `vibecms.dev` zone ID is committed in `apps/api/wrangler.jsonc`.
 
 ```bash
-# Cloudflare zone ID - find in the vibecms.dev zone overview in the CF dashboard
-pnpm --filter @vc/web-next exec wrangler secret put CLOUDFLARE_ZONE_ID --env production
-
 # CF API token with Cache Purge permission scoped to vibecms.dev
 # Create at: dash.cloudflare.com/profile/api-tokens -> "Create Token" -> "Cache Purge" template
-pnpm --filter @vc/web-next exec wrangler secret put CACHE_PURGE_API_TOKEN --env production
+pnpm --filter @vc/api exec wrangler secret put CACHE_PURGE_API_TOKEN --env production
+```
+
+Analytics query secret (required for the paid Analytics dashboard):
+
+```bash
+# Create a custom read-only token restricted to this account and the vibecms.dev
+# zone with Account Analytics: Read and Zone Analytics: Read. Do not use the
+# broader "Read analytics and logs" template.
+pnpm --filter @vc/api exec wrangler secret put ANALYTICS_API_TOKEN --env production
 ```
 
 ---
 
-## Step 4 - Create Polar prod products [GATED ON PRICING DECISION]
+## Step 4 - Verify Polar prod products
 
-> **This step is blocked until the $19/mo and $190/yr prices are confirmed.**
-> Do not proceed past this step until the pricing decision is made.
-> Deploy in Step 6 can still run without billing configured; the Upgrade flow will
-> return `polar_unconfigured` until these are set.
-
-Once prices are decided:
-
-1. Log into polar.sh -> your organization -> Products -> Create Product.
-2. Create a monthly product at $19/mo. Copy the product id.
-3. Create a yearly product at $190/yr. Copy the product id.
-4. Update `apps/web-next/wrangler.jsonc` env.production vars:
-   ```jsonc
-   "POLAR_PRODUCT_ID": "<monthly product id>"
-   ```
-   Commit and redeploy, OR set as a secret to override the var without redeploying:
-   ```bash
-   pnpm --filter @vc/web-next exec wrangler secret put POLAR_PRODUCT_ID --env production
-   pnpm --filter @vc/web-next exec wrangler secret put POLAR_MONTHLY_PRODUCT_ID --env production
-   pnpm --filter @vc/web-next exec wrangler secret put POLAR_YEARLY_PRODUCT_ID --env production
-   ```
-5. In the Polar dashboard, add the webhook endpoint:
+1. Log into polar.sh -> your organization -> Products.
+2. Confirm the committed monthly and yearly products remain active at $19/month and $190/year.
+3. Confirm their IDs match `POLAR_PRODUCT_ID` and `POLAR_YEARLY_PRODUCT_ID` under
+   `apps/api/wrangler.jsonc` -> `env.production.vars`.
+4. Confirm the webhook endpoint is active:
    - URL: `https://app.vibecms.dev/api/polar/webhook`
    - Events: `subscription.created`, `subscription.updated`, `subscription.canceled`, `subscription.revoked`
-   - Copy the signing secret and set it: (already done in Step 3 if you ran it then, otherwise run now)
+   - Copy the signing secret and set it if Step 3 did not:
      ```bash
-     pnpm --filter @vc/web-next exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
+     pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
      ```
 
 ---
 
-## Step 5 - Add the wildcard DNS record
+## Step 5 - Configure wildcard DNS and the custom-domain fallback
 
-In the Cloudflare dashboard for `vibecms.dev`:
-
-1. DNS -> Add record:
-   - Type: `A` (or `AAAA` / `CNAME` - value does not matter, Workers intercept all traffic)
-   - Name: `*`
-   - IPv4 address: `192.0.2.1`  (discard address; Workers intercept before it is reached)
-   - Proxy status: **Proxied** (orange cloud - required)
-
-This record allows `<slug>.vibecms.dev` requests to reach Cloudflare so the `*.vibecms.dev/*`
-wrangler route can dispatch them to the worker. Without this record no DNS resolution occurs.
-
-Note: `vibecms.dev` (apex marketing) and `app.vibecms.dev` (app) are handled automatically by their
-`custom_domain: true` entries in wrangler.jsonc - wrangler creates and manages those DNS records on
-deploy. Only the `*` wildcard above is added manually.
-
----
-
-## Step 6 - Run prod D1 migrations
+Enable Cloudflare for SaaS on the `vibecms.dev` zone, create an API token with DNS Edit plus
+SSL and Certificates Edit, then run:
 
 ```bash
-pnpm --filter @vc/web-next exec wrangler d1 migrations apply DB --remote --env production
+CLOUDFLARE_ZONE_ID=<zone-id> CLOUDFLARE_API_TOKEN=<token> pnpm production:configure-hostnames
 ```
 
-Confirm all migrations applied successfully before deploying.
+The idempotent command creates the proxied `*.vibecms.dev` tenant record, creates
+`cname.vibecms.dev`, and sets that host as the Cloudflare for SaaS fallback origin.
+The apex and `app.vibecms.dev` remain managed by their Worker custom-domain entries.
 
 ---
 
-## Step 7 - Build and deploy to production
+## Step 6 - Canonical production deploy (gates, backup, migrate, deploy, smoke)
+
+Do not apply migrations by hand before the first guarded deploy. `pnpm deploy:prod` owns the order:
+
+1. Preflight: typecheck/lint/tests/public audit/OpenAPI + resource/secret validation + production artifact builds (before any D1 mutation).
+2. Backup metadata: D1 time-travel bookmark/schema export metadata + current Worker version IDs.
+3. Apply production D1 migrations.
+4. Deploy API, then already-built public.
+5. Smoke.
 
 ```bash
-pnpm --filter @vc/web-next build
-pnpm --filter @vc/web-next exec wrangler deploy --config dist/server/wrangler.json --env production
+CLOUDFLARE_ACCOUNT_ID=<account-id> \
+CLOUDFLARE_API_TOKEN=<deploy-token> \
+PRODUCTION_SMOKE_TOKEN=<read-token> \
+pnpm deploy:prod
 ```
 
-The deploy reads `env.production` from `wrangler.jsonc` (via the `configPath` reference in the
-generated dist config) and applies production routes, vars, and bindings. The top-level dev
-config is unaffected - `pnpm deploy:dev` continues to deploy without `--env`.
+For the first-ever production deployment only, no production account/token exists yet. Run with
+`ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`; the command reports that the
+authenticated tenant checks were skipped. Create the first account and a non-destructive read token,
+publish one post, then immediately run `PRODUCTION_SMOKE_TOKEN=<read-token> pnpm production:smoke`.
+Every later deployment requires that token and runs the full tenant/article smoke.
+
+Astro sessions are disabled; no SESSION KV namespace is required for hosted production.
+
+Rollback helpers (defaults are non-destructive; D1 schema rollback is not safe):
+
+```bash
+pnpm production:backup
+pnpm production:rollback
+pnpm production:rollback -- --worker api --to <version-id> --yes
+```
 
 ---
 
-## Step 8 - Verify HTTPS and hosts
+## Step 7 - Verify HTTPS and hosts
 
 Check the marketing apex:
 
@@ -187,7 +186,7 @@ All should show `vibecms.dev` and/or `*.vibecms.dev` in the SAN list (free Unive
 
 ---
 
-## Step 9 - Enable zone-level CDN caching (recommended post-launch)
+## Step 8 - Enable zone-level CDN caching (recommended post-launch)
 
 Public blog HTML is served with `cache-control: public, s-maxage=300` and
 `cache-tag: vc-article:<siteId>:<postSlug>` headers, host-only (each blog on its own host —
@@ -199,7 +198,7 @@ In the Cloudflare dashboard for `vibecms.dev`:
 
 1. Caching -> Cache Rules -> Create rule.
 2. Scope by **hostname** (there is no path-mode `/blog/*` to match): `Hostname equals *.vibecms.dev`
-   for tenant subdomains. Custom domains (e.g. `blog.acme.com`, enabled in Step 11) are served on
+   for tenant subdomains. Custom domains (e.g. `blog.acme.com`, enabled in Step 10) are served on
    their own hostnames — add each custom-domain hostname to the rule (or use a broader
    `Hostname is not app.vibecms.dev and is not vibecms.dev` scope) once Cloudflare for SaaS is live.
 3. Cache eligibility: **Cache Everything**
@@ -213,7 +212,7 @@ back to `caches.default.delete()` against the article's host URL.
 
 ---
 
-## Step 10 - Smoke-test the full user flow
+## Step 9 - Smoke-test the full user flow
 
 1. Verify `https://vibecms.dev` serves the marketing landing, and `https://app.vibecms.dev/` redirects to the dashboard (then to `/login` when signed out).
 2. Sign up at `https://app.vibecms.dev` via email OTP; confirm the OTP email arrives.
@@ -224,40 +223,36 @@ back to `caches.default.delete()` against the article's host URL.
    previously cached page is no longer served within ~30 seconds via cache purge).
 7. Test the Upgrade flow (billing button -> Polar checkout) once the Polar product is
    configured (Step 4).
+8. Open a published post in a normal browser, wait for Analytics Engine ingestion, then confirm
+   `/dashboard/analytics` reports the page view and loads its AI crawler panel without a query error.
+9. Before inviting readers, publish a privacy disclosure covering the exact reader-analytics
+   contract: post/site IDs and external referrer hostname, 90-day retention, no cookies/IP/user
+   agents/visitor identifiers, and DNT + Global Privacy Control opt-out.
 
 ---
 
-## Step 11 - Enable user custom domains (Cloudflare for SaaS) [post-launch]
+## Step 10 - Enable user custom domains (Cloudflare for SaaS)
 
 Lets a paid blog serve on its own domain (e.g. `blog.acme.com`). All app code ships behind
 this config: until the secrets below are set, "Add domain" stores a `pending` row and makes
 no Cloudflare calls (so dev and an un-provisioned prod are both safe).
 
-1. Enable Cloudflare for SaaS on the `vibecms.dev` zone (SSL/TLS -> Custom Hostnames) and set
-   a **Fallback Origin** that resolves to the worker (e.g. a proxied `cname.vibecms.dev`
-   pointing at `vibecms-prod`). Custom-hostname traffic is routed to this fallback origin,
-   where `resolveSite` matches the Host header to the `domains` row.
-2. Set the CNAME target customers point their domain at (the fallback origin host) so the
-   dashboard can show the DNS instruction:
+1. Enable Cloudflare for SaaS on the `vibecms.dev` zone (SSL/TLS -> Custom Hostnames).
+2. Create a CF API token scoped to **SSL and Certificates: Edit** for `vibecms.dev`
+   and store it on the API Worker:
    ```bash
-   # value example: cname.vibecms.dev
-   pnpm --filter @vc/web exec wrangler secret put CUSTOM_HOSTNAME_CNAME_TARGET --env production
+   pnpm --filter @vc/api exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env production
    ```
-3. Create a CF API token scoped to **SSL and Certificates: Edit** for `vibecms.dev`
-   (dash.cloudflare.com/profile/api-tokens) and set it (`CLOUDFLARE_ZONE_ID` from Step 3 is reused):
+3. Re-run the idempotent DNS/fallback command from Step 5 if it was not already run:
    ```bash
-   pnpm --filter @vc/web exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env production
+   CLOUDFLARE_ZONE_ID=<zone-id> CLOUDFLARE_API_TOKEN=<token> pnpm production:configure-hostnames
    ```
-4. SSL uses HTTP DV: when a customer adds `blog.acme.com` and creates a CNAME
-   `blog.acme.com -> <CUSTOM_HOSTNAME_CNAME_TARGET>`, Cloudflare auto-issues the certificate.
-   The row flips `pending -> active` on the next dashboard settings load (status refreshed from
-   the CF custom_hostname API). Only `active` domains are ever served.
+4. `CUSTOM_HOSTNAME_CNAME_TARGET=cname.vibecms.dev` is committed in the production Worker vars.
+   When a customer creates a CNAME to that target, Cloudflare performs HTTP DV automatically.
 
-Code already shipped: hostname validation (rejects the platform zone + apex + IPs + wildcards),
-the `domains` repository + owner/paid-gated commands with stale-reclaim, the CF `custom_hostnames`
-client (`apps/web/src/server/custom-hostnames.ts`), provisioning wired into the dashboard server
-fns, and the host-based post route (`/$postSlug`). REMAINING code: the Settings dashboard panel
-(add/list/remove UI) - pending browser QA.
+Code shipped: hostname validation, the `domains` repository, owner/paid-gated commands with
+stale-reclaim, the Cloudflare `custom_hostnames` client in `apps/api/src/server/custom-hostnames.ts`,
+the Settings add/list/remove UI, and host-based Astro routes. Only `active` domains are served.
 
 Verify after enabling (add a domain in the dashboard + create the CNAME first):
 ```bash
@@ -267,9 +262,9 @@ Expected once SSL is active: `HTTP/2 200`.
 
 ---
 
-## Quick reference: what each secret does
+## Quick reference: production settings
 
-| Secret | Required | Purpose |
+| Setting | Required | Purpose |
 |--------|----------|---------|
 | `TOKEN_PEPPER` | Yes | HMAC key for API token hashing |
 | `BETTER_AUTH_SECRET` | Yes | Session signing key |
@@ -277,10 +272,11 @@ Expected once SSL is active: `HTTP/2 200`.
 | `GOOGLE_CLIENT_SECRET` | No (OAuth optional) | Google sign-in |
 | `POLAR_ACCESS_TOKEN` | Yes (billing) | Polar checkout + subscription API |
 | `POLAR_WEBHOOK_SECRET` | Yes (billing) | Validates incoming Polar webhook events |
-| `CLOUDFLARE_ZONE_ID` | Yes (caching) | Zone for cache-tag purge API |
+| `CLOUDFLARE_ZONE_ID` (var) | Yes (caching + analytics) | Committed `vibecms.dev` zone for cache purge and crawler queries |
 | `CACHE_PURGE_API_TOKEN` | Yes (caching) | CF API token with Cache Purge permission |
-| `CUSTOM_HOSTNAME_API_TOKEN` | No (custom domains) | CF token (SSL and Certificates: Edit) to provision custom hostnames |
-| `CUSTOM_HOSTNAME_CNAME_TARGET` | No (custom domains) | CNAME target customers point their domain at (the SaaS fallback origin) |
+| `ANALYTICS_API_TOKEN` | Yes (analytics) | Read-only Account Analytics + Zone Analytics queries |
+| `CUSTOM_HOSTNAME_API_TOKEN` | Yes | CF token (SSL and Certificates: Edit) to provision custom hostnames |
+| `CUSTOM_HOSTNAME_CNAME_TARGET` (var) | Yes (custom domains) | Committed CNAME target for customer DNS |
 
 Secrets gated on the pricing decision (Step 4):
 

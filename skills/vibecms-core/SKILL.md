@@ -21,7 +21,7 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, and current Voice Profile.
 2. **Load live formatting guidance.** Call `posts.format_guide` without a preset override unless the user explicitly requests an alternate presentation target.
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
-4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update`; `contentMarkdown` must contain the complete body.
+4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update` with `expectedVersionNumber` set to the current tip from `posts.get` / `posts.versions.list`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
 5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number.
 6. **Bind the approval request.** Call `posts.versions.list`. Identify the newest `versionNumber`, then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
 7. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.
@@ -29,23 +29,22 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`.
 10. **Report evidence.** Return the exact title, published status, and tool-returned `url`. If `url` is null, say that; do not construct one.
 
-## Consequential live mutations
+## Draft vs live
 
-`posts.update` preserves status. Updating a published post therefore changes live content immediately. Restoring a version of a published post also changes live content immediately even though restore does not change the status to published.
+Public article/list/tag/search/feed output is pinned to `publishedVersionNumber`. `posts.update` and `posts.versions.restore` mutate the private tip only; they require `expectedVersionNumber` and return `CONFLICT` when the tip moved. Live public content changes only when `posts.publish` pins a new approved tip version.
 
 Before any of these actions, preview the proposed result and obtain separate explicit confirmation immediately before the call:
 
-- updating a published post;
-- `posts.versions.restore` on a published post;
+- `posts.publish` (switches the public pin);
 - `posts.archive`;
 - `assets.delete`;
 - any other operation that removes or mutates currently public state.
 
-Draft updates do not require publication approval, but they still invalidate any earlier approval.
+Draft updates do not require publication approval, but they still invalidate any earlier approval. Restoring a version also requires `expectedVersionNumber` for the current tip.
 
 ## Conflict and recovery rules
 
-- `CONFLICT` while publishing means the approved version is stale or another write won a race. Do not retry blindly. Read the post, preview the current content, get the newest version, and request fresh approval.
+- `CONFLICT` while publishing, updating, or restoring means the expected tip version is stale or another write won a race. Do not retry blindly. Read the post, preview the current content, get the newest version, and request fresh approval when publishing.
 - `CONFLICT` on create/update can also mean a slug collision. Inspect existing posts before choosing whether to update the existing post or propose a different slug.
 - `VALIDATION_ERROR`: correct the rejected input; do not weaken or bypass validation.
 - `FORBIDDEN`: the token lacks the required scope. Explain the missing capability; do not request a broader token unless the user chooses to create one.
@@ -94,3 +93,7 @@ Report:
 ## Dynamic server truth
 
 Do not duplicate renderer syntax, preset rules, site voice, or API schemas in this skill. Retrieve current site context from `sites.get`, formatting behavior from `posts.format_guide`, and accepted fields from the MCP tool schemas.
+
+## Provenance
+
+VibeCMS is an IdeaPlexa LLC product. The same scoped API and agent publishing workflow powers AutoSEOPilot.

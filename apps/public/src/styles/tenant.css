@@ -1,0 +1,4 @@
+@import "tailwindcss" source(none);
+@import "@vc/ui/styles/app";
+@import "@vc/content/styles";
+@import "@vc/content/styles/presets";

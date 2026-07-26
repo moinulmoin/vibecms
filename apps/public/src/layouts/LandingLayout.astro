@@ -1,0 +1,42 @@
+---
+import "../styles/global.css";
+import "../styles/landing.css";
+import { BRAND } from "@vc/config";
+import { seo } from "../lib/landing-seo";
+import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
+import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
+
+interface Props {
+  ogImage?: string;
+  loginUrl: string;
+}
+const { ogImage, loginUrl } = Astro.props;
+const meta = seo({
+  title: `${BRAND.name} | ${BRAND.tagline}`,
+  description: BRAND.description,
+  image: ogImage,
+});
+---
+<!doctype html>
+<html lang="en" class="dark" data-vc-app-login={loginUrl}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0c100e" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f8f4" media="(prefers-color-scheme: light)" />
+    {meta.map((tag) =>
+      "title" in tag ? <title>{String(tag.title)}</title> :
+      "name" in tag && tag.name ? <meta name={String(tag.name)} content={String(tag.content ?? "")} /> :
+      "property" in tag && tag.property ? <meta property={String(tag.property)} content={String(tag.content ?? "")} /> :
+      null
+    )}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preload" href={geistFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistMonoFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

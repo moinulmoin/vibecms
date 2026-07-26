@@ -71,6 +71,8 @@ export const postDtoSchema = postSummaryDtoSchema.extend({
   seoDescription: z.string().nullable(),
   canonicalUrl: z.string().nullable(),
   presentation: presentationSchema,
+  currentVersionNumber: z.number().int().positive(),
+  publishedVersionNumber: z.number().int().positive().nullable(),
 });
 
 export const assetDtoSchema = z.object({

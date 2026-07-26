@@ -7,6 +7,7 @@ node_modules/
 !.dev.vars.example
 !.env.example
 !apps/**/dev.vars.example
+!apps/**/.dev.vars.example
 !apps/**/.env.example
 dist/
 apps/*/dist/
@@ -19,10 +20,16 @@ dogfood-output/
 /vibecms-keynote*.mp4
 /output/
 /.impeccable/
-apps/web/public/brand/generated/
+apps/dashboard/public/brand/generated/
 
 # Local-only brand WIP and session notes (kept on disk, not committed)
-apps/web/public/brand/icon.png
-apps/web/public/brand/og-agent-flow.html
-apps/web/public/brand/og-agent-flow.svg
+apps/dashboard/public/brand/icon.png
+apps/dashboard/public/brand/og-agent-flow.html
+apps/dashboard/public/brand/og-agent-flow.svg
 plans/HANDOFF.md
+
+# Local generated metadata and QA captures
+/.commandcode/
+/tmp/
+apps/public/.astro/dev.json
+apps/public/.astro/settings.json

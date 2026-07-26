@@ -132,7 +132,7 @@ export const operations = [
     operationId: "updatePost",
     requiredScope: "posts:update",
     description: opDescription(
-      "Update a post. Provide postId plus only the fields to change; contentMarkdown is the full Markdown body.",
+      "Update a post. Provide postId, expectedVersionNumber (current tip), and only the fields to change; contentMarkdown is the full Markdown body. Stale expectedVersionNumber returns CONFLICT.",
       "posts:update",
       writeErrors,
     ),
@@ -262,7 +262,7 @@ export const operations = [
     operationId: "restorePostVersion",
     requiredScope: "posts:update",
     description: opDescription(
-      "Restore a post to a previous version. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post.",
+      "Restore a post to a previous version. Provide expectedVersionNumber for the current tip; stale tips return CONFLICT. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post.",
       "posts:update",
       writeErrors,
     ),

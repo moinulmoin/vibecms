@@ -1,0 +1,14 @@
+---
+import { isMarketingHost } from "../server/public-blog";
+import { publicRuntimeEnv } from "../server/runtime";
+
+// Root stays externally at `/`. Each host branch renders from its own internal
+// module graph so marketing CSS/JS and tenant public-blog CSS never share an
+// entry. The tenant module owns site resolution and search exactly once.
+const env = publicRuntimeEnv(Astro);
+if (!env.selfHosted && isMarketingHost(Astro.request, env)) {
+  return Astro.rewrite(`/internal/marketing${Astro.url.search}`);
+}
+
+return Astro.rewrite(`/internal/tenant${Astro.url.search}`);
+---

@@ -69,6 +69,14 @@ Editorial standards:
 - Keep uncertainty visible rather than smoothing it into false confidence.
 - Do not copy exemplar wording. Exemplars are evidence of rhythm, structure, tone, and editorial choices.
 
+Image standards:
+
+- Upload an image once with `assets.upload`, including concise alt text that describes the useful visual content.
+- Use the returned asset ID as `coverAssetId` for the featured image, or the returned `/media-assets/<id>` URL inside Markdown for an inline image.
+- Never publish empty image syntax such as `![](...)`. If `posts.preview` reports missing alt text, revise the Markdown and preview again.
+- Reuse an existing library asset when it is the right image; do not upload duplicates.
+- Image generation is outside this skill. Only use an image the user supplied or explicitly approved.
+
 ### 4. Hand off for safe saving and preview
 
 Give the full draft to `vibecms-core`. After it is saved, ensure the exact saved Markdown is rendered with `posts.preview`. Review the outline, warnings, and resolved presentation.
@@ -106,6 +114,20 @@ The Voice Profile is explicit, owner-managed site context:
 If no profile is configured, use the accepted brief, current user language, live format guidance, and restrained editorial defaults. Do not manufacture a profile.
 
 If a representative post warning is present, do not substitute another post silently. Continue without it or ask the user whether another example should be used.
+
+## Default writing baseline
+
+When the Voice Profile or accepted brief is silent, apply this baseline without presenting it as a saved user preference:
+
+- write to one clear audience and use the language that audience uses;
+- lead with the useful point, not scene-setting or promotional throat-clearing;
+- keep one main idea per section and make the sequence easy to follow;
+- prefer active, concrete sentences over jargon, abstractions, and unsupported superlatives;
+- support factual or comparative claims with evidence, examples, or an explicit qualification;
+- keep the voice consistent while letting headlines be bolder, body copy clearer, and calls to action direct;
+- end with the next useful action or conclusion, not a generic summary.
+
+After editing for voice, re-check clarity. A stylish sentence that obscures meaning is a regression.
 
 ## Preference learning requires separate consent
 

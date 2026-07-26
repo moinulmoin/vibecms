@@ -1,0 +1,272 @@
+.publicPage {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+}
+
+.publicContainer {
+  width: 100%;
+  max-width: 860px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
+}
+
+/* §1: header separates by padding + the title's own weight — no border rule. */
+.publicHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 28px;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.publicBrand {
+  color: inherit;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.publicBrand:hover {
+  color: var(--vc-accent);
+}
+
+/* Masthead tagline — muted so it reads as a quiet descriptor beside the brand,
+   not a second headline competing for the foreground. Shares the header
+   baseline row; wraps under the brand on narrow viewports. */
+.publicTagline {
+  margin: 0;
+  color: var(--vc-muted-fg);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Article masthead: site identity (brand + tagline) left, "All posts"
+   navigation right. Only the article page renders .mastheadNav; the index
+   shell header is unchanged. margin-left: auto parks the nav at the right
+   edge of the shared .publicHeader flex row. */
+.mastheadNav {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+}
+
+.allPostsLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+  font-family: var(--vc-font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: color 150ms ease;
+}
+
+.allPostsLink:hover {
+  color: var(--vc-accent);
+}
+
+/* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
+.postList {
+  display: grid;
+  gap: 3rem;
+}
+
+.postCard {
+  /* §1: no card border. Separation is the list gap. */
+}
+
+.postCard p {
+  color: var(--vc-muted-fg);
+  line-height: 1.6;
+}
+
+.coverImage {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--vc-radius);
+  margin-bottom: 18px;
+}
+
+.postCard h2 {
+  margin: 6px 0;
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(24px, 4vw, 32px) * var(--vc-heading-scale));
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.postCard a,
+.backLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* §4: hover = title color shift only (no hover-card chrome). */
+.postCard h2 a:hover,
+.backLink:hover {
+  color: var(--vc-accent);
+}
+
+/* §8: the themed canvas spans the viewport; only article content is constrained. */
+.publicPage[data-vc-article-page] .publicContainer {
+  max-width: 1240px;
+}
+
+.backLink {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Listing card meta line — muted, middle-dot separated. */
+.metaLine {
+  color: var(--vc-muted-fg);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: var(--vc-prose-measure);
+}
+
+.empty,
+.notFound {
+  color: var(--vc-muted-fg);
+  text-align: center;
+  padding: 4rem 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+/* ── Search form + listing banners ─────────────────────────────────────────── */
+
+/* §1: search = ONE integrated bordered control (input + submit share a single
+   border + radius). The form itself is the bordered box; the input is transparent
+   inside it and the submit button sits inline, separated by a hairline divider.
+   Accent is reserved for the focus ring. */
+.searchForm {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  margin-bottom: var(--vc-section-gap);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+/* Accessible name for the search field — visually hidden, never the placeholder. */
+.searchLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--vc-radius) - 1px) 0 0 calc(var(--vc-radius) - 1px);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  font-size: 1rem;
+  padding: 0.7rem 0.875rem;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--vc-muted-fg);
+}
+
+/* Accent reserved for interactive emphasis: the whole control picks up an accent
+   ring when the field (or button) is focused. */
+.searchForm:focus-within {
+  border-color: var(--vc-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent) 30%, transparent);
+}
+
+.searchButton {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--vc-border);
+  border-radius: 0 calc(var(--vc-radius) - 1px) calc(var(--vc-radius) - 1px) 0;
+  color: var(--vc-muted-fg);
+  font-family: var(--vc-font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.7rem 1rem;
+  transition: color 180ms ease;
+}
+
+.searchButton:hover {
+  color: var(--vc-fg);
+}
+
+/* ── Focus states ─────────────────────────────────────────────────────────── */
+
+/* One deliberate keyboard-focus language across every public link: a 2px accent
+   outline lifted 2px off the target with a small radius, so inline links don't
+   read as a hard rectangle. Text-entry controls keep their own ring above. */
+.publicBrand:focus-visible,
+.allPostsLink:focus-visible,
+.postCard h2 a:focus-visible,
+.backLink:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.listingBanner {
+  margin-bottom: var(--vc-section-gap);
+}
+
+.listingHeading {
+  font-family: var(--vc-font-heading);
+  font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+@media (max-width: 640px) {
+  .publicContainer {
+    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
+  }
+
+  .publicHeader {
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .publicBrand {
+    font-size: 22px;
+  }
+
+  .postCard h2 {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicPage,
+  .publicPage *,
+  .publicPage *::before,
+  .publicPage *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,11 @@
+BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
+TOKEN_PEPPER=generate_with_openssl_rand_hex_32
+# OTP email uses the native send_email binding named EMAIL. Without that binding,
+# local development logs the code to the Worker console.
+EMAIL_FROM=vibecms <login@your-domain.com>
+# Optional: set both to enable Google sign-in.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Hosted reader analytics. Use a read-only token with Account Analytics: Read
+# and Zone Analytics: Read. The zone ID is configured in wrangler.jsonc.
+ANALYTICS_API_TOKEN=

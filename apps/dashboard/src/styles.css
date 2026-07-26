@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@vc/ui/styles/app";
+@import "@vc/content/styles";
+@import "@vc/content/styles/presets";
+@source "../../../packages/ui/src";

@@ -1,0 +1,65 @@
+---
+import Base from "../layouts/Base.astro";
+import { PublicBlogPostView } from "../components/PublicBlogPages";
+import {
+  handlePublicPostByHostGet,
+  loadPublicPostByHost,
+  matchCachedPublicPostHtml,
+  publicHtmlResponseHeaders,
+} from "../server/public-blog";
+import { buildPostHeadContent } from "../lib/seo-meta";
+import { publicDb, publicRuntimeEnv } from "../server/runtime";
+import pageViewScriptUrl from "../scripts/page-view.js?url";
+
+const env = publicRuntimeEnv(Astro);
+const db = publicDb(Astro);
+const postSlug = Astro.params.postSlug;
+// Markdown Accept/.md/?format=md runs before any HTML page-cache lookup.
+const early = await handlePublicPostByHostGet(db, Astro.request, postSlug, env);
+if (early) return early;
+
+const cachedHtml = await matchCachedPublicPostHtml(Astro.request);
+if (cachedHtml) return cachedHtml;
+
+const blog = await loadPublicPostByHost(db, Astro.request, postSlug, env);
+if (!blog) {
+  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+
+const markdownAlternateHref = new URL(`/${blog.post.slug}.md`, blog.origin).href;
+for (const [key, value] of Object.entries(
+  publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
+    markdownAlternateHref,
+  }),
+)) {
+  Astro.response.headers.set(key, value);
+}
+
+const head = buildPostHeadContent({
+  post: blog.post,
+  site: blog.site,
+  canonicalUrl: blog.canonicalUrl,
+  origin: blog.origin,
+  indexable: blog.indexable,
+});
+const titleEntry = head.meta.find((entry) => "title" in entry);
+const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in entry);
+---
+<Base>
+  <Fragment slot="head">
+    {titleEntry && "title" in titleEntry ? <title>{String(titleEntry.title)}</title> : null}
+    {metaEntries.map((entry) => {
+      if ("name" in entry && entry.name && entry.content) {
+        return <meta name={String(entry.name)} content={String(entry.content)} />;
+      }
+      if ("property" in entry && entry.property && entry.content) {
+        return <meta property={String(entry.property)} content={String(entry.content)} />;
+      }
+      return null;
+    })}
+    {head.links.map((link) => <link rel={String(link.rel)} href={String(link.href)} />)}
+    {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
+  </Fragment>
+  <PublicBlogPostView data={blog} />
+  <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
+</Base>

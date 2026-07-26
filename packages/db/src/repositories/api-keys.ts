@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { apiKeys, sites } from "../schema";
 
@@ -68,8 +68,12 @@ export interface ApiKeysRepository {
   revoke(siteId: string, keyId: string, timestamp: number): Promise<number>;
   // Look up a key by token_hash joined to sites for workspace_id, or null when absent.
   authenticateByHash(tokenHash: string): Promise<ApiKeyAuthRecord | null>;
-  // Record last-used touch on a successful authentication.
+  // Record last-used touch on a successful authentication. Monotonic: an older
+  // timestamp never overwrites a newer lastUsedAt.
   markUsed(keyId: string, timestamp: number): Promise<void>;
+  // Exact site-scoped key by id, including revoked rows, or null when absent.
+  // Used by the selected-key onboarding read; never falls back to another token.
+  getById(siteId: string, keyId: string): Promise<ApiKeyStatusRecord | null>;
   // Newest active key for a site, or null (onboarding-status active-key read).
   latestActive(siteId: string): Promise<ApiKeyStatusRecord | null>;
   // Newest key of any state for a site, or null (onboarding-status revoked fallback read).
@@ -168,7 +172,22 @@ export function createApiKeysRepository(db: D1Database): ApiKeysRepository {
     },
 
     async markUsed(keyId, timestamp) {
-      await client.update(apiKeys).set({ lastUsedAt: timestamp }).where(eq(apiKeys.id, keyId)).run();
+      // Monotonic: only advance lastUsedAt. A stale (older) timestamp cannot
+      // overwrite a value already set by a newer authentication.
+      await client
+        .update(apiKeys)
+        .set({ lastUsedAt: timestamp })
+        .where(and(eq(apiKeys.id, keyId), or(isNull(apiKeys.lastUsedAt), sql`${apiKeys.lastUsedAt} < ${timestamp}`)))
+        .run();
+    },
+
+    async getById(siteId, keyId) {
+      const rows = await client
+        .select(statusFields)
+        .from(apiKeys)
+        .where(and(eq(apiKeys.siteId, siteId), eq(apiKeys.id, keyId)))
+        .limit(1);
+      return rows[0] ?? null;
     },
 
     async latestActive(siteId) {

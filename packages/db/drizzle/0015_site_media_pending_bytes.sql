@@ -1,0 +1,1 @@
+ALTER TABLE sites ADD COLUMN media_pending_bytes INTEGER NOT NULL DEFAULT 0;

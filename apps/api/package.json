@@ -1,0 +1,37 @@
+{
+  "name": "@vc/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env development --persist-to ../../.wrangler/state",
+    "build": "wrangler deploy --dry-run --env development --outdir=dist",
+    "deploy": "wrangler deploy --env development",
+    "cf-typegen": "wrangler types --env development",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.5.1",
+    "@hono/zod-validator": "^0.7.6",
+    "@polar-sh/sdk": "^0.47.1",
+    "@scalar/hono-api-reference": "^0.9.48",
+    "@vc/api-contract": "workspace:*",
+    "@vc/config": "workspace:*",
+    "@vc/content": "workspace:*",
+    "@vc/core": "workspace:*",
+    "@vc/db": "workspace:*",
+    "@vc/mcp": "workspace:*",
+    "@vc/validators": "workspace:*",
+    "better-auth": "^1.6.24",
+    "hono": "^4.12.31",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.8",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10",
+    "wrangler": "4.114.0"
+  }
+}

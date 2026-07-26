@@ -11,6 +11,8 @@ export * from "./repositories/voice-profiles";
 export * from "./repositories/usage";
 export * from "./repositories/rate-limits";
 export * from "./repositories/api-keys";
+export * from "./repositories/analytics";
 export * from "./read-models/public-blog";
 export * from "./read-models/dashboard";
 export * from "./read-models/exports";
+export * from "./repositories/pending-media";

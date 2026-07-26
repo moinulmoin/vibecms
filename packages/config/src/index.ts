@@ -34,6 +34,10 @@ export const API_USAGE_LIMITS = {
   },
 } as const;
 
+export function hasActiveSubscription(status: string | null | undefined): boolean {
+  return status === "active";
+}
+
 /** Max active (non-revoked) API tokens per workspace. Leak/abuse guard; owners revoke to free slots. */
 export const API_TOKENS_MAX = 10;
 
@@ -49,8 +53,8 @@ export const ENTITLEMENTS = [
   "1 hosted blog",
   "Unlimited posts",
   "Scoped MCP access",
-  "Activity history",
-  "Post version history",
+  "Activity & version history",
+  "Reader & AI discovery analytics",
 ] as const;
 
 export type FormStatusVariant = "success" | "error";
@@ -74,7 +78,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   media_uploaded: { variant: "success", title: "Image uploaded", message: "It is ready to use as a cover image." },
   media_deleted: { variant: "success", title: "Image deleted", message: "The image has been removed from your library." },
   media_updated: { variant: "success", title: "Alt text saved", message: "The image description has been updated." },
-  asset_in_use: { variant: "error", title: "Image in use", message: "This image is set as a post cover. Remove it from the post before deleting." },
+  asset_in_use: { variant: "error", title: "Image in use", message: "Remove this image from post covers and site social settings before deleting it." },
   setup_complete: { variant: "success", title: "Blog ready", message: "Your hosted blog is set up." },
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },
@@ -89,7 +93,16 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   domain_invalid: { variant: "error", title: "Invalid domain", message: "Enter a domain you own, for example blog.example.com." },
   domain_conflict: { variant: "error", title: "Domain in use", message: "That domain is already connected to another blog." },
   domain_billing: { variant: "error", title: "Subscription required", message: "Custom domains are a paid feature. Subscribe to connect your own domain." },
+  domain_provisioning: {
+    variant: "error",
+    title: "Domain provisioning failed",
+    message: "Cloudflare could not provision this domain yet. Open Domains settings and refresh to retry.",
+  },
   invalid_cover_asset: { variant: "error", title: "Cover image not found", message: "Pick an image from your media library." },
+  image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to every featured and inline image before publishing." },
+  invalid_social_image: { variant: "error", title: "Social image not found", message: "Choose an image from your media library." },
+  social_image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to the selected social image before saving." },
+  alt_required_in_use: { variant: "error", title: "Alt text required", message: "This image is in use. Replace it or keep a useful description." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
@@ -98,6 +111,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
+  already_active: { variant: "error", title: "Subscription already active", message: "This workspace already has an active plan. Manage it from the customer portal." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   version_conflict: { variant: "error", title: "Post changed", message: "Review the latest version, then publish again." },

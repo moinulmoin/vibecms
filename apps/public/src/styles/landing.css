@@ -1,0 +1,9 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "@vc/ui/styles/app";
+
+/* Marketing-only utility graph. Tenant content ships from tenant.css. */
+@source "../components/landing";
+@source "../layouts/LandingLayout.astro";
+@source "../pages/internal/marketing.astro";
+@source "../scripts/marketing-interactions.js";

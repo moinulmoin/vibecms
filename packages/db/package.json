@@ -7,16 +7,20 @@
   "scripts": {
     "typecheck": "tsc",
     "lint": "tsc",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run --config vitest.worker.config.ts"
   },
   "dependencies": {
-    "@vc/core": "workspace:*",
     "@vc/config": "workspace:*",
-    "drizzle-orm": "^0.45.0"
+    "@vc/core": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260426.1",
-    "drizzle-kit": "^0.31.7",
-    "typescript": "6.0.3"
+    "@cloudflare/vitest-pool-workers": "0.18.8",
+    "@cloudflare/workers-types": "5.20260722.1",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10",
+    "wrangler": "4.114.0"
   }
 }

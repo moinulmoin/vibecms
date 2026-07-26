@@ -38,8 +38,12 @@ export type Post = {
   createdAt: number;
   updatedAt: number;
   presentation: Presentation | null;
+  /** Latest saved version tip (draft or live). */
+  currentVersionNumber: number;
+  /** Pinned public version; null until first successful publish. */
+  publishedVersionNumber: number | null;
 };
-export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation">;
+export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation" | "currentVersionNumber" | "publishedVersionNumber">;
 
 export type PostVersionSummary = {
   versionNumber: number;

@@ -47,6 +47,8 @@ INSERT OR IGNORE INTO post_versions (
   'human', 'demo_user', 'Seeded published post', 1760000000
 );
 
+UPDATE posts SET published_version_id = 'demo_version_published_1' WHERE id = 'demo_post_published';
+
 INSERT OR IGNORE INTO post_versions (
   id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
   status, tags_json, created_by_type, created_by_id, change_summary, created_at

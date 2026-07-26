@@ -1,6 +1,6 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
 import { BillingRequiredError, ConflictError, NotFoundError } from "../errors";
-import { requireScope } from "../policies";
+import { hasActiveSubscription, requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
 export type PostMutationHistory = {
@@ -10,8 +10,8 @@ export type PostMutationHistory = {
 };
 
 export type PostRepository = {
-  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt">, actor: Actor, history: PostMutationHistory): Promise<Post>;
-  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory): Promise<{ post: Post; versionNumber: number } | null>;
+  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory): Promise<Post>;
+  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory, expectedVersionNumber: number): Promise<{ post: Post; versionNumber: number } | null>;
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
@@ -72,7 +72,7 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     changeSummary: "Updated post",
     activityAction: "post.updated",
     activitySummary: `Updated ${patch.title}`,
-  });
+  }, data.expectedVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after;
 }
@@ -97,7 +97,7 @@ export async function publishPost(
       activityAction: "post.published",
       activitySummary: `Published ${before.title}`,
     },
-    { billingActive: input.billingStatus === "active", freeLimit: FREE_PUBLISHED_LIMIT },
+    { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT },
   );
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
@@ -111,11 +111,12 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
   requireScope(actor, "posts:archive");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
+  // Archive is not client-versioned; pin against the tip observed in this command.
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
     changeSummary: "Archived post",
     activityAction: "post.archived",
     activitySummary: `Archived ${before.title}`,
-  });
+  }, before.currentVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after.post;
 }
@@ -144,7 +145,7 @@ export async function getPostVersion(repo: PostRepository, actor: Actor, input: 
   return version;
 }
 
-export async function restorePostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number }) {
+export async function restorePostVersion(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; versionNumber: number; expectedVersionNumber: number }) {
   requireScope(actor, "posts:update");
   const target = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
   if (!target) throw new NotFoundError("Post version not found");
@@ -158,7 +159,7 @@ export async function restorePostVersion(repo: PostRepository, actor: Actor, inp
     changeSummary: `Restored to v${input.versionNumber}`,
     activityAction: "post.restored",
     activitySummary: `Restored "${target.title}" to v${input.versionNumber}`,
-  });
+  }, input.expectedVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after.post;
 }

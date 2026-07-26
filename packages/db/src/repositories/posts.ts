@@ -16,7 +16,10 @@ function actorTypeOf(t: string): Actor["type"] {
 }
 
 // Drizzle returns camelCase fields (the schema maps snake_case columns); project to the core domain model.
-function mapPost(row: PostRow): Post {
+function mapPost(
+  row: PostRow,
+  versions: { currentVersionNumber: number; publishedVersionNumber: number | null },
+): Post {
   return {
     id: row.id,
     siteId: row.siteId,
@@ -34,6 +37,8 @@ function mapPost(row: PostRow): Post {
     presentation: row.presentationJson ? JSON.parse(row.presentationJson) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    currentVersionNumber: versions.currentVersionNumber,
+    publishedVersionNumber: versions.publishedVersionNumber,
   };
 }
 
@@ -150,13 +155,38 @@ function mapPostError(error: unknown): unknown {
 export function createD1PostRepository(db: D1Database): PostRepository {
   const client = createDbClient(db);
 
+  const versionMetaFor = async (siteId: string, postId: string, publishedVersionId: string | null) => {
+    const tip = await db
+      .prepare(
+        "SELECT max(version_number) AS versionNumber FROM post_versions WHERE site_id = ? AND post_id = ?",
+      )
+      .bind(siteId, postId)
+      .first<{ versionNumber: number | null }>();
+    let publishedVersionNumber: number | null = null;
+    if (publishedVersionId) {
+      const published = await db
+        .prepare(
+          "SELECT version_number AS versionNumber FROM post_versions WHERE id = ? AND site_id = ? AND post_id = ?",
+        )
+        .bind(publishedVersionId, siteId, postId)
+        .first<{ versionNumber: number }>();
+      publishedVersionNumber = published?.versionNumber ?? null;
+    }
+    return {
+      currentVersionNumber: tip?.versionNumber ?? 0,
+      publishedVersionNumber,
+    };
+  };
+
   const getPost = async (siteId: string, postId: string) => {
     const rows = await client
       .select()
       .from(posts)
       .where(and(eq(posts.siteId, siteId), eq(posts.id, postId)))
       .limit(1);
-    return rows[0] ? mapPost(rows[0]) : null;
+    const row = rows[0];
+    if (!row) return null;
+    return mapPost(row, await versionMetaFor(siteId, postId, row.publishedVersionId));
   };
 
   // Version number = max(existing) + 1, computed inside the insert via a correlated subquery.
@@ -203,7 +233,13 @@ export function createD1PostRepository(db: D1Database): PostRepository {
   return {
     async createPostWithHistory(input, actor, history) {
       const timestamp = now();
-      const post: Post = { ...input, createdAt: timestamp, updatedAt: timestamp };
+      const post: Post = {
+        ...input,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        currentVersionNumber: 1,
+        publishedVersionNumber: null,
+      };
       // D1 batch is one transaction: post, version snapshot, and activity land together or not at all.
       try {
         await client.batch([
@@ -222,6 +258,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             canonicalUrl: post.canonicalUrl,
             tagsJson: JSON.stringify(post.tags),
             presentationJson: post.presentation ? JSON.stringify(post.presentation) : null,
+            publishedVersionId: null,
             createdByType: actor.type,
             createdById: actor.id,
             updatedByType: actor.type,
@@ -238,91 +275,25 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       return post;
     },
 
-    async updatePostWithHistory(siteId, postId, patch, actor, history) {
+    async updatePostWithHistory(siteId, postId, patch, actor, history, expectedVersionNumber) {
       const before = await getPost(siteId, postId);
       if (!before) return null;
       const timestamp = now();
-      const after: Post = { ...before, ...patch, updatedAt: timestamp };
-      try {
-        const [updateResult, versionRows] = await client.batch([
-          client
-            .update(posts)
-            .set({
-              title: after.title,
-              slug: after.slug,
-              excerpt: after.excerpt,
-              contentMarkdown: after.contentMarkdown,
-              coverAssetId: after.coverAssetId,
-              status: after.status,
-              publishedAt: after.publishedAt,
-              seoTitle: after.seoTitle,
-              seoDescription: after.seoDescription,
-              canonicalUrl: after.canonicalUrl,
-              tagsJson: JSON.stringify(after.tags),
-              presentationJson: after.presentation ? JSON.stringify(after.presentation) : null,
-              updatedByType: actor.type,
-              updatedById: actor.id,
-              updatedAt: timestamp,
-            })
-            .where(and(eq(posts.siteId, siteId), eq(posts.id, postId))),
-          postVersionInsert(after, actor, history.changeSummary, timestamp),
-          activityInsert({ siteId: after.siteId, actor, action: history.activityAction, entityType: "post", entityId: after.id, summary: history.activitySummary, before, after }, timestamp),
-        ]);
-        if ((updateResult.meta.changes ?? 0) === 0) return null;
-        const versionNumber = versionRows[0]?.versionNumber;
-        if (versionNumber === undefined) throw new Error("Post version insert returned no version number");
-        return { post: after, versionNumber };
-      } catch (error) {
-        throw mapPostError(error);
-      }
-    },
-
-    getPost,
-
-    async findPostBySlug(siteId, slug) {
-      const rows = await client
-        .select()
-        .from(posts)
-        .where(and(eq(posts.siteId, siteId), eq(posts.slug, slug)))
-        .limit(1);
-      return rows[0] ? mapPost(rows[0]) : null;
-    },
-
-    async listPosts(input) {
-      // Admin search uses unescaped %term% LIKE across title/slug/excerpt, matching prior behavior.
-      const search = input.search ? `%${input.search}%` : null;
-      const conditions: (SQL | undefined)[] = [eq(posts.siteId, input.siteId)];
-      if (input.status) conditions.push(eq(posts.status, input.status));
-      if (search) conditions.push(or(like(posts.title, search), like(posts.slug, search), like(posts.excerpt, search)));
-      const rows = await client
-        .select(postSummaryFields)
-        .from(posts)
-        .where(and(...conditions))
-        .orderBy(desc(posts.updatedAt))
-        .limit(input.limit)
-        .offset(input.offset);
-      return rows.map((row) => mapPostSummary(row));
-    },
-
-    async publishPostWithHistory(siteId, postId, expectedVersionNumber, actor, history, options) {
-      const before = await getPost(siteId, postId);
-      if (!before) return { post: null, capReached: false, versionConflict: false };
-
-      const timestamp = now();
       const versionId = crypto.randomUUID();
       const activityId = crypto.randomUUID();
+      const nextVersionNumber = expectedVersionNumber + 1;
       const after: Post = {
         ...before,
-        status: "published",
-        publishedAt: timestamp,
+        ...patch,
         updatedAt: timestamp,
+        currentVersionNumber: nextVersionNumber,
+        // Draft edits never move the public pointer.
+        publishedVersionNumber: before.publishedVersionNumber,
       };
 
-      // D1 executes a batch transactionally and in order. The first INSERT is the
-      // claim: it only snapshots a published version when the caller approved the
-      // exact latest version and the free cap permits the transition. The post and
-      // activity writes are both gated by that unique claim id, so a rejected claim
-      // cannot leave partial history and a successful claim cannot omit history.
+      // Claim the next version number only when the caller still holds the tip.
+      // Post + activity writes are gated on that claim so a stale writer cannot
+      // partially apply content or leave orphan history.
       let versionResult: D1Result;
       try {
         [versionResult] = await db.batch([
@@ -333,28 +304,31 @@ export function createD1PostRepository(db: D1Database): PostRepository {
               canonical_url, tags_json, presentation_json, created_by_type,
               created_by_id, change_summary, created_at
             )
-            SELECT ?, p.id, p.site_id, ?, p.title, p.slug, p.excerpt,
-              p.content_markdown, p.cover_asset_id, 'published', p.seo_title,
-              p.seo_description, p.canonical_url, p.tags_json, p.presentation_json,
-              ?, ?, ?, ?
+            SELECT ?, p.id, p.site_id, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?,
+              ?, ?, ?, ?,
+              ?, ?, ?
             FROM posts AS p
-            WHERE p.site_id = ? AND p.id = ? AND p.status <> 'published'
+            WHERE p.site_id = ? AND p.id = ?
               AND coalesce((
                 SELECT max(pv.version_number)
                 FROM post_versions AS pv
                 WHERE pv.post_id = p.id AND pv.site_id = p.site_id
-              ), 0) = ?
-              AND (
-                ? = 1 OR (
-                  SELECT count(*)
-                  FROM posts AS published
-                  WHERE published.site_id = p.site_id
-                    AND published.status = 'published'
-                ) < ?
-              )`,
+              ), 0) = ?`,
           ).bind(
             versionId,
-            expectedVersionNumber + 1,
+            nextVersionNumber,
+            after.title,
+            after.slug,
+            after.excerpt,
+            after.contentMarkdown,
+            after.coverAssetId,
+            after.status,
+            after.seoTitle,
+            after.seoDescription,
+            after.canonicalUrl,
+            JSON.stringify(after.tags),
+            after.presentation ? JSON.stringify(after.presentation) : null,
             actor.type,
             actor.id,
             history.changeSummary,
@@ -362,16 +336,36 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             siteId,
             postId,
             expectedVersionNumber,
-            options.billingActive ? 1 : 0,
-            options.freeLimit,
           ),
           db.prepare(
             `UPDATE posts
-             SET status = 'published', published_at = ?, updated_at = ?,
-               updated_by_type = ?, updated_by_id = ?
+             SET title = ?, slug = ?, excerpt = ?, content_markdown = ?,
+               cover_asset_id = ?, status = ?, published_at = ?, seo_title = ?,
+               seo_description = ?, canonical_url = ?, tags_json = ?,
+               presentation_json = ?, updated_by_type = ?, updated_by_id = ?,
+               updated_at = ?
              WHERE site_id = ? AND id = ?
                AND EXISTS (SELECT 1 FROM post_versions WHERE id = ?)`,
-          ).bind(timestamp, timestamp, actor.type, actor.id, siteId, postId, versionId),
+          ).bind(
+            after.title,
+            after.slug,
+            after.excerpt,
+            after.contentMarkdown,
+            after.coverAssetId,
+            after.status,
+            after.publishedAt,
+            after.seoTitle,
+            after.seoDescription,
+            after.canonicalUrl,
+            JSON.stringify(after.tags),
+            after.presentation ? JSON.stringify(after.presentation) : null,
+            actor.type,
+            actor.id,
+            timestamp,
+            siteId,
+            postId,
+            versionId,
+          ),
           db.prepare(
             `INSERT INTO activity_events (
               id, site_id, actor_type, actor_id, actor_name, action, entity_type,
@@ -399,25 +393,178 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         throw mapPostError(error);
       }
 
-      if ((versionResult.meta.changes ?? 0) > 0) {
+      if ((versionResult.meta.changes ?? 0) === 0) {
+        throw new ConflictError("Post changed concurrently; retry the save");
+      }
+      return { post: after, versionNumber: nextVersionNumber };
+    },
+
+    getPost,
+
+    async findPostBySlug(siteId, slug) {
+      const rows = await client
+        .select()
+        .from(posts)
+        .where(and(eq(posts.siteId, siteId), eq(posts.slug, slug)))
+        .limit(1);
+      const row = rows[0];
+      if (!row) return null;
+      return mapPost(row, await versionMetaFor(siteId, row.id, row.publishedVersionId));
+    },
+
+    async listPosts(input) {
+      // Admin search uses unescaped %term% LIKE across title/slug/excerpt, matching prior behavior.
+      const search = input.search ? `%${input.search}%` : null;
+      const conditions: (SQL | undefined)[] = [eq(posts.siteId, input.siteId)];
+      if (input.status) conditions.push(eq(posts.status, input.status));
+      if (search) conditions.push(or(like(posts.title, search), like(posts.slug, search), like(posts.excerpt, search)));
+      const rows = await client
+        .select(postSummaryFields)
+        .from(posts)
+        .where(and(...conditions))
+        .orderBy(desc(posts.updatedAt))
+        .limit(input.limit)
+        .offset(input.offset);
+      return rows.map((row) => mapPostSummary(row));
+    },
+
+    async publishPostWithHistory(siteId, postId, expectedVersionNumber, actor, history, options) {
+      const before = await getPost(siteId, postId);
+      if (!before) return { post: null, capReached: false, versionConflict: false };
+
+      // Idempotent: already live on exactly the approved tip.
+      if (
+        before.status === "published" &&
+        before.publishedVersionNumber === expectedVersionNumber &&
+        before.currentVersionNumber === expectedVersionNumber
+      ) {
+        return { post: before, capReached: false, versionConflict: false };
+      }
+
+      const timestamp = now();
+      const activityId = crypto.randomUUID();
+      const after: Post = {
+        ...before,
+        status: "published",
+        publishedAt: before.status === "published" && before.publishedAt != null ? before.publishedAt : timestamp,
+        updatedAt: timestamp,
+        publishedVersionNumber: expectedVersionNumber,
+        currentVersionNumber: before.currentVersionNumber,
+      };
+
+      // Atomically pin the approved tip version. No new version row is created —
+      // publish only moves the public pointer (and status on first publish).
+      let updateResult: D1Result;
+      try {
+        [updateResult] = await db.batch([
+          db.prepare(
+            `UPDATE posts
+             SET status = 'published',
+               published_at = CASE
+                 WHEN status = 'published' AND published_at IS NOT NULL THEN published_at
+                 ELSE ?
+               END,
+               published_version_id = (
+                 SELECT pv.id FROM post_versions AS pv
+                 WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
+                   AND pv.version_number = ?
+               ),
+               updated_at = ?,
+               updated_by_type = ?,
+               updated_by_id = ?
+             WHERE site_id = ? AND id = ?
+               AND coalesce((
+                 SELECT max(pv.version_number)
+                 FROM post_versions AS pv
+                 WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
+               ), 0) = ?
+               AND EXISTS (
+                 SELECT 1 FROM post_versions AS pv
+                 WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
+                   AND pv.version_number = ?
+               )
+               AND (
+                 status = 'published'
+                 OR ? = 1
+                 OR (
+                   SELECT count(*)
+                   FROM posts AS published
+                   WHERE published.site_id = posts.site_id
+                     AND published.status = 'published'
+                 ) < ?
+               )
+               AND (
+                 published_version_id IS NULL
+                 OR published_version_id <> (
+                   SELECT pv.id FROM post_versions AS pv
+                   WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
+                     AND pv.version_number = ?
+                 )
+                 OR status <> 'published'
+               )`,
+          ).bind(
+            timestamp,
+            expectedVersionNumber,
+            timestamp,
+            actor.type,
+            actor.id,
+            siteId,
+            postId,
+            expectedVersionNumber,
+            expectedVersionNumber,
+            options.billingActive ? 1 : 0,
+            options.freeLimit,
+            expectedVersionNumber,
+          ),
+          db.prepare(
+            `INSERT INTO activity_events (
+              id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+              entity_id, summary, before_json, after_json, created_at
+            )
+            SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
+            FROM posts
+            WHERE site_id = ? AND id = ? AND status = 'published'
+              AND published_version_id = (
+                SELECT pv.id FROM post_versions AS pv
+                WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
+                  AND pv.version_number = ?
+              )
+              AND updated_at = ?`,
+          ).bind(
+            activityId,
+            siteId,
+            actor.type,
+            actor.id,
+            actor.name,
+            history.activityAction,
+            postId,
+            history.activitySummary,
+            JSON.stringify(before),
+            JSON.stringify(after),
+            timestamp,
+            siteId,
+            postId,
+            expectedVersionNumber,
+            timestamp,
+          ),
+        ]);
+      } catch (error) {
+        throw mapPostError(error);
+      }
+
+      if ((updateResult.meta.changes ?? 0) > 0) {
         return { post: after, capReached: false, versionConflict: false };
       }
 
-      // The guarded claim deliberately has one zero-change result for every
-      // rejection. Read the post and latest version only to classify that result;
-      // no publish has happened when this branch runs.
       const current = await getPost(siteId, postId);
       if (!current) return { post: null, capReached: false, versionConflict: false };
-      const latest = await db
-        .prepare(
-          "SELECT max(version_number) AS versionNumber FROM post_versions WHERE site_id = ? AND post_id = ?",
-        )
-        .bind(siteId, postId)
-        .first<{ versionNumber: number | null }>();
-      if (latest?.versionNumber !== expectedVersionNumber) {
+      if (current.currentVersionNumber !== expectedVersionNumber) {
         return { post: null, capReached: false, versionConflict: true };
       }
-      if (current.status === "published") {
+      if (
+        current.status === "published" &&
+        current.publishedVersionNumber === expectedVersionNumber
+      ) {
         return { post: current, capReached: false, versionConflict: false };
       }
       return { post: null, capReached: true, versionConflict: false };
