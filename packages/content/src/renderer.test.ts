@@ -246,6 +246,21 @@ describe("figures and GFM resilience", () => {
     expect(html).not.toContain("data-captioned");
   });
 
+  it("applies bounded responsive attributes through the image resolver", () => {
+    const html = renderRichContentToHtml("![a cat](/media-assets/cat)", {
+      resolveImage: (src) => ({
+        src: `${src}?w=860`,
+        srcSet: `${src}?w=480 480w, ${src}?w=860 860w`,
+        sizes: "(max-width: 860px) 100vw, 860px",
+      }),
+    });
+    expect(html).toContain('src="/media-assets/cat?w=860"');
+    expect(html).toContain('srcSet="/media-assets/cat?w=480 480w, /media-assets/cat?w=860 860w"');
+    expect(html).toContain('sizes="(max-width: 860px) 100vw, 860px"');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+  });
+
   it("preserves tables and long inline link/code content", () => {
     const longToken = "very-long-inline-code-token-without-natural-breaks";
     const longUrl = "https://example.com/very-long-path-without-natural-breaks";

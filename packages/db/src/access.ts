@@ -12,6 +12,7 @@ import { createBillingRepository, type BillingRepository } from "./repositories/
 import { createUsageRepository, type UsageRepository } from "./repositories/usage";
 import { createRateLimitsRepository, type RateLimitsRepository } from "./repositories/rate-limits";
 import { createAnalyticsRepository, type AnalyticsRepository } from "./repositories/analytics";
+import { createPendingMediaRepository, type PendingMediaRepository } from "./repositories/pending-media";
 import { createPublicBlogReadModel, type PublicBlogReadModel } from "./read-models/public-blog";
 import { createDashboardReadModel, type DashboardReadModel } from "./read-models/dashboard";
 import { createExportReadModel, type ExportReadModel } from "./read-models/exports";
@@ -35,6 +36,7 @@ export interface DataAccess {
   usage: UsageRepository;
   rateLimits: RateLimitsRepository;
   analytics: AnalyticsRepository;
+  pendingMedia: PendingMediaRepository;
   apiKeys: ApiKeysRepository;
   publicBlog: PublicBlogReadModel;
   dashboard: DashboardReadModel;
@@ -59,6 +61,7 @@ export function createDataAccess(db: D1Database): DataAccess {
     usage: createUsageRepository(db),
     rateLimits: createRateLimitsRepository(db),
     analytics: createAnalyticsRepository(db),
+    pendingMedia: createPendingMediaRepository(db),
     publicBlog: createPublicBlogReadModel(db),
     dashboard: createDashboardReadModel(db),
     exports: createExportReadModel(db),

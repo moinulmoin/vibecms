@@ -5,7 +5,16 @@ import {
   RESERVED_ROOT_SLUGS,
   stripMarkdownSuffix,
 } from "./public-blog";
-import { articleCacheTag, articleCacheTags, siteCacheTag } from "./public-blog-cache";
+import {
+  articleCacheTag,
+  articleCacheTags,
+  contentEtag,
+  articleMarkdownAlternateLink,
+  articleResponseCacheRequest,
+  matchArticleResponseCache,
+  putArticleResponseCache,
+  siteCacheTag,
+} from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 
 const site = {
@@ -45,6 +54,7 @@ describe("markdown negotiation", () => {
   it("blocks reserved slugs", () => {
     expect(RESERVED_ROOT_SLUGS.has("feed.xml")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("__vc-health")).toBe(true);
+    expect(RESERVED_ROOT_SLUGS.has("internal")).toBe(true);
   });
 });
 
@@ -76,5 +86,67 @@ describe("cache tags and SEO headers", () => {
     const headers = publicHtmlResponseHeaders(unpaid, env);
     expect(headers["x-robots-tag"]).toBe("noindex, nofollow");
     expect(headers["content-signal"]).toContain("search=no");
+  });
+});
+
+describe("article response headers for negotiation", () => {
+  it("exposes Vary: Accept, Link alternate, and supplied validators on HTML responses", async () => {
+    const validators = {
+      etag: await contentEtag("<html>hello</html>"),
+    };
+    const headers = publicHtmlResponseHeaders(site, env, articleCacheTags(site.id, "hello"), {
+      markdownAlternateHref: "https://demo.example.com/hello.md",
+      ...validators,
+    });
+    expect(headers.vary).toBe("Accept");
+    expect(headers.link).toBe(articleMarkdownAlternateLink("https://demo.example.com/hello.md"));
+    expect(headers.etag).toBe(validators.etag);
+  });
+});
+
+describe("Accept: text/markdown after cached HTML", () => {
+  it("reproduces URL-keyed page-cache poisoning for Accept markdown", async () => {
+    const cache = (caches as CacheStorage & { default: Cache }).default;
+    const url = "https://demo.example.com/poison-hello";
+    await cache.put(
+      new Request(url),
+      new Response("<html>cached-html</html>", {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" },
+      }),
+    );
+    const poisoned = await cache.match(new Request(url, { headers: { accept: "text/markdown" } }));
+    expect(poisoned).toBeDefined();
+    expect(poisoned!.headers.get("content-type")).toContain("text/html");
+  });
+
+  it("keeps HTML and Markdown cache variants on distinct keys so Accept cannot collide", async () => {
+    const url = "https://demo.example.com/variant-hello";
+    const htmlHeaders = publicHtmlResponseHeaders(site, env, articleCacheTags(site.id, "variant-hello"), {
+      markdownAlternateHref: "https://demo.example.com/variant-hello.md",
+      etag: await contentEtag("<html>cached-html</html>"),
+    });
+    await putArticleResponseCache(
+      url,
+      "html",
+      new Response("<html>cached-html</html>", {
+        headers: { "content-type": "text/html; charset=utf-8", ...htmlHeaders },
+      }),
+    );
+
+    // HTML is stored at the canonical URL key.
+    expect(articleResponseCacheRequest(url, "html").url).toBe(url);
+    expect(articleResponseCacheRequest(url, "markdown").url).toBe(`${url}.md`);
+
+    const htmlHit = await matchArticleResponseCache(url, "html");
+    expect(htmlHit).toBeDefined();
+    expect(htmlHit!.headers.get("content-type")).toContain("text/html");
+
+    // A subsequent canonical Accept: text/markdown lookup must not see the HTML entry.
+    const markdownHit = await matchArticleResponseCache(url, "markdown");
+    expect(markdownHit).toBeUndefined();
+  });
+
+  it("changes the strong validator whenever rendered bytes change", async () => {
+    expect(await contentEtag("<html>first</html>")).not.toBe(await contentEtag("<html>second</html>"));
   });
 });

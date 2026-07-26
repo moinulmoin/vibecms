@@ -1,4 +1,9 @@
 import { renderRichContent } from "@vc/content";
+import {
+  PresentedPostArticle,
+  resolveSiteTheme,
+  type SiteThemeInput,
+} from "@vc/content/presented-post";
 import { resolvePresetId, resolvePresentation } from "@vc/config";
 import type {
   PublicIndexLoaderData,
@@ -7,8 +12,11 @@ import type {
 } from "../server/public-blog";
 import { readingTimeMinutes } from "../lib/reading-time";
 import { shouldShowUpdatedDate } from "../lib/seo-meta";
+import {
+  buildResponsiveMediaUrls,
+  resolveResponsiveMediaSource,
+} from "../lib/media-assets";
 import styles from "./public-blog.module.css";
-import { PresentedPostArticle, resolveSiteTheme, type SiteThemeInput } from "./PresentedPostArticle";
 import {
   SUBSCRIBE_BUTTON,
   SUBSCRIBE_CONSENT_TEXT,
@@ -148,24 +156,29 @@ export function PublicBlogIndexView({
           const publishedText = post.published_at
             ? new Date(post.published_at * 1000).toLocaleDateString()
             : "Published";
-          const metaLine = [publishedText, `${readingTimeMinutes(post.content_markdown)} min read`].join(" \u00b7 ");
+          const coverMedia = post.cover_asset_id
+            ? buildResponsiveMediaUrls(post.cover_asset_id)
+            : undefined;
           return (
             <article className={styles.postCard} key={post.id}>
               {post.cover_asset_id ? (
                 <img
                   className={styles.coverImage}
-                  src={`/media-assets/${post.cover_asset_id}`}
+                  src={coverMedia?.src}
+                  srcSet={coverMedia?.srcSet}
+                  sizes="(max-width: 860px) calc(100vw - 32px), 860px"
                   alt={`Cover image for ${post.title}`}
-                  width={860}
-                  height={484}
+                  width={post.cover_asset_width ?? 860}
+                  height={post.cover_asset_height ?? 484}
                   loading="lazy"
+                  decoding="async"
                 />
               ) : null}
               <h2>
                 <a href={`${basePath}/${post.slug}`}>{post.title}</a>
               </h2>
               {post.excerpt ? <p>{post.excerpt}</p> : null}
-              <p className={styles.metaLine}>{metaLine}</p>
+              <p className={styles.metaLine}>{publishedText}</p>
             </article>
           );
         })}
@@ -190,8 +203,14 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   };
   const themeAttrs = resolveSiteTheme(siteTheme);
   const { resolved } = resolvePresentation(presetId, post.presentation);
-  const renderResult = renderRichContent(post.content_markdown, { presetId, pageTitle: post.title });
-  const coverAssetSrc = post.cover_asset_id ? `/media-assets/${post.cover_asset_id}` : undefined;
+  const renderResult = renderRichContent(post.content_markdown, {
+    presetId,
+    pageTitle: post.title,
+    resolveImage: resolveResponsiveMediaSource,
+  });
+  const coverMedia = post.cover_asset_id
+    ? buildResponsiveMediaUrls(post.cover_asset_id)
+    : undefined;
   const dateText = post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : undefined;
   const updatedDateText = shouldShowUpdatedDate(post.published_at, post.updated_at)
     ? new Date(post.updated_at * 1000).toLocaleDateString()
@@ -224,10 +243,18 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
           title={post.title}
           excerpt={post.excerpt ?? undefined}
           byline={site.name}
-          coverAssetSrc={coverAssetSrc}
+          coverAssetSrc={coverMedia?.src}
           coverAssetAlt={post.cover_asset_alt_text ?? undefined}
           coverAssetWidth={post.cover_asset_width ?? undefined}
           coverAssetHeight={post.cover_asset_height ?? undefined}
+          coverAssetSrcSet={coverMedia?.srcSet}
+          coverAssetSizes={
+            resolved.layout === "feature"
+              ? "(max-width: 1008px) calc(100vw - 32px), 1008px"
+              : "(max-width: 720px) calc(100vw - 32px), 720px"
+          }
+          coverAssetLoading={coverMedia ? "eager" : undefined}
+          coverAssetFetchPriority={coverMedia ? "high" : undefined}
           dateText={dateText}
           updatedDateText={updatedDateText}
           readingMinutes={readingMinutes}

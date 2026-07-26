@@ -19,6 +19,7 @@ import {
   previewPostDtoSchema,
   previewPostRequestSchema,
   publishPostRequestSchema,
+  restorePostVersionRequestSchema,
   siteDtoSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
@@ -93,6 +94,7 @@ const listPostsResponseSchema = z.object({
 const postIdParamsSchema = getPostRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
 const publishPostBodySchema = publishPostRequestSchema.omit({ postId: true });
+const restorePostVersionBodySchema = restorePostVersionRequestSchema.omit({ postId: true, versionNumber: true });
 
 const postVersionParamsSchema = z.object({
   postId: z.string().min(1),
@@ -368,13 +370,17 @@ export const restorePostVersionRoute = createRoute({
   security: bearerSecurity,
   request: {
     params: postVersionParamsSchema,
+    body: {
+      required: true,
+      content: { "application/json": { schema: restorePostVersionBodySchema } },
+    },
   },
   responses: {
     200: {
       description: "Updated post after restore",
       content: { "application/json": { schema: postDtoSchema } },
     },
-    ...routeErrors(400, 401, 403, 404, 429, 500),
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
   },
 });
 

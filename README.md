@@ -166,7 +166,7 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 - Configure shared Cloudflare D1/R2 IDs in `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc` before production deploy.
 - Set API Worker secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
 - Set product, URL, and host variables in both Worker configs.
-- Run `pnpm deploy:prod`; it migrates first, then deploys the API/dashboard Worker before the public Worker.
+- Run `pnpm deploy:prod`; it preflights and builds production artifacts, captures backup metadata, migrates D1, deploys API then public, then smokes. Astro sessions are disabled (no SESSION KV).
 
 For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET` plus `TOKEN_PEPPER` are required as secrets; Polar access token/product/webhook secrets are hosted-SaaS only.
 

@@ -305,9 +305,17 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 }
 
 function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+  const { isMobile, openMobile } = useSidebar()
   return (
     <main
       data-slot="sidebar-inset"
+      // The mobile sidebar opens as a modal Sheet. Radix already hides the
+      // background from screen readers (aria-hidden via hideOthers) and traps
+      // focus, but that leaves focusable controls inside the hidden subtree —
+      // they remain in the tab order and trip the `aria-hidden-focus` rule.
+      // Marking the background inert removes it from the tab order and the
+      // accessibility tree while the drawer is open; it is restored on close.
+      inert={isMobile && openMobile}
       className={cn(
         "relative flex w-full flex-1 flex-col bg-background",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",

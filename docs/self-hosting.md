@@ -20,6 +20,9 @@ Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public
 - One R2 bucket, bound to both Workers as `ASSETS_BUCKET`
 - One service binding named `API` from public to API
 - A native `send_email` binding named `EMAIL` on the API Worker for real OTP delivery
+- Images binding named `IMAGES` on the public Worker (already declared)
+
+Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 
 Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in both root Wrangler configs before deploying.
 

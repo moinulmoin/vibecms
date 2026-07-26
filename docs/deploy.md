@@ -32,15 +32,17 @@ The dashboard Vite server proxies same-origin API routes to the local Hono Worke
 
 ## Verification gates
 
+`pnpm deploy:prod` runs these inside `production:preflight` before any D1 mutation:
+
 ```sh
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm build
 pnpm public:audit
+pnpm openapi:check
 ```
 
-`pnpm build` builds dashboard assets first, validates the API Worker bundle, then builds the Astro Worker.
+Preflight then builds production artifacts (dashboard, API production dry-run, public with `CLOUDFLARE_ENV=production`). A standalone `pnpm build` remains available for local verification and uses the development API dry-run env.
 
 ## Development deploy
 
@@ -58,29 +60,39 @@ Order is fixed:
 
 ## Production deploy
 
+Canonical manual path:
+
 ```sh
-pnpm deploy:prod
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<deploy-token> PRODUCTION_SMOKE_TOKEN=<read-token> pnpm deploy:prod
 ```
 
-Order is fixed:
+Order is fixed and owned by `pnpm deploy:prod`:
 
-1. Apply all D1 migrations with the API production environment.
-2. Build dashboard assets.
-3. Deploy `vibecms-api-prod` with `--env production`.
-4. Build Astro with `CLOUDFLARE_ENV=production`.
-5. Deploy the generated public production Worker config.
+1. `production:preflight` — validate typecheck/lint/tests/public audit/OpenAPI, confirm required D1/R2/Images/Analytics/Email/custom-hostname resources and secret names, then build all production artifacts (dashboard, API dry-run, public with `CLOUDFLARE_ENV=production`) before any D1 mutation.
+2. `production:backup` — capture D1 time-travel bookmark/schema-export metadata and current Worker deployment version IDs (non-destructive).
+3. Apply D1 migrations to production.
+4. Deploy already-built `vibecms-prod` (the existing API Worker), then already-built `vibecms-public-prod`.
+5. `production:smoke` — authenticated by default via `PRODUCTION_SMOKE_TOKEN`.
 
-The API Worker must deploy before public because the public service binding targets it. The manual GitHub Actions workflow `.github/workflows/deploy-production.yml` runs typecheck, lint, tests, build, public audit, migration, and deployment in that order using `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` environment secrets.
+First deploy only (no tenant token yet): set `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`. That mode skips authenticated tenant/article checks and must not be reused later. After creating a site + read token + one published post, run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`, then require the token on every later deploy.
+
+Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Hosted and self-host configs do not need a `SESSION` KV namespace.
+
+The GitHub workflow `.github/workflows/deploy-production.yml` is only a thin `workflow_dispatch` wrapper around the same `pnpm deploy:prod` path. It requires an explicit `smoke_mode` input (`authenticated` or `bootstrap`) and, for authenticated mode, the `PRODUCTION_SMOKE_TOKEN` environment secret. It does not implement a separate gate set.
 
 ## Secrets
 
-Set hosted API Worker secrets with the API package filter. Add `--env production` for production:
+Set hosted API Worker secrets against an explicit named environment:
+The selected environment supplies the exact Worker name (`vibecms-api-dev` or
+`vibecms-prod`). Do not combine `--env` with `--name`: Wrangler treats
+`--name` as a base and appends the selected environment.
+
 
 ```sh
-pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET
-pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER
-pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN
-pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET
+pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --env development
+pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --env development
+pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env development
+pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env development
 ```
 
 Google OAuth secrets are optional. OTP delivery uses the native `EMAIL` send-email binding and `EMAIL_FROM` var.
@@ -92,4 +104,13 @@ Google OAuth secrets are optional. OTP delivery uses the native `EMAIL` send-ema
 - API logs include `X-Request-ID`; unknown failures are logged with redaction.
 - The API liveness response includes Worker version metadata.
 
-Deployments are versioned independently. For a code-only rollback, roll back the affected Worker version. Database migrations are forward-only; inspect migration compatibility before rolling back code across a schema change.
+Executable helpers (safe defaults are non-destructive):
+
+```sh
+pnpm production:backup
+pnpm production:rollback
+pnpm production:rollback -- --worker api --to <version-id> --yes
+pnpm production:rollback -- --worker public --to <version-id> --yes
+```
+
+`production:rollback` with no flags only prints backup metadata, current Worker deployments, and D1 time-travel info. Worker rollback does not undo D1 writes. D1 migrations are forward-only; time-travel restore is destructive and requires explicit confirmation flags (`--d1-restore --i-understand-d1-restore-is-destructive --yes`). Do not treat that as a safe schema rollback.

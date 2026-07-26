@@ -11,6 +11,12 @@
       "migrations_dir": "../../packages/db/drizzle"
     }
   ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "cache": {
+    "enabled": true
+  },
   "vars": {
     "APP_ENV": "development",
     "APP_URL": "https://app.basedui.dev",

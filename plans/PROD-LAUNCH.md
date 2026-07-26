@@ -52,7 +52,7 @@ pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --env produc
 
 # OTP email uses the native `send_email` Workers binding (named EMAIL, declared in
 # wrangler.jsonc) - no secret needed. Just ensure the sending domain is onboarded to
-# Cloudflare Email Sending (verified in Step 8 / Step 10).
+# Cloudflare Email Sending (verify before first OTP sign-in in Step 9).
 
 # Polar billing (see Step 4 below for POLAR_PRODUCT_ID - set access token + webhook secret now)
 pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env production
@@ -110,20 +110,15 @@ The apex and `app.vibecms.dev` remain managed by their Worker custom-domain entr
 
 ---
 
-## Step 6 - Run prod D1 migrations
+## Step 6 - Canonical production deploy (gates, backup, migrate, deploy, smoke)
 
-```bash
-pnpm --filter @vc/api exec wrangler d1 migrations apply DB --remote --env production
-```
+Do not apply migrations by hand before the first guarded deploy. `pnpm deploy:prod` owns the order:
 
-This is an optional direct check; `pnpm deploy:prod` reruns the same migration before deploying.
-
----
-
-## Step 7 - Build and deploy to production
-
-Export the Cloudflare deployment credentials and a non-destructive bearer token for a production
-site that already has at least one published post, then run the guarded deployment:
+1. Preflight: typecheck/lint/tests/public audit/OpenAPI + resource/secret validation + production artifact builds (before any D1 mutation).
+2. Backup metadata: D1 time-travel bookmark/schema export metadata + current Worker version IDs.
+3. Apply production D1 migrations.
+4. Deploy API, then already-built public.
+5. Smoke.
 
 ```bash
 CLOUDFLARE_ACCOUNT_ID=<account-id> \
@@ -132,19 +127,25 @@ PRODUCTION_SMOKE_TOKEN=<read-token> \
 pnpm deploy:prod
 ```
 
-`deploy:prod` runs the production preflight, migration, dashboard/API/public builds, both Worker
-deployments, and a read-only smoke covering readiness, bearer authentication, tenant resolution,
-and a rendered published article. Any failed stage stops the command.
-
 For the first-ever production deployment only, no production account/token exists yet. Run with
 `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`; the command reports that the
 authenticated tenant checks were skipped. Create the first account and a non-destructive read token,
 publish one post, then immediately run `PRODUCTION_SMOKE_TOKEN=<read-token> pnpm production:smoke`.
 Every later deployment requires that token and runs the full tenant/article smoke.
 
+Astro sessions are disabled; no SESSION KV namespace is required for hosted production.
+
+Rollback helpers (defaults are non-destructive; D1 schema rollback is not safe):
+
+```bash
+pnpm production:backup
+pnpm production:rollback
+pnpm production:rollback -- --worker api --to <version-id> --yes
+```
+
 ---
 
-## Step 8 - Verify HTTPS and hosts
+## Step 7 - Verify HTTPS and hosts
 
 Check the marketing apex:
 
@@ -185,7 +186,7 @@ All should show `vibecms.dev` and/or `*.vibecms.dev` in the SAN list (free Unive
 
 ---
 
-## Step 9 - Enable zone-level CDN caching (recommended post-launch)
+## Step 8 - Enable zone-level CDN caching (recommended post-launch)
 
 Public blog HTML is served with `cache-control: public, s-maxage=300` and
 `cache-tag: vc-article:<siteId>:<postSlug>` headers, host-only (each blog on its own host —
@@ -197,7 +198,7 @@ In the Cloudflare dashboard for `vibecms.dev`:
 
 1. Caching -> Cache Rules -> Create rule.
 2. Scope by **hostname** (there is no path-mode `/blog/*` to match): `Hostname equals *.vibecms.dev`
-   for tenant subdomains. Custom domains (e.g. `blog.acme.com`, enabled in Step 11) are served on
+   for tenant subdomains. Custom domains (e.g. `blog.acme.com`, enabled in Step 10) are served on
    their own hostnames — add each custom-domain hostname to the rule (or use a broader
    `Hostname is not app.vibecms.dev and is not vibecms.dev` scope) once Cloudflare for SaaS is live.
 3. Cache eligibility: **Cache Everything**
@@ -211,7 +212,7 @@ back to `caches.default.delete()` against the article's host URL.
 
 ---
 
-## Step 10 - Smoke-test the full user flow
+## Step 9 - Smoke-test the full user flow
 
 1. Verify `https://vibecms.dev` serves the marketing landing, and `https://app.vibecms.dev/` redirects to the dashboard (then to `/login` when signed out).
 2. Sign up at `https://app.vibecms.dev` via email OTP; confirm the OTP email arrives.
@@ -230,7 +231,7 @@ back to `caches.default.delete()` against the article's host URL.
 
 ---
 
-## Step 11 - Enable user custom domains (Cloudflare for SaaS)
+## Step 10 - Enable user custom domains (Cloudflare for SaaS)
 
 Lets a paid blog serve on its own domain (e.g. `blog.acme.com`). All app code ships behind
 this config: until the secrets below are set, "Add domain" stores a `pending` row and makes

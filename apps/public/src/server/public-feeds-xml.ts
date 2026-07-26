@@ -1,5 +1,5 @@
 import { formatW3CDate, maxPublishEpoch } from '../lib/seo-meta';
-import type { PostRow, SiteRow } from './public-blog-data';
+import type { PostBodyRow, PostSummaryRow, SiteRow } from './public-blog-data';
 
 /**
  * Pure, database-free XML builders for the public sitemap and RSS feed.
@@ -27,7 +27,7 @@ export function xmlEscape(value: string): string {
  * `max(published_at, updated_at)`. A `<lastmod>` is omitted whenever no date can
  * be resolved. Posts are emitted in the order given.
  */
-export function buildSitemapXml(origin: string, posts: PostRow[]): string {
+export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string {
   const homeEpoch = posts.reduce<number | null>((max, post) => {
     const epoch = maxPublishEpoch(post.published_at, post.updated_at);
     return epoch == null ? max : Math.max(max ?? 0, epoch);
@@ -54,7 +54,7 @@ export function buildSitemapXml(origin: string, posts: PostRow[]): string {
  * Items are emitted in the order given — the read model already orders by
  * `published_at` desc; this builder never re-sorts.
  */
-export function buildRssXml(site: SiteRow, origin: string, posts: PostRow[], selfUrl: string, renderHtml: (post: PostRow) => string): string {
+export function buildRssXml(site: SiteRow, origin: string, posts: PostBodyRow[], selfUrl: string, renderHtml: (post: PostBodyRow) => string): string {
   const items = posts
     .map((post) => {
       const link = `${origin}/${post.slug}`;

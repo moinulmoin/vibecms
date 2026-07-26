@@ -4,7 +4,7 @@ import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
 import { CheckIcon } from '@radix-ui/react-icons'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
+import { LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
 import { Alert, Badge, Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
@@ -34,21 +34,27 @@ function BillingStatusBadge({ status }: { status: string }) {
 export function BillingPage() {
   const navigate = useNavigate()
   const [data, setData] = useState<BillingPageLoadResult | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
   const [portalPending, setPortalPending] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    void loadBillingPage().then((page) => {
-      if (cancelled) return
-      setData(page)
-    })
+    void loadBillingPage()
+      .then((page) => {
+        if (cancelled) return
+        setData(page)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('Could not load billing details.')
+      })
     return () => {
       cancelled = true
     }
   }, [])
 
   async function startCheckout(interval: 'monthly' | 'yearly') {
+    if (checkoutPending !== null) return
     setCheckoutPending(interval)
     try {
       const result = await checkoutBillingMutation({ interval })
@@ -79,6 +85,8 @@ export function BillingPage() {
       setPortalPending(false)
     }
   }
+
+  if (loadError) return <LoadError message={loadError} />
 
   if (!data) {
     return (
@@ -178,6 +186,7 @@ export function BillingPage() {
                     type="button"
                     className="h-11 w-full rounded-xl"
                     pending={checkoutPending === 'monthly'}
+                    disabled={checkoutPending !== null && checkoutPending !== 'monthly'}
                     pendingText="Starting checkout…"
                     onClick={() => void startCheckout('monthly')}
                   >
@@ -188,6 +197,7 @@ export function BillingPage() {
                     variant="outline"
                     className="h-11 w-full rounded-xl"
                     pending={checkoutPending === 'yearly'}
+                    disabled={checkoutPending !== null && checkoutPending !== 'yearly'}
                     pendingText="Starting checkout…"
                     onClick={() => void startCheckout('yearly')}
                   >
@@ -198,6 +208,7 @@ export function BillingPage() {
                     variant="outline"
                     className="h-11 w-full rounded-xl sm:col-span-2"
                     pending={portalPending}
+                    disabled={checkoutPending !== null}
                     pendingText="Opening portal…"
                     onClick={() => void openPortal()}
                   >

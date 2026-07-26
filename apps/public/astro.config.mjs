@@ -1,13 +1,18 @@
-import { defineConfig } from "astro/config";
+import { defineConfig, sessionDrivers } from "astro/config";
 import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import { cacheCloudflare } from "@astrojs/cloudflare/cache";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  // Astro sessions are unused (Better Auth owns app sessions on the API Worker).
+  // Override the Cloudflare adapter default so hosted/dev/self-host do not require a SESSION KV namespace.
+  session: {
+    driver: sessionDrivers.lruCache(),
+  },
   output: "server",
   adapter: cloudflare({
-    imageService: "passthrough",
+    imageService: "cloudflare-binding",
     persistState: { path: "../../.wrangler/state" },
   }),
   integrations: [react()],
@@ -36,6 +41,16 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      dedupe: ["react", "react-dom"],
+      // No client:* islands remain; keep renderer slot but drop browser React.
+      alias: [
+        {
+          find: "@astrojs/react/client.js",
+          replacement: new URL("./src/lib/empty-react-client.js", import.meta.url).pathname,
+        },
+      ],
+    },
     server: {
       allowedHosts: [".basedui.dev"],
     },

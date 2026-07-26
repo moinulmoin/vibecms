@@ -68,9 +68,58 @@ function requireOwner(app: AppUserContext) {
   }
 }
 
+/** Idempotency-Key for one logical checkout attempt (workspace + interval). Uses Polar's header facility within its supported retry window. */
+export function checkoutIdempotencyKey(workspaceId: string, interval: CheckoutInterval) {
+  return `vc-checkout:${workspaceId}:${interval}`
+}
+
+export type PolarOpenCheckout = {
+  url?: string | null
+  status?: string | null
+  expiresAt?: Date | string | null
+}
+
+/** Pick a still-open, non-expired checkout URL when Polar already has one for this customer/product. */
+export function pickReusableOpenCheckoutUrl(
+  items: PolarOpenCheckout[],
+  nowMs: number = Date.now(),
+): string | null {
+  for (const item of items) {
+    if (item.status != null && item.status !== 'open') continue
+    if (!item.url) continue
+    if (item.expiresAt != null) {
+      const expiresMs =
+        item.expiresAt instanceof Date ? item.expiresAt.getTime() : Date.parse(String(item.expiresAt))
+      if (Number.isFinite(expiresMs) && expiresMs <= nowMs) continue
+    }
+    return item.url
+  }
+  return null
+}
+
+export type ListOpenPolarCheckouts = (query: {
+  externalCustomerId: string
+  productId: string
+}) => Promise<PolarOpenCheckout[]>
+
+export type CreatePolarCheckout = (
+  body: {
+    products: string[]
+    successUrl: string
+    returnUrl: string
+    externalCustomerId: string
+    customerEmail: string
+    customerName: string
+    metadata: { workspaceId: string }
+    customerMetadata: { workspaceId: string }
+  },
+  options?: { headers?: HeadersInit },
+) => Promise<{ url?: string | null }>
+
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
   interval: CheckoutInterval,
+  deps?: { createCheckout?: CreatePolarCheckout; listOpenCheckouts?: ListOpenPolarCheckouts },
 ): Promise<BillingMutationResult> {
   try {
     requireOwner(app)
@@ -78,6 +127,12 @@ export async function createCheckoutSessionForApp(
     return { kind: 'error', code: 'owner_required' }
   }
   if (isSelfHosted()) return { kind: 'error', code: 'self_hosted' }
+
+  const db = createDataAccess(env.DB)
+  if (await db.billing.isActiveSubscription(app.workspaceId)) {
+    return { kind: 'error', code: 'already_active' }
+  }
+
   const monthlyProductId = env.POLAR_MONTHLY_PRODUCT_ID ?? env.POLAR_PRODUCT_ID
   const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : monthlyProductId
   if (!productId) {
@@ -87,18 +142,53 @@ export async function createCheckoutSessionForApp(
     }
   }
   const client = polar()
-  if (!client) return { kind: 'error', code: 'polar_unconfigured' }
+  const listOpenCheckouts: ListOpenPolarCheckouts | null =
+    deps?.listOpenCheckouts ??
+    (client
+      ? async (query) => {
+          const page = await client.checkouts.list({
+            externalCustomerId: query.externalCustomerId,
+            productId: query.productId,
+            status: 'open',
+          })
+          return page.result.items
+        }
+      : null)
+  const createCheckout: CreatePolarCheckout | null =
+    deps?.createCheckout ??
+    (client
+      ? (body, options) => client.checkouts.create(body, options)
+      : null)
+  if (!createCheckout) return { kind: 'error', code: 'polar_unconfigured' }
+
+  // Prefer reusing an existing open Polar checkout for this workspace/product before creating another.
+  if (listOpenCheckouts) {
+    try {
+      const openItems = await listOpenCheckouts({
+        externalCustomerId: app.workspaceId,
+        productId,
+      })
+      const existingUrl = pickReusableOpenCheckoutUrl(openItems)
+      if (existingUrl) return { kind: 'ok', url: existingUrl }
+    } catch (error) {
+      console.error('polar open checkout list failed', error)
+    }
+  }
+
   try {
-    const session = await client.checkouts.create({
-      products: [productId],
-      successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
-      returnUrl: `${env.APP_URL}/dashboard/billing?error=unknown`,
-      externalCustomerId: app.workspaceId,
-      customerEmail: app.user.email,
-      customerName: app.user.name,
-      metadata: { workspaceId: app.workspaceId },
-      customerMetadata: { workspaceId: app.workspaceId },
-    })
+    const session = await createCheckout(
+      {
+        products: [productId],
+        successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
+        returnUrl: `${env.APP_URL}/dashboard/billing?error=unknown`,
+        externalCustomerId: app.workspaceId,
+        customerEmail: app.user.email,
+        customerName: app.user.name,
+        metadata: { workspaceId: app.workspaceId },
+        customerMetadata: { workspaceId: app.workspaceId },
+      },
+      { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval) } },
+    )
     if (!session.url) return { kind: 'error', code: 'checkout_failed' }
     return { kind: 'ok', url: session.url }
   } catch (error) {

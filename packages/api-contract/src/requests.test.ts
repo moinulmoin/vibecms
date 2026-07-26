@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createPostRequestSchema, previewPostRequestSchema, updatePostRequestSchema } from './index'
+import {
+  createPostRequestSchema,
+  previewPostRequestSchema,
+  restorePostVersionRequestSchema,
+  updatePostRequestSchema,
+} from './index'
 
 const fullPost = {
   title: 'Test Post',
@@ -30,12 +35,42 @@ describe('createPostRequestSchema', () => {
 
 describe('updatePostRequestSchema', () => {
   it.each([
-    ['all supported fields', { postId: 'post-123', ...fullPost }],
-    ['post id only', { postId: 'post-123' }],
-    ['nullable fields', { postId: 'post-123', coverAssetId: null, canonicalUrl: null }],
-    ['null presentation', { postId: 'post-123', presentation: null }],
+    ['all supported fields', { postId: 'post-123', expectedVersionNumber: 1, ...fullPost }],
+    ['post id and expected version only', { postId: 'post-123', expectedVersionNumber: 2 }],
+    [
+      'nullable fields',
+      { postId: 'post-123', expectedVersionNumber: 3, coverAssetId: null, canonicalUrl: null },
+    ],
+    ['null presentation', { postId: 'post-123', expectedVersionNumber: 1, presentation: null }],
   ])('accepts %s', (_name, value) => {
     expect(updatePostRequestSchema.safeParse(value).success).toBe(true)
+  })
+
+  it.each([
+    ['missing expectedVersionNumber', { postId: 'post-123', title: 'Updated' }],
+    ['non-positive expectedVersionNumber', { postId: 'post-123', expectedVersionNumber: 0 }],
+    ['non-integer expectedVersionNumber', { postId: 'post-123', expectedVersionNumber: 1.5 }],
+  ])('rejects %s', (_name, value) => {
+    expect(updatePostRequestSchema.safeParse(value).success).toBe(false)
+  })
+})
+
+describe('restorePostVersionRequestSchema', () => {
+  it('accepts postId, versionNumber, and expectedVersionNumber', () => {
+    expect(
+      restorePostVersionRequestSchema.safeParse({
+        postId: 'post-123',
+        versionNumber: 1,
+        expectedVersionNumber: 4,
+      }).success,
+    ).toBe(true)
+  })
+
+  it.each([
+    ['missing expectedVersionNumber', { postId: 'post-123', versionNumber: 1 }],
+    ['non-positive expectedVersionNumber', { postId: 'post-123', versionNumber: 1, expectedVersionNumber: 0 }],
+  ])('rejects %s', (_name, value) => {
+    expect(restorePostVersionRequestSchema.safeParse(value).success).toBe(false)
   })
 })
 

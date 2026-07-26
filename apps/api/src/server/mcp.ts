@@ -1,4 +1,4 @@
-import { AppError, RateLimitError, type Actor } from "@vc/core";
+import { AppError, RateLimitError, can, type Actor } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { FORM_STATUS } from "@vc/config";
 import { mcpInstructions } from "@vc/mcp";
@@ -56,6 +56,47 @@ function rpcError(id: JsonRpcRequest["id"], code: number, message: string, statu
   return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers });
 }
 
+function isJsonContentType(request: Request) {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  return contentType.includes("application/json");
+}
+
+function isRpcId(value: unknown): value is string | number | null {
+  return value === null || typeof value === "string" || typeof value === "number";
+}
+
+function hasBearerAuthorization(request: Request) {
+  return Boolean(request.headers.get("authorization")?.startsWith("Bearer "));
+}
+
+/** Validate a parsed JSON value as a single JSON-RPC 2.0 request (batches are not implemented). */
+function validateJsonRpcRequest(value: unknown): { ok: true; body: JsonRpcRequest } | { ok: false; response: Response } {
+  // null, primitives, and arrays (batch) are all Invalid Request — not a crash.
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, response: rpcError(null, -32600, "Invalid Request", 400) };
+  }
+  const record = value as Record<string, unknown>;
+  const id = isRpcId(record.id) ? record.id : null;
+  if (record.jsonrpc !== "2.0") {
+    return { ok: false, response: rpcError(id, -32600, "Invalid Request", 400) };
+  }
+  if (typeof record.method !== "string" || record.method.length === 0) {
+    return { ok: false, response: rpcError(id, -32600, "Invalid Request", 400) };
+  }
+  if ("id" in record && !isRpcId(record.id)) {
+    return { ok: false, response: rpcError(null, -32600, "Invalid Request", 400) };
+  }
+  return {
+    ok: true,
+    body: {
+      jsonrpc: "2.0",
+      method: record.method,
+      ...("id" in record ? { id: record.id as string | number | null } : {}),
+      ...("params" in record ? { params: record.params } : {}),
+    },
+  };
+}
+
 function structuredToolResult(dto: unknown, outputSchema: Record<string, unknown>) {
   return {
     // Compact JSON: agents read this text into their context, so the
@@ -100,25 +141,27 @@ async function callTool(name: McpToolName, actor: Actor, siteId: string, workspa
   return structuredToolResult(wrap ? { result: dto } : dto, schema);
 }
 
-function listedTools() {
+function listedTools(actor?: Actor) {
   return {
-    tools: operations.map((op) => {
-      const annotations: Record<string, boolean> = {};
-      const hints = op.annotations as OperationAnnotations;
-      if (hints.readOnly) annotations.readOnlyHint = true;
-      if (hints.destructive) annotations.destructiveHint = true;
-      if (hints.idempotent) annotations.idempotentHint = true;
-      return {
-        name: op.toolName,
-        description: op.description,
-        inputSchema: zodToInputJsonSchema(op.requestSchema),
-        outputSchema: outputSchemaFor(op.responseSchema).schema,
-        annotations,
-        _meta: {
-          "vibecms.com/requiredScope": op.requiredScope,
-        },
-      };
-    }),
+    tools: operations
+      .filter((op) => !actor || can(actor, op.requiredScope))
+      .map((op) => {
+        const annotations: Record<string, boolean> = {};
+        const hints = op.annotations as OperationAnnotations;
+        if (hints.readOnly) annotations.readOnlyHint = true;
+        if (hints.destructive) annotations.destructiveHint = true;
+        if (hints.idempotent) annotations.idempotentHint = true;
+        return {
+          name: op.toolName,
+          description: op.description,
+          inputSchema: zodToInputJsonSchema(op.requestSchema),
+          outputSchema: outputSchemaFor(op.responseSchema).schema,
+          annotations,
+          _meta: {
+            "vibecms.com/requiredScope": op.requiredScope,
+          },
+        };
+      }),
   };
 }
 
@@ -156,12 +199,18 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
 export async function handleMcpRequest(request: Request) {
   if (request.method === "GET") return new Response(null, { status: 405, headers: { Allow: "POST" } });
   if (request.method !== "POST") return new Response(null, { status: 405 });
-  let body: JsonRpcRequest;
+  if (!isJsonContentType(request)) {
+    return rpcError(null, -32600, "Content-Type must be application/json", 400);
+  }
+  let parsed: unknown;
   try {
-    body = await request.json<JsonRpcRequest>();
+    parsed = await request.json();
   } catch {
     return rpcError(null, -32700, "Parse error", 400);
   }
+  const validated = validateJsonRpcRequest(parsed);
+  if (!validated.ok) return validated.response;
+  const body = validated.body;
   const protocolHeader = request.headers.get("MCP-Protocol-Version");
   if (protocolHeader && !(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(protocolHeader)) {
     return rpcError(body.id, -32600, `Unsupported MCP-Protocol-Version: ${protocolHeader}`, 400);
@@ -176,15 +225,25 @@ export async function handleMcpRequest(request: Request) {
   }
   if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
   if (body.method === "tools/list") {
-    try {
-      await authenticateBearerToken(request);
-    } catch (error) {
-      console.error("mcp.tools_list_auth_failed", {
-        name: error instanceof Error ? error.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-      });
+    // Unauthenticated discovery is allowed; a Bearer header requires auth + read budget.
+    if (!hasBearerAuthorization(request)) {
+      return result(body.id, listedTools());
     }
-    return result(body.id, listedTools());
+    const auth = await authenticateBearerToken(request);
+    if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
+    try {
+      await enforceApiBudget({
+        workspaceId: auth.workspaceId,
+        siteId: auth.siteId,
+        tokenId: auth.tokenId,
+        kind: "read",
+        force: forceQuotaForSmoke(request),
+      });
+      return result(body.id, listedTools(auth.actor));
+    } catch (error) {
+      if (error instanceof AppError) return appRpcError(body.id, error);
+      return rpcError(body.id, -32000, "Tool failed", 500);
+    }
   }
   if (body.method !== "tools/call") return rpcError(body.id, -32601, "Method not found");
   const auth = await authenticateBearerToken(request);

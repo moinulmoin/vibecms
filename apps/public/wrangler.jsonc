@@ -30,6 +30,12 @@
       "bucket_name": "vibecms-assets"
     }
   ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "cache": {
+    "enabled": true
+  },
   "services": [
     {
       "binding": "API",
@@ -74,10 +80,16 @@
           "bucket_name": "vibecms-assets-prod"
         }
       ],
+      "images": {
+        "binding": "IMAGES"
+      },
+      "cache": {
+        "enabled": true
+      },
       "services": [
         {
           "binding": "API",
-          "service": "vibecms-api-prod"
+          "service": "vibecms-prod"
         }
       ],
       "routes": [

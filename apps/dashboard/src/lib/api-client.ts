@@ -270,6 +270,7 @@ export function createPostMutation(data: {
 
 export function updatePostMutation(data: {
   postId: string
+  expectedVersionNumber: number
   title: string
   slug: string
   excerpt?: string
@@ -314,7 +315,11 @@ export function getPostVersionFn(
   })
 }
 
-export function restorePostVersionFn(data: { postId: string; versionNumber: number }) {
+export function restorePostVersionFn(data: {
+  postId: string
+  versionNumber: number
+  expectedVersionNumber: number
+}) {
   return dashboardPost<MutationResult>('/api/dashboard/posts/versions/restore', data)
 }
 

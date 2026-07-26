@@ -1,16 +1,25 @@
 import {
   getPublishedPost,
   isPublicBlogIndexable,
-  listPublishedPosts,
-  listPublishedPostsByTag,
-  searchPublishedPosts,
+  listPublishedPostSummaries,
+  listPublishedPostSummariesByTag,
+  searchPublishedPostSummaries,
   resolveSite,
   type PostDetailRow,
-  type PostRow,
+  type PostSummaryRow,
   type SiteRow,
 } from "./public-blog-data";
 import type { PublicRuntimeEnv } from "../env";
-import { articleCacheTags, publicCacheControl, siteCacheTag } from "./public-blog-cache";
+import {
+  articleCacheTags,
+  conditionalArticleResponse,
+  conditionalCachedArticleResponse,
+  articleMarkdownAlternateLink,
+  contentEtag,
+  matchArticleResponseCache,
+  publicCacheControl,
+  putArticleResponseCache,
+} from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 
 export { isMarketingHost } from "./public-blog-data";
@@ -22,6 +31,7 @@ export const RESERVED_ROOT_SLUGS = new Set([
   "login",
   "mcp",
   "media-assets",
+  "internal",
   "feed.xml",
   "sitemap.xml",
   "robots.txt",
@@ -68,29 +78,40 @@ function buildPostMarkdown(post: PostDetailRow, canonicalUrl: string) {
   return `${frontmatter}\n\n# ${post.title}\n\n${post.content_markdown}\n`;
 }
 
+export type PublicArticleHeaderOptions = {
+  markdownAlternateHref?: string;
+  etag?: string;
+};
+
 export function publicHtmlResponseHeaders(
   site: SiteRow,
   env: PublicRuntimeEnv,
   cacheTags?: string[],
+  options?: PublicArticleHeaderOptions,
 ): Record<string, string> {
   const indexable = isPublicBlogIndexable(site, env);
   const headers: Record<string, string> = {
     "cache-control": publicCacheControl,
     "content-signal": indexable ? "ai-train=yes, search=yes, ai-input=yes" : "ai-train=no, search=no, ai-input=yes",
   };
+  if (options?.markdownAlternateHref) headers.vary = "Accept";
   if (!indexable) headers["x-robots-tag"] = "noindex, nofollow";
   if (cacheTags?.length) headers["cache-tag"] = cacheTags.join(",");
+  if (options?.markdownAlternateHref) {
+    headers.link = articleMarkdownAlternateLink(options.markdownAlternateHref);
+  }
+  if (options?.etag) headers.etag = options.etag;
   return headers;
 }
 
-function publicResponseHeaders(
+function publicArticleResponseHeaders(
   site: SiteRow,
   env: PublicRuntimeEnv,
   siteId: string,
-  postSlug: string | null,
+  postSlug: string,
+  options?: PublicArticleHeaderOptions,
 ): Record<string, string> {
-  const tags = postSlug ? articleCacheTags(siteId, postSlug) : [siteCacheTag(siteId)];
-  return publicHtmlResponseHeaders(site, env, tags);
+  return publicHtmlResponseHeaders(site, env, articleCacheTags(siteId, postSlug), options);
 }
 
 async function publicPostMarkdownResponse(
@@ -103,13 +124,27 @@ async function publicPostMarkdownResponse(
 ) {
   const post = await getPublishedPost(db, site.id, slug);
   if (!post) return notFound();
-  const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, publicOrigin(request.url)).href;
-  return new Response(buildPostMarkdown(post, canonicalUrl), {
+  const origin = publicOrigin(request.url);
+  const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, origin).href;
+  const markdownHref = new URL(`${basePath}/${slug}.md`, origin).href;
+  const markdown = buildPostMarkdown(post, canonicalUrl);
+  const validators = {
+    etag: await contentEtag(markdown),
+  };
+  const response = new Response(markdown, {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
-      ...publicResponseHeaders(site, env, site.id, slug),
+      ...publicArticleResponseHeaders(site, env, site.id, slug, {
+        markdownAlternateHref: markdownHref,
+        ...validators,
+      }),
     },
   });
+  return conditionalArticleResponse(request, response, validators);
+}
+
+function hasContentEtag(response: Response): boolean {
+  return /^(?:W\/)?"vc2-sha256-[0-9a-f]{64}"$/.test(response.headers.get("etag") || "");
 }
 
 export async function tryPublicPostMarkdownResponse(
@@ -123,9 +158,19 @@ export async function tryPublicPostMarkdownResponse(
   const { slug, markdown } = stripMarkdownSuffix(rawSlug);
   if (!markdown && !markdownRequested(request)) return null;
   if (!slug) return notFound();
-  return publicPostMarkdownResponse(db, site, slug, request, basePath, env);
+
+  const cached = await matchArticleResponseCache(request.url, "markdown");
+  if (cached && hasContentEtag(cached)) return conditionalCachedArticleResponse(request, cached);
+
+  const response = await publicPostMarkdownResponse(db, site, slug, request, basePath, env);
+  if (response.ok) await putArticleResponseCache(request.url, "markdown", response);
+  return response;
 }
 
+/**
+ * Markdown negotiation + markdown response-cache lookup run before any HTML page-cache hit.
+ * Returns null when the caller should continue with the HTML page path.
+ */
 export async function handlePublicPostByHostGet(
   db: D1Database,
   request: Request,
@@ -134,11 +179,37 @@ export async function handlePublicPostByHostGet(
 ) {
   const { slug: stripped } = stripMarkdownSuffix(slug);
   if (!stripped || RESERVED_ROOT_SLUGS.has(stripped)) return null;
+
+  const { markdown } = stripMarkdownSuffix(slug);
+  if (!markdown && !markdownRequested(request)) return null;
+
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
-  const md = await tryPublicPostMarkdownResponse(db, request, site, "", slug, env);
-  if (md) return md;
-  return null;
+  return tryPublicPostMarkdownResponse(db, request, site, "", slug, env);
+}
+
+export const ARTICLE_HTML_CACHE_HIT_HEADER = "x-vc-article-html-cache-hit";
+
+/** HTML Workers Cache lookup — only after markdown negotiation has declined the request. */
+export async function matchCachedPublicPostHtml(request: Request): Promise<Response | undefined> {
+  const cached = await matchArticleResponseCache(request.url, "html");
+  if (!cached || !hasContentEtag(cached)) return undefined;
+  const response = conditionalCachedArticleResponse(request, cached);
+  const headers = new Headers(response.headers);
+  headers.set(ARTICLE_HTML_CACHE_HIT_HEADER, "1");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+export async function cachePublicPostHtmlResponse(
+  requestUrl: string,
+  response: Response,
+  waitUntil?: (promise: Promise<unknown>) => void,
+): Promise<void> {
+  await putArticleResponseCache(requestUrl, "html", response, waitUntil);
 }
 
 export type PublicPostLoaderData = {
@@ -182,7 +253,7 @@ export type PublicListingContext =
 
 export type PublicIndexLoaderData = {
   site: SiteRow;
-  posts: PostRow[];
+  posts: PostSummaryRow[];
   basePath: string;
   indexable: boolean;
   listing: PublicListingContext;
@@ -197,10 +268,10 @@ export async function loadPublicIndexByHost(
   const site = await resolveSite(request, db, env);
   if (!site) return null;
   if (query !== undefined) {
-    const posts = await searchPublishedPosts(db, site.id, query);
+    const posts = await searchPublishedPostSummaries(db, site.id, query);
     return { site, posts, basePath: "", indexable: false, listing: { kind: "search", query } };
   }
-  const posts = await listPublishedPosts(db, site.id);
+  const posts = await listPublishedPostSummaries(db, site.id);
   return {
     site,
     posts,
@@ -218,7 +289,7 @@ export async function loadPublicTagByHost(
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
-  const posts = await listPublishedPostsByTag(db, site.id, tag);
+  const posts = await listPublishedPostSummariesByTag(db, site.id, tag);
   if (posts.length === 0) return null;
   return {
     site,

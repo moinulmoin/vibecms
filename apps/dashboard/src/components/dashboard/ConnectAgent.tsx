@@ -13,7 +13,7 @@ export const APPROVAL_FIRST_WRITING_PROMPT = `Use the "vibecms" MCP server to pr
 4. Save it as a draft with posts.create. Call posts.versions.list and record the newest versionNumber.
 5. Report the title, slug, preview warnings, and versionNumber, then ask me for explicit approval to publish.
 
-Do not call posts.publish in the same turn as drafting, and do not publish unless I explicitly approve in a later message. After I approve, call posts.publish with the draft postId and expectedVersionNumber set to the version I approved. If the version changed, stop, preview the latest version, and ask for approval again. When publishing succeeds, return the URL from the tool result.`
+Do not call posts.publish in the same turn as drafting, and do not publish unless I explicitly approve in a later message. For posts.update and posts.versions.restore, always send expectedVersionNumber for the current tip; public output stays on publishedVersionNumber until publish. After I approve, call posts.publish with the draft postId and expectedVersionNumber set to the version I approved. If the version changed, stop, preview the latest version, and ask for approval again. When publishing succeeds, return the URL from the tool result.`
 
 function CodeBlock({ name, hint, code }: { name: string; hint: string; code: string }) {
   return (

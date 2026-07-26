@@ -13,6 +13,7 @@ import { env } from 'cloudflare:workers'
 import { type CloudflareCustomHostname, mapCustomHostnameStatus, type MappedDomainStatus } from '@/lib/custom-domain'
 
 const CF_API = 'https://api.cloudflare.com/client/v4'
+const CF_TIMEOUT_MS = 8_000
 
 type CfConfig = { zoneId: string; token: string }
 type CfEnvelope = { success?: boolean; result?: CloudflareCustomHostname }
@@ -42,6 +43,7 @@ export async function createCustomHostname(hostname: string): Promise<Cloudflare
       method: 'POST',
       headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ hostname, ssl: { method: 'http', type: 'dv' } }),
+      signal: AbortSignal.timeout(CF_TIMEOUT_MS),
     })
     const json = (await res.json()) as CfEnvelope
     if (!res.ok || !json.success || !json.result?.id) return null
@@ -57,6 +59,7 @@ export async function getCustomHostname(id: string): Promise<CloudflareCustomHos
   try {
     const res = await fetch(`${CF_API}/zones/${cfg.zoneId}/custom_hostnames/${id}`, {
       headers: { Authorization: `Bearer ${cfg.token}` },
+      signal: AbortSignal.timeout(CF_TIMEOUT_MS),
     })
     const json = (await res.json()) as CfEnvelope
     if (!res.ok || !json.success || !json.result) return null
@@ -73,6 +76,7 @@ export async function deleteCustomHostname(id: string): Promise<void> {
     await fetch(`${CF_API}/zones/${cfg.zoneId}/custom_hostnames/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${cfg.token}` },
+      signal: AbortSignal.timeout(CF_TIMEOUT_MS),
     })
   } catch {
     // fail-open: best-effort cleanup; a stale CF hostname does not affect our row.

@@ -102,7 +102,7 @@ vi.stubGlobal("HTMLElement", FakeElement);
 // installing this deterministic DOM harness rather than using a static import.
 beforeAll(async () => {
   // @ts-expect-error The browser-only script intentionally has no exports; load it for side effects after installing the DOM harness.
-    await import("../public/scripts/subscribe-form.js");
+    await import("./scripts/subscribe-form.js");
 });
 
 afterEach(() => {

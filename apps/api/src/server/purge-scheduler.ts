@@ -1,5 +1,5 @@
 import { scheduleBackground } from '@/server/execution-scope'
-import { purgeArticleCache, purgeSiteCache } from "./public-blog-cache";
+import { purgeArticleCache, purgeHostnameCache, purgeSiteCache } from "./public-blog-cache";
 
 export function scheduleArticlePurge(siteId: string, siteSlug: string, postSlug: string) {
   scheduleBackground(purgeArticleCache(siteId, siteSlug, postSlug))
@@ -7,4 +7,8 @@ export function scheduleArticlePurge(siteId: string, siteSlug: string, postSlug:
 
 export function scheduleSitePurge(siteId: string, siteSlug: string) {
   scheduleBackground(purgeSiteCache(siteId, siteSlug));
+}
+
+export function scheduleHostnamePurge(hostname: string, siteId?: string | null) {
+  scheduleBackground(purgeHostnameCache(hostname, siteId));
 }

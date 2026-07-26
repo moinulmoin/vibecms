@@ -36,6 +36,12 @@
       "bucket_name": "vibecms-media"
     }
   ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "cache": {
+    "enabled": true
+  },
   "services": [
     {
       "binding": "API",

@@ -233,9 +233,9 @@ dashboardRoutes.post('/posts/update', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ postId: string } & Parameters<typeof parsePostPayload>[0]>()
-  const { postId, ...rest } = body
-  return c.json(await updatePostForApp(auth.app, postId, parsePostPayload(rest)))
+  const body = await c.req.json<{ postId: string; expectedVersionNumber: number } & Parameters<typeof parsePostPayload>[0]>()
+  const { postId, expectedVersionNumber, ...rest } = body
+  return c.json(await updatePostForApp(auth.app, postId, parsePostPayload(rest), expectedVersionNumber))
 })
 
 dashboardRoutes.post('/posts/publish', async (c) => {
@@ -280,8 +280,8 @@ dashboardRoutes.post('/posts/versions/restore', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ postId: string; versionNumber: number }>()
-  return c.json(await restorePostVersionForApp(auth.app, body.postId, body.versionNumber))
+  const body = await c.req.json<{ postId: string; versionNumber: number; expectedVersionNumber: number }>()
+  return c.json(await restorePostVersionForApp(auth.app, body.postId, body.versionNumber, body.expectedVersionNumber))
 })
 
 dashboardRoutes.get('/billing', async (c) => {

@@ -143,6 +143,7 @@ beforeAll(async () => {
     updatedAt: T0,
   });
   // Seed version 1 for the already-published post so idempotent publish can verify expectedVersionNumber
+  const pubVersionId = crypto.randomUUID();
   await env.DB.prepare(
     "INSERT INTO post_versions (" +
       "id, post_id, site_id, version_number, title, slug, content_markdown, status, " +
@@ -150,7 +151,7 @@ beforeAll(async () => {
     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   )
     .bind(
-      crypto.randomUUID(),
+      pubVersionId,
       "pr-post-pub1",
       "pr-site-cap",
       1,
@@ -163,6 +164,9 @@ beforeAll(async () => {
       "seed",
       T0,
     )
+    .run();
+  await env.DB.prepare("UPDATE posts SET published_version_id = ? WHERE id = ?")
+    .bind(pubVersionId, "pr-post-pub1")
     .run();
 
   // ---- listPosts matrix seed: controlled status + updated_at ordering -----
@@ -309,7 +313,7 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
       changeSummary: "Updated title",
       activityAction: "post.updated",
       activitySummary: "Updated post title",
-    });
+    }, 1);
 
     // Try to publish with stale expectedVersionNumber (1 instead of 2)
     let caught: unknown;
@@ -370,6 +374,125 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
 // ---------------------------------------------------------------------------
 // 2. listPostVersions — actorName COALESCE(user.name, api_keys.actor_name, created_by_id)
 // ---------------------------------------------------------------------------
+
+
+describe("draft/live published version pin", () => {
+  it("keeps public pinned content at N after tip advances to N+1 until publish", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const { createPublicBlogReadModel } = await import("@vc/db");
+    const publicBlog = createPublicBlogReadModel(env.DB);
+
+    const post = await createPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      title: "Pin Original",
+      slug: "pr-pin-live",
+      contentMarkdown: "# Version One",
+    });
+    const published = await publishPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      expectedVersionNumber: 1,
+      billingStatus: "active",
+    });
+    expect(published.publishedVersionNumber).toBe(1);
+
+    const now = Math.floor(Date.now() / 1000) + 10;
+    const liveBefore = await publicBlog.getPublishedPost("pr-site-cap", "pr-pin-live", now);
+    expect(liveBefore?.contentMarkdown).toBe("# Version One");
+    expect(liveBefore?.title).toBe("Pin Original");
+
+    await repo.updatePostWithHistory(
+      "pr-site-cap",
+      post.id,
+      { title: "Pin Draft Tip", contentMarkdown: "# Version Two" },
+      fullApiActor,
+      {
+        changeSummary: "Draft tip edit",
+        activityAction: "post.updated",
+        activitySummary: "Edited tip",
+      },
+      1,
+    );
+
+    const tip = await repo.getPost("pr-site-cap", post.id);
+    expect(tip?.currentVersionNumber).toBe(2);
+    expect(tip?.publishedVersionNumber).toBe(1);
+    expect(tip?.contentMarkdown).toBe("# Version Two");
+
+    const liveAfterEdit = await publicBlog.getPublishedPost("pr-site-cap", "pr-pin-live", now);
+    expect(liveAfterEdit?.contentMarkdown).toBe("# Version One");
+    expect(liveAfterEdit?.title).toBe("Pin Original");
+
+    const republished = await publishPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      expectedVersionNumber: 2,
+      billingStatus: "active",
+    });
+    expect(republished.publishedVersionNumber).toBe(2);
+
+    const liveAfterPublish = await publicBlog.getPublishedPost("pr-site-cap", "pr-pin-live", now);
+    expect(liveAfterPublish?.contentMarkdown).toBe("# Version Two");
+    expect(liveAfterPublish?.title).toBe("Pin Draft Tip");
+  });
+
+  it("rejects concurrent tip updates with the same expectedVersionNumber", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const post = await createPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      title: "CAS Post",
+      slug: "pr-cas-update",
+      contentMarkdown: "# one",
+    });
+    const first = await repo.updatePostWithHistory(
+      "pr-site-cap",
+      post.id,
+      { title: "First Writer" },
+      fullApiActor,
+      { changeSummary: "first", activityAction: "post.updated", activitySummary: "first" },
+      1,
+    );
+    expect(first?.versionNumber).toBe(2);
+
+    await expect(
+      repo.updatePostWithHistory(
+        "pr-site-cap",
+        post.id,
+        { title: "Second Writer" },
+        fullApiActor,
+        { changeSummary: "second", activityAction: "post.updated", activitySummary: "second" },
+        1,
+      ),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("rejects restore when expectedVersionNumber is stale", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const { restorePostVersion } = await import("@vc/core");
+    const post = await createPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      title: "Restore CAS",
+      slug: "pr-restore-cas",
+      contentMarkdown: "# v1",
+    });
+    await repo.updatePostWithHistory(
+      "pr-site-cap",
+      post.id,
+      { title: "Restore CAS v2", contentMarkdown: "# v2" },
+      fullApiActor,
+      { changeSummary: "v2", activityAction: "post.updated", activitySummary: "v2" },
+      1,
+    );
+    await expect(
+      restorePostVersion(repo, fullApiActor, {
+        siteId: "pr-site-cap",
+        postId: post.id,
+        versionNumber: 1,
+        expectedVersionNumber: 1,
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+});
 
 describe("listPostVersions — actorName attribution coalesce", () => {
   it("resolves a human-authored version (created_by_id = user.id) to the user's name", async () => {

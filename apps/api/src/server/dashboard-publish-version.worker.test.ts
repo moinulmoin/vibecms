@@ -76,6 +76,8 @@ describe("dashboard publish version conflict", () => {
       billingStatus: "active",
     });
     expect(published.status).toBe("published");
+    expect(published.publishedVersionNumber).toBe(currentVersionNumber);
+    expect(published.currentVersionNumber).toBe(currentVersionNumber);
   });
 
   it("rejects publish when version number is stale (concurrent edit)", async () => {
@@ -103,7 +105,7 @@ describe("dashboard publish version conflict", () => {
       changeSummary: "Concurrent edit",
       activityAction: "post.updated",
       activitySummary: "Updated post",
-    });
+    }, 1);
     expect(concurrentUpdate?.versionNumber).toBe(2);
 
     // Verify version advanced
@@ -155,7 +157,7 @@ describe("dashboard publish version conflict", () => {
       changeSummary: "Concurrent edit",
       activityAction: "post.updated",
       activitySummary: "Updated post",
-    });
+    }, 1);
 
     // Simulate user refreshing the editor to see the new version
     const versionsAfterRefresh = await repo.listPostVersions("test-site", post.id);
@@ -170,5 +172,6 @@ describe("dashboard publish version conflict", () => {
       billingStatus: "active",
     });
     expect(published.status).toBe("published");
+    expect(published.publishedVersionNumber).toBe(refreshedVersionNumber);
   });
 });

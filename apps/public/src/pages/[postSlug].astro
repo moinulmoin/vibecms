@@ -4,24 +4,34 @@ import { PublicBlogPostView } from "../components/PublicBlogPages";
 import {
   handlePublicPostByHostGet,
   loadPublicPostByHost,
+  matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
 } from "../server/public-blog";
 import { buildPostHeadContent } from "../lib/seo-meta";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
+import pageViewScriptUrl from "../scripts/page-view.js?url";
 
 const env = publicRuntimeEnv(Astro);
 const db = publicDb(Astro);
 const postSlug = Astro.params.postSlug;
+// Markdown Accept/.md/?format=md runs before any HTML page-cache lookup.
 const early = await handlePublicPostByHostGet(db, Astro.request, postSlug, env);
 if (early) return early;
+
+const cachedHtml = await matchCachedPublicPostHtml(Astro.request);
+if (cachedHtml) return cachedHtml;
 
 const blog = await loadPublicPostByHost(db, Astro.request, postSlug, env);
 if (!blog) {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 
-Astro.cache.set({ maxAge: 300, swr: 86400, tags: blog.cacheTags });
-for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, blog.cacheTags))) {
+const markdownAlternateHref = new URL(`/${blog.post.slug}.md`, blog.origin).href;
+for (const [key, value] of Object.entries(
+  publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
+    markdownAlternateHref,
+  }),
+)) {
   Astro.response.headers.set(key, value);
 }
 
@@ -51,5 +61,5 @@ const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in
     {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
   </Fragment>
   <PublicBlogPostView data={blog} />
-  <script is:inline src="/scripts/page-view.js" data-post-slug={blog.post.slug} defer></script>
+  <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
 </Base>

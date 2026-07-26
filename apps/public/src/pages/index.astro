@@ -1,58 +1,14 @@
 ---
-import Base from "../layouts/Base.astro";
-import LandingLayout from "../layouts/LandingLayout.astro";
-import { LandingHome } from "../components/landing/LandingHome";
-import { PublicBlogIndexView } from "../components/PublicBlogPages";
-import { appApiDocsUrl, appLoginUrl } from "../lib/landing-links";
-import { resolveSocialImage } from "../lib/seo-meta";
-import { isMarketingHost, loadPublicIndexByHost, publicHtmlResponseHeaders } from "../server/public-blog";
-import { siteCacheTag } from "../server/public-blog-cache";
-import { publicDb, publicRuntimeEnv } from "../server/runtime";
-import { publicOrigin } from "../server/public-url";
+import { isMarketingHost } from "../server/public-blog";
+import { publicRuntimeEnv } from "../server/runtime";
 
+// Root stays externally at `/`. Each host branch renders from its own internal
+// module graph so marketing CSS/JS and tenant public-blog CSS never share an
+// entry. The tenant module owns site resolution and search exactly once.
 const env = publicRuntimeEnv(Astro);
-const rawQ = Astro.url.searchParams.get("q")?.trim().slice(0, 100);
-const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
-const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query);
-
-if (!blog && !isMarketingHost(Astro.request, env)) {
-  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+if (!env.selfHosted && isMarketingHost(Astro.request, env)) {
+  return Astro.rewrite(`/internal/marketing${Astro.url.search}`);
 }
 
-if (blog) {
-  const headers =
-    blog.listing.kind === "search"
-      ? { "cache-control": "no-store", "x-robots-tag": "noindex" }
-      : publicHtmlResponseHeaders(blog.site, env, [siteCacheTag(blog.site.id)]);
-  if (blog.listing.kind !== "search") {
-    Astro.cache.set({ maxAge: 300, swr: 86400, tags: [siteCacheTag(blog.site.id)] });
-  }
-  for (const [key, value] of Object.entries(headers)) {
-    Astro.response.headers.set(key, value);
-  }
-}
-
-const loginUrl = appLoginUrl(env.appUrl);
-const apiDocsUrl = appApiDocsUrl(env.appUrl);
-const origin = publicOrigin(Astro.url);
-const ogImage = `${origin}/brand/og.png`;
-const title = blog ? blog.site.default_seo_title || blog.site.name : undefined;
-const description = blog ? blog.site.default_seo_description || blog.site.description || undefined : undefined;
-const socialImage = blog ? resolveSocialImage(origin, null, blog.site) : undefined;
-const canonical = blog ? new URL("/", origin).href : undefined;
+return Astro.rewrite(`/internal/tenant${Astro.url.search}`);
 ---
-{blog ? (
-  <Base
-    title={title}
-    description={description}
-    robots={!blog.indexable ? "noindex,nofollow" : undefined}
-    canonical={canonical}
-    socialImage={socialImage}
-  >
-    <PublicBlogIndexView data={blog} />
-  </Base>
-) : (
-  <LandingLayout loginUrl={loginUrl} ogImage={ogImage}>
-    <LandingHome client:load loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
-  </LandingLayout>
-)}

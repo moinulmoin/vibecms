@@ -268,6 +268,7 @@ export function SettingsPage() {
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
+  const [refreshingDomains, setRefreshingDomains] = useState(false)
   const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | 'voice' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<PresetId>(DEFAULT_PRESET_ID)
   const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
@@ -343,6 +344,11 @@ export function SettingsPage() {
         to: '/dashboard/settings',
         search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
       })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
+      })
     } finally {
       setFormPending(null)
     }
@@ -383,6 +389,11 @@ export function SettingsPage() {
           tab: prev.tab,
         }),
       })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
+      })
     } finally {
       setFormPending(null)
     }
@@ -395,13 +406,20 @@ export function SettingsPage() {
     setFormPending('domain')
     try {
       const result = await addCustomDomainMutation({ hostname })
-      if (result.ok) {
-        const refreshed = await loadSettingsPage()
-        setData(narrowSettingsPageData(refreshed))
-      }
+      // Always refresh after the mutation: a transient domain_provisioning
+      // failure keeps a retryable row server-side, and the user needs to see
+      // it without a full page reload. The error toast (result.code) still
+      // fires through the navigate below.
+      const refreshed = await loadSettingsPage()
+      setData(narrowSettingsPageData(refreshed))
       await navigate({
         to: '/dashboard/settings',
         search: (prev) => ({ ok: result.ok ? 'domain_added' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
+      })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
       })
     } finally {
       setFormPending(null)
@@ -418,8 +436,31 @@ export function SettingsPage() {
         to: '/dashboard/settings',
         search: (prev) => ({ ok: result.ok ? 'domain_removed' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
       })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
+      })
     } finally {
       setRemoveDomainPending(null)
+    }
+  }
+  async function handleRefreshDomains() {
+    setRefreshingDomains(true)
+    try {
+      const refreshed = await loadSettingsPage()
+      setData(narrowSettingsPageData(refreshed))
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: undefined, tab: prev.tab }),
+      })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
+      })
+    } finally {
+      setRefreshingDomains(false)
     }
   }
 
@@ -456,6 +497,11 @@ export function SettingsPage() {
           tab: 'voice',
         },
       })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: { ok: undefined, error: 'unknown', tab: 'voice' },
+      })
     } finally {
       setFormPending(null)
     }
@@ -484,6 +530,11 @@ export function SettingsPage() {
           error: result.kind === 'ok' ? undefined : result.code,
           tab: 'voice',
         },
+      })
+    } catch {
+      await navigate({
+        to: '/dashboard/settings',
+        search: { ok: undefined, error: 'unknown', tab: 'voice' },
       })
     } finally {
       setFormPending(null)
@@ -1054,7 +1105,23 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="domain" className="grid gap-4">
       {isOwner ? (
-        <Panel title="Custom domain" meta="Bring your own domain">
+        <Panel
+          title="Custom domain"
+          meta={
+            <div className="flex items-center gap-3">
+              <span className="font-sans text-xs text-muted-foreground">Bring your own domain</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={refreshingDomains}
+                onClick={() => void handleRefreshDomains()}
+              >
+                {refreshingDomains ? 'Refreshing…' : 'Refresh'}
+              </Button>
+            </div>
+          }
+        >
           <p className="mb-4 font-sans text-sm text-muted-foreground">
             Serve your blog on your own domain (for example blog.example.com). Requires an active subscription.
           </p>

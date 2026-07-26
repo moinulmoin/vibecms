@@ -14,7 +14,9 @@ Put the resulting D1 id and R2 bucket name in both production environments:
 - `apps/api/wrangler.jsonc`
 - `apps/public/wrangler.jsonc`
 
-Both Workers must point at the same database and bucket. Keep the public production service binding targeted at `vibecms-api-prod`.
+Both Workers must point at the same database and bucket. Keep the existing API Worker named `vibecms-prod`; keep the public production service binding targeted at it.
+
+Astro sessions are disabled in `apps/public/astro.config.mjs`; do not create a `SESSION` KV namespace for hosted production/dev or self-host unless you intentionally re-enable Astro sessions.
 
 ## 2. Configure production hosts
 
@@ -69,31 +71,25 @@ https://app.vibecms.dev/api/polar/webhook
 
 The webhook secret must match `POLAR_WEBHOOK_SECRET`. Receipt ids and source timestamps make billing updates idempotent and monotonic.
 
-## 6. Run release gates
+## 6. Run the canonical production path
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
-pnpm public:audit
-pnpm openapi:check
-```
-
-Do not deploy on a failed gate.
-
-## 7. Deploy
-
-```sh
+CLOUDFLARE_ACCOUNT_ID=<account-id> \
+CLOUDFLARE_API_TOKEN=<deploy-token> \
+PRODUCTION_SMOKE_TOKEN=<read-token> \
 pnpm deploy:prod
 ```
 
-The script applies D1 migrations first, deploys `vibecms-api-prod`, then builds and deploys `vibecms-public-prod`. The API Worker must exist before the public service binding is deployed.
+`deploy:prod` is the only hosted production path. It runs `production:preflight` (typecheck/lint/tests/public audit/OpenAPI + resource/secret checks + production artifact builds) before any D1 mutation, captures backup metadata, applies migrations, deploys API then already-built public, then smokes. Do not deploy on a failed preflight.
 
-The manual GitHub Actions workflow `Deploy production` runs the same gates and sequence with an environment approval boundary.
+First deploy only: use `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`, then create a site/read token/published post and immediately run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Later deploys require the token.
 
-## 8. Smoke test
+Optional GitHub `workflow_dispatch` is a thin wrapper around the same command and requires an explicit `smoke_mode` input plus `PRODUCTION_SMOKE_TOKEN` for authenticated mode.
+
+## 7. Post-deploy smoke checklist
+
+`pnpm deploy:prod` already runs `production:smoke` (infrastructure always; authenticated tenant/article checks when `PRODUCTION_SMOKE_TOKEN` is set). Still verify the broader launch checklist:
 
 1. `GET https://app.vibecms.dev/api/health/live` returns 200 and a Worker version id.
 2. `GET https://app.vibecms.dev/api/health/ready` returns 200.
@@ -104,6 +100,13 @@ The manual GitHub Actions workflow `Deploy production` runs the same gates and s
 7. Complete Polar checkout and portal flows; replay a webhook id and verify it does not apply twice.
 8. Confirm API logs correlate failures with `X-Request-ID` and contain no authorization, cookie, token, OTP, or request-body values.
 
-## 9. Rollback
+## 8. Backup and rollback
 
-API and public versions roll back independently in Cloudflare. Roll back only the affected Worker when possible. D1 migrations are forward-only; before rolling API code back across a migration, verify the older code remains compatible with the current schema.
+```sh
+pnpm production:backup
+pnpm production:rollback
+pnpm production:rollback -- --worker api --to <version-id> --yes
+pnpm production:rollback -- --worker public --to <version-id> --yes
+```
+
+Backup defaults are non-destructive (bookmark + schema-export metadata + Worker version IDs). Rollback with no flags only prints status. API and public versions roll back independently; Worker rollback does not undo D1 schema or row changes. D1 migrations are forward-only; time-travel restore is destructive and is not a safe schema rollback.

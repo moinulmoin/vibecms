@@ -9,7 +9,7 @@ import { maybeRejectOtpSendRateLimit } from '@/server/auth-guards'
 import { apiV1App } from '@/server/api/app'
 import { handleMcpRequest } from '@/server/mcp'
 import { handlePolarWebhook } from '@/server/billing'
-import { runAnalyticsRollup } from '@/server/analytics-rollup'
+import { runScheduledJobs } from '@/server/scheduled-dispatch'
 import { handleExport } from '@/server/export'
 import { uploadAssetForApp } from '@/server/media'
 import { serveAsset } from '@/server/media'
@@ -260,7 +260,7 @@ export default {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Response | Promise<Response> {
     return runWithExecutionContext(ctx, () => app.fetch(request, env, ctx))
   },
-  scheduled(_controller: ScheduledController, workerEnv: Cloudflare.Env, ctx: ExecutionContext): void {
-    ctx.waitUntil(runWithExecutionContext(ctx, () => runAnalyticsRollup(workerEnv)))
+  scheduled(controller: ScheduledController, workerEnv: Cloudflare.Env, ctx: ExecutionContext): void {
+    ctx.waitUntil(runWithExecutionContext(ctx, () => runScheduledJobs(controller.cron, workerEnv)))
   },
 }

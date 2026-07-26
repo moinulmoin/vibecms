@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, deleteAsset, getAsset, getPost, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getAsset, getPost, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -14,8 +14,8 @@ import {
 import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
 import { getBillingStatusForSite } from "./billing";
-import { uploadAsset } from "./media";
-import { scheduleArticlePurge } from "./purge-scheduler";
+import { deleteAssetTracked, uploadAsset } from "./media";
+import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
 import { getSitePublicBaseUrl } from "./site-public-url";
 import { formatGuideForPreset } from "./format-guide";
@@ -169,6 +169,7 @@ export async function updatePostOp(
   ctx: OperationContext,
   input: {
     postId: string;
+    expectedVersionNumber: number;
     title?: string;
     slug?: string;
     excerpt?: string;
@@ -185,6 +186,7 @@ export async function updatePostOp(
   const { post } = await updatePost(repository(), ctx.actor, {
       siteId: ctx.siteId,
       postId: input.postId,
+      expectedVersionNumber: input.expectedVersionNumber,
       title: input.title,
       slug: input.slug,
       excerpt: input.excerpt,
@@ -196,6 +198,7 @@ export async function updatePostOp(
       tags: input.tags,
       presentation: input.presentation,
   });
+  // Draft edits on a live post do not change the public projection; no purge here.
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
   return mapPost(post, postPublicUrl(base, post));
 }
@@ -205,6 +208,7 @@ export async function publishPostOp(
   input: { postId: string; expectedVersionNumber: number },
 ) {
   await assertPostImagesPublishable(ctx.siteId, input.postId);
+  const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
   const published = await publishPost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
@@ -212,18 +216,19 @@ export async function publishPostOp(
     billingStatus: await getBillingStatusForSite(ctx.siteId),
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
-  if (siteSlug) scheduleArticlePurge(ctx.siteId, siteSlug, published.slug);
+  if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, published.slug);
   const base = siteSlug ? await getSitePublicBaseUrl(ctx.siteId, siteSlug) : null;
   return mapPost(published, postPublicUrl(base, published));
 }
 
 export async function archivePostOp(ctx: OperationContext, input: { postId: string }) {
+  const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
   const archived = await archivePost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
-  if (siteSlug) scheduleArticlePurge(ctx.siteId, siteSlug, archived.slug);
+  if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, archived.slug);
   return mapPost(archived, null);
 }
 
@@ -251,12 +256,7 @@ export async function getAssetOp(ctx: OperationContext, input: { assetId: string
 }
 
 export async function deleteAssetOp(ctx: OperationContext, input: { assetId: string }) {
-  const a = await deleteAsset(assetRepository(), ctx.actor, ctx.siteId, input.assetId);
-  try {
-    await env.ASSETS_BUCKET.delete(a.r2Key);
-  } catch (err) {
-    console.error("R2 delete failed for asset", a.id, err);
-  }
+  const a = await deleteAssetTracked(appUser(ctx), input.assetId);
   return mapAsset(a, `/media-assets/${a.id}`);
 }
 
@@ -278,8 +278,13 @@ export async function getPostVersionOp(ctx: OperationContext, input: { postId: s
   return mapPostVersion(await getPostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber }));
 }
 
-export async function restorePostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number }) {
-  const post = await restorePostVersion(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, versionNumber: input.versionNumber });
+export async function restorePostVersionOp(ctx: OperationContext, input: { postId: string; versionNumber: number; expectedVersionNumber: number }) {
+  const post = await restorePostVersion(repository(), ctx.actor, {
+    siteId: ctx.siteId,
+    postId: input.postId,
+    versionNumber: input.versionNumber,
+    expectedVersionNumber: input.expectedVersionNumber,
+  });
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
   return mapPost(post, postPublicUrl(base, post));
 }

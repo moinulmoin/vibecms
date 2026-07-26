@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { articleCacheTag, articleCacheUrls, purgeArticleCache } from './public-blog-cache'
+import {
+  articleCacheTag,
+  articleCacheUrls,
+  hostnameCacheUrls,
+  purgeArticleCache,
+  purgeHostnameCache,
+} from './public-blog-cache'
+import { env } from 'cloudflare:workers'
 import { runWithExecutionContext } from './execution-scope'
-import { scheduleArticlePurge } from './purge-scheduler'
+import { scheduleArticlePurge, scheduleHostnamePurge } from './purge-scheduler'
 
 describe('public article cache invalidation', () => {
   it('uses stable article tags and host-only public URLs', () => {
@@ -31,6 +38,79 @@ describe('public article cache invalidation', () => {
     }
   })
 })
+
+describe('hostname ownership-transition cache invalidation', () => {
+  it('builds stable custom-hostname cache URLs', () => {
+    expect(hostnameCacheUrls('Blog.Example.com.')).toEqual([
+      'https://blog.example.com',
+      'https://blog.example.com/feed.xml',
+      'https://blog.example.com/rss.xml',
+      'https://blog.example.com/atom.xml',
+      'https://blog.example.com/sitemap.xml',
+      'https://blog.example.com/llms.txt',
+    ])
+    expect(hostnameCacheUrls('')).toEqual([])
+  })
+
+  it('clears cached custom-hostname site URLs on remove/reassign (Cache API fallback)', async () => {
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const hostname = 'reassign-purge.example.test'
+    const urls = hostnameCacheUrls(hostname)
+
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('previous-owner', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    await purgeHostnameCache(hostname, 'site-previous-owner')
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('purges Cloudflare by hosts (and prior site tag) so a reassigned host cannot serve the old article', async () => {
+    const previousZone = env.CLOUDFLARE_ZONE_ID
+    const previousToken = env.CACHE_PURGE_API_TOKEN
+    env.CLOUDFLARE_ZONE_ID = 'test-zone'
+    env.CACHE_PURGE_API_TOKEN = 'test-purge-token'
+
+    const bodies: unknown[] = []
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body ?? '{}')))
+      return new Response(JSON.stringify({ success: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      await purgeHostnameCache('old-owner.example.test', 'site-previous')
+      expect(bodies).toEqual([
+        { hosts: ['old-owner.example.test'] },
+        { tags: ['vc-site:site-previous'] },
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+      env.CLOUDFLARE_ZONE_ID = previousZone
+      env.CACHE_PURGE_API_TOKEN = previousToken
+    }
+  })
+
+  it('schedules hostname purge onto the current request execution context', () => {
+    const waitUntil = vi.fn<(promise: Promise<unknown>) => void>(() => {})
+    const ctx = { waitUntil } as unknown as ExecutionContext
+
+    runWithExecutionContext(ctx, () => {
+      scheduleHostnamePurge('owned.example.test', 'site-a')
+    })
+
+    expect(waitUntil).toHaveBeenCalledTimes(1)
+    expect(waitUntil.mock.calls[0][0]).toBeInstanceOf(Promise)
+  })
+})
+
 describe('scheduled purge execution-context binding', () => {
   // The execution-scope seam: a duck-typed ExecutionContext whose only method
   // the scheduling path touches is `waitUntil`. Lets us observe which request

@@ -3,7 +3,7 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Button, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
-import { Badge } from "@vc/ui"
+import { Alert, Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { loadSettingsPage } from '~/lib/api-client'
@@ -14,6 +14,14 @@ export function TokenCreatedPage() {
   const navigate = useNavigate()
   const [flash, setFlash] = useState<{ token: string; name: string } | null>(null)
   const [mcpUrl, setMcpUrl] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  function loadMcpUrl() {
+    setLoadError(false)
+    void loadSettingsPage()
+      .then((data) => setMcpUrl(data.mcpUrl))
+      .catch(() => setLoadError(true))
+  }
 
   useEffect(() => {
     const consumed = consumeTokenFlash()
@@ -22,8 +30,35 @@ export function TokenCreatedPage() {
       return
     }
     setFlash(consumed)
-    void loadSettingsPage().then((data) => setMcpUrl(data.mcpUrl))
+    loadMcpUrl()
   }, [navigate])
+
+  if (flash && loadError) {
+    return (
+      <>
+        <PageHeader
+          kicker="Connect"
+          title="Token created"
+          description="Your token is ready, but the agent connection details could not load."
+          action={
+            <Button asChild variant="outline">
+              <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>Back to Connect</Link>
+            </Button>
+          }
+        />
+        <Panel title="Connect your agent" meta={<Badge variant="outline">One-time token</Badge>}>
+          <Alert variant="error" title="Connection details unavailable">
+            We saved your one-time token on this page, but the agent configuration failed to load.
+            Retry without refreshing — the token leaves with you when you copy it, and it is not
+            shown again after you leave.
+          </Alert>
+          <div className="mt-4">
+            <Button type="button" onClick={loadMcpUrl}>Retry connection details</Button>
+          </div>
+        </Panel>
+      </>
+    )
+  }
 
   if (!flash || !mcpUrl) {
     return (

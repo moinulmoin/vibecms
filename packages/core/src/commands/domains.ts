@@ -39,7 +39,10 @@ export type AddCustomDomainInput = {
   now?: number;
 };
 
-export async function addCustomDomain(repo: DomainRepository, input: AddCustomDomainInput): Promise<{ record: DomainRecord; reclaimedCfHostnameId: string | null }> {
+export async function addCustomDomain(
+  repo: DomainRepository,
+  input: AddCustomDomainInput,
+): Promise<{ record: DomainRecord; reclaimedCfHostnameId: string | null; reclaimedSiteId: string | null }> {
   if (!input.isOwner) throw new ForbiddenError("Only workspace owners can manage domains.");
   if (!input.isPaid) throw new BillingRequiredError("Custom domains require an active subscription.");
 
@@ -50,10 +53,14 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const staleBefore = now - (input.staleTtlSeconds ?? DEFAULT_STALE_TTL_SECONDS);
   let reclaimedCfHostnameId: string | null = null;
+  let reclaimedSiteId: string | null = null;
 
   const existing = await repo.getByHostname(hostname);
   if (existing) {
-    if (existing.siteId === input.siteId) return { record: existing, reclaimedCfHostnameId: null }; // idempotent: already connected to this site
+    // idempotent: already connected to this site
+    if (existing.siteId === input.siteId) {
+      return { record: existing, reclaimedCfHostnameId: null, reclaimedSiteId: null };
+    }
     const reclaimable =
       (existing.status === "pending" || existing.status === "failed") && existing.updatedAt <= staleBefore;
     if (!reclaimable) throw new ConflictError("That domain is already connected to another blog.");
@@ -62,6 +69,7 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
     const reclaimed = await repo.reclaimStale(hostname, staleBefore);
     if (reclaimed === 0) throw new ConflictError("That domain is already connected to another blog.");
     reclaimedCfHostnameId = existing.cloudflareCustomHostnameId;
+    reclaimedSiteId = existing.siteId;
   }
 
   const record: DomainRecord = {
@@ -76,7 +84,7 @@ export async function addCustomDomain(repo: DomainRepository, input: AddCustomDo
     updatedAt: now,
   };
   await repo.insert(record); // throws ConflictError on a concurrent UNIQUE claim
-  return { record, reclaimedCfHostnameId };
+  return { record, reclaimedCfHostnameId, reclaimedSiteId };
 }
 
 export async function listCustomDomains(repo: DomainRepository, siteId: string): Promise<DomainRecord[]> {

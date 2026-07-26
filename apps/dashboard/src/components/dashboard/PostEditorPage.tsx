@@ -293,7 +293,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
           ? null
           : { layout: selectedLayout, toc: selectedToc }
       const result = postId
-        ? await updatePostMutation({ postId, ...payload, presentation })
+        ? currentVersionNumber == null
+          ? { kind: 'error' as const, code: 'unknown' }
+          : await updatePostMutation({ postId, expectedVersionNumber: currentVersionNumber, ...payload, presentation })
         : await createPostMutation({ ...payload, presentation })
       if (result.kind === 'ok' && !postId && result.postId) {
         await navigate({
@@ -338,7 +340,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
     const payload = payloadFromForm(new FormData(form))
     const presentation =
       !presentationDirty && !hasPriorPresentation ? null : { layout: selectedLayout, toc: selectedToc }
-    const result = await updatePostMutation({ postId, ...payload, presentation })
+    if (currentVersionNumber == null) return false
+    const result = await updatePostMutation({
+      postId,
+      expectedVersionNumber: currentVersionNumber,
+      ...payload,
+      presentation,
+    })
     if (result.kind !== 'ok') {
       await navigate({
         to: '/dashboard/posts/$postId/edit',
@@ -378,9 +386,23 @@ function PostEditorShell({ postId }: { postId?: string }) {
       const savedVersionNumber = await persistIfDirty()
       if (savedVersionNumber === false) return
       const result = await archivePostMutation({ postId })
+      if (result.kind === 'ok') {
+        await navigate({
+          to: '/dashboard/posts',
+          search: statusSearchFromMutation(result),
+        })
+        return
+      }
       await navigate({
-        to: '/dashboard/posts',
-        search: statusSearchFromMutation(result),
+        to: '/dashboard/posts/$postId/edit',
+        params: { postId },
+        search: postEditorSearch({ error: result.code }),
+      })
+    } catch {
+      await navigate({
+        to: '/dashboard/posts/$postId/edit',
+        params: { postId },
+        search: postEditorSearch({ error: 'unknown' }),
       })
     } finally {
       setArchivePending(false)
@@ -417,13 +439,18 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
 
   async function handleRestoreVersion(versionNumber: number) {
-    if (!postId) return
+    if (!postId || currentVersionNumber == null) return
     setRestoreVersionPending(versionNumber)
     try {
-      const result = await restorePostVersionFn({ postId, versionNumber })
+      const result = await restorePostVersionFn({
+        postId,
+        versionNumber,
+        expectedVersionNumber: currentVersionNumber,
+      })
       if (result.kind === 'ok') {
         const refreshed = await loadPostEditorPage({ postId })
         setPost(refreshed.post)
+        setCurrentVersionNumber(refreshed.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(refreshed.presetId)].layout
         setSelectedLayout(refreshed.post?.presentation?.layout ?? cap.default.layout)
         setSelectedToc(refreshed.post?.presentation?.toc ?? cap.default.toc)
@@ -436,7 +463,19 @@ function PostEditorShell({ postId }: { postId?: string }) {
           params: { postId },
           search: postEditorSearch({ ok: result.code }),
         })
+        return
       }
+      await navigate({
+        to: '/dashboard/posts/$postId/edit',
+        params: { postId },
+        search: postEditorSearch({ error: result.code }),
+      })
+    } catch {
+      await navigate({
+        to: '/dashboard/posts/$postId/edit',
+        params: { postId },
+        search: postEditorSearch({ error: 'unknown' }),
+      })
     } finally {
       setRestoreVersionPending(null)
     }
@@ -447,6 +486,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
 
   const statusKicker = post ? post.status : 'New post'
+  const editorStatusLabel = post?.status === 'published' ? 'Published' : post?.status === 'archived' ? 'Archived' : 'Draft'
   const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
   const selectedCoverAsset = assets.find((asset) => asset.id === selectedCoverAssetId) ?? null
 
@@ -484,7 +524,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
-          <Panel title="Draft">
+          <Panel title={editorStatusLabel}>
             <div className="grid gap-4">
               <Field>
                 <FieldLabel

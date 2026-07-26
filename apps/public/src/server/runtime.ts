@@ -22,6 +22,12 @@ export function publicAssetsBucket(context: APIContext): R2Bucket {
   return workerEnv(context).ASSETS_BUCKET;
 }
 
+export function publicImages(context: APIContext): ImagesBinding | undefined {
+  // Self-host root wrangler may omit IMAGES during transition; callers fall back to originals.
+  const bindings = workerEnv(context) as { IMAGES?: ImagesBinding };
+  return bindings.IMAGES;
+}
+
 export function apiBinding(context: APIContext): Fetcher {
   return workerEnv(context).API;
 }

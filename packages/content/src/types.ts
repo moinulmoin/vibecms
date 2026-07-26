@@ -12,6 +12,12 @@ export interface RenderResult {
   readonly warnings: string[];
 }
 
+export interface RenderedImageAttributes {
+  readonly src?: string;
+  readonly srcSet?: string;
+  readonly sizes?: string;
+}
+
 export interface RenderOpts {
   readonly presetId?: string;
   readonly className?: string;
@@ -22,6 +28,11 @@ export interface RenderOpts {
    * other H1s retain the existing downgrade-to-H2 behavior.
    */
   readonly pageTitle?: string;
+  /**
+   * Resolves safe presentation attributes for an image source. Public delivery
+   * uses this for bounded responsive media variants; previews may omit it.
+   */
+  readonly resolveImage?: (src: string) => RenderedImageAttributes | null;
 }
 
 export interface RichContentFrameProps {

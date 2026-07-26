@@ -880,6 +880,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -898,7 +909,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -1214,6 +1227,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -1232,7 +1256,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -1428,7 +1454,7 @@
       },
       "patch": {
         "operationId": "updatePost",
-        "description": "Update a post. Provide postId plus only the fields to change; contentMarkdown is the full Markdown body. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Update a post. Provide postId, expectedVersionNumber (current tip), and only the fields to change; contentMarkdown is the full Markdown body. Stale expectedVersionNumber returns CONFLICT. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
         "security": [
           {
             "bearerAuth": []
@@ -1452,6 +1478,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "expectedVersionNumber": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
                   "title": {
                     "type": "string",
                     "minLength": 1,
@@ -1523,6 +1553,9 @@
                     "additionalProperties": false
                   }
                 },
+                "required": [
+                  "expectedVersionNumber"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1629,6 +1662,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -1647,7 +1691,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -2014,6 +2060,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -2032,7 +2089,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -2410,6 +2469,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -2428,7 +2498,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -4557,7 +4629,7 @@
     "/api/v1/posts/{postId}/versions/{versionNumber}/restore": {
       "post": {
         "operationId": "restorePostVersion",
-        "description": "Restore a post to a previous version. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Restore a post to a previous version. Provide expectedVersionNumber for the current tip; stale tips return CONFLICT. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
         "security": [
           {
             "bearerAuth": []
@@ -4583,6 +4655,26 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersionNumber": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "expectedVersionNumber"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Updated post after restore",
@@ -4684,6 +4776,17 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
                     }
                   },
                   "required": [
@@ -4702,7 +4805,9 @@
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
-                    "presentation"
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
                   ]
                 }
               }
@@ -4803,6 +4908,37 @@
           },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {

@@ -10,6 +10,8 @@ export type PublicRuntimeEnv = {
 declare global {
   namespace App {
     interface Locals {
+      /** Cloudflare execution context (waitUntil) from the Astro adapter. */
+      cfContext?: ExecutionContext;
       runtime: {
         env: Env;
         cf?: IncomingRequestCfProperties;

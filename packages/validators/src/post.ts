@@ -50,6 +50,7 @@ export const createPostInput = z.object({
 export const updatePostInput = z.object({
   siteId: z.string().min(1),
   postId: z.string().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1),
   title: titleField.optional(),
   slug: slug.optional(),
   excerpt: excerptField.optional(),
@@ -66,6 +67,7 @@ export const updatePostInput = z.object({
 export const publishPostInput = z.object({
   siteId: z.string().min(1),
   postId: z.string().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1),
 }).strict();
 
 export const archivePostInput = publishPostInput;

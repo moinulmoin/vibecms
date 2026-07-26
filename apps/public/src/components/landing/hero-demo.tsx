@@ -1,13 +1,8 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
 // Looping hero story shown as a real coding-agent terminal session: you ask the
 // agent to publish, it routes the post THROUGH vibecms (the green line fills
-// across the vibecms node), and the post goes live.
-const PROMPT = 'publish "Shipping with MCP"';
-
-type Phase = "typing" | "publishing" | "live";
+// across the vibecms node), and the post goes live. Phase animation is driven
+// by marketing-interactions.js.
+export const HERO_PROMPT = 'publish "Shipping with MCP"';
 
 const panel =
   "rounded-2xl ring-1 ring-[color:var(--hairline)] shadow-[inset_0_1px_0_var(--hairline),0_30px_60px_-42px_oklch(0_0_0/0.9)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]";
@@ -23,61 +18,13 @@ function Dots() {
 }
 
 export function HeroDemo() {
-  const [typed, setTyped] = useState("");
-  const [phase, setPhase] = useState<Phase>("typing");
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const on = () => setReduced(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-
-  useEffect(() => {
-    if (reduced) {
-      setTyped(PROMPT);
-      setPhase("live");
-      return;
-    }
-    let i = 0;
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const at = (ms: number, fn: () => void) =>
-      timers.push(setTimeout(() => !cancelled && fn(), ms));
-
-    const run = () => {
-      setTyped("");
-      setPhase("typing");
-      i = 0;
-      const type = () => {
-        if (cancelled) return;
-        if (i <= PROMPT.length) {
-          setTyped(PROMPT.slice(0, i));
-          i += 1;
-          timers.push(setTimeout(type, 48));
-        } else {
-          at(650, () => setPhase("publishing"));
-          at(2000, () => setPhase("live"));
-          at(5600, run);
-        }
-      };
-      at(700, type);
-    };
-    run();
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, [reduced]);
-
-  const publishing = phase === "publishing";
-  const published = phase === "live";
-  const active = publishing || published;
-
   return (
-    <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-1">
+    <div
+      className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-1"
+      data-hero-demo
+      data-hero-prompt={HERO_PROMPT}
+      data-phase="typing"
+    >
       {/* Agent terminal session */}
       <div className={`relative min-w-0 overflow-hidden ${panel}`}>
         <div className="flex items-center gap-2.5 border-b border-[color:var(--hairline)] px-4 py-2.5">
@@ -88,28 +35,23 @@ export function HeroDemo() {
           </span>
         </div>
         <div className="min-h-[176px] px-4 py-4 text-left font-mono text-[12.5px] leading-[1.95]">
-          {/* you */}
           <div className="text-foreground">
             <span className="text-brand-bright">&gt;</span>{" "}
-            <span className="break-all">{typed}</span>
-            {phase === "typing" && (
-              <span
-                className="ml-0.5 inline-block h-3.5 w-[6px] translate-y-[2px] bg-brand-bright animate-vc-blink"
-                aria-hidden
-              />
-            )}
+            <span className="break-all" data-hero-typed />
+            <span
+              className="ml-0.5 inline-block h-3.5 w-[6px] translate-y-[2px] bg-brand-bright animate-vc-blink"
+              aria-hidden
+              data-hero-cursor
+            />
           </div>
-          {/* agent */}
-          <div
-            className={`mt-1.5 transition-opacity duration-500 ${phase === "typing" ? "opacity-0" : "opacity-100"}`}
-          >
+          <div className="mt-1.5 opacity-0 transition-opacity duration-500" data-hero-agent>
             <div className="text-muted-foreground">
-              <span className={`text-brand-bright ${publishing ? "animate-vc-pulse" : ""}`}>●</span>{" "}
-              {published ? "published to vibecms" : "routing through vibecms…"}
+              <span className="text-brand-bright" data-hero-agent-dot>
+                ●
+              </span>{" "}
+              <span data-hero-agent-status>routing through vibecms…</span>
             </div>
-            <div
-              className={`text-brand-bright transition-opacity duration-500 ${published ? "opacity-100" : "opacity-0"}`}
-            >
+            <div className="text-brand-bright opacity-0 transition-opacity duration-500" data-hero-live-line>
               → live at blog.acme.com
             </div>
           </div>
@@ -119,27 +61,23 @@ export function HeroDemo() {
       {/* Connector - the post flows THROUGH vibecms */}
       <div className="flex items-center justify-center" aria-hidden="true">
         <div className="relative flex w-16 items-center justify-center md:h-24 md:w-28">
-          {/* desktop horizontal track */}
           <div className="absolute hidden h-1 w-full overflow-hidden rounded-full [background:var(--hairline)] md:block">
             <div
               className="h-full rounded-full bg-brand-bright shadow-[0_0_12px_var(--brand-bright)] transition-[width] duration-[800ms] ease-out"
-              style={{ width: active ? "100%" : "0%" }}
+              style={{ width: "0%" }}
+              data-hero-track-h
             />
           </div>
-          {/* mobile vertical track */}
           <div className="absolute block h-14 w-1 overflow-hidden rounded-full [background:var(--hairline)] md:hidden">
             <div
               className="w-full rounded-full bg-brand-bright shadow-[0_0_12px_var(--brand-bright)] transition-[height] duration-[800ms] ease-out"
-              style={{ height: active ? "100%" : "0%" }}
+              style={{ height: "0%" }}
+              data-hero-track-v
             />
           </div>
-          {/* vibecms node */}
           <span
-            className={`relative z-10 grid size-14 place-items-center rounded-2xl ring-1 transition-all duration-500 [background:var(--surface-panel-from)] ${
-              active
-                ? "scale-105 ring-brand-bright/70 shadow-[0_0_30px_oklch(0.8107_0.1705_152.72/0.5)]"
-                : "scale-100 ring-brand-bright/30"
-            }`}
+            className="relative z-10 grid size-14 scale-100 place-items-center rounded-2xl ring-1 ring-brand-bright/30 transition-all duration-500 [background:var(--surface-panel-from)]"
+            data-hero-node
           >
             <img src="/brand/icon.svg" alt="" className="size-9" />
           </span>
@@ -148,7 +86,8 @@ export function HeroDemo() {
 
       {/* Live post */}
       <div
-        className={`relative min-w-0 overflow-hidden ${panel} transition-opacity duration-700 ${published ? "opacity-100" : "opacity-45"}`}
+        className={`relative min-w-0 overflow-hidden opacity-45 transition-opacity duration-700 ${panel}`}
+        data-hero-post
       >
         <div className="flex items-center gap-2.5 border-b border-[color:var(--hairline)] px-4 py-2.5">
           <Dots />
@@ -156,15 +95,10 @@ export function HeroDemo() {
             blog.acme.com/shipping-with-mcp
           </span>
           <span
-            className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold transition-colors duration-500 ${
-              published
-                ? "text-brand-bright ring-1 ring-brand-bright/35 [background:oklch(0.8107_0.1705_152.72/0.12)]"
-                : "text-muted-foreground ring-1 ring-[color:var(--hairline)]"
-            }`}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold text-muted-foreground ring-1 ring-[color:var(--hairline)] transition-colors duration-500"
+            data-hero-live-badge
           >
-            <span
-              className={`size-1.5 rounded-full ${published ? "bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" : "bg-muted-foreground/40"}`}
-            />
+            <span className="size-1.5 rounded-full bg-muted-foreground/40" data-hero-live-dot />
             live
           </span>
         </div>

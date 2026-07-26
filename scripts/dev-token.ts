@@ -69,7 +69,7 @@ const base = remote ? "https://app.basedui.dev" : "http://localhost:3000";
 function d1(sql: string): Array<{ results?: unknown[]; meta?: { changes?: number } }> {
   const out = execFileSync(
     "pnpm",
-    ["--filter", "@vc/api", "exec", "wrangler", "d1", "execute", DB, target, ...persistence, "--json", "--command", sql],
+    ["--filter", "@vc/api", "exec", "wrangler", "d1", "execute", DB, target, "--env", "development", ...persistence, "--json", "--command", sql],
     { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   const start = out.indexOf("["); // skip any wrangler preamble; --json result set is an array
@@ -95,7 +95,7 @@ if (hasFlag("--sync-pepper")) {
     );
     process.exit(1);
   }
-  execFileSync("pnpm", ["--filter", "@vc/api", "exec", "wrangler", "secret", "put", "TOKEN_PEPPER"], {
+  execFileSync("pnpm", ["--filter", "@vc/api", "exec", "wrangler", "secret", "put", "TOKEN_PEPPER", "--env", "development"], {
     cwd: ROOT,
     input: pepper,
     stdio: ["pipe", "inherit", "inherit"],

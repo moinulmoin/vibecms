@@ -2,7 +2,7 @@
 import type { APIContext } from "astro";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { apiBinding, publicAssetsBucket, publicDb, publicRuntimeEnv, workerEnv } from "./runtime";
+import { apiBinding, publicAssetsBucket, publicDb, publicImages, publicRuntimeEnv, workerEnv } from "./runtime";
 
 describe("Astro Cloudflare runtime bindings", () => {
   it("uses module bindings when Astro locals do not expose the removed runtime object", () => {
@@ -11,6 +11,8 @@ describe("Astro Cloudflare runtime bindings", () => {
     expect(workerEnv(context)).toBe(env);
     expect(publicDb(context)).toBe(env.DB);
     expect(publicAssetsBucket(context)).toBe(env.ASSETS_BUCKET);
+    // Present when wrangler.test.jsonc binds IMAGES; self-host may omit it.
+    expect(publicImages(context)).toBe(env.IMAGES);
     expect(apiBinding(context)).toBe(env.API);
     expect(publicRuntimeEnv(context)).toMatchObject({
       appUrl: "https://app.basedui.dev",

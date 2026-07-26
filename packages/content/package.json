@@ -8,7 +8,9 @@
   ],
   "exports": {
     ".": "./src/index.ts",
+    "./presented-post": "./src/presented-post.tsx",
     "./styles": "./src/styles/vc-rich-content.css",
+    "./styles/presets": "./src/styles/presets.css",
     "./styles/prose": {
       "types": "./src/styles/prose.module.css.d.ts",
       "default": "./src/styles/prose.module.css"
@@ -20,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vc/config": "workspace:*",
     "rehype-react": "^8.0.0",
     "rehype-sanitize": "^6.0.0",
     "rehype-slug": "^6.0.0",
@@ -31,13 +34,13 @@
   "devDependencies": {
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "happy-dom": "^20.10.6",
+    "@vitejs/plugin-react": "^6.0.4",
+    "happy-dom": "^20.11.1",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "typescript": "6.0.3",
-    "vite": "^8.0.14",
-    "vitest": "^4.1.9"
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "react": "^19.0.0",

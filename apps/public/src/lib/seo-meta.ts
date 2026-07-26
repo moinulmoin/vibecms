@@ -230,8 +230,12 @@ export function buildPostHeadContent(input: PostHeadInput): {
     meta.push({ name: 'robots', content: 'noindex,nofollow' });
   }
 
+  const markdownAlternate = absoluteCanonical.endsWith('.md')
+    ? absoluteCanonical
+    : `${absoluteCanonical.replace(/\/$/, '')}.md`;
   const links: Array<Record<string, unknown>> = [
     { rel: 'canonical', href: absoluteCanonical },
+    { rel: 'alternate', type: 'text/markdown', href: markdownAlternate },
   ];
 
   const scripts: Array<{ type: string; children: string }> = [

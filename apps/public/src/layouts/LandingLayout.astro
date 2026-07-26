@@ -3,6 +3,8 @@ import "../styles/global.css";
 import "../styles/landing.css";
 import { BRAND } from "@vc/config";
 import { seo } from "../lib/landing-seo";
+import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
+import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
 
 interface Props {
   ogImage?: string;
@@ -31,8 +33,8 @@ const meta = seo({
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="manifest" href="/site.webmanifest" />
-    <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
-    <link rel="preload" href="/fonts/GeistMono-Variable.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistMonoFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
   </head>
   <body>
     <slot />

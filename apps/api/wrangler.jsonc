@@ -13,7 +13,7 @@
     "binding": "CF_VERSION_METADATA"
   },
   "triggers": {
-    "crons": ["17 2 * * *"]
+    "crons": ["17 2 * * *", "*/15 * * * *"]
   },
   "d1_databases": [
     {
@@ -56,8 +56,8 @@
     "POLAR_SERVER": "sandbox"
   },
   "env": {
-    "production": {
-      "name": "vibecms-api-prod",
+    "development": {
+      "name": "vibecms-api-dev",
       "observability": {
         "enabled": true,
         "head_sampling_rate": 0.1
@@ -67,7 +67,58 @@
       },
       "send_email": [{ "name": "EMAIL" }],
       "triggers": {
-        "crons": ["17 2 * * *"]
+        "crons": ["17 2 * * *", "*/15 * * * *"]
+      },
+      "assets": {
+        "directory": "../dashboard/dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/__scheduled"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "vibecms_dev",
+          "database_id": "869d397e-f61f-4206-b8d8-ad3255c415f9",
+          "migrations_dir": "../../packages/db/drizzle"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "ASSETS_BUCKET",
+          "bucket_name": "vibecms-assets"
+        }
+      ],
+      "routes": [
+        { "pattern": "app.basedui.dev", "custom_domain": true },
+        { "pattern": "app.basedui.dev/*", "zone_name": "basedui.dev" }
+      ],
+      "vars": {
+        "APP_ENV": "development",
+        "APP_URL": "https://app.basedui.dev",
+        "BETTER_AUTH_URL": "https://app.basedui.dev",
+        "PUBLIC_BLOG_DOMAIN": "basedui.dev",
+        "SELF_HOSTED": "false",
+        "ANALYTICS_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36",
+        "ANALYTICS_DATASET": "vibecms_page_views_dev",
+        "CLOUDFLARE_ZONE_ID": "7a6df92d77c6cd873acd0f35fc4bf64d",
+        "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
+        "POLAR_PRODUCT_ID": "product_dev_placeholder",
+        "POLAR_SERVER": "sandbox"
+      }
+    },
+    "production": {
+      "name": "vibecms-prod",
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 0.1
+      },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
+      },
+      "send_email": [{ "name": "EMAIL" }],
+      "triggers": {
+        "crons": ["17 2 * * *", "*/15 * * * *"]
       },
       "assets": {
         "directory": "../dashboard/dist",

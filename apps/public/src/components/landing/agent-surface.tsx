@@ -1,6 +1,5 @@
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { SectionShell } from "./primitives";
-import { useLandingAppUrls } from "./landing-app-context";
 
 const panelChrome =
   "overflow-hidden rounded-[18px] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] shadow-[inset_0_1px_0_var(--hairline),0_40px_80px_-40px_oklch(0_0_0/0.95)] ring-1 ring-[color:var(--hairline)]";
@@ -13,8 +12,7 @@ type Surface = {
   hrefLabel?: string;
 };
 
-function useSurfaces(): Surface[] {
-  const { apiDocsUrl } = useLandingAppUrls();
+function surfaces(apiDocsUrl: string): Surface[] {
   return [
     {
       tag: "MCP",
@@ -44,8 +42,8 @@ const TOOLS = [
   "assets.upload",
 ] as const;
 
-export function AgentSurface() {
-  const SURFACES = useSurfaces();
+export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
+  const SURFACES = surfaces(apiDocsUrl);
   return (
     <section id="surface">
       <SectionShell className="grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">

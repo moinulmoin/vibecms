@@ -157,6 +157,7 @@ describe("a. cross-site SQL isolation", () => {
       updatePost(repo, fullActor, {
         siteId: "site-a",
         postId: "post-b",
+        expectedVersionNumber: 1,
         title: "Hijacked by site-a actor",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -189,6 +190,7 @@ describe("b. scope enforcement", () => {
       updatePost(repo, readOnlyActor, {
         siteId: "site-a",
         postId: "post-a",
+        expectedVersionNumber: 1,
         title: "Hijacked Title",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
@@ -252,6 +254,7 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
     const preserved = await updatePost(repo, fullActor, {
       siteId: "site-a",
       postId: created.id,
+      expectedVersionNumber: created.currentVersionNumber,
       title: "Patch Fields Post v2",
     });
     expect(preserved.post.canonicalUrl).toBe("https://example.com/keep");
@@ -259,6 +262,7 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
     const cleared = await updatePost(repo, fullActor, {
       siteId: "site-a",
       postId: created.id,
+      expectedVersionNumber: preserved.post.currentVersionNumber,
       canonicalUrl: null,
     });
     expect(cleared.post.canonicalUrl).toBeNull();
@@ -277,6 +281,7 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
     await updatePost(repo, fullActor, {
       siteId: "site-a",
       postId: created.id,
+      expectedVersionNumber: created.currentVersionNumber,
       canonicalUrl: "https://b.example/two",
     });
 
@@ -285,10 +290,12 @@ describe("d. coverAssetId + canonicalUrl persistence", () => {
     expect(before.canonicalUrl).toBe("https://b.example/two");
 
     // Restoring to v1 must revert canonicalUrl back to the OLD value.
+    const tip = await getPost(repo, fullActor, "site-a", created.id);
     const restored = await restorePostVersion(repo, fullActor, {
       siteId: "site-a",
       postId: created.id,
       versionNumber: 1,
+      expectedVersionNumber: tip.currentVersionNumber,
     });
     expect(restored.canonicalUrl).toBe("https://a.example/one");
 
@@ -311,7 +318,7 @@ describe("e. custom domains", () => {
 
   it("addCustomDomain inserts a pending custom row for a paid owner and normalizes the hostname", async () => {
     const repo = createD1DomainRepository(env.DB);
-    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
+    const { record, reclaimedCfHostnameId, reclaimedSiteId } = await addCustomDomain(repo, {
       siteId: "site-a",
       hostname: "Blog.Example.com",
       isOwner: true,
@@ -322,6 +329,7 @@ describe("e. custom domains", () => {
     expect(record.status).toBe("pending");
     expect(record.hostname).toBe("blog.example.com");
     expect(reclaimedCfHostnameId).toBeNull();
+    expect(reclaimedSiteId).toBeNull();
     const list = await listCustomDomains(repo, "site-a");
     expect(list.some((d) => d.hostname === "blog.example.com")).toBe(true);
   });
@@ -403,7 +411,7 @@ describe("e. custom domains", () => {
       .bind("dom-cf-stale", "site-a", "cfreclaim.example.com", "cf-stale-xyz", claimedAt, claimedAt)
       .run();
     // The real owner reclaims after the TTL; the stale row's CF id must come back so the caller tears it down.
-    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
+    const { record, reclaimedCfHostnameId, reclaimedSiteId } = await addCustomDomain(repo, {
       siteId: "site-b",
       hostname: "cfreclaim.example.com",
       isOwner: true,
@@ -414,5 +422,6 @@ describe("e. custom domains", () => {
     });
     expect(record.siteId).toBe("site-b");
     expect(reclaimedCfHostnameId).toBe("cf-stale-xyz");
+    expect(reclaimedSiteId).toBe("site-a");
   });
 });

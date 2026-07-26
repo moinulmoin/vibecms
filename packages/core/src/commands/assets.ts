@@ -5,10 +5,16 @@ import type { ActivityInput, Actor, Asset } from "../types";
 
 export type AssetRepository = {
   createAsset(input: Omit<Asset, "createdAt" | "updatedAt">, actor: Actor): Promise<Asset>;
+  createAssetWithActivity(
+    input: Omit<Asset, "createdAt" | "updatedAt">,
+    actor: Actor,
+    activity: ActivityInput,
+  ): Promise<Asset>;
   listAssets(siteId: string): Promise<Asset[]>;
   getAsset(siteId: string, assetId: string): Promise<Asset | null>;
   updateAssetAltText(siteId: string, assetId: string, altText: string | null): Promise<void>;
   deleteAsset(siteId: string, assetId: string): Promise<void>;
+  deleteAssetWithActivity(siteId: string, assetId: string, activity: ActivityInput): Promise<void>;
   isAssetReferencedAsCover(siteId: string, assetId: string): Promise<boolean>;
   isAssetReferencedAsSiteSocialImage(siteId: string, assetId: string): Promise<boolean>;
   createActivity(input: ActivityInput): Promise<void>;
@@ -17,22 +23,27 @@ export type AssetRepository = {
 export async function createAsset(repo: AssetRepository, actor: Actor, input: unknown) {
   requireScope(actor, "assets:write");
   const data = createAssetInput.parse(input);
-  const asset = await repo.createAsset(
-    {
-      id: crypto.randomUUID(),
-      siteId: data.siteId,
-      r2Key: data.r2Key,
-      filename: data.filename,
-      mimeType: data.mimeType,
-      sizeBytes: data.sizeBytes,
-      width: data.width ?? null,
-      height: data.height ?? null,
-      altText: data.altText ?? null,
-    },
+  const draft = {
+    id: crypto.randomUUID(),
+    siteId: data.siteId,
+    r2Key: data.r2Key,
+    filename: data.filename,
+    mimeType: data.mimeType,
+    sizeBytes: data.sizeBytes,
+    width: data.width ?? null,
+    height: data.height ?? null,
+    altText: data.altText ?? null,
+  };
+  const activity: ActivityInput = {
+    siteId: draft.siteId,
     actor,
-  );
-  await repo.createActivity({ siteId: asset.siteId, actor, action: "asset.uploaded", entityType: "asset", entityId: asset.id, summary: `Uploaded ${asset.filename}`, after: asset });
-  return asset;
+    action: "asset.uploaded",
+    entityType: "asset",
+    entityId: draft.id,
+    summary: `Uploaded ${draft.filename}`,
+    after: draft,
+  };
+  return repo.createAssetWithActivity(draft, actor, activity);
 }
 
 export function listAssets(repo: AssetRepository, actor: Actor, siteId: string) {
@@ -80,7 +91,14 @@ export async function deleteAsset(repo: AssetRepository, actor: Actor, siteId: s
   ) {
     throw new ConflictError("Asset is in use");
   }
-  await repo.deleteAsset(siteId, assetId);
-  await repo.createActivity({ siteId, actor, action: "asset.deleted", entityType: "asset", entityId: assetId, summary: `Deleted ${a.filename}`, before: a });
+  await repo.deleteAssetWithActivity(siteId, assetId, {
+    siteId,
+    actor,
+    action: "asset.deleted",
+    entityType: "asset",
+    entityId: assetId,
+    summary: `Deleted ${a.filename}`,
+    before: a,
+  });
   return a;
 }

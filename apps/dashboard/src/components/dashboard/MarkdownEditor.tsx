@@ -1,7 +1,7 @@
 'use client'
 
 import { renderRichContent, RichContentFrame } from '@vc/content'
-import { PresentedPostArticle } from '~/components/PresentedPostArticle'
+import { PresentedPostArticle } from '@vc/content/presented-post'
 import { MEDIA, resolvePresentation, type Presentation } from '@vc/config'
 import { Button, Field, FieldDescription, FieldLabel, Input, Textarea } from '@vc/ui'
 import { EyeOpenIcon, ImageIcon, Pencil2Icon, UploadIcon } from '@radix-ui/react-icons'

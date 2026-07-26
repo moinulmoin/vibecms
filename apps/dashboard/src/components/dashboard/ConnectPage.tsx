@@ -353,6 +353,8 @@ export function ConnectPage() {
         return
       }
       await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: result.code }) })
+    } catch {
+      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setCreatePending(false)
     }
@@ -368,6 +370,8 @@ export function ConnectPage() {
         to: '/dashboard/connect',
         search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
       })
+    } catch {
+      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setRevokePending(null)
     }

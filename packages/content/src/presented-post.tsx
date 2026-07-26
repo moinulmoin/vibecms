@@ -1,7 +1,4 @@
 import type { CSSProperties } from "react";
-import type { RenderResult } from "@vc/content";
-import { RichContentFrame } from "@vc/content";
-import prose from "@vc/content/styles/prose";
 import {
   getAccent,
   getFont,
@@ -11,15 +8,28 @@ import {
   type ResolvedPresentation,
   type ThemeMode,
 } from "@vc/config";
-import styles from "./public-blog.module.css";
+import prose from "./styles/prose.module.css";
+import { RichContentFrame, type RenderResult } from "./renderer.js";
+import styles from "./presented-post.module.css";
 
+/** Raw per-site theme fields, threaded from the site row. */
 export interface SiteThemeInput {
   accent: string | null;
   font: string | null;
   mode: string | null;
 }
 
-export function resolveSiteTheme(theme: SiteThemeInput): { style: CSSProperties; mode: ThemeMode } {
+/**
+ * Resolve a site's theme into inline CSS custom properties + color mode for the
+ * theming root. The var-bridge in vc-rich-content.css / presets.css selects
+ * --vc-accent-light/--vc-accent-dark per mode and consumes --vc-font-body/
+ * --vc-font-heading from these. (React 19 CSSProperties has no custom-property
+ * index signature, hence the cast.)
+ */
+export function resolveSiteTheme(theme: SiteThemeInput): {
+  style: CSSProperties;
+  mode: ThemeMode;
+} {
   const accent = getAccent(resolveAccent(theme.accent));
   const font = getFont(resolveFont(theme.font));
   const mode = resolveMode(theme.mode);
@@ -37,20 +47,39 @@ export interface PresentedPostArticleProps {
   presetId: string;
   presentation: ResolvedPresentation;
   title?: string;
+  /** Editorial deck/lede: larger muted intro paragraph between title and meta. */
   excerpt?: string;
+  /** Author byline prepended to the meta line as "By {byline}". */
   byline?: string;
   coverAssetSrc?: string;
   coverAssetAlt?: string;
   coverAssetWidth?: number;
   coverAssetHeight?: number;
+  /** Native img srcSet for responsive covers. */
+  coverAssetSrcSet?: string;
+  /** Native img sizes for responsive covers. */
+  coverAssetSizes?: string;
+  /** Native img loading; defaults to eager for feature layout, lazy otherwise. */
+  coverAssetLoading?: "eager" | "lazy";
+  /** Native img fetchPriority when provided. */
+  coverAssetFetchPriority?: "high" | "low" | "auto";
   dateText?: string;
   updatedDateText?: string;
+  /** Estimated reading time in minutes (render-level, no DB column). */
   readingMinutes?: number;
+  /** Post tags rendered as a quiet text-link row under the meta line. */
   tags?: string[];
+  /** Base path used to build per-tag links. Required when `tags` is supplied. */
   basePath?: string;
+  /** Per-site accent/font/mode; injected as CSS vars + data-vc-mode on the root. */
   theme?: SiteThemeInput;
 }
 
+/**
+ * Shared presented article layer.
+ * Used by public SSR, preview serialization, and the dashboard editor preview.
+ * No server-only imports; safe for all surfaces.
+ */
 export function PresentedPostArticle({
   renderResult,
   presetId,
@@ -62,6 +91,10 @@ export function PresentedPostArticle({
   coverAssetAlt,
   coverAssetWidth,
   coverAssetHeight,
+  coverAssetSrcSet,
+  coverAssetSizes,
+  coverAssetLoading,
+  coverAssetFetchPriority,
   dateText,
   updatedDateText,
   readingMinutes,
@@ -72,6 +105,7 @@ export function PresentedPostArticle({
   const themeAttrs = theme ? resolveSiteTheme(theme) : undefined;
   const isFeature = presentation.layout === "feature";
   const { outline } = renderResult;
+  // Page-level ToC only when the preset supports it AND there are >=3 outline entries.
   const hasToc = presentation.toc && outline.length >= 3;
   const metaSegments: string[] = [
     byline ? `By ${byline}` : undefined,
@@ -94,6 +128,7 @@ export function PresentedPostArticle({
         ))}
       </p>
     ) : null;
+  // Shared outline list — rendered twice (desktop rail + mobile <details>).
   const tocList = (
     <ul className={styles.tocList}>
       {outline.map((entry) => (
@@ -125,7 +160,11 @@ export function PresentedPostArticle({
           alt={coverAssetAlt ?? (title ? `Cover for ${title}` : "Cover image")}
           width={coverAssetWidth ?? 860}
           height={coverAssetHeight ?? 520}
-          loading={isFeature ? "eager" : "lazy"}
+          srcSet={coverAssetSrcSet}
+          sizes={coverAssetSizes}
+          loading={coverAssetLoading ?? (isFeature ? "eager" : "lazy")}
+          fetchPriority={coverAssetFetchPriority}
+          decoding="async"
         />
       ) : null}
       {hasToc ? (

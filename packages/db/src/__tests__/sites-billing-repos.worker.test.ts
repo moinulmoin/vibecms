@@ -431,6 +431,35 @@ describe("billing — ensureBillingRow idempotency + lookups", () => {
   });
 });
 
+describe("billing.isActiveSubscription", () => {
+  it("is false with no row or non-active status, true only when status is active", async () => {
+    await seedWorkspace("ws-sb-active-check");
+
+    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+
+    await da.billing.ensureBillingRow("ws-sb-active-check", "none");
+    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+
+    await da.billing.upsertFromWebhook({
+      workspaceId: "ws-sb-active-check",
+      polarCustomerId: "cust_active_check",
+      polarSubscriptionId: "sub_active_check",
+      status: "past_due",
+      currentPeriodEnd: 2_000_000_000,
+    });
+    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+
+    await da.billing.upsertFromWebhook({
+      workspaceId: "ws-sb-active-check",
+      polarCustomerId: "cust_active_check",
+      polarSubscriptionId: "sub_active_check",
+      status: "active",
+      currentPeriodEnd: 2_000_000_000,
+    });
+    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(true);
+  });
+});
+
 describe("billing.upsertFromWebhook — insert path", () => {
   it("inserts a full row for a new workspace (customer/subscription/status/period)", async () => {
     await seedWorkspace("ws-sb-new");

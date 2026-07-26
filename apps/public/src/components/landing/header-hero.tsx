@@ -3,7 +3,6 @@ import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
 import { HeaderNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
-import { useLandingAppUrls } from "./landing-app-context";
 
 const agents = [
   ["Claude", "claude.svg"],
@@ -14,8 +13,7 @@ const agents = [
   ["Droid", "droid.svg"],
 ] as const;
 
-export function HeaderHero() {
-  const { loginUrl } = useLandingAppUrls();
+export function HeaderHero({ loginUrl }: { loginUrl: string }) {
   return (
     <>
       <header className="sticky top-0 z-[60] bg-background/70 backdrop-blur-xl">

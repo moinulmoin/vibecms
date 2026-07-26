@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { renderRichContent } from '@vc/content'
-import { PresentedPostArticle } from '~/components/PresentedPostArticle'
+import { PresentedPostArticle } from '@vc/content/presented-post'
 import { describe, expect, it } from 'vitest'
 import { isPreviewCurrent } from './MarkdownEditor'
 import { resolveFormStatus } from './useFormStatusFromSearch'
@@ -120,6 +120,21 @@ describe('dashboard form-status feedback', () => {
       title: 'Something went wrong',
     })
     expect(resolveFormStatus({ ok: 'untrusted-message' })).toBeNull()
+  })
+
+  it('resolves archive/restore error and restore success feedback used by PostEditorPage', () => {
+    expect(resolveFormStatus({ error: 'unknown' })).toMatchObject({
+      variant: 'error',
+      title: 'Something went wrong',
+    })
+    expect(resolveFormStatus({ error: 'version_conflict' })).toMatchObject({
+      variant: 'error',
+      title: 'Post changed',
+    })
+    expect(resolveFormStatus({ ok: 'post_restored' })).toMatchObject({
+      variant: 'success',
+      title: 'Version restored',
+    })
   })
 })
 

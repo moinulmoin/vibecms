@@ -36,6 +36,12 @@ export interface AssetDbRepository extends AssetRepository {
   getMediaUsageBytes(siteId: string): Promise<number>;
   getAssetForServe(assetId: string): Promise<AssetServeRow | null>;
   existsForSite(siteId: string, assetId: string): Promise<boolean>;
+  createAssetWithActivity(
+    input: Omit<Asset, "createdAt" | "updatedAt">,
+    actor: Actor,
+    activity: ActivityInput,
+  ): Promise<Asset>;
+  deleteAssetWithActivity(siteId: string, assetId: string, activity: ActivityInput): Promise<void>;
 }
 
 export function createD1AssetRepository(db: D1Database): AssetDbRepository {
@@ -146,6 +152,81 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
         .where(eq(assets.id, assetId))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+
+    async createAssetWithActivity(input, actor: Actor, activityInput: ActivityInput) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      await db.batch([
+        db.prepare(
+          `INSERT INTO assets (
+            id, site_id, r2_key, filename, mime_type, size_bytes, width, height, alt_text,
+            created_by_type, created_by_id, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          input.id,
+          input.siteId,
+          input.r2Key,
+          input.filename,
+          input.mimeType,
+          input.sizeBytes,
+          input.width,
+          input.height,
+          input.altText,
+          actor.type,
+          actor.id,
+          timestamp,
+          timestamp,
+        ),
+        db.prepare(
+          `INSERT INTO activity_events (
+            id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
+            summary, before_json, after_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          crypto.randomUUID(),
+          activityInput.siteId,
+          activityInput.actor.type,
+          activityInput.actor.id,
+          activityInput.actor.name,
+          activityInput.action,
+          activityInput.entityType,
+          activityInput.entityId,
+          activityInput.summary,
+          activityInput.before ? JSON.stringify(activityInput.before) : null,
+          activityInput.after ? JSON.stringify(activityInput.after) : null,
+          timestamp,
+        ),
+      ]);
+      const asset = await this.getAsset(input.siteId, input.id);
+      if (!asset) throw new Error("Asset insert failed");
+      return asset;
+    },
+
+    async deleteAssetWithActivity(siteId: string, assetId: string, activityInput: ActivityInput) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      await db.batch([
+        db.prepare(`DELETE FROM assets WHERE id = ? AND site_id = ?`).bind(assetId, siteId),
+        db.prepare(
+          `INSERT INTO activity_events (
+            id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
+            summary, before_json, after_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          crypto.randomUUID(),
+          activityInput.siteId,
+          activityInput.actor.type,
+          activityInput.actor.id,
+          activityInput.actor.name,
+          activityInput.action,
+          activityInput.entityType,
+          activityInput.entityId,
+          activityInput.summary,
+          activityInput.before ? JSON.stringify(activityInput.before) : null,
+          activityInput.after ? JSON.stringify(activityInput.after) : null,
+          timestamp,
+        ),
+      ]);
     },
 
     // Cover-asset ownership check for assertCoverAssetOwnedBySite (id AND site_id).

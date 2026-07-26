@@ -12,6 +12,7 @@ export {
 
 export type {
   OutlineEntry,
+  RenderedImageAttributes,
   RenderResult,
   RenderOpts,
   RichContentFrameProps,

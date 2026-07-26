@@ -1,0 +1,60 @@
+---
+import Base from "../../layouts/Base.astro";
+import { PublicBlogIndexView } from "../../components/PublicBlogPages";
+import { isDirectInternalRootHit } from "../../lib/internal-root";
+import { resolveSocialImage } from "../../lib/seo-meta";
+import { loadPublicIndexByHost, publicHtmlResponseHeaders } from "../../server/public-blog";
+import { siteCacheTag } from "../../server/public-blog-cache";
+import { publicOrigin } from "../../server/public-url";
+import { publicDb, publicRuntimeEnv } from "../../server/runtime";
+
+// Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
+// path stays non-indexable and never becomes a public canonical URL.
+if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
+  return new Response("Not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+const env = publicRuntimeEnv(Astro);
+const rawQ = Astro.url.searchParams.get("q")?.trim().slice(0, 100);
+const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
+// Host resolution still uses the preserved Host header after rewrite; origin
+// for SEO/canonical comes from the external `/` path (originPathname).
+const originUrl = new URL(Astro.originPathname + Astro.url.search, Astro.url);
+const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query);
+
+if (!blog) {
+  return new Response("Not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+const headers =
+  blog.listing.kind === "search"
+    ? { "cache-control": "no-store", "x-robots-tag": "noindex" }
+    : publicHtmlResponseHeaders(blog.site, env, [siteCacheTag(blog.site.id)]);
+if (blog.listing.kind !== "search") {
+  Astro.cache.set({ maxAge: 300, swr: 86400, tags: [siteCacheTag(blog.site.id)] });
+}
+for (const [key, value] of Object.entries(headers)) {
+  Astro.response.headers.set(key, value);
+}
+
+const origin = publicOrigin(originUrl);
+const title = blog.site.default_seo_title || blog.site.name;
+const description = blog.site.default_seo_description || blog.site.description || undefined;
+const socialImage = resolveSocialImage(origin, null, blog.site);
+const canonical = new URL("/", origin).href;
+---
+<Base
+  title={title}
+  description={description}
+  robots={!blog.indexable ? "noindex,nofollow" : undefined}
+  canonical={canonical}
+  socialImage={socialImage}
+>
+  <PublicBlogIndexView data={blog} />
+</Base>

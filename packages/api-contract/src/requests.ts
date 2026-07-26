@@ -60,6 +60,7 @@ export const createPostRequestSchema = z.object({
 
 export const updatePostRequestSchema = z.object({
   postId: z.string().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1),
   title: titleField.optional(),
   slug: slug.optional(),
   excerpt: excerptField.optional(),
@@ -106,7 +107,11 @@ export const getPostVersionRequestSchema = z.object({
   postId: z.string().min(1),
   versionNumber: z.coerce.number().int().min(1),
 }).strict();
-export const restorePostVersionRequestSchema = getPostVersionRequestSchema;
+export const restorePostVersionRequestSchema = z.object({
+  postId: z.string().min(1),
+  versionNumber: z.coerce.number().int().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1),
+}).strict();
 export const previewPostRequestSchema = z.object({
   contentMarkdown: contentField,
   presetId: z.string().optional(),

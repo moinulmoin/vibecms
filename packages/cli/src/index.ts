@@ -18,8 +18,9 @@ Commands:
   posts list [--status --search --limit --offset]
   posts get <postId>
   posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [--excerpt <e> --tags a,b]
-  posts update <postId> [--title --slug --content --content-file --excerpt --tags]
-  posts publish <postId>
+  posts update <postId> --expected-version <n> [--title --slug --content --content-file --excerpt --tags]
+  posts publish <postId> [--expected-version <n>]
+  posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
   assets list
   assets get <assetId>
@@ -63,6 +64,7 @@ const OPTIONS = {
   "content-file": { type: "string" },
   tags: { type: "string" },
   alt: { type: "string" },
+  "expected-version": { type: "string" },
 } as const;
 
 type Values = { [K in keyof typeof OPTIONS]?: string | boolean };
@@ -163,6 +165,31 @@ async function mutate(
   emit(await apiRequest(cfg, method, path, { body }), fmt);
 }
 
+
+function parseExpectedVersion(v: Values, required: boolean): number | undefined {
+  const raw = str(v["expected-version"]);
+  if (raw === undefined) {
+    if (required) need(undefined, "--expected-version");
+    return undefined;
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) fail("--expected-version must be a positive integer", EXIT.USAGE);
+  return n;
+}
+
+async function currentVersionNumber(cfg: ResolvedConfig, postId: string): Promise<number> {
+  const result = await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(postId)}`);
+  if (!result.res.ok) {
+    fail(result.json ?? { error: { code: "HTTP", message: `HTTP ${result.res.status}` } }, exitCodeForStatus(result.res.status));
+  }
+  const body = result.json as { currentVersionNumber?: unknown };
+  const n = body?.currentVersionNumber;
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 1) {
+    fail({ error: { code: "INVALID_RESPONSE", message: "Post response missing currentVersionNumber" } }, EXIT.OTHER);
+  }
+  return n;
+}
+
 async function postsCommand(
   action: string | undefined,
   rest: string[],
@@ -202,6 +229,7 @@ async function postsCommand(
         "PATCH",
         `/api/v1/posts/${encodeURIComponent(id)}`,
         dropUndefined({
+          expectedVersionNumber: parseExpectedVersion(v, true),
           title: str(v.title),
           slug: str(v.slug),
           contentMarkdown: await readContent(v, false),
@@ -212,8 +240,35 @@ async function postsCommand(
         fmt,
       );
     }
-    case "publish":
-      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/publish`, undefined, v, fmt);
+    case "publish": {
+      const id = need(rest[0], "<postId>");
+      const expectedVersionNumber = parseExpectedVersion(v, false) ?? (v["dry-run"] ? undefined : await currentVersionNumber(cfg, id));
+      if (expectedVersionNumber === undefined) need(undefined, "--expected-version");
+      return mutate(
+        cfg,
+        "POST",
+        `/api/v1/posts/${encodeURIComponent(id)}/publish`,
+        { expectedVersionNumber },
+        v,
+        fmt,
+      );
+    }
+    case "restore": {
+      const id = need(rest[0], "<postId>");
+      const versionRaw = need(rest[1], "<versionNumber>");
+      const versionNumber = Number(versionRaw);
+      if (!Number.isInteger(versionNumber) || versionNumber < 1) {
+        fail("<versionNumber> must be a positive integer", EXIT.USAGE);
+      }
+      return mutate(
+        cfg,
+        "POST",
+        `/api/v1/posts/${encodeURIComponent(id)}/versions/${versionNumber}/restore`,
+        { expectedVersionNumber: parseExpectedVersion(v, true) },
+        v,
+        fmt,
+      );
+    }
     case "archive":
       return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/archive`, undefined, v, fmt);
     default:

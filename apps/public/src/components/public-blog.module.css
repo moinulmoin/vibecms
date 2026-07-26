@@ -92,15 +92,6 @@
   margin-bottom: 18px;
 }
 
-.heroImage {
-  width: 100%;
-  max-width: var(--vc-prose-measure);
-  max-height: 520px;
-  object-fit: cover;
-  border-radius: calc(var(--vc-radius) + 4px);
-  margin: 18px 0 28px;
-}
-
 .postCard h2 {
   margin: 6px 0;
   font-family: var(--vc-font-heading);
@@ -122,42 +113,9 @@
   color: var(--vc-accent);
 }
 
-.article {
-  max-width: 100%;
-}
-
 /* §8: the themed canvas spans the viewport; only article content is constrained. */
 .publicPage[data-vc-article-page] .publicContainer {
   max-width: 1240px;
-}
-
-/* §8: article header stage shares the body's left-anchored edge (no independent
-   centering) and the 63rem content-grid width, so title, deck, meta, and tags
-   never shift relative to the prose column. */
-.articleHeader {
-  max-width: 63rem;
-}
-
-/* §8: title — 52-64px desktop, 36-42px mobile, balanced. */
-.articleTitle {
-  margin: 0 0 16px;
-  max-width: 63rem;
-  font-family: var(--vc-font-heading);
-  font-size: calc(clamp(2.25rem, 5vw, 4rem) * var(--vc-heading-scale));
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  font-weight: 700;
-  text-wrap: balance;
-}
-
-/* §8: excerpt deck — 20-22px, muted, sits between title and metadata. */
-.articleDeck {
-  margin: 0 0 1.25rem;
-  max-width: 45rem;
-  font-size: clamp(1.25rem, 2vw, 1.375rem);
-  line-height: 1.5;
-  color: var(--vc-muted-fg);
-  text-wrap: pretty;
 }
 
 .backLink {
@@ -165,7 +123,7 @@
   font-size: 0.95rem;
 }
 
-/* §2: ONE quiet meta line — muted (AA), normal tracking, middle-dot separated. No icons/labels. */
+/* Listing card meta line — muted, middle-dot separated. */
 .metaLine {
   color: var(--vc-muted-fg);
   font-size: 0.9rem;
@@ -173,45 +131,6 @@
   margin: 0 0 0.5rem;
   max-width: var(--vc-prose-measure);
 }
-
-/* §8: article metadata — restrained mono, aligned to the header stage. */
-.article .metaLine {
-  font-family: var(--vc-font-mono);
-  font-size: 0.8125rem;
-  max-width: 45rem;
-  letter-spacing: -0.01em;
-}
-
-/* §2.3 / §6 / §8: quiet tag row (after metadata) — mono, sentence-case, dot-separated. */
-.tagRow {
-  margin: 0 0 1rem;
-  font-size: 0.8125rem;
-  font-family: var(--vc-font-mono);
-  line-height: 1.6;
-  max-width: 45rem;
-}
-
-.tagEntry {
-  display: inline;
-}
-
-.tagLink {
-  color: var(--vc-muted-fg);
-  text-decoration: none;
-}
-
-.tagLink:hover {
-  color: var(--vc-fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.tagSep {
-  color: var(--vc-muted-fg);
-  opacity: 0.55;
-  margin: 0 0.45em;
-}
-
 
 .empty,
 .notFound {
@@ -225,10 +144,9 @@
 /* ── Search form + listing banners ─────────────────────────────────────────── */
 
 /* §1: search = ONE integrated bordered control (input + submit share a single
-   border + radius), borrowing the compact search treatment from OpenAI Developers.
-   The form itself is the bordered box; the input is transparent inside it and the
-   submit button sits inline, separated by a hairline divider. Accent is reserved
-   for the focus ring. */
+   border + radius). The form itself is the bordered box; the input is transparent
+   inside it and the submit button sits inline, separated by a hairline divider.
+   Accent is reserved for the focus ring. */
 .searchForm {
   position: relative;
   display: flex;
@@ -304,10 +222,7 @@
 .publicBrand:focus-visible,
 .allPostsLink:focus-visible,
 .postCard h2 a:focus-visible,
-.backLink:focus-visible,
-.tagLink:focus-visible,
-.tocItemH2 > a:focus-visible,
-.tocItemH3 > a:focus-visible {
+.backLink:focus-visible {
   outline: 2px solid var(--vc-accent);
   outline-offset: 2px;
   border-radius: 3px;
@@ -342,12 +257,6 @@
   .postCard h2 {
     font-size: clamp(22px, 6vw, 28px);
   }
-
-
-  .heroImage {
-    max-height: 320px;
-    border-radius: var(--vc-radius);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -359,142 +268,5 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-}
-
-/* ── Layout: cover variants ────────────────────────────────────────────────── */
-
-/* §8: feature cover — full article width, taller cap for impact. */
-.featureCover {
-  display: block;
-  width: 100%;
-  max-height: 560px;
-  object-fit: cover;
-  border-radius: calc(var(--vc-radius) + 4px);
-  margin: 0 0 28px;
-}
-
-/* ── Article body + Table of contents ──────────────────────────────────────── */
-
-/* Body wrapper holds the prose column; the sticky ToC rail joins it >=1100px.
-   The prose itself is always measured via .markdown above. */
-.articleBody {
-  display: block;
-}
-
-/* §8: no-TOC editorial breakout — widen the body to ~900px so media, code
-   blocks, and tables extend beyond the prose column without horizontal
-   overflow. Text elements stay flush-left at the prose measure (no
-   re-centering), sharing the header's left-anchored edge. */
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody {
-  max-width: 900px;
-}
-
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] {
-  max-width: 100%;
-}
-
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > p,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h2,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h3,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h4,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h5,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > h6,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > ul,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > ol,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > blockquote,
-.publicPage[data-vc-article-page] .article:not([data-vc-has-toc]) .articleBody [data-rich-content] > .vc-callout {
-  max-width: min(var(--vc-prose-measure), 45rem);
-}
-
-/* §3: narrow-surface ToC — native <details>, collapsed, no box. Hidden >=1100px. */
-.tocDetails {
-  margin: 0 0 var(--vc-section-gap);
-  max-width: var(--vc-prose-measure);
-}
-
-.tocSummary {
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: var(--vc-muted-fg);
-  font-weight: 600;
-}
-
-.tocSummary::-webkit-details-marker {
-  display: none;
-}
-
-/* §3: sticky right rail — hidden below 1100px (the <details> covers narrow screens). */
-.tocRail {
-  display: none;
-}
-
-.tocRailLabel {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--vc-muted-fg);
-  margin: 0 0 0.5rem;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.tocList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.3rem;
-}
-
-/* §3: plain quiet links. */
-.tocItemH2 > a,
-.tocItemH3 > a {
-  color: var(--vc-muted-fg);
-  text-decoration: none;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  display: block;
-}
-
-.tocItemH2 > a:hover,
-.tocItemH3 > a:hover {
-  color: var(--vc-fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-/* H3 items are indented to show hierarchy. */
-.tocItemH3 {
-  padding-left: 0.85rem;
-}
-
-/* §3/§8: >=1100px — promote to a left-anchored prose + sticky-rail grid (no
-   centering) when the article has a TOC, so the rail shares the header's
-   left-anchored edge. data-vc-has-toc is set on <article> by PresentedPostArticle. */
-@media (min-width: 1100px) {
-  .publicPage[data-vc-article-page] .article[data-vc-has-toc] .articleBody {
-    display: grid;
-    grid-template-columns: minmax(0, 45rem) 15rem;
-    gap: 3rem;
-    align-items: start;
-  }
-
-  .publicPage[data-vc-article-page] .article[data-vc-has-toc] .tocRail {
-    display: block;
-    position: sticky;
-    top: 2rem;
-    max-height: calc(100vh - 4rem);
-    overflow-y: auto;
-  }
-
-  .publicPage[data-vc-article-page] .article[data-vc-has-toc] .tocDetails {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .featureCover {
-    max-height: 280px;
-    border-radius: var(--vc-radius);
   }
 }

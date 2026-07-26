@@ -15,13 +15,21 @@ import type {
   OutlineEntry,
   RenderOpts,
   RenderResult,
+  RenderedImageAttributes,
   RichContentFrameProps,
   ValidateRichContentOpts,
 } from "./types.js";
 
 export const RENDERER_VERSION = "2";
 
-export type { OutlineEntry, RenderOpts, RenderResult, RichContentFrameProps, ValidateRichContentOpts };
+export type {
+  OutlineEntry,
+  RenderedImageAttributes,
+  RenderOpts,
+  RenderResult,
+  RichContentFrameProps,
+  ValidateRichContentOpts,
+};
 
 type UnistNode = { type: string; [key: string]: unknown };
 
@@ -294,6 +302,28 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
     transform(root.children);
   };
 }
+interface ResponsiveImagePluginOpts {
+  readonly resolveImage: (src: string) => RenderedImageAttributes | null;
+}
+
+function rehypeResponsiveImages(opts: ResponsiveImagePluginOpts): (tree: UnistNode) => void {
+  return (tree) => {
+    const root = tree as unknown as HRoot;
+    walkEl(root.children, (el) => {
+      if (el.tagName !== "img") return;
+      const src = el.properties.src;
+      if (typeof src !== "string") return;
+      const resolved = opts.resolveImage(src);
+      if (!resolved) return;
+      if (resolved.src) el.properties.src = resolved.src;
+      if (resolved.srcSet) el.properties.srcSet = resolved.srcSet;
+      if (resolved.sizes) el.properties.sizes = resolved.sizes;
+      el.properties.loading = "lazy";
+      el.properties.decoding = "async";
+    });
+  };
+}
+
 
 const CALLOUT_KNOWN = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"] as const;
 type CalloutKind = (typeof CALLOUT_KNOWN)[number];
@@ -500,7 +530,7 @@ const sanitizeSchema = {
       "ariaLabel",
     ] as ([string, ...string[]] | string)[],
     button: ["type", ["className", "vc-code-copy"], "dataVcCopy"] as ([string, string] | string)[],
-    img: [...(defaultSchema.attributes?.img ?? []), "loading", "decoding"],
+    img: [...(defaultSchema.attributes?.img ?? []), "loading", "decoding", "srcSet", "sizes"],
     h2: [...(defaultSchema.attributes?.h2 ?? []), "id"],
     h3: [...(defaultSchema.attributes?.h3 ?? []), "id"],
   },
@@ -517,6 +547,10 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
 
   if (opts?.pageTitle) {
     pipeline.use(rehypeRemoveTitleH1, { pageTitle: opts.pageTitle });
+  }
+
+  if (opts?.resolveImage) {
+    pipeline.use(rehypeResponsiveImages, { resolveImage: opts.resolveImage });
   }
 
   const file = pipeline

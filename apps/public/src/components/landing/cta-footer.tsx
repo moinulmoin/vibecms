@@ -1,7 +1,6 @@
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { BRAND } from "@vc/config";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
-import { useLandingAppUrls } from "./landing-app-context";
 
 const productLinks = [
   ["Features", "#features"],
@@ -15,9 +14,14 @@ const exploreLinks = [
   ["ChadNext", "https://chadnext.moinulmoin.com"],
 ] as const;
 
-export function CtaFooter() {
+export function CtaFooter({
+  loginUrl,
+  apiDocsUrl,
+}: {
+  loginUrl: string;
+  apiDocsUrl: string;
+}) {
   const year = new Date().getFullYear();
-  const { loginUrl, apiDocsUrl } = useLandingAppUrls();
   const deployLinks = [
     ["GitHub", BRAND.repoUrl],
     ["API docs", apiDocsUrl],

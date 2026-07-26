@@ -15,3 +15,4 @@ export * from "./repositories/analytics";
 export * from "./read-models/public-blog";
 export * from "./read-models/dashboard";
 export * from "./read-models/exports";
+export * from "./repositories/pending-media";

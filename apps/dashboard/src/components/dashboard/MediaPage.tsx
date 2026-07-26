@@ -87,6 +87,8 @@ export function MediaPage() {
       } else {
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
       }
+    } catch {
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: 'unknown' }) })
     } finally {
       setAltPending(false)
     }
@@ -126,11 +128,11 @@ export function MediaPage() {
     setUploadPending(true)
     try {
       const response = await fetch('/api/media/upload', { method: 'POST', body: form, credentials: 'include' })
-      const result = parseMutationResultJson(await response.json())
       if (response.status === 401) {
         await navigate({ to: '/login' })
         return
       }
+      const result = parseMutationResultJson(await response.json())
       if (result.kind === 'ok') {
         const data = await loadMediaPage()
         setAssets(data.assets)

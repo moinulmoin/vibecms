@@ -27,3 +27,9 @@ apps/dashboard/public/brand/icon.png
 apps/dashboard/public/brand/og-agent-flow.html
 apps/dashboard/public/brand/og-agent-flow.svg
 plans/HANDOFF.md
+
+# Local generated metadata and QA captures
+/.commandcode/
+/tmp/
+apps/public/.astro/dev.json
+apps/public/.astro/settings.json

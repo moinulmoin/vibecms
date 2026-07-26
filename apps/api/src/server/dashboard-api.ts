@@ -213,18 +213,13 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   }
   const repo = postRepository()
   const post = await repo.getPost(app.siteId, postId)
-  let currentVersionNumber: number | null = null
-  if (post) {
-    const versions = await repo.listPostVersions(app.siteId, postId)
-    currentVersionNumber = versions[0]?.versionNumber ?? null
-  }
   return {
     mode: 'edit' as const,
     post: post as Post | null,
     assets,
     missing: !post,
     presetId,
-    currentVersionNumber,
+    currentVersionNumber: post?.currentVersionNumber ?? null,
   }
 }
 

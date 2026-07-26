@@ -1,6 +1,9 @@
 ---
 import "../styles/global.css";
+import "../styles/tenant.css";
 import type { ResolvedSocialImage } from "../lib/seo-meta";
+import subscribeFormScriptUrl from "../scripts/subscribe-form.js?url";
+import codeCopyScriptUrl from "../scripts/code-copy.js?url";
 interface Props {
   title?: string;
   description?: string;
@@ -38,7 +41,7 @@ const { title, description, robots, canonical, socialImage } = Astro.props;
   </head>
   <body>
     <slot />
-    <script is:inline src="/scripts/subscribe-form.js" defer></script>
-    <script is:inline src="/scripts/code-copy.js" defer></script>
+    <script is:inline src={subscribeFormScriptUrl} defer></script>
+    <script is:inline src={codeCopyScriptUrl} defer></script>
   </body>
 </html>

@@ -9,25 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as DashboardSetupRouteImport } from './routes/dashboard_/setup'
-import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
-import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
-import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
-import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
-import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as DashboardActivityRouteImport } from './routes/dashboard/activity'
+import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
+import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
+import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
+import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardSetupRouteImport } from './routes/dashboard_/setup'
 import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
-import { Route as DashboardSettingsTokenCreatedRouteImport } from './routes/dashboard/settings/token-created'
 import { Route as DashboardPostsNewRouteImport } from './routes/dashboard/posts/new'
+import { Route as DashboardSettingsTokenCreatedRouteImport } from './routes/dashboard/settings/token-created'
 import { Route as DashboardPostsPostIdEditRouteImport } from './routes/dashboard/posts/$postId/edit'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
@@ -35,9 +35,9 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -45,29 +45,9 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardSetupRoute = DashboardSetupRouteImport.update({
-  id: '/dashboard_/setup',
-  path: '/dashboard/setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardMediaRoute = DashboardMediaRouteImport.update({
-  id: '/media',
-  path: '/media',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardConnectRoute = DashboardConnectRouteImport.update({
-  id: '/connect',
-  path: '/connect',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardBillingRoute = DashboardBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
+const DashboardActivityRoute = DashboardActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
@@ -75,14 +55,39 @@ const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardActivityRoute = DashboardActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
+const DashboardBillingRoute = DashboardBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardConnectRoute = DashboardConnectRouteImport.update({
+  id: '/connect',
+  path: '/connect',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardMediaRoute = DashboardMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSetupRoute = DashboardSetupRouteImport.update({
+  id: '/dashboard_/setup',
+  path: '/dashboard/setup',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardPostsIndexRoute = DashboardPostsIndexRouteImport.update({
   id: '/posts/',
   path: '/posts/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardPostsNewRoute = DashboardPostsNewRouteImport.update({
+  id: '/posts/new',
+  path: '/posts/new',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardSettingsTokenCreatedRoute =
@@ -91,11 +96,6 @@ const DashboardSettingsTokenCreatedRoute =
     path: '/token-created',
     getParentRoute: () => DashboardSettingsRoute,
   } as any)
-const DashboardPostsNewRoute = DashboardPostsNewRouteImport.update({
-  id: '/posts/new',
-  path: '/posts/new',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const DashboardPostsPostIdEditRoute =
   DashboardPostsPostIdEditRouteImport.update({
     id: '/posts/$postId/edit',
@@ -216,11 +216,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -230,11 +230,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -244,39 +244,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard_/setup': {
-      id: '/dashboard_/setup'
-      path: '/dashboard/setup'
-      fullPath: '/dashboard/setup'
-      preLoaderRoute: typeof DashboardSetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/settings': {
-      id: '/dashboard/settings'
-      path: '/settings'
-      fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/media': {
-      id: '/dashboard/media'
-      path: '/media'
-      fullPath: '/dashboard/media'
-      preLoaderRoute: typeof DashboardMediaRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/connect': {
-      id: '/dashboard/connect'
-      path: '/connect'
-      fullPath: '/dashboard/connect'
-      preLoaderRoute: typeof DashboardConnectRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/billing': {
-      id: '/dashboard/billing'
-      path: '/billing'
-      fullPath: '/dashboard/billing'
-      preLoaderRoute: typeof DashboardBillingRouteImport
+    '/dashboard/activity': {
+      id: '/dashboard/activity'
+      path: '/activity'
+      fullPath: '/dashboard/activity'
+      preLoaderRoute: typeof DashboardActivityRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/analytics': {
@@ -286,12 +258,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/activity': {
-      id: '/dashboard/activity'
-      path: '/activity'
-      fullPath: '/dashboard/activity'
-      preLoaderRoute: typeof DashboardActivityRouteImport
+    '/dashboard/billing': {
+      id: '/dashboard/billing'
+      path: '/billing'
+      fullPath: '/dashboard/billing'
+      preLoaderRoute: typeof DashboardBillingRouteImport
       parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/connect': {
+      id: '/dashboard/connect'
+      path: '/connect'
+      fullPath: '/dashboard/connect'
+      preLoaderRoute: typeof DashboardConnectRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/media': {
+      id: '/dashboard/media'
+      path: '/media'
+      fullPath: '/dashboard/media'
+      preLoaderRoute: typeof DashboardMediaRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard_/setup': {
+      id: '/dashboard_/setup'
+      path: '/dashboard/setup'
+      fullPath: '/dashboard/setup'
+      preLoaderRoute: typeof DashboardSetupRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/posts/': {
       id: '/dashboard/posts/'
@@ -300,19 +300,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPostsIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/settings/token-created': {
-      id: '/dashboard/settings/token-created'
-      path: '/token-created'
-      fullPath: '/dashboard/settings/token-created'
-      preLoaderRoute: typeof DashboardSettingsTokenCreatedRouteImport
-      parentRoute: typeof DashboardSettingsRoute
-    }
     '/dashboard/posts/new': {
       id: '/dashboard/posts/new'
       path: '/posts/new'
       fullPath: '/dashboard/posts/new'
       preLoaderRoute: typeof DashboardPostsNewRouteImport
       parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/settings/token-created': {
+      id: '/dashboard/settings/token-created'
+      path: '/token-created'
+      fullPath: '/dashboard/settings/token-created'
+      preLoaderRoute: typeof DashboardSettingsTokenCreatedRouteImport
+      parentRoute: typeof DashboardSettingsRoute
     }
     '/dashboard/posts/$postId/edit': {
       id: '/dashboard/posts/$postId/edit'

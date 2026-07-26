@@ -1,7 +1,16 @@
 import { hasActiveSubscription, type Presentation } from "@vc/config";
-import { createDataAccess, type PublicPostDetailRow, type PublicPostRow, type PublicSiteRow } from "@vc/db";
+import {
+  createDataAccess,
+  PUBLIC_BLOG_LIMITS,
+  type PublicPostBodyRow,
+  type PublicPostDetailRow,
+  type PublicPostSummaryRow,
+  type PublicSiteRow,
+} from "@vc/db";
 import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
+
+export { PUBLIC_BLOG_LIMITS };
 
 export type SiteRow = {
   id: string;
@@ -26,12 +35,12 @@ export type SiteRow = {
   resolved_domain_type?: "default" | "custom" | null;
 };
 
-export type PostRow = {
+/** List/card/sitemap/llms summary — no Markdown body. */
+export type PostSummaryRow = {
   id: string;
   title: string;
   slug: string;
   excerpt: string | null;
-  content_markdown: string;
   cover_asset_id: string | null;
   published_at: number | null;
   updated_at: number;
@@ -43,10 +52,17 @@ export type PostRow = {
   cover_asset_height: number | null;
   cover_asset_alt_text: string | null;
   tags_json: string;
-  presentation_json: string | null;
 };
 
-export type PostDetailRow = PostRow & { presentation: Presentation | null };
+/** Feed/article body row — summary fields + Markdown. */
+export type PostBodyRow = PostSummaryRow & {
+  content_markdown: string;
+};
+
+export type PostDetailRow = PostBodyRow & {
+  presentation_json: string | null;
+  presentation: Presentation | null;
+};
 
 function toSiteRow(row: PublicSiteRow): SiteRow {
   return {
@@ -73,13 +89,12 @@ function toSiteRow(row: PublicSiteRow): SiteRow {
   };
 }
 
-function toPostRow(row: PublicPostRow): PostRow {
+function toPostSummaryRow(row: PublicPostSummaryRow): PostSummaryRow {
   return {
     id: row.id,
     title: row.title,
     slug: row.slug,
     excerpt: row.excerpt,
-    content_markdown: row.contentMarkdown,
     cover_asset_id: row.coverAssetId,
     published_at: row.publishedAt,
     updated_at: row.updatedAt,
@@ -91,12 +106,22 @@ function toPostRow(row: PublicPostRow): PostRow {
     cover_asset_alt_text: row.coverAssetAltText,
     canonical_url: row.canonicalUrl,
     tags_json: row.tagsJson,
-    presentation_json: null,
+  };
+}
+
+function toPostBodyRow(row: PublicPostBodyRow): PostBodyRow {
+  return {
+    ...toPostSummaryRow(row),
+    content_markdown: row.contentMarkdown,
   };
 }
 
 function toPostDetailRow(row: PublicPostDetailRow): PostDetailRow {
-  return { ...toPostRow(row), presentation_json: row.presentationJson, presentation: row.presentation };
+  return {
+    ...toPostBodyRow(row),
+    presentation_json: row.presentationJson,
+    presentation: row.presentation,
+  };
 }
 
 function normalizeHost(request: Request) {
@@ -138,24 +163,48 @@ export async function getPublishedPost(db: D1Database, siteId: string, slug: str
   return row ? toPostDetailRow(row) : null;
 }
 
-export async function listPublishedPosts(db: D1Database, siteId: string): Promise<PostRow[]> {
+export async function listPublishedPostSummaries(
+  db: D1Database,
+  siteId: string,
+  limit: number = PUBLIC_BLOG_LIMITS.listSummaries,
+): Promise<PostSummaryRow[]> {
   const now = Math.floor(Date.now() / 1000);
-  const rows = await createDataAccess(db).publicBlog.listPublishedPosts(siteId, now);
-  return rows.map(toPostRow);
+  const rows = await createDataAccess(db).publicBlog.listPublishedPostSummaries(siteId, now, limit);
+  return rows.map(toPostSummaryRow);
+}
+
+export async function listPublishedPostsForFeed(
+  db: D1Database,
+  siteId: string,
+  limit: number = PUBLIC_BLOG_LIMITS.feedBodies,
+): Promise<PostBodyRow[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const rows = await createDataAccess(db).publicBlog.listPublishedPostsForFeed(siteId, now, limit);
+  return rows.map(toPostBodyRow);
 }
 
 export function isPublicBlogIndexable(site: SiteRow, env: PublicRuntimeEnv) {
   return env.selfHosted || hasActiveSubscription(site.billing_status);
 }
 
-export async function listPublishedPostsByTag(db: D1Database, siteId: string, tag: string): Promise<PostRow[]> {
+export async function listPublishedPostSummariesByTag(
+  db: D1Database,
+  siteId: string,
+  tag: string,
+  limit: number = PUBLIC_BLOG_LIMITS.listSummaries,
+): Promise<PostSummaryRow[]> {
   const now = Math.floor(Date.now() / 1000);
-  const rows = await createDataAccess(db).publicBlog.listPublishedPostsByTag(siteId, tag, now);
-  return rows.map(toPostRow);
+  const rows = await createDataAccess(db).publicBlog.listPublishedPostSummariesByTag(siteId, tag, now, limit);
+  return rows.map(toPostSummaryRow);
 }
 
-export async function searchPublishedPosts(db: D1Database, siteId: string, q: string): Promise<PostRow[]> {
+export async function searchPublishedPostSummaries(
+  db: D1Database,
+  siteId: string,
+  q: string,
+  limit: number = PUBLIC_BLOG_LIMITS.listSummaries,
+): Promise<PostSummaryRow[]> {
   const now = Math.floor(Date.now() / 1000);
-  const rows = await createDataAccess(db).publicBlog.searchPublishedPosts(siteId, q, now);
-  return rows.map(toPostRow);
+  const rows = await createDataAccess(db).publicBlog.searchPublishedPostSummaries(siteId, q, now, limit);
+  return rows.map(toPostSummaryRow);
 }

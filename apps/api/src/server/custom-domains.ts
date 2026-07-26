@@ -1,5 +1,17 @@
 import { env } from 'cloudflare:workers'
-import { addCustomDomain, AppError, BillingRequiredError, ConflictError, type DomainRecord, ForbiddenError, listCustomDomains, NotFoundError, removeCustomDomain, ValidationError } from '@vc/core'
+import {
+  addCustomDomain,
+  AppError,
+  BillingRequiredError,
+  ConflictError,
+  type DomainRecord,
+  type DomainRepository,
+  ForbiddenError,
+  listCustomDomains,
+  NotFoundError,
+  removeCustomDomain,
+  ValidationError,
+} from '@vc/core'
 import { createD1DomainRepository } from '@vc/db'
 import { mapCustomHostnameStatus } from '@/lib/custom-domain'
 import { getBillingStatus } from '@/server/billing'
@@ -11,6 +23,7 @@ import {
   refreshCustomHostnameStatus,
 } from '@/server/custom-hostnames'
 import type { AppUserContext } from '@/server/onboarding'
+import { scheduleHostnamePurge } from '@/server/purge-scheduler'
 import { publicBlogBaseDomain } from '@/server/public-url'
 
 export type CustomDomainView = {
@@ -29,6 +42,10 @@ export type CustomDomainsPanel = {
 
 export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; code: string }
 export type RemoveCustomDomainResult = { ok: true } | { ok: false; code: string }
+
+/** Surfaced when Cloudflare create fails so the row stays retryable (no provider id). */
+export const CUSTOM_HOSTNAME_PROVISIONING_ERROR =
+  'Cloudflare could not provision this domain yet. Refresh Domains settings to retry.'
 
 function appHost(): string {
   try {
@@ -62,6 +79,54 @@ function toView(record: DomainRecord): CustomDomainView {
   }
 }
 
+/**
+ * Create (or retry) the Cloudflare custom hostname for a domain row that has no provider id.
+ * On transient failure, persists `failed` + an actionable error and returns ok:false — never a
+ * misleading pending success with a null provider id.
+ */
+export async function ensureCustomHostnameProvisioned(
+  repo: DomainRepository,
+  siteId: string,
+  record: DomainRecord,
+): Promise<{ ok: true; domain: CustomDomainView } | { ok: false; domain: CustomDomainView }> {
+  const payload = await createCustomHostname(record.hostname)
+  if (payload?.id) {
+    const mapped = mapCustomHostnameStatus(payload)
+    await repo.setProvisioning(record.id, siteId, {
+      cloudflareCustomHostnameId: payload.id,
+      status: mapped.status,
+      verificationErrorsJson: JSON.stringify(mapped.verificationErrors),
+    })
+    return {
+      ok: true,
+      domain: {
+        id: record.id,
+        hostname: record.hostname,
+        status: mapped.status,
+        verificationErrors: mapped.verificationErrors,
+        createdAt: record.createdAt,
+      },
+    }
+  }
+
+  const verificationErrors = [CUSTOM_HOSTNAME_PROVISIONING_ERROR]
+  await repo.setProvisioning(record.id, siteId, {
+    cloudflareCustomHostnameId: null,
+    status: 'failed',
+    verificationErrorsJson: JSON.stringify(verificationErrors),
+  })
+  return {
+    ok: false,
+    domain: {
+      id: record.id,
+      hostname: record.hostname,
+      status: 'failed',
+      verificationErrors,
+      createdAt: record.createdAt,
+    },
+  }
+}
+
 export async function listCustomDomainsForApp(app: AppUserContext): Promise<CustomDomainsPanel> {
   const cnameTarget = customHostnameCnameTarget()
   if (!isOwner(app)) return { domains: [], cnameTarget }
@@ -71,6 +136,12 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
 
   const domains: CustomDomainView[] = []
   for (const row of rows) {
+    // PROD: rows stuck without a provider id are retryable (transient create failure).
+    if (provisioning && !row.cloudflareCustomHostnameId && row.status !== 'active' && row.status !== 'disabled') {
+      const provisioned = await ensureCustomHostnameProvisioned(repo, app.siteId, row)
+      domains.push(provisioned.domain)
+      continue
+    }
     // PROD: refresh the live CF status of any not-yet-active provisioned domain.
     if (provisioning && row.cloudflareCustomHostnameId && row.status !== 'active') {
       const mapped = await refreshCustomHostnameStatus(row.cloudflareCustomHostnameId)
@@ -80,7 +151,13 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
           status: mapped.status,
           verificationErrorsJson: JSON.stringify(mapped.verificationErrors),
         })
-        domains.push({ id: row.id, hostname: row.hostname, status: mapped.status, verificationErrors: mapped.verificationErrors, createdAt: row.createdAt })
+        domains.push({
+          id: row.id,
+          hostname: row.hostname,
+          status: mapped.status,
+          verificationErrors: mapped.verificationErrors,
+          createdAt: row.createdAt,
+        })
         continue
       }
     }
@@ -92,7 +169,7 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
 export async function addCustomDomainForApp(app: AppUserContext, hostname: string): Promise<AddCustomDomainResult> {
   try {
     const repo = createD1DomainRepository(env.DB)
-    const { record, reclaimedCfHostnameId } = await addCustomDomain(repo, {
+    const { record, reclaimedCfHostnameId, reclaimedSiteId } = await addCustomDomain(repo, {
       siteId: app.siteId,
       hostname,
       isOwner: isOwner(app),
@@ -101,18 +178,19 @@ export async function addCustomDomainForApp(app: AppUserContext, hostname: strin
       platformZone: publicBlogBaseDomain() ?? '',
     })
 
+    // Ownership transition: drop the prior site's cached pages for this hostname.
+    if (reclaimedSiteId || reclaimedCfHostnameId) {
+      if (reclaimedCfHostnameId) await deleteCustomHostname(reclaimedCfHostnameId)
+      scheduleHostnamePurge(record.hostname, reclaimedSiteId)
+    }
+
     // PROD: provision the Cloudflare custom hostname and reflect its initial status.
     if (customHostnameProvisioningEnabled()) {
-      if (reclaimedCfHostnameId) await deleteCustomHostname(reclaimedCfHostnameId)
-      const payload = await createCustomHostname(record.hostname)
-      if (payload?.id) {
-        const mapped = mapCustomHostnameStatus(payload)
-        await repo.setProvisioning(record.id, app.siteId, {
-          cloudflareCustomHostnameId: payload.id,
-          status: mapped.status,
-          verificationErrorsJson: JSON.stringify(mapped.verificationErrors),
-        })
-        return { ok: true, domain: { ...toView(record), status: mapped.status, verificationErrors: mapped.verificationErrors } }
+      // Idempotent re-add of a row that never got a provider id also retries here.
+      if (!record.cloudflareCustomHostnameId) {
+        const provisioned = await ensureCustomHostnameProvisioned(repo, app.siteId, record)
+        if (!provisioned.ok) return { ok: false, code: 'domain_provisioning' }
+        return { ok: true, domain: provisioned.domain }
       }
     }
     return { ok: true, domain: toView(record) }
@@ -125,13 +203,17 @@ export async function addCustomDomainForApp(app: AppUserContext, hostname: strin
 export async function removeCustomDomainForApp(app: AppUserContext, domainId: string): Promise<RemoveCustomDomainResult> {
   try {
     const repo = createD1DomainRepository(env.DB)
-    // Look up the CF hostname id before deletion (owner-scoped), so teardown only runs for an owner.
+    // Look up before deletion (owner-scoped), so teardown/purge only run for an owner-owned row.
     let cfId: string | null = null
-    if (customHostnameProvisioningEnabled() && isOwner(app)) {
-      cfId = (await listCustomDomains(repo, app.siteId)).find((d) => d.id === domainId)?.cloudflareCustomHostnameId ?? null
+    let hostname: string | null = null
+    if (isOwner(app)) {
+      const existing = (await listCustomDomains(repo, app.siteId)).find((d) => d.id === domainId)
+      cfId = existing?.cloudflareCustomHostnameId ?? null
+      hostname = existing?.hostname ?? null
     }
     await removeCustomDomain(repo, { siteId: app.siteId, domainId, isOwner: isOwner(app) })
     if (cfId) await deleteCustomHostname(cfId) // best-effort, reached only when our row was actually removed
+    if (hostname) scheduleHostnamePurge(hostname, app.siteId)
     return { ok: true }
   } catch (error) {
     if (error instanceof AppError) return { ok: false, code: errorCode(error) }

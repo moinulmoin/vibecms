@@ -4,9 +4,11 @@ import type { PublicRuntimeEnv } from "../env";
 import {
   isMarketingHost,
   isPublicBlogIndexable,
-  listPublishedPosts,
+  listPublishedPostSummaries,
+  listPublishedPostsForFeed,
+  PUBLIC_BLOG_LIMITS,
   resolveSite,
-  type PostRow,
+  type PostSummaryRow,
   type SiteRow,
 } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
@@ -53,7 +55,7 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
   if (!site) return notFound();
   const requestUrl = new URL(request.url);
   const origin = publicOrigin(requestUrl);
-  const posts = await listPublishedPosts(db, site.id);
+  const posts = await listPublishedPostsForFeed(db, site.id, PUBLIC_BLOG_LIMITS.feedBodies);
   const xml = buildRssXml(site, origin, posts, new URL(`${requestUrl.pathname}${requestUrl.search}`, origin).href, (post) =>
     renderRichContentToHtml(post.content_markdown),
   );
@@ -72,7 +74,7 @@ export async function handleSitemap(db: D1Database, request: Request, env: Publi
   if (!site) return isMarketingHost(request, env) ? productSitemap(publicOrigin(request.url)) : notFound();
   if (!isPublicBlogIndexable(site, env)) return notFound();
   const origin = publicOrigin(request.url);
-  const posts = await listPublishedPosts(db, site.id);
+  const posts = await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.sitemapSummaries);
   const xml = buildSitemapXml(origin, posts);
   return new Response(xml, {
     headers: {
@@ -95,7 +97,7 @@ export async function handleRobots(db: D1Database, request: Request, env: Public
   });
 }
 
-function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: PostRow[], env: PublicRuntimeEnv): Response {
+function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: PostSummaryRow[], env: PublicRuntimeEnv): Response {
   const summary = site.description || site.default_seo_description || "";
   const lines = [`# ${site.name}`, ""];
   if (summary) lines.push(`> ${summary}`, "");
@@ -121,5 +123,11 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
 export async function handleLlmsTxt(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return isMarketingHost(request, env) ? productLlmsTxt(publicOrigin(request.url), env) : notFound();
-  return renderLlmsTxt(site, publicOrigin(request.url), "", await listPublishedPosts(db, site.id), env);
+  return renderLlmsTxt(
+    site,
+    publicOrigin(request.url),
+    "",
+    await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.llmsSummaries),
+    env,
+  );
 }

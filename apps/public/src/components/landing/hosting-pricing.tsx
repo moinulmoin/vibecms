@@ -1,6 +1,5 @@
 import { ENTITLEMENTS, MEDIA, PRICING } from "@vc/config";
 import { CheckIcon } from "@radix-ui/react-icons";
-import { useLandingAppUrls } from "./landing-app-context";
 import { GREEN_BG, GREEN_CTA, GlassCard, SectionShell } from "./primitives";
 
 const pricingChecklist = [
@@ -14,8 +13,7 @@ const pricingChecklist = [
   "Fast managed hosting",
 ] as const;
 
-export function HostingPricing() {
-  const { loginUrl } = useLandingAppUrls();
+export function HostingPricing({ loginUrl }: { loginUrl: string }) {
   return (
     <section id="pricing">
       <SectionShell>

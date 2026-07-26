@@ -84,6 +84,8 @@ export const posts = sqliteTable("posts", {
   canonicalUrl: text("canonical_url"),
   tagsJson: text("tags_json").notNull().default("[]"),
   presentationJson: text("presentation_json"),
+  // Nullable pointer to the immutable version currently live on the public blog.
+  publishedVersionId: text("published_version_id"),
   createdByType: text("created_by_type", { enum: ["human", "agent", "api_key", "system"] }).notNull(),
   createdById: text("created_by_id").notNull(),
   updatedByType: text("updated_by_type", { enum: ["human", "agent", "api_key", "system"] }).notNull(),
@@ -93,6 +95,7 @@ export const posts = sqliteTable("posts", {
   uniqueIndex("idx_posts_site_slug_unique").on(table.siteId, table.slug),
   index("idx_posts_site_status_updated").on(table.siteId, table.status, table.updatedAt),
   index("idx_posts_site_published").on(table.siteId, table.status, table.publishedAt),
+  index("idx_posts_published_version_id").on(table.publishedVersionId),
 ]);
 
 export const postVersions = sqliteTable("post_versions", {
@@ -269,6 +272,22 @@ export const verification = sqliteTable("verification", {
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
+export const pendingMediaOperations = sqliteTable("pending_media_operations", {
+  id: text("id").primaryKey(),
+  kind: text("kind", { enum: ["upload_cleanup", "delete"] }).notNull(),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  storageKey: text("storage_key").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+  claimedAt: integer("claimed_at"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+}, (table) => [
+  index("idx_pending_media_ops_created").on(table.createdAt),
+  index("idx_pending_media_ops_claimed").on(table.claimedAt),
+]);
+
 export const subscribers = sqliteTable("subscribers", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -318,5 +337,7 @@ export type UsageCounterRow = typeof usageCounters.$inferSelect;
 export type UsageCounterInsert = typeof usageCounters.$inferInsert;
 export type RateLimitRow = typeof rateLimits.$inferSelect;
 export type RateLimitInsert = typeof rateLimits.$inferInsert;
+export type PendingMediaOperationRow = typeof pendingMediaOperations.$inferSelect;
+export type PendingMediaOperationInsert = typeof pendingMediaOperations.$inferInsert;
 export type SubscriberRow = typeof subscribers.$inferSelect;
 export type SubscriberInsert = typeof subscribers.$inferInsert;
