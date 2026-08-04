@@ -42,6 +42,7 @@ if (!smokeToken && bootstrapSmoke) {
 requireConfig(productionApiConfig, '"app.vibecms.dev/*"', "the exact API app-host route");
 requireConfig(productionApiConfig, '"CUSTOM_HOSTNAME_CNAME_TARGET": "cname.vibecms.dev"', "the custom-hostname CNAME target");
 requireConfig(productionPublicConfig, '"*.vibecms.dev/*"', "the public wildcard route");
+requireConfig(productionPublicConfig, '"*/*"', "the Cloudflare for SaaS Worker fallback route");
 requireConfig(productionPublicConfig, '"service": "vibecms-prod"', "the public-to-API service binding");
 requireConfig(productionApiConfig, '"ANALYTICS_DATASET": "vibecms_page_views_prod"', "the production analytics query dataset");
 requireConfig(productionApiConfig, '"CLOUDFLARE_ZONE_ID": "ba566759d1d48dfe268050968fe631af"', "the production zone ID");

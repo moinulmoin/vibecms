@@ -36,13 +36,13 @@ interface DnsRecord {
 }
 
 async function upsertDnsRecord(record: {
-  type: "A" | "CNAME";
+  type: "A" | "AAAA" | "CNAME";
   name: string;
   content: string;
   comment: string;
 }): Promise<void> {
   const existing = await cloudflare<DnsRecord[]>(
-    `/zones/${zoneId}/dns_records?type=${record.type}&name=${encodeURIComponent(record.name)}`,
+    `/zones/${zoneId}/dns_records?name=${encodeURIComponent(record.name)}`,
   );
   const body = JSON.stringify({ ...record, proxied: true, ttl: 1 });
   if (existing[0]) {
@@ -59,9 +59,9 @@ await upsertDnsRecord({
   comment: "VibeCMS tenant subdomain routing",
 });
 await upsertDnsRecord({
-  type: "CNAME",
+  type: "AAAA",
   name: cnameTarget,
-  content: zoneName,
+  content: "100::",
   comment: "VibeCMS Cloudflare for SaaS fallback origin",
 });
 

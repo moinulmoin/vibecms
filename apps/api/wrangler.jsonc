@@ -51,8 +51,10 @@
     "ANALYTICS_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36",
     "ANALYTICS_DATASET": "vibecms_page_views_dev",
     "CLOUDFLARE_ZONE_ID": "7a6df92d77c6cd873acd0f35fc4bf64d",
+    "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.basedui.dev",
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
-    "POLAR_PRODUCT_ID": "product_dev_placeholder",
+    "POLAR_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
+    "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
     "POLAR_SERVER": "sandbox"
   },
   "env": {
@@ -102,8 +104,10 @@
         "ANALYTICS_ACCOUNT_ID": "b033fb898b354c8292ce5769505e7d36",
         "ANALYTICS_DATASET": "vibecms_page_views_dev",
         "CLOUDFLARE_ZONE_ID": "7a6df92d77c6cd873acd0f35fc4bf64d",
+        "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.basedui.dev",
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
-        "POLAR_PRODUCT_ID": "product_dev_placeholder",
+        "POLAR_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
+        "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
         "POLAR_SERVER": "sandbox"
       }
     },

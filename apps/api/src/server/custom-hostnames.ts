@@ -6,8 +6,8 @@
  * and the add flow simply leaves the domain `pending`. See plans/PROD-LAUNCH.md for the
  * full Cloudflare for SaaS setup (enable SaaS on the zone, fallback origin, CNAME target).
  *
- * SSL method `http`: once the customer CNAMEs their hostname to CUSTOM_HOSTNAME_CNAME_TARGET,
- * Cloudflare issues the certificate via HTTP DV automatically - no TXT record required.
+ * SSL method `http`: once the customer creates a DNS-only CNAME from their hostname to
+ * CUSTOM_HOSTNAME_CNAME_TARGET, Cloudflare issues the certificate via HTTP DV automatically.
  */
 import { env } from 'cloudflare:workers'
 import { type CloudflareCustomHostname, mapCustomHostnameStatus, type MappedDomainStatus } from '@/lib/custom-domain'

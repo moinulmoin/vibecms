@@ -1136,7 +1136,7 @@ export function SettingsPage() {
           </form>
           {customDomains.cnameTarget ? (
             <p className="mb-4 font-sans text-xs leading-5 text-muted-foreground">
-              After adding, create a CNAME record pointing your domain to{' '}
+              After adding, create a DNS-only CNAME record pointing your domain to{' '}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{customDomains.cnameTarget}</code>. We verify and issue SSL automatically.
             </p>
           ) : null}

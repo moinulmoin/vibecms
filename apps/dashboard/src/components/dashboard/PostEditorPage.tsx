@@ -69,6 +69,13 @@ function payloadFromForm(form: FormData) {
   }
 }
 
+export function shouldShowPublishAction(
+  post: Pick<Post, 'status' | 'publishedVersionNumber'> | null,
+  currentVersionNumber: number | null,
+): boolean {
+  return Boolean(post && (post.status !== 'published' || currentVersionNumber !== post.publishedVersionNumber))
+}
+
 function PostStatusBadge({ status }: { status: string }) {
   if (status === 'published') {
     return (
@@ -805,14 +812,14 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 <PendingSubmitButton pending={savePending} pendingText="Saving…">
                   Save draft
                 </PendingSubmitButton>
-                {post && post.status !== 'published' ? (
+                {shouldShowPublishAction(post, currentVersionNumber) ? (
                   <PendingSubmitButton
                     type="button"
                     pending={publishPending}
                     pendingText="Publishing…"
                     onClick={() => void handlePublish()}
                   >
-                    Publish
+                    {post?.status === 'published' ? 'Publish changes' : 'Publish'}
                   </PendingSubmitButton>
                 ) : null}
                 {post && post.status !== 'archived' ? (

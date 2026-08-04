@@ -94,7 +94,10 @@ export async function queryAnalyticsEngine(
       signal: AbortSignal.timeout(10_000),
     },
   )
-  if (!response.ok) throw new Error(`analytics_sql_${response.status}`)
+  if (!response.ok) {
+    const detail = (await response.text()).replaceAll(/\s+/g, ' ').slice(0, 500)
+    throw new Error(`analytics_sql_${response.status}${detail ? `: ${detail}` : ''}`)
+  }
   const payload = (await response.json()) as SqlResponse
   if (!Array.isArray(payload.data)) throw new Error(payload.error ?? 'analytics_sql_invalid_response')
   return payload.data
@@ -356,8 +359,8 @@ export async function loadAnalyticsForApp(
        FROM ${dataset}
        WHERE index1 = ${sqlString(app.siteId)}
          AND blob1 = 'page_view'
-         AND toDate(timestamp) >= '${sourceFrom}'
-         AND toDate(timestamp) <= '${today}'
+         AND timestamp >= toDateTime('${sourceFrom} 00:00:00')
+         AND timestamp < toDateTime('${today} 00:00:00') + INTERVAL '1' DAY
        GROUP BY date, post_id, post_slug, referrer`,
       sqlConfig,
       fetcher,
@@ -385,8 +388,8 @@ export async function loadAnalyticsForApp(
           `SELECT SUM(_sample_interval) AS views FROM ${dataset}
            WHERE index1 = ${sqlString(app.siteId)}
              AND blob1 = 'page_view'
-             AND toDate(timestamp) >= '${boundedStart}'
-             AND toDate(timestamp) <= '${previousEnd}'`,
+             AND timestamp >= toDateTime('${boundedStart} 00:00:00')
+             AND timestamp < toDateTime('${previousEnd} 00:00:00') + INTERVAL '1' DAY`,
           sqlConfig,
           fetcher,
         )

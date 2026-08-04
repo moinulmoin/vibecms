@@ -115,8 +115,8 @@ async function rollupSite(
      FROM ${dataset}
      WHERE index1 = '${site.id.replaceAll("'", "''")}'
        AND blob1 = 'page_view'
-       AND toDate(timestamp) >= '${sourceFrom}'
-       AND toDate(timestamp) <= '${sourceTo}'
+       AND timestamp >= toDateTime('${sourceFrom} 00:00:00')
+       AND timestamp < toDateTime('${sourceTo} 00:00:00') + INTERVAL '1' DAY
      GROUP BY date, post_id, post_slug, referrer
      ORDER BY date ASC`,
     { accountId, token },
