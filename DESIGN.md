@@ -58,17 +58,30 @@ card `oklch(1 0 0)`, border `oklch(0.9 0 0)`. Primary is a deep green
 ### Blog templates / presets (user-selectable, `presets.css`)
 
 These are the **blog themes a vibecms user picks for their own published blog** -
-a product feature, not app chrome. Each preset is a full token vocabulary
-(`--vc-*`, ~43 tokens × light/dark) selected via `[data-vc-theme]` (`minimal`, …)
-in `apps/dashboard/src/presets.css`, `apps/public/src/styles/presets.css`, and
-`packages/content/src/styles/vc-rich-content.css`, applied to rendered content.
-The vocabulary covers surface, callouts, code, quote, figure, type, and spacing.
+a product feature, not app chrome. All presets share one surface/color token
+vocabulary (`--vc-*`, ~43 tokens × light/dark) selected via `[data-vc-theme]`
+(`minimal`, …). The source lives in `packages/content/src/styles/`
+(`presets.css` + `vc-rich-content.css`), imported by both apps via the
+`@vc/content/styles` package exports. The vocabulary covers surface,
+callouts, code, quote, figure, type, and spacing.
+
+Presets are not color themes - they are **typographic identities**. Each
+non-minimal preset overrides the type/rhythm tokens (measure, leading, heading
+scale, prose gap, section gap, radius) in the `PRESET IDENTITIES` block of
+`presets.css`, with matching chrome rules in `presented-post.module.css`
+(title voice, meta line), `prose.module.css` (editorial pull quote), and
+`public-blog.module.css` (index density). `PresentedPostArticle` stamps
+`data-vc-theme` on its `<article>` so chrome rules apply identically in public
+SSR and dashboard preview. Minimal is the reference identity and keeps the base
+values. Editorial = 66ch/1.8/scale 1.06/radius 4; Technical = 72ch/1.6/0.94/6;
+Product = 64ch/1.65/1.14/12.
 
 This token set is **deliberately decoupled** from the vibecms app/landing tokens
 above: the user's blog should look like *their* brand, not like vibecms. When
 designing app chrome use the `--*` / `--color-*` tokens; when designing or adding
 a blog template, work in the `--vc-*` set. Adding a new preset = a new
-`[data-vc-theme]` block here (a shippable product surface in its own right).
+`[data-vc-theme]` token block plus its chrome rules (a shippable product surface
+in its own right).
 
 ## Typography
 

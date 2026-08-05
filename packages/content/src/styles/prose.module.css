@@ -137,6 +137,20 @@
   font-size: inherit;
 }
 
+/* Editorial identity: the blockquote becomes a pull quote — heading-font
+   italic, foreground ink, no border rail. Matches editorial's high blockquote
+   emphasis in THEME_PRESETS. */
+.prose[data-vc-theme="editorial"] blockquote {
+  margin: calc(var(--vc-prose-gap) * 1.25) 0;
+  padding: 0.25rem 0;
+  color: var(--vc-fg);
+  font-family: var(--vc-font-heading);
+  font-size: 1.15em;
+  font-style: italic;
+  line-height: 1.6;
+  border-left: none;
+}
+
 .prose strong {
   font-weight: 700;
 }

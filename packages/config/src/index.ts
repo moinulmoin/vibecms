@@ -229,8 +229,9 @@ export const DEFAULT_THEME_MODE: ThemeMode = "system";
 
 /**
  * One-click starter looks. Each seeds accent (and optionally font) for the
- * customizer; the three non-minimal presets become seeds, not separate bases.
- * `data-vc-theme` stays `minimal` (the single base) in v1.
+ * customizer when a preset is picked. The preset's own visual identity
+ * (measure, leading, heading scale, rhythm, radius, chrome) comes from
+ * `data-vc-theme="<id>"` — see presets.css "PRESET IDENTITIES".
  */
 export interface StarterLook {
   accent: AccentId;
@@ -397,7 +398,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
     id: "editorial",
     name: "Editorial",
     designIntent:
-      "Serif headings, wide measure, and media-rich narrative flow. Built for long-form storytelling, essays, and reported pieces.",
+      "Serif headings, pull quotes, and a relaxed narrative rhythm. Built for long-form storytelling, essays, and reported pieces.",
     recommendedComponents: [
       "captioned-image",
       "blockquote",

@@ -1,16 +1,24 @@
-/* presets.css - the one-base Theme Customizer design token block.
+/* presets.css - the Theme Customizer design token block.
    Imported in styles.css AFTER vc-rich-content.css.
 
-   Contract: ONE base token palette applies to every valid persisted preset ID
-   -- minimal, editorial, technical, product. All four resolve to the same
-   surface/type/code/callout/figure/quote tokens; there are no per-preset neutral
-   palettes or deprecated preset-specific colors. Per-site flavor comes from
-   customizer variables (--vc-accent, --vc-font-body, --vc-font-heading) injected
-   on the same root. Semantic callout hues are fixed (not derived from the accent).
+   Contract: ONE shared SURFACE palette (bg/fg/card/border/callout/code/quote/
+   figure colors) applies to every valid persisted preset ID -- minimal,
+   editorial, technical, product. Color identity comes from the customizer
+   variables (--vc-accent, --vc-font-body, --vc-font-heading) injected on the
+   same root, and semantic callout hues are fixed (not derived from the accent).
+
+   The four presets are NOT color themes - they are TYPOGRAPHIC identities.
+   Each non-minimal preset overrides the type/rhythm tokens below (measure,
+   leading, heading scale, prose gap, section gap, radius), and
+   presented-post.module.css / prose.module.css / public-blog.module.css carry
+   matching per-theme chrome rules (title voice, meta line, pull quotes, index
+   density). Minimal is the reference identity and stays on the base values.
 
    Mechanism: data-rich-content and data-vc-theme="<id>" live on the SAME root
-   element (RichContentFrame / public page root). The base selectors below list
-   all four valid IDs and mirror the [data-rich-content] defaults in
+   element (RichContentFrame / public page root); PresentedPostArticle also
+   stamps data-vc-theme on its <article> so chrome rules apply identically in
+   public SSR and dashboard preview. The base selectors below list all four
+   valid IDs and mirror the [data-rich-content] color defaults in
    vc-rich-content.css token-for-token (must stay equal).
 
    Dark mode (works for every preset ID):
@@ -129,6 +137,46 @@
     --vc-figure-bg:       oklch(18.9% 0.010 173);
     --vc-caption-fg:      oklch(72%   0.014 155);
   }
+}
+
+/* ==========================================================================
+   PRESET IDENTITIES - type & rhythm divergence from the shared base. Color
+   tokens are untouched here; these blocks only re-voice typography, measure,
+   rhythm, and radius. Mode blocks below stay theme-agnostic.
+   ========================================================================== */
+
+/* Editorial - longform narrative: narrow relaxed measure, tall leading,
+   generous section rhythm, sharper radius. Serif voice arrives via the
+   editorial starter font (Georgia headings); rules here stay font-agnostic. */
+[data-vc-theme="editorial"] {
+  --vc-prose-measure:   66ch;
+  --vc-prose-leading:   1.8;
+  --vc-prose-gap:       1.5em;
+  --vc-section-gap:     3.5rem;
+  --vc-heading-scale:   1.06;
+  --vc-radius:          4px;
+}
+
+/* Technical - documentation: wide reference measure, tight leading, compact
+   rhythm so code, tables, and callouts stay dense and scannable. */
+[data-vc-theme="technical"] {
+  --vc-prose-measure:   72ch;
+  --vc-prose-leading:   1.6;
+  --vc-prose-gap:       1em;
+  --vc-section-gap:     2.25rem;
+  --vc-heading-scale:   0.94;
+  --vc-radius:          6px;
+}
+
+/* Product - launch voice: biggest heading presence, confident deck, short
+   scannable measure, softest radius. */
+[data-vc-theme="product"] {
+  --vc-prose-measure:   64ch;
+  --vc-prose-leading:   1.65;
+  --vc-prose-gap:       1.3em;
+  --vc-section-gap:     3.25rem;
+  --vc-heading-scale:   1.14;
+  --vc-radius:          12px;
 }
 
 /* force dark - overrides system-dark media query via higher specificity; all preset IDs */

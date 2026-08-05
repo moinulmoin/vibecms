@@ -142,6 +142,7 @@ export function PresentedPostArticle({
   return (
     <article
       className={styles.article}
+      data-vc-theme={presetId}
       data-vc-layout={presentation.layout}
       data-vc-has-toc={hasToc ? "" : undefined}
       style={themeAttrs?.style}

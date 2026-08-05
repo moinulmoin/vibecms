@@ -27,6 +27,7 @@
 .publicBrand {
   color: inherit;
   text-decoration: none;
+  font-family: var(--vc-font-heading);
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -111,6 +112,40 @@
 .postCard h2 a:hover,
 .backLink:hover {
   color: var(--vc-accent);
+}
+
+/* ==========================================================================
+   Preset identities — index composition matching presets.css token blocks.
+   Title size already tracks --vc-heading-scale; these rules re-voice density
+   and metadata. Type/rhythm tokens (measure, leading, gaps) come from the
+   [data-vc-theme] root in presets.css.
+   ========================================================================== */
+
+/* Editorial — narrative index: maximum air between entries. */
+.publicPage[data-vc-theme="editorial"] .postList {
+  gap: 3.5rem;
+}
+
+/* Technical — reference index: dense list, mono uppercase dates. */
+.publicPage[data-vc-theme="technical"] .postList {
+  gap: 2rem;
+}
+
+.publicPage[data-vc-theme="technical"] .metaLine {
+  font-family: var(--vc-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* Product — launch index: confident spacing, heavier card titles. */
+.publicPage[data-vc-theme="product"] .postList {
+  gap: 3.25rem;
+}
+
+.publicPage[data-vc-theme="product"] .postCard h2 {
+  font-weight: 750;
+  letter-spacing: -0.03em;
 }
 
 /* §8: the themed canvas spans the viewport; only article content is constrained. */
