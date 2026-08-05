@@ -105,7 +105,6 @@ export function BillingPage() {
     return (
       <>
         <PageHeader
-          kicker="Plan"
           title="Self-hosted workspace"
           description="Billing stays disabled while publishing, media, and agent access run on your Cloudflare resources."
         />
@@ -125,7 +124,6 @@ export function BillingPage() {
   return (
     <>
       <PageHeader
-        kicker="Plan"
         title="Billing"
         description={
           isActive

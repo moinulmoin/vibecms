@@ -186,7 +186,6 @@ export function MediaPage() {
   return (
     <>
       <PageHeader
-        kicker="Assets"
         title="Media library"
         description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
       />

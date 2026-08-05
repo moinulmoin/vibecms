@@ -37,7 +37,6 @@ export function TokenCreatedPage() {
     return (
       <>
         <PageHeader
-          kicker="Connect"
           title="Token created"
           description="Your token is ready, but the agent connection details could not load."
           action={
@@ -76,7 +75,6 @@ export function TokenCreatedPage() {
   return (
     <>
       <PageHeader
-        kicker="Connect"
         title="Token created"
         description="Copy this token now - it is shown only once - then drop the config into your agent."
         action={

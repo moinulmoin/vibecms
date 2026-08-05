@@ -570,7 +570,6 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader
-        kicker="Workspace"
         title="Settings"
         description="Blog defaults, agent voice, domain, plan, and data."
       />

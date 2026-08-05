@@ -493,7 +493,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
 
   const statusKicker = post ? post.status : 'New post'
-  const editorStatusLabel = post?.status === 'published' ? 'Published' : post?.status === 'archived' ? 'Archived' : 'Draft'
   const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
   const selectedCoverAsset = assets.find((asset) => asset.id === selectedCoverAssetId) ?? null
 
@@ -531,7 +530,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
-          <Panel title={editorStatusLabel}>
+          <Panel title="Content">
             <div className="grid gap-4">
               <Field>
                 <FieldLabel

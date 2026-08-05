@@ -200,7 +200,6 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
   return (
     <>
       <PageHeader
-        kicker="Content"
         title="Posts"
         description="Draft, review, publish, and restore every post—whether it came from you or an agent."
         action={

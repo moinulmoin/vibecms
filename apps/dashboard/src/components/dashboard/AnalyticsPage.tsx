@@ -292,7 +292,6 @@ export function AnalyticsPage() {
   return (
     <>
       <PageHeader
-        kicker="Analytics"
         title="Readers and AI discovery"
         description="Privacy-friendly post analytics without cookies, IP storage, or visitor profiles."
         action={data.status === 'available' ? headerAction : undefined}

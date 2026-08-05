@@ -153,7 +153,6 @@ export function DashboardOverview() {
   return (
     <>
       <PageHeader
-        kicker="Workspace"
         title={siteName}
         description="Your publishing system: what is live, what changed, and where your agents can act."
         action={

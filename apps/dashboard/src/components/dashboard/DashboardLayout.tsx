@@ -254,7 +254,7 @@ export function AppShell({
           <div
             id="dashboard-main"
             tabIndex={-1}
-            className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-6 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
+            className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
           >
             <StatusAlert status={formStatus} />
             {children}
@@ -271,7 +271,9 @@ export function PageHeader({
   description,
   action,
 }: {
-  kicker: string
+  /** Optional state line (e.g. editor status). Omit for section pages — the
+   *  sticky header and nav already name the section. */
+  kicker?: string
   title: string
   description?: string
   action?: ReactNode
@@ -279,7 +281,9 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 space-y-2.5">
-        <p className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-primary">{kicker}</p>
+        {kicker ? (
+          <p className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-primary">{kicker}</p>
+        ) : null}
         <h1 className="text-balance font-display text-3xl font-semibold leading-[1.08] tracking-[-0.035em] text-foreground sm:text-4xl">
           {title}
         </h1>
