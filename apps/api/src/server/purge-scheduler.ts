@@ -5,8 +5,8 @@ export function scheduleArticlePurge(siteId: string, siteSlug: string, postSlug:
   scheduleBackground(purgeArticleCache(siteId, siteSlug, postSlug))
 }
 
-export function scheduleSitePurge(siteId: string, siteSlug: string) {
-  scheduleBackground(purgeSiteCache(siteId, siteSlug));
+export function scheduleSitePurge(siteId: string, siteSlug: string, postSlugs: readonly string[] = []) {
+  scheduleBackground(purgeSiteCache(siteId, siteSlug, postSlugs));
 }
 
 export function scheduleHostnamePurge(hostname: string, siteId?: string | null) {

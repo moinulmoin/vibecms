@@ -74,8 +74,16 @@ async function purgeCache(tags: string[], urls: string[], hosts: string[] = []):
   }
 }
 
-export async function purgeSiteCache(siteId: string, siteSlug: string): Promise<void> {
-  await purgeCache([siteCacheTag(siteId)], siteCacheUrls(siteSlug));
+/**
+ * Invalidate every cached public response for a site: index, feeds, sitemap,
+ * llms.txt — and every published article. The zone tag purge covers articles
+ * on plans with tag purging; the URL fallback must enumerate them, so callers
+ * pass the site's published slugs (settings/theme saves change every article's
+ * render but no article mutation fires its own purge).
+ */
+export async function purgeSiteCache(siteId: string, siteSlug: string, postSlugs: readonly string[] = []): Promise<void> {
+  const articleUrls = postSlugs.flatMap((postSlug) => articleCacheUrls(siteSlug, postSlug));
+  await purgeCache([siteCacheTag(siteId)], [...siteCacheUrls(siteSlug), ...articleUrls]);
 }
 
 export async function purgeArticleCache(siteId: string, siteSlug: string, postSlug: string): Promise<void> {

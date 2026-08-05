@@ -5,6 +5,7 @@ import {
   hostnameCacheUrls,
   purgeArticleCache,
   purgeHostnameCache,
+  purgeSiteCache,
 } from './public-blog-cache'
 import { env } from 'cloudflare:workers'
 import { runWithExecutionContext } from './execution-scope'
@@ -32,6 +33,27 @@ describe('public article cache invalidation', () => {
     }
 
     await purgeArticleCache('site-purge', 'purge-fixture', 'cached-post')
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('site purge deletes published article URLs from the Cache API fallback', async () => {
+    // Settings/theme saves change every article render; without slugs the
+    // fallback only cleared site-level URLs and articles stayed stale.
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const urls = articleCacheUrls('site-purge-fixture', 'themed-post')
+
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    await purgeSiteCache('site-theme-save', 'site-purge-fixture', ['themed-post'])
 
     for (const url of urls) {
       expect(await cache.match(new Request(url))).toBeUndefined()

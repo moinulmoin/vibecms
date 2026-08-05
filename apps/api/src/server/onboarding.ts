@@ -1,6 +1,6 @@
 import type { Actor } from '@vc/core'
 import { resolveAccent, resolveFont, resolveMode, resolvePresetId } from '@vc/config'
-import { createDataAccess } from '@vc/db'
+import { createDataAccess, PUBLIC_BLOG_LIMITS } from '@vc/db'
 import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
@@ -205,7 +205,16 @@ export async function updateSiteSettingsForApp(
       summary: 'Updated site settings',
     },
   })
-  if (currentSite) scheduleSitePurge(app.siteId, currentSite.slug)
+  if (currentSite) {
+    // Theme/customizer saves re-render every public page; the purge must reach
+    // article HTML too (articles only self-purge on publish/archive).
+    const published = await db.publicBlog.listPublishedPostSummaries(
+      app.siteId,
+      timestamp,
+      PUBLIC_BLOG_LIMITS.listSummaries,
+    )
+    scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug))
+  }
 
   return { kind: 'ok', code: 'site_saved' }
 }
