@@ -77,6 +77,23 @@ export function shouldShowPublishAction(
   return Boolean(post && (post.status !== 'published' || currentVersionNumber !== post.publishedVersionNumber))
 }
 
+/**
+ * The review strip's single source of truth for "what is public right now".
+ * 'unpublished' = the saved tip is ahead of the pinned public version — the
+ * exact state where a human review decision is required.
+ */
+export type EditorLiveState = 'new' | 'draft' | 'unpublished' | 'live' | 'archived'
+
+export function editorLiveState(
+  post: Pick<Post, 'status' | 'publishedVersionNumber'> | null,
+  currentVersionNumber: number | null,
+): EditorLiveState {
+  if (!post) return 'new'
+  if (post.status === 'archived') return 'archived'
+  if (post.status === 'draft') return 'draft'
+  return currentVersionNumber !== post.publishedVersionNumber ? 'unpublished' : 'live'
+}
+
 function PostStatusBadge({ status }: { status: string }) {
   if (status === 'published') {
     return (
@@ -98,6 +115,88 @@ function PostStatusBadge({ status }: { status: string }) {
     <Badge variant="outline" className="capitalize">
       {status}
     </Badge>
+  )
+}
+
+/**
+ * The review strip: what is public right now, who changed what last, and the
+ * publish decision — in one calm line between the header and the work surface.
+ * Renders only for an existing post (new posts have no public state to report).
+ */
+function EditorStateStrip({
+  post,
+  currentVersionNumber,
+  latestVersion,
+  publicBaseUrl,
+  publishPending,
+  onPublish,
+}: {
+  post: Post
+  currentVersionNumber: number | null
+  latestVersion: PostVersionSummary | null
+  publicBaseUrl: string | null
+  publishPending: boolean
+  onPublish: () => void
+}) {
+  const state = editorLiveState(post, currentVersionNumber)
+  const unpublishedCount =
+    state === 'unpublished' && currentVersionNumber != null && post.publishedVersionNumber != null
+      ? currentVersionNumber - post.publishedVersionNumber
+      : 0
+  const liveUrl =
+    post.status === 'published' && publicBaseUrl ? `${publicBaseUrl}/${post.slug}` : null
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-muted/50 px-4 py-3">
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        v{currentVersionNumber ?? '—'}
+      </span>
+      {state === 'live' ? (
+        <span className="flex items-center gap-1.5 font-mono text-xs text-primary">
+          <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+          All changes live
+        </span>
+      ) : state === 'unpublished' ? (
+        <span className="flex items-center gap-1.5 font-mono text-xs text-amber-600 dark:text-amber-400">
+          <span className="size-1.5 rounded-full bg-amber-500" />
+          {unpublishedCount > 0
+            ? `${unpublishedCount} unpublished ${unpublishedCount === 1 ? 'change' : 'changes'}`
+            : 'Unpublished changes'}
+        </span>
+      ) : state === 'draft' ? (
+        <span className="font-mono text-xs text-muted-foreground">Draft — nothing public yet</span>
+      ) : (
+        <span className="font-mono text-xs text-muted-foreground">Archived — hidden from the public blog</span>
+      )}
+      {latestVersion ? (
+        <span className="font-mono text-xs text-muted-foreground">
+          Last saved {relativeTime(latestVersion.createdAt)}
+          {latestVersion.actorName.trim() ? ` by ${latestVersion.actorName}` : ''}
+        </span>
+      ) : null}
+      <span className="ml-auto flex items-center gap-2">
+        {liveUrl ? (
+          <a
+            href={liveUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-xs text-primary underline-offset-4 hover:underline"
+          >
+            Open live ↗
+          </a>
+        ) : null}
+        {shouldShowPublishAction(post, currentVersionNumber) ? (
+          <PendingSubmitButton
+            type="button"
+            size="sm"
+            pending={publishPending}
+            pendingText="Publishing…"
+            onClick={onPublish}
+          >
+            {post.status === 'published' ? 'Publish changes' : 'Publish'}
+          </PendingSubmitButton>
+        ) : null}
+      </span>
+    </div>
   )
 }
 
@@ -188,6 +287,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
   const [presetId, setPresetId] = useState<string>('minimal')
   const [site, setSite] = useState<EditorSiteInfo | null>(null)
+  const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<string>('standard')
   const [selectedToc, setSelectedToc] = useState<boolean>(false)
   const [presentationDirty, setPresentationDirty] = useState(false)
@@ -219,6 +320,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setSelectedCoverAssetId(result.post?.coverAssetId ?? '')
         setPresetId(result.presetId)
         setSite(result.site)
+        setLatestVersion(result.latestVersion)
+        setPublicBaseUrl(result.publicBaseUrl)
         setCurrentVersionNumber(result.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
         setSelectedLayout(result.post?.presentation?.layout ?? cap.default.layout)
@@ -318,6 +421,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setAssets(refreshed.assets)
         setMissing(refreshed.missing)
         setSite(refreshed.site)
+        setLatestVersion(refreshed.latestVersion)
+        setPublicBaseUrl(refreshed.publicBaseUrl)
         setCurrentVersionNumber(refreshed.currentVersionNumber)
         setHasPriorPresentation(presentation !== null)
         setPresentationDirty(false)
@@ -330,6 +435,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
           const refreshed = await loadPostEditorPage({ postId })
           setPost(refreshed.post)
           setSite(refreshed.site)
+          setLatestVersion(refreshed.latestVersion)
+          setPublicBaseUrl(refreshed.publicBaseUrl)
           setCurrentVersionNumber(refreshed.currentVersionNumber)
           setHasPriorPresentation(presentation !== null)
           setPresentationDirty(false)
@@ -463,6 +570,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         const refreshed = await loadPostEditorPage({ postId })
         setPost(refreshed.post)
         setSite(refreshed.site)
+        setLatestVersion(refreshed.latestVersion)
+        setPublicBaseUrl(refreshed.publicBaseUrl)
         setCurrentVersionNumber(refreshed.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(refreshed.presetId)].layout
         setSelectedLayout(refreshed.post?.presentation?.layout ?? cap.default.layout)
@@ -498,22 +607,31 @@ function PostEditorShell({ postId }: { postId?: string }) {
     return <EditorSkeleton />
   }
 
-  const statusKicker = post ? post.status : 'New post'
   const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
   const selectedCoverAsset = assets.find((asset) => asset.id === selectedCoverAssetId) ?? null
 
   return (
     <>
       <PageHeader
-        kicker={statusKicker}
+        kicker={post ? undefined : 'New post'}
         title={post ? 'Edit post' : 'Create post'}
-        description="Write in Markdown, then check the exact public renderer in Preview before you publish."
+        description="Write in Markdown, then check the exact public page in Preview before you publish."
         action={
           <Button asChild variant="outline">
             <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
           </Button>
         }
       />
+      {post ? (
+        <EditorStateStrip
+          post={post}
+          currentVersionNumber={currentVersionNumber}
+          latestVersion={latestVersion}
+          publicBaseUrl={publicBaseUrl}
+          publishPending={publishPending}
+          onPublish={() => void handlePublish()}
+        />
+      ) : null}
       {loadError ? (
         <Panel title="Could not load post">
           <div className="grid gap-3">
@@ -820,16 +938,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 <PendingSubmitButton pending={savePending} pendingText="Saving…">
                   Save draft
                 </PendingSubmitButton>
-                {shouldShowPublishAction(post, currentVersionNumber) ? (
-                  <PendingSubmitButton
-                    type="button"
-                    pending={publishPending}
-                    pendingText="Publishing…"
-                    onClick={() => void handlePublish()}
-                  >
-                    {post?.status === 'published' ? 'Publish changes' : 'Publish'}
-                  </PendingSubmitButton>
-                ) : null}
                 {post && post.status !== 'archived' ? (
                   <SpaConfirmButton
                     confirmLabel="Confirm archive"

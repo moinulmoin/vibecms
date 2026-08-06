@@ -210,7 +210,8 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   const presetId = resolvePresetId(siteRow?.theme ?? null)
   // The editor preview renders the exact public page chrome, so it needs the
   // site's identity (masthead) and theme inputs (accent/font/mode), not just
-  // the resolved preset.
+  // the resolved preset. The review strip needs the public base URL (open-live
+  // link) and the latest version summary (last actor / last change).
   const site = siteRow
     ? {
         name: siteRow.name,
@@ -221,11 +222,23 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
         themeMode: siteRow.themeMode,
       }
     : null
+  const publicBaseUrl = siteRow ? await getSitePublicBaseUrl(app.siteId, siteRow.slug) : null
   if (!postId) {
-    return { mode: 'new' as const, post: null, assets, missing: false, presetId, site, currentVersionNumber: null }
+    return {
+      mode: 'new' as const,
+      post: null,
+      assets,
+      missing: false,
+      presetId,
+      site,
+      publicBaseUrl,
+      currentVersionNumber: null,
+      latestVersion: null,
+    }
   }
   const repo = postRepository()
   const post = await repo.getPost(app.siteId, postId)
+  const versions = post ? await listPostVersions(repo, app.actor, { siteId: app.siteId, postId }) : []
   return {
     mode: 'edit' as const,
     post: post as Post | null,
@@ -233,7 +246,9 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
     missing: !post,
     presetId,
     site,
+    publicBaseUrl,
     currentVersionNumber: post?.currentVersionNumber ?? null,
+    latestVersion: versions[0] ?? null,
   }
 }
 

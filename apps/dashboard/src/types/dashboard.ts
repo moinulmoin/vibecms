@@ -1,4 +1,4 @@
-import type { Asset, BillingStatus, DomainRecord, Post } from '@vc/core'
+import type { Asset, BillingStatus, DomainRecord, Post, PostVersionSummary } from '@vc/core'
 import type { VoiceProfileSettingsInput } from '@vc/validators'
 
 export type SessionUser = { id: string; name: string; email: string }
@@ -224,7 +224,11 @@ export type PostEditorPageLoad = {
   missing: boolean
   presetId: string
   site: EditorSiteInfo | null
+  /** Public origin of the blog (null when no active hostname), for open-live links. */
+  publicBaseUrl: string | null
   currentVersionNumber: number | null
+  /** Latest saved version (newest first), for the review strip's actor/time line. */
+  latestVersion: PostVersionSummary | null
 }
 
 export type PostsPageLoad = {
