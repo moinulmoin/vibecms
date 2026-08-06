@@ -62,6 +62,37 @@ function mcpRequest(body: unknown, headers: HeadersInit = { "content-type": "app
   });
 }
 
+const MODERN_PROTOCOL_VERSION = "2026-07-28";
+
+function modernMcpRequest(
+  method: string,
+  params: Record<string, unknown> = {},
+  version = MODERN_PROTOCOL_VERSION,
+) {
+  return mcpRequest(
+    {
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params: {
+        ...params,
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": version,
+          "io.modelcontextprotocol/clientInfo": { name: "vibecms-test", version: "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    },
+    {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "MCP-Protocol-Version": version,
+      "Mcp-Method": method,
+      ...(typeof params.name === "string" ? { "Mcp-Name": params.name } : {}),
+    },
+  );
+}
+
 async function hashToken(token: string) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -104,6 +135,125 @@ describe("MCP initialize safety contract", () => {
     expect(instructions).toContain("expectedVersionNumber");
     expect(instructions).toContain("mutate live state");
     expect(instructions).toContain("dashboard is the human control plane");
+  });
+});
+
+describe("MCP 2026-07-28 stateless transport", () => {
+  it("discovers supported versions and server capabilities per request", async () => {
+    const response = await handleMcpRequest(modernMcpRequest("server/discover"));
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      result: {
+        resultType: string;
+        supportedVersions: string[];
+        capabilities: Record<string, unknown>;
+        ttlMs: number;
+        cacheScope: string;
+        _meta: Record<string, unknown>;
+      };
+    };
+    expect(json.result).toMatchObject({
+      resultType: "complete",
+      capabilities: { tools: {} },
+      ttlMs: 300_000,
+      cacheScope: "public",
+    });
+    expect(json.result.supportedVersions).toContain(MODERN_PROTOCOL_VERSION);
+    expect(json.result.supportedVersions).not.toContain("2024-11-05");
+    expect(json.result._meta["io.modelcontextprotocol/serverInfo"]).toEqual({
+      name: "vibecms",
+      version: "0.1.0",
+    });
+  });
+
+  it("returns cacheable, deterministic tools with modern result metadata", async () => {
+    const response = await handleMcpRequest(modernMcpRequest("tools/list"));
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      result: { resultType: string; tools: Tool[]; ttlMs: number; cacheScope: string };
+    };
+    const names = json.result.tools.map((tool) => tool.name);
+    expect(json.result).toMatchObject({
+      resultType: "complete",
+      ttlMs: 300_000,
+      cacheScope: "public",
+    });
+    expect(names).toEqual([...names].sort((left, right) => left.localeCompare(right)));
+  });
+
+  it("rejects missing or mismatched mirrored headers", async () => {
+    const missingMethod = modernMcpRequest("tools/list");
+    missingMethod.headers.delete("Mcp-Method");
+    const missingResponse = await handleMcpRequest(missingMethod);
+    expect(missingResponse.status).toBe(400);
+    expect((await missingResponse.json()) as RpcErrorBody).toMatchObject({ error: { code: -32020 } });
+
+    const mismatchedName = modernMcpRequest("tools/call", { name: "posts.list", arguments: {} });
+    mismatchedName.headers.set("Mcp-Name", "posts.get");
+    const mismatchResponse = await handleMcpRequest(mismatchedName);
+    expect(mismatchResponse.status).toBe(400);
+    expect((await mismatchResponse.json()) as RpcErrorBody).toMatchObject({ error: { code: -32020 } });
+  });
+
+  it("returns the standard unsupported-version error with supported revisions", async () => {
+    const response = await handleMcpRequest(modernMcpRequest("tools/list", {}, "2099-01-01"));
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as RpcErrorBody & {
+      error: RpcErrorBody["error"] & { data: { requested: string; supported: string[] } };
+    };
+    expect(json.error.code).toBe(-32022);
+    expect(json.error.data.requested).toBe("2099-01-01");
+    expect(json.error.data.supported).toContain(MODERN_PROTOCOL_VERSION);
+  });
+
+  it("requires client capabilities in every modern request", async () => {
+    const response = await handleMcpRequest(
+      mcpRequest(
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: {
+            _meta: {
+              "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOL_VERSION,
+            },
+          },
+        },
+        {
+          "content-type": "application/json",
+          "MCP-Protocol-Version": MODERN_PROTOCOL_VERSION,
+          "Mcp-Method": "tools/list",
+        },
+      ),
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()) as RpcErrorBody).toMatchObject({ error: { code: -32602 } });
+  });
+
+  it("removes initialize from modern semantics while preserving the legacy handshake", async () => {
+    const modernResponse = await handleMcpRequest(modernMcpRequest("initialize"));
+    expect(modernResponse.status).toBe(404);
+    expect((await modernResponse.json()) as RpcErrorBody).toMatchObject({ error: { code: -32601 } });
+
+    const legacyResponse = await handleMcpRequest(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "initialize",
+        params: { protocolVersion: "2025-11-25" },
+      }),
+    );
+    const legacyJson = (await legacyResponse.json()) as { result: { protocolVersion: string; resultType?: string } };
+    expect(legacyResponse.status).toBe(200);
+    expect(legacyJson.result).toMatchObject({ protocolVersion: "2025-11-25" });
+    expect(legacyJson.result.resultType).toBeUndefined();
+  });
+
+  it("rejects cross-origin browser requests", async () => {
+    const request = modernMcpRequest("tools/list");
+    request.headers.set("Origin", "https://evil.example");
+    const response = await handleMcpRequest(request);
+    expect(response.status).toBe(403);
   });
 });
 

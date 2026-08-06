@@ -39,21 +39,120 @@ function apiUsageKind(toolName: string): ApiUsageKind {
 function forceQuotaForSmoke(request: Request) {
   return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
 }
-const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
-const LATEST_PROTOCOL_VERSION = "2025-06-18";
+const MODERN_PROTOCOL_VERSION = "2026-07-28";
+const LEGACY_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
+const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...LEGACY_PROTOCOL_VERSIONS] as const;
+const LATEST_LEGACY_PROTOCOL_VERSION = LEGACY_PROTOCOL_VERSIONS[0];
+const SERVER_INFO = { name: "vibecms", version: "0.1.0" } as const;
+const DISCOVERY_TTL_MS = 300_000;
 const recoverableToolErrorCodes = new Set(["VALIDATION_ERROR", "CONFLICT", "NOT_FOUND"]);
 
-function negotiateProtocolVersion(params: unknown): string {
+function negotiateLegacyProtocolVersion(params: unknown): string {
   const requested = stringParam(asObject(params), "protocolVersion");
-  return requested && (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(requested) ? requested : LATEST_PROTOCOL_VERSION;
+  return requested && (LEGACY_PROTOCOL_VERSIONS as readonly string[]).includes(requested)
+    ? requested
+    : LATEST_LEGACY_PROTOCOL_VERSION;
 }
 
-function result(id: JsonRpcRequest["id"], value: unknown) {
-  return Response.json({ jsonrpc: "2.0", id: id ?? null, result: value });
+function requestMeta(params: unknown) {
+  return asObject(asObject(params)._meta);
 }
 
-function rpcError(id: JsonRpcRequest["id"], code: number, message: string, status = 200, headers?: HeadersInit) {
-  return Response.json({ jsonrpc: "2.0", id: id ?? null, error: { code, message } }, { status, headers });
+function completeResult(value: unknown) {
+  const record = asObject(value);
+  return {
+    ...record,
+    resultType: "complete",
+    _meta: {
+      ...asObject(record._meta),
+      "io.modelcontextprotocol/serverInfo": SERVER_INFO,
+    },
+  };
+}
+
+function result(id: JsonRpcRequest["id"], value: unknown, modern = false) {
+  return Response.json({ jsonrpc: "2.0", id: id ?? null, result: modern ? completeResult(value) : value });
+}
+
+function rpcError(
+  id: JsonRpcRequest["id"],
+  code: number,
+  message: string,
+  status = 200,
+  headers?: HeadersInit,
+  data?: unknown,
+) {
+  return Response.json(
+    { jsonrpc: "2.0", id: id ?? null, error: { code, message, ...(data === undefined ? {} : { data }) } },
+    { status, headers },
+  );
+}
+
+function hasInvalidOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin !== new URL(request.url).origin;
+  } catch {
+    return true;
+  }
+}
+
+function decodeMirroredHeader(value: string): string | undefined {
+  const encodedPrefix = "=?base64?";
+  if (value.startsWith(encodedPrefix) && value.endsWith("?=")) {
+    try {
+      const bytes = Uint8Array.from(atob(value.slice(encodedPrefix.length, -2)), (character) =>
+        character.charCodeAt(0),
+      );
+      return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
+    } catch {
+      return undefined;
+    }
+  }
+  return /^[\x20-\x7e]+$/.test(value) ? value : undefined;
+}
+
+function unsupportedProtocolVersion(id: JsonRpcRequest["id"], requested: string) {
+  return rpcError(id, -32022, "Unsupported protocol version", 400, undefined, {
+    supported: [...SUPPORTED_PROTOCOL_VERSIONS],
+    requested,
+  });
+}
+
+function validateModernRequest(request: Request, body: JsonRpcRequest): Response | undefined {
+
+  const meta = requestMeta(body.params);
+  const protocolHeader = request.headers.get("MCP-Protocol-Version");
+  const metaVersion = meta["io.modelcontextprotocol/protocolVersion"];
+  if (!protocolHeader || typeof metaVersion !== "string" || protocolHeader !== metaVersion) {
+    return rpcError(body.id, -32020, "Header mismatch: MCP-Protocol-Version must match request _meta", 400);
+  }
+  if (protocolHeader !== MODERN_PROTOCOL_VERSION) {
+    return unsupportedProtocolVersion(body.id, protocolHeader);
+  }
+  if (body.id === undefined || body.id === null) {
+    return rpcError(body.id, -32600, "Modern MCP requests require a string or number id", 400);
+  }
+
+  const methodHeader = request.headers.get("Mcp-Method");
+  if (!methodHeader || methodHeader !== body.method) {
+    return rpcError(body.id, -32020, "Header mismatch: Mcp-Method must match the request method", 400);
+  }
+
+  if (body.method === "tools/call") {
+    const bodyName = asObject(body.params).name;
+    const nameHeader = request.headers.get("Mcp-Name");
+    const decodedName = nameHeader ? decodeMirroredHeader(nameHeader) : undefined;
+    if (typeof bodyName !== "string" || !decodedName || decodedName !== bodyName) {
+      return rpcError(body.id, -32020, "Header mismatch: Mcp-Name must match the requested tool", 400);
+    }
+  }
+
+  const clientCapabilities = meta["io.modelcontextprotocol/clientCapabilities"];
+  if (!clientCapabilities || typeof clientCapabilities !== "object" || Array.isArray(clientCapabilities)) {
+    return rpcError(body.id, -32602, "Missing or invalid client capabilities in request _meta", 400);
+  }
 }
 
 function isJsonContentType(request: Request) {
@@ -161,7 +260,8 @@ function listedTools(actor?: Actor) {
             "vibecms.com/requiredScope": op.requiredScope,
           },
         };
-      }),
+      })
+      .sort((left, right) => left.name.localeCompare(right.name)),
   };
 }
 
@@ -197,37 +297,77 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
 }
 
 export async function handleMcpRequest(request: Request) {
+  if (hasInvalidOrigin(request)) return new Response("Forbidden", { status: 403 });
   if (request.method === "GET") return new Response(null, { status: 405, headers: { Allow: "POST" } });
   if (request.method !== "POST") return new Response(null, { status: 405 });
   if (!isJsonContentType(request)) {
     return rpcError(null, -32600, "Content-Type must be application/json", 400);
   }
+
   let parsed: unknown;
   try {
     parsed = await request.json();
   } catch {
     return rpcError(null, -32700, "Parse error", 400);
   }
+
   const validated = validateJsonRpcRequest(parsed);
   if (!validated.ok) return validated.response;
   const body = validated.body;
+  const meta = requestMeta(body.params);
   const protocolHeader = request.headers.get("MCP-Protocol-Version");
-  if (protocolHeader && !(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(protocolHeader)) {
-    return rpcError(body.id, -32600, `Unsupported MCP-Protocol-Version: ${protocolHeader}`, 400);
+  const metaVersion = meta["io.modelcontextprotocol/protocolVersion"];
+  const hasModernMetadata =
+    "io.modelcontextprotocol/protocolVersion" in meta ||
+    "io.modelcontextprotocol/clientCapabilities" in meta;
+  const modern =
+    hasModernMetadata ||
+    [protocolHeader, metaVersion].some(
+      (version) =>
+        typeof version === "string" &&
+        !(LEGACY_PROTOCOL_VERSIONS as readonly string[]).includes(version),
+    );
+
+  if (modern) {
+    const modernError = validateModernRequest(request, body);
+    if (modernError) return modernError;
   }
-  if (body.method === "initialize") {
+
+  if (!modern && body.method === "initialize") {
     return result(body.id, {
-      protocolVersion: negotiateProtocolVersion(body.params),
+      protocolVersion: negotiateLegacyProtocolVersion(body.params),
       capabilities: { tools: {} },
-      serverInfo: { name: "vibecms", title: "vibecms", version: "0.1.0" },
+      serverInfo: { ...SERVER_INFO, title: "vibecms" },
       instructions: mcpInstructions,
     });
   }
-  if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
+  if (!modern && body.method === "notifications/initialized") {
+    return new Response(null, { status: 202 });
+  }
+  if (modern && body.method === "server/discover") {
+    return result(
+      body.id,
+      {
+        supportedVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
+        capabilities: { tools: {} },
+        instructions: mcpInstructions,
+        ttlMs: DISCOVERY_TTL_MS,
+        cacheScope: "public",
+      },
+      true,
+    );
+  }
   if (body.method === "tools/list") {
     // Unauthenticated discovery is allowed; a Bearer header requires auth + read budget.
     if (!hasBearerAuthorization(request)) {
-      return result(body.id, listedTools());
+      return result(
+        body.id,
+        {
+          ...listedTools(),
+          ...(modern ? { ttlMs: DISCOVERY_TTL_MS, cacheScope: "public" } : {}),
+        },
+        modern,
+      );
     }
     const auth = await authenticateBearerToken(request);
     if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
@@ -239,19 +379,32 @@ export async function handleMcpRequest(request: Request) {
         kind: "read",
         force: forceQuotaForSmoke(request),
       });
-      return result(body.id, listedTools(auth.actor));
+      return result(
+        body.id,
+        {
+          ...listedTools(auth.actor),
+          ...(modern ? { ttlMs: DISCOVERY_TTL_MS, cacheScope: "private" } : {}),
+        },
+        modern,
+      );
     } catch (error) {
       if (error instanceof AppError) return appRpcError(body.id, error);
       return rpcError(body.id, -32000, "Tool failed", 500);
     }
   }
-  if (body.method !== "tools/call") return rpcError(body.id, -32601, "Method not found");
+
+  if (body.method !== "tools/call") {
+    return rpcError(body.id, -32601, "Method not found", modern ? 404 : 200);
+  }
   const auth = await authenticateBearerToken(request);
   if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);
-  if (!(contractToolNames as readonly string[]).includes(name)) return rpcError(body.id, -32602, `Unknown tool: ${name}`, 400);
+  if (!(contractToolNames as readonly string[]).includes(name)) {
+    return rpcError(body.id, -32602, `Unknown tool: ${name}`, 400);
+  }
+
   try {
     await enforceApiBudget({
       workspaceId: auth.workspaceId,
@@ -263,13 +416,16 @@ export async function handleMcpRequest(request: Request) {
     return result(
       body.id,
       await callTool(name as McpToolName, auth.actor, auth.siteId, auth.workspaceId, auth.tokenId, params.arguments),
+      modern,
     );
   } catch (error) {
     const validationMessage = zodValidationMessage(error);
-    if (validationMessage) return result(body.id, toolError(validationMessage));
-    if (error instanceof UploadError) return result(body.id, toolError(FORM_STATUS[error.code]?.message ?? "Upload failed."));
+    if (validationMessage) return result(body.id, toolError(validationMessage), modern);
+    if (error instanceof UploadError) {
+      return result(body.id, toolError(FORM_STATUS[error.code]?.message ?? "Upload failed."), modern);
+    }
     if (error instanceof AppError) {
-      if (recoverableToolErrorCodes.has(error.code)) return result(body.id, toolError(error.message));
+      if (recoverableToolErrorCodes.has(error.code)) return result(body.id, toolError(error.message), modern);
       return appRpcError(body.id, error);
     }
     return rpcError(body.id, -32000, "Tool failed", 500);
