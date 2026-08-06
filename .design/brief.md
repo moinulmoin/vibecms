@@ -41,9 +41,15 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
 3. **Dashboard composition/typeset** — PARTIAL (b6c5877): 1200px canvas,
    optional kicker with echo kickers removed, editor status dedup. OPEN:
    decisions-first overview order, posts list actor column, copy-level typeset.
-4. **Voice pass** — copy balance across three audiences: technical (devs),
-   non-technical (outcome language), agent-facing (llms.txt, MCP, structured
-   truth equivalent to the visual UI).
+4. **Voice pass** — DONE (7fb1549). Landing clichés removed ("Everything one
+   serious blog needs", "Live in seconds", "served fast"); "serious blog" kept
+   only in pricing; security claim unified ("it never sees your login");
+   BRAND.description = "The CMS your agents publish into…" everywhere (config,
+   manifests, README); product llms.txt gained a For agents section (MCP
+   endpoint, per-post Markdown, tenant llms.txt); overview badge now says
+   "Free plan" (was false-urgency "Subscribe to publish"). MCP instructions
+   ("one calm blog") and dashboard empty states were already in-voice —
+   untouched.
 
 ## Invariants
 
