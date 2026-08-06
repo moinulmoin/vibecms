@@ -691,3 +691,55 @@ describe("dashboard.getActivationPost — draft attribution with versionNumber",
     expect(proof.post).toMatchObject({ id: "rm-do-draft", slug: "do-draft", updatedAt: T + 30, versionNumber: 2 });
   });
 });
+
+describe("dashboard.listPostsForDashboard — actor join, version fold, list semantics", () => {
+  it("resolves actor names from user and api key, folds max version, and orders by updatedAt", async () => {
+    await exec(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "rm-site-actors", "rm-ws", "RM Actors", "rm-site-actors", T, T,
+    );
+    await exec(
+      "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "rm-actor-user", "Rae Reviewer", "rae-review@example.test", 0, T, T,
+    );
+    await exec(
+      "INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, revoked_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-actor-key", "rm-site-actors", "Agent key", "rm-agt_", "rm-hash-agent", "[]", "Agent Quill", "rm-actor-user", null, T, T,
+    );
+    await exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-ap-1", "rm-site-actors", "Actor A", "actor-a", "# a", "published", T, '["x"]', "human", "rm-actor-user", "human", "rm-actor-user", T, T + 30,
+    );
+    await exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-ap-2", "rm-site-actors", "Actor B", "actor-b", "# b", "draft", null, "[]", "api_key", "rm-actor-key", "api_key", "rm-actor-key", T, T + 20,
+    );
+    await exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-ap-3", "rm-site-actors", "Actor C", "actor-c", "# c", "archived", T, "[]", "system", "rm-system", "system", "rm-system", T, T + 10,
+    );
+    await exec(
+      "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-ap-pv-1", "rm-ap-1", "rm-site-actors", 1, "Actor A", "actor-a", "# a", "published", "[]", "human", "rm-actor-user", T,
+    );
+    await exec(
+      "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "rm-ap-pv-3", "rm-ap-1", "rm-site-actors", 3, "Actor A", "actor-a", "# a3", "published", "[]", "human", "rm-actor-user", T,
+    );
+
+    const rows = await da.dashboard.listPostsForDashboard("rm-site-actors", { limit: 10, offset: 0 });
+    expect(rows.map((r) => r.id)).toEqual(["rm-ap-1", "rm-ap-2", "rm-ap-3"]);
+    const [a, b, c] = rows;
+    // Human name wins from user.name; api key name from api_keys.actor_name;
+    // an unmatched system actor yields null (the UI guards it).
+    expect(a).toMatchObject({ versionNumber: 3, updatedByType: "human", updatedByName: "Rae Reviewer" });
+    expect(b).toMatchObject({ versionNumber: null, updatedByType: "api_key", updatedByName: "Agent Quill" });
+    expect(c.updatedByName).toBeNull();
+
+    // Status + search semantics match the core listing.
+    const drafts = await da.dashboard.listPostsForDashboard("rm-site-actors", { status: "draft", limit: 10, offset: 0 });
+    expect(drafts.map((r) => r.id)).toEqual(["rm-ap-2"]);
+    const searched = await da.dashboard.listPostsForDashboard("rm-site-actors", { search: "actor-c", limit: 10, offset: 0 });
+    expect(searched.map((r) => r.id)).toEqual(["rm-ap-3"]);
+  });
+});

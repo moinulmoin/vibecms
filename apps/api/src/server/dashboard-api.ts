@@ -31,7 +31,6 @@ import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForAp
 import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { clearVoiceProfileForApp, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
 import type { AppUserContext } from '@/server/onboarding'
-import { getPosts } from '@/server/cms'
 import {
   archivePostForApp,
   createPostForApp,
@@ -192,14 +191,29 @@ export async function loadPostsPage(
       ? input.status
       : undefined
   const offset = Math.min(Math.max(input.offset ?? 0, 0), 10_000)
-  const fetched = await getPosts(app, status, input.search?.trim() || undefined, POSTS_PAGE_SIZE + 1, offset)
-  const repo = postRepository()
-  const postsWithVersions: DashboardPostSummary[] = await Promise.all(
-    fetched.map(async (post) => {
-      const versions = await listPostVersions(repo, app.actor, { siteId: app.siteId, postId: post.id })
-      return { ...post, versionNumber: versions[0]?.versionNumber ?? null }
-    }),
-  )
+  // One read-model query: summary + latest version number + last-change actor
+  // (the previous shape fetched versions per row — N+1).
+  const rows = await createDataAccess(env.DB).dashboard.listPostsForDashboard(app.siteId, {
+    status,
+    search: input.search?.trim() || undefined,
+    limit: POSTS_PAGE_SIZE + 1,
+    offset,
+  })
+  const postsWithVersions: DashboardPostSummary[] = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt,
+    coverAssetId: row.coverAssetId,
+    status: row.status,
+    publishedAt: row.publishedAt,
+    tags: JSON.parse(row.tagsJson) as string[],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    versionNumber: row.versionNumber,
+    updatedByType: row.updatedByType,
+    updatedByName: row.updatedByName,
+  }))
   const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
   return { posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions, hasMore }
 }

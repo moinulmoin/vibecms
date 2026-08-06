@@ -61,6 +61,17 @@ export function postListRefreshError(action: 'publish' | 'archive') {
   return `Post ${action === 'publish' ? 'published' : 'archived'}, but the list could not refresh.`
 }
 
+/**
+ * Last-change actor label for the posts list. Single-human workspace: a human
+ * change with an empty profile name is the owner ("you"); unnamed token/agent
+ * changes read as "agent".
+ */
+export function actorDisplayName(updatedByType: string | null, updatedByName: string | null): string {
+  const name = updatedByName?.trim()
+  if (name) return name
+  return updatedByType === 'api_key' || updatedByType === 'agent' ? 'agent' : 'you'
+}
+
 function PostsSkeleton() {
   return (
     <>
@@ -268,6 +279,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   </div>
                   <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
                     <StatusBadge status={post.status} />
+                    <span className="truncate">By {actorDisplayName(post.updatedByType, post.updatedByName)}</span>
                     <span className="tabular-nums">Updated {formatDate(post.updatedAt)}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -318,14 +330,15 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               ))}
             </div>
             <div className="hidden md:grid md:gap-1.5">
-              <div className="grid grid-cols-[1.5fr_.55fr_.7fr_1fr] gap-3 px-4 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              <div className="grid grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] gap-3 px-4 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 <span>Post</span>
                 <span>Status</span>
+                <span>By</span>
                 <span>Updated</span>
                 <span className="text-right">Actions</span>
               </div>
               {posts.map((post) => (
-                <DataRow className="md:grid-cols-[1.5fr_.55fr_.7fr_1fr] md:items-center" key={post.id}>
+                <DataRow className="md:grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] md:items-center" key={post.id}>
                   <div className="min-w-0">
                     <Link
                       className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
@@ -343,6 +356,12 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     </p>
                   </div>
                   <StatusBadge status={post.status} className="w-fit" />
+                  <span
+                    className="truncate font-mono text-xs text-muted-foreground"
+                    title={post.updatedByName ?? undefined}
+                  >
+                    {actorDisplayName(post.updatedByType, post.updatedByName)}
+                  </span>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDate(post.updatedAt)}</span>
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">

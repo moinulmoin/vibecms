@@ -31,6 +31,15 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
+  recentDrafts: Array<{
+    id: string
+    title: string
+    slug: string
+    status: Post['status']
+    updatedAt: number
+    publishedAt: number | null
+  }>
   recentActivity: ActivityRow[]
   activationPost: null | {
     id: string
@@ -80,6 +89,7 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     tokenCount: agg.tokenCount,
     versionCount: agg.versionCount,
     recentPosts: agg.recentPosts,
+    recentDrafts: agg.recentDrafts,
     recentActivity: agg.recentActivity.map((a) => ({
       action: a.action,
       summary: a.summary,

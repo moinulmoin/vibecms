@@ -19,7 +19,12 @@ export function narrowDashboardData(result: DashboardApiResponse): DashboardData
     if (!isDashboardPostStatus(post.status)) continue
     recentPosts.push({ ...post, status: post.status })
   }
-  return { ...result, recentPosts }
+  const recentDrafts: DashboardData['recentDrafts'] = []
+  for (const post of result.recentDrafts) {
+    if (!isDashboardPostStatus(post.status)) continue
+    recentDrafts.push({ ...post, status: post.status })
+  }
+  return { ...result, recentPosts, recentDrafts }
 }
 
 import { loadDashboardOverview } from '~/lib/api-client'
@@ -106,15 +111,16 @@ function OverviewSkeleton() {
         </div>
         <Skeleton className="h-9 w-28" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
+      <Skeleton className="h-24 rounded-2xl" />
       <Skeleton className="h-40 rounded-2xl" />
       <div className="grid gap-4 xl:grid-cols-2">
         <Skeleton className="h-56 rounded-2xl" />
         <Skeleton className="h-56 rounded-2xl" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-2xl" />
+        ))}
       </div>
     </>
   )
@@ -209,6 +215,41 @@ export function DashboardOverview() {
         </div>
       </Card>
 
+      {data.recentDrafts.length > 0 ? (
+        <Panel
+          title="Needs review"
+          meta={
+            <Button asChild variant="link">
+              <Link to="/dashboard/posts" search={postsListSearch({ status: 'draft' })}>
+                View all drafts
+              </Link>
+            </Button>
+          }
+        >
+          <div className="grid gap-2">
+            {data.recentDrafts.map((post) => (
+              <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
+                <strong className="truncate font-display font-semibold text-foreground">
+                  <Link
+                    className="no-underline hover:underline"
+                    {...postEditorLink(post.id)}
+                    search={emptyPostEditorSearch}
+                  >
+                    {post.title}
+                  </Link>
+                </strong>
+                <Badge variant="outline" className="w-fit capitalize">
+                  {post.status}
+                </Badge>
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {formatDate(post.updatedAt)}
+                </span>
+              </DataRow>
+            ))}
+          </div>
+        </Panel>
+      ) : null}
+
       {data.activationPost && (
         <Card className="gap-0 p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -252,45 +293,38 @@ export function DashboardOverview() {
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Link
-          to="/dashboard/posts"
-          search={postsListSearch({ status: 'published' })}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
-        </Link>
-        <Link
-          to="/dashboard/posts"
-          search={postsListSearch({ status: 'draft' })}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
-        </Link>
-        <Link
-          to="/dashboard/media"
-          search={emptyDashboardStatusSearch}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <StatCard
-            label="Media used"
-            value={formatBytes(data.media.bytes)}
-            detail={`${data.media.count} images of ${quotaLabel}`}
-            interactive
-          />
-        </Link>
-        <Link
-          to="/dashboard/connect"
-          search={emptyDashboardStatusSearch}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
-        </Link>
-      </div>
-
-
-
       <div className="grid gap-4 xl:grid-cols-2">
+        <Panel
+          title="Recent activity"
+          meta={
+            <Button asChild variant="link">
+              <Link to="/dashboard/activity">View all</Link>
+            </Button>
+          }
+        >
+          {data.recentActivity.length ? (
+            <div className="grid gap-2">
+              {data.recentActivity.map((event) => (
+                <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
+                  <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {labelAction(event.action)}
+                  </span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {formatDateTime(event.created_at)}
+                  </span>
+                </DataRow>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<ActivityLogIcon />}
+              title="No activity yet"
+              description="Create a post, upload media, or issue an API token and this log fills in automatically."
+            />
+          )}
+        </Panel>
+
         <Panel
           title="Recent posts"
           meta={
@@ -349,37 +383,42 @@ export function DashboardOverview() {
             />
           )}
         </Panel>
+      </div>
 
-        <Panel
-          title="Recent activity"
-          meta={
-            <Button asChild variant="link">
-              <Link to="/dashboard/activity">View all</Link>
-            </Button>
-          }
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link
+          to="/dashboard/posts"
+          search={postsListSearch({ status: 'published' })}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {data.recentActivity.length ? (
-            <div className="grid gap-2">
-              {data.recentActivity.map((event) => (
-                <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
-                  <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {labelAction(event.action)}
-                  </span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {formatDateTime(event.created_at)}
-                  </span>
-                </DataRow>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={<ActivityLogIcon />}
-              title="No activity yet"
-              description="Create a post, upload media, or issue an API token and this log fills in automatically."
-            />
-          )}
-        </Panel>
+          <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
+        </Link>
+        <Link
+          to="/dashboard/posts"
+          search={postsListSearch({ status: 'draft' })}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
+        </Link>
+        <Link
+          to="/dashboard/media"
+          search={emptyDashboardStatusSearch}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard
+            label="Media used"
+            value={formatBytes(data.media.bytes)}
+            detail={`${data.media.count} images of ${quotaLabel}`}
+            interactive
+          />
+        </Link>
+        <Link
+          to="/dashboard/connect"
+          search={emptyDashboardStatusSearch}
+          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
+        </Link>
       </div>
 
       <ApiUsagePanel usage={data.apiUsage} />

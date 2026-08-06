@@ -51,6 +51,15 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
+  recentDrafts: Array<{
+    id: string
+    title: string
+    slug: string
+    status: Post['status']
+    updatedAt: number
+    publishedAt: number | null
+  }>
   recentActivity: Array<{ action: string; summary: string; actor_name: string; created_at: number }>
   activationPost: null | {
     id: string
@@ -250,6 +259,10 @@ export type DashboardPostSummary = {
   createdAt: number
   updatedAt: number
   versionNumber: number | null
+  /** Last-change actor: type (human/agent/api_key/system) + resolved name
+   * (user.name or api key name; null when neither matches). */
+  updatedByType: string | null
+  updatedByName: string | null
 }
 
 export type ApiKeyMutationResult =

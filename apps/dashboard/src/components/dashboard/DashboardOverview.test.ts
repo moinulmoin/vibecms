@@ -32,6 +32,7 @@ const baseResponse = {
   tokenCount: 0,
   versionCount: 0,
   recentPosts: [],
+  recentDrafts: [],
   recentActivity: [],
   activationPost: null,
 } as DashboardApiResponse
