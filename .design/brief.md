@@ -26,14 +26,19 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
 
 ## Program sequence (agreed with user)
 
-1. **Honest templates** — four visibly distinct preset identities through
-   typography, measure, rhythm, and article/index composition. Bounded controls
-   stay: preset, accent, type, mode. No page builder.
-2. **Editor as review surface** — exact full-page preview (masthead, article,
-   metadata, ToC, subscribe), actor/version context, saved-vs-public state
-   distinction, publish near the preview. Markdown stays canonical.
-3. **Dashboard composition/typeset** — contextual canvas widths, optional
-   kicker, larger content type, decisions-first overview.
+1. **Honest templates** — DONE (d897edf). Four distinct typographic identities;
+   per-theme token blocks in presets.css + chrome rules; `data-vc-theme` on the
+   article root keeps public SSR and dashboard preview identical.
+2. **Editor as review surface** — IN PROGRESS. DONE (ca591ba): exact full-page
+   preview via shared `PublicPageChrome`/`SubscribeBlock` from @vc/content;
+   editor payload carries site identity + theme; preview is read-only (links
+   captured, subscribe inert). OPEN: actor/version/last-change context in the
+   header, saved-vs-public ("unpublished changes") distinction near publish,
+   publish action adjacent to the preview, mobile Preview/Markdown/Settings
+   tabs.
+3. **Dashboard composition/typeset** — PARTIAL (b6c5877): 1200px canvas,
+   optional kicker with echo kickers removed, editor status dedup. OPEN:
+   decisions-first overview order, posts list actor column, copy-level typeset.
 4. **Voice pass** — copy balance across three audiences: technical (devs),
    non-technical (outcome language), agent-facing (llms.txt, MCP, structured
    truth equivalent to the visual UI).
