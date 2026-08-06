@@ -38,9 +38,12 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    DEFERRED (explicit): mobile Preview/Markdown/Settings tabs — the stacked
    layout recomposes correctly today; a tab system needs shared mode state
    across panels and deserves its own pass with mobile QA.
-3. **Dashboard composition/typeset** — PARTIAL (b6c5877): 1200px canvas,
-   optional kicker with echo kickers removed, editor status dedup. OPEN:
-   decisions-first overview order, posts list actor column, copy-level typeset.
+3. **Dashboard composition/typeset** — DONE (b6c5877 + f93cd66): 1200px canvas,
+   optional kicker with echo kickers removed, editor status dedup. Overview is
+   decisions-first (status → Needs review drafts → latest publish → activity →
+   posts → stats → usage); posts list has the By column (actor via user/api-key
+   join, "you"/"agent" guards); one read-model query replaced the N+1 version
+   lookups.
 4. **Voice pass** — DONE (7fb1549). Landing clichés removed ("Everything one
    serious blog needs", "Live in seconds", "served fast"); "serious blog" kept
    only in pricing; security claim unified ("it never sees your login");
@@ -66,5 +69,8 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
 
 Dev apex `basedui.dev/` served a cached tenant blog instead of marketing
 (edge-cached tenant index, `s-maxage=300 swr=86400`, kept warm by traffic).
-Purged 2026-08-05 via forced revalidation. Root fix outstanding: tenant index
-responses should not be edge-cacheable on non-canonical hosts.
+Purged 2026-08-05 via forced revalidation. Root-cause review (2026-08-06): NOT
+reproducible under current routing — `isMarketingHost` classifies the zone apex
+before tenant resolution (unit-tested), tenant 404s carry no cacheable headers,
+and custom-hostname reassignment/removal already purges by host. The poisoned
+entry predated the marketing-host check. No code change needed; closed.
