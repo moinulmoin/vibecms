@@ -17,7 +17,7 @@ import {
   updatePostMutation,
 } from '~/lib/api-client'
 import { Button, PageHeader, Panel, formatDateTime } from '~/components/dashboard/DashboardLayout'
-import { Badge } from "@vc/ui"
+import { Badge, Card } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Switch } from '~/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
@@ -27,7 +27,7 @@ import { useMediaQuery } from '~/hooks/use-media-query'
 import type { EditorSiteInfo } from '~/types/dashboard'
 import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
+import { ChevronDownIcon, CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
 import {
   Sheet,
   SheetContent,
@@ -45,6 +45,17 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Separator } from "@vc/ui"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
+import { ScrollArea } from '~/components/ui/scroll-area'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from '~/components/ui/item'
 import { diffLines, type DiffLine } from '~/lib/diff'
 import { parseMutationResultJson } from '~/lib/mutation-result'
 
@@ -117,6 +128,48 @@ function PostStatusBadge({ status }: { status: string }) {
     <Badge variant="outline" className="capitalize">
       {status}
     </Badge>
+  )
+}
+
+/**
+ * A rail panel with a collapsible header. Defaults to open (Publish Settings)
+ * or closed (Presentation) via `defaultOpen`. The chevron rotates with the
+ * open state; focus ring and reduced-motion are respected.
+ */
+function RailSection({
+  title,
+  meta,
+  children,
+  defaultOpen = false,
+}: {
+  title: string
+  meta?: React.ReactNode
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  return (
+    <Card className="gap-0 p-5 sm:p-6">
+      <Collapsible defaultOpen={defaultOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="group flex w-full items-center justify-between gap-3 rounded-md text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <h2 className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
+            <span className="flex shrink-0 items-center gap-2">
+              {meta}
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none group-data-[state=open]:rotate-180"
+              />
+            </span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-5 grid gap-4">{children}</div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   )
 }
 
@@ -736,7 +789,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           </Panel>
           <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-6'}>
-            <Panel title="Publish Settings" meta={<PostStatusBadge status={post?.status ?? 'draft'} />}>
+            <RailSection title="Publish Settings" meta={<PostStatusBadge status={post?.status ?? 'draft'} />} defaultOpen>
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel
@@ -859,14 +912,24 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 </div>
               </details>
             </Field>
-                <details className="rounded-xl bg-muted/50 p-3">
-                  <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
-                    Search & sharing
-                  </summary>
-                  <FieldDescription className="mt-1 font-sans">
+                <Collapsible className="rounded-xl bg-muted/50 p-3">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="group flex w-full items-center justify-between gap-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    >
+                      <span className="font-mono text-[11px] font-medium text-foreground">Search & sharing</span>
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className="size-3.5 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none group-data-[state=open]:rotate-180"
+                      />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="grid gap-4 pt-4">
+                    <FieldDescription className="font-sans">
                     Optional overrides fall back to your post title and excerpt.
                   </FieldDescription>
-                  <div className="grid gap-4 pt-4">
                     <Field>
                       <FieldLabel
                         className="font-mono text-[11px] font-medium text-muted-foreground"
@@ -921,14 +984,15 @@ function PostEditorShell({ postId }: { postId?: string }) {
                       />
                     </Field>
                   </div>
-                </details>
+                </CollapsibleContent>
+                </Collapsible>
                 <p className="rounded-xl bg-muted/50 p-3 font-sans text-sm leading-6 text-muted-foreground">
                   Every save creates a post version and activity event, whether the change comes from you, an API token, or
                   an agent.
                 </p>
               </div>
-            </Panel>
-            <Panel title="Presentation">
+            </RailSection>
+            <RailSection title="Presentation">
               <div className="grid gap-4">
                 <Field>
                   <FieldLabel
@@ -973,12 +1037,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   </Field>
                 ) : null}
               </div>
-            </Panel>
+            </RailSection>
             <Panel title="Actions">
               <div className="grid gap-2">
-                <PendingSubmitButton pending={savePending} pendingText="Saving…">
-                  Save draft
-                </PendingSubmitButton>
                 {post && post.status !== 'archived' ? (
                   <SpaConfirmButton
                     confirmLabel="Confirm archive"
@@ -1012,7 +1073,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                         </SheetDescription>
                       </SheetHeader>
                       <Separator />
-                      <div className="flex-1 overflow-y-auto">
+                      <ScrollArea className="max-h-[26rem] min-h-0 flex-1">
                         {versionsLoading ? (
                           <div className="grid gap-3 p-4">
                             <Skeleton className="h-16 rounded-lg" />
@@ -1022,24 +1083,33 @@ function PostEditorShell({ postId }: { postId?: string }) {
                         ) : versions.length === 0 ? (
                           <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
                         ) : (
-                          <ul className="divide-y divide-[color:var(--hairline)]">
+                          <ItemGroup className="p-4">
                             {versions.map((v) => (
-                              <li key={v.versionNumber} className="flex flex-col gap-2 p-4">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="font-mono text-xs">
-                                    v{v.versionNumber}
-                                  </Badge>
-                                  <PostStatusBadge status={v.status} />
-                                </div>
-                                <p className="text-sm font-medium leading-snug">{v.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {v.actorName.trim() ? `${v.actorName} · ` : ''}
-                                  {relativeTime(v.createdAt)}
-                                </p>
-                                {v.changeSummary ? (
-                                  <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
-                                ) : null}
-                                <div className="flex gap-1.5 pt-1">
+                              <Item key={v.versionNumber} variant="outline">
+                                <ItemHeader>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="font-mono text-xs">
+                                      v{v.versionNumber}
+                                    </Badge>
+                                    {latestVersion?.versionNumber === v.versionNumber ? (
+                                      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
+                                        <span className="size-1.5 rounded-full bg-brand-bright" />
+                                        Current
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                </ItemHeader>
+                                <ItemContent>
+                                  <ItemTitle>{v.title}</ItemTitle>
+                                  <ItemDescription>
+                                    {v.actorName.trim() ? `${v.actorName} · ` : ''}
+                                    {relativeTime(v.createdAt)}
+                                  </ItemDescription>
+                                  {v.changeSummary ? (
+                                    <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
+                                  ) : null}
+                                </ItemContent>
+                                <ItemActions className="pt-1">
                                   <Button
                                     type="button"
                                     variant="outline"
@@ -1061,17 +1131,32 @@ function PostEditorShell({ postId }: { postId?: string }) {
                                     <ResetIcon className="size-3.5" aria-hidden="true" />
                                     Restore
                                   </SpaConfirmButton>
-                                </div>
-                              </li>
+                                </ItemActions>
+                              </Item>
                             ))}
-                          </ul>
+                          </ItemGroup>
                         )}
-                      </div>
+                      </ScrollArea>
                     </SheetContent>
                   </Sheet>
                 ) : null}
               </div>
             </Panel>
+            <div className="grid gap-2 lg:sticky lg:bottom-6">
+              <PendingSubmitButton pending={savePending} pendingText="Saving…">
+                Save draft
+              </PendingSubmitButton>
+              {postId && shouldShowPublishAction(post, currentVersionNumber) ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={publishPending}
+                  onClick={() => void handlePublish()}
+                >
+                  {publishPending ? 'Publishing…' : post?.status === 'published' ? 'Publish changes' : 'Publish'}
+                </Button>
+              ) : null}
+            </div>
           </aside>
         </form>
       )}

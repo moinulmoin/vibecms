@@ -4,9 +4,26 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
-import { CopyButton, Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, Input } from '@vc/ui'
+import {
+  Badge,
+  CopyButton,
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@vc/ui'
 import { CheckIcon, Link2Icon } from '@radix-ui/react-icons'
 import { Button, EmptyState, LoadError, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 import { Skeleton } from '@vc/ui'
 import type { ApiKeyListItem } from '~/types/dashboard'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
@@ -151,6 +168,16 @@ function UpgradeCtas({
   )
 }
 
+function scopeTooltip(label: string): string {
+  if (label === 'Publisher') {
+    return 'Everything Drafter allows, plus publishing posts live.'
+  }
+  if (label === 'Full publisher') {
+    return 'Everything Publisher allows, plus archiving posts.'
+  }
+  return 'Can create and edit drafts and upload media.'
+}
+
 function TokenRow({
   apiKey,
   pending,
@@ -160,31 +187,44 @@ function TokenRow({
   pending: boolean
   onDelete: (keyId: string) => Promise<void>
 }) {
+  const label = capabilityLabel(apiKey.scopes.filter(isScope))
   return (
-    <article className="grid gap-3 rounded-2xl bg-muted/50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <TableRow>
+      <TableCell>
         <div className="min-w-0">
-          <strong className="font-display text-foreground">{apiKey.name}</strong>
-          <p className="mt-1 font-mono text-xs text-primary">{apiKey.tokenPrefix}</p>
-          <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
-            {capabilityLabel(apiKey.scopes.filter(isScope))}
-          </p>
+          <strong className="font-display text-sm font-semibold text-foreground">{apiKey.name}</strong>
+          <p className="mt-0.5 font-mono text-xs text-primary">{apiKey.tokenPrefix}</p>
         </div>
-        <SpaConfirmButton
-          size="sm"
-          confirmLabel="Confirm revoke"
-          pendingLabel="Revoking..."
-          helperText="Revoking blocks this token immediately. It stays in activity and audit history."
-          disabled={pending}
-          onConfirm={() => onDelete(apiKey.id)}
-        >
-          Revoke token
-        </SpaConfirmButton>
-      </div>
-      <div className="font-mono text-xs text-muted-foreground">
-        Last used {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'never'}
-      </div>
-    </article>
+      </TableCell>
+      <TableCell>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" tabIndex={0} className="cursor-help">
+              {label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top">{scopeTooltip(label)}</TooltipContent>
+        </Tooltip>
+      </TableCell>
+      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+        {formatDate(apiKey.createdAt)}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center justify-end gap-2">
+          <CopyButton value={apiKey.tokenPrefix} iconOnly label="Copy token prefix" copiedLabel="Copied" />
+          <SpaConfirmButton
+            size="sm"
+            confirmLabel="Confirm revoke"
+            pendingLabel="Revoking..."
+            helperText="Revoking blocks this token immediately. It stays in activity and audit history."
+            disabled={pending}
+            onConfirm={() => onDelete(apiKey.id)}
+          >
+            Revoke token
+          </SpaConfirmButton>
+        </div>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -204,6 +244,8 @@ export function ConnectPage() {
   const [createPending, setCreatePending] = useState(false)
   const [revokePending, setRevokePending] = useState<string | null>(null)
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
+  // null = no explicit choice yet; the effective tab falls back to the state-derived default.
+  const [activeTab, setActiveTab] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const [connectLoadFailed, setConnectLoadFailed] = useState(false)
   const [statusLoadFailed, setStatusLoadFailed] = useState(false)
@@ -398,6 +440,8 @@ export function ConnectPage() {
   const livePost = status?.firstPost.state === 'live' ? status.firstPost.post : null
   const liveActorName = status?.firstPost.state === 'live' ? status.firstPost.actorName : null
   const apiKeys = connectData?.apiKeys ?? []
+  const defaultTab = live && apiKeys.length > 0 ? 'tokens' : 'setup'
+  const effectiveTab = activeTab ?? defaultTab
   const selectedKeyId = getActivationKeyId()
   const displayConn = resolveDisplayConnection(
     status?.connection,
@@ -442,7 +486,7 @@ export function ConnectPage() {
           : 'Create one scoped token, connect any compatible MCP agent, and verify the connection here.'
 
   return (
-    <>
+    <TooltipProvider>
       <noscript>
         <p className="rounded-xl bg-muted p-4 font-sans text-sm text-muted-foreground">
           vibecms needs JavaScript to manage tokens and detect your agent. Enable JavaScript and refresh this page.
@@ -453,16 +497,18 @@ export function ConnectPage() {
         {live ? '' : announcement}
       </div>
 
-      <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />
-
       {showInitialError ? (
         <LoadError message="Could not load connect status. Check your connection and try again." />
       ) : (
         <>
           <PageHeader
-            kicker={pageKicker}
-            title={pageTitle}
-            description={pageDesc}
+            kicker={effectiveTab === 'tokens' ? 'Access' : pageKicker}
+            title={effectiveTab === 'tokens' ? 'API tokens' : pageTitle}
+            description={
+              effectiveTab === 'tokens'
+                ? 'Create and manage scoped tokens that connect MCP agents to this blog.'
+                : pageDesc
+            }
             action={
               live ? (
                 <Button asChild>
@@ -486,243 +532,268 @@ export function ConnectPage() {
             </>
           )}
 
-          {!loading && live && status && (
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-              <Panel title="Publication proof">
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-                  {livePost && (
-                    <div className="grid gap-1">
-                      <p className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
-                        {livePost.title}
-                      </p>
-                      {liveActorName && (
-                        <p className="font-sans text-sm text-muted-foreground">
-                          Published by {liveActorName}
+          {!loading && (
+            <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList>
+                <TabsTrigger value="setup">Setup</TabsTrigger>
+                <TabsTrigger value="tokens">Tokens</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="setup" className="mt-4 space-y-4">
+                <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />
+
+                {live && status && (
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+                    <Panel title="Publication proof">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+                        {livePost && (
+                          <div className="grid gap-1">
+                            <p className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
+                              {livePost.title}
+                            </p>
+                            {liveActorName && (
+                              <p className="font-sans text-sm text-muted-foreground">
+                                Published by {liveActorName}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <p className="font-sans text-base leading-7 text-muted-foreground">
+                          {livePost?.url
+                            ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
+                            : 'The publish is recorded. The public link will appear when the default domain is active.'}
                         </p>
-                      )}
-                    </div>
-                  )}
-                  <p className="font-sans text-base leading-7 text-muted-foreground">
-                    {livePost?.url
-                      ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
-                      : 'The publish is recorded. The public link will appear when the default domain is active.'}
-                  </p>
-                  {livePost?.url ? (
-                    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
-                      <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
-                        {livePost.url}
-                      </span>
-                      <a
-                        href={livePost.url}
-                        target="_blank"
-                        rel="noopener"
-                        className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        Open article
-                      </a>
-                      <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
-                    </div>
-                  ) : (
-                    <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
-                      The post is published. Its public URL will appear when the default domain is active.
-                    </p>
-                  )}
-                </div>
-              </Panel>
+                        {livePost?.url ? (
+                          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+                            <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
+                              {livePost.url}
+                            </span>
+                            <a
+                              href={livePost.url}
+                              target="_blank"
+                              rel="noopener"
+                              className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
+                            >
+                              Open article
+                            </a>
+                            <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
+                          </div>
+                        ) : (
+                          <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
+                            The post is published. Its public URL will appear when the default domain is active.
+                          </p>
+                        )}
+                      </div>
+                    </Panel>
 
-
-              <Panel title="Publish more posts">
-                <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
-              </Panel>
-            </div>
-          )}
-
-          {flash && mcpUrl && displayConn !== 'revoked' && (
-            <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
-              <Panel title="Your token is ready">
-                <div className="mb-4 rounded-xl bg-muted p-3 font-sans text-sm leading-6 text-foreground">
-                  Copy this token now. For security it is shown only once and cannot be retrieved later.
-                </div>
-                <ConnectAgent
-                  mcpUrl={mcpUrl}
-                  token={flash.token}
-                  tokenName={flash.name}
-                  connected={displayConn === 'connected'}
-                />
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      clearTokenFlash()
-                      setFlash(null)
-                    }}
-                  >
-                    I&apos;ve copied it - hide
-                  </Button>
-                </div>
-              </Panel>
-            </div>
-          )}
-
-          {showSelfTest && selfTestSub && (
-            <Panel title="Connection status">
-              <div className="grid gap-3">
-                <div
-                  className={[
-                    'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
-                    selfTestSub === 'revoked'
-                      ? 'bg-destructive/10 text-destructive'
-                      : 'bg-muted/50 text-foreground',
-                  ].join(' ')}
-                >
-                  {selfTestSub === 'waiting' && (
-                    <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
-                  )}
-                  {selfTestSub === 'connected' && (
-                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                  )}
-                  <span>
-                    {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
-                    {selfTestSub === 'stalled' &&
-                      "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
-                    {selfTestSub === 'recovery' &&
-                      'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
-                    {selfTestSub === 'connected' &&
-                      'Connected. vibecms saw your agent authenticate. Run the read-only check, then ask your agent to prepare a draft.'}
-                    {selfTestSub === 'revoked' &&
-                      "This token can't be used anymore. Create a new token below to connect an agent."}
-                  </span>
-                </div>
-              </div>
-            </Panel>
-          )}
-
-          {draft && (
-            <Panel title="Agent draft ready for review">
-              <div className="grid gap-3">
-                <p className="font-sans text-sm leading-6 text-muted-foreground">
-                  Your agent saved a draft. Review it, then approve publishing when you are ready.
-                </p>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <strong className="truncate font-display font-semibold text-foreground">
-                      <Link
-                        className="no-underline hover:underline"
-                        to="/dashboard/posts/$postId/edit"
-                        params={{ postId: draft.post.id }}
-                        search={emptyPostEditorSearch}
-                      >
-                        {draft.post.title}
-                      </Link>
-                    </strong>
-                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                      Version {draft.post.versionNumber} · {formatDate(draft.post.updatedAt)}
-                    </p>
+                    <Panel title="Publish more posts">
+                      <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
+                    </Panel>
                   </div>
-                  <Button asChild variant="link" size="sm">
-                    <Link
-                      to="/dashboard/posts/$postId/edit"
-                      params={{ postId: draft.post.id }}
-                      search={emptyPostEditorSearch}
-                    >
-                      Review draft
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </Panel>
-          )}
+                )}
 
+                {flash && mcpUrl && displayConn !== 'revoked' && (
+                  <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
+                    <Panel title="Your token is ready">
+                      <div className="mb-4 rounded-xl bg-muted p-3 font-sans text-sm leading-6 text-foreground">
+                        Copy this token now. For security it is shown only once and cannot be retrieved later.
+                      </div>
+                      <ConnectAgent
+                        mcpUrl={mcpUrl}
+                        token={flash.token}
+                        tokenName={flash.name}
+                        connected={displayConn === 'connected'}
+                      />
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            clearTokenFlash()
+                            setFlash(null)
+                          }}
+                        >
+                          I&apos;ve copied it - hide
+                        </Button>
+                      </div>
+                    </Panel>
+                  </div>
+                )}
+
+                {showSelfTest && selfTestSub && (
+                  <Panel title="Connection status">
+                    <div className="grid gap-3">
+                      <div
+                        className={[
+                          'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
+                          selfTestSub === 'revoked'
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-muted/50 text-foreground',
+                        ].join(' ')}
+                      >
+                        {selfTestSub === 'waiting' && (
+                          <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
+                        )}
+                        {selfTestSub === 'connected' && (
+                          <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                        )}
+                        <span>
+                          {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
+                          {selfTestSub === 'stalled' &&
+                            "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
+                          {selfTestSub === 'recovery' &&
+                            'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
+                          {selfTestSub === 'connected' &&
+                            'Connected. vibecms saw your agent authenticate. Run the read-only check, then ask your agent to prepare a draft.'}
+                          {selfTestSub === 'revoked' &&
+                            "This token can't be used anymore. Create a new token below to connect an agent."}
+                        </span>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
+
+                {draft && (
+                  <Panel title="Agent draft ready for review">
+                    <div className="grid gap-3">
+                      <p className="font-sans text-sm leading-6 text-muted-foreground">
+                        Your agent saved a draft. Review it, then approve publishing when you are ready.
+                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
+                        <div className="min-w-0">
+                          <strong className="truncate font-display font-semibold text-foreground">
+                            <Link
+                              className="no-underline hover:underline"
+                              to="/dashboard/posts/$postId/edit"
+                              params={{ postId: draft.post.id }}
+                              search={emptyPostEditorSearch}
+                            >
+                              {draft.post.title}
+                            </Link>
+                          </strong>
+                          <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                            Version {draft.post.versionNumber} · {formatDate(draft.post.updatedAt)}
+                          </p>
+                        </div>
+                        <Button asChild variant="link" size="sm">
+                          <Link
+                            to="/dashboard/posts/$postId/edit"
+                            params={{ postId: draft.post.id }}
+                            search={emptyPostEditorSearch}
+                          >
+                            Review draft
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
+
+                {connectData && canManage && (
+                  <Panel title="Create a token">
+                    <form className="grid gap-4" onSubmit={(e) => void handleCreate(e)}>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field>
+                          <FieldLabel htmlFor="token-name">Token name</FieldLabel>
+                          <Input id="token-name" name="name" required maxLength={80} defaultValue="My agent" />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="token-actor-name">Actor name</FieldLabel>
+                          <Input id="token-actor-name" name="actorName" required maxLength={80} defaultValue="My agent" />
+                          <FieldDescription>Shown in activity when this token changes content.</FieldDescription>
+                        </Field>
+                      </div>
+                      <FieldSet className="gap-3">
+                        <FieldLegend>Capabilities</FieldLegend>
+                        <RadioGroup name="preset" defaultValue="publish" className="grid gap-2 sm:grid-cols-3">
+                          {TOKEN_PRESETS.map((preset) => (
+                            <label
+                              key={preset.id}
+                              htmlFor={`preset-${preset.id}`}
+                              className="flex cursor-pointer items-start gap-3 rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/40"
+                            >
+                              <RadioGroupItem id={`preset-${preset.id}`} value={preset.id} className="mt-0.5" />
+                              <span>
+                                <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
+                                  {preset.label}
+                                  {preset.recommended && (
+                                    <span className="font-mono text-[0.6rem] text-primary">default</span>
+                                  )}
+                                </span>
+                                <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
+                                  {preset.description}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      </FieldSet>
+                      <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
+                        Create token
+                      </PendingSubmitButton>
+                    </form>
+                  </Panel>
+                )}
+
+                {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (
+                  <Panel title="Connect an agent" meta="MCP over HTTPS">
+                    <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
+                      Use a token you saved previously. Token secrets are shown only once; create a new token to
+                      connect another agent.
+                    </p>
+                    <ConnectAgent mcpUrl={mcpUrl} connected={displayConn === 'connected'} />
+                  </Panel>
+                )}
+              </TabsContent>
+
+              <TabsContent value="tokens" className="mt-4 space-y-4">
+                {connectData && (
+                  <Panel
+                    title="API tokens"
+                    meta={canManage ? `${apiKeys.length} active` : 'Owner access required'}
+                  >
+                    {canManage ? (
+                      apiKeys.length ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Scopes</TableHead>
+                              <TableHead>Created</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {apiKeys.map((key) => (
+                              <TokenRow
+                                key={key.id}
+                                apiKey={key}
+                                pending={revokePending === key.id}
+                                onDelete={handleDelete}
+                              />
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <EmptyState
+                          icon={<Link2Icon />}
+                          title="No agent connected yet"
+                          description="Create a token above to connect an AI agent to this blog over MCP."
+                        />
+                      )
+                    ) : (
+                      <p className="font-sans text-sm text-muted-foreground">
+                        Only the workspace owner can create and delete agent tokens.
+                      </p>
+                    )}
+                  </Panel>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
         </>
       )}
-
-      {connectData && (
-        <Panel
-          title="API tokens"
-          meta={canManage ? `${apiKeys.length} active` : 'Owner access required'}
-        >
-          {canManage ? (
-            <div className="grid gap-5">
-              <form className="grid gap-4 rounded-2xl bg-muted/50 p-4" onSubmit={(e) => void handleCreate(e)}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="token-name">Token name</FieldLabel>
-                    <Input id="token-name" name="name" required maxLength={80} defaultValue="My agent" />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="token-actor-name">Actor name</FieldLabel>
-                    <Input id="token-actor-name" name="actorName" required maxLength={80} defaultValue="My agent" />
-                    <FieldDescription>Shown in activity when this token changes content.</FieldDescription>
-                  </Field>
-                </div>
-                <FieldSet className="gap-3">
-                  <FieldLegend>Capabilities</FieldLegend>
-                  <RadioGroup name="preset" defaultValue="publish" className="grid gap-2 sm:grid-cols-3">
-                    {TOKEN_PRESETS.map((preset) => (
-                      <label
-                        key={preset.id}
-                        htmlFor={`preset-${preset.id}`}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/40"
-                      >
-                        <RadioGroupItem id={`preset-${preset.id}`} value={preset.id} className="mt-0.5" />
-                        <span>
-                          <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
-                            {preset.label}
-                            {preset.recommended && (
-                              <span className="font-mono text-[0.6rem] text-primary">default</span>
-                            )}
-                          </span>
-                          <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                            {preset.description}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </RadioGroup>
-                </FieldSet>
-                <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
-                  Create token
-                </PendingSubmitButton>
-              </form>
-
-              {apiKeys.length ? (
-                <div className="grid gap-3">
-                  {apiKeys.map((key) => (
-                    <TokenRow
-                      key={key.id}
-                      apiKey={key}
-                      pending={revokePending === key.id}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={<Link2Icon />}
-                  title="No agent connected yet"
-                  description="Create a token above to connect an AI agent to this blog over MCP."
-                />
-              )}
-            </div>
-          ) : (
-            <p className="font-sans text-sm text-muted-foreground">
-              Only the workspace owner can create and delete agent tokens.
-            </p>
-          )}
-        </Panel>
-      )}
-
-      {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (
-        <Panel title="Connect an agent" meta="MCP over HTTPS">
-          <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
-            Use a token you saved previously. Token secrets are shown only once; create a new token to connect another
-            agent.
-          </p>
-          <ConnectAgent mcpUrl={mcpUrl} connected={displayConn === 'connected'} />
-        </Panel>
-      )}
-    </>
+    </TooltipProvider>
   )
 }

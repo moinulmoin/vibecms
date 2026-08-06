@@ -43,6 +43,13 @@ import {
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { Checkbox } from '~/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '~/components/ui/collapsible'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
@@ -576,9 +583,10 @@ export function SettingsPage() {
       <Tabs
         value={search.tab ?? 'general'}
         onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value }})}
-        className="gap-4"
+        className="gap-4 lg:grid lg:grid-cols-[220px_1fr] lg:items-start lg:gap-8"
       >
-        <div className="overflow-x-auto pb-1">
+        {/* Mobile: horizontal tab row fallback */}
+        <div className="overflow-x-auto pb-1 lg:hidden">
           <TabsList aria-label="Workspace settings sections" className="min-w-max">
             <TabsTrigger value="general" aria-label="Site and theme settings" className="data-[state=active]:font-semibold">
               Site
@@ -597,6 +605,41 @@ export function SettingsPage() {
             </TabsTrigger>
           </TabsList>
         </div>
+
+        {/* Desktop: vertical sidebar nav with grouped sections */}
+        <aside className="hidden lg:block" aria-label="Workspace settings sections">
+          <div className="px-3 pb-1 pt-1 font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Blog
+          </div>
+          <TabsList
+            aria-label="Blog settings"
+            className="h-auto w-full flex-col items-stretch rounded-none bg-transparent p-0"
+          >
+            <TabsTrigger value="general" aria-label="Site and theme settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+              Site
+            </TabsTrigger>
+            <TabsTrigger value="voice" aria-label="Writing voice settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+              Voice
+            </TabsTrigger>
+          </TabsList>
+          <div className="px-3 pb-1 pt-5 font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Workspace
+          </div>
+          <TabsList
+            aria-label="Workspace settings"
+            className="h-auto w-full flex-col items-stretch rounded-none bg-transparent p-0"
+          >
+            <TabsTrigger value="domain" aria-label="Domain settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+              Domain
+            </TabsTrigger>
+            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+              Plan
+            </TabsTrigger>
+            <TabsTrigger value="data" aria-label="Data export settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+              Data
+            </TabsTrigger>
+          </TabsList>
+        </aside>
         <TabsContent value="general" className="grid gap-4">
           <Panel title="Site" meta="Name & SEO defaults">
             <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
@@ -771,46 +814,40 @@ export function SettingsPage() {
 
                 <FieldSet>
                   <FieldLegend variant="label">Type</FieldLegend>
-                  <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={selectedFont}
+                    onValueChange={(value) => { if (value) setSelectedFont(value as FontId) }}
+                    aria-label="Font type"
+                    className="w-full flex-wrap justify-start"
+                  >
                     {FONTS.map((font) => (
-                      <button
-                        key={font.id}
-                        type="button"
-                        onClick={() => setSelectedFont(font.id)}
-                        aria-pressed={selectedFont === font.id}
-                        className={cn(
-                          'rounded-md px-3 py-1.5 font-sans text-sm transition-colors',
-                          selectedFont === font.id
-                            ? 'bg-foreground text-background'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
+                      <ToggleGroupItem key={font.id} value={font.id} className="px-3">
                         {font.name}
-                      </button>
+                      </ToggleGroupItem>
                     ))}
-                  </div>
+                  </ToggleGroup>
                 </FieldSet>
 
                 <FieldSet>
                   <FieldLegend variant="label">Default mode</FieldLegend>
-                  <div className="flex flex-wrap gap-1 rounded-lg border bg-background p-0.5">
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={selectedMode}
+                    onValueChange={(value) => { if (value) setSelectedMode(value as ThemeMode) }}
+                    aria-label="Default color mode"
+                    className="w-full flex-wrap justify-start"
+                  >
                     {THEME_MODES.map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setSelectedMode(mode)}
-                        aria-pressed={selectedMode === mode}
-                        className={cn(
-                          'rounded-md px-3 py-1.5 font-sans text-sm capitalize transition-colors',
-                          selectedMode === mode
-                            ? 'bg-foreground text-background'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
+                      <ToggleGroupItem key={mode} value={mode} className="px-3 capitalize">
                         {mode}
-                      </button>
+                      </ToggleGroupItem>
                     ))}
-                  </div>
+                  </ToggleGroup>
                 </FieldSet>
 
                 {(selectedTheme !== site.theme ||
@@ -841,24 +878,21 @@ export function SettingsPage() {
                   <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                     Live preview
                   </p>
-                  <div className="flex gap-1 rounded-lg border bg-background p-0.5 text-xs">
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={previewMode}
+                    onValueChange={(value) => { if (value) setPreviewMode(value as 'light' | 'dark' | 'system') }}
+                    aria-label="Preview color mode"
+                    className="w-fit"
+                  >
                     {(['light', 'system', 'dark'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setPreviewMode(mode)}
-                        aria-pressed={previewMode === mode}
-                        className={cn(
-                          'rounded-md px-2 py-1 capitalize transition-colors',
-                          previewMode === mode
-                            ? 'bg-foreground text-background'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
+                      <ToggleGroupItem key={mode} value={mode} className="px-2 capitalize">
                         {mode}
-                      </button>
+                      </ToggleGroupItem>
                     ))}
-                  </div>
+                  </ToggleGroup>
                 </div>
                 <div style={previewStyle}>
                   <RichContentFrame
@@ -874,7 +908,8 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="voice" className="grid gap-4">
           <Panel title="Writing voice" meta={data.voiceProfile.configured ? 'Custom' : 'VibeCMS default'}>
-            <div className="mb-5 rounded-2xl bg-muted/50 p-4 md:p-5">
+            <Collapsible open={voiceEditorOpen} onOpenChange={setVoiceEditorOpen} className="grid gap-5">
+            <div className="rounded-2xl bg-muted/50 p-4 md:p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="max-w-2xl">
                   <p className="font-display text-base font-medium text-foreground">
@@ -896,17 +931,18 @@ export function SettingsPage() {
                     </p>
                   ) : null}
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-expanded={voiceEditorOpen}
-                  onClick={() => setVoiceEditorOpen((open) => !open)}
-                >
-                  {voiceEditorOpen ? 'Close' : data.voiceProfile.configured ? 'Edit voice' : 'Customize voice'}
-                </Button>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-expanded={voiceEditorOpen}
+                  >
+                    {voiceEditorOpen ? 'Close' : data.voiceProfile.configured ? 'Edit voice' : 'Customize voice'}
+                  </Button>
+                </CollapsibleTrigger>
               </div>
             </div>
-            {voiceEditorOpen && (
+            <CollapsibleContent>
             <form className="grid max-w-3xl gap-5" onSubmit={(e) => void handleVoiceProfileSave(e)}>
               <Field>
                 <FieldLabel htmlFor="voice-audience">Audience</FieldLabel>
@@ -1018,17 +1054,17 @@ export function SettingsPage() {
                   <div className="max-h-64 space-y-2 overflow-y-auto pr-1 sm:max-h-80">
                     {data.voiceProfile.publishedPosts.map((post) => (
                       <Field key={post.id} orientation="horizontal">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           id={`post-${post.id}`}
                           checked={voiceRepresentativeIds.includes(post.id)}
-                          onChange={(e) => {
+                          onCheckedChange={(checked) => {
+                            if (checked === 'indeterminate') return
                             setVoiceSaveStatus(null)
-                            setVoiceRepresentativeIds(selectRepresentativePost(voiceRepresentativeIds, post.id, e.target.checked))
+                            setVoiceRepresentativeIds(selectRepresentativePost(voiceRepresentativeIds, post.id, checked))
                           }}
                           disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT}
                           aria-describedby="representative-posts-help"
-                          className="mt-1 accent-[var(--brand-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="mt-1"
                         />
                         <label htmlFor={`post-${post.id}`} className="min-w-0 flex-1 cursor-pointer">
                           <div className="truncate font-sans text-sm font-medium">{post.title}</div>
@@ -1040,18 +1076,17 @@ export function SettingsPage() {
                       .filter(id => !data.voiceProfile.publishedPosts.some(p => p.id === id))
                       .map((staleId) => (
                         <Field key={staleId} orientation="horizontal">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             id={`post-${staleId}`}
                             checked={true}
-                            onChange={(e) => {
-                              if (!e.target.checked) {
+                            onCheckedChange={(checked) => {
+                              if (!checked) {
                                 setVoiceSaveStatus(null)
                                 setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== staleId))
                               }
                             }}
                             aria-describedby="representative-posts-help"
-                            className="mt-1 accent-[var(--brand-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="mt-1"
                           />
                           <label htmlFor={`post-${staleId}`} className="min-w-0 flex-1 cursor-pointer">
                             <div className="font-sans text-sm font-medium text-muted-foreground">Archived or missing post</div>
@@ -1099,7 +1134,8 @@ export function SettingsPage() {
                 )}
               </div>
             </form>
-            )}
+            </CollapsibleContent>
+            </Collapsible>
           </Panel>
         </TabsContent>
         <TabsContent value="domain" className="grid gap-4">
