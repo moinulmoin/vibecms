@@ -20,8 +20,10 @@ import { Button, PageHeader, Panel, formatDateTime } from '~/components/dashboar
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Switch } from '~/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { useMediaQuery } from '~/hooks/use-media-query'
 import type { EditorSiteInfo } from '~/types/dashboard'
 import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -290,6 +292,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [site, setSite] = useState<EditorSiteInfo | null>(null)
   const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
+  // Below the lg breakpoint the two-column editor becomes tabbed sections:
+  // Write / Preview / Settings. Panels stay mounted (hidden) so form state
+  // survives tab switches.
+  const isNarrow = useMediaQuery('(max-width: 1023px)')
+  const [mobileTab, setMobileTab] = useState<'write' | 'preview' | 'settings'>('write')
+  // (mobileTab drives both panel visibility and the editor's controlled mode)
   const [selectedLayout, setSelectedLayout] = useState<string>('standard')
   const [selectedToc, setSelectedToc] = useState<boolean>(false)
   const [presentationDirty, setPresentationDirty] = useState(false)
@@ -668,7 +676,25 @@ function PostEditorShell({ postId }: { postId?: string }) {
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
-          <Panel title="Content">
+          {isNarrow ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/50 p-2">
+              <Tabs
+                value={mobileTab}
+                onValueChange={(value) => setMobileTab(value as typeof mobileTab)}
+                className="min-w-0 flex-1 gap-0"
+              >
+                <TabsList aria-label="Editor sections" className="w-full">
+                  <TabsTrigger value="write">Write</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                  <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <PendingSubmitButton size="sm" pending={savePending} pendingText="Saving…">
+                Save
+              </PendingSubmitButton>
+            </div>
+          ) : null}
+          <Panel title="Content" className={isNarrow && mobileTab === 'settings' ? 'hidden' : undefined}>
             <div className="grid gap-4">
               <Field>
                 <FieldLabel
@@ -701,6 +727,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   site={site}
                   siteTheme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
                   publishedAt={post?.publishedAt ?? null}
+                  mode={isNarrow ? (mobileTab === 'preview' ? 'preview' : 'write') : undefined}
                 />
                 <FieldDescription className="font-sans">
                   Markdown is rendered with the same safe renderer as the public blog.
@@ -708,7 +735,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </Field>
             </div>
           </Panel>
-          <aside className="grid gap-3 lg:sticky lg:top-6">
+          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-6'}>
             <Panel title="Publish Settings" meta={<PostStatusBadge status={post?.status ?? 'draft'} />}>
               <div className="grid gap-4">
                 <Field>

@@ -42,6 +42,12 @@ type MarkdownEditorProps = {
   siteTheme?: SiteThemeInput
   /** Published timestamp; drafts preview as "published today". */
   publishedAt?: number | null
+  /**
+   * Controlled mode (mobile page tabs). When set, the internal Write/Preview
+   * toggle hides — the caller owns mode. Switching to 'preview' refreshes the
+   * preview from the live form.
+   */
+  mode?: EditorMode
 }
 
 type EditorMode = 'write' | 'preview'
@@ -65,12 +71,14 @@ export function isPreviewCurrent(
   return draftRevision === previewDraftRevision && metadataRevision === previewMetadataRevision
 }
 
-export function MarkdownEditor({ assets, defaultValue, presetId, presentation, site, siteTheme, publishedAt }: MarkdownEditorProps) {
+export function MarkdownEditor({ assets, defaultValue, presetId, presentation, site, siteTheme, publishedAt, mode: controlledMode }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionRef = useRef({ start: defaultValue.length, end: defaultValue.length })
   const contentRevisionRef = useRef(0)
   const metadataRevisionRef = useRef(0)
-  const [mode, setMode] = useState<EditorMode>('write')
+  const [internalMode, setInternalMode] = useState<EditorMode>('write')
+  const isControlled = controlledMode !== undefined
+  const mode = controlledMode ?? internalMode
   const [previewSource, setPreviewSource] = useState(defaultValue)
   const [previewMetadata, setPreviewMetadata] = useState<PreviewMetadata>({})
   const [draftRevision, setDraftRevision] = useState(0)
@@ -154,13 +162,20 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
   }
 
   function showWrite() {
-    setMode('write')
+    setInternalMode('write')
   }
 
   function showPreview() {
     refreshPreview()
-    setMode('preview')
+    setInternalMode('preview')
   }
+
+  // Controlled mode (mobile page tabs): refresh the preview when the caller
+  // flips us into it so it always reflects the live form.
+  useEffect(() => {
+    if (controlledMode === 'preview') refreshPreview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlledMode])
 
   function rememberSelection() {
     const textarea = textareaRef.current
@@ -253,34 +268,40 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
   return (
     <div className="grid gap-3">
       <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-2 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="flex w-full rounded-lg bg-background/70 p-1 sm:w-auto"
-          role="group"
-          aria-label="Editor mode"
-        >
-          <Button
-            type="button"
-            variant={mode === 'write' ? 'default' : 'ghost'}
-            size="sm"
-            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
-            aria-pressed={mode === 'write'}
-            onClick={showWrite}
+        {isControlled ? (
+          <p className="px-1 font-mono text-[11px] text-muted-foreground" aria-live="polite">
+            {mode === 'preview' ? 'Exact public page' : 'Markdown'}
+          </p>
+        ) : (
+          <div
+            className="flex w-full rounded-lg bg-background/70 p-1 sm:w-auto"
+            role="group"
+            aria-label="Editor mode"
           >
-            <Pencil2Icon className="size-4" aria-hidden="true" />
-            Write
-          </Button>
-          <Button
-            type="button"
-            variant={mode === 'preview' ? 'default' : 'ghost'}
-            size="sm"
-            className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
-            aria-pressed={mode === 'preview'}
-            onClick={showPreview}
-          >
-            <EyeOpenIcon className="size-4" aria-hidden="true" />
-            Preview
-          </Button>
-        </div>
+            <Button
+              type="button"
+              variant={mode === 'write' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
+              aria-pressed={mode === 'write'}
+              onClick={showWrite}
+            >
+              <Pencil2Icon className="size-4" aria-hidden="true" />
+              Write
+            </Button>
+            <Button
+              type="button"
+              variant={mode === 'preview' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
+              aria-pressed={mode === 'preview'}
+              onClick={showPreview}
+            >
+              <EyeOpenIcon className="size-4" aria-hidden="true" />
+              Preview
+            </Button>
+          </div>
+        )}
         <Button
           type="button"
           variant="outline"
