@@ -130,6 +130,7 @@ function EditorStateStrip({
   publicBaseUrl,
   publishPending,
   onPublish,
+  onReviewChanges,
 }: {
   post: Post
   currentVersionNumber: number | null
@@ -137,6 +138,7 @@ function EditorStateStrip({
   publicBaseUrl: string | null
   publishPending: boolean
   onPublish: () => void
+  onReviewChanges: () => void
 }) {
   const state = editorLiveState(post, currentVersionNumber)
   const unpublishedCount =
@@ -174,6 +176,11 @@ function EditorStateStrip({
         </span>
       ) : null}
       <span className="ml-auto flex items-center gap-2">
+        {state === 'unpublished' ? (
+          <Button type="button" variant="outline" size="sm" onClick={onReviewChanges}>
+            Review changes
+          </Button>
+        ) : null}
         {liveUrl ? (
           <a
             href={liveUrl}
@@ -557,6 +564,14 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
+  // Review-before-publish: open the pinned public version diffed against the
+  // saved tip, so the decision is made on evidence, not blind trust.
+  async function handleReviewChanges() {
+    if (post?.publishedVersionNumber == null) return
+    await handleViewVersion(post.publishedVersionNumber)
+    setShowDiff(true)
+  }
+
   async function handleRestoreVersion(versionNumber: number) {
     if (!postId || currentVersionNumber == null) return
     setRestoreVersionPending(versionNumber)
@@ -609,6 +624,10 @@ function PostEditorShell({ postId }: { postId?: string }) {
 
   const capability = THEME_PRESETS[resolvePresetId(presetId)].layout
   const selectedCoverAsset = assets.find((asset) => asset.id === selectedCoverAssetId) ?? null
+  const viewingIsPinned =
+    viewingVersion != null &&
+    post?.publishedVersionNumber != null &&
+    viewingVersion.versionNumber === post.publishedVersionNumber
 
   return (
     <>
@@ -630,6 +649,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           publicBaseUrl={publicBaseUrl}
           publishPending={publishPending}
           onPublish={() => void handlePublish()}
+          onReviewChanges={() => void handleReviewChanges()}
         />
       ) : null}
       {loadError ? (
@@ -992,7 +1012,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
                                 </div>
                                 <p className="text-sm font-medium leading-snug">{v.title}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {v.actorName} &middot; {relativeTime(v.createdAt)}
+                                  {v.actorName.trim() ? `${v.actorName} · ` : ''}
+                                  {relativeTime(v.createdAt)}
                                 </p>
                                 {v.changeSummary ? (
                                   <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
@@ -1054,7 +1075,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </DialogTitle>
             {viewingVersion ? (
               <DialogDescription>
-                Saved by {viewingVersion.actorName} on {formatDateTime(viewingVersion.createdAt)}
+                {viewingVersion.actorName.trim()
+                  ? `Saved by ${viewingVersion.actorName} on ${formatDateTime(viewingVersion.createdAt)}`
+                  : `Saved ${formatDateTime(viewingVersion.createdAt)}`}
                 {viewingVersion.changeSummary ? ` - ${viewingVersion.changeSummary}` : ''}
               </DialogDescription>
             ) : null}
@@ -1078,7 +1101,11 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 <div>
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <p className="font-mono text-[11px] font-medium text-muted-foreground">
-                      {showDiff ? 'Diff vs current' : 'Markdown'}
+                      {showDiff
+                        ? viewingIsPinned
+                          ? `Public v${viewingVersion.versionNumber} → current tip`
+                          : 'Diff vs current'
+                        : 'Markdown'}
                     </p>
                     <Button
                       type="button"
