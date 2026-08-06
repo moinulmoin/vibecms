@@ -147,7 +147,17 @@ export function DashboardOverview() {
 
   const siteName = data.site?.name ?? BRAND.name
   const quotaLabel = MEDIA.paidStorageLabel
-  const showSubscribeHint = data.apiUsage.enforced && data.billing.status !== 'active'
+  const billingBadgeLabel =
+    data.billing.status === 'none'
+      ? 'Free plan'
+      : data.billing.status === 'past_due'
+        ? 'Past due'
+        : data.billing.status === 'canceled'
+          ? 'Canceled'
+          : data.billing.status === 'unpaid'
+            ? 'Unpaid'
+            : null
+  const showBillingBadge = data.apiUsage.enforced && billingBadgeLabel !== null
   const isLive = Boolean(data.publicUrl) && !data.publicUrlLocal
 
   return (
@@ -179,7 +189,7 @@ export function DashboardOverview() {
               ) : (
                 <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
               )}
-              {showSubscribeHint ? <Badge variant="secondary">Free plan</Badge> : null}
+              {showBillingBadge ? <Badge variant="secondary">{billingBadgeLabel}</Badge> : null}
             </div>
           </div>
           {data.publicUrl ? (

@@ -141,10 +141,6 @@ function EditorStateStrip({
   onReviewChanges: () => void
 }) {
   const state = editorLiveState(post, currentVersionNumber)
-  const unpublishedCount =
-    state === 'unpublished' && currentVersionNumber != null && post.publishedVersionNumber != null
-      ? currentVersionNumber - post.publishedVersionNumber
-      : 0
   const liveUrl =
     post.status === 'published' && publicBaseUrl ? `${publicBaseUrl}/${post.slug}` : null
   return (
@@ -160,9 +156,7 @@ function EditorStateStrip({
       ) : state === 'unpublished' ? (
         <span className="flex items-center gap-1.5 font-mono text-xs text-amber-600 dark:text-amber-400">
           <span className="size-1.5 rounded-full bg-amber-500" />
-          {unpublishedCount > 0
-            ? `${unpublishedCount} unpublished ${unpublishedCount === 1 ? 'change' : 'changes'}`
-            : 'Unpublished changes'}
+          Unpublished changes
         </span>
       ) : state === 'draft' ? (
         <span className="font-mono text-xs text-muted-foreground">Draft — nothing public yet</span>

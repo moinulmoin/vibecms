@@ -1,6 +1,7 @@
 import type { Actor } from '@vc/core'
+import { listCustomDomains } from '@vc/core'
 import { resolveAccent, resolveFont, resolveMode, resolvePresetId } from '@vc/config'
-import { createDataAccess, PUBLIC_BLOG_LIMITS } from '@vc/db'
+import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS } from '@vc/db'
 import { isReservedSiteSlug } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
@@ -207,13 +208,17 @@ export async function updateSiteSettingsForApp(
   })
   if (currentSite) {
     // Theme/customizer saves re-render every public page; the purge must reach
-    // article HTML too (articles only self-purge on publish/archive).
+    // article HTML too (articles only self-purge on publish/archive). Enumerate
+    // with the sitemap cap so large sites purge fully, and include custom
+    // hostnames — their cache entries key by their own host.
     const published = await db.publicBlog.listPublishedPostSummaries(
       app.siteId,
       timestamp,
-      PUBLIC_BLOG_LIMITS.listSummaries,
+      PUBLIC_BLOG_LIMITS.sitemapSummaries,
     )
-    scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug))
+    const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
+    const customHosts = domainRows.map((domain) => domain.hostname).filter(Boolean)
+    scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), customHosts)
   }
 
   return { kind: 'ok', code: 'site_saved' }

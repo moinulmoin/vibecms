@@ -447,10 +447,14 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
             </Button>
           </div>
           {/* Read-only frame: in-page links (tags, masthead, anchors) must not
-              navigate the editor away, so anchor activation is captured here. */}
+              navigate the editor away, so anchor activation is captured here —
+              click and middle-click (auxclick) alike. */}
           <div
             className="overflow-hidden rounded-xl border border-[color:var(--hairline)]"
             onClickCapture={(event) => {
+              if ((event.target as HTMLElement).closest('a')) event.preventDefault()
+            }}
+            onAuxClickCapture={(event) => {
               if ((event.target as HTMLElement).closest('a')) event.preventDefault()
             }}
           >
@@ -469,6 +473,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
                   renderResult={previewResult}
                   presetId={presetId ?? 'minimal'}
                   presentation={resolvePresentation(presetId ?? 'minimal', presentation as Presentation | null | undefined).resolved}
+                  theme={siteTheme}
                   title={previewMetadata.title}
                   excerpt={previewMetadata.excerpt}
                   byline={site?.name}

@@ -12,6 +12,7 @@ import {
   type SiteRow,
 } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
+import { sanitizeLlmsField } from "./llms-text";
 import { siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 
@@ -105,15 +106,15 @@ export async function handleRobots(db: D1Database, request: Request, env: Public
 
 function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: PostSummaryRow[], env: PublicRuntimeEnv): Response {
   const summary = site.description || site.default_seo_description || "";
-  const lines = [`# ${site.name}`, ""];
-  if (summary) lines.push(`> ${summary}`, "");
+  const lines = [`# ${sanitizeLlmsField(site.name)}`, ""];
+  if (summary) lines.push(`> ${sanitizeLlmsField(summary)}`, "");
   lines.push("## Posts", "");
   if (posts.length === 0) {
     lines.push("No published posts yet.");
   } else {
     for (const post of posts) {
       const description = post.excerpt || post.seo_description || "";
-      lines.push(`- [${post.title}](${origin}${basePath}/${post.slug}.md)${description ? `: ${description}` : ""}`);
+      lines.push(`- [${sanitizeLlmsField(post.title)}](${origin}${basePath}/${post.slug}.md)${description ? `: ${sanitizeLlmsField(description)}` : ""}`);
     }
   }
   return new Response(`${lines.join("\n")}\n`, {

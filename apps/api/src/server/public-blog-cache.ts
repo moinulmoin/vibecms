@@ -17,7 +17,12 @@ export function siteCacheTag(siteId: string) {
 
 export function articleCacheUrls(siteSlug: string, postSlug: string): string[] {
   if (!publicBlogBaseDomain()) return [];
-  const base = `https://${defaultHostname(siteSlug)}`;
+  return articleCacheUrlsForHost(defaultHostname(siteSlug), postSlug);
+}
+
+/** Article cache URLs for a specific host — custom domains key their cache by their own hostname. */
+export function articleCacheUrlsForHost(hostname: string, postSlug: string): string[] {
+  const base = `https://${hostname}`;
   return [`${base}/${postSlug}`, `${base}/${postSlug}.md`];
 }
 
@@ -69,8 +74,10 @@ async function purgeCache(tags: string[], urls: string[], hosts: string[] = []):
     }
     if (tags.length > 0 && (await purgeCloudflare({ tags }))) return;
     await purgeCacheApi(urls);
-  } catch {
-    // fail-open: content mutations must not depend on purge
+  } catch (error) {
+    // fail-open: content mutations must not depend on purge — but log so the
+    // staleness window is observable instead of silent.
+    console.warn("public cache purge failed", error);
   }
 }
 
@@ -79,11 +86,26 @@ async function purgeCache(tags: string[], urls: string[], hosts: string[] = []):
  * llms.txt — and every published article. The zone tag purge covers articles
  * on plans with tag purging; the URL fallback must enumerate them, so callers
  * pass the site's published slugs (settings/theme saves change every article's
- * render but no article mutation fires its own purge).
+ * render but no article mutation fires its own purge). Custom hostnames key
+ * their cache by their own host, so they need explicit URL variants plus the
+ * authoritative `hosts` purge.
  */
-export async function purgeSiteCache(siteId: string, siteSlug: string, postSlugs: readonly string[] = []): Promise<void> {
-  const articleUrls = postSlugs.flatMap((postSlug) => articleCacheUrls(siteSlug, postSlug));
-  await purgeCache([siteCacheTag(siteId)], [...siteCacheUrls(siteSlug), ...articleUrls]);
+export async function purgeSiteCache(
+  siteId: string,
+  siteSlug: string,
+  postSlugs: readonly string[] = [],
+  customHosts: readonly string[] = [],
+): Promise<void> {
+  const articleUrls = [
+    ...postSlugs.flatMap((postSlug) => articleCacheUrls(siteSlug, postSlug)),
+    ...customHosts.flatMap((host) => postSlugs.flatMap((postSlug) => articleCacheUrlsForHost(host, postSlug))),
+  ];
+  const hostSiteUrls = customHosts.flatMap((host) => hostnameCacheUrls(host));
+  await purgeCache(
+    [siteCacheTag(siteId)],
+    [...siteCacheUrls(siteSlug), ...articleUrls, ...hostSiteUrls],
+    [...customHosts],
+  );
 }
 
 export async function purgeArticleCache(siteId: string, siteSlug: string, postSlug: string): Promise<void> {

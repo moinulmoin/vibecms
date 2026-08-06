@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   articleCacheTag,
   articleCacheUrls,
+  articleCacheUrlsForHost,
   hostnameCacheUrls,
   purgeArticleCache,
   purgeHostnameCache,
@@ -54,6 +55,25 @@ describe('public article cache invalidation', () => {
     }
 
     await purgeSiteCache('site-theme-save', 'site-purge-fixture', ['themed-post'])
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('site purge covers custom-hostname article URLs (keyed by their own host)', async () => {
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const urls = articleCacheUrlsForHost('blog.customer.example', 'themed-post')
+
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    await purgeSiteCache('site-theme-save', 'site-purge-fixture', ['themed-post'], ['blog.customer.example'])
 
     for (const url of urls) {
       expect(await cache.match(new Request(url))).toBeUndefined()
