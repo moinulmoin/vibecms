@@ -29,13 +29,13 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
 1. **Honest templates** — DONE (d897edf). Four distinct typographic identities;
    per-theme token blocks in presets.css + chrome rules; `data-vc-theme` on the
    article root keeps public SSR and dashboard preview identical.
-2. **Editor as review surface** — IN PROGRESS. DONE (ca591ba): exact full-page
-   preview via shared `PublicPageChrome`/`SubscribeBlock` from @vc/content;
-   editor payload carries site identity + theme; preview is read-only (links
-   captured, subscribe inert). OPEN: actor/version/last-change context in the
-   header, saved-vs-public ("unpublished changes") distinction near publish,
-   publish action adjacent to the preview, mobile Preview/Markdown/Settings
-   tabs.
+2. **Editor as review surface** — MOSTLY DONE. Exact full-page preview
+   (ca591ba): shared `PublicPageChrome`/`SubscribeBlock`, site identity in the
+   payload, inert preview. Review strip (9a60064): version, live/unpublished/
+   draft/archived state via tested `editorLiveState`, last-saved actor + time,
+   open-live link, publish action moved next to the state it acts on. OPEN:
+   version diff surfaced near publish (drawer exists), mobile
+   Preview/Markdown/Settings tabs.
 3. **Dashboard composition/typeset** — PARTIAL (b6c5877): 1200px canvas,
    optional kicker with echo kickers removed, editor status dedup. OPEN:
    decisions-first overview order, posts list actor column, copy-level typeset.
