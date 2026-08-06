@@ -113,9 +113,9 @@ export function EssentialsBento() {
       <div className="mb-10 max-w-[620px]" data-reveal>
         <MonoEyebrow label="// The essentials" className="mb-4" />
         <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-          Everything one serious
+          Everything built in.
           <br />
-          blog needs. Nothing it doesn&apos;t.
+          Nothing bolted on.
         </h2>
         <p className="mt-4 text-[16.5px] leading-[1.6] text-muted-foreground">
           One clean publication surface: editing, media, history, designed themes,
@@ -209,7 +209,7 @@ export function EssentialsBento() {
           </h3>
           <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
             Upload images up to {MEDIA.maxImageLabel}, stored on R2 and served
-            fast.
+            at the edge.
           </p>
         </GlassCard>
 

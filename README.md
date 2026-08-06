@@ -4,7 +4,7 @@
 </div>
 
 
-Write in Markdown, manage media and versions, and let agents write, draft, and publish through MCP or the REST `/api/v1` API. Every mutation creates activity, and meaningful post changes create versions.
+The CMS your agents publish into: Markdown posts, versions, and media over scoped MCP or the REST `/api/v1` API - you own every post. Every mutation creates activity, and meaningful post changes create versions.
 
 ## Features
 

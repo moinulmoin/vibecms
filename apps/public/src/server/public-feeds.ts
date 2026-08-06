@@ -35,6 +35,7 @@ function productSitemap(origin: string): Response {
 
 function productLlmsTxt(origin: string, env: PublicRuntimeEnv): Response {
   const loginUrl = `${env.appUrl.replace(/\/$/, "")}/login`;
+  const mcpUrl = `${env.appUrl.replace(/\/$/, "")}/mcp`;
   const lines = [
     `# ${BRAND.name}`,
     "",
@@ -44,6 +45,11 @@ function productLlmsTxt(origin: string, env: PublicRuntimeEnv): Response {
     "",
     `- [Product home](${origin}/)`,
     `- [Sign in](${loginUrl})`,
+    "",
+    "## For agents",
+    "",
+    `- MCP endpoint: ${mcpUrl} (JSON-RPC over POST; scoped bearer token, created by the site owner in the dashboard).`,
+    "- Blogs hosted here serve every post as clean Markdown at `/<slug>.md` and publish their own `/llms.txt`.",
   ];
   return new Response(`${lines.join("\n")}\n`, {
     headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": cacheControl },

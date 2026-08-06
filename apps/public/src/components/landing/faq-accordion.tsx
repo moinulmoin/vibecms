@@ -10,7 +10,7 @@ const faqs = [
   {
     question: "Who is this for?",
     answer:
-      "Solo writers and small teams running one serious blog who want a clean Markdown surface, real version history, and optional agent help.",
+      "Solo writers and small teams who want one clean Markdown blog with real version history and optional agent help.",
   },
   {
     question: "Can I self-host it?",

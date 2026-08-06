@@ -48,7 +48,7 @@ export function CtaFooter({
           />
           <h2 className="relative mx-auto max-w-[18ch] text-balance font-display text-[clamp(1.875rem,4.4vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
             Your agents. Your content.{" "}
-            <span className="text-brand-bright">Live in seconds.</span>
+            <span className="text-brand-bright">Your call.</span>
           </h2>
           <p className="relative mx-auto mt-4 max-w-[460px] text-balance text-base leading-7 text-muted-foreground">
             Scoped MCP, a full version trail, and your login never leaves your hands.

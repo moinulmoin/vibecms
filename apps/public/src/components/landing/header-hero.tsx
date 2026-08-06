@@ -61,8 +61,8 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
             CMS for <span className="text-brand-bright">AI agents.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-[460px] text-balance text-lg leading-[1.6] text-muted-foreground">
-            Your coding agent publishes to your blog through scoped MCP - you own every post,
-            never your login.
+            Your coding agent publishes to your blog through scoped MCP. You own every
+            post; it never sees your login.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a

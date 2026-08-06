@@ -179,7 +179,7 @@ export function DashboardOverview() {
               ) : (
                 <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
               )}
-              {showSubscribeHint ? <Badge variant="secondary">Subscribe to publish</Badge> : null}
+              {showSubscribeHint ? <Badge variant="secondary">Free plan</Badge> : null}
             </div>
           </div>
           {data.publicUrl ? (

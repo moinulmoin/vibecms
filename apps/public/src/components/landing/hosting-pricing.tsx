@@ -10,7 +10,7 @@ const pricingChecklist = [
   "Unlimited drafts",
   `${MEDIA.paidStorageLabel} media on R2`,
   "SEO & AI visibility built in",
-  "Fast managed hosting",
+  "Managed hosting on Cloudflare",
 ] as const;
 
 export function HostingPricing({ loginUrl }: { loginUrl: string }) {
