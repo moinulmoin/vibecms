@@ -6,6 +6,10 @@
    tracks the active preset, the per-site accent, and light/dark mode
    automatically.
 
+   Shared between apps/public (the real, script-enhanced form) and the
+   dashboard editor preview (inert, no site slug), so the previewed page shows
+   the exact subscribe surface readers get.
+
    The @vc/ui Input/Button primitives carry app-side defaults (shadcn tokens,
    a dark primary-button gradient, shadow + ring hairlines) that do NOT track
    the public theme; the rules below neutralize that leakage so only --vc-*

@@ -1,74 +1,8 @@
-.publicPage {
-  width: 100%;
-  min-height: 100vh;
-  background: var(--vc-bg);
-  color: var(--vc-fg);
-  font-family: var(--vc-font-body);
-}
-
-.publicContainer {
-  width: 100%;
-  max-width: 860px;
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
-}
-
-/* §1: header separates by padding + the title's own weight — no border rule. */
-.publicHeader {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding-bottom: 28px;
-  margin-bottom: var(--vc-section-gap);
-}
-
-.publicBrand {
-  color: inherit;
-  text-decoration: none;
-  font-family: var(--vc-font-heading);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.publicBrand:hover {
-  color: var(--vc-accent);
-}
-
-/* Masthead tagline — muted so it reads as a quiet descriptor beside the brand,
-   not a second headline competing for the foreground. Shares the header
-   baseline row; wraps under the brand on narrow viewports. */
-.publicTagline {
-  margin: 0;
-  color: var(--vc-muted-fg);
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-/* Article masthead: site identity (brand + tagline) left, "All posts"
-   navigation right. Only the article page renders .mastheadNav; the index
-   shell header is unchanged. margin-left: auto parks the nav at the right
-   edge of the shared .publicHeader flex row. */
-.mastheadNav {
-  margin-left: auto;
-  display: flex;
-  align-items: baseline;
-}
-
-.allPostsLink {
-  color: var(--vc-muted-fg);
-  text-decoration: none;
-  font-family: var(--vc-font-body);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  transition: color 150ms ease;
-}
-
-.allPostsLink:hover {
-  color: var(--vc-accent);
-}
+/* public-blog.module.css — index/listing styles ONLY. The page shell (themed
+   canvas, container, masthead, focus language, reduced-motion) lives in
+   @vc/content's public-chrome.module.css so public SSR and the dashboard
+   editor preview share it. Per-theme index rules key off the [data-vc-theme]
+   attribute on the chrome root, not a module-local class. */
 
 /* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
 .postList {
@@ -117,21 +51,20 @@
 /* ==========================================================================
    Preset identities — index composition matching presets.css token blocks.
    Title size already tracks --vc-heading-scale; these rules re-voice density
-   and metadata. Type/rhythm tokens (measure, leading, gaps) come from the
-   [data-vc-theme] root in presets.css.
+   and metadata. Scoped to the [data-vc-theme] attribute on the chrome root.
    ========================================================================== */
 
 /* Editorial — narrative index: maximum air between entries. */
-.publicPage[data-vc-theme="editorial"] .postList {
+[data-vc-theme="editorial"] .postList {
   gap: 3.5rem;
 }
 
 /* Technical — reference index: dense list, mono uppercase dates. */
-.publicPage[data-vc-theme="technical"] .postList {
+[data-vc-theme="technical"] .postList {
   gap: 2rem;
 }
 
-.publicPage[data-vc-theme="technical"] .metaLine {
+[data-vc-theme="technical"] .metaLine {
   font-family: var(--vc-font-mono);
   font-size: 0.75rem;
   letter-spacing: 0.07em;
@@ -139,18 +72,13 @@
 }
 
 /* Product — launch index: confident spacing, heavier card titles. */
-.publicPage[data-vc-theme="product"] .postList {
+[data-vc-theme="product"] .postList {
   gap: 3.25rem;
 }
 
-.publicPage[data-vc-theme="product"] .postCard h2 {
+[data-vc-theme="product"] .postCard h2 {
   font-weight: 750;
   letter-spacing: -0.03em;
-}
-
-/* §8: the themed canvas spans the viewport; only article content is constrained. */
-.publicPage[data-vc-article-page] .publicContainer {
-  max-width: 1240px;
 }
 
 .backLink {
@@ -251,11 +179,8 @@
 
 /* ── Focus states ─────────────────────────────────────────────────────────── */
 
-/* One deliberate keyboard-focus language across every public link: a 2px accent
-   outline lifted 2px off the target with a small radius, so inline links don't
-   read as a hard rectangle. Text-entry controls keep their own ring above. */
-.publicBrand:focus-visible,
-.allPostsLink:focus-visible,
+/* Listing links share the chrome's focus language (2px accent outline, 2px
+   offset); chrome links themselves are covered in public-chrome.module.css. */
 .postCard h2 a:focus-visible,
 .backLink:focus-visible {
   outline: 2px solid var(--vc-accent);
@@ -276,32 +201,7 @@
 }
 
 @media (max-width: 640px) {
-  .publicContainer {
-    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
-  }
-
-  .publicHeader {
-    padding-bottom: 20px;
-    margin-bottom: 28px;
-  }
-
-  .publicBrand {
-    font-size: 22px;
-  }
-
   .postCard h2 {
     font-size: clamp(22px, 6vw, 28px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .publicPage,
-  .publicPage *,
-  .publicPage *::before,
-  .publicPage *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }

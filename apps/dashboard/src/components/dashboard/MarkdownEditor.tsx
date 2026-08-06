@@ -1,7 +1,8 @@
 'use client'
 
-import { renderRichContent, RichContentFrame } from '@vc/content'
-import { PresentedPostArticle } from '@vc/content/presented-post'
+import { renderRichContent, readingTimeMinutes } from '@vc/content'
+import { PresentedPostArticle, type SiteThemeInput } from '@vc/content/presented-post'
+import { PublicPageChrome } from '@vc/content/public-chrome'
 import { MEDIA, resolvePresentation, type Presentation } from '@vc/config'
 import { Button, Field, FieldDescription, FieldLabel, Input, Textarea } from '@vc/ui'
 import { EyeOpenIcon, ImageIcon, Pencil2Icon, UploadIcon } from '@radix-ui/react-icons'
@@ -24,11 +25,23 @@ type MarkdownAsset = {
   width: number | null
   height: number | null
 }
+type EditorSite = {
+  name: string
+  description: string | null
+  slug: string
+}
+
 type MarkdownEditorProps = {
   assets: MarkdownAsset[]
   defaultValue: string
   presetId?: string
   presentation?: { layout?: string; toc?: boolean }
+  /** Site identity for the exact-page preview masthead and byline. */
+  site?: EditorSite | null
+  /** Site accent/font/mode so the preview renders the blog's real theme. */
+  siteTheme?: SiteThemeInput
+  /** Published timestamp; drafts preview as "published today". */
+  publishedAt?: number | null
 }
 
 type EditorMode = 'write' | 'preview'
@@ -37,6 +50,10 @@ type PreviewMetadata = {
   title?: string
   excerpt?: string
   coverAssetSrc?: string
+  coverAssetAlt?: string
+  coverAssetWidth?: number
+  coverAssetHeight?: number
+  tags?: string[]
 }
 
 export function isPreviewCurrent(
@@ -48,7 +65,7 @@ export function isPreviewCurrent(
   return draftRevision === previewDraftRevision && metadataRevision === previewMetadataRevision
 }
 
-export function MarkdownEditor({ assets, defaultValue, presetId, presentation }: MarkdownEditorProps) {
+export function MarkdownEditor({ assets, defaultValue, presetId, presentation, site, siteTheme, publishedAt }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionRef = useRef({ start: defaultValue.length, end: defaultValue.length })
   const contentRevisionRef = useRef(0)
@@ -85,7 +102,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     })
   }, [assets])
   useEffect(() => {
-    const metadataFields = ['post-title', 'post-excerpt', 'post-cover']
+    const metadataFields = ['post-title', 'post-excerpt', 'post-cover', 'post-tags']
       .map((id) => document.getElementById(id))
       .filter((field): field is HTMLElement => field instanceof HTMLElement)
     const markMetadataChanged = () => {
@@ -113,11 +130,19 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
     const title = document.getElementById('post-title')
     const excerpt = document.getElementById('post-excerpt')
     const cover = document.getElementById('post-cover')
+    const tagsField = document.getElementById('post-tags')
     const coverAssetId = cover instanceof HTMLSelectElement ? cover.value : ''
+    const coverAsset = coverAssetId ? availableAssets.find((asset) => asset.id === coverAssetId) : undefined
+    const tagsValue = tagsField instanceof HTMLInputElement ? tagsField.value : ''
+    const tags = tagsValue.split(',').map((tag) => tag.trim()).filter(Boolean)
     return {
       title: title instanceof HTMLInputElement ? title.value.trim() || undefined : undefined,
       excerpt: excerpt instanceof HTMLTextAreaElement ? excerpt.value.trim() || undefined : undefined,
       coverAssetSrc: coverAssetId ? `/media-assets/${coverAssetId}` : undefined,
+      coverAssetAlt: coverAsset?.altText ?? undefined,
+      coverAssetWidth: coverAsset?.width ?? undefined,
+      coverAssetHeight: coverAsset?.height ?? undefined,
+      tags: tags.length > 0 ? tags : undefined,
     }
   }
 
@@ -410,36 +435,61 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation }:
       </div>
 
       {mode === 'preview' ? (
-        <div
-          className="min-h-[22rem] overflow-x-auto rounded-xl bg-muted/50 p-4 sm:min-h-[32rem] sm:p-5"
-          aria-label="Markdown preview"
-        >
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--hairline)] pb-3">
+        <div aria-label="Markdown preview">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="font-mono text-[11px] text-muted-foreground" aria-live="polite">
-              {previewIsCurrent ? 'Preview is current' : 'Preview is stale after recent edits'}
+              {previewIsCurrent
+                ? 'Exact public page — masthead, theme, article, and subscribe block as readers get them'
+                : 'Preview is stale after recent edits'}
             </p>
             <Button type="button" variant="outline" size="sm" onClick={refreshPreview}>
               Refresh preview
             </Button>
           </div>
-          {previewSource.trim() ? (
-            presetId ? (
-              <PresentedPostArticle
-                renderResult={previewResult}
-                presetId={presetId}
-                presentation={resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved}
-                title={previewMetadata.title}
-                excerpt={previewMetadata.excerpt}
-                coverAssetSrc={previewMetadata.coverAssetSrc}
-              />
+          {/* Read-only frame: in-page links (tags, masthead, anchors) must not
+              navigate the editor away, so anchor activation is captured here. */}
+          <div
+            className="overflow-hidden rounded-xl border border-[color:var(--hairline)]"
+            onClickCapture={(event) => {
+              if ((event.target as HTMLElement).closest('a')) event.preventDefault()
+            }}
+          >
+            {previewSource.trim() ? (
+              <PublicPageChrome
+                siteName={site?.name ?? 'Your blog'}
+                tagline={site?.description ?? null}
+                homeHref="/"
+                allPostsHref="/"
+                presetId={presetId ?? 'minimal'}
+                theme={siteTheme}
+                article
+                subscribeVariant="end"
+              >
+                <PresentedPostArticle
+                  renderResult={previewResult}
+                  presetId={presetId ?? 'minimal'}
+                  presentation={resolvePresentation(presetId ?? 'minimal', presentation as Presentation | null | undefined).resolved}
+                  title={previewMetadata.title}
+                  excerpt={previewMetadata.excerpt}
+                  byline={site?.name}
+                  coverAssetSrc={previewMetadata.coverAssetSrc}
+                  coverAssetAlt={previewMetadata.coverAssetAlt}
+                  coverAssetWidth={previewMetadata.coverAssetWidth}
+                  coverAssetHeight={previewMetadata.coverAssetHeight}
+                  dateText={new Date((publishedAt ?? Math.floor(Date.now() / 1000)) * 1000).toLocaleDateString()}
+                  readingMinutes={readingTimeMinutes(previewSource)}
+                  tags={previewMetadata.tags}
+                  basePath="/"
+                />
+              </PublicPageChrome>
             ) : (
-              <RichContentFrame node={previewResult.node} />
-            )
-          ) : (
-            <p className="font-mono text-xs text-muted-foreground">
-              Nothing to preview yet. Add a heading or a first paragraph, then refresh this preview.
-            </p>
-          )}
+              <div className="bg-muted/50 p-8">
+                <p className="font-mono text-xs text-muted-foreground">
+                  Nothing to preview yet. Add a heading or a first paragraph, then refresh this preview.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       ) : null}
     </div>

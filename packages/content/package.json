@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./presented-post": "./src/presented-post.tsx",
+    "./public-chrome": "./src/public-chrome.tsx",
     "./styles": "./src/styles/vc-rich-content.css",
     "./styles/presets": "./src/styles/presets.css",
     "./styles/prose": {

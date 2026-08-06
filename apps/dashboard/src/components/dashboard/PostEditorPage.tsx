@@ -22,6 +22,7 @@ import { Skeleton } from "@vc/ui"
 import { Switch } from '~/components/ui/switch'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import type { EditorSiteInfo } from '~/types/dashboard'
 import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
@@ -186,6 +187,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [showDiff, setShowDiff] = useState(false)
   const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
   const [presetId, setPresetId] = useState<string>('minimal')
+  const [site, setSite] = useState<EditorSiteInfo | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<string>('standard')
   const [selectedToc, setSelectedToc] = useState<boolean>(false)
   const [presentationDirty, setPresentationDirty] = useState(false)
@@ -216,6 +218,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setMissing(result.missing)
         setSelectedCoverAssetId(result.post?.coverAssetId ?? '')
         setPresetId(result.presetId)
+        setSite(result.site)
         setCurrentVersionNumber(result.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
         setSelectedLayout(result.post?.presentation?.layout ?? cap.default.layout)
@@ -314,6 +317,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setPost(refreshed.post)
         setAssets(refreshed.assets)
         setMissing(refreshed.missing)
+        setSite(refreshed.site)
         setCurrentVersionNumber(refreshed.currentVersionNumber)
         setHasPriorPresentation(presentation !== null)
         setPresentationDirty(false)
@@ -325,6 +329,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         if (result.kind === 'ok') {
           const refreshed = await loadPostEditorPage({ postId })
           setPost(refreshed.post)
+          setSite(refreshed.site)
           setCurrentVersionNumber(refreshed.currentVersionNumber)
           setHasPriorPresentation(presentation !== null)
           setPresentationDirty(false)
@@ -457,6 +462,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
       if (result.kind === 'ok') {
         const refreshed = await loadPostEditorPage({ postId })
         setPost(refreshed.post)
+        setSite(refreshed.site)
         setCurrentVersionNumber(refreshed.currentVersionNumber)
         const cap = THEME_PRESETS[resolvePresetId(refreshed.presetId)].layout
         setSelectedLayout(refreshed.post?.presentation?.layout ?? cap.default.layout)
@@ -560,6 +566,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                   defaultValue={post?.contentMarkdown ?? ''}
                   presetId={presetId}
                   presentation={{ layout: selectedLayout, toc: selectedToc }}
+                  site={site}
+                  siteTheme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
+                  publishedAt={post?.publishedAt ?? null}
                 />
                 <FieldDescription className="font-sans">
                   Markdown is rendered with the same safe renderer as the public blog.

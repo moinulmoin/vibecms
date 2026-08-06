@@ -1,0 +1,117 @@
+/* public-chrome.module.css
+   The page shell every vibecms blog page renders inside: themed canvas,
+   centered container, masthead (brand + tagline, plus the All posts nav on
+   article pages). Shared between apps/public SSR and the dashboard editor
+   preview so preview == production by construction. All visual roles come
+   from --vc-* tokens: [data-vc-theme] lives on .page itself. */
+
+.page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+}
+
+.container {
+  width: 100%;
+  max-width: 860px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(24px, 7vw, 72px) clamp(16px, 5vw, 32px);
+}
+
+/* Header separates by padding + the title's own weight — no border rule. */
+.header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 28px;
+  margin-bottom: var(--vc-section-gap);
+}
+
+.brand {
+  color: inherit;
+  text-decoration: none;
+  font-family: var(--vc-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.brand:hover {
+  color: var(--vc-accent);
+}
+
+/* Masthead tagline — muted so it reads as a quiet descriptor beside the brand,
+   not a second headline competing for the foreground. Shares the header
+   baseline row; wraps under the brand on narrow viewports. */
+.tagline {
+  margin: 0;
+  color: var(--vc-muted-fg);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Article masthead: site identity (brand + tagline) left, "All posts"
+   navigation right. Only article pages render .mastheadNav. */
+.mastheadNav {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+}
+
+.allPostsLink {
+  color: var(--vc-muted-fg);
+  text-decoration: none;
+  font-family: var(--vc-font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: color 150ms ease;
+}
+
+.allPostsLink:hover {
+  color: var(--vc-accent);
+}
+
+/* One deliberate keyboard-focus language across chrome links: a 2px accent
+   outline lifted 2px off the target with a small radius. */
+.brand:focus-visible,
+.allPostsLink:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* The themed canvas spans the viewport; only article content is constrained. */
+.page[data-vc-article-page] .container {
+  max-width: 1240px;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: clamp(16px, 5vw, 32px) clamp(12px, 4vw, 20px);
+  }
+
+  .header {
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+
+  .brand {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .page *,
+  .page *::before,
+  .page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

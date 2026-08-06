@@ -208,12 +208,22 @@ export type ActivityPageLoad = {
   hasMore: boolean
 }
 
+export type EditorSiteInfo = {
+  name: string
+  description: string | null
+  slug: string
+  themeAccent: string | null
+  themeFont: string | null
+  themeMode: string
+}
+
 export type PostEditorPageLoad = {
   mode: 'new' | 'edit'
   post: Post | null
   assets: Asset[]
   missing: boolean
   presetId: string
+  site: EditorSiteInfo | null
   currentVersionNumber: number | null
 }
 

@@ -10,6 +10,8 @@ export {
   safeHref,
 } from "./renderer.js";
 
+export { readingTimeMinutes } from "./reading-time.js";
+
 export type {
   OutlineEntry,
   RenderedImageAttributes,

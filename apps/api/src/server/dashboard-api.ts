@@ -206,10 +206,23 @@ export async function loadPostsPage(
 
 export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   const assets = await getMedia(app)
-  const theme = await createDataAccess(env.DB).sites.getSiteTheme(app.siteId)
-  const presetId = resolvePresetId(theme)
+  const siteRow = await createDataAccess(env.DB).sites.getSiteSettings(app.siteId)
+  const presetId = resolvePresetId(siteRow?.theme ?? null)
+  // The editor preview renders the exact public page chrome, so it needs the
+  // site's identity (masthead) and theme inputs (accent/font/mode), not just
+  // the resolved preset.
+  const site = siteRow
+    ? {
+        name: siteRow.name,
+        description: siteRow.description,
+        slug: siteRow.slug,
+        themeAccent: siteRow.themeAccent,
+        themeFont: siteRow.themeFont,
+        themeMode: siteRow.themeMode,
+      }
+    : null
   if (!postId) {
-    return { mode: 'new' as const, post: null, assets, missing: false, presetId, currentVersionNumber: null }
+    return { mode: 'new' as const, post: null, assets, missing: false, presetId, site, currentVersionNumber: null }
   }
   const repo = postRepository()
   const post = await repo.getPost(app.siteId, postId)
@@ -219,6 +232,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
     assets,
     missing: !post,
     presetId,
+    site,
     currentVersionNumber: post?.currentVersionNumber ?? null,
   }
 }
