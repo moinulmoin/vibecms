@@ -29,13 +29,15 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
 1. **Honest templates** — DONE (d897edf). Four distinct typographic identities;
    per-theme token blocks in presets.css + chrome rules; `data-vc-theme` on the
    article root keeps public SSR and dashboard preview identical.
-2. **Editor as review surface** — MOSTLY DONE. Exact full-page preview
-   (ca591ba): shared `PublicPageChrome`/`SubscribeBlock`, site identity in the
-   payload, inert preview. Review strip (9a60064): version, live/unpublished/
-   draft/archived state via tested `editorLiveState`, last-saved actor + time,
-   open-live link, publish action moved next to the state it acts on. OPEN:
-   version diff surfaced near publish (drawer exists), mobile
-   Preview/Markdown/Settings tabs.
+2. **Editor as review surface** — DONE. Exact full-page preview (ca591ba):
+   shared `PublicPageChrome`/`SubscribeBlock`, site identity in the payload,
+   inert preview. Review strip (9a60064): version, live/unpublished/draft/
+   archived state via tested `editorLiveState`, last-saved actor + time,
+   open-live link, publish action next to the state it acts on. Review-before-
+   publish (8c27065): strip's Review changes opens the pinned-vs-tip diff.
+   DEFERRED (explicit): mobile Preview/Markdown/Settings tabs — the stacked
+   layout recomposes correctly today; a tab system needs shared mode state
+   across panels and deserves its own pass with mobile QA.
 3. **Dashboard composition/typeset** — PARTIAL (b6c5877): 1200px canvas,
    optional kicker with echo kickers removed, editor status dedup. OPEN:
    decisions-first overview order, posts list actor column, copy-level typeset.
