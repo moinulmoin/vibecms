@@ -2,10 +2,12 @@ import { BarChartIcon, LockClosedIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { Badge, Button, Card, Skeleton } from '@vc/ui'
 import { useEffect, useMemo, useState } from 'react'
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { EmptyState, LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
 import { loadAnalyticsPage } from '~/lib/api-client'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
 
 const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
@@ -21,17 +23,10 @@ function trendLabel(value: number | null) {
   return `${value > 0 ? '+' : ''}${value}% from previous period`
 }
 
-function points(values: number[], maximum: number) {
-  if (values.length === 0) return ''
-  if (values.length === 1) return `0,${180 - (values[0] / maximum) * 160}`
-  return values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * 1000
-      const y = 180 - (value / maximum) * 160
-      return `${x},${y}`
-    })
-    .join(' ')
-}
+const trafficChartConfig = {
+  views: { label: 'Views', color: 'var(--chart-1)' },
+  aiCrawlerRequests: { label: 'AI crawlers', color: 'var(--chart-2)' },
+} satisfies ChartConfig
 
 function AnalyticsSkeleton() {
   return (
@@ -113,12 +108,11 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
 }
 
 function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
-  const maximum = Math.max(1, ...data.series.flatMap((point) => [point.views, point.aiCrawlerRequests]))
-  const humanPoints = points(data.series.map((point) => point.views), maximum)
-  const crawlerPoints = points(data.series.map((point) => point.aiCrawlerRequests), maximum)
-  const middle = data.series[Math.floor(data.series.length / 2)]
-  const first = data.series[0]
-  const last = data.series.at(-1)
+  const chartData = data.series.map((point) => ({
+    date: formatDate(point.date),
+    views: point.views,
+    aiCrawlerRequests: point.aiCrawlerRequests,
+  }))
 
   return (
     <Panel
@@ -142,24 +136,32 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
           }
         />
       ) : (
-        <div>
-          <div className="relative h-56 w-full" role="img" aria-label={`${data.seriesGranularity === 'month' ? 'Monthly' : 'Daily'} page views and AI crawler requests for ${data.rangeDays === 'all' ? 'all time' : `${data.rangeDays} days`}`}>
-            <svg viewBox="0 0 1000 200" preserveAspectRatio="none" className="h-full w-full overflow-visible" aria-hidden="true">
-              {[20, 60, 100, 140, 180].map((y) => (
-                <line key={y} x1="0" x2="1000" y1={y} y2={y} stroke="currentColor" className="text-border" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              ))}
-              <polyline points={humanPoints} fill="none" stroke="currentColor" className="text-foreground" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              {data.aiCrawlers.status === 'available' ? (
-                <polyline points={crawlerPoints} fill="none" stroke="var(--brand-bright)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              ) : null}
-            </svg>
-          </div>
-          <div className="mt-3 flex justify-between font-mono text-xs text-muted-foreground" aria-hidden="true">
-            <span>{first ? formatDate(first.date) : ''}</span>
-            <span>{middle ? formatDate(middle.date) : ''}</span>
-            <span>{last ? formatDate(last.date) : ''}</span>
-          </div>
-        </div>
+        <ChartContainer config={trafficChartConfig} className="h-56 w-full">
+          <LineChart accessibilityLayer data={chartData}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={32}
+              tickFormatter={(value) => value}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              width={40}
+            />
+            <ChartTooltip
+              content={<ChartTooltipContent indicator="line" />}
+            />
+            <Line dataKey="views" type="monotone" stroke="var(--color-views)" strokeWidth={2} dot={false} />
+            {data.aiCrawlers.status === 'available' ? (
+              <Line dataKey="aiCrawlerRequests" type="monotone" stroke="var(--color-aiCrawlerRequests)" strokeWidth={2} dot={false} />
+            ) : null}
+          </LineChart>
+        </ChartContainer>
       )}
     </Panel>
   )

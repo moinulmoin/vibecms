@@ -100,6 +100,11 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --chart-1: oklch(0.24 0 0);
+  --chart-2: oklch(0.7423 0.1585 154.53);
+  --chart-3: oklch(0.62 0.13 152);
+  --chart-4: oklch(0.46 0 0);
+  --chart-5: oklch(0.74 0.06 152);
   --sidebar: oklch(0.975 0 0);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--brand-bright);
@@ -141,6 +146,11 @@
   --glow-primary: oklch(0.8107 0.1705 152.72 / 0.16);
   --hairline: oklch(1 0 0 / 0.12);
   --dot-grid-fill: oklch(1 0 0 / 0.025);
+  --chart-1: oklch(0.936 0.008 155);
+  --chart-2: oklch(0.8107 0.1705 152.72);
+  --chart-3: oklch(0.72 0.014 155);
+  --chart-4: oklch(0.6 0.12 152);
+  --chart-5: oklch(0.5 0.1 152);
   --sidebar: oklch(0.165 0.008 244);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--brand-bright);

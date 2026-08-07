@@ -11,7 +11,7 @@ import {
   Link2Icon,
 } from '@radix-ui/react-icons'
 import { ChartNoAxesCombined } from 'lucide-react'
-import { Alert, Button, cn } from '@vc/ui'
+import { Alert, Button } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useTransition, type ComponentType, type ReactNode } from 'react'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -38,10 +38,13 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
-import { Card } from "@vc/ui"
 import { Separator } from "@vc/ui"
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
+// Page primitives moved to the shared block kit; keep re-exports for
+// compatibility during the transition, then drop them.
+export { PageHeader, Panel, StatCard, StatusBadge, EmptyState, DataRow } from './blocks'
+import { Panel } from './blocks'
 
 type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?: boolean }> }
 
@@ -261,127 +264,6 @@ export function AppShell({
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
-  )
-}
-
-export function PageHeader({
-  kicker,
-  title,
-  description,
-  action,
-}: {
-  /** Optional state line (e.g. editor status). Omit for section pages — the
-   *  sticky header and nav already name the section. */
-  kicker?: string
-  title: string
-  description?: string
-  action?: ReactNode
-}) {
-  return (
-    <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-2">
-        {kicker ? (
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {kicker}
-          </p>
-        ) : null}
-        <h1 className="text-balance font-display text-xl font-semibold leading-[1.15] tracking-[-0.02em] text-foreground sm:text-2xl">
-          {title}
-        </h1>
-        {description ? (
-          <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-6">{action}</div> : null}
-    </header>
-  )
-}
-
-export function StatCard({
-  label,
-  value,
-  detail,
-  interactive,
-}: {
-  label: string
-  value: string | number
-  detail?: string
-  interactive?: boolean
-}) {
-  return (
-    <Card
-      className={cn(
-        'gap-0 p-5 sm:p-6',
-        interactive && 'h-full transition-colors hover:border-[color:var(--brand-bright)]/30 hover:bg-muted/40',
-      )}
-    >
-      <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
-      <p className="mt-3 font-display text-3xl font-semibold tabular-nums tracking-[-0.03em] text-foreground">{value}</p>
-      {detail ? <p className="mt-1.5 font-sans text-sm leading-5 text-muted-foreground">{detail}</p> : null}
-    </Card>
-  )
-}
-
-export function Panel({
-  title,
-  meta,
-  children,
-  className,
-}: {
-  title: string
-  meta?: ReactNode
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <Card className={cn('gap-0 p-5 sm:p-6', className)}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
-        {meta}
-      </div>
-      {children}
-    </Card>
-  )
-}
-
-export function DataRow({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn(
-        'grid gap-2 rounded-lg border border-[color:var(--hairline)] bg-background px-4 py-3.5 text-sm sm:items-center',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
-export function EmptyState({
-  title,
-  description,
-  action,
-  icon,
-}: {
-  title: string
-  description: string
-  action?: ReactNode
-  icon?: ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center px-4 py-12 text-center sm:py-16">
-      {icon ? (
-        <div
-          aria-hidden="true"
-          className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5"
-        >
-          {icon}
-        </div>
-      ) : null}
-      <p className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-lg text-base leading-7 text-muted-foreground">{description}</p>
-      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
-    </div>
   )
 }
 

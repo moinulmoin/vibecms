@@ -19,6 +19,7 @@ import {
 import { Button, PageHeader, Panel, formatDateTime } from '~/components/dashboard/DashboardLayout'
 import { Badge, Card } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
+import { StatusBadge } from '~/components/dashboard/blocks'
 import { Switch } from '~/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
@@ -103,11 +104,7 @@ export function editorLiveState(
 }
 
 function PostStatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant="outline" className="capitalize">
-      {status}
-    </Badge>
-  )
+  return <StatusBadge status={status} />
 }
 
 // ---------------------------------------------------------------------------

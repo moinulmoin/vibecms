@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
 import { Alert, Badge, Skeleton } from "@vc/ui"
+import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import type { BillingSnapshot, BillingPageLoadResult } from '~/types/dashboard'
@@ -16,19 +17,7 @@ import {
 } from '~/lib/api-client'
 
 function BillingStatusBadge({ status }: { status: string }) {
-  if (status === 'active') {
-    return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        Active
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="capitalize">
-      {status}
-    </Badge>
-  )
+  return <StatusBadge status={status} />
 }
 
 export function BillingPage() {

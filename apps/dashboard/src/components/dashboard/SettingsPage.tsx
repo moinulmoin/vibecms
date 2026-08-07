@@ -21,6 +21,7 @@ import type { Asset } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView } from '~/types/dashboard'
 import { DownloadIcon, GlobeIcon } from '@radix-ui/react-icons'
 import {
+  Alert,
   Field,
   FieldLabel,
   FieldLegend,
@@ -40,6 +41,7 @@ import {
   PageHeader,
   Panel,
 } from '~/components/dashboard/DashboardLayout'
+import { ListRow, StatusBadge } from '~/components/dashboard/blocks'
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
@@ -188,42 +190,11 @@ export function selectRepresentativePost(selectedIds: string[], postId: string, 
 }
 
 function BillingStatusBadge({ status }: { status: string }) {
-  if (status === 'active') {
-    return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        Active
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="capitalize">
-      {status}
-    </Badge>
-  )
+  return <StatusBadge status={status} />
 }
 
 function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
-  if (status === 'active') {
-    return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        Active
-      </Badge>
-    )
-  }
-  if (status === 'failed') {
-    return (
-      <Badge variant="outline" className="border-destructive/30 bg-destructive/10 capitalize text-destructive">
-        failed
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="capitalize">
-      {status}
-    </Badge>
-  )
+  return <StatusBadge status={status} />
 }
 
 // ---------------------------------------------------------------------------
@@ -1066,14 +1037,13 @@ export function SettingsPage() {
                 )}
               </FieldSet>
               {data.voiceProfile.warnings.length > 0 && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-                  <p className="font-display text-sm font-medium text-amber-900 dark:text-amber-100">Warnings</p>
-                  <ul className="mt-2 space-y-1 font-sans text-xs text-amber-800 dark:text-amber-200">
+                <Alert variant="warning" title="Warnings">
+                  <ul className="mt-1 list-disc space-y-1 pl-4">
                     {data.voiceProfile.warnings.map((warning, i) => (
-                      <li key={i}>• {warning}</li>
+                      <li key={i}>{warning}</li>
                     ))}
                   </ul>
-                </div>
+                </Alert>
               )}
               <div className="flex flex-wrap items-center gap-3">
                 <PendingSubmitButton
@@ -1142,26 +1112,29 @@ export function SettingsPage() {
           {customDomains.domains.length ? (
             <div className="grid gap-3">
               {customDomains.domains.map((domain) => (
-                <article className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/50 p-4" key={domain.id}>
-                  <div className="min-w-0">
-                    <strong className="break-words font-display text-foreground">{domain.hostname}</strong>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <ListRow
+                  key={domain.id}
+                  title={<strong className="break-words font-display text-foreground">{domain.hostname}</strong>}
+                  meta={
+                    <div className="flex flex-wrap items-center gap-2">
                       <DomainStatusBadge status={domain.status} />
                       {domain.verificationErrors.length ? (
                         <span className="font-sans text-xs text-muted-foreground">{domain.verificationErrors[0]}</span>
                       ) : null}
                     </div>
-                  </div>
-                  <SpaConfirmButton
-                    size="sm"
-                    confirmLabel="Confirm remove"
-                    helperText="Removing stops serving your blog on this domain."
-                    disabled={removeDomainPending === domain.id}
-                    onConfirm={() => handleRemoveDomain(domain.id)}
-                  >
-                    Remove
-                  </SpaConfirmButton>
-                </article>
+                  }
+                  actions={
+                    <SpaConfirmButton
+                      size="sm"
+                      confirmLabel="Confirm remove"
+                      helperText="Removing stops serving your blog on this domain."
+                      disabled={removeDomainPending === domain.id}
+                      onConfirm={() => handleRemoveDomain(domain.id)}
+                    >
+                      Remove
+                    </SpaConfirmButton>
+                  }
+                />
               ))}
             </div>
           ) : (

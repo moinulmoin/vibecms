@@ -1,10 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityLogIcon } from '@radix-ui/react-icons'
 import {
   Button,
-  DataRow,
   EmptyState,
   LoadError,
   PageHeader,
@@ -14,7 +13,6 @@ import {
 } from '~/components/dashboard/DashboardLayout'
 import {
   Badge,
-  Separator,
   Skeleton,
   Table,
   TableBody,
@@ -23,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@vc/ui'
+import { ListRow } from '~/components/dashboard/blocks'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { loadActivityPage } from '~/lib/api-client'
 
@@ -73,58 +72,6 @@ function ActorBadge({ actorType }: { actorType: string }) {
   )
 }
 
-type DayGroup = { key: number; label: string; events: ActivityEvent[] }
-
-function startOfDayMs(ms: number): number {
-  const d = new Date(ms)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-const dayGroupFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
-const dayGroupYearFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
-const timeOnlyFormatter = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' })
-
-function dayGroupLabel(ms: number): string {
-  const diffDays = Math.round((startOfDayMs(Date.now()) - startOfDayMs(ms)) / 86_400_000)
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  const d = new Date(ms)
-  // Include year for events older than 7 days so "Jul 16" doesn't look like an ID
-  if (diffDays > 7) return dayGroupYearFormatter.format(d)
-  return dayGroupFormatter.format(d)
-}
-
-export function formatTimeOnly(value: number | string | Date): string {
-  const d = typeof value === 'number' ? new Date(value * 1000) : value instanceof Date ? value : new Date(value)
-  return timeOnlyFormatter.format(d)
-}
-
-function groupByDay(events: ActivityEvent[]): DayGroup[] {
-  const byDay = new Map<number, ActivityEvent[]>()
-  for (const event of events) {
-    const day = startOfDayMs(event.created_at * 1000)
-    const list = byDay.get(day)
-    if (list) list.push(event)
-    else byDay.set(day, [event])
-  }
-  const groups: DayGroup[] = []
-  for (const [key, dayEvents] of byDay) {
-    // Newest first within each day.
-    dayEvents.sort((a, b) => b.created_at - a.created_at)
-    groups.push({ key, label: dayGroupLabel(key), events: dayEvents })
-  }
-  // Newest day first overall.
-  groups.sort((a, b) => b.key - a.key)
-  return groups
-}
-
-function DayHeader({ label }: { label: string }) {
-  return (
-    <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-  )
-}
-
 function ActivitySkeleton() {
   return (
     <>
@@ -133,7 +80,7 @@ function ActivitySkeleton() {
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-4 w-80" />
       </div>
-      <Panel title="Recent events">
+      <Panel title="Activity log">
         <div className="grid gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-14 rounded-xl" />
@@ -196,7 +143,6 @@ export function ActivityPage() {
     actorFilter === 'all'
       ? events
       : events.filter((event) => actorCategory(event.actor_type) === actorFilter)
-  const groups = groupByDay(filteredEvents)
 
   return (
     <>
@@ -205,10 +151,7 @@ export function ActivityPage() {
         title="Activity"
         description="Every meaningful action from you or an agent, with enough context to debug and trust the system."
       />
-      <Panel
-        title="Recent events"
-        meta={<Badge variant="outline">{filteredEvents.length} shown</Badge>}
-      >
+      <Panel title="Activity log" meta={<Badge variant="outline">{filteredEvents.length} events</Badge>}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <ToggleGroup
             type="single"
@@ -240,90 +183,71 @@ export function ActivityPage() {
           </div>
         ) : (
           <>
-            {/* Desktop table */}
+            {/* Desktop: flat audit table, no date grouping. Full timestamp in one cell. */}
             <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Action</TableHead>
+                  <TableHead className="w-44">Timestamp</TableHead>
+                  <TableHead className="w-40">Actor</TableHead>
+                  <TableHead className="w-48">Action</TableHead>
                   <TableHead>Summary</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {groups.map((group) => (
-                  <Fragment key={group.key}>
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={4} className="border-0 px-4 pb-1 pt-4">
-                        <DayHeader label={group.label} />
-                      </TableCell>
-                    </TableRow>
-                    {group.events.map((event) => (
-                      <TableRow
-                        key={`${event.action}-${event.created_at}-${event.summary}`}
-                      >
-                        <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
-                          {formatTimeOnly(event.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2">
-                            <ActorBadge actorType={event.actor_type} />
-                            <span className="max-w-[14rem] truncate font-mono text-xs text-muted-foreground">
-                              {event.actor_name}
-                            </span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                          {labelAction(event.action)}
-                        </TableCell>
-                        <TableCell className="w-full max-w-0">
-                          <span className="block truncate text-pretty font-sans text-sm text-foreground">
-                            {event.summary}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </Fragment>
+                {filteredEvents.map((event) => (
+                  <TableRow key={`${event.action}-${event.created_at}-${event.summary}`}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
+                      {formatDateTime(event.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-2">
+                        <ActorBadge actorType={event.actor_type} />
+                        <span className="max-w-[12rem] truncate font-mono text-xs text-muted-foreground">
+                          {event.actor_name}
+                        </span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                      {labelAction(event.action)}
+                    </TableCell>
+                    <TableCell className="w-full max-w-0">
+                      <span className="block truncate text-pretty font-sans text-sm text-foreground">
+                        {event.summary}
+                      </span>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
 
-            {/* Mobile cards */}
+            {/* Mobile: timeline-style rows, no date grouping. */}
             <div className="grid gap-2 md:hidden">
-              {groups.map((group) => (
-                <Fragment key={group.key}>
-                  <div className="flex items-center gap-2 pt-3 first:pt-0">
-                    <DayHeader label={group.label} />
-                    <Separator className="flex-1" />
-                  </div>
-                  {group.events.map((event) => (
-                    <DataRow
-                      className="md:grid-cols-[1fr_auto] md:items-start"
-                      key={`${event.action}-${event.created_at}-${event.summary}`}
-                    >
-                      <div className="min-w-0 space-y-1.5">
-                        <p className="text-pretty font-sans text-base font-medium leading-6 text-foreground">
-                          {event.summary}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {labelAction(event.action)}
-                          </span>
-                          <span aria-hidden className="text-muted-foreground/40">
-                            ·
-                          </span>
-                          <ActorBadge actorType={event.actor_type} />
-                          <span className="truncate font-mono text-xs text-muted-foreground">
-                            {event.actor_name}
-                          </span>
-                        </div>
-                      </div>
-                      <time className="font-mono text-xs tabular-nums text-muted-foreground md:text-right">
-                        {formatDateTime(event.created_at)}
-                      </time>
-                    </DataRow>
-                  ))}
-                </Fragment>
+              {filteredEvents.map((event) => (
+                <ListRow
+                  key={`${event.action}-${event.created_at}-${event.summary}`}
+                  title={
+                    <span className="text-pretty font-sans text-base font-medium leading-6 text-foreground">
+                      {event.summary}
+                    </span>
+                  }
+                  description={
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {labelAction(event.action)}
+                      </span>
+                      <span aria-hidden className="text-muted-foreground/40">·</span>
+                      <ActorBadge actorType={event.actor_type} />
+                      <span className="truncate font-mono text-xs text-muted-foreground">
+                        {event.actor_name}
+                      </span>
+                    </span>
+                  }
+                  actions={
+                    <time className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {formatDateTime(event.created_at)}
+                    </time>
+                  }
+                />
               ))}
             </div>
           </>

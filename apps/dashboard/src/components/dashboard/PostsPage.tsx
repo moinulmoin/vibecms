@@ -24,38 +24,7 @@ import { Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-
-function StatusBadge({ status, className }: { status: string; className?: string }) {
-  if (status === 'published') {
-    return (
-      <Badge
-        className={cn(
-          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-primary',
-          className,
-        )}
-      >
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        {status}
-      </Badge>
-    )
-  }
-  if (status === 'archived') {
-    return (
-      <Badge
-        variant="outline"
-        className={cn('gap-1.5 border-dashed capitalize text-muted-foreground/70', className)}
-      >
-        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-        {status}
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className={cn('capitalize', className)}>
-      {status}
-    </Badge>
-  )
-}
+import { StatusBadge } from '~/components/dashboard/blocks'
 
 export function postListRefreshError(action: 'publish' | 'archive') {
   return `Post ${action === 'publish' ? 'published' : 'archived'}, but the list could not refresh.`

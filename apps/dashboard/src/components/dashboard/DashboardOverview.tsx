@@ -41,6 +41,7 @@ import {
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
 import { Badge, Card, CopyButton, Skeleton } from "@vc/ui"
+import { MetricStrip, StatCardGrid, StatusBadge } from '~/components/dashboard/blocks'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -67,20 +68,18 @@ function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
 
   return (
     <Panel title="API and MCP usage">
-      <dl className="grid gap-x-8 gap-y-3 font-sans text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <dt className="text-muted-foreground">Calls this month</dt>
-          <dd className="mt-0.5 font-mono text-base tabular-nums text-foreground">
-            {usage.calls.month.used.toLocaleString()}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Writes this month</dt>
-          <dd className="mt-0.5 font-mono text-base tabular-nums text-foreground">
-            {usage.writes.month.used.toLocaleString()}
-          </dd>
-        </div>
-      </dl>
+      <MetricStrip
+        metrics={[
+          {
+            label: 'Calls this month',
+            value: usage.calls.month.used.toLocaleString(),
+          },
+          {
+            label: 'Writes this month',
+            value: usage.writes.month.used.toLocaleString(),
+          },
+        ]}
+      />
     </Panel>
   )
 }
@@ -172,10 +171,7 @@ export function DashboardOverview() {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {isLive ? (
-                <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-                  <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-                  Live
-                </Badge>
+                <StatusBadge status="live" />
               ) : (
                 <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
               )}
@@ -369,7 +365,7 @@ export function DashboardOverview() {
         </Panel>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCardGrid>
         <Link
           to="/dashboard/posts"
           search={postsListSearch({ status: 'published' })}
@@ -403,7 +399,7 @@ export function DashboardOverview() {
         >
           <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
         </Link>
-      </div>
+      </StatCardGrid>
 
       <ApiUsagePanel usage={data.apiUsage} />
     </>
