@@ -107,7 +107,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
   media_quota_paid: { variant: "error", title: "Storage full", message: "You have reached the 5\u00a0GB media limit." },
-  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to publish more posts and to upload media. Drafting and your first published post stay free." },
+  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to publish more posts and to upload media. Your first 5 published posts are free." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },

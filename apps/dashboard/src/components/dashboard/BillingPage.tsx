@@ -226,7 +226,7 @@ export function BillingPage() {
             <p className="mt-5 font-mono text-xs leading-5 text-muted-foreground">
               {isActive
                 ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
-                : 'Drafting, agent access, and your first published post stay free. Subscribe to unlock every paid feature immediately.'}
+                : 'Your first 5 published posts stay free. Subscribe to unlock every paid feature immediately.'}
             </p>
           </Panel>
       </div>

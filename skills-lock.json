@@ -8,13 +8,13 @@
       "computedHash": "6d838b246d0e35d0b53f4f23f98ba7a1dd561937e64f7d0c7553b0928e376c3e"
     },
     "vibecms-core": {
-      "source": "local",
+      "source": "./local",
       "sourceType": "local",
       "skillPath": "skills/vibecms-core/SKILL.md",
       "computedHash": "4a42974a92310d6329a2cede2b27a98552b824c971480c77206fd8b1acf7e4fc"
     },
     "vibecms-writing": {
-      "source": "local",
+      "source": "./local",
       "sourceType": "local",
       "skillPath": "skills/vibecms-writing/SKILL.md",
       "computedHash": "49af39c5a06db0de0f988edd9cee2ab2eda82f8a89dafe96ad4f4e240e0dec5e"

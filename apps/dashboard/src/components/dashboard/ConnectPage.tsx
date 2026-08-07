@@ -560,10 +560,10 @@ export function ConnectPage() {
                         )}
                         <p className="font-sans text-base leading-7 text-muted-foreground">
                           {livePost?.url
-                            ? "This is your included free publish. People with the link can read it now; search engines won't index it until you upgrade."
+                            ? "Your first 5 published posts are free. People with the link can read it now; search engines won't index it until you upgrade."
                             : 'The publish is recorded. The public link will appear when the default domain is active.'}
                         </p>
-                        {livePost?.url ? (
+                        {livePost?.url && (
                           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
                             <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
                               {livePost.url}
@@ -578,10 +578,6 @@ export function ConnectPage() {
                             </a>
                             <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
                           </div>
-                        ) : (
-                          <p className="rounded-xl bg-muted/50 px-3 py-2.5 font-sans text-sm text-muted-foreground">
-                            The post is published. Its public URL will appear when the default domain is active.
-                          </p>
                         )}
                       </div>
                     </Panel>

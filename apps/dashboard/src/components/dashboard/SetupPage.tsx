@@ -184,7 +184,7 @@ export function SetupPage() {
             </FieldGroup>
             <div className="flex flex-col gap-4 rounded-xl bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-mono text-[11px] leading-5 text-muted-foreground">
-                Draft for free and publish your first post to try it live. Subscribe to publish more and upload media.
+                Draft for free and publish your first 5 posts to try it live. Subscribe to publish more and upload media.
               </p>
               <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pending={submitting} pendingText="Saving…">
                 Continue

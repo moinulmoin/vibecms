@@ -1228,7 +1228,7 @@ export function SettingsPage() {
               <p className="mt-2 max-w-2xl font-sans text-sm leading-6 text-muted-foreground">
                 {selfHosted
                   ? 'Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout.'
-                  : `Drafting, agent tokens, and your first published post are free. Subscribe to publish more, upload media, and make posts search-indexable. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
+                  : `Drafting, agent tokens, and your first 5 published posts are free. Subscribe to publish more, upload media, and make posts search-indexable. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
               </p>
             </div>
             {selfHosted ? (

@@ -21,8 +21,8 @@ export type PostRepository = {
 };
 
 // Draft-free model: a workspace may keep up to this many published posts without
-// an active subscription, so new users can try the full publish loop once.
-const FREE_PUBLISHED_LIMIT = 1;
+// an active subscription, so new users can try the full publish loop.
+const FREE_PUBLISHED_LIMIT = 5;
 
 export async function createPost(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:create");
@@ -102,7 +102,7 @@ export async function publishPost(
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
   }
-  if (capReached) throw new BillingRequiredError("Subscribe to publish more than one post");
+  if (capReached) throw new BillingRequiredError("Subscribe to publish more posts");
   if (!post) throw new NotFoundError("Post not found");
   return post;
 }

@@ -65,18 +65,30 @@ function UsageMeter({
   status: DashboardData['apiUsage']['calls']['minute']
 }) {
   const percent = status.limit > 0 ? Math.min(100, Math.round((status.used / status.limit) * 100)) : 0
+  const nearLimit = percent >= 80
   return (
     <div className="rounded-xl bg-muted/50 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-mono text-[11px] font-medium text-muted-foreground">{label}</p>
-        <p className="font-mono text-xs tabular-nums text-foreground">
-          {status.used}/{status.limit}
-        </p>
+        {nearLimit ? (
+          <span className="font-mono text-xs tabular-nums text-amber-600 dark:text-amber-400">
+            Near limit
+          </span>
+        ) : (
+          <span className="font-mono text-xs text-foreground">Unlimited</span>
+        )}
       </div>
-      <Progress
-        value={percent}
-        className="mt-2 h-1.5 [&_[data-slot=progress-indicator]]:bg-brand-bright"
-      />
+      {nearLimit ? (
+        <Progress
+          value={percent}
+          className="mt-2 h-1.5 [&_[data-slot=progress-indicator]]:bg-amber-500"
+        />
+      ) : (
+        <div className="mt-2 flex items-center gap-2">
+          <span aria-hidden className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+          <span className="font-sans text-xs text-muted-foreground">Guardrails active</span>
+        </div>
+      )}
     </div>
   )
 }
