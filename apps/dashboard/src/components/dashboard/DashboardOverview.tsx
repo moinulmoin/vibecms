@@ -41,7 +41,6 @@ import {
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
 import { Badge, Card, CopyButton, Skeleton } from "@vc/ui"
-import { Progress } from '~/components/ui/progress'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -57,42 +56,6 @@ export function postEditorLink(postId: string) {
   return { to: '/dashboard/posts/$postId/edit' as const, params: { postId } }
 }
 
-function UsageMeter({
-  label,
-  status,
-}: {
-  label: string
-  status: DashboardData['apiUsage']['calls']['minute']
-}) {
-  const percent = status.limit > 0 ? Math.min(100, Math.round((status.used / status.limit) * 100)) : 0
-  const nearLimit = percent >= 80
-  return (
-    <div className="rounded-xl bg-muted/50 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[11px] font-medium text-muted-foreground">{label}</p>
-        {nearLimit ? (
-          <span className="font-mono text-xs tabular-nums text-amber-600 dark:text-amber-400">
-            Near limit
-          </span>
-        ) : (
-          <span className="font-mono text-xs text-foreground">Unlimited</span>
-        )}
-      </div>
-      {nearLimit ? (
-        <Progress
-          value={percent}
-          className="mt-2 h-1.5 [&_[data-slot=progress-indicator]]:bg-amber-500"
-        />
-      ) : (
-        <div className="mt-2 flex items-center gap-2">
-          <span aria-hidden className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-          <span className="font-sans text-xs text-muted-foreground">Guardrails active</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   if (!usage.enforced) {
     return (
@@ -103,12 +66,21 @@ function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   }
 
   return (
-    <Panel title="API and MCP usage" meta={<Badge variant="outline">Workspace budget</Badge>}>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <UsageMeter label="Calls / minute" status={usage.calls.minute} />
-        <UsageMeter label="Calls / day" status={usage.calls.day} />
-        <UsageMeter label="Writes / day" status={usage.writes.day} />
-      </div>
+    <Panel title="API and MCP usage">
+      <dl className="grid gap-x-8 gap-y-3 font-sans text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <dt className="text-muted-foreground">Calls this month</dt>
+          <dd className="mt-0.5 font-mono text-base tabular-nums text-foreground">
+            {usage.calls.month.used.toLocaleString()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Writes this month</dt>
+          <dd className="mt-0.5 font-mono text-base tabular-nums text-foreground">
+            {usage.writes.month.used.toLocaleString()}
+          </dd>
+        </div>
+      </dl>
     </Panel>
   )
 }

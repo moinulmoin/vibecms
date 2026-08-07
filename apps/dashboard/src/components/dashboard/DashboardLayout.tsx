@@ -219,7 +219,6 @@ export function AppShell({
                         asChild
                         isActive={active}
                         tooltip={label}
-                        className="[&[data-active=true]_svg]:text-primary"
                       >
                         <Link to={to}>
                           <Icon aria-hidden />
@@ -246,15 +245,15 @@ export function AppShell({
           >
             Skip to content
           </a>
-          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
+          <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
-            <span className="font-display text-sm font-semibold tracking-[-0.01em]">{pageTitle(current)}</span>
+            <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-3.5" />
+            <span className="truncate font-sans text-sm font-medium text-muted-foreground">{pageTitle(current)}</span>
           </header>
           <div
             id="dashboard-main"
             tabIndex={-1}
-            className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
+            className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col gap-5 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
           >
             <StatusAlert status={formStatus} />
             {children}
@@ -280,18 +279,20 @@ export function PageHeader({
 }) {
   return (
     <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-2.5">
+      <div className="min-w-0 space-y-2">
         {kicker ? (
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-primary">{kicker}</p>
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            {kicker}
+          </p>
         ) : null}
-        <h1 className="text-balance font-display text-3xl font-semibold leading-[1.08] tracking-[-0.035em] text-foreground sm:text-4xl">
+        <h1 className="text-balance font-display text-xl font-semibold leading-[1.15] tracking-[-0.02em] text-foreground sm:text-2xl">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-3xl text-pretty font-sans text-base leading-7 text-muted-foreground">{description}</p>
+          <p className="max-w-2xl text-pretty font-sans text-sm leading-6 text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-7">{action}</div> : null}
+      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pt-6">{action}</div> : null}
     </header>
   )
 }
@@ -334,8 +335,8 @@ export function Panel({
 }) {
   return (
     <Card className={cn('gap-0 p-5 sm:p-6', className)}>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
         {meta}
       </div>
       {children}
@@ -347,7 +348,7 @@ export function DataRow({ children, className }: { children: ReactNode; classNam
   return (
     <div
       className={cn(
-        'grid gap-2 rounded-xl bg-muted/50 px-4 py-3.5 text-sm sm:items-center',
+        'grid gap-2 rounded-lg border border-[color:var(--hairline)] bg-background px-4 py-3.5 text-sm sm:items-center',
         className,
       )}
     >
