@@ -103,25 +103,8 @@ export function editorLiveState(
 }
 
 function PostStatusBadge({ status }: { status: string }) {
-  if (status === 'published') {
-    return (
-      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-primary">
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        {status}
-      </Badge>
-    )
-  }
-  if (status === 'archived') {
-    return (
-      <Badge variant="outline" className="gap-1.5 border-dashed capitalize text-muted-foreground/70">
-        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-        {status}
-      </Badge>
-    )
-  }
   return (
-    <Badge variant="outline" className="gap-1.5 capitalize">
-      <span className="size-1.5 rounded-full bg-amber-500" />
+    <Badge variant="outline" className="capitalize">
       {status}
     </Badge>
   )
@@ -151,33 +134,52 @@ function EditorStateStrip({
   const state = editorLiveState(post, currentVersionNumber)
   const liveUrl =
     post.status === 'published' && publicBaseUrl ? `${publicBaseUrl}/${post.slug}` : null
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-muted/50 px-4 py-3">
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        v{currentVersionNumber ?? '—'}
+
+  // State signal — one colored dot + label. Green = live, amber = ahead of the
+  // public version, muted = nothing public yet. This is the strip's headline.
+  const stateSignal =
+    state === 'live' ? (
+      <span className="flex items-center gap-2 font-mono text-xs font-medium text-primary">
+        <span className="relative flex size-2">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-bright/40 motion-reduce:animate-none" />
+          <span className="relative inline-flex size-2 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
+        </span>
+        All changes live
       </span>
-      {state === 'live' ? (
-        <span className="flex items-center gap-1.5 font-mono text-xs text-primary">
-          <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-          All changes live
-        </span>
-      ) : state === 'unpublished' ? (
-        <span className="flex items-center gap-1.5 font-mono text-xs text-amber-600 dark:text-amber-400">
-          <span className="size-1.5 rounded-full bg-amber-500" />
-          Unpublished changes
-        </span>
-      ) : state === 'draft' ? (
-        <span className="font-mono text-xs text-muted-foreground">Draft — nothing public yet</span>
-      ) : (
-        <span className="font-mono text-xs text-muted-foreground">Archived — hidden from the public blog</span>
-      )}
-      {latestVersion ? (
-        <span className="font-mono text-xs text-muted-foreground">
-          Last saved {relativeTime(latestVersion.createdAt)}
-          {latestVersion.actorName.trim() ? ` by ${latestVersion.actorName}` : ''}
-        </span>
-      ) : null}
-      <span className="ml-auto flex items-center gap-2">
+    ) : state === 'unpublished' ? (
+      <span className="flex items-center gap-2 font-mono text-xs font-medium text-amber-600 dark:text-amber-400">
+        <span className="size-2 rounded-full bg-amber-500" />
+        Unpublished changes
+      </span>
+    ) : state === 'draft' ? (
+      <span className="flex items-center gap-2 font-mono text-xs font-medium text-muted-foreground">
+        <span className="size-2 rounded-full bg-muted-foreground/40" />
+        Draft
+      </span>
+    ) : (
+      <span className="flex items-center gap-2 font-mono text-xs font-medium text-muted-foreground">
+        <span className="size-2 rounded-full bg-muted-foreground/40" />
+        Archived
+      </span>
+    )
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[color:var(--hairline)] bg-background px-4 py-2.5">
+      {/* Quiet metadata — version + last saved read as one cluster, never compete */}
+      <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
+        <span className="tabular-nums">v{currentVersionNumber ?? '—'}</span>
+        {latestVersion ? (
+          <>
+            <span aria-hidden className="text-muted-foreground/40">·</span>
+            <span className="truncate">
+              Saved {relativeTime(latestVersion.createdAt)}
+              {latestVersion.actorName.trim() ? ` by ${latestVersion.actorName}` : ''}
+            </span>
+          </>
+        ) : null}
+      </div>
+
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         {state === 'unpublished' ? (
           <Button type="button" variant="outline" size="sm" onClick={onReviewChanges}>
             Review changes
@@ -188,11 +190,12 @@ function EditorStateStrip({
             href={liveUrl}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-xs text-primary underline-offset-4 hover:underline"
+            className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Open live ↗
           </a>
         ) : null}
+        {stateSignal}
         {shouldShowPublishAction(post, currentVersionNumber) ? (
           <PendingSubmitButton
             type="button"
@@ -204,7 +207,7 @@ function EditorStateStrip({
             {post.status === 'published' ? 'Publish changes' : 'Publish'}
           </PendingSubmitButton>
         ) : null}
-      </span>
+      </div>
     </div>
   )
 }
