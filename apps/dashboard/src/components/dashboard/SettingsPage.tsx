@@ -583,63 +583,27 @@ export function SettingsPage() {
       <Tabs
         value={search.tab ?? 'general'}
         onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value }})}
-        className="gap-4 lg:grid lg:grid-cols-[220px_1fr] lg:items-start lg:gap-8"
+        className="gap-4"
       >
-        {/* Mobile: horizontal tab row fallback */}
-        <div className="overflow-x-auto pb-1 lg:hidden">
+        <div className="overflow-x-auto pb-1">
           <TabsList aria-label="Workspace settings sections" className="min-w-max">
-            <TabsTrigger value="general" aria-label="Site and theme settings" className="data-[state=active]:font-semibold">
+            <TabsTrigger value="general" aria-label="Site and theme settings" className="data-[state=active]:font-medium">
               Site
             </TabsTrigger>
-            <TabsTrigger value="voice" aria-label="Writing voice settings" className="data-[state=active]:font-semibold">
+            <TabsTrigger value="voice" aria-label="Writing voice settings" className="data-[state=active]:font-medium">
               Voice
             </TabsTrigger>
-            <TabsTrigger value="domain" aria-label="Domain settings" className="data-[state=active]:font-semibold">
+            <TabsTrigger value="domain" aria-label="Domain settings" className="data-[state=active]:font-medium">
               Domain
             </TabsTrigger>
-            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="data-[state=active]:font-semibold">
+            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="data-[state=active]:font-medium">
               Plan
             </TabsTrigger>
-            <TabsTrigger value="data" aria-label="Data export settings" className="data-[state=active]:font-semibold">
+            <TabsTrigger value="data" aria-label="Data export settings" className="data-[state=active]:font-medium">
               Data
             </TabsTrigger>
           </TabsList>
         </div>
-
-        {/* Desktop: vertical sidebar nav with grouped sections */}
-        <aside className="hidden lg:block" aria-label="Workspace settings sections">
-          <div className="px-3 pb-1 pt-1 font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Blog
-          </div>
-          <TabsList
-            aria-label="Blog settings"
-            className="h-auto w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0"
-          >
-            <TabsTrigger value="general" aria-label="Site and theme settings" className="justify-start rounded-md px-3 py-1.5 text-left font-sans text-sm text-muted-foreground data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground">
-              Site
-            </TabsTrigger>
-            <TabsTrigger value="voice" aria-label="Writing voice settings" className="justify-start rounded-md px-3 py-1.5 text-left font-sans text-sm text-muted-foreground data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground">
-              Voice
-            </TabsTrigger>
-          </TabsList>
-          <div className="px-3 pb-1 pt-5 font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Workspace
-          </div>
-          <TabsList
-            aria-label="Workspace settings"
-            className="h-auto w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0"
-          >
-            <TabsTrigger value="domain" aria-label="Domain settings" className="justify-start rounded-md px-3 py-1.5 text-left font-sans text-sm text-muted-foreground data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground">
-              Domain
-            </TabsTrigger>
-            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="justify-start rounded-md px-3 py-1.5 text-left font-sans text-sm text-muted-foreground data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground">
-              Plan
-            </TabsTrigger>
-            <TabsTrigger value="data" aria-label="Data export settings" className="justify-start rounded-md px-3 py-1.5 text-left font-sans text-sm text-muted-foreground data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground">
-              Data
-            </TabsTrigger>
-          </TabsList>
-        </aside>
         <TabsContent value="general" className="grid gap-4">
           <Panel title="Site" meta="Name & SEO defaults">
             <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
