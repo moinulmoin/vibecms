@@ -558,8 +558,11 @@ export function SettingsPage() {
       >
         <div className="overflow-x-auto pb-1">
           <TabsList aria-label="Workspace settings sections" className="min-w-max">
-            <TabsTrigger value="general" aria-label="Site and theme settings" className="data-[state=active]:font-medium">
+            <TabsTrigger value="general" aria-label="Site settings" className="data-[state=active]:font-medium">
               Site
+            </TabsTrigger>
+            <TabsTrigger value="theme" aria-label="Theme settings" className="data-[state=active]:font-medium">
+              Theme
             </TabsTrigger>
             <TabsTrigger value="voice" aria-label="Writing voice settings" className="data-[state=active]:font-medium">
               Voice
@@ -651,6 +654,8 @@ export function SettingsPage() {
           </PendingSubmitButton>
         </form>
       </Panel>
+        </TabsContent>
+        <TabsContent value="theme" className="grid gap-4">
           <Panel title="Theme" meta="Public blog appearance">
             <p className="mb-5 max-w-3xl font-sans text-base leading-7 text-muted-foreground">
               Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
