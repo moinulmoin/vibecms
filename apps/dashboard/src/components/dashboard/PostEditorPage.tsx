@@ -90,11 +90,6 @@ export function shouldShowPublishAction(
   return Boolean(post && (post.status !== 'published' || currentVersionNumber !== post.publishedVersionNumber))
 }
 
-/**
- * The review strip's single source of truth for "what is public right now".
- * 'unpublished' = the saved tip is ahead of the pinned public version — the
- * exact state where a human review decision is required.
- */
 export type EditorLiveState = 'new' | 'draft' | 'unpublished' | 'live' | 'archived'
 
 export function editorLiveState(
@@ -125,59 +120,17 @@ function PostStatusBadge({ status }: { status: string }) {
     )
   }
   return (
-    <Badge variant="outline" className="capitalize">
+    <Badge variant="outline" className="gap-1.5 capitalize">
+      <span className="size-1.5 rounded-full bg-amber-500" />
       {status}
     </Badge>
   )
 }
 
-/**
- * A rail panel with a collapsible header. Defaults to open (Publish Settings)
- * or closed (Presentation) via `defaultOpen`. The chevron rotates with the
- * open state; focus ring and reduced-motion are respected.
- */
-function RailSection({
-  title,
-  meta,
-  children,
-  defaultOpen = false,
-}: {
-  title: string
-  meta?: React.ReactNode
-  children: React.ReactNode
-  defaultOpen?: boolean
-}) {
-  return (
-    <Card className="gap-0 p-5 sm:p-6">
-      <Collapsible defaultOpen={defaultOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="group flex w-full items-center justify-between gap-3 rounded-md text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <h2 className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
-            <span className="flex shrink-0 items-center gap-2">
-              {meta}
-              <ChevronDownIcon
-                aria-hidden="true"
-                className="size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none group-data-[state=open]:rotate-180"
-              />
-            </span>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="mt-5 grid gap-4">{children}</div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  )
-}
-
-/**
- * The review strip: what is public right now, who changed what last, and the
- * publish decision — in one calm line between the header and the work surface.
- * Renders only for an existing post (new posts have no public state to report).
- */
+// ---------------------------------------------------------------------------
+// Editor state strip: version, status, last-saved, publish CTA.
+// Rendered above the writing surface so the author always sees the state.
+// ---------------------------------------------------------------------------
 function EditorStateStrip({
   post,
   currentVersionNumber,
@@ -295,8 +248,6 @@ function relativeTime(tsSeconds: number): string {
   return formatDateTime(tsSeconds)
 }
 
-// Live character counter for a capped field; reads the input by id and listens
-// to input events so the surrounding form stays uncontrolled.
 function CharCounter({ targetId, max }: { targetId: string; max: number }) {
   const [len, setLen] = useState(0)
   useEffect(() => {
@@ -319,6 +270,52 @@ function CharCounter({ targetId, max }: { targetId: string; max: number }) {
     >
       {len}/{max}
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible rail section — cleaner than Panel for sidebar groups.
+// ---------------------------------------------------------------------------
+function RailSection({
+  title,
+  meta,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  meta?: React.ReactNode
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className="gap-0 p-0">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 px-5 py-4 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:px-6"
+          >
+            <span className="flex items-center gap-2">
+              <span className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">
+                {title}
+              </span>
+              {meta}
+            </span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className="size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none data-[state=open]:rotate-180"
+              data-state={open ? 'open' : 'closed'}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t border-[color:var(--hairline)] px-5 py-4 sm:px-6">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }
 
@@ -345,12 +342,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [site, setSite] = useState<EditorSiteInfo | null>(null)
   const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
-  // Below the lg breakpoint the two-column editor becomes tabbed sections:
-  // Write / Preview / Settings. Panels stay mounted (hidden) so form state
-  // survives tab switches.
   const isNarrow = useMediaQuery('(max-width: 1023px)')
   const [mobileTab, setMobileTab] = useState<'write' | 'preview' | 'settings'>('write')
-  // (mobileTab drives both panel visibility and the editor's controlled mode)
   const [selectedLayout, setSelectedLayout] = useState<string>('standard')
   const [selectedToc, setSelectedToc] = useState<boolean>(false)
   const [presentationDirty, setPresentationDirty] = useState(false)
@@ -361,8 +354,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
   const coverFileInputRef = useRef<HTMLInputElement>(null)
   const coverAltInputRef = useRef<HTMLInputElement>(null)
-  // Track the editor form so Publish/Archive can persist unsaved edits first
-  // (they navigate programmatically and would otherwise discard them).
   const formRef = useRef<HTMLFormElement>(null)
   const baselineRef = useRef<string>('')
   const captureBaseline = () => {
@@ -370,6 +361,10 @@ function PostEditorShell({ postId }: { postId?: string }) {
   }
   const isFormDirty = () =>
     presentationDirty || (formRef.current ? serializeForm(formRef.current) !== baselineRef.current : false)
+
+  // Track title for SEO inheritance display
+  const [currentTitle, setCurrentTitle] = useState('')
+  const [currentSlug, setCurrentSlug] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -385,6 +380,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
         setLatestVersion(result.latestVersion)
         setPublicBaseUrl(result.publicBaseUrl)
         setCurrentVersionNumber(result.currentVersionNumber)
+        setCurrentTitle(result.post?.title ?? '')
+        setCurrentSlug(result.post?.slug ?? '')
         const cap = THEME_PRESETS[resolvePresetId(result.presetId)].layout
         setSelectedLayout(result.post?.presentation?.layout ?? cap.default.layout)
         setSelectedToc(result.post?.presentation?.toc ?? cap.default.toc)
@@ -402,147 +399,93 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }, [postId])
 
-  // Snapshot the saved form state once it has rendered, so isFormDirty() and the
-  // Publish/Archive save-first logic compare against the persisted baseline.
-  useEffect(() => {
-    if (!loading && !missing) captureBaseline()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  }, [loading, missing, formKey, post])
-  async function handleCoverUpload() {
-    const file = coverFileInputRef.current?.files?.[0]
-    const altText = coverAltInputRef.current?.value.trim() ?? ''
-    if (!file || !altText) {
-      setCoverUploadError('Choose an image and describe it before uploading.')
-      return
-    }
-
-    const form = new FormData()
-    form.set('file', file)
-    form.set('altText', altText)
-    setCoverUploadPending(true)
-    setCoverUploadError(null)
-    try {
-      const priorIds = new Set(assets.map((asset) => asset.id))
-      const response = await fetch('/api/media/upload', {
-        method: 'POST',
-        body: form,
-        credentials: 'include',
-      })
-      if (response.status === 401) {
-        await navigate({ to: '/login' })
-        return
-      }
-      const result = parseMutationResultJson(await response.json())
-      if (result.kind !== 'ok') {
-        setCoverUploadError(result.code === 'upload_too_large'
-          ? `Images must be ${MEDIA.maxImageLabel} or smaller.`
-          : 'The image could not be uploaded. Check the file type and try again.')
-        return
-      }
-      const loaded = await loadMediaPage()
-      setAssets(loaded.assets)
-      const uploaded = loaded.assets.find((asset) => !priorIds.has(asset.id)) ?? loaded.assets[0]
-      if (uploaded) setSelectedCoverAssetId(uploaded.id)
-      if (coverFileInputRef.current) coverFileInputRef.current.value = ''
-      if (coverAltInputRef.current) coverAltInputRef.current.value = ''
-    } catch {
-      setCoverUploadError('The image could not be uploaded. Try again.')
-    } finally {
-      setCoverUploadPending(false)
-    }
-  }
-
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = event.currentTarget
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return
-    }
+    if (!formRef.current) return
     setSavePending(true)
     try {
-      const payload = payloadFromForm(new FormData(form))
-      const presentation =
-        !presentationDirty && !hasPriorPresentation
-          ? null
-          : { layout: selectedLayout, toc: selectedToc }
-      const result = postId
-        ? currentVersionNumber == null
-          ? { kind: 'error' as const, code: 'unknown' }
-          : await updatePostMutation({ postId, expectedVersionNumber: currentVersionNumber, ...payload, presentation })
-        : await createPostMutation({ ...payload, presentation })
-      if (result.kind === 'ok' && !postId && result.postId) {
-        await navigate({
-          to: '/dashboard/posts/$postId/edit',
-          params: { postId: result.postId },
-          search: postEditorSearch({ ok: result.code }),
-        })
-        const refreshed = await loadPostEditorPage({ postId: result.postId })
-        setPost(refreshed.post)
-        setAssets(refreshed.assets)
-        setMissing(refreshed.missing)
-        setSite(refreshed.site)
-        setLatestVersion(refreshed.latestVersion)
-        setPublicBaseUrl(refreshed.publicBaseUrl)
-        setCurrentVersionNumber(refreshed.currentVersionNumber)
-        setHasPriorPresentation(presentation !== null)
-        setPresentationDirty(false)
-        return
-      }
-      const editorSearch = postEditorSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
+      const form = new FormData(formRef.current)
+      const payload = payloadFromForm(form)
       if (postId) {
-        await navigate({ to: '/dashboard/posts/$postId/edit', params: { postId }, search: editorSearch })
+        if (currentVersionNumber == null) return
+        const result = await updatePostMutation({
+          postId,
+          expectedVersionNumber: currentVersionNumber,
+          ...payload,
+          presentation: { layout: selectedLayout, toc: selectedToc },
+        })
         if (result.kind === 'ok') {
           const refreshed = await loadPostEditorPage({ postId })
           setPost(refreshed.post)
-          setSite(refreshed.site)
           setLatestVersion(refreshed.latestVersion)
-          setPublicBaseUrl(refreshed.publicBaseUrl)
           setCurrentVersionNumber(refreshed.currentVersionNumber)
-          setHasPriorPresentation(presentation !== null)
           setPresentationDirty(false)
+          captureBaseline()
+          await navigate({
+            to: '/dashboard/posts/$postId/edit',
+            params: { postId },
+            search: postEditorSearch({ ok: result.code }),
+          })
+          return
         }
+        await navigate({
+          to: '/dashboard/posts/$postId/edit',
+          params: { postId },
+          search: postEditorSearch({ error: result.code }),
+        })
       } else {
-        await navigate({ to: '/dashboard/posts/new', search: editorSearch })
+        const result = await createPostMutation({
+          ...payload,
+          presentation: { layout: selectedLayout, toc: selectedToc },
+        })
+        if (result.kind === 'ok' && result.postId) {
+          await navigate({
+            to: '/dashboard/posts/$postId/edit',
+            params: { postId: result.postId },
+            search: postEditorSearch({ ok: result.code }),
+          })
+          return
+        }
+        await navigate({
+          to: '/dashboard/posts/new',
+          search: postEditorSearch({ error: result.code }),
+        })
       }
+    } catch {
+      await navigate({
+        to: postId
+          ? '/dashboard/posts/$postId/edit'
+          : '/dashboard/posts/new',
+        ...(postId ? { params: { postId } } : {}),
+        search: postEditorSearch({ error: 'unknown' }),
+      })
     } finally {
       setSavePending(false)
     }
   }
 
   async function persistIfDirty(): Promise<number | null | false> {
-    const form = formRef.current
-    if (!postId || !form || !isFormDirty()) return currentVersionNumber
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return false
-    }
-    const payload = payloadFromForm(new FormData(form))
-    const presentation =
-      !presentationDirty && !hasPriorPresentation ? null : { layout: selectedLayout, toc: selectedToc }
-    if (currentVersionNumber == null) return false
+    if (!isFormDirty()) return currentVersionNumber
+    if (!formRef.current) return false
+    const form = new FormData(formRef.current)
+    const payload = payloadFromForm(form)
+    if (!postId || currentVersionNumber == null) return false
     const result = await updatePostMutation({
       postId,
       expectedVersionNumber: currentVersionNumber,
       ...payload,
-      presentation,
+      presentation: { layout: selectedLayout, toc: selectedToc },
     })
-    if (result.kind !== 'ok') {
-      await navigate({
-        to: '/dashboard/posts/$postId/edit',
-        params: { postId },
-        search: postEditorSearch({ error: result.code }),
-      })
-      return false
-    }
-    setHasPriorPresentation(presentation !== null)
+    if (result.kind !== 'ok') return false
+    const refreshed = await loadPostEditorPage({ postId })
+    setPost(refreshed.post)
+    setLatestVersion(refreshed.latestVersion)
+    setCurrentVersionNumber(refreshed.currentVersionNumber)
     setPresentationDirty(false)
     captureBaseline()
-    const savedVersionNumber = result.versionNumber ?? null
-    setCurrentVersionNumber(savedVersionNumber)
-    return savedVersionNumber
+    return refreshed.currentVersionNumber
   }
+
   async function handlePublish() {
     if (!postId) return
     setPublishPending(true)
@@ -619,8 +562,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
-  // Review-before-publish: open the pinned public version diffed against the
-  // saved tip, so the decision is made on evidence, not blind trust.
   async function handleReviewChanges() {
     if (post?.publishedVersionNumber == null) return
     await handleViewVersion(post.publishedVersionNumber)
@@ -673,6 +614,38 @@ function PostEditorShell({ postId }: { postId?: string }) {
     }
   }
 
+  async function handleCoverUpload() {
+    const file = coverFileInputRef.current?.files?.[0]
+    if (!file) return
+    setCoverUploadPending(true)
+    setCoverUploadError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('altText', coverAltInputRef.current?.value ?? '')
+      const response = await fetch('/api/media/upload', { method: 'POST', body: form, credentials: 'include' })
+      if (response.status === 401) {
+        await navigate({ to: '/login' })
+        return
+      }
+      const result = parseMutationResultJson(await response.json())
+      if (result.kind === 'ok') {
+        const data = await loadMediaPage()
+        setAssets(data.assets)
+        const uploaded = data.assets[data.assets.length - 1]
+        if (uploaded) setSelectedCoverAssetId(uploaded.id)
+        if (coverFileInputRef.current) coverFileInputRef.current.value = ''
+        if (coverAltInputRef.current) coverAltInputRef.current.value = ''
+      } else {
+        setCoverUploadError(result.code)
+      }
+    } catch {
+      setCoverUploadError('Upload failed. Try again.')
+    } finally {
+      setCoverUploadPending(false)
+    }
+  }
+
   if (loading) {
     return <EditorSkeleton />
   }
@@ -684,6 +657,10 @@ function PostEditorShell({ postId }: { postId?: string }) {
     post?.publishedVersionNumber != null &&
     viewingVersion.versionNumber === post.publishedVersionNumber
 
+  // Derived values for SEO inheritance display
+  const derivedSeoTitle = post?.seoTitle || currentTitle || 'Post title'
+  const derivedCanonical = publicBaseUrl && currentSlug ? `${publicBaseUrl}/${currentSlug}` : null
+
   return (
     <>
       <PageHeader
@@ -691,9 +668,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
         title={post ? 'Edit post' : 'Create post'}
         description="Write in Markdown, then check the exact public page in Preview before you publish."
         action={
-          <Button asChild variant="outline">
-            <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {post && <PostStatusBadge status={post.status} />}
+            <Button asChild variant="outline">
+              <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
+            </Button>
+          </div>
         }
       />
       {post ? (
@@ -747,259 +727,188 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </PendingSubmitButton>
             </div>
           ) : null}
-          <Panel title="Content" className={isNarrow && mobileTab === 'settings' ? 'hidden' : undefined}>
-            <div className="grid gap-4">
+
+          {/* Writing surface — no panel wrapper, just the title and body */}
+          <div className={isNarrow && mobileTab === 'settings' ? 'hidden' : undefined}>
+            <input
+              id="post-title"
+              name="title"
+              required
+              maxLength={160}
+              defaultValue={post?.title ?? ''}
+              placeholder="Post title"
+              aria-label="Post title"
+              className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-4xl"
+              onInput={(e) => setCurrentTitle(e.currentTarget.value)}
+            />
+            <div className="mt-1 mb-6 flex items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">
+                {publicBaseUrl && currentSlug ? `${publicBaseUrl.replace('https://', '')}/${currentSlug}` : 'slug will generate from title'}
+              </span>
+            </div>
+            {/* PostSlugFromTitle writes into the slug input in the rail */}
+            <MarkdownEditor
+              assets={assets}
+              defaultValue={post?.contentMarkdown ?? ''}
+              presetId={presetId}
+              presentation={{ layout: selectedLayout, toc: selectedToc }}
+              site={site}
+              siteTheme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
+              publishedAt={post?.publishedAt ?? null}
+              mode={isNarrow ? (mobileTab === 'preview' ? 'preview' : 'write') : undefined}
+            />
+          </div>
+
+          {/* Rail — settings, actions, versions */}
+          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-6'}>
+            {/* Slug override */}
+            <RailSection title="Slug" defaultOpen={!post}>
               <Field>
-                <FieldLabel
-                  className="font-mono text-[11px] font-medium text-muted-foreground"
-                  htmlFor="post-title"
-                >
-                  Title
-                </FieldLabel>
                 <Input
-                  id="post-title"
-                  className="h-11 font-display text-lg font-semibold tracking-[-0.02em]"
-                  name="title"
+                  id="post-slug"
+                  className="font-mono text-sm"
+                  name="slug"
                   required
-                  maxLength={160}
-                  defaultValue={post?.title ?? ''}
-                />
-              </Field>
-              <Field>
-                <FieldLabel
-                  className="font-mono text-[11px] font-medium text-muted-foreground"
-                  htmlFor="post-markdown"
-                >
-                  Markdown
-                </FieldLabel>
-                <MarkdownEditor
-                  assets={assets}
-                  defaultValue={post?.contentMarkdown ?? ''}
-                  presetId={presetId}
-                  presentation={{ layout: selectedLayout, toc: selectedToc }}
-                  site={site}
-                  siteTheme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
-                  publishedAt={post?.publishedAt ?? null}
-                  mode={isNarrow ? (mobileTab === 'preview' ? 'preview' : 'write') : undefined}
+                  maxLength={120}
+                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  defaultValue={post?.slug ?? ''}
+                  placeholder="auto-generated-from-title"
+                  onInput={(e) => setCurrentSlug(e.currentTarget.value)}
                 />
                 <FieldDescription className="font-sans">
-                  Markdown is rendered with the same safe renderer as the public blog.
+                  Lowercase letters, numbers, and hyphens. Auto-generated from the title.
                 </FieldDescription>
               </Field>
-            </div>
-          </Panel>
-          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-6'}>
-            <RailSection title="Publish Settings" meta={<PostStatusBadge status={post?.status ?? 'draft'} />} defaultOpen>
-              <div className="grid gap-4">
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-slug"
-                  >
-                    Slug
-                  </FieldLabel>
-                  <Input
-                    id="post-slug"
-                    className="font-mono text-sm"
-                    name="slug"
-                    required
-                    maxLength={120}
-                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                    aria-describedby="post-slug-help"
-                    defaultValue={post?.slug ?? ''}
-                  />
-                  <FieldDescription id="post-slug-help" className="font-sans">
-                    Lowercase letters, numbers, and hyphens.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-excerpt"
-                  >
-                    Excerpt
-                  </FieldLabel>
-                  <Textarea id="post-excerpt" name="excerpt" maxLength={500} rows={4} defaultValue={post?.excerpt ?? ''} />
-                  <div className="flex justify-end">
-                    <CharCounter targetId="post-excerpt" max={500} />
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-tags"
-                  >
-                    Tags
-                  </FieldLabel>
-                  <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
-                </Field>
-            <Field>
-              <FieldLabel htmlFor="post-cover">Featured image</FieldLabel>
-              <Select
-                id="post-cover"
-                name="coverAssetId"
-                value={selectedCoverAssetId}
-                onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
-              >
-                <option value="">No featured image</option>
-                {assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>{asset.filename}</option>
-                ))}
-              </Select>
-              <FieldDescription>
-                Appears above the article and becomes its Open Graph and Twitter image.
-              </FieldDescription>
-              {selectedCoverAsset ? (
-                <div className="flex min-w-0 items-center gap-3 pt-1">
-                  <img
-                    src={`/media-assets/${selectedCoverAsset.id}`}
-                    alt=""
-                    className="h-20 w-32 shrink-0 rounded-md object-cover"
-                  />
-                  <div className="min-w-0 text-sm">
-                    <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
-                    <p className="text-muted-foreground">
-                      {selectedCoverAsset.width && selectedCoverAsset.height
-                        ? `${selectedCoverAsset.width} × ${selectedCoverAsset.height}`
-                        : 'Dimensions unavailable'}
-                    </p>
-                    {selectedCoverAsset.altText ? (
-                      <p className="line-clamp-2 text-muted-foreground">{selectedCoverAsset.altText}</p>
-                    ) : (
-                      <p className="text-destructive">
-                        Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link> before publishing.
-                      </p>
-                    )}
-                  </div>
+            </RailSection>
+
+            {/* Excerpt */}
+            <RailSection title="Excerpt">
+              <Field>
+                <Textarea
+                  id="post-excerpt"
+                  name="excerpt"
+                  maxLength={500}
+                  rows={3}
+                  defaultValue={post?.excerpt ?? ''}
+                  placeholder="First paragraph of the post will be used if left empty."
+                />
+                <div className="flex justify-end">
+                  <CharCounter targetId="post-excerpt" max={500} />
                 </div>
-              ) : null}
-              <details className="rounded-lg bg-muted/50 p-3">
-                <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
-                  Upload a new image
-                </summary>
-                <div className="grid gap-3 pt-3">
-                  <Field>
-                    <FieldLabel htmlFor="post-cover-upload">Image</FieldLabel>
+              </Field>
+            </RailSection>
+
+            {/* Tags */}
+            <RailSection title="Tags">
+              <Field>
+                <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
+              </Field>
+            </RailSection>
+
+            {/* Featured image */}
+            <RailSection title="Featured image">
+              <Field>
+                <Select
+                  id="post-cover"
+                  name="coverAssetId"
+                  value={selectedCoverAssetId}
+                  onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
+                >
+                  <option value="">No featured image</option>
+                  {assets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>{asset.filename}</option>
+                  ))}
+                </Select>
+                {selectedCoverAsset ? (
+                  <div className="flex min-w-0 items-center gap-3 pt-2">
+                    <img
+                      src={`/media-assets/${selectedCoverAsset.id}`}
+                      alt=""
+                      className="h-16 w-24 shrink-0 rounded-md object-cover"
+                    />
+                    <div className="min-w-0 text-sm">
+                      <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
+                      {!selectedCoverAsset.altText ? (
+                        <p className="text-destructive text-xs">
+                          Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link>
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                <details className="mt-2 rounded-lg bg-muted/50 p-3">
+                  <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
+                    Upload new
+                  </summary>
+                  <div className="grid gap-3 pt-3">
                     <Input
                       ref={coverFileInputRef}
-                      id="post-cover-upload"
                       type="file"
                       accept={MEDIA.mimeTypes.join(',')}
                     />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="post-cover-upload-alt">Alt text</FieldLabel>
                     <Input
                       ref={coverAltInputRef}
-                      id="post-cover-upload-alt"
                       maxLength={180}
-                      placeholder="Describe what the image shows"
+                      placeholder="Alt text"
                     />
-                  </Field>
-                  {coverUploadError ? (
-                    <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-fit"
-                    disabled={coverUploadPending}
-                    onClick={() => void handleCoverUpload()}
-                  >
-                    <UploadIcon className="size-4" aria-hidden="true" />
-                    {coverUploadPending ? 'Uploading…' : 'Upload and select'}
-                  </Button>
-                </div>
-              </details>
-            </Field>
-                <Collapsible className="rounded-xl bg-muted/50 p-3">
-                  <CollapsibleTrigger asChild>
-                    <button
+                    {coverUploadError ? (
+                      <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
+                    ) : null}
+                    <Button
                       type="button"
-                      className="group flex w-full items-center justify-between gap-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={coverUploadPending}
+                      onClick={() => void handleCoverUpload()}
                     >
-                      <span className="font-mono text-[11px] font-medium text-foreground">Search & sharing</span>
-                      <ChevronDownIcon
-                        aria-hidden="true"
-                        className="size-3.5 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none group-data-[state=open]:rotate-180"
-                      />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="grid gap-4 pt-4">
-                    <FieldDescription className="font-sans">
-                    Optional overrides fall back to your post title and excerpt.
-                  </FieldDescription>
-                    <Field>
-                      <FieldLabel
-                        className="font-mono text-[11px] font-medium text-muted-foreground"
-                        htmlFor="post-seo-title"
-                      >
-                        SEO Title <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                      </FieldLabel>
-                      <Input
-                        id="post-seo-title"
-                        name="seoTitle"
-                        maxLength={70}
-                        defaultValue={post?.seoTitle ?? ''}
-                        placeholder="Falls back to the post title"
-                      />
-                      <div className="flex justify-end">
-                        <CharCounter targetId="post-seo-title" max={70} />
-                      </div>
-                    </Field>
-                    <Field>
-                      <FieldLabel
-                        className="font-mono text-[11px] font-medium text-muted-foreground"
-                        htmlFor="post-seo-description"
-                      >
-                        SEO Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                      </FieldLabel>
-                      <Textarea
-                        id="post-seo-description"
-                        name="seoDescription"
-                        maxLength={180}
-                        rows={3}
-                        defaultValue={post?.seoDescription ?? ''}
-                        placeholder="Falls back to the excerpt"
-                      />
-                      <div className="flex justify-end">
-                        <CharCounter targetId="post-seo-description" max={180} />
-                      </div>
-                    </Field>
-                    <Field>
-                      <FieldLabel
-                        className="font-mono text-[11px] font-medium text-muted-foreground"
-                        htmlFor="post-canonical-url"
-                      >
-                        Canonical URL <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                      </FieldLabel>
-                      <Input
-                        id="post-canonical-url"
-                        name="canonicalUrl"
-                        type="text"
-                        maxLength={2048}
-                        defaultValue={post?.canonicalUrl ?? ''}
-                        placeholder="Overrides the default canonical URL for SEO"
-                      />
-                    </Field>
+                      <UploadIcon className="size-4" aria-hidden="true" />
+                      {coverUploadPending ? 'Uploading…' : 'Upload'}
+                    </Button>
                   </div>
-                </CollapsibleContent>
-                </Collapsible>
-                <p className="rounded-xl bg-muted/50 p-3 font-sans text-sm leading-6 text-muted-foreground">
-                  Every save creates a post version and activity event, whether the change comes from you, an API token, or
-                  an agent.
-                </p>
+                </details>
+              </Field>
+            </RailSection>
+
+            {/* SEO — shows inherited values by default */}
+            <RailSection title="Search & sharing">
+              <div className="grid gap-3">
+                <div>
+                  <p className="font-mono text-[11px] font-medium text-muted-foreground">SEO title</p>
+                  <p className="mt-0.5 text-sm text-foreground">{derivedSeoTitle}</p>
+                  <Input
+                    id="post-seo-title"
+                    name="seoTitle"
+                    maxLength={70}
+                    defaultValue={post?.seoTitle ?? ''}
+                    placeholder={`Same as post title`}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] font-medium text-muted-foreground">Canonical URL</p>
+                  <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                    {derivedCanonical ?? 'Set after first save'}
+                  </p>
+                  <Input
+                    id="post-canonical-url"
+                    name="canonicalUrl"
+                    type="text"
+                    maxLength={2048}
+                    defaultValue={post?.canonicalUrl ?? ''}
+                    placeholder="Override canonical URL"
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </RailSection>
-            <RailSection title="Presentation">
+
+            {/* Layout */}
+            <RailSection title="Layout">
               <div className="grid gap-4">
                 <Field>
-                  <FieldLabel
-                    className="font-mono text-[11px] font-medium text-muted-foreground"
-                    htmlFor="post-layout"
-                  >
-                    Layout
+                  <FieldLabel htmlFor="post-layout" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Article layout
                   </FieldLabel>
                   <Select
                     id="post-layout"
@@ -1012,9 +921,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
                       </option>
                     ))}
                   </Select>
-                  <FieldDescription className="font-sans">
-                    Controls the article structure on the public blog.
-                  </FieldDescription>
                 </Field>
                 {capability.supportsToc ? (
                   <Field>
@@ -1024,33 +930,19 @@ function PostEditorShell({ postId }: { postId?: string }) {
                         checked={selectedToc}
                         onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
                       />
-                      <FieldLabel
-                        className="font-mono text-[11px] font-medium text-muted-foreground"
-                        htmlFor="post-toc"
-                      >
+                      <FieldLabel htmlFor="post-toc" className="font-mono text-[11px] font-medium text-muted-foreground">
                         Table of contents
                       </FieldLabel>
                     </div>
-                    <FieldDescription className="font-sans">
-                      Inserts a TOC block above the article body.
-                    </FieldDescription>
                   </Field>
                 ) : null}
               </div>
             </RailSection>
-            <Panel title="Actions">
-              <div className="grid gap-2">
-                {post && post.status !== 'archived' ? (
-                  <SpaConfirmButton
-                    confirmLabel="Confirm archive"
-                    helperText="Archiving hides this post from the public blog."
-                    disabled={archivePending}
-                    onConfirm={() => void handleArchive()}
-                  >
-                    Archive
-                  </SpaConfirmButton>
-                ) : null}
-                {postId ? (
+
+            {/* Versions + Archive */}
+            {postId ? (
+              <RailSection title="History">
+                <div className="grid gap-2">
                   <Sheet
                     open={versionDrawerOpen}
                     onOpenChange={(open) => void handleVersionDrawerOpenChange(open)}
@@ -1058,8 +950,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     <SheetTrigger asChild>
                       <Button
                         type="button"
-                        variant="ghost"
-                        className="justify-start gap-2 text-muted-foreground hover:text-foreground"
+                        variant="outline"
+                        size="sm"
+                        className="justify-start gap-2"
                       >
                         <CounterClockwiseClockIcon className="size-4" aria-hidden="true" />
                         Version history
@@ -1069,14 +962,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
                       <SheetHeader>
                         <SheetTitle>Version history</SheetTitle>
                         <SheetDescription>
-                          Past saved versions of this post. Restore to roll back content to a previous state.
+                          Past saved versions of this post.
                         </SheetDescription>
                       </SheetHeader>
                       <Separator />
                       <ScrollArea className="max-h-[26rem] min-h-0 flex-1">
                         {versionsLoading ? (
                           <div className="grid gap-3 p-4">
-                            <Skeleton className="h-16 rounded-lg" />
                             <Skeleton className="h-16 rounded-lg" />
                             <Skeleton className="h-16 rounded-lg" />
                           </div>
@@ -1124,7 +1016,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                                   <SpaConfirmButton
                                     size="sm"
                                     confirmLabel="Confirm restore"
-                                    helperText="This overwrites the current draft content with this version."
+                                    helperText="This overwrites the current draft with this version."
                                     disabled={restoreVersionPending !== null}
                                     onConfirm={() => void handleRestoreVersion(v.versionNumber)}
                                   >
@@ -1139,9 +1031,24 @@ function PostEditorShell({ postId }: { postId?: string }) {
                       </ScrollArea>
                     </SheetContent>
                   </Sheet>
-                ) : null}
-              </div>
-            </Panel>
+                  {post && post.status !== 'archived' ? (
+                    <SpaConfirmButton
+                      size="sm"
+                      variant="outline"
+                      confirmLabel="Confirm archive"
+                      helperText="Archiving hides this post from the public blog."
+                      disabled={archivePending}
+                      onConfirm={() => void handleArchive()}
+                      className="justify-start"
+                    >
+                      Archive post
+                    </SpaConfirmButton>
+                  ) : null}
+                </div>
+              </RailSection>
+            ) : null}
+
+            {/* Sticky save/publish */}
             <div className="grid gap-2 lg:sticky lg:bottom-6">
               <PendingSubmitButton pending={savePending} pendingText="Saving…">
                 Save draft
@@ -1160,6 +1067,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
           </aside>
         </form>
       )}
+
+      {/* Version viewer dialog */}
       <Dialog
         open={viewDialogOpen}
         onOpenChange={(open) => {
@@ -1252,22 +1161,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
                     </pre>
                   )}
                 </div>
-                {viewingVersion.seoTitle || viewingVersion.seoDescription ? (
-                  <div className="grid gap-1.5">
-                    {viewingVersion.seoTitle ? (
-                      <p className="text-sm">
-                        <span className="font-medium">SEO title: </span>
-                        {viewingVersion.seoTitle}
-                      </p>
-                    ) : null}
-                    {viewingVersion.seoDescription ? (
-                      <p className="text-sm">
-                        <span className="font-medium">SEO description: </span>
-                        {viewingVersion.seoDescription}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
                 {viewingVersion.tags.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {viewingVersion.tags.map((tag) => (

@@ -540,7 +540,7 @@ export function ConnectPage() {
               </TabsList>
 
               <TabsContent value="setup" className="mt-4 space-y-4">
-                <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />
+                {!live && <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />}
 
                 {live && status && (
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">

@@ -613,12 +613,13 @@ export function SettingsPage() {
           </div>
           <TabsList
             aria-label="Blog settings"
+            variant="line"
             className="h-auto w-full flex-col items-stretch rounded-none bg-transparent p-0"
           >
-            <TabsTrigger value="general" aria-label="Site and theme settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+            <TabsTrigger value="general" aria-label="Site and theme settings" className="justify-start gap-2 rounded-none border-0 px-3 py-2 text-left data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold">
               Site
             </TabsTrigger>
-            <TabsTrigger value="voice" aria-label="Writing voice settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+            <TabsTrigger value="voice" aria-label="Writing voice settings" className="justify-start gap-2 rounded-none border-0 px-3 py-2 text-left data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold">
               Voice
             </TabsTrigger>
           </TabsList>
@@ -627,15 +628,16 @@ export function SettingsPage() {
           </div>
           <TabsList
             aria-label="Workspace settings"
+            variant="line"
             className="h-auto w-full flex-col items-stretch rounded-none bg-transparent p-0"
           >
-            <TabsTrigger value="domain" aria-label="Domain settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+            <TabsTrigger value="domain" aria-label="Domain settings" className="justify-start gap-2 rounded-none border-0 px-3 py-2 text-left data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold">
               Domain
             </TabsTrigger>
-            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="justify-start gap-2 rounded-none border-0 px-3 py-2 text-left data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold">
               Plan
             </TabsTrigger>
-            <TabsTrigger value="data" aria-label="Data export settings" className="justify-start gap-2 rounded-lg px-3 py-2 text-left data-[state=active]:font-semibold">
+            <TabsTrigger value="data" aria-label="Data export settings" className="justify-start gap-2 rounded-none border-0 px-3 py-2 text-left data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold">
               Data
             </TabsTrigger>
           </TabsList>

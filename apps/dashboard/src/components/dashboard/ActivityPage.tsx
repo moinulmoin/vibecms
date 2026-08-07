@@ -82,12 +82,22 @@ function startOfDayMs(ms: number): number {
 }
 
 const dayGroupFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
+const dayGroupYearFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
+const timeOnlyFormatter = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' })
 
 function dayGroupLabel(ms: number): string {
   const diffDays = Math.round((startOfDayMs(Date.now()) - startOfDayMs(ms)) / 86_400_000)
   if (diffDays === 0) return 'Today'
   if (diffDays === 1) return 'Yesterday'
-  return dayGroupFormatter.format(new Date(ms))
+  const d = new Date(ms)
+  // Include year for events older than 7 days so "Jul 16" doesn't look like an ID
+  if (diffDays > 7) return dayGroupYearFormatter.format(d)
+  return dayGroupFormatter.format(d)
+}
+
+export function formatTimeOnly(value: number | string | Date): string {
+  const d = typeof value === 'number' ? new Date(value * 1000) : value instanceof Date ? value : new Date(value)
+  return timeOnlyFormatter.format(d)
 }
 
 function groupByDay(events: ActivityEvent[]): DayGroup[] {
@@ -253,7 +263,7 @@ export function ActivityPage() {
                         key={`${event.action}-${event.created_at}-${event.summary}`}
                       >
                         <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
-                          {formatDateTime(event.created_at)}
+                          {formatTimeOnly(event.created_at)}
                         </TableCell>
                         <TableCell>
                           <span className="flex items-center gap-2">
