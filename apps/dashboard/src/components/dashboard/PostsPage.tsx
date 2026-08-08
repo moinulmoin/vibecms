@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FileTextIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
-import { Field, FieldLabel, Input, Select, cn } from '@vc/ui'
+import { FileTextIcon, MagnifyingGlassIcon, MixerHorizontalIcon, PlusIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { Field, FieldLabel, Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/types/dashboard'
 import {
@@ -184,14 +184,14 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
         description="Draft, review, publish, and restore every post—whether it came from you or an agent."
         action={
           <Button asChild>
-            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>New post</Link>
+            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><PlusIcon aria-hidden data-icon="inline-start" /> New post</Link>
           </Button>
         }
       />
       <Panel title="All posts">
         {posts.length > 0 || hasFilters ? (
           <form
-            className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-muted/50 p-3"
+            className="mb-4 flex flex-wrap items-end gap-3 border-b border-[color:var(--hairline)] pb-4"
             method="get"
             onSubmit={(event) => {
               event.preventDefault()
@@ -208,13 +208,13 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-search">
                 Search posts
               </FieldLabel>
-              <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} className="border-transparent bg-background/70 shadow-sm" />
+              <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} />
             </Field>
             <Field className="w-full gap-2 sm:w-44">
               <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
                 Status
               </FieldLabel>
-              <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''} className="border-transparent bg-background/70 shadow-sm">
+              <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''}>
                 <option value="">All statuses</option>
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
@@ -222,7 +222,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               </Select>
             </Field>
             <Button className="h-9" type="submit">
-              Filter
+              <MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Filter
             </Button>
           </form>
         ) : null}
