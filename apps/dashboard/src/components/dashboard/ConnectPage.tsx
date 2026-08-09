@@ -31,7 +31,6 @@ import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
 import { Spinner } from '~/components/ui/spinner'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { OnboardingStepper } from '~/components/dashboard/OnboardingFrame'
 import {
   checkoutBillingMutation,
   createApiKeyMutation,
@@ -463,8 +462,6 @@ export function ConnectPage() {
   const loading = !connectData && !status
   const showInitialError = loading && connectLoadFailed && statusLoadFailed
 
-  const activationStep = live ? 4 : draft || displayConn === 'connected' ? 3 : 2
-
   const pageKicker = live ? 'Complete' : 'Activation'
   const pageTitle = live
     ? 'Your first post is live'
@@ -540,8 +537,6 @@ export function ConnectPage() {
               </TabsList>
 
               <TabsContent value="setup" className="mt-4 space-y-4">
-                {!live && <OnboardingStepper step={Math.min(activationStep, 3)} complete={live} />}
-
                 {live && status && (
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                     <Panel title="Publication proof">
