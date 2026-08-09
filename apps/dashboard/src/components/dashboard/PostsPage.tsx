@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { FileTextIcon, MagnifyingGlassIcon, MixerHorizontalIcon, PlusIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { ArchiveIcon, FileTextIcon, MagnifyingGlassIcon, MixerHorizontalIcon, Pencil2Icon, PlusIcon, ReloadIcon, RocketIcon } from '@radix-ui/react-icons'
 import { Field, FieldLabel, Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/types/dashboard'
@@ -254,7 +254,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        Edit
+                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
                       </Link>
                     </Button>
                     {post.status !== 'published' ? (
@@ -268,7 +268,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                           )
                         }
                       >
-                        Publish
+                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
                       </PendingSubmitButton>
                     ) : null}
                     {post.status !== 'archived' ? (
@@ -283,7 +283,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                           )
                         }
                       >
-                        Archive
+                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
                   </div>
@@ -335,7 +335,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        Edit
+                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
                       </Link>
                     </Button>
                     {post.status !== 'published' ? (
@@ -349,7 +349,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                           )
                         }
                       >
-                        Publish
+                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
                       </PendingSubmitButton>
                     ) : null}
                     {post.status !== 'archived' ? (
@@ -364,7 +364,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                           )
                         }
                       >
-                        Archive
+                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
                   </div>
@@ -384,6 +384,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 {hasMore ? (
                   <div className="mt-3 flex justify-center">
                     <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                      <ReloadIcon aria-hidden data-icon="inline-start" />
                       {loadingMore ? 'Loading…' : 'Load more'}
                     </Button>
                   </div>
@@ -419,18 +420,18 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             action={
               hasFilters ? (
                 <Button asChild variant="outline">
-                  <Link to="/dashboard/posts" search={emptyPostsListSearch}>Clear filters</Link>
+                  <Link to="/dashboard/posts" search={emptyPostsListSearch}><MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Clear filters</Link>
                 </Button>
               ) : (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      Publish with agent
+                      <RocketIcon aria-hidden data-icon="inline-start" /> Publish with agent
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                      Write manually
+                      <Pencil2Icon aria-hidden data-icon="inline-start" /> Write manually
                     </Link>
                   </Button>
                 </div>
