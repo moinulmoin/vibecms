@@ -106,7 +106,7 @@ function MediaSkeleton() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="grid gap-3 rounded-2xl bg-muted/50 p-3">
+            <div key={i} className="grid gap-3 rounded-xl border border-[color:var(--hairline)] p-3">
               <Skeleton className="aspect-[4/3] w-full rounded-xl" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-3/4" />
@@ -419,7 +419,7 @@ export function MediaPage() {
             </div>
           </form>
 
-          <div className="grid content-start gap-3 rounded-2xl bg-muted/50 p-4">
+          <div className="grid content-start gap-3 rounded-xl border border-[color:var(--hairline)] bg-card p-4">
             <p className="font-mono text-[11px] font-medium text-muted-foreground">Upload limits</p>
             <dl className="grid gap-2 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -523,7 +523,7 @@ export function MediaPage() {
                 <article
                   key={asset.id}
                   className={cn(
-                    'group grid min-w-0 gap-3 overflow-hidden rounded-2xl bg-muted/50 p-3 transition-colors hover:bg-muted',
+                    'group grid min-w-0 gap-3 overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-card p-3 transition-colors hover:border-border',
                     isSelected && 'ring-2 ring-brand-bright ring-offset-2 ring-offset-background',
                   )}
                 >
@@ -548,7 +548,7 @@ export function MediaPage() {
                       onCheckedChange={(checked) => toggleSelected(asset.id, checked === true)}
                       aria-label={`Select ${asset.filename}`}
                       className={cn(
-                        'absolute right-2 top-2 z-10 size-4 bg-background/90 shadow-sm focus-visible:ring-offset-1',
+                        'absolute right-2 top-2 z-10 size-4 bg-background/90 focus-visible:ring-offset-1',
                         isSelected ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-100',
                       )}
                     />

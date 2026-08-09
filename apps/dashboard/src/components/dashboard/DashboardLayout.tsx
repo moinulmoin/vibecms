@@ -50,11 +50,11 @@ type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?
 
 const navItems: NavItem[] = [
   { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
-  { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
   { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
   { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
   { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
   { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
+  { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
   { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
 ]
 
