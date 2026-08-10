@@ -559,7 +559,7 @@ export function ConnectPage() {
                             : 'The publish is recorded. The public link will appear when the default domain is active.'}
                         </p>
                         {livePost?.url && (
-                          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+                          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[color:var(--hairline)] px-3 py-2.5">
                             <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
                               {livePost.url}
                             </span>
@@ -651,7 +651,7 @@ export function ConnectPage() {
                       <p className="font-sans text-sm leading-6 text-muted-foreground">
                         Your agent saved a draft. Review it, then approve publishing when you are ready.
                       </p>
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--hairline)] px-3 py-2.5">
                         <div className="min-w-0">
                           <strong className="truncate font-display font-semibold text-foreground">
                             <Link

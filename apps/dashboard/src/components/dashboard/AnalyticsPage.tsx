@@ -231,7 +231,7 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
         </p>
       </div>
       {data.aiCrawlers.status === 'unavailable' ? (
-        <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm leading-6 text-muted-foreground">
+        <p className="rounded-xl border border-[color:var(--hairline)] px-4 py-3 text-sm leading-6 text-muted-foreground">
           AI crawler reporting is not configured for this deployment. Human page views and AI referrals are still tracked.
         </p>
       ) : data.aiCrawlers.agents.length === 0 ? (

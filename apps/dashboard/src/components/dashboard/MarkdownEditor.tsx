@@ -267,7 +267,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-[color:var(--hairline)] p-2 sm:flex-row sm:items-center sm:justify-between">
         {isControlled ? (
           <p className="px-1 font-mono text-[11px] text-muted-foreground" aria-live="polite">
             {mode === 'preview' ? 'Exact public page' : 'Markdown'}

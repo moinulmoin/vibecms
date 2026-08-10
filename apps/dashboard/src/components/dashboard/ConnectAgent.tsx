@@ -25,7 +25,7 @@ function CodeBlock({ name, hint, code }: { name: string; hint: string; code: str
         </div>
         <CopyButton value={code} label="Copy" copiedLabel="Copied" iconOnly className="shrink-0" />
       </div>
-      <pre className="max-w-full overflow-x-auto rounded-xl bg-muted/50 p-3 font-mono text-xs leading-relaxed text-foreground">
+      <pre className="max-w-full overflow-x-auto rounded-xl border border-[color:var(--hairline)] p-3 font-mono text-xs leading-relaxed text-foreground">
         {code}
       </pre>
     </div>
@@ -97,7 +97,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
   return (
     <div className="grid gap-5">
       {!promptOnly && token ? (
-        <div className="grid min-w-0 gap-3 rounded-2xl bg-muted/50 p-4">
+        <div className="grid min-w-0 gap-3 rounded-xl border border-[color:var(--hairline)] p-4">
           <div className="space-y-1">
             <p className="font-mono text-[11px] font-medium text-primary">
               {tokenName ?? 'Agent token'}
@@ -125,7 +125,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
           >
             <div className="grid min-w-0 gap-3">
               <CodeBlock name="Claude Code · primary example" hint="Run this once in your terminal." code={claudeCode} />
-              <details className="group rounded-xl bg-muted/50">
+              <details className="group rounded-xl border border-[color:var(--hairline)]">
                 <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
                   Other MCP clients
                 </summary>
@@ -144,7 +144,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
                 </div>
               </details>
               <div className="flex min-w-0 flex-wrap items-center gap-3">
-                <code className="min-w-0 break-all rounded-xl bg-muted/50 px-3 py-2 font-mono text-sm text-foreground">
+                <code className="min-w-0 break-all rounded-xl border border-[color:var(--hairline)] px-3 py-2 font-mono text-sm text-foreground">
                   {mcpUrl}
                 </code>
                 <CopyButton value={mcpUrl} label="Copy MCP URL" copiedLabel="Copied" className="shrink-0" />
@@ -176,7 +176,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
         />
       </Section>
 
-      <details className="group rounded-xl bg-muted/50" open={connected || undefined}>
+      <details className="group rounded-xl border border-[color:var(--hairline)]" open={connected || undefined}>
         <summary className="cursor-pointer select-none px-3 py-2.5 font-display text-sm font-semibold text-foreground">
           3. Draft, review, then approve
         </summary>

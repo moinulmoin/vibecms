@@ -863,7 +863,7 @@ export function SettingsPage() {
         <TabsContent value="voice" className="grid gap-4">
           <Panel title="Writing voice" meta={data.voiceProfile.configured ? 'Custom' : 'VibeCMS default'}>
             <Collapsible open={voiceEditorOpen} onOpenChange={setVoiceEditorOpen} className="grid gap-5">
-            <div className="rounded-2xl bg-muted/50 p-4 md:p-5">
+            <div className="rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="max-w-2xl">
                   <p className="font-display text-base font-medium text-foreground">
@@ -1172,7 +1172,7 @@ export function SettingsPage() {
         title="Billing"
         meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}
       >
-        <div className="rounded-2xl bg-muted/50 p-4 md:p-5">
+        <div className="rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="font-display text-sm font-medium text-foreground">
@@ -1207,7 +1207,7 @@ export function SettingsPage() {
       <Panel title="Plan includes" meta={PRICING.planName}>
         <div className="grid gap-2 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
           {ENTITLEMENTS.map((entitlement) => (
-            <span className="rounded-xl bg-muted/50 px-3 py-2.5 leading-5" key={entitlement}>
+            <span className="rounded-lg border border-[color:var(--hairline)] px-3 py-2.5 leading-5" key={entitlement}>
               {entitlement}
             </span>
           ))}
@@ -1217,7 +1217,7 @@ export function SettingsPage() {
         <TabsContent value="data" className="grid gap-4">
       {isOwner ? (
         <Panel title="Your data" meta="Export">
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-muted/50 p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
             <div className="flex min-w-0 items-start gap-3">
               <DownloadIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
               <p className="font-sans text-sm leading-6 text-muted-foreground">

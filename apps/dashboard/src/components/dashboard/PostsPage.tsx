@@ -230,7 +230,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
           <>
             <div className="grid gap-2 md:hidden">
               {posts.map((post) => (
-                <article className="grid gap-3 rounded-xl bg-muted/50 p-4" key={post.id}>
+                <article className="grid gap-3 rounded-xl border border-[color:var(--hairline)] p-4" key={post.id}>
                   <div className="min-w-0">
                     <Link
                       className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"

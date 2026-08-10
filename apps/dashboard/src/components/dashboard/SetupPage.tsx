@@ -182,7 +182,7 @@ export function SetupPage() {
                 />
               </Field>
             </FieldGroup>
-            <div className="flex flex-col gap-4 rounded-xl bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-xl border border-[color:var(--hairline)] p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-mono text-[11px] leading-5 text-muted-foreground">
                 Draft for free and publish your first 5 posts to try it live. Subscribe to publish more and upload media.
               </p>

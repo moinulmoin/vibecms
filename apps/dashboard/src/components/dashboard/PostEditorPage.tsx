@@ -711,7 +711,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
           {isNarrow ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/50 p-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--hairline)] p-2">
               <Tabs
                 value={mobileTab}
                 onValueChange={(value) => setMobileTab(value as typeof mobileTab)}
