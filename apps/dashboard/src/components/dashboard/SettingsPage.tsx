@@ -201,37 +201,39 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 // Canonical markdown sample - exercises the full renderer vocabulary.
 // Computed once at module load; safe because renderRichContent is synchronous.
 // ---------------------------------------------------------------------------
-const CANONICAL_SAMPLE_MD = `## Sample heading
+const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
-[[toc]]
+Your agents draft, you approve, and the public blog reflects only what you
+explicitly publish. This post walks through how vibecms keeps that loop tight.
 
-### Introduction
+## One owner of record
 
-Write compelling posts with **bold text**, *italic text*, and [links](https://example.com).
+Every meaningful change creates a version. **Roll back any post** from the
+activity log with a single restore - the audit trail stays readable for you,
+your tokens, and the agents that acted.
 
 > [!NOTE]
-> Notes add context without interrupting the narrative.
+> Versions are immutable. Restoring creates a new tip; it never rewrites history.
 
-> [!TIP]
-> Tips help readers get the most from their reading.
+### Publishing is approval-first
 
-> [!WARNING]
-> Warnings flag important caveats or breaking changes.
-
-### Code block
+Agents prepare drafts and previews, but publishing waits for your explicit
+go-ahead. The result is a blog you can trust without watching over it.
 
 \`\`\`ts
-export async function getPost(id: string) {
-  return db.posts.findById(id)
+export async function publishPost(id: string) {
+  const tip = await db.posts.versionTip(id)
+  return db.posts.publish(id, { expectedVersionNumber: tip })
 }
 \`\`\`
 
-### Media
+### Readable everywhere
 
-![A sample blog header image](https://picsum.photos/seed/vc/800/400)
-*Caption: a hero image sets the tone for every preset.*
+Every preset keeps the same guarantees: clean typography, open graph metadata,
+and a layout that reads well in a browser, a feed reader, or an AI crawler.
 
-### Comparison table
+![A calm blog layout](https://picsum.photos/seed/vc/800/400)
+*Caption: the same post, your chosen style.*
 
 | Preset | Density | Best for |
 | ------ | ------- | -------- |
@@ -661,58 +663,48 @@ export function SettingsPage() {
               Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
             </p>
             <form
-              className="grid gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start"
+              className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start"
               onSubmit={(e) => void handleThemeSave(e)}
             >
               <div className="grid gap-5">
                 <FieldSet>
                   <FieldLegend variant="label">Style</FieldLegend>
-                  <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {PRESET_IDS.map((id) => {
                       const preset = THEME_PRESETS[id]
-                      const isCurrent = site.theme === id
+                      const isCurrent = selectedTheme === id
                       return (
-                        <Field
+                        <button
                           key={id}
-                          orientation="horizontal"
+                          type="button"
+                          aria-pressed={isCurrent}
+                          onClick={() => {
+                            setSelectedTheme(id)
+                            const look = id === 'minimal' ? undefined : STARTER_LOOKS[id as StarterLookId]
+                            if (look) {
+                              setSelectedAccent(look.accent)
+                              if ('font' in look && look.font) setSelectedFont(look.font)
+                            }
+                          }}
                           className={cn(
-                            'rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
-                            'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
+                            'flex min-w-0 flex-col gap-1 rounded-xl border p-3 text-left transition-colors',
+                            'border-[color:var(--hairline)] bg-card hover:border-border',
+                            isCurrent &&
+                              'border-brand-bright/40 bg-brand-bright/5 ring-1 ring-brand-bright/30',
                           )}
                         >
-                          <input
-                            id={`theme-${id}`}
-                            className="mt-1 accent-[var(--brand-bright)]"
-                            type="radio"
-                            name="theme"
-                            value={id}
-                            checked={selectedTheme === id}
-                            onChange={() => {
-                              setSelectedTheme(id)
-                              const look = id === 'minimal' ? undefined : STARTER_LOOKS[id as StarterLookId]
-                              if (look) {
-                                setSelectedAccent(look.accent)
-                                if ('font' in look && look.font) setSelectedFont(look.font)
-                              }
-                            }}
-                          />
-                          <span>
-                            <FieldLabel
-                              htmlFor={`theme-${id}`}
-                              className="flex flex-wrap items-center gap-1.5 font-display text-base font-medium"
-                            >
-                              {preset.name}
-                              {isCurrent && (
-                                <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
-                                  Live
-                                </Badge>
-                              )}
-                            </FieldLabel>
-                            <span className="mt-1 block font-sans text-sm leading-6 text-muted-foreground">
-                              {preset.designIntent}
-                            </span>
+                          <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
+                            {preset.name}
+                            {isCurrent && (
+                              <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
+                                Live
+                              </Badge>
+                            )}
                           </span>
-                        </Field>
+                          <span className="font-sans text-xs leading-5 text-muted-foreground">
+                            {preset.designIntent}
+                          </span>
+                        </button>
                       )
                     })}
                   </div>
@@ -720,35 +712,26 @@ export function SettingsPage() {
 
                 <FieldSet>
                   <FieldLegend variant="label">Accent</FieldLegend>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ACCENTS.map((accent) => (
-                      <Field
-                        key={accent.id}
-                        orientation="horizontal"
-                        className={cn(
-                          'cursor-pointer rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted',
-                          'has-[:checked]:ring-1 has-[:checked]:ring-brand-bright/40',
-                        )}
-                      >
-                        <input
-                          id={`accent-${accent.id}`}
-                          className="sr-only"
-                          type="radio"
-                          name="accent"
-                          value={accent.id}
-                          checked={selectedAccent === accent.id}
-                          onChange={() => setSelectedAccent(accent.id)}
-                        />
-                        <span
-                          aria-hidden
-                          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
+                  <div className="flex flex-wrap gap-2">
+                    {ACCENTS.map((accent) => {
+                      const isCurrent = selectedAccent === accent.id
+                      return (
+                        <button
+                          key={accent.id}
+                          type="button"
+                          aria-pressed={isCurrent}
+                          title={accent.name}
+                          onClick={() => setSelectedAccent(accent.id)}
+                          className={cn(
+                            'size-7 rounded-full ring-1 ring-inset ring-black/10 transition-transform dark:ring-white/10',
+                            'hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            isCurrent && 'ring-2 ring-brand-bright ring-offset-2 ring-offset-background',
+                          )}
                           style={{ backgroundColor: accent.oklchLight }}
+                          aria-label={`Accent ${accent.name}`}
                         />
-                        <FieldLabel htmlFor={`accent-${accent.id}`} className="font-sans text-sm font-medium">
-                          {accent.name}
-                        </FieldLabel>
-                      </Field>
-                    ))}
+                      )
+                    })}
                   </div>
                 </FieldSet>
 
@@ -818,21 +801,24 @@ export function SettingsPage() {
                   <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
                     Live preview
                   </p>
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    size="sm"
-                    value={previewMode}
-                    onValueChange={(value) => { if (value) setPreviewMode(value as 'light' | 'dark' | 'system') }}
-                    aria-label="Preview color mode"
-                    className="w-fit"
-                  >
-                    {(['light', 'system', 'dark'] as const).map((mode) => (
-                      <ToggleGroupItem key={mode} value={mode} className="px-2 capitalize">
-                        {mode}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
+                  <div className="flex items-center gap-2">
+                    <span className="font-sans text-xs text-muted-foreground">Preview in</span>
+                    <ToggleGroup
+                      type="single"
+                      variant="outline"
+                      size="sm"
+                      value={previewMode}
+                      onValueChange={(value) => { if (value) setPreviewMode(value as 'light' | 'dark' | 'system') }}
+                      aria-label="Preview color mode"
+                      className="w-fit"
+                    >
+                      {(['light', 'system', 'dark'] as const).map((mode) => (
+                        <ToggleGroupItem key={mode} value={mode} className="px-2 capitalize">
+                          {mode}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </div>
                 </div>
                 <div style={previewStyle}>
                   <RichContentFrame
