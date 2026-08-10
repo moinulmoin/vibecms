@@ -213,19 +213,24 @@ explicitly publish. This is a preview of every block the renderer supports.
 
 ## One owner of record
 
-Every meaningful change creates a version. You can roll back any post from the
-activity log with a single restore, and the audit trail stays readable.
+Every meaningful change creates a version. You can roll back any post from
+the activity log with a single restore, and the audit trail stays readable.
 
 Whether the actor was you, a token, or an agent, the trail reads the same.
 
 > [!NOTE]
-> Versions are immutable. Restoring creates a new tip; it never rewrites history.
+> Versions are immutable. Restoring creates a new tip; it never rewrites
+> history.
+>
+> That is the point. You stay the owner of record.
 
 > [!TIP]
-> Change the accent above and watch the links, callouts, and code cursor update here.
+> Change the accent above and watch the links, callouts, and code cursor
+> update here.
 
 > [!WARNING]
-> Publishing waits for your explicit approval. Agents can never publish on their own.
+> Publishing waits for your explicit approval. Agents can never publish
+> on their own.
 
 ## Publishing is approval-first
 
@@ -247,8 +252,9 @@ export async function publishPost(id: string) {
 
 ## Readable everywhere
 
-Every preset keeps the same guarantees: clean typography, open graph metadata,
-and a layout that reads well in a browser, a feed reader, or an AI crawler.
+Every preset keeps the same guarantees: clean typography, open graph
+metadata, and a layout that reads well in a browser, a feed reader, or
+an AI crawler.
 
 ![A calm blog layout](https://picsum.photos/seed/vc/800/400)
 *Caption: the same post, your chosen style.*
