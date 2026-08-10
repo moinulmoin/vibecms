@@ -295,23 +295,23 @@ function RailSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 px-5 py-4 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:px-6"
+            className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <span className="flex items-center gap-2">
-              <span className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">
+              <span className="font-display text-[13px] font-semibold tracking-[-0.01em] text-foreground">
                 {title}
               </span>
               {meta}
             </span>
             <ChevronDownIcon
               aria-hidden="true"
-              className="size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none data-[state=open]:rotate-180"
+              className="size-3.5 text-muted-foreground transition-transform duration-200 motion-reduce:transform-none data-[state=open]:rotate-180"
               data-state={open ? 'open' : 'closed'}
             />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t border-[color:var(--hairline)] px-5 py-4 sm:px-6">
+          <div className="border-t border-[color:var(--hairline)] px-4 py-3">
             {children}
           </div>
         </CollapsibleContent>
