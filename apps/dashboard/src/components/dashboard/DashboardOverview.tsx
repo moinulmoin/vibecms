@@ -1,5 +1,5 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { ActivityLogIcon, FileTextIcon, PlusIcon } from '@radix-ui/react-icons'
+import { ActivityLogIcon, FileTextIcon, Pencil2Icon, PlusIcon, RocketIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '~/types/dashboard'
@@ -350,12 +350,12 @@ export function DashboardOverview() {
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      Publish with agent
+                      <RocketIcon aria-hidden data-icon="inline-start" /> Publish with agent
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                      Write manually
+                      <Pencil2Icon aria-hidden data-icon="inline-start" /> Write manually
                     </Link>
                   </Button>
                 </div>
