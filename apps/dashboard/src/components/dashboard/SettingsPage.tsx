@@ -207,22 +207,20 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
 Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. This preview is one article that shows every block the
-renderer supports — *headings, lists, quotes, code, callouts, images,* and
-*tables* — composed to read, not to demo.
+explicitly publish. *Every block in this article exists to judge the style
+with your eyes:* headings, lists, quotes, code, callouts, figures, and tables
+— composed to read.
 
-Every meaningful change creates a version. You can roll back any post from
-the activity log with a single restore, and the audit trail stays readable.
-
-Whether the actor was **you**, a token, or an **agent**, the trail reads the
-same. Learn more in the [format guide](https://example.com).
+The premise is simple: every meaningful change creates a version. You can roll
+back any post from the activity log with a single restore, and the audit trail
+stays readable whether the actor was **you**, a token, or an **agent**.
 
 ## One owner of record
 
 vibecms keeps agent drafts separate from the public page until you say
 publish. The result is a loop with one owner of record:
 
-1. Draft and preview with \`posts.preview\`
+1. Draft and validate with \`posts.preview\`
 2. Save as a draft and record the version
 3. Approve publishing in a later message
 
@@ -246,7 +244,7 @@ export async function publishPost(id: string) {
 \`\`\`
 
 > [!TIP]
-> Change the accent above and watch the **links**, callouts, and code cursor
+> Change the **accent** above and watch the links, callouts, and code cursor
 > update here.
 
 A few guarantees hold across every preset:
@@ -258,6 +256,8 @@ A few guarantees hold across every preset:
 > [!WARNING]
 > Publishing waits for your explicit approval. Agents can never publish
 > on their own.
+
+---
 
 ## Readable everywhere
 
@@ -273,8 +273,6 @@ reads well in a browser, a feed reader, or an AI crawler.
 | Editorial | Comfortable | Narrative |
 | Technical | Tight | Documentation |
 | Product | Confident | Announcements |
-
-The article stays calm. Your words lead.
 `
 const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
