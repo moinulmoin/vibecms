@@ -739,11 +739,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
               defaultValue={post?.title ?? ''}
               placeholder="Post title"
               aria-label="Post title"
-              className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-4xl"
+              className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-[2.25rem]"
               onInput={(e) => setCurrentTitle(e.currentTarget.value)}
             />
             <div className="mt-1 mb-6 flex items-center gap-2">
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="max-w-full truncate font-mono text-xs text-muted-foreground">
+                {post ? `v${currentVersionNumber ?? '—'} · ` : null}
                 {publicBaseUrl && currentSlug ? `${publicBaseUrl.replace('https://', '')}/${currentSlug}` : 'slug will generate from title'}
               </span>
             </div>
@@ -783,7 +784,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </RailSection>
 
             {/* Excerpt */}
-            <RailSection title="Excerpt">
+            <RailSection title="Excerpt" defaultOpen>
               <Field>
                 <Textarea
                   id="post-excerpt"
@@ -800,7 +801,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </RailSection>
 
             {/* Tags */}
-            <RailSection title="Tags">
+            <RailSection title="Tags" defaultOpen>
               <Field>
                 <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
               </Field>
