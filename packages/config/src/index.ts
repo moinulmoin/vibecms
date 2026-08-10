@@ -357,8 +357,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   minimal: {
     id: "minimal",
     name: "Minimal",
-    designIntent:
-      "Clean, airy, and neutral. A general-purpose canvas that stays out of the way and lets your words lead.",
+    designIntent: "Clean, airy, and neutral. Lets your words lead.",
     recommendedComponents: [
       "list",
       "link",
@@ -397,8 +396,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   editorial: {
     id: "editorial",
     name: "Editorial",
-    designIntent:
-      "Serif headings, pull quotes, and a relaxed narrative rhythm. Built for long-form storytelling, essays, and reported pieces.",
+    designIntent: "Serif headings, pull quotes, and a relaxed narrative rhythm.",
     recommendedComponents: [
       "captioned-image",
       "blockquote",
@@ -441,8 +439,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   technical: {
     id: "technical",
     name: "Technical",
-    designIntent:
-      "Monospace emphasis, prominent table of contents, and tight density. Optimised for documentation, tutorials, and reference guides.",
+    designIntent: "Monospace emphasis, TOC, and tight density for docs.",
     recommendedComponents: [
       "table-of-contents",
       "fenced-code",
@@ -484,8 +481,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   product: {
     id: "product",
     name: "Product",
-    designIntent:
-      "Clean, confident, and conversion-aware. Built for founder updates, launch announcements, and company news.",
+    designIntent: "Clean, confident, and conversion-aware for announcements.",
     recommendedComponents: [
       "captioned-image",
       "callout",

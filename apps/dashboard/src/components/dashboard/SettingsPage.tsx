@@ -809,6 +809,9 @@ export function SettingsPage() {
                       </ToggleGroupItem>
                     ))}
                   </ToggleGroup>
+                  <p className="mt-1 font-sans text-[11px] leading-4 text-muted-foreground">
+                    What visitors see. The preview toggle above only changes how you look at it.
+                  </p>
                 </FieldSet>
 
                 {(selectedTheme !== site.theme ||
@@ -860,7 +863,7 @@ export function SettingsPage() {
                 </div>
                 <div style={previewStyle}>
                   <RichContentFrame
-                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] text-[var(--vc-fg)]"
+                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] px-8 py-10 text-[var(--vc-fg)] sm:px-12"
                     node={previewNode}
                     presetId={selectedTheme}
                     mode={previewMode}
