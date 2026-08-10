@@ -207,16 +207,16 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
 Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. **This is a preview** of every block the renderer supports,
-so you can judge the style before anything goes live.
+explicitly publish. This is a preview of every block the renderer supports.
 
 [[toc]]
 
 ## One owner of record
 
-Every meaningful change creates a version. *Roll back any post* from the
-activity log with a single restore - the audit trail stays readable for you,
-your tokens, and the agents that acted. [Learn more about versions](https://example.com).
+Every meaningful change creates a version. You can roll back any post from the
+activity log with a single restore, and the audit trail stays readable.
+
+Whether the actor was you, a token, or an agent, the trail reads the same.
 
 > [!NOTE]
 > Versions are immutable. Restoring creates a new tip; it never rewrites history.
@@ -227,10 +227,10 @@ your tokens, and the agents that acted. [Learn more about versions](https://exam
 > [!WARNING]
 > Publishing waits for your explicit approval. Agents can never publish on their own.
 
-### Publishing is approval-first
+## Publishing is approval-first
 
 Agents prepare drafts and previews, but publishing waits for your explicit
-go-ahead. The result is a blog you can trust without watching over it:
+go-ahead. The result is a blog you can trust without watching over it.
 
 1. Draft and preview with \`posts.preview\`
 2. Save as a draft and record the version
@@ -245,7 +245,7 @@ export async function publishPost(id: string) {
 
 > A quote pulls out a line worth remembering, styled per preset.
 
-### Readable everywhere
+## Readable everywhere
 
 Every preset keeps the same guarantees: clean typography, open graph metadata,
 and a layout that reads well in a browser, a feed reader, or an AI crawler.
@@ -269,7 +269,6 @@ export function SettingsPage() {
   const [refreshingDomains, setRefreshingDomains] = useState(false)
   const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | 'voice' | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<PresetId>(DEFAULT_PRESET_ID)
-  const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'system'>('system')
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
   const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
@@ -701,7 +700,7 @@ export function SettingsPage() {
               Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
             </p>
             <form
-              className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start"
+              className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:items-start"
               onSubmit={(e) => void handleThemeSave(e)}
             >
               <div className="grid gap-6">
@@ -818,7 +817,7 @@ export function SettingsPage() {
                     ))}
                   </ToggleGroup>
                   <p className="mt-1 font-sans text-[11px] leading-4 text-muted-foreground">
-                    What visitors see. The preview toggle above only changes how you look at it.
+                    What visitors see. The preview on the right uses this mode.
                   </p>
                 </FieldSet>
 
@@ -846,35 +845,15 @@ export function SettingsPage() {
               </div>
 
               <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                    Live preview
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="font-sans text-xs text-muted-foreground">Preview in</span>
-                    <ToggleGroup
-                      type="single"
-                      variant="outline"
-                      size="sm"
-                      value={previewMode}
-                      onValueChange={(value) => { if (value) setPreviewMode(value as 'light' | 'dark' | 'system') }}
-                      aria-label="Preview color mode"
-                      className="w-fit"
-                    >
-                      {(['light', 'system', 'dark'] as const).map((mode) => (
-                        <ToggleGroupItem key={mode} value={mode} className="px-2 capitalize">
-                          {mode}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                  </div>
-                </div>
+                <p className="mb-3 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                  Live preview
+                </p>
                 <div style={previewStyle}>
                   <RichContentFrame
                     className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] px-8 py-10 text-[var(--vc-fg)] sm:px-12"
                     node={previewNode}
                     presetId={selectedTheme}
-                    mode={previewMode}
+                    mode={selectedMode}
                   />
                 </div>
               </div>
