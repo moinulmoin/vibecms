@@ -414,7 +414,7 @@ export function MediaPage() {
                 <Input id="media-alt" name="altText" maxLength={180} placeholder="Describe the image for readers" />
               </Field>
               <PendingSubmitButton pending={uploadPending} pendingText="Uploading…">
-                Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
+                <UploadIcon aria-hidden data-icon="inline-start" /> Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
               </PendingSubmitButton>
             </div>
           </form>

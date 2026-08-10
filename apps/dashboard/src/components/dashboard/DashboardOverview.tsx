@@ -1,5 +1,5 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { ActivityLogIcon, FileTextIcon } from '@radix-ui/react-icons'
+import { ActivityLogIcon, FileTextIcon, PlusIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '~/types/dashboard'
@@ -157,7 +157,7 @@ export function DashboardOverview() {
         action={
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-              New post
+              <PlusIcon aria-hidden data-icon="inline-start" /> New post
             </Link>
           </Button>
         }

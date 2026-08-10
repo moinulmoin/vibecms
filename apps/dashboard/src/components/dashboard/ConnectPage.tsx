@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@vc/ui'
-import { CheckIcon, Link2Icon } from '@radix-ui/react-icons'
+import { CheckIcon, Link2Icon, PlusIcon, TrashIcon } from '@radix-ui/react-icons'
 import { Button, EmptyState, LoadError, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
@@ -219,7 +219,7 @@ function TokenRow({
             disabled={pending}
             onConfirm={() => onDelete(apiKey.id)}
           >
-            Revoke token
+            <TrashIcon aria-hidden data-icon="inline-start" /> Revoke token
           </SpaConfirmButton>
         </div>
       </TableCell>
@@ -721,7 +721,7 @@ export function ConnectPage() {
                         </RadioGroup>
                       </FieldSet>
                       <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
-                        Create token
+                        <PlusIcon aria-hidden data-icon="inline-start" /> Create token
                       </PendingSubmitButton>
                     </form>
                   </Panel>
