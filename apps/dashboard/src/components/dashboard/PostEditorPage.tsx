@@ -28,7 +28,7 @@ import { useMediaQuery } from '~/hooks/use-media-query'
 import type { EditorSiteInfo } from '~/types/dashboard'
 import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { ChevronDownIcon, CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
+import { ArchiveIcon, ChevronDownIcon, ChevronLeftIcon, CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, RocketIcon, UploadIcon } from '@radix-ui/react-icons'
 import {
   Sheet,
   SheetContent,
@@ -179,7 +179,7 @@ function EditorStateStrip({
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {state === 'unpublished' ? (
           <Button type="button" variant="outline" size="sm" onClick={onReviewChanges}>
-            Review changes
+            <EyeOpenIcon aria-hidden data-icon="inline-start" /> Review changes
           </Button>
         ) : null}
         {liveUrl ? (
@@ -201,6 +201,7 @@ function EditorStateStrip({
             pendingText="Publishing…"
             onClick={onPublish}
           >
+            <RocketIcon aria-hidden data-icon="inline-start" />
             {post.status === 'published' ? 'Publish changes' : 'Publish'}
           </PendingSubmitButton>
         ) : null}
@@ -671,7 +672,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           <div className="flex items-center gap-2">
             {post && <PostStatusBadge status={post.status} />}
             <Button asChild variant="outline">
-              <Link to="/dashboard/posts" search={emptyPostsListSearch}>Back to posts</Link>
+              <Link to="/dashboard/posts" search={emptyPostsListSearch}><ChevronLeftIcon aria-hidden data-icon="inline-start" /> Back to posts</Link>
             </Button>
           </div>
         }
@@ -1041,7 +1042,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
                       onConfirm={() => void handleArchive()}
                       className="justify-start"
                     >
-                      Archive post
+                      <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive post
                     </SpaConfirmButton>
                   ) : null}
                 </div>
