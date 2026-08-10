@@ -214,7 +214,7 @@ the activity log with a single restore, and the audit trail stays readable.
 
 Whether the actor was you, a token, or an agent, the trail reads the same.
 
-## A calm publishing loop
+## The calm publishing loop
 
 vibecms keeps agent drafts separate from the public page until you say publish.
 The result is a loop with one owner of record:
@@ -226,8 +226,6 @@ The result is a loop with one owner of record:
 > [!NOTE]
 > Versions are immutable. Restoring creates a new tip; it never rewrites
 > history.
->
-> That is the point. You stay the owner of record.
 
 > A quote pulls out a line worth remembering, *styled per preset.*
 
@@ -235,9 +233,11 @@ The result is a loop with one owner of record:
 > Change the accent above and watch the links, callouts, and code cursor
 > update here.
 
-> [!WARNING]
-> Publishing waits for your explicit approval. Agents can never publish
-> on their own.
+## Applied in practice
+
+Agents prepare drafts and previews, but publishing waits for your explicit
+go-ahead. Requests funnel through \`posts.versionTip\` and return a clean
+version cursor:
 
 \`\`\`ts
 export async function publishPost(id: string) {
@@ -245,6 +245,10 @@ export async function publishPost(id: string) {
   return db.posts.publish(id, { expectedVersionNumber: tip })
 }
 \`\`\`
+
+> [!WARNING]
+> Publishing waits for your explicit approval. Agents can never publish
+> on their own.
 
 ## Readable everywhere
 
