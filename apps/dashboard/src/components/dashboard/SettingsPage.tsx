@@ -207,28 +207,29 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
 Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. *Every block in this article exists to judge the style
-with your eyes:* headings, lists, quotes, code, callouts, figures, and tables
-— composed to read.
+explicitly publish. This preview is one article that shows every block the
+renderer supports.
 
-The premise is simple: every meaningful change creates a version. You can roll
-back any post from the activity log with a single restore, and the audit trail
-stays readable whether the actor was **you**, a token, or an **agent**.
+Every meaningful change creates a version. You can roll back any post from
+the activity log with a single restore, and the audit trail stays readable.
 
-## One owner of record
-
-vibecms keeps agent drafts separate from the public page until you say
-publish. The result is a loop with one owner of record:
-
-1. Draft and validate with \`posts.preview\`
-2. Save as a draft and record the version
-3. Approve publishing in a later message
+Whether the actor was **you**, a token, or an **agent**, the trail reads the
+same. Learn more in the [format guide](https://example.com).
 
 > [!NOTE]
 > Versions are immutable. Restoring creates a new tip; it never rewrites
 > history.
 
 > A quote pulls out a line worth remembering, *styled per preset.*
+
+## A calm publishing loop
+
+vibecms keeps agent drafts separate from the public page until you say publish.
+The result is a loop with one owner of record:
+
+1. Draft and preview with \`posts.preview\`
+2. Save as a draft and record the version
+3. Approve publishing in a later message
 
 ## Applied in practice
 
@@ -247,18 +248,6 @@ export async function publishPost(id: string) {
 > Change the **accent** above and watch the links, callouts, and code cursor
 > update here.
 
-A few guarantees hold across every preset:
-
-- Clean typography at 66–72ch measures
-- Open graph metadata and versioned history
-- Tables, figures, and code that stay legible in feed readers
-
-> [!WARNING]
-> Publishing waits for your explicit approval. Agents can never publish
-> on their own.
-
----
-
 ## Readable everywhere
 
 Every preset keeps the same promises: open graph metadata and a layout that
@@ -271,8 +260,6 @@ reads well in a browser, a feed reader, or an AI crawler.
 | ------ | ------- | -------- |
 | Minimal | Airy | General writing |
 | Editorial | Comfortable | Narrative |
-| Technical | Tight | Documentation |
-| Product | Confident | Announcements |
 `
 const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
@@ -866,7 +853,7 @@ export function SettingsPage() {
                 </p>
                 <div style={previewStyle}>
                   <RichContentFrame
-                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] px-8 py-10 text-[var(--vc-fg)] sm:px-12"
+                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] px-5 py-8 text-[var(--vc-fg)]"
                     node={previewNode}
                     presetId={selectedTheme}
                     mode={selectedMode}
