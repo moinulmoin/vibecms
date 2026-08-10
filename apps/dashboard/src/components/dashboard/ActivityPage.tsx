@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ActivityLogIcon } from '@radix-ui/react-icons'
+import { ActivityLogIcon, ReloadIcon } from '@radix-ui/react-icons'
 import {
   Button,
   EmptyState,
@@ -258,6 +258,7 @@ export function ActivityPage() {
             {hasMore ? (
               <div className="mt-3 flex justify-center">
                 <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+                  <ReloadIcon aria-hidden data-icon="inline-start" />
                   {loadingMore ? 'Loading…' : 'Load more'}
                 </Button>
               </div>

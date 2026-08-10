@@ -19,7 +19,7 @@ import {
 } from '@vc/config'
 import type { Asset } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView } from '~/types/dashboard'
-import { DownloadIcon, GlobeIcon } from '@radix-ui/react-icons'
+import { DownloadIcon, GlobeIcon, PlusIcon, ReloadIcon, ResetIcon, CheckIcon } from '@radix-ui/react-icons'
 import {
   Alert,
   Field,
@@ -650,7 +650,7 @@ export function SettingsPage() {
             pendingText="Saving…"
             disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
           >
-            Save
+            <CheckIcon aria-hidden data-icon="inline-start" /> Save
           </PendingSubmitButton>
         </form>
       </Panel>
@@ -801,7 +801,7 @@ export function SettingsPage() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving…">
-                    Save changes
+                    <CheckIcon aria-hidden data-icon="inline-start" /> Save changes
                   </PendingSubmitButton>
                   {data.publicBaseUrl ? (
                     <Button asChild variant="outline">
@@ -1057,7 +1057,7 @@ export function SettingsPage() {
                   pendingText="Saving voice profile..."
                   disabled={!voiceValidation.isValid}
                 >
-                  Save
+                  <CheckIcon aria-hidden data-icon="inline-start" /> Save
                 </PendingSubmitButton>
                 {data.voiceProfile.configured && (
                   <SpaConfirmButton
@@ -1068,7 +1068,7 @@ export function SettingsPage() {
                     helperText="This removes the editorial guidance and reading references that agents receive."
                     onConfirm={() => void handleVoiceProfileClear()}
                   >
-                    Reset to default
+                    <ResetIcon aria-hidden data-icon="inline-start" /> Reset to default
                   </SpaConfirmButton>
                 )}
               </div>
@@ -1091,6 +1091,7 @@ export function SettingsPage() {
                 disabled={refreshingDomains}
                 onClick={() => void handleRefreshDomains()}
               >
+                <ReloadIcon aria-hidden data-icon="inline-start" />
                 {refreshingDomains ? 'Refreshing…' : 'Refresh'}
               </Button>
             </div>
@@ -1105,7 +1106,7 @@ export function SettingsPage() {
               <Input id="domain-hostname" name="hostname" placeholder="blog.example.com" autoComplete="off" required />
             </Field>
             <PendingSubmitButton className="w-fit" pending={formPending === 'domain'} pendingText="Adding…">
-              Add domain
+              <PlusIcon aria-hidden data-icon="inline-start" /> Add domain
             </PendingSubmitButton>
           </form>
           {customDomains.cnameTarget ? (

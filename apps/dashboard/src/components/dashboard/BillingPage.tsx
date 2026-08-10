@@ -1,7 +1,7 @@
 'use client'
 
 import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
-import { CheckIcon } from '@radix-ui/react-icons'
+import { CheckIcon, IdCardIcon, ExternalLinkIcon } from '@radix-ui/react-icons'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
@@ -164,7 +164,7 @@ export function BillingPage() {
                     pendingText="Opening portal…"
                     onClick={() => void openPortal()}
                   >
-                    Manage subscription
+                    <IdCardIcon aria-hidden data-icon="inline-start" /> Manage subscription
                   </PendingSubmitButton>
                 </div>
               ) : (
@@ -177,7 +177,7 @@ export function BillingPage() {
                     pendingText="Starting checkout…"
                     onClick={() => void startCheckout('monthly')}
                   >
-                    Subscribe monthly
+                    <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe monthly
                   </PendingSubmitButton>
                   <PendingSubmitButton
                     type="button"
@@ -188,7 +188,7 @@ export function BillingPage() {
                     pendingText="Starting checkout…"
                     onClick={() => void startCheckout('yearly')}
                   >
-                    Subscribe yearly
+                    <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe yearly
                   </PendingSubmitButton>
                   <PendingSubmitButton
                     type="button"
@@ -199,7 +199,7 @@ export function BillingPage() {
                     pendingText="Opening portal…"
                     onClick={() => void openPortal()}
                   >
-                    Customer portal
+                    <ExternalLinkIcon aria-hidden data-icon="inline-start" /> Customer portal
                   </PendingSubmitButton>
                 </div>
               )
