@@ -207,17 +207,20 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
 Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. This is a preview of every block the renderer supports.
+explicitly publish. This preview is one article that shows every block the
+renderer supports — *headings, lists, quotes, code, callouts, images,* and
+*tables* — composed to read, not to demo.
 
 Every meaningful change creates a version. You can roll back any post from
 the activity log with a single restore, and the audit trail stays readable.
 
-Whether the actor was you, a token, or an agent, the trail reads the same.
+Whether the actor was **you**, a token, or an **agent**, the trail reads the
+same. Learn more in the [format guide](https://example.com).
 
-## The calm publishing loop
+## One owner of record
 
-vibecms keeps agent drafts separate from the public page until you say publish.
-The result is a loop with one owner of record:
+vibecms keeps agent drafts separate from the public page until you say
+publish. The result is a loop with one owner of record:
 
 1. Draft and preview with \`posts.preview\`
 2. Save as a draft and record the version
@@ -228,10 +231,6 @@ The result is a loop with one owner of record:
 > history.
 
 > A quote pulls out a line worth remembering, *styled per preset.*
-
-> [!TIP]
-> Change the accent above and watch the links, callouts, and code cursor
-> update here.
 
 ## Applied in practice
 
@@ -246,15 +245,24 @@ export async function publishPost(id: string) {
 }
 \`\`\`
 
+> [!TIP]
+> Change the accent above and watch the **links**, callouts, and code cursor
+> update here.
+
+A few guarantees hold across every preset:
+
+- Clean typography at 66–72ch measures
+- Open graph metadata and versioned history
+- Tables, figures, and code that stay legible in feed readers
+
 > [!WARNING]
 > Publishing waits for your explicit approval. Agents can never publish
 > on their own.
 
 ## Readable everywhere
 
-Every preset keeps the same guarantees: clean typography, open graph
-metadata, and a layout that reads well in a browser, a feed reader, or
-an AI crawler.
+Every preset keeps the same promises: open graph metadata and a layout that
+reads well in a browser, a feed reader, or an AI crawler.
 
 ![A calm blog layout](https://picsum.photos/seed/vc/800/400)
 *Caption: the same post, your chosen style.*
@@ -263,6 +271,10 @@ an AI crawler.
 | ------ | ------- | -------- |
 | Minimal | Airy | General writing |
 | Editorial | Comfortable | Narrative |
+| Technical | Tight | Documentation |
+| Product | Confident | Announcements |
+
+The article stays calm. Your words lead.
 `
 const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
 
