@@ -214,24 +214,22 @@ the activity log with a single restore, and the audit trail stays readable.
 
 Whether the actor was you, a token, or an agent, the trail reads the same.
 
+## A calm publishing loop
+
+vibecms keeps agent drafts separate from the public page until you say publish.
+The result is a loop with one owner of record:
+
+1. Draft and preview with \`posts.preview\`
+2. Save as a draft and record the version
+3. Approve publishing in a later message
+
 > [!NOTE]
 > Versions are immutable. Restoring creates a new tip; it never rewrites
 > history.
 >
 > That is the point. You stay the owner of record.
 
-You already have a focused writing flow:
-
-1. Draft and preview with \`posts.preview\`
-2. Save as a draft and record the version
-3. Approve publishing in a later message
-
-## Publishing is approval-first
-
-Agents prepare drafts and previews, but publishing waits for your explicit
-go-ahead. The result is a blog you can trust without watching over it.
-
-> A quote pulls out a line worth remembering, *styled per preset*.
+> A quote pulls out a line worth remembering, *styled per preset.*
 
 > [!TIP]
 > Change the accent above and watch the links, callouts, and code cursor
