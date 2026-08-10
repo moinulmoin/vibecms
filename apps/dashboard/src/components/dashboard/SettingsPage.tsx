@@ -57,6 +57,8 @@ import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
   addCustomDomainMutation,
   removeCustomDomainMutation,
+  loadPostEditorPage,
+  loadPostsPage,
   loadSettingsPage,
   updateSiteSettingsMutation,
   updateVoiceProfileMutation,
@@ -263,6 +265,10 @@ export function SettingsPage() {
   const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
   const [voiceSaveStatus, setVoiceSaveStatus] = useState<string | null>(null)
   const [voiceEditorOpen, setVoiceEditorOpen] = useState(false)
+  // Live preview content: the latest published post when one exists,
+  // otherwise the canonical sample. Rendered fresh against the selected
+  // theme so the preview is always the real blog, not a mock.
+  const [previewNode, setPreviewNode] = useState(SAMPLE_RENDER.node)
 
   useEffect(() => {
     let cancelled = false
@@ -285,6 +291,22 @@ export function SettingsPage() {
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load settings.')
+      })
+    // Pull the most recent published post for the theme live preview.
+    void loadPostsPage({ status: 'published' })
+      .then((list) => {
+        if (cancelled || list.posts.length === 0) return
+        return loadPostEditorPage({ postId: list.posts[0]?.id })
+      })
+      .then((page) => {
+        if (cancelled || !page) return
+        const latestPublished = page.post?.status === 'published' ? page.post : null
+        if (latestPublished?.contentMarkdown) {
+          setPreviewNode(renderRichContent(latestPublished.contentMarkdown).node)
+        }
+      })
+      .catch(() => {
+        // Keep the sample preview; the preview is a nice-to-have, not a blocker.
       })
     return () => {
       cancelled = true
@@ -823,7 +845,7 @@ export function SettingsPage() {
                 <div style={previewStyle}>
                   <RichContentFrame
                     className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] text-[var(--vc-fg)]"
-                    node={SAMPLE_RENDER.node}
+                    node={previewNode}
                     presetId={selectedTheme}
                     mode={previewMode}
                   />
