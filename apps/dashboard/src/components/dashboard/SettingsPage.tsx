@@ -201,26 +201,40 @@ function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
 
 // ---------------------------------------------------------------------------
 // Canonical markdown sample - exercises the full renderer vocabulary.
+// Used only as a preview fallback when no published post exists yet.
 // Computed once at module load; safe because renderRichContent is synchronous.
 // ---------------------------------------------------------------------------
 const CANONICAL_SAMPLE_MD = `# Shipping calm software
 
 Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. This post walks through how vibecms keeps that loop tight.
+explicitly publish. **This is a preview** of every block the renderer supports,
+so you can judge the style before anything goes live.
+
+[[toc]]
 
 ## One owner of record
 
-Every meaningful change creates a version. **Roll back any post** from the
+Every meaningful change creates a version. *Roll back any post* from the
 activity log with a single restore - the audit trail stays readable for you,
-your tokens, and the agents that acted.
+your tokens, and the agents that acted. [Learn more about versions](https://example.com).
 
 > [!NOTE]
 > Versions are immutable. Restoring creates a new tip; it never rewrites history.
 
+> [!TIP]
+> Change the accent above and watch the links, callouts, and code cursor update here.
+
+> [!WARNING]
+> Publishing waits for your explicit approval. Agents can never publish on their own.
+
 ### Publishing is approval-first
 
 Agents prepare drafts and previews, but publishing waits for your explicit
-go-ahead. The result is a blog you can trust without watching over it.
+go-ahead. The result is a blog you can trust without watching over it:
+
+1. Draft and preview with \`posts.preview\`
+2. Save as a draft and record the version
+3. Approve publishing in a later message
 
 \`\`\`ts
 export async function publishPost(id: string) {
@@ -228,6 +242,8 @@ export async function publishPost(id: string) {
   return db.posts.publish(id, { expectedVersionNumber: tip })
 }
 \`\`\`
+
+> A quote pulls out a line worth remembering, styled per preset.
 
 ### Readable everywhere
 
@@ -685,13 +701,13 @@ export function SettingsPage() {
               Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
             </p>
             <form
-              className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start"
+              className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start"
               onSubmit={(e) => void handleThemeSave(e)}
             >
-              <div className="grid gap-5">
+              <div className="grid gap-4">
                 <FieldSet>
                   <FieldLegend variant="label">Style</FieldLegend>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {PRESET_IDS.map((id) => {
                       const preset = THEME_PRESETS[id]
                       const isCurrent = selectedTheme === id
@@ -709,21 +725,21 @@ export function SettingsPage() {
                             }
                           }}
                           className={cn(
-                            'flex min-w-0 flex-col gap-1 rounded-xl border p-3 text-left transition-colors',
+                            'flex min-w-0 flex-col gap-0.5 rounded-lg border p-2.5 text-left transition-colors',
                             'border-[color:var(--hairline)] bg-card hover:border-border',
                             isCurrent &&
                               'border-brand-bright/40 bg-brand-bright/5 ring-1 ring-brand-bright/30',
                           )}
                         >
-                          <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
+                          <span className="flex items-center gap-1 font-display text-[13px] font-medium text-foreground">
                             {preset.name}
                             {isCurrent && (
-                              <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.65rem]">
+                              <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.6rem]">
                                 Live
                               </Badge>
                             )}
                           </span>
-                          <span className="font-sans text-xs leading-5 text-muted-foreground">
+                          <span className="font-sans text-[11px] leading-4 text-muted-foreground">
                             {preset.designIntent}
                           </span>
                         </button>
@@ -734,7 +750,7 @@ export function SettingsPage() {
 
                 <FieldSet>
                   <FieldLegend variant="label">Accent</FieldLegend>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {ACCENTS.map((accent) => {
                       const isCurrent = selectedAccent === accent.id
                       return (
@@ -745,7 +761,7 @@ export function SettingsPage() {
                           title={accent.name}
                           onClick={() => setSelectedAccent(accent.id)}
                           className={cn(
-                            'size-7 rounded-full ring-1 ring-inset ring-black/10 transition-transform dark:ring-white/10',
+                            'size-6 rounded-full ring-1 ring-inset ring-black/10 transition-transform dark:ring-white/10',
                             'hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             isCurrent && 'ring-2 ring-brand-bright ring-offset-2 ring-offset-background',
                           )}
@@ -769,7 +785,7 @@ export function SettingsPage() {
                     className="w-full flex-wrap justify-start"
                   >
                     {FONTS.map((font) => (
-                      <ToggleGroupItem key={font.id} value={font.id} className="px-3">
+                      <ToggleGroupItem key={font.id} value={font.id} className="px-2.5">
                         {font.name}
                       </ToggleGroupItem>
                     ))}
@@ -788,7 +804,7 @@ export function SettingsPage() {
                     className="w-full flex-wrap justify-start"
                   >
                     {THEME_MODES.map((mode) => (
-                      <ToggleGroupItem key={mode} value={mode} className="px-3 capitalize">
+                      <ToggleGroupItem key={mode} value={mode} className="px-2.5 capitalize">
                         {mode}
                       </ToggleGroupItem>
                     ))}
