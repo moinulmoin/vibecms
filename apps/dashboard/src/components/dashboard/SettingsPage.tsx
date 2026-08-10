@@ -704,10 +704,10 @@ export function SettingsPage() {
               className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start"
               onSubmit={(e) => void handleThemeSave(e)}
             >
-              <div className="grid gap-4">
+              <div className="grid gap-6">
                 <FieldSet>
                   <FieldLegend variant="label">Style</FieldLegend>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {PRESET_IDS.map((id) => {
                       const preset = THEME_PRESETS[id]
                       const isCurrent = selectedTheme === id
@@ -725,13 +725,13 @@ export function SettingsPage() {
                             }
                           }}
                           className={cn(
-                            'flex min-w-0 flex-col gap-0.5 rounded-lg border p-2.5 text-left transition-colors',
+                            'flex min-w-0 flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
                             'border-[color:var(--hairline)] bg-card hover:border-border',
                             isCurrent &&
-                              'border-brand-bright/40 bg-brand-bright/5 ring-1 ring-brand-bright/30',
+                              'border-brand-bright/50 bg-brand-bright/5 ring-1 ring-brand-bright/40',
                           )}
                         >
-                          <span className="flex items-center gap-1 font-display text-[13px] font-medium text-foreground">
+                          <span className="flex items-center gap-1.5 font-display text-[13px] font-medium text-foreground">
                             {preset.name}
                             {isCurrent && (
                               <Badge className="gap-1 border-brand-bright/30 bg-brand-bright/10 text-primary text-[0.6rem]">
@@ -785,7 +785,11 @@ export function SettingsPage() {
                     className="w-full flex-wrap justify-start"
                   >
                     {FONTS.map((font) => (
-                      <ToggleGroupItem key={font.id} value={font.id} className="px-2.5">
+                      <ToggleGroupItem
+                        key={font.id}
+                        value={font.id}
+                        className="px-2.5 data-[state=on]:border-brand-bright/40 data-[state=on]:bg-brand-bright/10 data-[state=on]:text-primary"
+                      >
                         {font.name}
                       </ToggleGroupItem>
                     ))}
@@ -804,7 +808,11 @@ export function SettingsPage() {
                     className="w-full flex-wrap justify-start"
                   >
                     {THEME_MODES.map((mode) => (
-                      <ToggleGroupItem key={mode} value={mode} className="px-2.5 capitalize">
+                      <ToggleGroupItem
+                        key={mode}
+                        value={mode}
+                        className="px-2.5 capitalize data-[state=on]:border-brand-bright/40 data-[state=on]:bg-brand-bright/10 data-[state=on]:text-primary"
+                      >
                         {mode}
                       </ToggleGroupItem>
                     ))}
