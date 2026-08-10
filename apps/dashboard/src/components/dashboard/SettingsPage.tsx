@@ -209,10 +209,6 @@ const CANONICAL_SAMPLE_MD = `# Shipping calm software
 Your agents draft, you approve, and the public blog reflects only what you
 explicitly publish. This is a preview of every block the renderer supports.
 
-[[toc]]
-
-## One owner of record
-
 Every meaningful change creates a version. You can roll back any post from
 the activity log with a single restore, and the audit trail stays readable.
 
@@ -224,6 +220,19 @@ Whether the actor was you, a token, or an agent, the trail reads the same.
 >
 > That is the point. You stay the owner of record.
 
+You already have a focused writing flow:
+
+1. Draft and preview with \`posts.preview\`
+2. Save as a draft and record the version
+3. Approve publishing in a later message
+
+## Publishing is approval-first
+
+Agents prepare drafts and previews, but publishing waits for your explicit
+go-ahead. The result is a blog you can trust without watching over it.
+
+> A quote pulls out a line worth remembering, *styled per preset*.
+
 > [!TIP]
 > Change the accent above and watch the links, callouts, and code cursor
 > update here.
@@ -232,23 +241,12 @@ Whether the actor was you, a token, or an agent, the trail reads the same.
 > Publishing waits for your explicit approval. Agents can never publish
 > on their own.
 
-## Publishing is approval-first
-
-Agents prepare drafts and previews, but publishing waits for your explicit
-go-ahead. The result is a blog you can trust without watching over it.
-
-1. Draft and preview with \`posts.preview\`
-2. Save as a draft and record the version
-3. Approve publishing in a later message
-
 \`\`\`ts
 export async function publishPost(id: string) {
   const tip = await db.posts.versionTip(id)
   return db.posts.publish(id, { expectedVersionNumber: tip })
 }
 \`\`\`
-
-> A quote pulls out a line worth remembering, styled per preset.
 
 ## Readable everywhere
 
