@@ -30,7 +30,7 @@ import {
 } from "@vc/core";
 import type { Actor } from "@vc/core";
 import { enforceApiBudget } from "./usage";
-import { getSiteOp, getPostOp, type OperationContext } from "./operations";
+import { getSiteOp, getPostOp, getPostBySlugOp, type OperationContext } from "./operations";
 import { assertPostImagesPublishable } from "./publishing-images";
 
 // ---------------------------------------------------------------------------
@@ -229,5 +229,22 @@ describe("f. public url in op DTOs", () => {
     expect(published.url).toBe("https://site-a.basedui.dev/url-pub");
     const draft = await getPostOp(ctx, { postId: "post-url-draft" });
     expect(draft.url).toBeNull();
+  });
+
+  it("getPostBySlugOp returns the full post and preserves published/draft URL semantics", async () => {
+    const published = await getPostBySlugOp(ctx, { slug: "url-pub" });
+    expect(published).toMatchObject({
+      id: "post-url-pub",
+      slug: "url-pub",
+      contentMarkdown: "# URL",
+      url: "https://site-a.basedui.dev/url-pub",
+    });
+
+    const draft = await getPostBySlugOp(ctx, { slug: "url-draft" });
+    expect(draft).toMatchObject({
+      id: "post-url-draft",
+      slug: "url-draft",
+      url: null,
+    });
   });
 });

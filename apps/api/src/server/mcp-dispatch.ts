@@ -6,6 +6,7 @@ import {
   getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
+  getPostBySlugRequestSchema,
   getPostVersionRequestSchema,
   getSiteRequestSchema,
   listActivityRequestSchema,
@@ -27,6 +28,7 @@ import {
   getAssetOp,
   getFormatGuideOp,
   getPostOp,
+  getPostBySlugOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
@@ -52,6 +54,8 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return searchPostsOp(ctx, searchPostsRequestSchema.parse(rawArguments ?? {}));
     case "posts.get":
       return getPostOp(ctx, getPostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.get_by_slug":
+      return getPostBySlugOp(ctx, getPostBySlugRequestSchema.parse(rawArguments ?? {}));
     case "posts.create":
       return createPostOp(ctx, createPostRequestSchema.parse(rawArguments ?? {}));
     case "posts.update":

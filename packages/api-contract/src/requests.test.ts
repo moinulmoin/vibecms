@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import {
   createPostRequestSchema,
+  getPostBySlugRequestSchema,
   previewPostRequestSchema,
   restorePostVersionRequestSchema,
   updatePostRequestSchema,
 } from './index'
 import { createPostInput, updatePostInput } from '@vc/validators'
+
+describe('getPostBySlugRequestSchema', () => {
+  it('accepts an exact slug and rejects partial or extra input', () => {
+    expect(getPostBySlugRequestSchema.safeParse({ slug: 'exact-post' }).success).toBe(true)
+    expect(getPostBySlugRequestSchema.safeParse({ slug: 'exact' }).success).toBe(true)
+    expect(getPostBySlugRequestSchema.safeParse({ slug: 'exact post' }).success).toBe(false)
+    expect(getPostBySlugRequestSchema.safeParse({ slug: 'exact-post', postId: 'post-1' }).success).toBe(false)
+  })
+})
 
 const fullPost = {
   title: 'Test Post',

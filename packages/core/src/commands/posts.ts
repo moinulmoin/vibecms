@@ -128,6 +128,13 @@ export async function getPost(repo: PostRepository, actor: Actor, siteId: string
   return post;
 }
 
+export async function getPostBySlug(repo: PostRepository, actor: Actor, siteId: string, slug: string) {
+  requireScope(actor, "posts:read");
+  const post = await repo.findPostBySlug(siteId, slug);
+  if (!post) throw new NotFoundError("Post not found");
+  return post;
+}
+
 export function listPosts(repo: PostRepository, actor: Actor, input: unknown) {
   requireScope(actor, "posts:read");
   return repo.listPosts(listPostsInput.parse(input));

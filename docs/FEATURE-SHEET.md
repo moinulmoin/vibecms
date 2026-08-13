@@ -16,7 +16,7 @@ Last updated: 2026-06-23
 Three things make it worth paying for:
 
 1. **A genuinely nice blog, done for you.** Markdown-native (no block-editor bloat), 4 designed themes, full SEO/RSS/`llms.txt` hygiene, your own domain, fast managed hosting on Cloudflare.
-2. **Your AI agent is a first-class operator.** A real MCP server (18 tools), a typed REST API (OpenAPI + live docs), a CLI, and scoped reveal-once tokens. An agent can run the whole blog safely.
+2. **Your AI agent is a first-class operator.** A real MCP server (19 tools), a typed REST API (OpenAPI + live docs), a CLI, and scoped reveal-once tokens. An agent can run the whole blog safely.
 3. **The trust boundary that avoids slop.** The platform never generates content; your agent is the intelligence, and the platform validates and nudges (`posts.format_guide`, `posts.preview`) while keeping an audit trail. You can export everything and walk away (no lock-in).
 
 ---
@@ -102,9 +102,9 @@ Three things make it worth paying for:
 - Cloudflare-for-SaaS provisioning + automatic SSL (activates at the production cutover).
 
 ### Agent and API surfaces (the differentiator)
-- MCP server at `POST /mcp`, 18 tools: `sites.get`, `posts.list/search/get/create/update/publish/archive`, `posts.versions.list/get/restore`, `posts.format_guide`, `posts.preview`, `assets.upload/list/get/delete`, `activity.list`. JSON-RPC, 3 protocol versions, per-tool scope + read/destructive/idempotent hints.
-- REST API `/api/v1`, 17 operations, plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
-- CLI `@vibecms/cli` (`vibecms`): login, whoami, site, activity, schema introspection, posts (list/get/create/update/publish/archive), assets (list/get/upload/delete); `--json`/`--ndjson`/`--dry-run`; typed exit codes.
+- MCP server at `POST /mcp`, 19 tools: `sites.get`, `posts.list/search/get/get_by_slug/create/update/publish/archive`, `posts.versions.list/get/restore`, `posts.format_guide`, `posts.preview`, `assets.upload/list/get/delete`, `activity.list`. JSON-RPC, 3 protocol versions, per-tool scope + read/destructive/idempotent hints.
+- REST API `/api/v1`, 18 operations, plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
+- CLI `@vibecms/cli` (`vibecms`): login, whoami, site, activity, schema introspection, posts (list/get/get-by-slug/create/update/publish/archive), assets (list/get/upload/delete); `--json`/`--ndjson`/`--dry-run`; typed exit codes.
 - Scoped bearer tokens `vc_live_...`: HMAC-hashed + peppered, reveal-once, 8 scopes, 3 presets (draft / publish=default / full), max 10 active, last-used tracking, owner-only management.
 - `posts.preview` + `posts.format_guide` give agents theme-aware guidance before they write.
 

@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, getAsset, getPost, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -127,6 +127,12 @@ export async function searchPostsOp(
 
 export async function getPostOp(ctx: OperationContext, input: { postId: string }) {
   const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
+  const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPost(post, postPublicUrl(base, post));
+}
+
+export async function getPostBySlugOp(ctx: OperationContext, input: { slug: string }) {
+  const post = await getPostBySlug(repository(), ctx.actor, ctx.siteId, input.slug);
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
   return mapPost(post, postPublicUrl(base, post));
 }

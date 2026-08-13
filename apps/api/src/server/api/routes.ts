@@ -8,6 +8,7 @@ import {
   getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
+  getPostBySlugRequestSchema,
   listActivityRequestSchema,
   listPostsRequestSchema,
   operationsByToolName,
@@ -70,6 +71,7 @@ function routeErrors(...statuses: ErrorStatus[]) {
 const getSiteOpDef = operationsByToolName["sites.get"];
 const listPostsOpDef = operationsByToolName["posts.list"];
 const getPostOpDef = operationsByToolName["posts.get"];
+const getPostBySlugOpDef = operationsByToolName["posts.get_by_slug"];
 const createPostOpDef = operationsByToolName["posts.create"];
 const updatePostOpDef = operationsByToolName["posts.update"];
 const publishPostOpDef = operationsByToolName["posts.publish"];
@@ -92,6 +94,7 @@ const listPostsResponseSchema = z.object({
 });
 
 const postIdParamsSchema = getPostRequestSchema;
+const postSlugParamsSchema = getPostBySlugRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
 const publishPostBodySchema = publishPostRequestSchema.omit({ postId: true });
 const restorePostVersionBodySchema = restorePostVersionRequestSchema.omit({ postId: true, versionNumber: true });
@@ -132,6 +135,24 @@ export const listPostsRoute = createRoute({
       content: { "application/json": { schema: listPostsResponseSchema } },
     },
     ...routeErrors(400, 401, 403, 429, 500),
+  },
+});
+
+export const getPostBySlugRoute = createRoute({
+  method: "get",
+  path: "/posts/by-slug/{slug}",
+  operationId: getPostBySlugOpDef.operationId,
+  description: getPostBySlugOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: postSlugParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Post with full Markdown",
+      content: { "application/json": { schema: postDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
   },
 });
 
@@ -424,6 +445,7 @@ export const previewPostRoute = createRoute({
 export const apiV1OperationRoutes = [
   getSiteRoute,
   listPostsRoute,
+  getPostBySlugRoute,
   getPostRoute,
   createPostRoute,
   updatePostRoute,

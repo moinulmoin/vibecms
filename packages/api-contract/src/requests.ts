@@ -47,6 +47,10 @@ export const getPostRequestSchema = z.object({
   postId: z.string().min(1),
 }).strict();
 
+export const getPostBySlugRequestSchema = z.object({
+  slug,
+}).strict();
+
 export const createPostRequestSchema = z.object({
   title: titleField,
   slug,
@@ -129,6 +133,7 @@ export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;
 export type SearchPostsRequest = z.infer<typeof searchPostsRequestSchema>;
 export type GetPostRequest = z.infer<typeof getPostRequestSchema>;
+export type GetPostBySlugRequest = z.infer<typeof getPostBySlugRequestSchema>;
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
 export type UpdatePostRequest = z.infer<typeof updatePostRequestSchema>;
 export type PublishPostRequest = z.infer<typeof publishPostRequestSchema>;

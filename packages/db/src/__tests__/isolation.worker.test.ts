@@ -29,6 +29,7 @@ import { createD1DomainRepository, createD1PostRepository } from "@vc/db";
 import {
   createPost,
   getPost,
+  getPostBySlug,
   getPostVersion,
   listPosts,
   updatePost,
@@ -70,6 +71,13 @@ const readOnlyActor: Actor = {
   id: "key-ro",
   name: "Read Only Key",
   scopes: ["sites:read", "posts:read", "activity:read"],
+};
+
+const noPostReadActor: Actor = {
+  type: "api_key",
+  id: "key-no-post-read",
+  name: "No Post Read Key",
+  scopes: ["sites:read"],
 };
 
 // ---------------------------------------------------------------------------
@@ -161,6 +169,21 @@ describe("a. cross-site SQL isolation", () => {
         title: "Hijacked by site-a actor",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("getPostBySlug: exact lookup is site-scoped and does not match a partial slug", async () => {
+    const repo = createD1PostRepository(env.DB);
+    await expect(getPostBySlug(repo, fullActor, "site-a", "post-a")).resolves.toMatchObject({
+      id: "post-a",
+      slug: "post-a",
+    });
+    await expect(getPostBySlug(repo, fullActor, "site-a", "post")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(getPostBySlug(repo, fullActor, "site-a", "post-b")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("getPostBySlug requires the posts:read scope", async () => {
+    const repo = createD1PostRepository(env.DB);
+    await expect(getPostBySlug(repo, noPostReadActor, "site-a", "post-a")).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

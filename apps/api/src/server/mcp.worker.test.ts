@@ -5,6 +5,8 @@ import { operations, zodToInputJsonSchema } from "@vc/api-contract";
 import { describe, it, expect, beforeAll, inject } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
+import { createD1PostRepository } from "@vc/db";
+import { createPost, type Actor } from "@vc/core";
 import { handleMcpRequest } from "@/server/mcp";
 
 declare module "vitest" {
@@ -107,6 +109,20 @@ async function hashToken(token: string) {
 }
 
 describe("MCP tools/list inputSchema contract", () => {
+  it("advertises posts.get_by_slug with the canonical slug schema and read scope", async () => {
+    const tool = (await toolsList()).find((candidate) => candidate.name === "posts.get_by_slug");
+    expect(tool).toMatchObject({
+      name: "posts.get_by_slug",
+      _meta: { "vibecms.com/requiredScope": "posts:read" },
+    });
+    expect(tool?.inputSchema).toMatchObject({
+      type: "object",
+      properties: { slug: { type: "string" } },
+      required: ["slug"],
+      additionalProperties: false,
+    });
+  });
+
   it("derives every advertised request from the canonical operation schema", async () => {
     const byName = new Map((await toolsList()).map((tool) => [tool.name, tool]));
     for (const operation of operations) {
@@ -124,6 +140,89 @@ describe("MCP tools/list inputSchema contract", () => {
       expect(tool?.annotations.destructiveHint ?? false).toBe(annotations.destructive ?? false);
       expect(tool?.annotations.idempotentHint ?? false).toBe(annotations.idempotent ?? false);
     }
+  });
+});
+
+describe("MCP posts.get_by_slug tool call", () => {
+  const WORKSPACE_ID = "ws-mcp-by-slug";
+  const SITE_ID = "site-mcp-by-slug";
+  const TOKEN = "vc_live_mcp_by_slug_tool_call";
+  const TOKEN_ID = "key-mcp-by-slug";
+  const actor: Actor = {
+    type: "api_key",
+    id: TOKEN_ID,
+    name: "MCP By Slug",
+    scopes: ["sites:read", "posts:read", "posts:create"],
+  };
+
+  beforeAll(async () => {
+    const migrations = inject("migrations") as D1Migration[];
+    await applyD1Migrations(env.DB, migrations);
+    const ts = Math.floor(Date.now() / 1000);
+
+    await env.DB.prepare(
+      "INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind(WORKSPACE_ID, "MCP By Slug Workspace", "ws-mcp-by-slug", ts, ts)
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+      .bind(SITE_ID, WORKSPACE_ID, "MCP By Slug Site", "site-mcp-by-slug", ts, ts)
+      .run();
+
+    const tokenHash = await hashToken(TOKEN);
+    await env.DB.prepare(
+      "INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, last_used_at, revoked_at, created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)",
+    )
+      .bind(
+        TOKEN_ID,
+        SITE_ID,
+        "MCP By Slug",
+        TOKEN.slice(0, 18),
+        tokenHash,
+        JSON.stringify(["sites:read", "posts:read", "posts:create"]),
+        actor.name,
+        "owner-mcp-by-slug",
+        ts,
+        ts,
+      )
+      .run();
+
+    await createPost(createD1PostRepository(env.DB), actor, {
+      siteId: SITE_ID,
+      title: "MCP By Slug Post",
+      slug: "mcp-by-slug",
+      contentMarkdown: "# By slug",
+    });
+  });
+
+  it("dispatches an authenticated exact-slug call to the full-post operation", async () => {
+    const response = await handleMcpRequest(
+      mcpRequest(
+        {
+          jsonrpc: "2.0",
+          id: 42,
+          method: "tools/call",
+          params: {
+            name: "posts.get_by_slug",
+            arguments: { slug: "mcp-by-slug" },
+          },
+        },
+        {
+          "content-type": "application/json",
+          authorization: `Bearer ${TOKEN}`,
+        },
+      ),
+    );
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      result: { structuredContent: { id: string; slug: string; contentMarkdown: string } };
+    };
+    expect(json.result.structuredContent).toMatchObject({
+      slug: "mcp-by-slug",
+      contentMarkdown: "# By slug",
+    });
   });
 });
 

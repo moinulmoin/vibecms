@@ -10,6 +10,7 @@ import {
   getAssetOp,
   getFormatGuideOp,
   getPostOp,
+  getPostBySlugOp,
   getPostVersionOp,
   getSiteOp,
   listActivityOp,
@@ -33,6 +34,7 @@ import {
   getAssetRoute,
   getFormatGuideRoute,
   getPostRoute,
+  getPostBySlugRoute,
   getPostVersionRoute,
   getSiteRoute,
   listActivityRoute,
@@ -185,11 +187,17 @@ apiV1App.openapi(listPostsRoute, async (c) => {
   );
 });
 
-// Static route MUST precede the parametrized GET /posts/{postId} or it is shadowed.
+// Static routes MUST precede parametrized post routes or they are shadowed.
 apiV1App.openapi(getFormatGuideRoute, async (c) => {
   const query = c.req.valid("query");
   const guide = await getFormatGuideOp(c.get("ctx"), query);
   return c.json(guide, 200);
+});
+
+apiV1App.openapi(getPostBySlugRoute, async (c) => {
+  const { slug } = c.req.valid("param");
+  const post = await getPostBySlugOp(c.get("ctx"), { slug });
+  return c.json(post, 200);
 });
 
 apiV1App.openapi(getPostRoute, async (c) => {

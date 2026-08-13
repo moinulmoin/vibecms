@@ -72,9 +72,9 @@ Last updated: 2026-07-19
 - AI referrals are identified by referrer hostname. AI crawler activity uses Cloudflare request analytics and its official crawler catalog (7-day lookback; user-agent identity is explicitly labeled as spoofable).
 
 ### Agent surfaces
-- MCP server at `POST /mcp` with 18 tools (sites/posts/assets/activity/versions + `posts.format_guide` + `posts.preview`).
-- REST API `/api/v1` (17 operations) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
-- CLI `@vibecms/cli` (login/whoami/site/posts/assets/schema).
+- MCP server at `POST /mcp` with 19 tools (sites/posts/assets/activity/versions + `posts.format_guide` + `posts.preview`).
+- REST API `/api/v1` (18 operations) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
+- CLI `@vibecms/cli` (login/whoami/site/posts/assets/schema, including posts get-by-slug).
 - Bearer tokens `vc_live_...` (HMAC-hashed, peppered, reveal-once); 8 scopes; 3 presets (draft / publish=default / full); max 10 active tokens.
 - Typed `coverAssetId` + `canonicalUrl` on posts.create/update (set/clear cover, set canonical); persisted to posts + version snapshots and reverted by restore.
 

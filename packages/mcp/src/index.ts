@@ -13,7 +13,7 @@ Content rules:
 - contentMarkdown: the post body as Markdown.
 - excerpt (max 500) and tags (max 20) are optional and improve listings.
 
-Reading: posts.list and posts.search return summaries without the body; use posts.get for the full Markdown.
+Reading: posts.list and posts.search return summaries without the body; use posts.get or posts.get_by_slug for the full Markdown.
 
 Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then reference the returned URL in your Markdown. If the image is a file on disk and you have shell access, prefer the CLI 'vibecms assets upload <path>' so the base64 stays out of your context; use assets.upload for in-memory bytes. Use assets.list to see all uploaded assets; assets.get to fetch one asset's metadata and URL by id; assets.delete to remove an asset (returns CONFLICT if it is a post cover image - remove it from the post cover first).
 

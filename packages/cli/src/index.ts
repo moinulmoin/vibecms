@@ -17,6 +17,7 @@ Commands:
   site                                      Show the current site
   posts list [--status --search --limit --offset]
   posts get <postId>
+  posts get-by-slug <slug>
   posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [--excerpt <e> --tags a,b]
   posts update <postId> --expected-version <n> [--title --slug --content --content-file --excerpt --tags]
   posts publish <postId> [--expected-version <n>]
@@ -207,6 +208,8 @@ async function postsCommand(
       );
     case "get":
       return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}`), fmt);
+    case "get-by-slug":
+      return emit(await apiRequest(cfg, "GET", `/api/v1/posts/by-slug/${encodeURIComponent(need(rest[0], "<slug>"))}`), fmt);
     case "create":
       return mutate(
         cfg,
