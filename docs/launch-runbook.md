@@ -38,9 +38,17 @@ pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --env producti
 pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --env production
 pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env production
 pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put CACHE_PURGE_API_TOKEN --env production
+pnpm --filter @vc/api exec wrangler secret put ANALYTICS_API_TOKEN --env production
+pnpm --filter @vc/api exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env production
 ```
 
 Generate Better Auth and token-pepper values independently with `openssl rand -hex 32`. Rotating `TOKEN_PEPPER` invalidates every issued agent token.
+The three Cloudflare API tokens should be narrowly scoped to their runtime jobs:
+
+- `CACHE_PURGE_API_TOKEN`: purge cache for the production zone.
+- `ANALYTICS_API_TOKEN`: read the configured Analytics Engine dataset.
+- `CUSTOM_HOSTNAME_API_TOKEN`: create, inspect, and remove Cloudflare for SaaS custom hostnames.
 
 Google sign-in is optional:
 
