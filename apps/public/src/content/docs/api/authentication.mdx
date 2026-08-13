@@ -1,0 +1,24 @@
+---
+title: API authentication
+description: Authenticate with a reveal-once site token and the smallest required scopes.
+---
+
+Send the token as a bearer credential:
+
+```http
+Authorization: Bearer vc_...
+```
+
+Tokens are created in **Dashboard > Connect**, belong to one site, and are shown once.
+
+## Responses
+
+- Missing or invalid credential: HTTP `401`
+- Valid token without the required scope: HTTP `403` with `FORBIDDEN`
+- Exceeded hosted usage budget: HTTP `429` with `RATE_LIMIT`
+
+MCP and REST calls count against the same hosted workspace budget.
+
+## Storage
+
+Store the token in a secret manager, environment variable, or a local credential file with restricted permissions. Do not embed it in browser code or commit it to a repository.

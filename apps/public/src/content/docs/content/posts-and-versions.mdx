@@ -1,0 +1,32 @@
+---
+title: Posts and versions
+description: Understand the private draft tip, public version pin, restoration, and archival.
+---
+
+Every post has a current private tip. A published post also has a `publishedVersionNumber` that identifies the version visible on the public blog.
+
+## Draft and live state
+
+Updating a published post does not immediately change its public article. The edit creates a new private version. The previous published version stays live until an approved call to `posts.publish` pins the newer tip.
+
+This allows an agent or owner to revise a live article without exposing incomplete work.
+
+## Optimistic concurrency
+
+Updates, restores, and publishing use `expectedVersionNumber`.
+
+```json
+{
+  "expectedVersionNumber": 7
+}
+```
+
+If the private tip is no longer version 7, VibeCMS returns `CONFLICT` instead of overwriting a newer edit.
+
+## Restoration
+
+`posts.versions.restore` copies content from an older version into a new private tip. History remains intact, and the public version does not change until separately published.
+
+## Archival
+
+Archiving removes the post from public output while preserving its history and activity trail. Treat it as a consequential action and obtain confirmation immediately before the call.

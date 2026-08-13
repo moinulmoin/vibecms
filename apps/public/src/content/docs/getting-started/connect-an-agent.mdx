@@ -1,0 +1,63 @@
+---
+title: Connect an agent
+description: Create a scoped token, configure an MCP client, and verify protected access.
+---
+
+Open **Dashboard > Connect**, choose the capabilities the agent needs, create the token, and copy it immediately. VibeCMS reveals each token once.
+
+## Claude Code
+
+```sh
+claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
+  --header "Authorization: Bearer vc_..."
+```
+
+Self-hosters should replace `https://app.vibecms.dev` with their API and dashboard Worker origin.
+
+## Generic Streamable HTTP client
+
+```json
+{
+  "mcpServers": {
+    "vibecms": {
+      "type": "http",
+      "url": "https://app.vibecms.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer vc_..."
+      }
+    }
+  }
+}
+```
+
+## Install the agent skills
+
+The repository includes separate operational and editorial skills:
+
+```sh
+npx skills add moinulmoin/vibecms \
+  --skill vibecms-core \
+  --skill vibecms-writing
+```
+
+`vibecms-core` defines safe operation order, version binding, approval, and recovery. `vibecms-writing` defines the editorial workflow without granting publication authority.
+
+## Verify the credential
+
+Tool discovery does not prove that the credential can access a site. Call a protected read such as `sites.get`.
+
+```sh
+curl https://app.vibecms.dev/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer vc_..." \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sites.get","arguments":{}}}'
+```
+
+A valid token returns the current site. A missing or invalid token returns `401`; a valid token without the required scope returns `FORBIDDEN`.
+
+## Token safety
+
+- Grant only the scopes needed for the workflow.
+- Do not place tokens in source control, prompts intended for publication, screenshots, or issue descriptions.
+- Revoke a token from **Dashboard > Connect** when it is no longer needed.
+- Create a new token instead of attempting to recover a lost reveal-once value.

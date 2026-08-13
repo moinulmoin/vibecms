@@ -1,0 +1,37 @@
+---
+title: Troubleshooting
+description: Diagnose connection, scope, version, media, billing, and deployment failures.
+---
+
+## The client lists tools but cannot read the site
+
+Tool discovery is not an authentication check. Call `sites.get`. Confirm the bearer header is attached to the MCP server request and the token has `sites:read`.
+
+## A write returns `FORBIDDEN`
+
+The token is valid but lacks the operation's required scope. Explain the missing capability. Do not widen the token automatically.
+
+## Publishing returns `CONFLICT`
+
+The draft tip changed after approval or after the version was read. Fetch the post and latest version, preview the current content, then request fresh approval.
+
+## Image upload or publication is blocked
+
+Check:
+
+- Supported image type and 10 MB decoded-size limit
+- Useful alt text for featured and inline images
+- Hosted subscription and storage entitlement
+- Whether the asset belongs to the current site
+
+## A public URL is missing
+
+Use only the URL returned by VibeCMS. A null URL may indicate that the public origin or domain is not ready. Do not construct one from the slug.
+
+## Deployment readiness
+
+- API liveness: `GET /api/health/live`
+- API readiness: `GET /api/health/ready`
+- Public health: `GET /__vc-health`
+
+Hosted production deployment must use `pnpm deploy:prod`, which runs the project preflight, backup metadata capture, migrations, Worker deploys, and smoke checks in order.

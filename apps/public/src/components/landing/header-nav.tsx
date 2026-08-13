@@ -25,6 +25,9 @@ export function HeaderNav() {
           <span className={underlineBase} aria-hidden="true" data-nav-underline />
         </a>
       ))}
+      <a className={linkBase} href="/docs">
+        Docs
+      </a>
     </nav>
   );
 }

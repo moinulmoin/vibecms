@@ -1,0 +1,53 @@
+---
+title: Publish the first post
+description: Draft, preview, approve, and publish one exact saved version.
+---
+
+Use this sequence for the first post and every later publication:
+
+```txt
+sites.get
+-> posts.format_guide
+-> posts.create or posts.update
+-> posts.get
+-> posts.preview
+-> posts.versions.list
+-> explicit approval for the exact version
+-> posts.versions.list again
+-> posts.publish
+```
+
+## Prepare a draft
+
+Call `sites.get` for the current site and Voice Profile. Then call `posts.format_guide` to load the live renderer and presentation rules.
+
+`posts.create` always creates a draft. It does not publish.
+
+## Review what was saved
+
+Fetch the post again with `posts.get`, then pass that exact Markdown and presentation to `posts.preview`. Resolve warnings that would make the article incomplete or inaccessible, especially missing image alt text.
+
+## Bind approval to a version
+
+Call `posts.versions.list` and present the newest `versionNumber` to the owner with the title, post ID, and remaining warnings.
+
+Ask a precise question:
+
+> Publish this exact version now?
+
+Brief acceptance, draft feedback, and a successful preview are not publication approval.
+
+## Recheck and publish
+
+Immediately before publishing, call `posts.versions.list` again. If the newest version changed, read and preview it before requesting fresh approval.
+
+Call `posts.publish` once with:
+
+```json
+{
+  "postId": "post_...",
+  "expectedVersionNumber": 4
+}
+```
+
+Report the exact URL returned by VibeCMS. Do not construct a public URL from the slug.

@@ -1,0 +1,13 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "getting-started",
+    "agent-workflows",
+    "content",
+    "api",
+    "cli",
+    "self-hosting",
+    "troubleshooting"
+  ]
+}

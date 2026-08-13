@@ -6,4 +6,8 @@
 @source "../components/landing";
 @source "../layouts/LandingLayout.astro";
 @source "../pages/internal/marketing.astro";
+@source "../components/docs";
+@source "../content/docs";
+@source "../layouts/DocsLayout.astro";
+@source "../pages/docs";
 @source "../scripts/marketing-interactions.js";

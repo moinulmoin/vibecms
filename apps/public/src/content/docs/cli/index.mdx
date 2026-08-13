@@ -1,0 +1,43 @@
+---
+title: Command-line client
+description: Use the preview CLI for shell automation, dry runs, structured output, and schema introspection.
+---
+
+`@vibecms/cli` exists in the repository and is currently a preview package. Do not depend on a public registry release until a published version is announced.
+
+From a repository checkout:
+
+```sh
+pnpm --filter @vibecms/cli build
+node packages/cli/dist/index.js --help
+```
+
+## Authenticate
+
+```sh
+vibecms login --token vc_...
+```
+
+The CLI saves its configuration at `~/.vibecms/config.json` with restricted file permissions. Flags override environment variables, which override the config file.
+
+```txt
+VIBECMS_API_URL
+VIBECMS_TOKEN
+```
+
+## Common commands
+
+```sh
+vibecms whoami
+vibecms posts list --json
+vibecms posts get post_...
+vibecms posts create --title "Title" --slug "title" --content-file post.md
+vibecms posts update post_... --expected-version 3 --content-file post.md
+vibecms posts publish post_... --expected-version 4
+vibecms assets upload cover.png --alt "A useful description"
+vibecms schema publishPost
+```
+
+Use `--dry-run` on mutations to print the request without sending it. Use `--json` or `--ndjson` for machine-readable output.
+
+The CLI provides stable exit classes for usage, authentication, missing resources, conflicts, and rate limits.

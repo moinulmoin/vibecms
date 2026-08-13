@@ -1,0 +1,43 @@
+---
+title: Scopes and MCP tools
+description: Grant the smallest capability set that supports the intended workflow.
+---
+
+The server is authoritative for tool schemas and scope enforcement.
+
+| Scope | Capabilities |
+| --- | --- |
+| `sites:read` | `sites.get` |
+| `posts:read` | List, search, read, preview, formatting guide, and version history |
+| `posts:create` | Create drafts |
+| `posts:update` | Update drafts and restore versions |
+| `posts:publish` | Publish an exact version |
+| `posts:archive` | Archive a post |
+| `assets:write` | Upload, list, read, and delete assets |
+| `activity:read` | Read site activity |
+
+## Read and preparation tools
+
+- `sites.get`
+- `posts.list`
+- `posts.search`
+- `posts.get`
+- `posts.format_guide`
+- `posts.preview`
+- `posts.versions.list`
+- `posts.versions.get`
+- `assets.list`
+- `assets.get`
+- `activity.list`
+
+## Mutation tools
+
+- `posts.create`
+- `posts.update`
+- `posts.publish`
+- `posts.archive`
+- `posts.versions.restore`
+- `assets.upload`
+- `assets.delete`
+
+Granting `posts:publish` is not a substitute for approval. Scope answers whether a token may perform the call. Approval answers whether the owner wants that exact public change now.

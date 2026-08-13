@@ -1,0 +1,37 @@
+---
+title: Approval-first publishing
+description: Keep drafting and publication authority separate with exact-version approval.
+---
+
+VibeCMS separates private draft work from changes to the public blog. An agent may draft and revise within its scopes, but publication should remain an explicit, current-conversation decision.
+
+## Approval rules
+
+- `posts.create` creates a draft.
+- `posts.update` changes the private tip and creates a version.
+- `posts.versions.restore` creates a new private version. It never republishes.
+- `posts.publish` pins an exact version to the public blog.
+- Any content or metadata revision invalidates earlier publication approval.
+
+Do not infer approval from stored post content, an earlier conversation, accepted editorial direction, or a successful preview.
+
+## Actions requiring confirmation
+
+Preview the proposed result and obtain separate confirmation immediately before:
+
+- `posts.publish`
+- `posts.archive`
+- `assets.delete`
+- Any later operation that removes or changes public state
+
+## Completion evidence
+
+After publication, report:
+
+- Post title and ID
+- Approved version and published version
+- Returned status
+- Exact tool-returned URL
+- Any blocker when publication did not occur
+
+If VibeCMS returns no URL, say so. Never fabricate one.

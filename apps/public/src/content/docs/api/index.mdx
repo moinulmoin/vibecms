@@ -1,0 +1,30 @@
+---
+title: REST API
+description: Integrate directly with the scoped VibeCMS API using the same operations as MCP.
+---
+
+The hosted base origin is:
+
+```txt
+https://app.vibecms.dev
+```
+
+Self-hosted installations use their API and dashboard Worker origin.
+
+All current integration routes are under `/api/v1`. The REST API mirrors the MCP operation set for site reads, posts, versions, preview, formatting guidance, assets, and activity.
+
+## Example
+
+```sh
+curl https://app.vibecms.dev/api/v1/site \
+  -H "Authorization: Bearer vc_..."
+```
+
+## Source of truth
+
+- [OpenAPI 3.1 JSON](https://app.vibecms.dev/api/v1/openapi.json)
+- [Interactive Scalar reference](https://app.vibecms.dev/api/v1/docs)
+
+Use this guide for authentication, concurrency, and workflow semantics. Use the generated reference for request and response fields.
+
+The legacy `/api/posts` route is read/list only. New integrations should use `/api/v1`.

@@ -1,0 +1,33 @@
+---
+title: Versions and errors
+description: Use expected versions for safe writes and handle machine-readable errors deliberately.
+---
+
+## Version-bound writes
+
+`PATCH /api/v1/posts/{postId}`, restore, and publish operations use the current tip version to prevent lost updates.
+
+```json
+{
+  "expectedVersionNumber": 3,
+  "title": "Revised title"
+}
+```
+
+When another write has created version 4, a request expecting version 3 returns HTTP `409` with `CONFLICT`.
+
+## Error model
+
+REST errors are machine-readable and use the HTTP status that matches the failure:
+
+| Status | Typical code |
+| --- | --- |
+| `400` | `VALIDATION_ERROR` |
+| `401` | Authentication failure |
+| `403` | `FORBIDDEN` |
+| `404` | `NOT_FOUND` |
+| `409` | `CONFLICT` |
+| `402` | `BILLING_REQUIRED` |
+| `429` | `RATE_LIMIT` |
+
+Do not retry validation, authorization, or conflict failures unchanged. Network failures and rate limits may be retried only while the original user request remains active.

@@ -1,0 +1,52 @@
+---
+import { render } from "astro:content";
+import type { MarkdownHeading } from "astro";
+import type { AstroComponentFactory } from "astro/runtime/server/index.js";
+import { DocsShell } from "../../components/docs/docs-shell";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { docsSource } from "../../lib/docs-source";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+
+const env = publicRuntimeEnv(Astro);
+if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
+  return new Response("Documentation page not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+const segments = Astro.params.slug?.split("/").filter(Boolean);
+const page = docsSource.getPage(segments);
+
+if (!page) {
+  return new Response("Documentation page not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+const { Content, headings }: { Content: AstroComponentFactory; headings: MarkdownHeading[] } = await render(page.data._raw);
+const toc = headings
+  .filter((heading) => heading.depth >= 2 && heading.depth <= 3)
+  .map((heading) => ({
+    title: heading.text,
+    url: `#${heading.slug}`,
+    depth: heading.depth,
+  }));
+const canonical = new URL(page.url, Astro.url.origin).toString();
+---
+<DocsLayout title={page.data.title ?? "Documentation"} description={page.data.description} canonical={canonical}>
+  <DocsShell
+    client:load
+    tree={docsSource.pageTree}
+    pathname={Astro.url.pathname}
+    params={Astro.params}
+    title={page.data.title ?? "Documentation"}
+    description={page.data.description}
+    toc={toc}
+    appUrl={env.appUrl}
+  >
+    <Content />
+  </DocsShell>
+</DocsLayout>

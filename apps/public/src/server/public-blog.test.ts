@@ -55,6 +55,9 @@ describe("markdown negotiation", () => {
     expect(RESERVED_ROOT_SLUGS.has("feed.xml")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("__vc-health")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("internal")).toBe(true);
+    expect(RESERVED_ROOT_SLUGS.has("docs")).toBe(true);
+    expect(RESERVED_ROOT_SLUGS.has("docs-search.json")).toBe(true);
+    expect(RESERVED_ROOT_SLUGS.has("llms-full.txt")).toBe(true);
   });
 });
 

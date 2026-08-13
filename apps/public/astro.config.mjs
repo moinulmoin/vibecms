@@ -1,5 +1,6 @@
 import { defineConfig, sessionDrivers } from "astro/config";
 import cloudflare from "@astrojs/cloudflare";
+import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import { cacheCloudflare } from "@astrojs/cloudflare/cache";
 import tailwindcss from "@tailwindcss/vite";
@@ -15,7 +16,7 @@ export default defineConfig({
     imageService: "cloudflare-binding",
     persistState: { path: "../../.wrangler/state" },
   }),
-  integrations: [react()],
+  integrations: [react(), mdx()],
   markdown: {
     syntaxHighlight: false,
   },
@@ -41,15 +42,11 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      cssMinify: false,
+    },
     resolve: {
       dedupe: ["react", "react-dom"],
-      // No client:* islands remain; keep renderer slot but drop browser React.
-      alias: [
-        {
-          find: "@astrojs/react/client.js",
-          replacement: new URL("./src/lib/empty-react-client.js", import.meta.url).pathname,
-        },
-      ],
     },
     server: {
       allowedHosts: [".basedui.dev"],

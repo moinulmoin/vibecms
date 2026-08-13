@@ -1,0 +1,34 @@
+---
+import "../styles/global.css";
+import "../styles/landing.css";
+import "fumadocs-ui/style.css";
+import "fumadocs-ui/css/shadcn.css";
+import "../styles/docs.css";
+import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
+import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
+
+interface Props {
+  title: string;
+  description?: string;
+  canonical: string;
+}
+
+const { title, description, canonical } = Astro.props;
+---
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0c100e" />
+    <title>{title} | vibecms docs</title>
+    {description ? <meta name="description" content={description} /> : null}
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={geistFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistMonoFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+  </head>
+  <body class="vc-docs-page">
+    <slot />
+  </body>
+</html>

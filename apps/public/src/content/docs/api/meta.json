@@ -1,0 +1,4 @@
+{
+  "title": "REST API",
+  "pages": ["index", "authentication", "versions-and-errors", "reference", "openapi"]
+}

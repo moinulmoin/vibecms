@@ -1,0 +1,88 @@
+:root,
+.dark {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-border: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --color-fd-primary: var(--brand-bright);
+  --color-fd-primary-foreground: var(--brand-bright-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-ring: var(--ring);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+.vc-docs-page {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-display);
+}
+
+.vc-docs-page #nd-sidebar {
+  background: var(--sidebar);
+  border-color: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+
+.vc-docs-page :where(code, pre, kbd) {
+  font-family: var(--font-mono);
+}
+
+.vc-docs-page :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.vc-docs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+
+.vc-docs-brand img {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+}
+
+.vc-docs-brand > span > span {
+  color: var(--brand-bright);
+}
+
+.vc-docs-brand small {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 450;
+  letter-spacing: 0;
+}
+
+.vc-docs-page article {
+  --tw-prose-links: var(--brand-bright);
+  --tw-prose-code: var(--brand-bright);
+}
+
+.vc-docs-page article a {
+  text-underline-offset: 0.18em;
+}
+
+.vc-docs-page article :where(pre) {
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 0.875rem;
+  box-shadow: none;
+}
+
+.vc-docs-page article :where(blockquote) {
+  border-inline-start-color: var(--brand-bright);
+}

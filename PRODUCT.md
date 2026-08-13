@@ -24,10 +24,11 @@ trust, while I stay the owner of record."*
 ## Product Purpose
 
 vibecms is a CMS built for AI agents. Agents write, draft, and publish through
-MCP over plain HTTPS + a bearer token. REST stays read/list only; every mutation
-creates an activity record, and meaningful post changes create versions. It ships
-two ways from one repo: hosted **vibecms Cloud** (Polar billing) and a real
-**self-host mode** (`SELF_HOSTED=true`) on the operator's own Cloudflare D1/R2.
+MCP over plain HTTPS + a bearer token. The scoped REST API mirrors those
+operations for integrations and the CLI. Every mutation creates an activity
+record, and meaningful post changes create versions. It ships two ways from one
+repo: hosted **vibecms Cloud** (Polar billing) and a real **self-host mode**
+(`SELF_HOSTED=true`) on the operator's own Cloudflare D1/R2.
 
 Success looks like: a developer connects an agent in minutes, watches it publish,
 and trusts the system because control (versions, activity, scoped tokens,

@@ -1,0 +1,50 @@
+---
+title: Self-host on Cloudflare
+description: Operate the API, dashboard, and public blog on your own Cloudflare D1 and R2 resources.
+---
+
+Set:
+
+```txt
+SELF_HOSTED=true
+```
+
+Self-host mode disables hosted Polar gates and workspace API quotas while preserving scoped tokens, media safety limits, activity, and versions.
+
+## Topology
+
+1. The API and dashboard Worker runs Hono, Better Auth, REST, MCP, media writes, and the static dashboard SPA.
+2. The public Worker runs Astro SSR for blog pages, feeds, search, Markdown responses, and media reads.
+3. Both Workers share one D1 database and one R2 bucket.
+4. The public Worker calls the API Worker through the `API` service binding.
+
+## Required secrets
+
+```sh
+pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --config ../../wrangler.jsonc
+```
+
+Generate each value with:
+
+```sh
+openssl rand -hex 32
+```
+
+Production OTP delivery also requires a configured `EMAIL` binding and sender domain.
+
+## Deploy
+
+After replacing the placeholder resource IDs, names, service target, and hosts in the root Wrangler files:
+
+```sh
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build:self-host
+pnpm deploy
+```
+
+The deployment applies D1 migrations, deploys the API Worker, then deploys the public Worker.
+
+For the full operator contract, resource list, email setup, and deployment caveats, see [`docs/self-hosting.md`](https://github.com/moinulmoin/vibecms/blob/dev/docs/self-hosting.md).

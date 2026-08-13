@@ -1,0 +1,22 @@
+---
+title: Media
+description: Upload reusable image assets with useful alt text and safe deletion behavior.
+---
+
+VibeCMS stores uploaded images as site-scoped assets and returns both an asset ID and a public media URL.
+
+## Upload
+
+The supported formats are JPEG, PNG, WebP, and GIF. The decoded file must be 10 MB or smaller.
+
+Always provide concise alt text that describes the useful visual content. A featured or inline image without useful alt text can block publication.
+
+## Use an asset
+
+- Set `coverAssetId` to use the image as a featured image.
+- Insert the returned `/media-assets/<assetId>` URL in Markdown for an inline image.
+- Reuse an existing suitable asset instead of uploading duplicates.
+
+## Delete
+
+`assets.delete` is destructive. It returns `CONFLICT` when the asset is still used as a post cover image. Confirm deletion immediately before the call.

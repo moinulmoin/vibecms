@@ -36,6 +36,9 @@ export const RESERVED_ROOT_SLUGS = new Set([
   "sitemap.xml",
   "robots.txt",
   "llms.txt",
+  "llms-full.txt",
+  "docs-search.json",
+  "docs",
   "__vc-health",
 ]);
 

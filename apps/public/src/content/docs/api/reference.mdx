@@ -1,0 +1,24 @@
+---
+title: API reference
+description: Open the generated OpenAPI schema or interactive Scalar request explorer.
+---
+
+VibeCMS generates an OpenAPI 3.1 schema from the canonical operation definitions used by MCP and REST.
+
+## Reference surfaces
+
+- [OpenAPI JSON](https://app.vibecms.dev/api/v1/openapi.json)
+- [Scalar API explorer](https://app.vibecms.dev/api/v1/docs)
+
+The explorer is the best place to inspect every field, response schema, required scope, and operation-specific error. This documentation site focuses on task-oriented workflows and safety semantics rather than duplicating the generated schema.
+
+## Regenerate locally
+
+From the repository root:
+
+```sh
+pnpm openapi:gen
+pnpm openapi:check
+```
+
+`openapi:check` fails when the committed schema is out of sync with the canonical operation definitions.

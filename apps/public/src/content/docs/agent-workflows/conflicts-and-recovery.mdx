@@ -1,0 +1,28 @@
+---
+title: Conflicts and recovery
+description: Recover safely from stale versions, validation failures, missing resources, and rate limits.
+---
+
+## `CONFLICT`
+
+A version conflict means the expected draft tip is stale or another write won the race. Do not retry blindly.
+
+1. Fetch the post again.
+2. Inspect the current version history.
+3. Reapply or reconcile the intended change.
+4. Preview the saved result.
+5. Request fresh approval before publishing.
+
+A create or update conflict may also indicate a slug collision. Inspect existing posts before choosing a new slug or updating the existing post.
+
+## Other errors
+
+| Code | Response |
+| --- | --- |
+| `VALIDATION_ERROR` | Correct the rejected input. Do not bypass validation. |
+| `FORBIDDEN` | Explain the missing scope. Do not widen the token automatically. |
+| `NOT_FOUND` | Re-list or re-fetch identifiers before retrying. |
+| `RATE_LIMIT` | Wait until reset, then retry only the still-requested action. |
+| `BILLING_REQUIRED` | Leave the draft intact and explain the subscription blocker. |
+
+REST returns structured HTTP errors. MCP returns corresponding JSON-RPC errors with machine-readable details.

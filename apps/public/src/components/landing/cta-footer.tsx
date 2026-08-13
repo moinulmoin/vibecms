@@ -25,7 +25,7 @@ export function CtaFooter({
   const deployLinks = [
     ["GitHub", BRAND.repoUrl],
     ["API docs", apiDocsUrl],
-    ["Docs", `${BRAND.repoUrl}#readme`],
+    ["Docs", "/docs"],
   ] as const;
   const accountLinks = [
     ["Sign in", loginUrl],
