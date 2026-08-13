@@ -33,3 +33,10 @@ plans/HANDOFF.md
 /tmp/
 apps/public/.astro/dev.json
 apps/public/.astro/settings.json
+apps/public/.astro/collections/
+apps/public/.astro/content-assets.mjs
+apps/public/.astro/content-modules.mjs
+apps/public/.astro/preview.json
+/artifacts/
+/.claude/
+/security-findings.json
