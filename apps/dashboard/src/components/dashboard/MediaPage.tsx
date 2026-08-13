@@ -296,7 +296,7 @@ export function MediaPage() {
         title="Media library"
         description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
         action={
-          <div className="grid w-full min-w-60 gap-2 rounded-2xl border border-[color:var(--hairline)] bg-muted/40 p-4 sm:w-72">
+          <div className="grid w-full min-w-60 gap-2 border-t border-[color:var(--hairline)] pt-4 sm:w-72 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
             <div className="flex items-center justify-between gap-3">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 Storage
@@ -348,26 +348,31 @@ export function MediaPage() {
               }`}
             >
               <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
-              <FieldLabel htmlFor="media-file" className="font-display text-base font-medium text-foreground">
-                Drag images here, or browse
-              </FieldLabel>
+              <p className="font-display text-base font-medium text-foreground">Drop images here</p>
               <FieldDescription id="media-file-help" className="max-w-sm">
-                Upload cover art or inline post images. Video, arbitrary files, and the unsupported formats stay blocked.
+                Add cover art or inline post images. Unsupported files stay blocked.
               </FieldDescription>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 !w-fit justify-self-center px-5"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose images
+              </Button>
               {selectedFileMessage ? (
-                <p className="mt-2 font-mono text-xs text-primary" role="status">
+                <p className="mt-1 font-mono text-xs text-primary" role="status">
                   {selectedFileMessage}
                 </p>
               ) : null}
               <Input
                 ref={fileInputRef}
                 id="media-file"
-                className="mt-3 max-w-sm bg-background"
+                className="hidden"
                 type="file"
                 name="file"
                 accept={MEDIA.mimeTypes.join(',')}
                 multiple
-                required
                 aria-describedby="media-file-help"
                 onChange={(event) => updateSelectedFiles(event.currentTarget.files)}
               />
@@ -377,7 +382,7 @@ export function MediaPage() {
                 {uploadQueue.map((entry) => (
                   <li
                     key={entry.key}
-                    className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-xl border border-[color:var(--hairline)] bg-muted/40 px-3 py-2"
+                    className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-foreground/[0.065] py-2.5 last:border-b-0"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-foreground">{entry.name}</span>
                     <span
@@ -413,13 +418,17 @@ export function MediaPage() {
                 <FieldLabel htmlFor="media-alt">Alt Text</FieldLabel>
                 <Input id="media-alt" name="altText" maxLength={180} placeholder="Describe the image for readers" />
               </Field>
-              <PendingSubmitButton pending={uploadPending} pendingText="Uploading…">
+              <PendingSubmitButton
+                pending={uploadPending}
+                pendingText="Uploading…"
+                disabled={!selectedFileMessage}
+              >
                 <UploadIcon aria-hidden data-icon="inline-start" /> Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
               </PendingSubmitButton>
             </div>
           </form>
 
-          <div className="grid content-start gap-3 rounded-xl border border-[color:var(--hairline)] bg-card p-4">
+          <div className="grid content-start gap-3 border-t border-[color:var(--hairline)] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
             <p className="font-mono text-[11px] font-medium text-muted-foreground">Upload limits</p>
             <dl className="grid gap-2 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -523,8 +532,8 @@ export function MediaPage() {
                 <article
                   key={asset.id}
                   className={cn(
-                    'group grid min-w-0 gap-3 overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-card p-3 transition-colors hover:border-border',
-                    isSelected && 'ring-2 ring-brand-bright ring-offset-2 ring-offset-background',
+                    'group grid min-w-0 gap-3 overflow-hidden rounded-xl p-2 transition-colors hover:bg-muted/35',
+                    isSelected && 'bg-brand-bright/[0.045] ring-1 ring-brand-bright/55',
                   )}
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted">
@@ -535,7 +544,7 @@ export function MediaPage() {
                       className="absolute inset-0 w-full rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     >
                       <img
-                        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                         width={640}
                         height={480}
                         src={`/media-assets/${asset.id}`}

@@ -20,7 +20,7 @@ export function SpaConfirmButton({
   pendingLabel,
   armedTimeoutMs = 5000,
   onConfirm,
-  variant = 'destructive',
+  variant,
   disabled,
   onClick,
   ...props
@@ -64,7 +64,7 @@ export function SpaConfirmButton({
       <Button
         ref={ref}
         type="button"
-        variant={variant}
+        variant={variant ?? (armed ? 'destructive' : 'outline')}
         aria-busy={submitting || undefined}
         disabled={disabled || submitting}
         onClick={handleClick}

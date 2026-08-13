@@ -1,11 +1,34 @@
 import { z } from "zod";
 import { PRESENTATION_LAYOUTS } from "@vc/config";
 
+const RESERVED_POST_SLUG_NAMES = [
+  "dashboard",
+  "api",
+  "blog",
+  "login",
+  "mcp",
+  "media-assets",
+  "internal",
+  "feed.xml",
+  "sitemap.xml",
+  "robots.txt",
+  "llms.txt",
+  "llms-full.txt",
+  "docs-search.json",
+  "docs",
+  "__vc-health",
+] as const;
+
+export function isReservedPostSlug(value: string): boolean {
+  return RESERVED_POST_SLUG_NAMES.includes(value as (typeof RESERVED_POST_SLUG_NAMES)[number]);
+}
+
 const slug = z
   .string()
   .min(1)
   .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens");
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens")
+  .refine((value) => !isReservedPostSlug(value), { message: "That slug is reserved." });
 
 export const DEFAULT_POST_LIST_LIMIT = 20;
 export const MAX_POST_LIST_LIMIT = 100;

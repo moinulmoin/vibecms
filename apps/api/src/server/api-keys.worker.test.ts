@@ -8,6 +8,7 @@ import type { D1Migration } from "cloudflare:test";
 import type { Actor } from "@vc/core";
 import type { AppUserContext } from "@/server/onboarding";
 import { listApiKeys, revokeApiKeyForApp } from "@/server/api-keys";
+import { insertApiKeyWithActivity } from "@/server/api-key-atomic";
 
 declare module "vitest" {
   interface ProvidedContext {
@@ -94,5 +95,33 @@ describe("api-keys revoke and list", () => {
       .bind("key-keep")
       .first<{ revoked_at: number | null }>();
     expect(row?.revoked_at).toBeNull();
+  });
+
+  it("enforces the active-token cap inside the insert batch", async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const changes = await insertApiKeyWithActivity(
+      {
+        id: "key-over-limit",
+        siteId: SITE_ID,
+        name: "Over limit",
+        tokenPrefix: "vc_live_limit",
+        tokenHash: "hash-limit",
+        scopesJson: "[]",
+        actorName: "Owner",
+        createdByUserId: "owner-tokens",
+        timestamp,
+      },
+      ownerApp().actor,
+      "activity-over-limit",
+      1,
+    );
+
+    expect(changes).toBe(0);
+    expect(
+      await env.DB.prepare("SELECT id FROM api_keys WHERE id = ?").bind("key-over-limit").first(),
+    ).toBeNull();
+    expect(
+      await env.DB.prepare("SELECT id FROM activity_events WHERE id = ?").bind("activity-over-limit").first(),
+    ).toBeNull();
   });
 });

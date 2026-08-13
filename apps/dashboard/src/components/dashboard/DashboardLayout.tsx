@@ -28,6 +28,7 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from '~/components/ui/sidebar'
 import {
   DropdownMenu,
@@ -172,6 +173,38 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
   )
 }
 
+function DashboardNavigation({ current }: { current: string }) {
+  const { isMobile, setOpenMobile } = useSidebar()
+  const closeMobileNavigation = () => {
+    if (isMobile) setOpenMobile(false)
+  }
+
+  return (
+    <SidebarGroup className="px-2 py-3">
+      <SidebarMenu className="gap-1">
+        {navItems.map(({ label, to, Icon }) => {
+          const active = current === to || (to !== '/dashboard' && current.startsWith(to))
+          return (
+            <SidebarMenuItem key={to}>
+              <SidebarMenuButton
+                asChild
+                isActive={active}
+                tooltip={label}
+                className="relative h-9 px-2.5 font-medium text-muted-foreground data-[active=true]:bg-transparent data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-primary data-[active=true]:[&>svg]:text-primary"
+              >
+                <Link to={to} onClick={closeMobileNavigation}>
+                  <Icon aria-hidden />
+                  <span>{label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+}
+
 export function AppShell({
   children,
   current: currentProp,
@@ -212,27 +245,7 @@ export function AppShell({
           </SidebarHeader>
 
           <SidebarContent>
-            <SidebarGroup>
-              <SidebarMenu>
-                {navItems.map(({ label, to, Icon }) => {
-                  const active = current === to || (to !== '/dashboard' && current.startsWith(to))
-                  return (
-                    <SidebarMenuItem key={to}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        tooltip={label}
-                      >
-                        <Link to={to}>
-                          <Icon aria-hidden />
-                          <span>{label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroup>
+            <DashboardNavigation current={current} />
           </SidebarContent>
 
           <SidebarFooter>
@@ -248,15 +261,18 @@ export function AppShell({
           >
             Skip to content
           </a>
-          <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/80 px-4 backdrop-blur-xl">
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-[color:var(--hairline)] bg-background/88 px-4 backdrop-blur-xl sm:px-6">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-3.5" />
-            <span className="truncate font-sans text-sm font-medium text-muted-foreground">{pageTitle(current)}</span>
+            <span className="truncate font-mono text-[11px] font-medium uppercase tracking-[0.11em] text-muted-foreground">
+              dashboard <span aria-hidden className="px-1 text-border">/</span>{' '}
+              <span className="text-foreground">{pageTitle(current)}</span>
+            </span>
           </header>
           <div
             id="dashboard-main"
             tabIndex={-1}
-            className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col gap-5 p-4 py-6 outline-none sm:px-8 sm:py-8 lg:px-10"
+            className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 py-6 outline-none sm:px-8 sm:py-9 lg:px-10 lg:py-10"
           >
             <StatusAlert status={formStatus} />
             {children}

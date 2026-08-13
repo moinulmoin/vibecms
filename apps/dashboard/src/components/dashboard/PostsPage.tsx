@@ -228,9 +228,9 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
         ) : null}
         {posts.length ? (
           <>
-            <div className="grid gap-2 md:hidden">
+            <div className="grid gap-0 md:hidden">
               {posts.map((post) => (
-                <article className="grid gap-3 rounded-xl border border-[color:var(--hairline)] p-4" key={post.id}>
+                <article className="grid gap-3 border-b border-foreground/[0.065] py-4 last:border-b-0" key={post.id}>
                   <div className="min-w-0">
                     <Link
                       className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
@@ -298,8 +298,8 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                 </article>
               ))}
             </div>
-            <div className="hidden md:grid md:gap-1.5">
-              <div className="grid grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] gap-3 px-4 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="hidden md:grid md:gap-0">
+              <div className="grid grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] gap-3 px-1 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 <span>Post</span>
                 <span>Status</span>
                 <span>By</span>

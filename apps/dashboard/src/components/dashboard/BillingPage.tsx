@@ -135,7 +135,7 @@ export function BillingPage() {
             <p className="mb-5 font-sans text-base leading-7 text-muted-foreground">
               or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
             </p>
-            <ul className="grid gap-3 rounded-xl border border-[color:var(--hairline)] p-4 text-base leading-6">
+            <ul className="grid gap-3 rounded-xl bg-muted/35 p-4 text-base leading-6 sm:grid-cols-2">
               {ENTITLEMENTS.map((entitlement) => (
                 <li key={entitlement} className="flex items-start gap-2.5">
                   <CheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />

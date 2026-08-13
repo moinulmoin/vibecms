@@ -19,7 +19,7 @@ export function ListRow({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--hairline)] bg-background px-4 py-3.5',
+        'flex flex-wrap items-center justify-between gap-3 border-b border-foreground/[0.065] px-1 py-3.5 last:border-b-0',
         className,
       )}
     >
@@ -41,7 +41,7 @@ export function DataRow({ children, className }: { children: ReactNode; classNam
   return (
     <div
       className={cn(
-        'grid gap-2 rounded-lg border border-[color:var(--hairline)] bg-background px-4 py-3.5 text-sm sm:items-center',
+        'grid gap-2 border-b border-foreground/[0.065] px-1 py-3.5 text-sm last:border-b-0 sm:items-center',
         className,
       )}
     >

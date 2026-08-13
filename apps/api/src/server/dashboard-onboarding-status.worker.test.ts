@@ -6,8 +6,13 @@ import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
 import type { D1Migration } from "cloudflare:test";
 import type { Actor } from "@vc/core";
-import type { AppUserContext } from "@/server/onboarding";
+import {
+  completeSiteSetupForApp,
+  updateSiteSettingsForApp,
+  type AppUserContext,
+} from "@/server/onboarding";
 import { loadOnboardingStatus } from "@/server/dashboard-api";
+import { clearVoiceProfileForApp, updateVoiceProfileForApp } from "@/server/voice-profile";
 
 declare module "vitest" {
   interface ProvidedContext {
@@ -29,6 +34,16 @@ function ownerApp(): AppUserContext {
   const actor: Actor = { type: "human", id: "owner-ob", name: "Owner", role: "owner" };
   return {
     user: { id: "owner-ob", name: "Owner", email: "owner@example.com" },
+    siteId: SITE_ID,
+    workspaceId: WORKSPACE_ID,
+    actor,
+  };
+}
+
+function editorApp(): AppUserContext {
+  const actor: Actor = { type: "human", id: "editor-ob", name: "Editor", role: "editor" };
+  return {
+    user: { id: "editor-ob", name: "Editor", email: "editor@example.com" },
     siteId: SITE_ID,
     workspaceId: WORKSPACE_ID,
     actor,
@@ -110,5 +125,36 @@ describe("loadOnboardingStatus — connection + exact-key resolution", () => {
     expect(status.connection).toBe("connected");
     // publicBaseUrl is null until a public default domain resolves (never fabricated).
     expect(status.publicBaseUrl).toBeNull();
+  });
+});
+
+describe("owner-only site configuration mutations", () => {
+  it("rejects setup and settings changes from an editor", async () => {
+    await expect(
+      completeSiteSetupForApp(editorApp(), { name: "Edited", slug: "edited" }),
+    ).resolves.toEqual({ kind: "error", code: "owner_required" });
+
+    await expect(
+      updateSiteSettingsForApp(editorApp(), {
+        name: "Edited",
+        defaultSeoTitle: "Edited",
+        theme: "minimal",
+      }),
+    ).resolves.toEqual({ kind: "error", code: "owner_required" });
+  });
+
+  it("rejects voice-profile changes from an editor", async () => {
+    await expect(updateVoiceProfileForApp(editorApp(), {
+      preferRules: [],
+      avoidRules: [],
+      representativePostIds: [],
+    })).resolves.toEqual({
+      kind: "error",
+      code: "owner_required",
+    });
+    await expect(clearVoiceProfileForApp(editorApp())).resolves.toEqual({
+      kind: "error",
+      code: "owner_required",
+    });
   });
 });

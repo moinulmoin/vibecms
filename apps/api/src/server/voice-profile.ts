@@ -5,10 +5,14 @@ import type { AppUserContext } from './onboarding'
 
 export type VoiceProfileMutationResult =
   | { kind: 'ok'; code: 'voice_profile_saved' | 'voice_profile_cleared' }
-  | { kind: 'error'; code: 'voice_profile_invalid' }
+  | { kind: 'error'; code: 'voice_profile_invalid' | 'owner_required' }
 function editorFor(app: AppUserContext) {
-  if (app.actor.type !== 'human') throw new Error('Human access required')
+  if (app.actor.type !== 'human' || app.actor.role !== 'owner') throw new Error('Owner access required')
   return { type: 'human' as const, id: app.actor.id, name: app.actor.name }
+}
+
+function canManageVoiceProfile(app: AppUserContext) {
+  return app.actor.type === 'human' && app.actor.role === 'owner'
 }
 
 export async function getVoiceProfileForSite(siteId: string) {
@@ -57,6 +61,7 @@ export async function updateVoiceProfileForApp(
   app: AppUserContext,
   rawPayload: VoiceProfileSettingsInput,
 ): Promise<VoiceProfileMutationResult> {
+  if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
   const parsed = voiceProfileSettingsInputSchema.safeParse(rawPayload)
   if (!parsed.success) return { kind: 'error', code: 'voice_profile_invalid' }
 
@@ -86,6 +91,7 @@ export async function updateVoiceProfileForApp(
 }
 
 export async function clearVoiceProfileForApp(app: AppUserContext): Promise<VoiceProfileMutationResult> {
+  if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
   await createDataAccess(env.DB).voiceProfiles.clear({
     siteId: app.siteId,
     editor: editorFor(app),

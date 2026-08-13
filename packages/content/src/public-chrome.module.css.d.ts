@@ -2,6 +2,7 @@ declare const classes: {
   readonly page: string;
   readonly container: string;
   readonly header: string;
+  readonly brandHeading: string;
   readonly brand: string;
   readonly tagline: string;
   readonly mastheadNav: string;

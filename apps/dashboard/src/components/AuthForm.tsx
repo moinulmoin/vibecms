@@ -24,18 +24,23 @@ export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
     setError(null)
     setInfo(null)
     setLoading(true)
-    const { error: sendError } = await authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' })
-    setLoading(false)
-    if (sendError) {
-      const message =
-        (sendError as { status?: number }).status === 429
-          ? 'Too many codes requested for this email. Please wait a bit and try again.'
-          : (sendError.message ?? 'Could not send a code. Check the address and try again.')
-      setError(message)
-      return
+    try {
+      const { error: sendError } = await authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' })
+      if (sendError) {
+        const message =
+          (sendError as { status?: number }).status === 429
+            ? 'Too many codes requested for this email. Please wait a bit and try again.'
+            : (sendError.message ?? 'Could not send a code. Check the address and try again.')
+        setError(message)
+        return
+      }
+      setStep('otp')
+      setInfo(`We sent a 6-digit code to ${email}.`)
+    } catch {
+      setError('Could not reach the sign-in service. Check your connection and try again.')
+    } finally {
+      setLoading(false)
     }
-    setStep('otp')
-    setInfo(`We sent a 6-digit code to ${email}.`)
   }
 
   function verifyCode() {
@@ -45,23 +50,37 @@ export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
       { email, otp },
       {
         onSuccess: async () => {
-          await ensureOnboardingRoute()
-          window.location.href = '/dashboard'
+          try {
+            const response = await ensureOnboardingRoute()
+            if (!response.ok) throw new Error('Onboarding initialization failed')
+            window.location.href = '/dashboard'
+          } catch {
+            setError('You are signed in, but we could not open your workspace. Try again.')
+            setLoading(false)
+          }
         },
         onError: (ctx: { error: { message?: string } }) => {
           setError(ctx.error.message ?? 'That code did not work. Resend a fresh one and try again.')
           setLoading(false)
         },
       },
-    )
+    ).catch(() => {
+      setError('Could not verify the code. Check your connection and try again.')
+      setLoading(false)
+    })
   }
 
   async function continueWithGoogle() {
     setError(null)
     setLoading(true)
-    const { error: socialError } = await authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
-    if (socialError) {
-      setError(socialError.message ?? 'Could not start Google sign-in.')
+    try {
+      const { error: socialError } = await authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
+      if (socialError) {
+        setError(socialError.message ?? 'Could not start Google sign-in.')
+        setLoading(false)
+      }
+    } catch {
+      setError('Could not reach Google sign-in. Check your connection and try again.')
       setLoading(false)
     }
   }

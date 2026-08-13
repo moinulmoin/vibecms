@@ -8,6 +8,7 @@ import {
   MEDIA,
   PRESET_IDS,
   PRICING,
+  resolvePresentation,
   STARTER_LOOKS,
   THEME_MODES,
   THEME_PRESETS,
@@ -16,6 +17,7 @@ import {
   type StarterLookId,
   type ThemeMode,
   type PresetId,
+  type ResolvedPresentation,
 } from '@vc/config'
 import type { Asset } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView } from '~/types/dashboard'
@@ -32,8 +34,10 @@ import {
   Select,
 } from '@vc/ui'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useEffect, useState, type CSSProperties } from 'react'
-import { renderRichContent, RichContentFrame } from '@vc/content'
+import { useEffect, useState } from 'react'
+import { renderRichContent, type RenderResult } from '@vc/content'
+import { PresentedPostArticle } from '@vc/content/presented-post'
+import { PublicPageChrome } from '@vc/content/public-chrome'
 import {
   Button,
   EmptyState,
@@ -68,6 +72,7 @@ import type { VoiceProfileSettings } from '~/types/dashboard'
 import type { z } from 'zod'
 import { settingsPageDataSchema } from '~/lib/dashboard-response-schemas'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import { useMediaQuery } from '~/hooks/use-media-query'
 type SettingsPageData = {
   site: SiteSettingsForm
   assets: Asset[]
@@ -261,11 +266,33 @@ reads well in a browser, a feed reader, or an AI crawler.
 | Minimal | Airy | General writing |
 | Editorial | Comfortable | Narrative |
 `
-const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD)
+const SAMPLE_TITLE = 'Shipping calm software'
+const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD, { pageTitle: SAMPLE_TITLE })
+
+type ThemePreviewArticle = {
+  renderResult: RenderResult
+  title: string
+  excerpt: string
+  dateText: string
+  tags: string[]
+  presentation: ResolvedPresentation
+  source: 'sample' | 'published'
+}
+
+const SAMPLE_PREVIEW_ARTICLE: ThemePreviewArticle = {
+  renderResult: SAMPLE_RENDER,
+  title: SAMPLE_TITLE,
+  excerpt: 'A complete article preview for judging typography, rhythm, media, callouts, code, and tables.',
+  dateText: 'Preview article',
+  tags: ['workflow', 'publishing'],
+  presentation: resolvePresentation(DEFAULT_PRESET_ID, null).resolved,
+  source: 'sample',
+}
 
 export function SettingsPage() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/dashboard/settings' })
+  const desktopSettingsNavigation = useMediaQuery('(min-width: 1024px)')
   const [data, setData] = useState<SettingsPageData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
@@ -286,7 +313,7 @@ export function SettingsPage() {
   // Live preview content: the latest published post when one exists,
   // otherwise the canonical sample. Rendered fresh against the selected
   // theme so the preview is always the real blog, not a mock.
-  const [previewNode, setPreviewNode] = useState(SAMPLE_RENDER.node)
+  const [previewArticle, setPreviewArticle] = useState<ThemePreviewArticle>(SAMPLE_PREVIEW_ARTICLE)
 
   useEffect(() => {
     let cancelled = false
@@ -320,7 +347,17 @@ export function SettingsPage() {
         if (cancelled || !page) return
         const latestPublished = page.post?.status === 'published' ? page.post : null
         if (latestPublished?.contentMarkdown) {
-          setPreviewNode(renderRichContent(latestPublished.contentMarkdown).node)
+          setPreviewArticle({
+            renderResult: renderRichContent(latestPublished.contentMarkdown, { pageTitle: latestPublished.title }),
+            title: latestPublished.title,
+            excerpt: latestPublished.excerpt ?? 'Published article preview',
+            dateText: latestPublished.publishedAt
+              ? new Date(latestPublished.publishedAt * 1000).toLocaleDateString()
+              : 'Published article',
+            tags: latestPublished.tags,
+            presentation: resolvePresentation(page.presetId, latestPublished.presentation).resolved,
+            source: 'published',
+          })
         }
       })
       .catch(() => {
@@ -347,19 +384,33 @@ export function SettingsPage() {
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
+    const payload = {
+      name: String(form.get('name') ?? ''),
+      description: String(form.get('description') ?? '') || undefined,
+      defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
+      defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
+      defaultSocialAssetId: selectedSocialAssetId || null,
+      theme: data?.site.theme ?? selectedTheme,
+      themeAccent: data?.site.themeAccent,
+      themeFont: data?.site.themeFont,
+      themeMode: data?.site.themeMode,
+    }
     setFormPending('site')
     try {
-      const result = await updateSiteSettingsMutation({
-          name: String(form.get('name') ?? ''),
-          description: String(form.get('description') ?? '') || undefined,
-          defaultSeoTitle: String(form.get('defaultSeoTitle') ?? ''),
-          defaultSeoDescription: String(form.get('defaultSeoDescription') ?? '') || undefined,
-          defaultSocialAssetId: selectedSocialAssetId || null,
-          theme: data?.site.theme ?? selectedTheme,
-          themeAccent: data?.site.themeAccent,
-          themeFont: data?.site.themeFont,
-          themeMode: data?.site.themeMode,
-      })
+      const result = await updateSiteSettingsMutation(payload)
+      if (result.kind === 'ok') {
+        setData((prev) => prev ? {
+          ...prev,
+          site: {
+            ...prev.site,
+            name: payload.name,
+            description: payload.description ?? '',
+            defaultSeoTitle: payload.defaultSeoTitle,
+            defaultSeoDescription: payload.defaultSeoDescription ?? '',
+            defaultSocialAssetId: payload.defaultSocialAssetId,
+          },
+        } : prev)
+      }
       await navigate({
         to: '/dashboard/settings',
         search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
@@ -578,14 +629,6 @@ export function SettingsPage() {
   }
 
   const { site, customDomains, billingStatus, selfHosted, isOwner } = data
-  const previewAccent = ACCENTS.find((accent) => accent.id === selectedAccent) ?? ACCENTS[0]
-  const previewFont = FONTS.find((font) => font.id === selectedFont) ?? FONTS[0]
-  const previewStyle = {
-    '--vc-accent-light': previewAccent.oklchLight,
-    '--vc-accent-dark': previewAccent.oklchDark,
-    '--vc-font-body': previewFont.bodyStack,
-    '--vc-font-heading': previewFont.headingStack,
-  } as CSSProperties
 
   return (
     <>
@@ -596,27 +639,50 @@ export function SettingsPage() {
       <Tabs
         value={search.tab ?? 'general'}
         onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value }})}
-        className="gap-4"
+        orientation={desktopSettingsNavigation ? 'vertical' : 'horizontal'}
+        className="gap-5 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8"
       >
-        <div className="overflow-x-auto pb-1">
-          <TabsList aria-label="Workspace settings sections" className="min-w-max">
-            <TabsTrigger value="general" aria-label="Site settings" className="data-[state=active]:font-medium">
-              Site
+        <div className="overflow-x-auto pb-1 lg:sticky lg:top-20 lg:overflow-visible lg:pb-0">
+          <TabsList
+            aria-label="Workspace settings sections"
+            variant="line"
+            className="min-w-max gap-1 lg:grid lg:w-full lg:min-w-0 lg:justify-stretch"
+          >
+            <TabsTrigger value="general" aria-label="Site settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Site</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Identity and SEO</span>
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="theme" aria-label="Theme settings" className="data-[state=active]:font-medium">
-              Theme
+            <TabsTrigger value="theme" aria-label="Theme settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Theme</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Reading experience</span>
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="voice" aria-label="Writing voice settings" className="data-[state=active]:font-medium">
-              Voice
+            <TabsTrigger value="voice" aria-label="Writing voice settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Voice</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Agent writing rules</span>
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="domain" aria-label="Domain settings" className="data-[state=active]:font-medium">
-              Domain
+            <TabsTrigger value="domain" aria-label="Domain settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Domain</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Hosts and DNS</span>
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="data-[state=active]:font-medium">
-              Plan
+            <TabsTrigger value="billing" aria-label="Plan and billing settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Plan</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Billing and limits</span>
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="data" aria-label="Data export settings" className="data-[state=active]:font-medium">
-              Data
+            <TabsTrigger value="data" aria-label="Data export settings" className="px-3 py-2.5 data-[state=active]:font-medium lg:h-auto">
+              <span className="text-left">
+                <span className="block">Data</span>
+                <span className="mt-0.5 hidden text-xs font-normal text-muted-foreground lg:block">Export and portability</span>
+              </span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -698,15 +764,15 @@ export function SettingsPage() {
       </Panel>
         </TabsContent>
         <TabsContent value="theme" className="grid gap-4">
-          <Panel title="Theme" meta="Public blog appearance">
-            <p className="mb-5 max-w-3xl font-sans text-base leading-7 text-muted-foreground">
-              Choose the reading style, accent, type, and default color mode. Preview every change before it goes live.
+          <Panel title="Theme" meta="Reading experience">
+            <p className="mb-6 max-w-3xl font-sans text-base leading-7 text-muted-foreground">
+              Set the typography and color system on the left. The right side is the same article shell readers receive, including the masthead, title, metadata, body, and table of contents.
             </p>
             <form
-              className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:items-start"
+              className="grid gap-6 xl:grid-cols-[minmax(19rem,21rem)_minmax(0,1fr)] xl:items-start"
               onSubmit={(e) => void handleThemeSave(e)}
             >
-              <div className="grid gap-6">
+              <div className="grid gap-5 rounded-xl bg-muted/30 p-4 sm:p-5">
                 <FieldSet>
                   <FieldLegend variant="label">Style</FieldLegend>
                   <div className="grid grid-cols-2 gap-2">
@@ -727,10 +793,9 @@ export function SettingsPage() {
                             }
                           }}
                           className={cn(
-                            'flex min-w-0 flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
-                            'border-[color:var(--hairline)] bg-card hover:border-border',
+                            'flex min-w-0 flex-col gap-1 rounded-lg p-3 text-left transition-colors hover:bg-background/65',
                             isCurrent &&
-                              'border-brand-bright/50 bg-brand-bright/5 ring-1 ring-brand-bright/40',
+                              'bg-brand-bright/[0.045] ring-1 ring-brand-bright/50',
                           )}
                         >
                           <span className="flex items-center gap-1.5 font-display text-[13px] font-medium text-foreground">
@@ -763,7 +828,7 @@ export function SettingsPage() {
                           title={accent.name}
                           onClick={() => setSelectedAccent(accent.id)}
                           className={cn(
-                            'size-6 rounded-full ring-1 ring-inset ring-black/10 transition-transform dark:ring-white/10',
+                            'size-7 rounded-full ring-1 ring-inset ring-black/10 transition-transform dark:ring-white/10',
                             'hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             isCurrent && 'ring-2 ring-brand-bright ring-offset-2 ring-offset-background',
                           )}
@@ -837,27 +902,56 @@ export function SettingsPage() {
                   <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving…">
                     <CheckIcon aria-hidden data-icon="inline-start" /> Save changes
                   </PendingSubmitButton>
+                </div>
+              </div>
+
+              <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-sans text-sm font-semibold text-foreground">Article preview</p>
+                    <p className="mt-0.5 font-sans text-xs text-muted-foreground">
+                      {previewArticle.source === 'published' ? 'Latest published post' : 'Complete sample article'}
+                    </p>
+                  </div>
                   {data.publicBaseUrl ? (
-                    <Button asChild variant="outline">
+                    <Button asChild variant="outline" size="sm">
                       <a href={data.publicBaseUrl} target="_blank" rel="noopener noreferrer">
-                        View blog
+                        View live blog
                       </a>
                     </Button>
                   ) : null}
                 </div>
-              </div>
-
-              <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-                <p className="mb-3 font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                  Live preview
-                </p>
-                <div style={previewStyle}>
-                  <RichContentFrame
-                    className="max-h-[44rem] w-full overflow-auto rounded-xl border border-[var(--vc-border)] bg-[var(--vc-bg)] px-5 py-8 text-[var(--vc-fg)]"
-                    node={previewNode}
-                    presetId={selectedTheme}
-                    mode={selectedMode}
-                  />
+                <div className="overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-background shadow-[0_16px_50px_-35px_oklch(0.2_0.03_155/0.45)]">
+                  <div className="border-b border-[color:var(--hairline)] bg-muted/45 px-4 py-2 font-mono text-[11px] text-muted-foreground">
+                    {data.publicBaseUrl?.replace('https://', '') ?? `${site.slug}.your-domain.com`}/{previewArticle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
+                  </div>
+                  <div className="h-[44rem] max-h-[72dvh] overflow-auto">
+                    <div inert>
+                      <PublicPageChrome
+                        siteName={site.name}
+                        tagline={site.description}
+                        homeHref="#"
+                        allPostsHref="#"
+                        presetId={selectedTheme}
+                        theme={{ accent: selectedAccent, font: selectedFont, mode: selectedMode }}
+                        article
+                      >
+                        <PresentedPostArticle
+                          renderResult={previewArticle.renderResult}
+                          presetId={selectedTheme}
+                          presentation={resolvePresentation(selectedTheme, previewArticle.presentation).resolved}
+                          title={previewArticle.title}
+                          excerpt={previewArticle.excerpt}
+                          byline={site.name}
+                          dateText={previewArticle.dateText}
+                          readingMinutes={4}
+                          tags={previewArticle.tags}
+                          basePath=""
+                          theme={{ accent: selectedAccent, font: selectedFont, mode: selectedMode }}
+                        />
+                      </PublicPageChrome>
+                    </div>
+                  </div>
                 </div>
               </div>
             </form>
@@ -866,7 +960,7 @@ export function SettingsPage() {
         <TabsContent value="voice" className="grid gap-4">
           <Panel title="Writing voice" meta={data.voiceProfile.configured ? 'Custom' : 'VibeCMS default'}>
             <Collapsible open={voiceEditorOpen} onOpenChange={setVoiceEditorOpen} className="grid gap-5">
-            <div className="rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
+            <div className="rounded-xl bg-muted/35 p-4 md:p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="max-w-2xl">
                   <p className="font-display text-base font-medium text-foreground">
@@ -1133,7 +1227,7 @@ export function SettingsPage() {
             </p>
           ) : null}
           {customDomains.domains.length ? (
-            <div className="grid gap-3">
+            <div className="grid gap-0">
               {customDomains.domains.map((domain) => (
                 <ListRow
                   key={domain.id}
@@ -1175,7 +1269,7 @@ export function SettingsPage() {
         title="Billing"
         meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}
       >
-        <div className="rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
+        <div className="rounded-xl bg-muted/35 p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="font-display text-sm font-medium text-foreground">
@@ -1208,10 +1302,11 @@ export function SettingsPage() {
         </div>
       </Panel>
       <Panel title="Plan includes" meta={PRICING.planName}>
-        <div className="grid gap-2 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-1 font-sans text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
           {ENTITLEMENTS.map((entitlement) => (
-            <span className="rounded-lg border border-[color:var(--hairline)] px-3 py-2.5 leading-5" key={entitlement}>
-              {entitlement}
+            <span className="flex items-start gap-2 py-2 leading-5" key={entitlement}>
+              <CheckIcon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-primary" />
+              <span>{entitlement}</span>
             </span>
           ))}
         </div>
@@ -1220,7 +1315,7 @@ export function SettingsPage() {
         <TabsContent value="data" className="grid gap-4">
       {isOwner ? (
         <Panel title="Your data" meta="Export">
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[color:var(--hairline)] p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-muted/35 p-4 md:p-5">
             <div className="flex min-w-0 items-start gap-3">
               <DownloadIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
               <p className="font-sans text-sm leading-6 text-muted-foreground">

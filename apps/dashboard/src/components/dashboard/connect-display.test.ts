@@ -17,12 +17,16 @@ describe('resolveDisplayConnection', () => {
       expect(resolveDisplayConnection('revoked', false, false, 0)).toBe('no_token')
     })
 
+    it('suppresses a stale connected status immediately after the last token is revoked', () => {
+      expect(resolveDisplayConnection('connected', false, true, 0)).toBe('no_token')
+    })
+
     it('reports revocation for the exact selected token during the reveal', () => {
       expect(resolveDisplayConnection('revoked', true, false, 0, true)).toBe('revoked')
     })
 
-    it('keeps an exact selected revocation actionable after reload', () => {
-      expect(resolveDisplayConnection('revoked', false, false, 0, true)).toBe('revoked')
+    it('suppresses an old exact selection after reload when no token remains', () => {
+      expect(resolveDisplayConnection('revoked', false, false, 0, true)).toBe('no_token')
     })
 
     it('reports revoked for an active previously saved token', () => {
@@ -43,6 +47,11 @@ describe('resolveDisplayConnection', () => {
 
   it('passes waiting through unchanged when no fresh token is present', () => {
     expect(resolveDisplayConnection('waiting', false, false, 1)).toBe('waiting')
+  })
+
+  it('preserves the server state until the active-token list has loaded', () => {
+    expect(resolveDisplayConnection('waiting', false, false, null)).toBe('waiting')
+    expect(resolveDisplayConnection('connected', false, false, null)).toBe('connected')
   })
 
   it('treats an undefined read as no_token', () => {

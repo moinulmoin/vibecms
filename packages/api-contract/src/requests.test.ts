@@ -5,6 +5,7 @@ import {
   restorePostVersionRequestSchema,
   updatePostRequestSchema,
 } from './index'
+import { createPostInput, updatePostInput } from '@vc/validators'
 
 const fullPost = {
   title: 'Test Post',
@@ -31,6 +32,11 @@ describe('createPostRequestSchema', () => {
   ])('accepts %s', (_name, value) => {
     expect(createPostRequestSchema.safeParse(value).success).toBe(true)
   })
+
+  it.each(['docs', 'api', 'mcp', 'internal'])('rejects the reserved slug %s across API and core validation', (slug) => {
+    expect(createPostRequestSchema.safeParse({ ...fullPost, slug }).success).toBe(false)
+    expect(createPostInput.safeParse({ siteId: 'site-1', ...fullPost, slug }).success).toBe(false)
+  })
 })
 
 describe('updatePostRequestSchema', () => {
@@ -52,6 +58,12 @@ describe('updatePostRequestSchema', () => {
     ['non-integer expectedVersionNumber', { postId: 'post-123', expectedVersionNumber: 1.5 }],
   ])('rejects %s', (_name, value) => {
     expect(updatePostRequestSchema.safeParse(value).success).toBe(false)
+  })
+
+  it('rejects a reserved slug across API and core update validation', () => {
+    const value = { postId: 'post-123', siteId: 'site-1', expectedVersionNumber: 1, slug: 'docs' }
+    expect(updatePostRequestSchema.safeParse(value).success).toBe(false)
+    expect(updatePostInput.safeParse(value).success).toBe(false)
   })
 })
 

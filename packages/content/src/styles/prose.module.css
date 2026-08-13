@@ -8,12 +8,13 @@
 }
 
 .prose h2 {
-  margin-top: var(--vc-section-gap);
-  margin-bottom: 12px;
+  margin-top: calc(var(--vc-section-gap) * 0.9);
+  margin-bottom: 14px;
   font-family: var(--vc-font-heading);
   font-size: calc(28px * var(--vc-heading-scale));
   letter-spacing: -0.02em;
   font-weight: 700;
+  line-height: 1.05;
 }
 
 .prose h3 {
@@ -54,16 +55,17 @@
 
 .prose p {
   max-width: var(--vc-prose-measure);
-  font-size: 19px;
+  font-size: clamp(1rem, 1vw + 0.75rem, 1.125rem);
   line-height: var(--vc-prose-leading);
   margin: 0 0 var(--vc-prose-gap);
+  text-wrap: pretty;
 }
 
 .prose ul,
 .prose ol {
   padding-left: 1.5rem;
-  margin: 1rem 0;
-  font-size: 19px;
+  margin: 1rem 0 1.25rem;
+  font-size: clamp(1rem, 1vw + 0.75rem, 1.06rem);
   line-height: var(--vc-prose-leading);
   max-width: var(--vc-prose-measure);
 }
@@ -127,9 +129,11 @@
 
 .prose blockquote {
   margin: var(--vc-prose-gap) 0;
-  padding: 0.25rem 0 0.25rem 1.25rem;
+  padding: 0.35rem 0 0.35rem 1.25rem;
   color: var(--vc-quote-fg);
   border-left: 2px solid var(--vc-border);
+  font-size: clamp(1.06rem, 0.8vw + 0.9rem, 1.2rem);
+  line-height: calc(var(--vc-prose-leading) * 0.94);
 }
 
 .prose blockquote p {

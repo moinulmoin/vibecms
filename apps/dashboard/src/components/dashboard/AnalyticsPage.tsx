@@ -1,6 +1,6 @@
 import { BarChartIcon, LockClosedIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
-import { Badge, Button, Card, Skeleton } from '@vc/ui'
+import { Badge, Button, Skeleton } from '@vc/ui'
 import { useEffect, useMemo, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { EmptyState, LoadError, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
@@ -8,6 +8,7 @@ import { loadAnalyticsPage } from '~/lib/api-client'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
+import { MetricStrip as SharedMetricStrip } from '~/components/dashboard/blocks'
 
 const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
@@ -89,22 +90,7 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     },
   ]
 
-  return (
-    <Card className="grid gap-0 overflow-hidden p-0 sm:grid-cols-2 xl:grid-cols-4">
-      {metrics.map((metric) => (
-        <div
-          key={metric.label}
-          className="min-w-0 px-5 py-5 sm:px-6 sm:py-6 xl:[&:not(:first-child)]:border-l xl:[&:not(:first-child)]:border-[color:var(--hairline)]"
-        >
-          <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{metric.label}</p>
-          <p className="mt-3 font-display text-3xl font-semibold tabular-nums tracking-[-0.035em] text-foreground sm:text-4xl">
-            {metric.value}
-          </p>
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">{metric.detail}</p>
-        </div>
-      ))}
-    </Card>
-  )
+  return <SharedMetricStrip metrics={metrics} />
 }
 
 function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
@@ -175,7 +161,7 @@ function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'availa
       ) : (
         <ol className="space-y-1">
           {data.topPosts.map((post, index) => (
-            <li key={post.postId} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-3 hover:bg-muted/50">
+            <li key={post.postId} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
               <span className="font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
               <Link
                 to="/dashboard/posts/$postId/edit"
@@ -202,7 +188,7 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
       ) : (
         <ol className="space-y-1">
           {data.referrers.map((referrer) => (
-            <li key={referrer.domain} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-3">
+            <li key={referrer.domain} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
               <div className="min-w-0">
                 <p className="truncate font-mono text-sm text-foreground">{referrer.domain}</p>
                 {referrer.ai ? <p className="mt-1 text-xs text-muted-foreground">AI referral · {referrer.operator}</p> : null}
@@ -231,15 +217,15 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
         </p>
       </div>
       {data.aiCrawlers.status === 'unavailable' ? (
-        <p className="rounded-xl border border-[color:var(--hairline)] px-4 py-3 text-sm leading-6 text-muted-foreground">
+        <p className="rounded-xl bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
           AI crawler reporting is not configured for this deployment. Human page views and AI referrals are still tracked.
         </p>
       ) : data.aiCrawlers.agents.length === 0 ? (
         <p className="text-sm leading-6 text-muted-foreground">No AI crawler requests {data.rangeDays === 'all' ? 'since collection began' : `in the last ${data.aiCrawlers.lookbackDays} days`}.</p>
       ) : (
-        <div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+        <div className="grid gap-x-8 md:grid-cols-2">
           {data.aiCrawlers.agents.map((crawler) => (
-            <div key={crawler.agent} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-3">
+            <div key={crawler.agent} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0 md:border-b-0">
               <div className="min-w-0">
                 <p className="truncate font-mono text-sm font-medium text-foreground">{crawler.agent}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{crawler.operator} · {crawler.category}</p>
@@ -262,7 +248,11 @@ function LockedAnalytics() {
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           Unlock lifetime page-view totals, one year of daily trends, older monthly history, top posts, referring domains, AI referrals, and named crawler activity.
         </p>
-        <Button asChild className="mt-6"><a href="/dashboard/settings#plan">View plan</a></Button>
+        <Button asChild className="mt-6">
+                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
+            View plan
+          </Link>
+        </Button>
       </div>
     </Panel>
   )

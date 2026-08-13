@@ -53,6 +53,14 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    "Free plan" (was false-urgency "Subscribe to publish"). MCP instructions
    ("one calm blog") and dashboard empty states were already in-voice —
    untouched.
+5. **Dashboard operating polish** — DEPLOYED TO DEVELOPMENT. The shared shell
+   now uses the 1200px operating canvas, a compact terminal breadcrumb, and a
+   clearer active navigation marker. Shared blocks distinguish bounded
+   interactive surfaces from flat work surfaces; metric groups and data rows
+   read as continuous ruled systems instead of repeated cards. Page kickers
+   were removed, page-title hierarchy was strengthened, and Overview, Posts,
+   Media, Connect, Activity, Analytics, Billing, Settings, and the editor rail
+   were aligned to the same density and responsive rhythm.
 
 ## Invariants
 

@@ -161,7 +161,7 @@ function EditorStateStrip({
     )
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[color:var(--hairline)] bg-background px-4 py-2.5">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-foreground/[0.065] bg-card px-4 py-2.5">
       {/* Quiet metadata — version + last saved read as one cluster, never compete */}
       <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
         <span className="tabular-nums">v{currentVersionNumber ?? '—'}</span>
@@ -197,6 +197,7 @@ function EditorStateStrip({
           <PendingSubmitButton
             type="button"
             size="sm"
+            className="lg:hidden"
             pending={publishPending}
             pendingText="Publishing…"
             onClick={onPublish}
@@ -334,9 +335,11 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
   const [versions, setVersions] = useState<PostVersionSummary[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionsError, setVersionsError] = useState<string | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewingVersion, setViewingVersion] = useState<PostVersion | null>(null)
   const [viewingVersionLoading, setViewingVersionLoading] = useState(false)
+  const [viewingVersionError, setViewingVersionError] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [restoreVersionPending, setRestoreVersionPending] = useState<number | null>(null)
   const [presetId, setPresetId] = useState<string>('minimal')
@@ -539,9 +542,12 @@ function PostEditorShell({ postId }: { postId?: string }) {
     if (!open || !postId) return
     setVersionsLoading(true)
     setVersions([])
+    setVersionsError(null)
     try {
       const result = await listPostVersionsFn({ postId })
       setVersions(result)
+    } catch {
+      setVersionsError('Could not load version history. Try again.')
     } finally {
       setVersionsLoading(false)
     }
@@ -551,13 +557,14 @@ function PostEditorShell({ postId }: { postId?: string }) {
     if (!postId) return
     setViewDialogOpen(true)
     setViewingVersion(null)
+    setViewingVersionError(null)
     setShowDiff(false)
     setViewingVersionLoading(true)
     try {
       const v = await getPostVersionFn({ postId, versionNumber })
       setViewingVersion(v)
     } catch {
-      setViewDialogOpen(false)
+      setViewingVersionError('Could not load this version. Close the dialog and try again.')
     } finally {
       setViewingVersionLoading(false)
     }
@@ -665,7 +672,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
   return (
     <>
       <PageHeader
-        kicker={post ? undefined : 'New post'}
         title={post ? 'Edit post' : 'Create post'}
         description="Write in Markdown, then check the exact public page in Preview before you publish."
         action={
@@ -705,13 +711,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <form
           key={formKey}
           ref={formRef}
-          className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
           {isNarrow ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--hairline)] p-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-foreground/[0.065] bg-card p-2">
               <Tabs
                 value={mobileTab}
                 onValueChange={(value) => setMobileTab(value as typeof mobileTab)}
@@ -744,7 +750,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             />
             <div className="mt-1 mb-6 flex items-center gap-2">
               <span className="max-w-full truncate font-mono text-xs text-muted-foreground">
-                {post ? `v${currentVersionNumber ?? '—'} · ` : null}
+                {post ? `v${currentVersionNumber ?? '?'} · ` : null}
                 {publicBaseUrl && currentSlug ? `${publicBaseUrl.replace('https://', '')}/${currentSlug}` : 'slug will generate from title'}
               </span>
             </div>
@@ -762,114 +768,156 @@ function PostEditorShell({ postId }: { postId?: string }) {
           </div>
 
           {/* Rail — settings, actions, versions */}
-          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-6'}>
-            {/* Slug override */}
-            <RailSection title="Slug" defaultOpen={!post}>
-              <Field>
-                <Input
-                  id="post-slug"
-                  className="font-mono text-sm"
-                  name="slug"
-                  required
-                  maxLength={120}
-                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                  defaultValue={post?.slug ?? ''}
-                  placeholder="auto-generated-from-title"
-                  onInput={(e) => setCurrentSlug(e.currentTarget.value)}
-                />
-                <FieldDescription className="font-sans">
-                  Lowercase letters, numbers, and hyphens. Auto-generated from the title.
-                </FieldDescription>
-              </Field>
+          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-20'}>
+            <div className="px-1 pb-1">
+              <p className="font-sans text-sm font-semibold text-foreground">Post settings</p>
+              <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
+                Details, presentation, search metadata, and history.
+              </p>
+            </div>
+            <RailSection title="Post details" defaultOpen>
+              <div className="grid gap-4">
+                <Field>
+                  <FieldLabel htmlFor="post-slug" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Slug
+                  </FieldLabel>
+                  <Input
+                    id="post-slug"
+                    className="font-mono text-sm"
+                    name="slug"
+                    required
+                    maxLength={120}
+                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                    defaultValue={post?.slug ?? ''}
+                    placeholder="auto-generated-from-title"
+                    onInput={(e) => setCurrentSlug(e.currentTarget.value)}
+                  />
+                  <FieldDescription className="font-sans">
+                    Lowercase letters, numbers, and hyphens.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="post-excerpt" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Excerpt
+                  </FieldLabel>
+                  <Textarea
+                    id="post-excerpt"
+                    name="excerpt"
+                    maxLength={500}
+                    rows={3}
+                    defaultValue={post?.excerpt ?? ''}
+                    placeholder="First paragraph of the post will be used if left empty."
+                  />
+                  <div className="flex justify-end">
+                    <CharCounter targetId="post-excerpt" max={500} />
+                  </div>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="post-tags" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Tags
+                  </FieldLabel>
+                  <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
+                </Field>
+              </div>
             </RailSection>
 
-            {/* Excerpt */}
-            <RailSection title="Excerpt" defaultOpen>
-              <Field>
-                <Textarea
-                  id="post-excerpt"
-                  name="excerpt"
-                  maxLength={500}
-                  rows={3}
-                  defaultValue={post?.excerpt ?? ''}
-                  placeholder="First paragraph of the post will be used if left empty."
-                />
-                <div className="flex justify-end">
-                  <CharCounter targetId="post-excerpt" max={500} />
-                </div>
-              </Field>
-            </RailSection>
-
-            {/* Tags */}
-            <RailSection title="Tags" defaultOpen>
-              <Field>
-                <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
-              </Field>
-            </RailSection>
-
-            {/* Featured image */}
-            <RailSection title="Featured image">
-              <Field>
-                <Select
-                  id="post-cover"
-                  name="coverAssetId"
-                  value={selectedCoverAssetId}
-                  onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
-                >
-                  <option value="">No featured image</option>
-                  {assets.map((asset) => (
-                    <option key={asset.id} value={asset.id}>{asset.filename}</option>
-                  ))}
-                </Select>
-                {selectedCoverAsset ? (
-                  <div className="flex min-w-0 items-center gap-3 pt-2">
-                    <img
-                      src={`/media-assets/${selectedCoverAsset.id}`}
-                      alt=""
-                      className="h-16 w-24 shrink-0 rounded-md object-cover"
-                    />
-                    <div className="min-w-0 text-sm">
-                      <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
-                      {!selectedCoverAsset.altText ? (
-                        <p className="text-destructive text-xs">
-                          Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link>
-                        </p>
-                      ) : null}
+            <RailSection title="Presentation">
+              <div className="grid gap-5">
+                <Field>
+                  <FieldLabel htmlFor="post-cover" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Featured image
+                  </FieldLabel>
+                  <Select
+                    id="post-cover"
+                    name="coverAssetId"
+                    value={selectedCoverAssetId}
+                    onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
+                  >
+                    <option value="">No featured image</option>
+                    {assets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>{asset.filename}</option>
+                    ))}
+                  </Select>
+                  {selectedCoverAsset ? (
+                    <div className="flex min-w-0 items-center gap-3 pt-2">
+                      <img
+                        src={`/media-assets/${selectedCoverAsset.id}`}
+                        alt=""
+                        className="h-16 w-24 shrink-0 rounded-md object-cover"
+                      />
+                      <div className="min-w-0 text-sm">
+                        <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
+                        {!selectedCoverAsset.altText ? (
+                          <p className="text-destructive text-xs">
+                            Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link>
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
+                  <details className="mt-2 rounded-lg bg-muted/50 p-3">
+                    <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
+                      Upload new
+                    </summary>
+                    <div className="grid gap-3 pt-3">
+                      <Input
+                        ref={coverFileInputRef}
+                        type="file"
+                        accept={MEDIA.mimeTypes.join(',')}
+                      />
+                      <Input
+                        ref={coverAltInputRef}
+                        maxLength={180}
+                        placeholder="Alt text"
+                      />
+                      {coverUploadError ? (
+                        <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit"
+                        disabled={coverUploadPending}
+                        onClick={() => void handleCoverUpload()}
+                      >
+                        <UploadIcon className="size-4" aria-hidden="true" />
+                        {coverUploadPending ? 'Uploading…' : 'Upload'}
+                      </Button>
+                    </div>
+                  </details>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="post-layout" className="font-mono text-[11px] font-medium text-muted-foreground">
+                    Article layout
+                  </FieldLabel>
+                  <Select
+                    id="post-layout"
+                    value={selectedLayout}
+                    onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
+                  >
+                    {capability.supportedLayouts.map((l) => (
+                      <option key={l} value={l}>
+                        {l.charAt(0).toUpperCase() + l.slice(1)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {capability.supportsToc ? (
+                  <Field>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="post-toc"
+                        checked={selectedToc}
+                        onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
+                      />
+                      <FieldLabel htmlFor="post-toc" className="font-mono text-[11px] font-medium text-muted-foreground">
+                        Table of contents
+                      </FieldLabel>
+                    </div>
+                  </Field>
                 ) : null}
-                <details className="mt-2 rounded-lg bg-muted/50 p-3">
-                  <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
-                    Upload new
-                  </summary>
-                  <div className="grid gap-3 pt-3">
-                    <Input
-                      ref={coverFileInputRef}
-                      type="file"
-                      accept={MEDIA.mimeTypes.join(',')}
-                    />
-                    <Input
-                      ref={coverAltInputRef}
-                      maxLength={180}
-                      placeholder="Alt text"
-                    />
-                    {coverUploadError ? (
-                      <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-fit"
-                      disabled={coverUploadPending}
-                      onClick={() => void handleCoverUpload()}
-                    >
-                      <UploadIcon className="size-4" aria-hidden="true" />
-                      {coverUploadPending ? 'Uploading…' : 'Upload'}
-                    </Button>
-                  </div>
-                </details>
-              </Field>
+              </div>
             </RailSection>
 
             {/* SEO — shows inherited values by default */}
@@ -905,42 +953,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </div>
             </RailSection>
 
-            {/* Layout */}
-            <RailSection title="Layout">
-              <div className="grid gap-4">
-                <Field>
-                  <FieldLabel htmlFor="post-layout" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Article layout
-                  </FieldLabel>
-                  <Select
-                    id="post-layout"
-                    value={selectedLayout}
-                    onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
-                  >
-                    {capability.supportedLayouts.map((l) => (
-                      <option key={l} value={l}>
-                        {l.charAt(0).toUpperCase() + l.slice(1)}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {capability.supportsToc ? (
-                  <Field>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        id="post-toc"
-                        checked={selectedToc}
-                        onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
-                      />
-                      <FieldLabel htmlFor="post-toc" className="font-mono text-[11px] font-medium text-muted-foreground">
-                        Table of contents
-                      </FieldLabel>
-                    </div>
-                  </Field>
-                ) : null}
-              </div>
-            </RailSection>
-
             {/* Versions + Archive */}
             {postId ? (
               <RailSection title="History">
@@ -973,6 +985,19 @@ function PostEditorShell({ postId }: { postId?: string }) {
                           <div className="grid gap-3 p-4">
                             <Skeleton className="h-16 rounded-lg" />
                             <Skeleton className="h-16 rounded-lg" />
+                          </div>
+                        ) : versionsError ? (
+                          <div className="grid gap-3 p-4">
+                            <p className="text-sm text-destructive" role="alert">{versionsError}</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-fit"
+                              onClick={() => void handleVersionDrawerOpenChange(true)}
+                            >
+                              Retry
+                            </Button>
                           </div>
                         ) : versions.length === 0 ? (
                           <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
@@ -1051,14 +1076,20 @@ function PostEditorShell({ postId }: { postId?: string }) {
             ) : null}
 
             {/* Sticky save/publish */}
-            <div className="grid gap-2 lg:sticky lg:bottom-6">
-              <PendingSubmitButton pending={savePending} pendingText="Saving…">
+            <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2 lg:sticky lg:bottom-6">
+              <PendingSubmitButton
+                variant="outline"
+                className="min-w-0 flex-1"
+                pending={savePending}
+                pendingText="Saving…"
+              >
                 Save draft
               </PendingSubmitButton>
               {postId && shouldShowPublishAction(post, currentVersionNumber) ? (
                 <Button
                   type="button"
                   variant="default"
+                  className="hidden min-w-0 flex-1 lg:inline-flex"
                   disabled={publishPending}
                   onClick={() => void handlePublish()}
                 >
@@ -1106,6 +1137,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 <Skeleton className="h-4 w-1/2" />
                 <Skeleton className="h-40" />
               </div>
+            ) : viewingVersionError ? (
+              <p className="py-4 text-sm text-destructive" role="alert">{viewingVersionError}</p>
             ) : viewingVersion ? (
               <div className="grid gap-4 py-2">
                 <div className="flex flex-wrap items-center gap-2">

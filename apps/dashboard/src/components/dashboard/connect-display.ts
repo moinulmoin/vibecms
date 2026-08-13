@@ -13,21 +13,21 @@ export function shouldClearMissingActivationKey(hasMatchingFreshToken: boolean, 
  *
  * A newly revealed token is local evidence while D1 catches up. During that narrow
  * period an empty active-token list can make a new token look absent or revoked, so
- * keep the connection in `waiting`. When the server resolves the exact selected key,
- * a revoked state remains actionable across reloads even when no active key remains.
- * Without exact selection, a latest historical revocation with no active tokens is
- * stale context, so present the calm `no_token` state.
+ * keep the connection in `waiting`. Once the active-token list is authoritatively
+ * empty and there is no fresh reveal, any historical revocation is stale context,
+ * including an old selected key left in session storage. Present the calm
+ * `no_token` state instead.
  */
 export function resolveDisplayConnection(
   serverConnection: DisplayConnection | undefined,
   hasFreshToken: boolean,
   stickyConnected: boolean,
-  activeTokenCount: number,
+  activeTokenCount: number | null,
   selectedKeyWasRevoked = false,
 ): DisplayConnection {
+  if (activeTokenCount === 0 && !hasFreshToken) return 'no_token'
   if (serverConnection === 'revoked') {
     if (hasFreshToken && !selectedKeyWasRevoked) return 'waiting'
-    if (activeTokenCount === 0 && !selectedKeyWasRevoked) return 'no_token'
     return 'revoked'
   }
   if (hasFreshToken && activeTokenCount === 0 && serverConnection === 'no_token') return 'waiting'

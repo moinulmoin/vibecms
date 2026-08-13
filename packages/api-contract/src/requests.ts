@@ -4,6 +4,7 @@ import {
   DEFAULT_POST_LIST_LIMIT,
   MAX_POST_LIST_LIMIT,
   allowedImageMimeTypes,
+  isReservedPostSlug,
   postStatus,
 } from "@vc/validators";
 
@@ -11,7 +12,8 @@ const slug = z
   .string()
   .min(1)
   .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens");
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens")
+  .refine((value) => !isReservedPostSlug(value), { message: "That slug is reserved." });
 
 const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);

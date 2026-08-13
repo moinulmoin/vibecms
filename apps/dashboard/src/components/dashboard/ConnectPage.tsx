@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
 import {
+  Alert,
   Badge,
   CopyButton,
   Field,
@@ -249,7 +250,7 @@ export function ConnectPage() {
   const [connectLoadFailed, setConnectLoadFailed] = useState(false)
   const [statusLoadFailed, setStatusLoadFailed] = useState(false)
   const tokenRevealRef = useRef<HTMLDivElement>(null)
-  const activeTokenCountRef = useRef(0)
+  const activeTokenCountRef = useRef<number | null>(null)
   const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
 
   const waitingStartedAtRef = useRef<number | null>(null)
@@ -274,6 +275,21 @@ export function ConnectPage() {
     setFlash(consumeTokenFlash())
     void refreshTokens()
   }, [])
+
+  // A selected activation key is only useful while that token still exists or
+  // while its one-time reveal is fresh. Once the authoritative token list is
+  // empty, discard historical revocation context instead of carrying an error
+  // card into the normal "create a token" state.
+  useEffect(() => {
+    if (
+      connectData &&
+      connectData.apiKeys.length === 0 &&
+      flash === null &&
+      status?.connection === 'revoked'
+    ) {
+      clearActivationKeyId()
+    }
+  }, [connectData, flash, status?.connection])
 
   // Creation is a security-sensitive moment. Bring the one-time reveal into view and
   // move focus to its labeled region without stealing focus during ordinary status polls.
@@ -462,7 +478,6 @@ export function ConnectPage() {
   const loading = !connectData && !status
   const showInitialError = loading && connectLoadFailed && statusLoadFailed
 
-  const pageKicker = live ? 'Complete' : 'Activation'
   const pageTitle = live
     ? 'Your first post is live'
     : draft
@@ -498,8 +513,22 @@ export function ConnectPage() {
         <LoadError message="Could not load connect status. Check your connection and try again." />
       ) : (
         <>
+          {connectLoadFailed ? (
+            <Alert variant="error" title="API tokens could not be loaded.">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <span>Your connection status is still available, but token management may be incomplete.</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void refreshTokens()}>
+                  Retry tokens
+                </Button>
+              </div>
+            </Alert>
+          ) : null}
+          {statusLoadFailed ? (
+            <Alert variant="warning" title="Agent status is temporarily unavailable.">
+              Token management still works. Connection detection will retry automatically.
+            </Alert>
+          ) : null}
           <PageHeader
-            kicker={effectiveTab === 'tokens' ? 'Access' : pageKicker}
             title={effectiveTab === 'tokens' ? 'API tokens' : pageTitle}
             description={
               effectiveTab === 'tokens'
@@ -559,7 +588,7 @@ export function ConnectPage() {
                             : 'The publish is recorded. The public link will appear when the default domain is active.'}
                         </p>
                         {livePost?.url && (
-                          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[color:var(--hairline)] px-3 py-2.5">
+                          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 px-3 py-2.5">
                             <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
                               {livePost.url}
                             </span>
@@ -651,7 +680,7 @@ export function ConnectPage() {
                       <p className="font-sans text-sm leading-6 text-muted-foreground">
                         Your agent saved a draft. Review it, then approve publishing when you are ready.
                       </p>
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--hairline)] px-3 py-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2.5">
                         <div className="min-w-0">
                           <strong className="truncate font-display font-semibold text-foreground">
                             <Link
@@ -702,7 +731,7 @@ export function ConnectPage() {
                             <label
                               key={preset.id}
                               htmlFor={`preset-${preset.id}`}
-                              className="flex cursor-pointer items-start gap-3 rounded-xl bg-background/60 p-3 transition-colors hover:bg-background has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/40"
+                              className="flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:bg-brand-bright/[0.045] has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/50"
                             >
                               <RadioGroupItem id={`preset-${preset.id}`} value={preset.id} className="mt-0.5" />
                               <span>

@@ -8,6 +8,11 @@ vi.mock('~/lib/api-client', () => ({
 import { selectedFileFeedback } from './MediaPage'
 
 describe('MediaPage file selection feedback', () => {
+  it('stays empty until a user selects or drops an image', () => {
+    expect(selectedFileFeedback(null)).toBeNull()
+    expect(selectedFileFeedback([])).toBeNull()
+  })
+
   it('confirms the selected image name', () => {
     expect(selectedFileFeedback([{ name: 'cover-image.png' }])).toBe('Selected: cover-image.png')
   })

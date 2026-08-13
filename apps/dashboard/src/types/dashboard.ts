@@ -273,7 +273,7 @@ export type BillingMutationResult = { kind: 'ok'; url: string } | { kind: 'error
 
 export type VoiceProfileMutationResult =
   | { kind: 'ok'; code: 'voice_profile_saved' | 'voice_profile_cleared' }
-  | { kind: 'error'; code: 'voice_profile_invalid' }
+  | { kind: 'error'; code: 'voice_profile_invalid' | 'owner_required' }
 
 export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; code: string }
 export type RemoveCustomDomainResult = { ok: true } | { ok: false; code: string }

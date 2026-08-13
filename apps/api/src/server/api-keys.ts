@@ -119,7 +119,7 @@ export async function createApiKeyForApp(
     const name = input.name.trim().slice(0, 80) || 'API token'
     const actorName = input.actorName.trim().slice(0, 80) || name
     const scopes = AGENT_TOKEN_PRESETS[input.preset]
-    await insertApiKeyWithActivity(
+    const changes = await insertApiKeyWithActivity(
       {
         id,
         siteId: app.siteId,
@@ -133,7 +133,9 @@ export async function createApiKeyForApp(
       },
       app.actor,
       crypto.randomUUID(),
+      API_TOKENS_MAX,
     )
+    if (!changes) return { kind: 'error', code: 'token_limit' }
     return { kind: 'ok', code: 'token_created', token, name, id, createdAt: timestamp }
   } catch (error) {
     if (error instanceof ForbiddenError) return { kind: 'error', code: 'owner_required' }
@@ -173,7 +175,7 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
     .trim()
     .slice(0, 80) || name
   const scopes = parseScopes(form)
-  await insertApiKeyWithActivity(
+  const changes = await insertApiKeyWithActivity(
     {
       id,
       siteId: app.siteId,
@@ -187,7 +189,9 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
     },
     app.actor,
     crypto.randomUUID(),
+    API_TOKENS_MAX,
   )
+  if (!changes) throw new ConflictError('Token limit reached')
   return { token, id, name, scopes }
 }
 

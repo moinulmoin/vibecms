@@ -57,8 +57,8 @@ const ACTOR_CATEGORY_LABEL: Record<ActorCategory, string> = {
 }
 
 const ACTOR_DOT: Record<ActorCategory, string> = {
-  you: 'bg-emerald-500',
-  agent: 'bg-amber-500',
+  you: 'bg-foreground',
+  agent: 'bg-muted-foreground',
   system: 'bg-muted-foreground/60',
 }
 
@@ -147,7 +147,6 @@ export function ActivityPage() {
   return (
     <>
       <PageHeader
-        kicker="Audit trail"
         title="Activity"
         description="Every meaningful action from you or an agent, with enough context to debug and trust the system."
       />
@@ -221,7 +220,7 @@ export function ActivityPage() {
             </Table>
 
             {/* Mobile: timeline-style rows, no date grouping. */}
-            <div className="grid gap-2 md:hidden">
+            <div className="grid gap-0 md:hidden">
               {filteredEvents.map((event) => (
                 <ListRow
                   key={`${event.action}-${event.created_at}-${event.summary}`}

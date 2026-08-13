@@ -51,7 +51,7 @@ export function OnboardingFrame({
   title?: string
 }) {
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
+    <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
       <header className="mb-10 flex flex-col gap-7">
         <div className="flex items-center justify-between gap-3">
           <Link
@@ -68,6 +68,6 @@ export function OnboardingFrame({
         </h1>
       </header>
       {children}
-    </div>
+    </main>
   )
 }

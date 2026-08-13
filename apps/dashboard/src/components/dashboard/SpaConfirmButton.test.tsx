@@ -56,6 +56,8 @@ describe('SpaConfirmButton two-step interaction', () => {
     )
 
     expect(button().textContent).toBe('Revoke token')
+    expect(button().className).toContain('bg-background')
+    expect(button().className).not.toContain('bg-destructive')
     expect(helper()).toBeNull()
 
     click(button())
@@ -63,6 +65,7 @@ describe('SpaConfirmButton two-step interaction', () => {
     // First click only arms: relabels, shows helper, does not invoke.
     expect(onConfirm).not.toHaveBeenCalled()
     expect(button().textContent).toBe('Confirm revoke')
+    expect(button().className).toContain('bg-destructive')
     expect(helper()).not.toBeNull()
     expect(helper()!.textContent).toBe('Revoking blocks this token immediately.')
     unmount()

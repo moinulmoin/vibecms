@@ -1,7 +1,7 @@
 'use client'
 
 import { BRAND } from '@vc/config'
-import { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from '@vc/ui'
+import { Alert, Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from '@vc/ui'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError, Panel } from '~/components/dashboard/DashboardLayout'
@@ -16,6 +16,7 @@ export function SetupPage() {
   const router = useRouter()
   const [site, setSite] = useState<{ name: string; slug: string; description: string } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Controlled values for the three prefillable fields
@@ -90,6 +91,7 @@ export function SetupPage() {
     const name = String(form.get('name') ?? '')
     const slug = String(form.get('slug') ?? '')
     const description = String(form.get('description') ?? '')
+    setSubmitError(null)
     setSubmitting(true)
     try {
       const result = await completeSetupMutation({ name, slug, description: description || undefined })
@@ -99,6 +101,8 @@ export function SetupPage() {
       } else {
         await navigate({ to: '/dashboard/setup', search: dashboardStatusSearch({ error: result.code }) })
       }
+    } catch {
+      setSubmitError('Could not save your blog setup. Check your connection and try again.')
     } finally {
       setSubmitting(false)
     }
@@ -119,6 +123,11 @@ export function SetupPage() {
           <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
             Only the essentials. Everything here can be changed later.
           </p>
+          {submitError ? (
+            <Alert variant="error" className="mb-4">
+              {submitError}
+            </Alert>
+          ) : null}
           <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
             <FieldGroup className="gap-4">
               <Field>
@@ -182,7 +191,7 @@ export function SetupPage() {
                 />
               </Field>
             </FieldGroup>
-            <div className="flex flex-col gap-4 rounded-xl border border-[color:var(--hairline)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-xl bg-muted/35 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-mono text-[11px] leading-5 text-muted-foreground">
                 Draft for free and publish your first 5 posts to try it live. Subscribe to publish more and upload media.
               </p>

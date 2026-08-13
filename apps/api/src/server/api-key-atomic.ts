@@ -17,11 +17,16 @@ export async function insertApiKeyWithActivity(
   input: ApiKeyInsertBatch,
   actor: Actor,
   activityId: string,
-): Promise<void> {
-  await env.DB.batch([
+  maxActive: number,
+): Promise<number> {
+  const results = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+       WHERE (
+         SELECT COUNT(*) FROM api_keys
+         WHERE site_id = ? AND revoked_at IS NULL
+       ) < ?`,
     ).bind(
       input.id,
       input.siteId,
@@ -33,12 +38,27 @@ export async function insertApiKeyWithActivity(
       input.createdByUserId,
       input.timestamp,
       input.timestamp,
+      input.siteId,
+      maxActive,
     ),
     env.DB.prepare(
       `INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, before_json, after_json, created_at)
-       VALUES (?, ?, ?, ?, ?, 'api_key.created', 'api_key', ?, ?, NULL, NULL, ?)`,
-    ).bind(activityId, input.siteId, actor.type, actor.id, actor.name, input.id, `Created API key ${input.name}`, input.timestamp),
+       SELECT ?, ?, ?, ?, ?, 'api_key.created', 'api_key', ?, ?, NULL, NULL, ?
+       WHERE EXISTS (SELECT 1 FROM api_keys WHERE id = ? AND site_id = ?)`,
+    ).bind(
+      activityId,
+      input.siteId,
+      actor.type,
+      actor.id,
+      actor.name,
+      input.id,
+      `Created API key ${input.name}`,
+      input.timestamp,
+      input.id,
+      input.siteId,
+    ),
   ])
+  return results[0]?.meta.changes ?? 0
 }
 
 export async function revokeApiKeyWithActivity(

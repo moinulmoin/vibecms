@@ -26,6 +26,7 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
   },
   head: () => ({
     meta: [
+      { title: 'vibecms' },
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
     ],

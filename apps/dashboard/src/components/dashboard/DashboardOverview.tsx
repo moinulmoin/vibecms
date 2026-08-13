@@ -40,7 +40,7 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge, Card, CopyButton, Skeleton } from "@vc/ui"
+import { Badge, CopyButton, Skeleton } from "@vc/ui"
 import { MetricStrip, StatCardGrid, StatusBadge } from '~/components/dashboard/blocks'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
@@ -69,6 +69,7 @@ function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   return (
     <Panel title="API and MCP usage">
       <MetricStrip
+        variant="inset"
         metrics={[
           {
             label: 'Calls this month',
@@ -163,37 +164,34 @@ export function DashboardOverview() {
         }
       />
 
-      <Card className="gap-0 p-5 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 space-y-2">
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              Blog status
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {isLive ? (
-                <StatusBadge status="live" />
-              ) : (
-                <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
-              )}
-              {showBillingBadge ? <Badge variant="secondary">{billingBadgeLabel}</Badge> : null}
-            </div>
+      <Panel
+        title="Blog status"
+        meta={
+          <div className="flex flex-wrap items-center gap-2">
+            {isLive ? (
+              <StatusBadge status="live" />
+            ) : (
+              <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
+            )}
+            {showBillingBadge ? <Badge variant="secondary">{billingBadgeLabel}</Badge> : null}
           </div>
-          {data.publicUrl ? (
-            <a
-              className="break-all font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
-              href={data.publicUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {data.publicUrl}
-            </a>
-          ) : (
-            <p className="font-sans text-base leading-7 text-muted-foreground">
-              Public blog URL appears once a deployable default domain is active.
-            </p>
-          )}
-        </div>
-      </Card>
+        }
+      >
+        {data.publicUrl ? (
+          <a
+            className="break-all font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
+            href={data.publicUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {data.publicUrl}
+          </a>
+        ) : (
+          <p className="max-w-xl font-sans text-base leading-7 text-muted-foreground">
+            Public blog URL appears once a deployable default domain is active.
+          </p>
+        )}
+      </Panel>
 
       {data.recentDrafts.length > 0 ? (
         <Panel
@@ -206,7 +204,7 @@ export function DashboardOverview() {
             </Button>
           }
         >
-          <div className="grid gap-2">
+          <div className="grid gap-0">
             {data.recentDrafts.map((post) => (
               <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                 <strong className="truncate font-display font-semibold text-foreground">
@@ -231,12 +229,9 @@ export function DashboardOverview() {
       ) : null}
 
       {data.activationPost && (
-        <Card className="gap-0 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Panel title="Latest agent publish">
+          <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1.5">
-              <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                Latest agent publish
-              </p>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">
                   {data.activationPost.title}
@@ -270,7 +265,7 @@ export function DashboardOverview() {
               <p className="font-sans text-sm text-muted-foreground">Public URL pending</p>
             )}
           </div>
-        </Card>
+        </Panel>
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -283,7 +278,7 @@ export function DashboardOverview() {
           }
         >
           {data.recentActivity.length ? (
-            <div className="grid gap-2">
+            <div className="grid gap-0">
               {data.recentActivity.map((event) => (
                 <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
                   <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
@@ -316,7 +311,7 @@ export function DashboardOverview() {
           }
         >
           {data.recentPosts.length ? (
-            <div className="grid gap-2">
+            <div className="grid gap-0">
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                   <strong className="truncate font-display font-semibold text-foreground">
@@ -369,21 +364,21 @@ export function DashboardOverview() {
         <Link
           to="/dashboard/posts"
           search={postsListSearch({ status: 'published' })}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
         </Link>
         <Link
           to="/dashboard/posts"
           search={postsListSearch({ status: 'draft' })}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
         </Link>
         <Link
           to="/dashboard/media"
           search={emptyDashboardStatusSearch}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <StatCard
             label="Media used"
@@ -395,7 +390,7 @@ export function DashboardOverview() {
         <Link
           to="/dashboard/connect"
           search={emptyDashboardStatusSearch}
-          className="rounded-2xl no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
         </Link>

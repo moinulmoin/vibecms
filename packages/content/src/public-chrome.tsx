@@ -67,8 +67,20 @@ export function SubscribeBlock({ siteSlug, variant }: { siteSlug?: string; varia
         </button>
       </div>
       <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
-      <p className={subscribeStyles.errorMsg} hidden data-subscribe-error />
-      <p className={subscribeStyles.successMsg} hidden data-subscribe-success>
+      <p
+        className={subscribeStyles.errorMsg}
+        role="alert"
+        aria-live="assertive"
+        hidden
+        data-subscribe-error
+      />
+      <p
+        className={subscribeStyles.successMsg}
+        role="status"
+        aria-live="polite"
+        hidden
+        data-subscribe-success
+      >
         {SUBSCRIBE_SUCCESS}
       </p>
     </form>
@@ -81,6 +93,8 @@ export interface PublicPageChromeProps {
   homeHref: string;
   /** When set, renders the article-page "All posts" masthead nav. */
   allPostsHref?: string;
+  /** Index pages render the site name as the page's visible h1. */
+  homeHeading?: boolean;
   /** Raw site theme id; resolved through resolvePresetId. */
   presetId: string;
   /** Per-site accent/font/mode; omitted values fall back to preset defaults. */
@@ -100,6 +114,7 @@ export function PublicPageChrome({
   tagline,
   homeHref,
   allPostsHref,
+  homeHeading = false,
   presetId,
   theme,
   article = false,
@@ -125,9 +140,17 @@ export function PublicPageChrome({
       <div className={styles.container}>
         {robotsNoindex ? <meta name="robots" content="noindex,nofollow" /> : null}
         <header className={styles.header}>
-          <a href={homeHref} className={styles.brand}>
-            {siteName}
-          </a>
+          {homeHeading ? (
+            <h1 className={styles.brandHeading}>
+              <a href={homeHref} className={styles.brand}>
+                {siteName}
+              </a>
+            </h1>
+          ) : (
+            <a href={homeHref} className={styles.brand}>
+              {siteName}
+            </a>
+          )}
           {tagline ? <p className={styles.tagline}>{tagline}</p> : null}
           {allPostsHref ? (
             <nav className={styles.mastheadNav} aria-label="Posts">

@@ -21,6 +21,10 @@ function now() {
   return Math.floor(Date.now() / 1000)
 }
 
+export function canManageSiteSettings(app: AppUserContext) {
+  return app.actor.type === 'human' && app.actor.role === 'owner'
+}
+
 function slugify(input: string) {
   const slug = input.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 42)
   return slug || 'site'
@@ -121,6 +125,7 @@ export async function completeSiteSetupForApp(
   app: AppUserContext,
   payload: CompleteSiteSetupPayload,
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
   const timestamp = now()
   const name = payload.name.trim().slice(0, 80) || 'My Blog'
   const slug = slugify(payload.slug || name).slice(0, 42)
@@ -157,6 +162,7 @@ export async function updateSiteSettingsForApp(
   app: AppUserContext,
   payload: SiteSettingsPayload,
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
   const timestamp = now()
   const name = payload.name.trim().slice(0, 80) || 'My Blog'
   const description = payload.description?.trim() ? payload.description.trim().slice(0, 220) : null

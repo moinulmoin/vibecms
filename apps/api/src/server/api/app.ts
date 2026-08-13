@@ -96,6 +96,21 @@ function statusForAppError(error: AppError) {
   }
 }
 
+function publicAppErrorCode(error: AppError) {
+  if (error.status === 400) return "VALIDATION_ERROR";
+  return [
+    "UNAUTHORIZED",
+    "FORBIDDEN",
+    "BILLING_REQUIRED",
+    "NOT_FOUND",
+    "CONFLICT",
+    "RATE_LIMIT",
+    "VALIDATION_ERROR",
+  ].includes(error.code)
+    ? error.code
+    : "INTERNAL_ERROR";
+}
+
 function isPublicApiDocPath(path: string) {
   return (
     path === "/api/v1/openapi.json" ||
@@ -270,18 +285,9 @@ apiV1App.onError((err, c) => {
   }
   if (err instanceof AppError) {
     const status = statusForAppError(err);
-    const code = [
-      "UNAUTHORIZED",
-      "FORBIDDEN",
-      "BILLING_REQUIRED",
-      "NOT_FOUND",
-      "CONFLICT",
-      "RATE_LIMIT",
-      "VALIDATION_ERROR",
-    ].includes(err.code)
-      ? err.code
-      : "INTERNAL_ERROR";
-    return c.json(errorEnvelope(code, err.message), status as 401);
+    const code = publicAppErrorCode(err);
+    const message = code === "INTERNAL_ERROR" ? "Request failed" : err.message;
+    return c.json(errorEnvelope(code, message), status as 401);
   }
   const zodMessage = zodValidationMessage(err);
   if (zodMessage) {

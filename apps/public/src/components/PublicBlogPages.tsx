@@ -37,11 +37,13 @@ export function PublicShell({
   site,
   basePath,
   indexable,
+  homeHeading = false,
   children,
 }: {
   site: PublicIndexLoaderData["site"];
   basePath: string;
   indexable: boolean;
+  homeHeading?: boolean;
   children: React.ReactNode;
 }) {
   const homeHref = publicIndexHref(basePath);
@@ -51,6 +53,7 @@ export function PublicShell({
       siteName={site.name}
       tagline={site.description}
       homeHref={homeHref}
+      homeHeading={homeHeading}
       presetId={site.theme}
       theme={{ accent: site.theme_accent, font: site.theme_font, mode: site.theme_mode }}
       robotsNoindex={!indexable}
@@ -73,7 +76,12 @@ export function PublicBlogIndexView({
   const indexHref = publicIndexHref(basePath);
 
   return (
-    <PublicShell site={site} basePath={basePath} indexable={indexable}>
+    <PublicShell
+      site={site}
+      basePath={basePath}
+      indexable={indexable}
+      homeHeading={listing.kind === "index"}
+    >
       <form method="get" action={indexHref} className={styles.searchForm} role="search">
         <label htmlFor="public-blog-search" className={styles.searchLabel}>
           Search posts
@@ -119,7 +127,7 @@ export function PublicBlogIndexView({
                   src={coverMedia?.src}
                   srcSet={coverMedia?.srcSet}
                   sizes="(max-width: 860px) calc(100vw - 32px), 860px"
-                  alt={`Cover image for ${post.title}`}
+                  alt={post.cover_asset_alt_text || `Cover image for ${post.title}`}
                   width={post.cover_asset_width ?? 860}
                   height={post.cover_asset_height ?? 484}
                   loading="lazy"

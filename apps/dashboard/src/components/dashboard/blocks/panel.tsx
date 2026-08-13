@@ -15,13 +15,13 @@ export function Panel({
   return (
     <section
       className={cn(
-        'flex flex-col gap-4 rounded-xl border border-[color:var(--hairline)] bg-card p-5 sm:p-6',
+        'flex flex-col gap-5 rounded-2xl border border-foreground/[0.065] bg-card p-5 sm:p-6',
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
-        {meta}
+      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-2">
+        <h2 className="font-display text-[1.05rem] font-semibold tracking-[-0.02em] text-foreground">{title}</h2>
+        {meta ? <div className="font-mono text-xs text-muted-foreground">{meta}</div> : null}
       </div>
       {children}
     </section>

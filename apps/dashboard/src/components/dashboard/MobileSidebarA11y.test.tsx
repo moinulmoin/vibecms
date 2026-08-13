@@ -77,6 +77,7 @@ describe('mobile dashboard sidebar accessibility isolation', () => {
 
     expect(document.querySelector('[data-mobile="true"]'), 'mobile sheet renders when open').not.toBeNull()
     expect(document.querySelector('[role="dialog"]'), 'dialog role is present').not.toBeNull()
+    expect(document.querySelector('[data-slot="sheet-close"]'), 'visible close control is present').not.toBeNull()
     // The background is inert: removed from the keyboard tab order and the a11y tree.
     expect(bg.closest('[inert]'), 'background is inert while the drawer is open').not.toBeNull()
 
