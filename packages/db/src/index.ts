@@ -16,3 +16,4 @@ export * from "./read-models/public-blog";
 export * from "./read-models/dashboard";
 export * from "./read-models/exports";
 export * from "./repositories/pending-media";
+export * from "./repositories/autoseopilot-managed-sites";

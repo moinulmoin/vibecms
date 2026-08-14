@@ -1,4 +1,5 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 const timestamps = {
   createdAt: integer("created_at").notNull(),
@@ -272,6 +273,48 @@ export const verification = sqliteTable("verification", {
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
+export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites", {
+  id: text("id").primaryKey(),
+  externalWorkspaceId: text("external_workspace_id").notNull(),
+  ownerUserId: text("owner_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "restrict" }),
+  credentialId: text("credential_id").notNull(),
+  credentialGeneration: integer("credential_generation").notNull(),
+  apiKeyId: text("api_key_id").notNull().references(() => apiKeys.id, { onDelete: "restrict" }),
+  entitlementStatus: text("entitlement_status", { enum: ["active", "revoked"] }).notNull(),
+  entitlementExpiresAt: integer("entitlement_expires_at"),
+  lifecycleRevision: integer("lifecycle_revision").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+  revokedAt: integer("revoked_at"),
+}, (table) => [
+  uniqueIndex("idx_autoseopilot_managed_external_workspace").on(table.externalWorkspaceId),
+  uniqueIndex("idx_autoseopilot_managed_workspace").on(table.workspaceId),
+  uniqueIndex("idx_autoseopilot_managed_site").on(table.siteId),
+  uniqueIndex("idx_autoseopilot_managed_api_key").on(table.apiKeyId),
+  uniqueIndex("idx_autoseopilot_managed_credential_generation").on(
+    table.credentialId,
+    table.credentialGeneration,
+  ),
+  index("idx_autoseopilot_managed_owner_user").on(table.ownerUserId),
+  check(
+    "ck_autoseopilot_managed_credential_generation_positive",
+    sql`${table.credentialGeneration} > 0`,
+  ),
+  check(
+    "ck_autoseopilot_managed_lifecycle_revision_positive",
+    sql`${table.lifecycleRevision} > 0`,
+  ),
+  check(
+    "ck_autoseopilot_managed_status_revoked_at",
+    sql`(
+      (${table.entitlementStatus} = 'active' AND ${table.revokedAt} IS NULL)
+      OR (${table.entitlementStatus} = 'revoked' AND ${table.revokedAt} IS NOT NULL)
+    )`,
+  ),
+]);
+
 export const pendingMediaOperations = sqliteTable("pending_media_operations", {
   id: text("id").primaryKey(),
   kind: text("kind", { enum: ["upload_cleanup", "delete"] }).notNull(),
@@ -341,3 +384,5 @@ export type PendingMediaOperationRow = typeof pendingMediaOperations.$inferSelec
 export type PendingMediaOperationInsert = typeof pendingMediaOperations.$inferInsert;
 export type SubscriberRow = typeof subscribers.$inferSelect;
 export type SubscriberInsert = typeof subscribers.$inferInsert;
+export type AutoseopilotManagedSiteRow = typeof autoseopilotManagedSites.$inferSelect;
+export type AutoseopilotManagedSiteInsert = typeof autoseopilotManagedSites.$inferInsert;
