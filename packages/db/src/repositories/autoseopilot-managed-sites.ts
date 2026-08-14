@@ -182,6 +182,7 @@ export interface ManagedFirstProvisionInput {
     slug: string;
     description?: string | null;
   };
+  siteSlugProvided?: boolean;
   defaultDomain: {
     id: string;
     hostname: string;
@@ -253,6 +254,11 @@ export interface ManagedRevokeInput {
 export interface ManagedMutationResult {
   applied: boolean;
   snapshot: ManagedSiteSnapshot | null;
+}
+
+export interface ManagedFirstProvisionResult {
+  created: boolean;
+  snapshot: ManagedSiteSnapshot;
 }
 
 type ManagedRawSnapshot = {
@@ -421,7 +427,7 @@ function replayError(
   if (existing.apiKeyHash !== input.apiKey.tokenHash) {
     return new Error("managed_credential_conflict");
   }
-  if (input.site.slug.trim() !== existing.siteSlug) {
+  if (input.siteSlugProvided !== false && input.site.slug.trim() !== existing.siteSlug) {
     return new Error("managed_site_slug_conflict");
   }
   return null;
@@ -495,6 +501,12 @@ export interface AutoseopilotManagedSitesRepository {
     options: ManagedEntitlementResolutionOptions,
   ): Promise<ManagedAnalyticsSite[]>;
   firstProvision(input: ManagedFirstProvisionInput): Promise<ManagedSiteSnapshot>;
+  /**
+   * Backward-compatible first-provision variant that tells the app whether
+   * this invocation inserted the binding. A false result is a replay or a
+   * recovery read after another writer committed the unique winner.
+   */
+  firstProvisionWithOutcome(input: ManagedFirstProvisionInput): Promise<ManagedFirstProvisionResult>;
   reconcile(input: ManagedReconcileInput): Promise<ManagedMutationResult>;
   rotateOrReactivate(input: ManagedRotateInput): Promise<ManagedMutationResult>;
   revoke(input: ManagedRevokeInput): Promise<ManagedMutationResult>;
@@ -637,6 +649,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
     },
 
     async firstProvision(input) {
+      return (await repository.firstProvisionWithOutcome(input)).snapshot;
+    },
+
+    async firstProvisionWithOutcome(input) {
       const email = normalizeManagedOwnerEmail(input.owner.email);
       if (!email) throw new Error("managed_owner_email_required");
       if (input.binding.credentialGeneration < 1) throw new Error("managed_credential_generation_invalid");
@@ -649,7 +665,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       if (existing) {
         const error = replayError(existing, input, email);
         if (error) throw error;
-        return existing;
+        return { created: false, snapshot: existing };
       }
 
       // A legacy database may contain mixed-case rows that compare equal under
@@ -821,13 +837,14 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           input.timestamp,
         ),
       ];
+      let results: D1Result<unknown>[];
       try {
-        await db.batch(statements);
+        results = await db.batch(statements);
       } catch (error) {
         const winner = await readSnapshot(db, input.binding.externalWorkspaceId);
         if (winner) {
           const replay = replayError(winner, input, email);
-          if (!replay) return winner;
+          if (!replay) return { created: false, snapshot: winner };
           throw replay;
         }
         throw error;
@@ -835,7 +852,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
       const snapshot = await readSnapshot(db, input.binding.externalWorkspaceId);
       if (!snapshot) throw new Error("managed_first_provision_not_created");
-      return snapshot;
+      return {
+        created: (results[6]?.meta.changes ?? 0) > 0,
+        snapshot,
+      };
     },
 
     async reconcile(input) {
@@ -900,10 +920,12 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // therefore selects no row in any statement, even when its proposed key
       // id already exists from a previous successful rotation. If a key
       // conflict occurs, D1 rolls the whole batch back.
-      const results = await db.batch([
-        db
-          .prepare(
-            `INSERT INTO api_keys (
+      let results: D1Result<unknown>[];
+      try {
+        results = await db.batch([
+          db
+            .prepare(
+              `INSERT INTO api_keys (
                id, site_id, name, token_prefix, token_hash, scopes_json, actor_name,
                revoked_at, created_by_user_id, created_at, updated_at
              )
@@ -915,24 +937,24 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                AND m.lifecycle_revision = ?
                AND ? = m.credential_generation + 1`,
           )
-          .bind(
-            input.newApiKey.id,
-            input.newApiKey.name,
-            input.newApiKey.tokenPrefix,
-            input.newApiKey.tokenHash,
-            input.newApiKey.scopesJson,
-            input.newApiKey.actorName,
-            input.timestamp,
-            input.timestamp,
-            input.externalWorkspaceId,
-            input.credentialId,
-            input.currentGeneration,
-            input.expectedLifecycleRevision,
-            input.newGeneration,
-          ),
-        db
-          .prepare(
-            `UPDATE api_keys
+            .bind(
+              input.newApiKey.id,
+              input.newApiKey.name,
+              input.newApiKey.tokenPrefix,
+              input.newApiKey.tokenHash,
+              input.newApiKey.scopesJson,
+              input.newApiKey.actorName,
+              input.timestamp,
+              input.timestamp,
+              input.externalWorkspaceId,
+              input.credentialId,
+              input.currentGeneration,
+              input.expectedLifecycleRevision,
+              input.newGeneration,
+            ),
+          db
+            .prepare(
+              `UPDATE api_keys
              SET revoked_at = COALESCE(revoked_at, ?), updated_at = ?
              WHERE id = (
                SELECT api_key_id
@@ -943,19 +965,19 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                  AND lifecycle_revision = ?
                  AND ? = credential_generation + 1
              )`,
-          )
-          .bind(
-            input.timestamp,
-            input.timestamp,
-            input.externalWorkspaceId,
-            input.credentialId,
-            input.currentGeneration,
-            input.expectedLifecycleRevision,
-            input.newGeneration,
-          ),
-        db
-          .prepare(
-            `UPDATE autoseopilot_managed_sites
+            )
+            .bind(
+              input.timestamp,
+              input.timestamp,
+              input.externalWorkspaceId,
+              input.credentialId,
+              input.currentGeneration,
+              input.expectedLifecycleRevision,
+              input.newGeneration,
+            ),
+          db
+            .prepare(
+              `UPDATE autoseopilot_managed_sites
              SET api_key_id = ?,
                  credential_generation = ?,
                  entitlement_status = 'active',
@@ -969,36 +991,51 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                AND lifecycle_revision = ?
                AND ? = credential_generation + 1
                AND EXISTS (SELECT 1 FROM api_keys WHERE id = ?)`,
-          )
-          .bind(
-            input.newApiKey.id,
-            input.newGeneration,
-            input.entitlementExpiresAt,
+            )
+            .bind(
+              input.newApiKey.id,
+              input.newGeneration,
+              input.entitlementExpiresAt,
+              input.timestamp,
+              input.externalWorkspaceId,
+              input.credentialId,
+              input.currentGeneration,
+              input.expectedLifecycleRevision,
+              input.newGeneration,
+              input.newApiKey.id,
+            ),
+          activityStatement(
+            db,
+            {
+              externalWorkspaceId: input.externalWorkspaceId,
+              lifecycleRevision: nextRevision,
+              credentialGeneration: input.newGeneration,
+              result: rotationResult,
+              entitlementStatus: "active",
+              action: "autoseopilot.managed.credential.rotated",
+              summary: "Managed credential rotated",
+              activity: input.activity,
+            },
+            "m.external_workspace_id = ? AND m.api_key_id = ? AND m.credential_generation = ? AND m.lifecycle_revision = ? AND m.updated_at = ?",
+            [input.externalWorkspaceId, input.newApiKey.id, input.newGeneration, nextRevision, input.timestamp],
             input.timestamp,
-            input.externalWorkspaceId,
-            input.credentialId,
-            input.currentGeneration,
-            input.expectedLifecycleRevision,
-            input.newGeneration,
-            input.newApiKey.id,
           ),
-        activityStatement(
-          db,
-          {
-            externalWorkspaceId: input.externalWorkspaceId,
-            lifecycleRevision: nextRevision,
-            credentialGeneration: input.newGeneration,
-            result: rotationResult,
-            entitlementStatus: "active",
-            action: "autoseopilot.managed.credential.rotated",
-            summary: "Managed credential rotated",
-            activity: input.activity,
-          },
-          "m.external_workspace_id = ? AND m.api_key_id = ? AND m.credential_generation = ? AND m.lifecycle_revision = ? AND m.updated_at = ?",
-          [input.externalWorkspaceId, input.newApiKey.id, input.newGeneration, nextRevision, input.timestamp],
-          input.timestamp,
-        ),
-      ]);
+        ]);
+      } catch (error) {
+        const snapshot = await readSnapshot(db, input.externalWorkspaceId);
+        if (
+          snapshot &&
+          snapshot.credentialId === input.credentialId &&
+          snapshot.credentialGeneration === input.newGeneration &&
+          snapshot.apiKeyId === input.newApiKey.id &&
+          snapshot.apiKeyHash === input.newApiKey.tokenHash &&
+          snapshot.entitlementStatus === "active" &&
+          snapshot.entitlementExpiresAt === input.entitlementExpiresAt
+        ) {
+          return { applied: false, snapshot };
+        }
+        throw error;
+      }
 
       const snapshot = await readSnapshot(db, input.externalWorkspaceId);
       return {

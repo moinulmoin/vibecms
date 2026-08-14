@@ -19,4 +19,9 @@ describe("by-slug REST contract", () => {
       expect.arrayContaining([expect.objectContaining({ name: "slug", in: "path" })]),
     );
   });
+
+  it("does not publish internal managed routes in OpenAPI", () => {
+    const document = buildOpenApiDocument();
+    expect(Object.keys(document.paths ?? {}).some((path) => path.startsWith("/internal/"))).toBe(false);
+  });
 });

@@ -34,7 +34,7 @@
     "directory": "../dashboard/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/__scheduled"]
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
   },
   "routes": [
     { "pattern": "app.basedui.dev", "custom_domain": true },
@@ -75,7 +75,7 @@
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
       },
       "d1_databases": [
         {
@@ -128,7 +128,7 @@
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
       },
       "d1_databases": [
         {

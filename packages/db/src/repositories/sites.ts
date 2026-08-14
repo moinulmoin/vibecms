@@ -14,6 +14,12 @@ export interface CurrentSite {
   updatedAt: number;
 }
 
+export interface SiteSlugLookup {
+  id: string;
+  slug: string;
+  status: "active" | "archived";
+}
+
 // SELECT name, slug, description, default_seo_title FROM sites (onboarding setup read)
 export interface SiteSetup {
   name: string;
@@ -104,6 +110,9 @@ export interface RepairDefaultHostnameInput {
 export interface SitesRepository {
   getCurrentSite(siteId: string): Promise<CurrentSite | null>;
   getSiteSlug(siteId: string): Promise<string | null>;
+  // Exact global slug lookup, including archived sites. Managed provisioning
+  // must reserve a slug before its multi-row insert begins.
+  getSiteBySlug(slug: string): Promise<SiteSlugLookup | null>;
   getSiteIdBySlug(slug: string): Promise<string | null>;
   getSiteTheme(siteId: string): Promise<string | null>;
   getSiteSetup(siteId: string): Promise<SiteSetup | null>;
@@ -141,6 +150,19 @@ export function createSitesRepository(db: D1Database): SitesRepository {
     async getSiteSlug(siteId) {
       const rows = await client.select({ slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1);
       return rows[0]?.slug ?? null;
+    },
+
+    async getSiteBySlug(slug) {
+      const rows = await client
+        .select({
+          id: sites.id,
+          slug: sites.slug,
+          status: sites.status,
+        })
+        .from(sites)
+        .where(eq(sites.slug, slug))
+        .limit(1);
+      return rows[0] ?? null;
     },
 
     // Resolve a site id from its slug, active sites only (subscribe.ts public flow).

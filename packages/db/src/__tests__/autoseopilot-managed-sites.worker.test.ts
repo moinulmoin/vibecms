@@ -220,6 +220,8 @@ describe("managed site database foundation", () => {
     // A retry after the response is lost is an exact read, not a second site/key.
     const replay = await data.managedSites.firstProvision(input);
     expect(replay.id).toBe(snapshot.id);
+    const replayOutcome = await data.managedSites.firstProvisionWithOutcome(input);
+    expect(replayOutcome).toMatchObject({ created: false, snapshot: { id: snapshot.id } });
     expect(
       await env.DB.prepare("SELECT COUNT(*) AS c FROM autoseopilot_managed_sites WHERE external_workspace_id = ?")
         .bind(input.binding.externalWorkspaceId)
@@ -272,6 +274,14 @@ describe("managed site database foundation", () => {
         .bind(input.apiKey.id)
         .first<{ c: number }>(),
     ).toMatchObject({ c: 1 });
+
+    const outcomeInput = provisionInput("concurrent-outcome");
+    const outcomes = await Promise.all([
+      data.managedSites.firstProvisionWithOutcome(outcomeInput),
+      data.managedSites.firstProvisionWithOutcome(outcomeInput),
+    ]);
+    expect(outcomes.map((result) => result.created).sort()).toEqual([false, true]);
+    expect(outcomes[0]?.snapshot.id).toBe(outcomes[1]?.snapshot.id);
   });
 
   it("reuses one normalized user for separate same-email managed workspaces", async () => {
@@ -412,6 +422,7 @@ describe("managed site database foundation", () => {
       credentialGeneration: 2,
       expectedLifecycleRevision: 2,
       timestamp: NOW + 3,
+      reason: "entitlement_lost",
       activity: {
         requestId: "managed-correlation-revoke",
       },

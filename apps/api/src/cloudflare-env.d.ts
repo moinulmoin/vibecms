@@ -12,6 +12,7 @@ declare namespace Cloudflare {
     EMAIL: SendEmail;
     CF_VERSION_METADATA: WorkerVersionMetadata;
     TOKEN_PEPPER?: string;
+    AUTOSEOPILOT_INTERNAL_SECRET?: string;
     BETTER_AUTH_SECRET?: string;
     EMAIL_FROM?: string;
     GOOGLE_CLIENT_ID?: string;

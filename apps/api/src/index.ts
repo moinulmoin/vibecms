@@ -26,6 +26,7 @@ import { dashboardRoutes } from '@/routes/dashboard'
 import { errorEnvelope, jsonAppError } from '@/server/http-errors'
 import { runWithExecutionContext } from '@/server/execution-scope'
 import { rpcHandleSubscribe } from '@/rpc/public'
+import { autoseopilotRoutes } from '@/routes/autoseopilot'
 
 type AppEnv = {
   Bindings: Cloudflare.Env
@@ -109,6 +110,11 @@ app.use('/api/v1/*', async (c, next) => {
 })
 
 app.use('/mcp', async (c, next) => {
+  c.res.headers.set('Cache-Control', NO_STORE)
+  await next()
+})
+
+app.use('/internal/*', async (c, next) => {
   c.res.headers.set('Cache-Control', NO_STORE)
   await next()
 })
@@ -226,6 +232,7 @@ app.get('/api/posts', async (c) => {
 
 app.all('/api/v1/*', (c) => apiV1App.fetch(c.req.raw))
 app.all('/mcp', (c) => handleMcpRequest(c.req.raw))
+app.route('/internal/autoseopilot', autoseopilotRoutes)
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
@@ -250,7 +257,18 @@ app.onError((err, c) => {
 
 app.notFound((c) => {
   const path = new URL(c.req.url).pathname
-  if (path.startsWith('/api/') || path === '/mcp') {
+  if (path.startsWith('/api/') || path === '/mcp' || path.startsWith('/internal/')) {
+    const correlationId = c.req.header('X-Correlation-Id') ?? c.get('requestId')
+    if (path.startsWith('/internal/')) {
+      c.header('Cache-Control', NO_STORE)
+      const validCorrelationId =
+        correlationId.length > 0 && correlationId.length <= 128 ? correlationId : c.get('requestId')
+      c.header('X-Correlation-Id', validCorrelationId)
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'Not found', correlationId: validCorrelationId } },
+        404,
+      )
+    }
     return c.json(errorEnvelope('NOT_FOUND', 'Not found', undefined, c.get('requestId')), 404)
   }
   return c.env.ASSETS.fetch(c.req.raw)

@@ -47,15 +47,19 @@ function base64Url(bytes: ArrayBuffer | Uint8Array) {
 
 // HMAC-SHA-256 over the raw token using env.TOKEN_PEPPER. Stays in the app: the repo only ever
 // receives the resulting hash, never the pepper or the raw token.
-async function tokenHash(token: string) {
+export async function hashApiToken(token: string, pepper = env.TOKEN_PEPPER ?? '') {
   const key = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(env.TOKEN_PEPPER),
+    new TextEncoder().encode(pepper),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
   )
   return base64Url(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(token)))
+}
+
+export function apiTokenPrefix(token: string) {
+  return token.slice(0, 18)
 }
 
 function randomToken(envName: 'live' | 'test' = 'live') {
@@ -124,8 +128,8 @@ export async function createApiKeyForApp(
         id,
         siteId: app.siteId,
         name,
-        tokenPrefix: token.slice(0, 18),
-        tokenHash: await tokenHash(token),
+        tokenPrefix: apiTokenPrefix(token),
+        tokenHash: await hashApiToken(token),
         scopesJson: JSON.stringify(scopes),
         actorName,
         createdByUserId: app.user.id,
@@ -180,8 +184,8 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
       id,
       siteId: app.siteId,
       name,
-      tokenPrefix: token.slice(0, 18),
-      tokenHash: await tokenHash(token),
+      tokenPrefix: apiTokenPrefix(token),
+      tokenHash: await hashApiToken(token),
       scopesJson: JSON.stringify(scopes),
       actorName,
       createdByUserId: app.user.id,
@@ -209,7 +213,7 @@ export async function authenticateBearerToken(
   const header = request.headers.get('authorization')
   if (!header?.startsWith('Bearer ')) return null
   const token = header.slice('Bearer '.length).trim()
-  const hash = await tokenHash(token)
+  const hash = await hashApiToken(token)
   const db = createDataAccess(env.DB)
   const row: ApiKeyAuthRecord | null = await db.apiKeys.authenticateByHash(hash)
   if (!row || row.revokedAt) return null
