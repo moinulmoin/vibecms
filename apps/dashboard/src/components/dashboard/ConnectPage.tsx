@@ -22,7 +22,8 @@ import {
   TableRow,
 } from '@vc/ui'
 import { CheckIcon, Link2Icon, PlusIcon, TrashIcon } from '@radix-ui/react-icons'
-import { Button, EmptyState, LoadError, PageHeader, Panel, formatDate } from '~/components/dashboard/DashboardLayout'
+import { Button, LoadError, formatDate } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 import { Skeleton } from '@vc/ui'

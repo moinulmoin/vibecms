@@ -20,22 +20,9 @@ export interface ManagedSponsorshipInput {
 }
 
 export interface EffectiveHostedEntitlementInput {
-  selfHosted?: boolean;
-  site?: {
-    selfHosted?: boolean;
-  } | null;
+  selfHosted: boolean;
   polar?: PolarEntitlementInput | null;
   managedSponsorship?: ManagedSponsorshipInput | null;
-  /**
-   * `managed` and the flattened fields are accepted as compatibility aliases
-   * for callers that already have a site billing snapshot in one of those
-   * shapes. The returned shape is always the canonical one below.
-   */
-  managed?: ManagedSponsorshipInput | null;
-  polarStatus?: BillingStatus | null;
-  polarCurrentPeriodEnd?: number | null;
-  managedStatus?: ManagedEntitlementStatus | null;
-  managedExpiresAt?: number | null;
 }
 
 export interface EffectiveHostedEntitlement {
@@ -67,15 +54,9 @@ export function evaluateEffectiveHostedEntitlement(
   input: EffectiveHostedEntitlementInput,
   now: number,
 ): EffectiveHostedEntitlement {
-  const selfHosted = input.selfHosted ?? input.site?.selfHosted ?? false;
-  const polar: PolarEntitlementInput = input.polar ?? {
-    status: input.polarStatus ?? null,
-    currentPeriodEnd: input.polarCurrentPeriodEnd ?? null,
-  };
-  const managed: ManagedSponsorshipInput = input.managedSponsorship ?? input.managed ?? {
-    status: input.managedStatus ?? null,
-    expiresAt: input.managedExpiresAt ?? null,
-  };
+  const selfHosted = input.selfHosted;
+  const polar: PolarEntitlementInput = input.polar ?? { status: null, currentPeriodEnd: null };
+  const managed: ManagedSponsorshipInput = input.managedSponsorship ?? { status: null, expiresAt: null };
 
   const polarActive = polar.status === "active";
   const managedActive =
@@ -476,11 +457,7 @@ function activityStatement(
     );
 }
 
-/**
- * Canonical email storage/lookup for the managed owner path. No migration adds
- * a NOCASE index because legacy mixed-case duplicates must be handled before
- * such an index can be safely introduced.
- */
+/** Canonical email storage and lookup for the managed owner path. */
 export function normalizeManagedOwnerEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -501,11 +478,7 @@ export interface AutoseopilotManagedSitesRepository {
     options: ManagedEntitlementResolutionOptions,
   ): Promise<ManagedAnalyticsSite[]>;
   firstProvision(input: ManagedFirstProvisionInput): Promise<ManagedSiteSnapshot>;
-  /**
-   * Backward-compatible first-provision variant that tells the app whether
-   * this invocation inserted the binding. A false result is a replay or a
-   * recovery read after another writer committed the unique winner.
-   */
+  /** Reports whether this invocation inserted the binding or replayed it. */
   firstProvisionWithOutcome(input: ManagedFirstProvisionInput): Promise<ManagedFirstProvisionResult>;
   reconcile(input: ManagedReconcileInput): Promise<ManagedMutationResult>;
   rotateOrReactivate(input: ManagedRotateInput): Promise<ManagedMutationResult>;
@@ -663,28 +636,9 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // but the repository never creates a second site/key for a replay.
       const existing = await readSnapshot(db, input.binding.externalWorkspaceId);
 
-      // A legacy database may contain mixed-case rows that compare equal under
-      // the repository's canonical lookup. Refuse an ambiguous owner instead
-      // of silently attaching a managed site to an arbitrary identity.
-      const ownerMatches = await db
-        .prepare("SELECT id, email FROM user WHERE lower(email) = ? ORDER BY created_at ASC, id ASC LIMIT 2")
-        .bind(email)
-        .all<{ id: string; email: string }>();
-      if ((ownerMatches.results ?? []).length > 1) {
-        throw new Error("managed_owner_email_ambiguous");
-      }
-
       if (existing) {
         const error = replayError(existing, input, email);
         if (error) throw error;
-        await db
-          .prepare(
-            `UPDATE user
-             SET email = ?, updated_at = ?
-             WHERE id = ? AND lower(email) = ? AND email <> ?`,
-          )
-          .bind(email, input.timestamp, existing.ownerUserId, email, email)
-          .run();
         return { created: false, snapshot: existing };
       }
 
@@ -697,22 +651,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // earlier in this same D1 transaction. A conflict anywhere rolls back
       // the whole batch, preventing orphan rows on retries or collisions.
       const statements = [
-        // Better Auth performs an exact canonical-email lookup after OTP
-        // verification. Normalize a unique reused legacy row in the same
-        // transaction so login resolves the managed owner instead of creating
-        // a second lowercase user.
-        db
-          .prepare(
-            `UPDATE user
-             SET email = ?, updated_at = ?
-             WHERE lower(email) = ? AND email <> ?`,
-          )
-          .bind(email, input.timestamp, email, email),
         db
           .prepare(
             `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
              SELECT ?, ?, ?, 0, ?, ?, ?
-             WHERE NOT EXISTS (SELECT 1 FROM user WHERE lower(email) = ?)`,
+             WHERE NOT EXISTS (SELECT 1 FROM user WHERE email = ?)`,
           )
           .bind(
             input.owner.id,
@@ -727,7 +670,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           .prepare(
             `INSERT INTO workspaces (id, name, slug, created_at, updated_at)
              SELECT ?, ?, ?, ?, ?
-             WHERE EXISTS (SELECT 1 FROM user WHERE lower(email) = ?)`,
+             WHERE EXISTS (SELECT 1 FROM user WHERE email = ?)`,
           )
           .bind(
             input.workspace.id,
@@ -742,9 +685,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             `INSERT INTO memberships (id, workspace_id, user_id, role, created_at, updated_at)
              SELECT ?, ?, owner.id, 'owner', ?, ?
              FROM user owner
-             WHERE lower(owner.email) = ?
-             ORDER BY owner.created_at ASC, owner.id ASC
-             LIMIT 1`,
+             WHERE owner.email = ?`,
           )
           .bind(input.membership.id, input.workspace.id, input.timestamp, input.timestamp, email),
         db
@@ -789,9 +730,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              SELECT ?, ?, ?, ?, ?, ?, ?, NULL, owner.id, ?, ?
              FROM user owner
              INNER JOIN sites s ON s.id = ?
-             WHERE lower(owner.email) = ?
-             ORDER BY owner.created_at ASC, owner.id ASC
-             LIMIT 1`,
+             WHERE owner.email = ?`,
           )
           .bind(
             input.apiKey.id,
@@ -818,9 +757,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              INNER JOIN workspaces w ON w.id = ?
              INNER JOIN sites s ON s.id = ? AND s.workspace_id = w.id
              INNER JOIN api_keys k ON k.id = ?
-             WHERE lower(owner.email) = ?
-             ORDER BY owner.created_at ASC, owner.id ASC
-             LIMIT 1`,
+             WHERE owner.email = ?`,
           )
           .bind(
             input.binding.id,
@@ -1146,8 +1083,3 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
   return repository;
 }
-
-// Compatibility export for callers that used the initial explicit integration
-// name. createDataAccess intentionally constructs only the canonical
-// `managedSites` entry.
-export const createAutoseopilotManagedSitesRepository = createManagedSitesRepository;

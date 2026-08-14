@@ -30,18 +30,22 @@ export function narrowDashboardData(result: DashboardApiResponse): DashboardData
 import { loadDashboardOverview } from '~/lib/api-client'
 import {
   Button,
-  DataRow,
-  EmptyState,
   LoadError,
-  PageHeader,
-  Panel,
-  StatCard,
   formatDate,
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
 import { Badge, CopyButton, Skeleton } from "@vc/ui"
-import { MetricStrip, StatCardGrid, StatusBadge } from '~/components/dashboard/blocks'
+import {
+  DataRow,
+  EmptyState,
+  MetricStrip,
+  PageHeader,
+  Panel,
+  StatCard,
+  StatCardGrid,
+  StatusBadge,
+} from '~/components/dashboard/blocks'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
 function formatBytes(bytes: number) {
@@ -124,7 +128,7 @@ function OverviewSkeleton() {
   )
 }
 
-export function DashboardOverview() {
+export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -160,13 +164,13 @@ export function DashboardOverview() {
       <PageHeader
         title={siteName}
         description="Your publishing system: what is live, what changed, and where your agents can act."
-        action={
+        action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
               <PlusIcon aria-hidden data-icon="inline-start" /> New post
             </Link>
           </Button>
-        }
+        ) : undefined}
       />
 
       <Panel
@@ -213,6 +217,7 @@ export function DashboardOverview() {
             {data.recentDrafts.map((post) => (
               <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                 <strong className="truncate font-display font-semibold text-foreground">
+                  {canEdit ? (
                   <Link
                     className="no-underline hover:underline"
                     {...postEditorLink(post.id)}
@@ -220,6 +225,7 @@ export function DashboardOverview() {
                   >
                     {post.title}
                   </Link>
+                  ) : post.title}
                 </strong>
                 <Badge variant="outline" className="w-fit capitalize">
                   {post.status}
@@ -320,6 +326,7 @@ export function DashboardOverview() {
               {data.recentPosts.map((post) => (
                 <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
                   <strong className="truncate font-display font-semibold text-foreground">
+                    {canEdit ? (
                     <Link
                       className="no-underline hover:underline"
                       {...postEditorLink(post.id)}
@@ -327,6 +334,7 @@ export function DashboardOverview() {
                     >
                       {post.title}
                     </Link>
+                    ) : post.title}
                   </strong>
                   <Badge variant="outline" className="w-fit capitalize">
                     {post.status}
@@ -342,11 +350,13 @@ export function DashboardOverview() {
               icon={<FileTextIcon />}
               title="No posts yet"
               description={
-                data.tokenCount > 0
-                  ? 'Your agent access is ready. Open Connect to publish the first post through the approval-first flow, or start one manually.'
-                  : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
+                canEdit
+                  ? data.tokenCount > 0
+                    ? 'Your agent access is ready. Open Connect to publish the first post through the approval-first flow, or start one manually.'
+                    : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
+                  : 'No posts have been drafted or published for this site yet.'
               }
-              action={
+              action={canEdit ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
@@ -359,7 +369,7 @@ export function DashboardOverview() {
                     </Link>
                   </Button>
                 </div>
-              }
+              ) : undefined}
             />
           )}
         </Panel>
@@ -380,7 +390,7 @@ export function DashboardOverview() {
         >
           <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
         </Link>
-        <Link
+        {canEdit ? <Link
           to="/dashboard/media"
           search={emptyDashboardStatusSearch}
           className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -391,14 +401,18 @@ export function DashboardOverview() {
             detail={`${data.media.count} images of ${quotaLabel}`}
             interactive
           />
-        </Link>
-        <Link
+        </Link> : (
+          <StatCard label="Media used" value={formatBytes(data.media.bytes)} detail={`${data.media.count} images of ${quotaLabel}`} />
+        )}
+        {canEdit ? <Link
           to="/dashboard/connect"
           search={emptyDashboardStatusSearch}
           className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
-        </Link>
+        </Link> : (
+          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" />
+        )}
       </StatCardGrid>
 
       <ApiUsagePanel usage={data.apiUsage} />

@@ -41,8 +41,7 @@ The repository deploys two Cloudflare Workers:
    - Better Auth handlers and session lookup.
    - Browser dashboard JSON routes under `/api/dashboard/*`.
    - Browser onboarding and media mutation routes.
-   - Scoped REST routes under `/api/v1/*`, plus a legacy bearer-protected
-     posts list route.
+   - Scoped REST routes under `/api/v1/*`.
    - MCP over `/mcp`.
    - Polar checkout, customer portal, and signed webhook handling.
    - D1 and R2 access.
@@ -261,7 +260,6 @@ cross-tenant cache or response reuse, and unsafe rendering.
 
 - Public OpenAPI and documentation paths.
 - Authenticated `/api/v1/*` operation routes.
-- Legacy bearer-protected `/api/posts` list route.
 - JSON request bodies, route IDs, query filters, pagination, and base64
   media payloads.
 

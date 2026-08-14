@@ -268,7 +268,6 @@ function mapRepositoryError(error: unknown): ManagedInternalError | null {
     case 'managed_credential_generation_invalid':
     case 'managed_owner_email_required':
     case 'managed_site_slug_required':
-    case 'managed_owner_email_ambiguous':
       return new ManagedInternalError('VALIDATION_ERROR', 'Invalid managed site request.', 400)
     default:
       return null

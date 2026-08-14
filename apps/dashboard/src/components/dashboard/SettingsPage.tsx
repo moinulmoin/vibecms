@@ -40,12 +40,9 @@ import { PresentedPostArticle } from '@vc/content/presented-post'
 import { PublicPageChrome } from '@vc/content/public-chrome'
 import {
   Button,
-  EmptyState,
   LoadError,
-  PageHeader,
-  Panel,
 } from '~/components/dashboard/DashboardLayout'
-import { ListRow, StatusBadge } from '~/components/dashboard/blocks'
+import { EmptyState, ListRow, PageHeader, Panel, StatusBadge } from '~/components/dashboard/blocks'
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'

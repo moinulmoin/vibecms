@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { ActivityLogIcon, ReloadIcon } from '@radix-ui/react-icons'
 import {
   Button,
-  EmptyState,
   LoadError,
-  PageHeader,
-  Panel,
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
 import {
   Badge,
   Skeleton,

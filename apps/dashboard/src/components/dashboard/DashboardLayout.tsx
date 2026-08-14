@@ -45,9 +45,6 @@ import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
 import { selectDashboardApp } from '~/lib/api-client'
 import type { AppChoice } from '~/types/dashboard'
-// Page primitives moved to the shared block kit; keep re-exports for
-// compatibility during the transition, then drop them.
-export { PageHeader, Panel, StatCard, StatusBadge, EmptyState, DataRow } from './blocks'
 import { Panel } from './blocks'
 
 type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?: boolean }> }

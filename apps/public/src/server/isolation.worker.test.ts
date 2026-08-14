@@ -125,12 +125,22 @@ describe("Accept markdown after HTML response cache", () => {
         },
       }),
     );
-    const cachedHtml = await matchCachedPublicPostHtml(new Request(url, { headers }));
+    const cachedHtml = await matchCachedPublicPostHtml(
+      new Request(url, { headers }),
+      "site-public-isolation",
+    );
     expect(cachedHtml).toBeDefined();
+    expect(
+      await matchCachedPublicPostHtml(
+        new Request(url, { headers }),
+        "site-after-host-reassignment",
+      ),
+    ).toBeUndefined();
     const cachedHtmlNotModified = await matchCachedPublicPostHtml(
       new Request(url, {
         headers: { ...headers, "if-none-match": cachedHtml!.headers.get("etag")! },
       }),
+      "site-public-isolation",
     );
     expect(cachedHtmlNotModified?.status).toBe(304);
 

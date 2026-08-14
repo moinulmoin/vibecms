@@ -21,7 +21,6 @@ declare namespace Cloudflare {
     POLAR_ACCESS_TOKEN?: string;
     POLAR_MONTHLY_PRODUCT_ID?: string;
     POLAR_YEARLY_PRODUCT_ID?: string;
-    POLAR_PRODUCT_ID?: string;
     POLAR_SERVER?: string;
     POLAR_WEBHOOK_SECRET?: string;
     CLOUDFLARE_ZONE_ID?: string;

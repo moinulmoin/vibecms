@@ -112,7 +112,7 @@ Last updated: 2026-07-19
 
 ## Skipped / out of scope
 
-- **Scheduled posts**: intentionally skipped. (DB retains a harmless legacy `scheduled` status that is normalized to `draft`; no scheduling workflow.)
+- **Scheduled posts**: intentionally skipped; there is no scheduling workflow or scheduled status.
 - **Multi-blog / teams / comments**: single-blog-per-workspace by design.
 - **Page builders / block editor**: Markdown-native by design ("calm blog").
 - **Platform-authored AI content**: the agent is the intelligence; the platform validates/nudges (e.g. `posts.format_guide`, `posts.preview`) but never writes content.

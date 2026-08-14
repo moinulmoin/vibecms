@@ -1,12 +1,13 @@
 CREATE TABLE IF NOT EXISTS user (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
   email_verified INTEGER NOT NULL,
   image TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email_canonical ON user(lower(email));
 
 CREATE TABLE IF NOT EXISTS session (
   id TEXT PRIMARY KEY,

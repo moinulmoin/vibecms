@@ -38,6 +38,14 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
   }
 }
 
+export function validatePostsSearch(search: Record<string, unknown>): PostsListSearch {
+  return {
+    status: typeof search.status === 'string' ? search.status : undefined,
+    search: typeof search.search === 'string' ? search.search : undefined,
+    ...validateDashboardSearch(search),
+  }
+}
+
 const SETTINGS_TABS: Record<string, true> = { general: true, theme: true, voice: true, domain: true, billing: true, data: true }
 
 export function validateSettingsSearch(search: Record<string, unknown>): SettingsSearch {

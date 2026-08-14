@@ -12,6 +12,7 @@ import {
 import type { PublicRuntimeEnv } from "../env";
 import {
   articleCacheTags,
+  cachedArticleResponseBelongsToSite,
   conditionalArticleResponse,
   conditionalCachedArticleResponse,
   articleMarkdownAlternateLink,
@@ -177,7 +178,12 @@ export async function tryPublicPostMarkdownResponse(
   if (!slug) return notFound();
 
   const cached = await matchArticleResponseCache(request.url, "markdown");
-  if (site.effective_entitlement.effective && cached && hasContentEtag(cached)) {
+  if (
+    site.effective_entitlement.effective
+    && cached
+    && cachedArticleResponseBelongsToSite(cached, site.id)
+    && hasContentEtag(cached)
+  ) {
     return conditionalCachedArticleResponse(request, cached);
   }
 
@@ -212,9 +218,16 @@ export async function handlePublicPostByHostGet(
 export const ARTICLE_HTML_CACHE_HIT_HEADER = "x-vc-article-html-cache-hit";
 
 /** HTML Workers Cache lookup — only after markdown negotiation has declined the request. */
-export async function matchCachedPublicPostHtml(request: Request): Promise<Response | undefined> {
+export async function matchCachedPublicPostHtml(
+  request: Request,
+  siteId: string,
+): Promise<Response | undefined> {
   const cached = await matchArticleResponseCache(request.url, "html");
-  if (!cached || !hasContentEtag(cached)) return undefined;
+  if (
+    !cached
+    || !cachedArticleResponseBelongsToSite(cached, siteId)
+    || !hasContentEtag(cached)
+  ) return undefined;
   const response = conditionalCachedArticleResponse(request, cached);
   const headers = new Headers(response.headers);
   headers.set(ARTICLE_HTML_CACHE_HIT_HEADER, "1");
@@ -243,19 +256,18 @@ export type PublicPostLoaderData = {
   cacheTags: string[];
 };
 
-export async function loadPublicPostByHost(
+export async function loadPublicPostForSite(
   db: D1Database,
-  request: Request,
+  requestUrl: string,
+  site: SiteRow,
   slug: string | undefined,
   env: PublicRuntimeEnv,
 ): Promise<PublicPostLoaderData | null> {
   const { slug: postSlug } = stripMarkdownSuffix(slug);
   if (!postSlug || RESERVED_ROOT_SLUGS.has(postSlug)) return null;
-  const site = await resolveSite(request, db, env);
-  if (!site) return null;
   const post = await getPublishedPost(db, site.id, postSlug);
   if (!post) return null;
-  const origin = publicOrigin(request.url);
+  const origin = publicOrigin(requestUrl);
   return {
     site,
     post,
@@ -265,6 +277,17 @@ export async function loadPublicPostByHost(
     indexable: isPublicBlogIndexable(site, env),
     cacheTags: articleCacheTags(site.id, post.slug),
   };
+}
+
+export async function loadPublicPostByHost(
+  db: D1Database,
+  request: Request,
+  slug: string | undefined,
+  env: PublicRuntimeEnv,
+): Promise<PublicPostLoaderData | null> {
+  const site = await resolveSite(request, db, env);
+  if (!site) return null;
+  return loadPublicPostForSite(db, request.url, site, slug, env);
 }
 
 export type PublicListingContext =

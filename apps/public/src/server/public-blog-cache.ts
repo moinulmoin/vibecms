@@ -36,6 +36,14 @@ export function articleCacheTags(siteId: string, postSlug: string) {
   return [siteCacheTag(siteId), articleCacheTag(siteId, postSlug)];
 }
 
+export function cachedArticleResponseBelongsToSite(response: Response, siteId: string): boolean {
+  const cacheTags = response.headers.get("cache-tag");
+  if (!cacheTags) return false;
+  return cacheTags
+    .split(",")
+    .some((cacheTag) => cacheTag.trim() === siteCacheTag(siteId));
+}
+
 function workersDefaultCache(): Cache | undefined {
   if (typeof caches === "undefined") return undefined;
   if (!("default" in caches)) return undefined;

@@ -229,6 +229,24 @@ describe("managed site database foundation", () => {
     ).toMatchObject({ c: 1 });
   });
 
+  it("enforces one canonical user identity regardless of email casing", async () => {
+    const input = provisionInput("canonical-email");
+    await data.managedSites.firstProvision(input);
+
+    await expect(
+      env.DB.prepare(
+        `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
+         VALUES (?, ?, ?, 0, NULL, ?, ?)`,
+      ).bind(
+        "canonical-email-duplicate",
+        "Duplicate owner",
+        input.owner.email.toUpperCase(),
+        NOW + 1,
+        NOW + 1,
+      ).run(),
+    ).rejects.toThrow();
+  });
+
   it("rejects revoked, mismatched, and slug-conflicting replays", async () => {
     const input = provisionInput("replay-guards");
     await data.managedSites.firstProvision(input);
@@ -318,45 +336,6 @@ describe("managed site database foundation", () => {
         managedStatus: "active",
       }),
     ]);
-  });
-
-  it("canonicalizes a unique reused legacy owner email for OTP lookup", async () => {
-    await env.DB.prepare(
-      `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
-       VALUES (?, ?, ?, 0, NULL, ?, ?)`,
-    ).bind(
-      "legacy-mixed-case-owner",
-      "Legacy owner",
-      "Legacy.Owner@Example.Test",
-      NOW - 10,
-      NOW - 10,
-    ).run();
-
-    const input = provisionInput("legacy-mixed-case", {
-      owner: {
-        id: "managed-user-legacy-request",
-        name: "Legacy owner",
-        email: "legacy.owner@example.test",
-      },
-    });
-    const snapshot = await data.managedSites.firstProvision(input);
-
-    expect(snapshot.ownerUserId).toBe("legacy-mixed-case-owner");
-    expect(
-      await env.DB.prepare("SELECT email FROM user WHERE id = ?")
-        .bind("legacy-mixed-case-owner")
-        .first<{ email: string }>(),
-    ).toMatchObject({ email: "legacy.owner@example.test" });
-
-    await env.DB.prepare("UPDATE user SET email = ? WHERE id = ?")
-      .bind("Legacy.Owner@Example.Test", "legacy-mixed-case-owner")
-      .run();
-    await data.managedSites.firstProvision(input);
-    expect(
-      await env.DB.prepare("SELECT email FROM user WHERE id = ?")
-        .bind("legacy-mixed-case-owner")
-        .first<{ email: string }>(),
-    ).toMatchObject({ email: "legacy.owner@example.test" });
   });
 
   it("resolves isolated snapshots and effective analytics sites", async () => {

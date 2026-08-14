@@ -12,13 +12,10 @@ import {
 } from '~/lib/api-client'
 import {
   Button,
-  DataRow,
-  EmptyState,
   LoadError,
-  PageHeader,
-  Panel,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
+import { DataRow, EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
 import { Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -57,7 +54,7 @@ function PostsSkeleton() {
   )
 }
 
-export function PostsPage({ search }: { search: PostsListSearch }) {
+export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdit: boolean }) {
   const navigate = useNavigate()
   const [posts, setPosts] = useState<DashboardPostSummary[] | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -182,11 +179,11 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
       <PageHeader
         title="Posts"
         description="Draft, review, publish, and restore every post—whether it came from you or an agent."
-        action={
+        action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><PlusIcon aria-hidden data-icon="inline-start" /> New post</Link>
           </Button>
-        }
+        ) : undefined}
       />
       <Panel title="All posts">
         {posts.length > 0 || hasFilters ? (
@@ -232,14 +229,20 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               {posts.map((post) => (
                 <article className="grid gap-3 border-b border-foreground/[0.065] py-4 last:border-b-0" key={post.id}>
                   <div className="min-w-0">
-                    <Link
-                      className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
-                      to="/dashboard/posts/$postId/edit"
-                      search={emptyPostEditorSearch}
-                      params={{ postId: post.id }}
-                    >
-                      {post.title}
-                    </Link>
+                    {canEdit ? (
+                      <Link
+                        className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
+                        to="/dashboard/posts/$postId/edit"
+                        search={emptyPostEditorSearch}
+                        params={{ postId: post.id }}
+                      >
+                        {post.title}
+                      </Link>
+                    ) : (
+                      <strong className="font-display text-base font-semibold tracking-[-0.02em] text-foreground">
+                        {post.title}
+                      </strong>
+                    )}
                     <p className="mt-1.5 break-words font-mono text-[11px] leading-5 text-muted-foreground">
                       <span className="text-primary/90">/{post.slug}</span>
                       <span className="text-muted-foreground"> · </span>
@@ -251,7 +254,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     <span className="truncate">By {actorDisplayName(post.updatedByType, post.updatedByName)}</span>
                     <span className="tabular-nums">Updated {formatDate(post.updatedAt)}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  {canEdit ? <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
                         <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
@@ -286,7 +289,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
-                  </div>
+                  </div> : null}
                   {rowError?.key.startsWith(`${post.id}:`) ? (
                     <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                       <span>{rowError.message}</span>{' '}
@@ -299,25 +302,38 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
               ))}
             </div>
             <div className="hidden md:grid md:gap-0">
-              <div className="grid grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] gap-3 px-1 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              <div className={`grid gap-3 px-1 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground ${
+                canEdit ? 'grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr]' : 'grid-cols-[1.5fr_.5fr_.55fr_.6fr]'
+              }`}>
                 <span>Post</span>
                 <span>Status</span>
                 <span>By</span>
                 <span>Updated</span>
-                <span className="text-right">Actions</span>
+                {canEdit ? <span className="text-right">Actions</span> : null}
               </div>
               {posts.map((post) => (
-                <DataRow className="md:grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] md:items-center" key={post.id}>
+                <DataRow
+                  className={canEdit
+                    ? 'md:grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] md:items-center'
+                    : 'md:grid-cols-[1.5fr_.5fr_.55fr_.6fr] md:items-center'}
+                  key={post.id}
+                >
                   <div className="min-w-0">
-                    <Link
-                      className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
-                      data-row-key
-                      to="/dashboard/posts/$postId/edit"
-                      search={emptyPostEditorSearch}
-                      params={{ postId: post.id }}
-                    >
-                      {post.title}
-                    </Link>
+                    {canEdit ? (
+                      <Link
+                        className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
+                        data-row-key
+                        to="/dashboard/posts/$postId/edit"
+                        search={emptyPostEditorSearch}
+                        params={{ postId: post.id }}
+                      >
+                        {post.title}
+                      </Link>
+                    ) : (
+                      <strong className="font-display text-base font-semibold tracking-[-0.02em] text-foreground">
+                        {post.title}
+                      </strong>
+                    )}
                     <p className="mt-1 max-w-xl truncate font-mono text-xs text-muted-foreground">
                       <span className="text-primary/90">/{post.slug}</span>
                       <span> · </span>
@@ -332,7 +348,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     {actorDisplayName(post.updatedByType, post.updatedByName)}
                   </span>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDate(post.updatedAt)}</span>
-                  <div className="flex flex-wrap justify-end gap-2">
+                  {canEdit ? <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
                         <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
@@ -367,7 +383,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                         <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
-                  </div>
+                  </div> : null}
                   {rowError?.key.startsWith(`${post.id}:`) ? (
                     <div className="col-span-full rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
                       <span>{rowError.message}</span>{' '}
@@ -415,14 +431,16 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
             description={
               hasFilters
                 ? 'Clear the filters or try a different search to review existing drafts and published posts.'
-                : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
+                : canEdit
+                  ? 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
+                  : 'No posts have been drafted or published for this site yet.'
             }
             action={
               hasFilters ? (
                 <Button asChild variant="outline">
                   <Link to="/dashboard/posts" search={emptyPostsListSearch}><MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Clear filters</Link>
                 </Button>
-              ) : (
+              ) : canEdit ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
@@ -435,7 +453,7 @@ export function PostsPage({ search }: { search: PostsListSearch }) {
                     </Link>
                   </Button>
                 </div>
-              )
+              ) : undefined
             }
           />
         )}

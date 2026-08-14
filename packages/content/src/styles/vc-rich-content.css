@@ -372,22 +372,6 @@
   content: none;
 }
 
-/* Legacy: fenced blocks without a frame wrapper (v1 pipeline). */
-[data-rich-content] pre[data-lang]:not([data-vc-code-framed]) {
-  position: relative;
-  background: var(--vc-code-bg);
-  color: var(--vc-code-fg);
-  border: 1px solid var(--vc-code-border);
-  border-radius: var(--vc-radius);
-  padding: 1rem 1.25rem;
-  overflow-x: auto;
-  margin: 1.25rem 0;
-  font-family: var(--vc-font-mono);
-  font-size: 0.875rem;
-  line-height: 1.6;
-  tab-size: 2;
-}
-
 /* Reset inner <code> so no double styling */
 [data-rich-content] pre[data-lang] code {
   background: none;

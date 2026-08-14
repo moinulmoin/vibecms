@@ -18,7 +18,7 @@
     "PUBLIC_BLOG_DOMAIN": "basedui.dev",
     "SELF_HOSTED": "false",
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
-    "POLAR_PRODUCT_ID": "product_test_placeholder",
+    "POLAR_MONTHLY_PRODUCT_ID": "product_test_placeholder",
     "POLAR_SERVER": "sandbox",
     "BETTER_AUTH_SECRET": "test-secret-for-miniflare-not-used",
     "TOKEN_PEPPER": "test-pepper-for-miniflare-not-used",

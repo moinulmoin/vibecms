@@ -16,7 +16,8 @@ import {
   restorePostVersionFn,
   updatePostMutation,
 } from '~/lib/api-client'
-import { Button, PageHeader, Panel, formatDateTime } from '~/components/dashboard/DashboardLayout'
+import { Button, formatDateTime } from '~/components/dashboard/DashboardLayout'
+import { PageHeader, Panel } from '~/components/dashboard/blocks'
 import { Badge, Card } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { StatusBadge } from '~/components/dashboard/blocks'

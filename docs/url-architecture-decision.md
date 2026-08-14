@@ -18,7 +18,7 @@ VibeCMS uses a **host-only** URL model for public blogs. Tenant identity is alwa
 
 ## No migration
 
-VibeCMS is **unreleased**. No live users, no legacy `/blog/<slug>` links, self-host not yet shipped. Removal is clean — no redirects or compat layer needed.
+VibeCMS is **unreleased**. There are no live users or existing `/blog/<slug>` links, and self-host has not shipped. Removal is clean, with no redirects or compatibility layer needed.
 
 ## What's removed (code)
 

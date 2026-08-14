@@ -15,10 +15,6 @@ import { uploadAssetForApp } from '@/server/media'
 import { serveAsset } from '@/server/media'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
 import { ensureOnboarding } from '@/server/onboarding'
-import { authenticateBearerToken } from '@/server/api-keys'
-import { apiError, boundedIntegerParam, forceQuotaForSmoke, postStatusParam } from '@/server/api-params'
-import { getPosts } from '@/server/cms'
-import { enforceApiBudget } from '@/server/usage'
 import { canonicalHostMiddleware } from '@/server/canonical-host-middleware'
 import { requireAppFromRequest } from '@/server/session-context'
 import { deleteAssetForApp } from '@/server/media'
@@ -197,38 +193,6 @@ app.post('/api/media/delete', bodyLimit({ maxSize: 8 * 1024 }), async (c) => {
 })
 
 app.get('/media-assets/:assetId', async (c) => serveAsset(c.req.param('assetId')))
-
-app.get('/api/posts', async (c) => {
-  const authResult = await authenticateBearerToken(c.req.raw)
-  if (!authResult) return c.json({ error: 'UNAUTHORIZED' }, 401)
-  try {
-    await enforceApiBudget({
-      workspaceId: authResult.workspaceId,
-      siteId: authResult.siteId,
-      tokenId: authResult.tokenId,
-      kind: 'read',
-      force: forceQuotaForSmoke(c.req.raw),
-    })
-    const url = new URL(c.req.raw.url)
-    const limit = boundedIntegerParam(url.searchParams.get('limit'), 20, 1, 100)
-    const offset = boundedIntegerParam(url.searchParams.get('offset'), 0, 0, 10_000)
-    const posts = await getPosts(
-      {
-        user: { id: 'api', name: authResult.actor.name, email: 'api' },
-        workspaceId: authResult.workspaceId,
-        siteId: authResult.siteId,
-        actor: authResult.actor,
-      },
-      postStatusParam(url.searchParams.get('status')),
-      url.searchParams.get('search') || undefined,
-      limit,
-      offset,
-    )
-    return c.json({ posts, pagination: { limit, offset, count: posts.length } })
-  } catch (error) {
-    return apiError(error)
-  }
-})
 
 app.all('/api/v1/*', (c) => apiV1App.fetch(c.req.raw))
 app.all('/mcp', (c) => handleMcpRequest(c.req.raw))

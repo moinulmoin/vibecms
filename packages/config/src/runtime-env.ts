@@ -16,7 +16,6 @@ export type RuntimeEnv = {
   SELF_HOSTED?: string;
   POLAR_ACCESS_TOKEN?: string;
   POLAR_WEBHOOK_SECRET?: string;
-  POLAR_PRODUCT_ID?: string;
   POLAR_MONTHLY_PRODUCT_ID?: string;
   POLAR_YEARLY_PRODUCT_ID?: string;
   POLAR_SERVER?: "sandbox" | "production";
@@ -33,7 +32,7 @@ const productionOnly = [
 const hostedProductionOnly = [
   "POLAR_ACCESS_TOKEN",
   "POLAR_WEBHOOK_SECRET",
-  "POLAR_PRODUCT_ID",
+  "POLAR_MONTHLY_PRODUCT_ID",
 ] as const;
 
 export function assertRuntimeEnv(env: Partial<RuntimeEnv>): asserts env is RuntimeEnv {

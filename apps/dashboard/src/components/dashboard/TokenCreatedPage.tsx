@@ -2,7 +2,8 @@
 
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Button, PageHeader, Panel } from '~/components/dashboard/DashboardLayout'
+import { Button } from '~/components/dashboard/DashboardLayout'
+import { PageHeader, Panel } from '~/components/dashboard/blocks'
 import { Alert, Badge } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'

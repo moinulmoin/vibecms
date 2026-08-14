@@ -78,7 +78,7 @@ export const posts = sqliteTable("posts", {
   excerpt: text("excerpt"),
   contentMarkdown: text("content_markdown").notNull(),
   coverAssetId: text("cover_asset_id"),
-  status: text("status", { enum: ["draft", "published", "scheduled", "archived"] }).notNull().default("draft"),
+  status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   publishedAt: integer("published_at"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
@@ -228,12 +228,14 @@ export const rateLimits = sqliteTable("rate_limits", {
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email").notNull(),
   emailVerified: integer("email_verified", { mode: "boolean" }).notNull(),
   image: text("image"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
+}, (table) => [
+  uniqueIndex("idx_user_email_canonical").on(sql`lower(${table.email})`),
+]);
 
 export type AuthUser = typeof user.$inferSelect;
 

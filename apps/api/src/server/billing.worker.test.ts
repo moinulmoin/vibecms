@@ -24,7 +24,7 @@ const mutableEnv = env as unknown as Record<string, unknown>
 const saved = {
   SELF_HOSTED: mutableEnv.SELF_HOSTED,
   POLAR_ACCESS_TOKEN: mutableEnv.POLAR_ACCESS_TOKEN,
-  POLAR_PRODUCT_ID: mutableEnv.POLAR_PRODUCT_ID,
+  POLAR_MONTHLY_PRODUCT_ID: mutableEnv.POLAR_MONTHLY_PRODUCT_ID,
   APP_URL: mutableEnv.APP_URL,
 }
 
@@ -36,7 +36,7 @@ beforeAll(async () => {
 afterEach(() => {
   mutableEnv.SELF_HOSTED = saved.SELF_HOSTED
   mutableEnv.POLAR_ACCESS_TOKEN = saved.POLAR_ACCESS_TOKEN
-  mutableEnv.POLAR_PRODUCT_ID = saved.POLAR_PRODUCT_ID
+  mutableEnv.POLAR_MONTHLY_PRODUCT_ID = saved.POLAR_MONTHLY_PRODUCT_ID
   mutableEnv.APP_URL = saved.APP_URL
   vi.restoreAllMocks()
 })
@@ -144,7 +144,7 @@ describe('createCheckoutSessionForApp — active subscription guard', () => {
   it('rejects checkout when the workspace subscription is already active', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
-    mutableEnv.POLAR_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
 
     const workspaceId = 'ws-billing-active-guard'
@@ -186,7 +186,7 @@ describe('createCheckoutSessionForApp — active subscription guard', () => {
   it('rejects checkout for managed workspaces without creating a Polar relationship', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
-    mutableEnv.POLAR_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
     const workspaceId = 'ws-billing-managed-guard'
     await seedManagedWorkspace(workspaceId)
@@ -208,7 +208,7 @@ describe('createCheckoutSessionForApp — open checkout reuse', () => {
   it('returns an existing open Polar checkout URL and does not create another session', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
-    mutableEnv.POLAR_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
 
     const workspaceId = 'ws-billing-open-reuse'
@@ -243,7 +243,7 @@ describe('createCheckoutSessionForApp — repeat request idempotency key', () =>
   it('reuses the same Idempotency-Key for repeated checkout attempts', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
-    mutableEnv.POLAR_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
 
     const workspaceId = 'ws-billing-repeat-key'

@@ -136,8 +136,7 @@ export async function createCheckoutSessionForApp(
     return { kind: 'error', code: 'already_active' }
   }
 
-  const monthlyProductId = env.POLAR_MONTHLY_PRODUCT_ID ?? env.POLAR_PRODUCT_ID
-  const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : monthlyProductId
+  const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : env.POLAR_MONTHLY_PRODUCT_ID
   if (!productId) {
     return {
       kind: 'error',

@@ -9,6 +9,7 @@ import {
 import {
   articleCacheTag,
   articleCacheTags,
+  cachedArticleResponseBelongsToSite,
   contentEtag,
   articleMarkdownAlternateLink,
   articleResponseCacheRequest,
@@ -127,6 +128,16 @@ describe("cache tags and SEO headers", () => {
       }),
     );
     expect(await matchArticleResponseCache(url, "html")).toBeUndefined();
+  });
+
+  it("rejects article cache entries tagged for another resolved site", () => {
+    const response = new Response("cached", {
+      headers: { "cache-tag": articleCacheTags(site.id, "hello").join(",") },
+    });
+
+    expect(cachedArticleResponseBelongsToSite(response, site.id)).toBe(true);
+    expect(cachedArticleResponseBelongsToSite(response, "reassigned-site")).toBe(false);
+    expect(cachedArticleResponseBelongsToSite(new Response("untagged"), site.id)).toBe(false);
   });
 
   it("noindexes unpaid blogs", () => {

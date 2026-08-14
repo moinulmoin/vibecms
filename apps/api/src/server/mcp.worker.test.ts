@@ -329,12 +329,12 @@ describe("MCP 2026-07-28 stateless transport", () => {
     expect((await response.json()) as RpcErrorBody).toMatchObject({ error: { code: -32602 } });
   });
 
-  it("removes initialize from modern semantics while preserving the legacy handshake", async () => {
+  it("keeps initialize available for standard MCP protocol negotiation", async () => {
     const modernResponse = await handleMcpRequest(modernMcpRequest("initialize"));
     expect(modernResponse.status).toBe(404);
     expect((await modernResponse.json()) as RpcErrorBody).toMatchObject({ error: { code: -32601 } });
 
-    const legacyResponse = await handleMcpRequest(
+    const initializeResponse = await handleMcpRequest(
       mcpRequest({
         jsonrpc: "2.0",
         id: 2,
@@ -342,10 +342,10 @@ describe("MCP 2026-07-28 stateless transport", () => {
         params: { protocolVersion: "2025-11-25" },
       }),
     );
-    const legacyJson = (await legacyResponse.json()) as { result: { protocolVersion: string; resultType?: string } };
-    expect(legacyResponse.status).toBe(200);
-    expect(legacyJson.result).toMatchObject({ protocolVersion: "2025-11-25" });
-    expect(legacyJson.result.resultType).toBeUndefined();
+    const initializeJson = (await initializeResponse.json()) as { result: { protocolVersion: string; resultType?: string } };
+    expect(initializeResponse.status).toBe(200);
+    expect(initializeJson.result).toMatchObject({ protocolVersion: "2025-11-25" });
+    expect(initializeJson.result.resultType).toBeUndefined();
   });
 
   it("rejects cross-origin browser requests", async () => {

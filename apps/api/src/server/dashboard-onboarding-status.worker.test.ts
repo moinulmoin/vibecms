@@ -117,7 +117,7 @@ describe("loadOnboardingStatus — connection + exact-key resolution", () => {
     const status = await loadOnboardingStatus(ownerApp(), KEY_SAME_SEC);
     // No api_key posts seeded on this site -> durable proof is 'waiting'.
     expect(status.firstPost.state).toBe("waiting");
-    // Exact contract field set (the legacy onboardingKey/publish shape is gone).
+    // Exact contract field set.
     expect(Object.keys(status).sort()).toEqual(
       ["canManage", "connection", "firstPost", "key", "mcpUrl", "publicBaseUrl"].sort(),
     );

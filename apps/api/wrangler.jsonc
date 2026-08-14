@@ -53,7 +53,7 @@
     "CLOUDFLARE_ZONE_ID": "7a6df92d77c6cd873acd0f35fc4bf64d",
     "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.basedui.dev",
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
-    "POLAR_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
+    "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
     "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
     "POLAR_SERVER": "sandbox"
   },
@@ -106,7 +106,7 @@
         "CLOUDFLARE_ZONE_ID": "7a6df92d77c6cd873acd0f35fc4bf64d",
         "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.basedui.dev",
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
-        "POLAR_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
+        "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
         "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
         "POLAR_SERVER": "sandbox"
       }
@@ -160,7 +160,7 @@
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
         "POLAR_SERVER": "production",
         "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.vibecms.dev",
-        "POLAR_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
+        "POLAR_MONTHLY_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
         "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436"
       }
     }

@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import { PublicBlogPostView } from "../components/PublicBlogPages";
 import {
   handlePublicPostByHostGet,
-  loadPublicPostByHost,
+  loadPublicPostForSite,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
 } from "../server/public-blog";
@@ -27,11 +27,11 @@ if (!cacheSite) {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 if (cacheSite.effective_entitlement.effective) {
-  const cachedHtml = await matchCachedPublicPostHtml(Astro.request);
+  const cachedHtml = await matchCachedPublicPostHtml(Astro.request, cacheSite.id);
   if (cachedHtml) return cachedHtml;
 }
 
-const blog = await loadPublicPostByHost(db, Astro.request, postSlug, env);
+const blog = await loadPublicPostForSite(db, Astro.request.url, cacheSite, postSlug, env);
 if (!blog) {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }

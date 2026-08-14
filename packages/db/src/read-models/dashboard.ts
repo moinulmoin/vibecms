@@ -1,12 +1,8 @@
 import { and, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
 import type { Post } from "@vc/core";
+import { isNotNull } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, user } from "../schema";
-
-// The posts DB CHECK (migration 0001) allows a vestigial 'scheduled' status the schema enum omits; collapse it (and any unknown) to 'draft' — matches the prior raw dashboard path and posts.ts. The string param avoids a dead TS2367 comparison against the narrowed enum.
-function normalizePostStatus(status: string): Post["status"] {
-  return status === "published" || status === "archived" ? status : "draft";
-}
 
 export interface DashboardRecentPost {
   id: string;
@@ -180,7 +176,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         ]);
 
       const counts: DashboardAggregate["counts"] = { published: 0, draft: 0, archived: 0 };
-      for (const row of statusRows) counts[normalizePostStatus(row.status)] += row.count;
+      for (const row of statusRows) counts[row.status] += row.count;
 
       const media = mediaRows[0] ?? { bytes: 0, count: 0 };
 
@@ -194,7 +190,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           id: post.id,
           title: post.title,
           slug: post.slug,
-          status: normalizePostStatus(post.status),
+          status: post.status,
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
@@ -203,7 +199,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           id: post.id,
           title: post.title,
           slug: post.slug,
-          status: normalizePostStatus(post.status),
+          status: post.status,
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
@@ -245,7 +241,6 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         .offset(input.offset);
       return rows.map((row) => ({
         ...row,
-        status: normalizePostStatus(row.status),
         versionNumber: row.versionNumber > 0 ? row.versionNumber : null,
       }));
     },
@@ -266,7 +261,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           id: posts.id,
           title: posts.title,
           slug: posts.slug,
-          publishedAt: sql<number>`coalesce(${posts.publishedAt}, ${activityEvents.createdAt})`.mapWith(Number),
+          publishedAt: sql<number>`${posts.publishedAt}`.mapWith(Number),
           actorName: activityEvents.actorName,
         })
         .from(activityEvents)
@@ -278,6 +273,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
             eq(activityEvents.entityType, "post"),
             eq(activityEvents.action, "post.published"),
             eq(posts.status, "published"),
+            isNotNull(posts.publishedAt),
           ),
         )
         .orderBy(desc(activityEvents.createdAt), desc(activityEvents.id))

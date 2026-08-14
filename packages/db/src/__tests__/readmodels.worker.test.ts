@@ -5,9 +5,8 @@
  * read models reached via `createDataAccess(env.DB)`:
  *
  *   - dashboard.getDashboardAggregate — the 8-way parallel aggregate backing the
- *     cms dashboard. This suite defends the four contracts most at risk:
- *       (1) the 'scheduled'->'draft' status collapse (the posts DB CHECK allows a
- *           vestigial 'scheduled' value the Drizzle enum omits);
+ *     cms dashboard. This suite defends the contracts most at risk:
+ *       (1) status counts;
  *       (2) the revoked_at IS NULL filter on the api-token count;
  *       (3) the COALESCE-0 media sum on an asset-less site;
  *       (4) the newest-first, capped-at-5 recent feeds.
@@ -130,21 +129,20 @@ async function seed(): Promise<void> {
   await seedActivationSite();
 }
 
-// Posts (incl. one 'scheduled' via raw SQL — the DB CHECK permits it even
-// though the Drizzle enum omits it), assets, api keys (one active + one
-// revoked), post versions, activity events, and three domains on rm-site-full.
+// Posts, assets, api keys (one active + one revoked), post versions, activity
+// events, and three domains on rm-site-full.
 async function seedDashboardSite(): Promise<void> {
   const site = "rm-site-full";
   // 7 posts spanning every status. created_by/updated_by are constant system
   // actor values; updated_at is what drives both status-free ordering and the
-  // recentPosts feed. p4 is the 'scheduled' row that must collapse to 'draft'.
+  // recentPosts feed.
   const postActor = ["system", "rm-system"] as const;
   const posts: Array<[string, string, string, string, number | null, number]> = [
     // id, slug, status, title, publishedAt, updatedAt
     ["rm-p1", "post-1", "published", "Post 1", T + 5, T + 60],
     ["rm-p2", "post-2", "published", "Post 2", T + 5, T + 50],
     ["rm-p3", "post-3", "draft", "Post 3", null, T + 40],
-    ["rm-p4", "post-4", "scheduled", "Post 4", null, T + 30],
+    ["rm-p4", "post-4", "draft", "Post 4", null, T + 30],
     ["rm-p5", "post-5", "archived", "Post 5", T, T + 20],
     ["rm-p6", "post-6", "published", "Post 6", T, T + 10],
     ["rm-p7", "post-7", "draft", "Post 7", null, T],
@@ -415,10 +413,8 @@ describe("dashboard.getDashboardAggregate — seeded site", () => {
     expect(agg.site).toEqual({ name: "RM Full Site", slug: "rm-site-full" });
   });
 
-  it("collapses 'scheduled' into draft and counts the rest by status", async () => {
-    // Seeded: published = p1,p2,p6 (3); draft = p3 + p4('scheduled') + p7 (3);
-    // archived = p5 (1). If the scheduled->draft collapse were dropped, draft
-    // would read 2 (p3+p7) instead of 3, reddening this assertion.
+  it("counts posts by status", async () => {
+    // Seeded: published = p1,p2,p6 (3); draft = p3,p4,p7 (3); archived = p5 (1).
     const agg = await da.dashboard.getDashboardAggregate("rm-site-full");
     expect(agg.counts).toEqual({ published: 3, draft: 3, archived: 1 });
   });
@@ -441,7 +437,7 @@ describe("dashboard.getDashboardAggregate — seeded site", () => {
     expect(agg.versionCount).toBe(4);
   });
 
-  it("returns recentPosts newest-first capped at 5, with scheduled collapsed to draft", async () => {
+  it("returns recentPosts newest-first capped at 5", async () => {
     const agg = await da.dashboard.getDashboardAggregate("rm-site-full");
     // updated_at desc: p1(+60), p2(+50), p3(+40), p4(+30), p5(+20). p6(+10)
     // and p7(0) fall off the 5-row cap.
@@ -452,9 +448,6 @@ describe("dashboard.getDashboardAggregate — seeded site", () => {
       "rm-p4",
       "rm-p5",
     ]);
-    // p4 was seeded 'scheduled'; its projected status must be 'draft'. This
-    // defends the collapse in the recentPosts projection independently of the
-    // status-count collapse above.
     const p4 = agg.recentPosts.find((p) => p.id === "rm-p4");
     expect(p4?.status).toBe("draft");
     // The newest row carries its full projection shape incl. publishedAt.
@@ -630,26 +623,6 @@ describe("dashboard.getActivationPost — live wins, draft fallback, human exclu
     expect(proof.post.id).toBe("rm-act-live");
     expect(proof.post).toMatchObject({ title: "rm-act-live", slug: "live-agent", publishedAt: T + 5 });
     expect(proof.actorName).toBe("Agent Key");
-  });
-
-  it("uses the publish activity time when a legacy published row has no publishedAt", async () => {
-    await exec(
-      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      "rm-site-live-null-time", "rm-ws", "RM Live Null Time", "rm-site-live-null-time", T, T,
-    );
-    await exec(
-      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      "rm-live-null-time", "rm-site-live-null-time", "Null Time", "null-time", "# live", "published", null, "[]", "api_key", "rm-null-key", "api_key", "rm-null-key", T, T + 42,
-    );
-    await exec(
-      "INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      "rm-live-null-event", "rm-site-live-null-time", "api_key", "rm-null-key", "Null Key", "post.published", "post", "rm-live-null-time", "published", T + 42,
-    );
-
-    const proof = await da.dashboard.getActivationPost("rm-site-live-null-time");
-    expect(proof.state).toBe("live");
-    if (proof.state !== "live") return;
-    expect(proof.post.publishedAt).toBe(T + 42);
   });
 
   it("falls back to the latest api_key draft only when no live post exists", async () => {

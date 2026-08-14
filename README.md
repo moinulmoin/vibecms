@@ -70,10 +70,10 @@ sites.get -> posts.format_guide -> draft -> posts.preview
   -> posts.publish(postId, expectedVersionNumber) -> returned URL
 ```
 
-The REST `/api/v1` API mirrors the MCP tools with full read/write parity. The legacy `/api/posts` endpoint below is read/list only—lists return summaries without full Markdown, so fetch a single post body through `/api/v1` or MCP `posts.get`:
+The REST `/api/v1` API mirrors the MCP tools with full read/write parity. Post lists return summaries without full Markdown, so fetch a single post body through REST or MCP `posts.get`:
 
 ```sh
-curl "https://your-vibecms-domain.com/api/posts?limit=20&offset=0" \
+curl "https://your-vibecms-domain.com/api/v1/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
@@ -206,7 +206,7 @@ Recommended sandbox product setup:
 
 - Recurring subscription product.
 - Price: $19/month, or $190/year if you create a yearly product/price in Polar.
-- Use the monthly product for `POLAR_MONTHLY_PRODUCT_ID` or the legacy `POLAR_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`; otherwise yearly checkout falls back to the monthly product.
+- Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`.
 - In hosted mode, new workspaces stay behind the Polar checkout gate until checkout/webhooks mark billing active. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
 - Launch entitlement: 1 hosted blog, unlimited posts, 5 GB media, scoped agent access, activity and version history, and reader + AI discovery analytics.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.

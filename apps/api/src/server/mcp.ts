@@ -40,18 +40,18 @@ function forceQuotaForSmoke(request: Request) {
   return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
 }
 const MODERN_PROTOCOL_VERSION = "2026-07-28";
-const LEGACY_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
-const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...LEGACY_PROTOCOL_VERSIONS] as const;
-const LATEST_LEGACY_PROTOCOL_VERSION = LEGACY_PROTOCOL_VERSIONS[0];
+const INITIALIZE_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
+const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...INITIALIZE_PROTOCOL_VERSIONS] as const;
+const DEFAULT_INITIALIZE_PROTOCOL_VERSION = INITIALIZE_PROTOCOL_VERSIONS[0];
 const SERVER_INFO = { name: "vibecms", version: "0.1.0" } as const;
 const DISCOVERY_TTL_MS = 300_000;
 const recoverableToolErrorCodes = new Set(["VALIDATION_ERROR", "CONFLICT", "NOT_FOUND"]);
 
-function negotiateLegacyProtocolVersion(params: unknown): string {
+function negotiateInitializeProtocolVersion(params: unknown): string {
   const requested = stringParam(asObject(params), "protocolVersion");
-  return requested && (LEGACY_PROTOCOL_VERSIONS as readonly string[]).includes(requested)
+  return requested && (INITIALIZE_PROTOCOL_VERSIONS as readonly string[]).includes(requested)
     ? requested
-    : LATEST_LEGACY_PROTOCOL_VERSION;
+    : DEFAULT_INITIALIZE_PROTOCOL_VERSION;
 }
 
 function requestMeta(params: unknown) {
@@ -325,7 +325,7 @@ export async function handleMcpRequest(request: Request) {
     [protocolHeader, metaVersion].some(
       (version) =>
         typeof version === "string" &&
-        !(LEGACY_PROTOCOL_VERSIONS as readonly string[]).includes(version),
+        !(INITIALIZE_PROTOCOL_VERSIONS as readonly string[]).includes(version),
     );
 
   if (modern) {
@@ -335,7 +335,7 @@ export async function handleMcpRequest(request: Request) {
 
   if (!modern && body.method === "initialize") {
     return result(body.id, {
-      protocolVersion: negotiateLegacyProtocolVersion(body.params),
+      protocolVersion: negotiateInitializeProtocolVersion(body.params),
       capabilities: { tools: {} },
       serverInfo: { ...SERVER_INFO, title: "vibecms" },
       instructions: mcpInstructions,
