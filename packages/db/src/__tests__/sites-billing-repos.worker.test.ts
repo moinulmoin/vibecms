@@ -375,6 +375,66 @@ describe("sites.repairDefaultHostname — rewrites the local default hostname", 
     expect(returned).toBe("site-sb-repair.vibecms.app");
     expect(await da.sites.getActiveDefaultHostname("site-sb-repair")).toBe("site-sb-repair.vibecms.app");
   });
+
+  it("disables a stale local row when the canonical hostname already exists for the site", async () => {
+    await da.sites.ensureOnboardingBase({
+      timestamp: T,
+      workspace: { id: "ws-sb-repair-existing", name: "SB Existing Repair Workspace", slug: "ws-sb-repair-existing" },
+      membership: { id: "mem-sb-repair-existing", workspaceId: "ws-sb-repair-existing", userId: "user-sb-repair" },
+      site: {
+        id: "site-sb-repair-existing",
+        workspaceId: "ws-sb-repair-existing",
+        name: "SB Existing Repair Site",
+        slug: "site-sb-repair-existing",
+        description: "Existing hostname repair fixture",
+      },
+      defaultDomain: {
+        id: "dom-sb-repair-existing-local",
+        siteId: "site-sb-repair-existing",
+        hostname: "site-sb-repair-existing.localhost",
+      },
+      siteCreatedActivity: {
+        id: "act-sb-repair-existing",
+        siteId: "site-sb-repair-existing",
+        summary: "Site created",
+      },
+    });
+    await env.DB
+      .prepare(
+        `INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'default', 'active', ?, ?)`,
+      )
+      .bind(
+        "dom-sb-repair-existing-live",
+        "site-sb-repair-existing",
+        "site-sb-repair-existing.vibecms.app",
+        T,
+        T,
+      )
+      .run();
+
+    expect(
+      await da.sites.getActiveDefaultHostname(
+        "site-sb-repair-existing",
+        "site-sb-repair-existing.vibecms.app",
+      ),
+    ).toBe("site-sb-repair-existing.vibecms.app");
+
+    const returned = await da.sites.repairDefaultHostname({
+      siteId: "site-sb-repair-existing",
+      currentHostname: "site-sb-repair-existing.localhost",
+      newHostname: "site-sb-repair-existing.vibecms.app",
+    });
+
+    expect(returned).toBe("site-sb-repair-existing.vibecms.app");
+    expect(await da.sites.getActiveDefaultHostname("site-sb-repair-existing"))
+      .toBe("site-sb-repair-existing.vibecms.app");
+    const stale = await env.DB
+      .prepare("SELECT status FROM domains WHERE id = ?")
+      .bind("dom-sb-repair-existing-local")
+      .first<{ status: string }>();
+    expect(stale?.status).toBe("disabled");
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -141,7 +141,7 @@ export interface SitesRepository {
   ensureOnboardingBase(input: EnsureOnboardingBaseInput): Promise<void>;
   completeSiteSetup(input: CompleteSiteSetupInput): Promise<void>;
   updateSiteSettings(input: UpdateSiteSettingsInput): Promise<void>;
-  getActiveDefaultHostname(siteId: string): Promise<string | null>;
+  getActiveDefaultHostname(siteId: string, preferredHostname?: string): Promise<string | null>;
   repairDefaultHostname(input: RepairDefaultHostnameInput): Promise<string>;
 }
 
@@ -422,7 +422,22 @@ export function createSitesRepository(db: D1Database): SitesRepository {
     },
 
     // Active default-domain hostname SELECT (type='default' AND status='active').
-    async getActiveDefaultHostname(siteId) {
+    async getActiveDefaultHostname(siteId, preferredHostname) {
+      if (preferredHostname) {
+        const preferred = await client
+          .select({ hostname: domains.hostname })
+          .from(domains)
+          .where(
+            and(
+              eq(domains.siteId, siteId),
+              eq(domains.type, "default"),
+              eq(domains.status, "active"),
+              eq(domains.hostname, preferredHostname),
+            ),
+          )
+          .limit(1);
+        if (preferred[0]) return preferred[0].hostname;
+      }
       const rows = await client
         .select({ hostname: domains.hostname })
         .from(domains)
@@ -433,9 +448,31 @@ export function createSitesRepository(db: D1Database): SitesRepository {
 
     // Repair a stale local default hostname to the configured slug zone; returns the hostname to use.
     async repairDefaultHostname(input) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const existingTarget = await client
+        .select({ id: domains.id, siteId: domains.siteId })
+        .from(domains)
+        .where(eq(domains.hostname, input.newHostname))
+        .limit(1);
+      if (existingTarget[0]) {
+        if (existingTarget[0].siteId !== input.siteId) {
+          throw new Error("default_hostname_conflict");
+        }
+        await db.batch([
+          db
+            .prepare("UPDATE domains SET status = 'active', updated_at = ? WHERE id = ?")
+            .bind(timestamp, existingTarget[0].id),
+          db
+            .prepare(
+              "UPDATE domains SET status = 'disabled', updated_at = ? WHERE site_id = ? AND type = 'default' AND hostname = ?",
+            )
+            .bind(timestamp, input.siteId, input.currentHostname),
+        ]);
+        return input.newHostname;
+      }
       await client
         .update(domains)
-        .set({ hostname: input.newHostname, updatedAt: Math.floor(Date.now() / 1000) })
+        .set({ hostname: input.newHostname, updatedAt: timestamp })
         .where(
           and(
             eq(domains.siteId, input.siteId),

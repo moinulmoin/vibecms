@@ -11,6 +11,13 @@ SET status = 'draft',
 WHERE status = 'scheduled';
 
 UPDATE posts
+SET status = 'draft',
+    published_at = NULL,
+    updated_at = unixepoch()
+WHERE status = 'published'
+  AND published_version_id IS NULL;
+
+UPDATE posts
 SET published_at = COALESCE(
       (
         SELECT MAX(activity_events.created_at)
