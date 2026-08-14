@@ -3,17 +3,32 @@ import type { VoiceProfileSettingsInput } from '@vc/validators'
 
 export type SessionUser = { id: string; name: string; email: string }
 
+export type AppChoice = {
+  workspaceId: string
+  workspaceName: string
+  siteId: string
+  siteName: string
+  siteSlug: string
+  role: 'owner' | 'editor' | 'viewer'
+  managed: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
+}
+
 export type AppUserContext = {
   user: SessionUser
   siteId: string
   workspaceId: string
-  actor: { type: 'human'; id: string; name: string; role: 'owner' | 'editor' }
+  actor: { type: 'human'; id: string; name: string; role: 'owner' | 'editor' | 'viewer' }
 }
 
 export type AppRouterContext = {
   googleEnabled: boolean
   user: SessionUser | null
   app: AppUserContext | null
+  apps: AppChoice[]
   siteSetupComplete: boolean
   siteDisplayName: string | null
 }
@@ -29,6 +44,11 @@ export type ApiUsageStatus = {
 
 export type ApiUsageSummary = {
   enforced: boolean
+  billingStatus?: BillingStatus
+  polarStatus?: BillingStatus
+  effective?: boolean
+  access?: 'self_hosted' | 'hosted_paid' | 'hosted_free'
+  source?: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
   calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus }
   writes: { day: ApiUsageStatus; month: ApiUsageStatus }
 }
@@ -37,7 +57,18 @@ export type DashboardData = {
   site: { name: string; slug: string } | null
   publicUrl: string | null
   publicUrlLocal: boolean
-  billing: { status: BillingStatus }
+  billing: {
+    status: BillingStatus
+    polarStatus?: BillingStatus
+    effective?: boolean
+    access?: 'self_hosted' | 'hosted_paid' | 'hosted_free'
+    source?: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+    managed?: {
+      status: 'active' | 'revoked'
+      expiresAt: number | null
+      effective: boolean
+    } | null
+  }
   apiUsage: ApiUsageSummary
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
@@ -104,7 +135,16 @@ export type BillingSnapshot = {
 
 export type BillingPageLoadResult =
   | { selfHosted: true; isOwner: boolean; billing: { status: BillingStatus; currentPeriodEnd: null } }
-  | { selfHosted: false; isOwner: boolean; billing: BillingSnapshot }
+  | {
+      selfHosted: false
+      isOwner: boolean
+      billing: BillingSnapshot
+      managed: {
+        status: 'active' | 'revoked'
+        expiresAt: number | null
+        effective: boolean
+      } | null
+    }
 
 export type CheckoutInterval = 'monthly' | 'yearly'
 
@@ -122,6 +162,15 @@ export type ConnectPageData = {
   canManage: boolean
   mcpUrl: string
   apiKeys: ApiKeyListItem[]
+  effectiveEntitlement: {
+    effective: boolean
+    source: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+  }
+  managed: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
 }
 
 export type ActivationKeyInfo = {
@@ -197,6 +246,18 @@ export type SettingsPageData = {
   assets: Asset[]
   customDomains: CustomDomainsPanel
   billingStatus: string
+  polarBillingStatus?: BillingStatus
+  effectiveEntitlement?: {
+    effective: boolean
+    access: 'self_hosted' | 'hosted_paid' | 'hosted_free'
+    source: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+    effectiveUntil: number | null
+  }
+  managed?: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
   selfHosted: boolean
   isOwner: boolean
   mcpUrl: string

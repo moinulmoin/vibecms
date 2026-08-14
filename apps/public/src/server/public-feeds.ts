@@ -13,7 +13,7 @@ import {
 } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
 import { sanitizeLlmsField } from "./llms-text";
-import { siteCacheTag } from "./public-blog-cache";
+import { publicCacheControlForEntitlement, siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
@@ -69,7 +69,7 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
   return new Response(xml, {
     headers: {
       "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": cacheControl,
+      "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
       "cache-tag": siteCacheTag(site.id),
       ...robotsTagHeaders(site, env),
     },
@@ -86,7 +86,7 @@ export async function handleSitemap(db: D1Database, request: Request, env: Publi
   return new Response(xml, {
     headers: {
       "content-type": "application/xml; charset=utf-8",
-      "cache-control": cacheControl,
+      "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
       "cache-tag": siteCacheTag(site.id),
     },
   });
@@ -100,7 +100,13 @@ export async function handleRobots(db: D1Database, request: Request, env: Public
     ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
     : "User-agent: *\nAllow: /\n";
   return new Response(body, {
-    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": cacheControl },
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": site
+        ? publicCacheControlForEntitlement(site.effective_entitlement)
+        : cacheControl,
+      ...(site ? { "cache-tag": siteCacheTag(site.id) } : {}),
+    },
   });
 }
 
@@ -120,7 +126,7 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
   return new Response(`${lines.join("\n")}\n`, {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
-      "cache-control": cacheControl,
+      "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
       "cache-tag": siteCacheTag(site.id),
       ...robotsTagHeaders(site, env),
     },

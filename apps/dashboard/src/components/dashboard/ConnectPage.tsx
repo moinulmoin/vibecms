@@ -475,6 +475,8 @@ export function ConnectPage() {
       (!draft && (displayConn === 'waiting' || displayConn === 'connected')))
 
   const canManage = connectData?.canManage ?? status?.canManage ?? false
+  const managed = connectData?.managed ?? null
+  const effectiveEntitlement = connectData?.effectiveEntitlement ?? null
   const loading = !connectData && !status
   const showInitialError = loading && connectLoadFailed && statusLoadFailed
 
@@ -583,8 +585,14 @@ export function ConnectPage() {
                           </div>
                         )}
                         <p className="font-sans text-base leading-7 text-muted-foreground">
-                          {livePost?.url
-                            ? "Your first 5 published posts are free. People with the link can read it now; search engines won't index it until you upgrade."
+                          {livePost?.url && managed?.effective
+                            ? 'Your post is live and search-indexable while managed access is active.'
+                            : livePost?.url && effectiveEntitlement?.effective
+                              ? 'Your post is live and search-indexable with active access.'
+                            : livePost?.url && managed
+                              ? 'People with the link can still read this post. Paid hosted features return when AutoSEOPilot restores sponsorship.'
+                            : livePost?.url
+                              ? "Your first 5 published posts are free. People with the link can read it now; search engines won't index it until you upgrade."
                             : 'The publish is recorded. The public link will appear when the default domain is active.'}
                         </p>
                         {livePost?.url && (
@@ -606,9 +614,11 @@ export function ConnectPage() {
                       </div>
                     </Panel>
 
-                    <Panel title="Publish more posts">
-                      <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
-                    </Panel>
+                    {!managed ? (
+                      <Panel title="Publish more posts">
+                        <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
+                      </Panel>
+                    ) : null}
                   </div>
                 )}
 

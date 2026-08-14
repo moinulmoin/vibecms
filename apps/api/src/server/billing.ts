@@ -129,6 +129,9 @@ export async function createCheckoutSessionForApp(
   if (isSelfHosted()) return { kind: 'error', code: 'self_hosted' }
 
   const db = createDataAccess(env.DB)
+  if (await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)) {
+    return { kind: 'error', code: 'managed_workspace' }
+  }
   if (await db.billing.isActiveSubscription(app.workspaceId)) {
     return { kind: 'error', code: 'already_active' }
   }

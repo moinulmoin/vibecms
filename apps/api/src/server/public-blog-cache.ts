@@ -29,7 +29,15 @@ export function articleCacheUrlsForHost(hostname: string, postSlug: string): str
 export function siteCacheUrls(siteSlug: string): string[] {
   if (!publicBlogBaseDomain()) return [];
   const base = `https://${defaultHostname(siteSlug)}`;
-  return [base, `${base}/feed.xml`, `${base}/rss.xml`, `${base}/atom.xml`, `${base}/sitemap.xml`, `${base}/llms.txt`];
+  return [
+    base,
+    `${base}/feed.xml`,
+    `${base}/rss.xml`,
+    `${base}/atom.xml`,
+    `${base}/sitemap.xml`,
+    `${base}/robots.txt`,
+    `${base}/llms.txt`,
+  ];
 }
 
 /** Best-effort Cache API keys for a custom hostname (CF `hosts` purge is authoritative). */
@@ -37,7 +45,15 @@ export function hostnameCacheUrls(hostname: string): string[] {
   const host = hostname.trim().toLowerCase().replace(/\.$/, "");
   if (!host) return [];
   const base = `https://${host}`;
-  return [base, `${base}/feed.xml`, `${base}/rss.xml`, `${base}/atom.xml`, `${base}/sitemap.xml`, `${base}/llms.txt`];
+  return [
+    base,
+    `${base}/feed.xml`,
+    `${base}/rss.xml`,
+    `${base}/atom.xml`,
+    `${base}/sitemap.xml`,
+    `${base}/robots.txt`,
+    `${base}/llms.txt`,
+  ];
 }
 
 async function purgeCloudflare(body: Record<string, unknown>): Promise<boolean> {

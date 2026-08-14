@@ -13,7 +13,7 @@ import {
 } from '@vc/core'
 import { createDataAccess, createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
-import { getBillingStatus } from '@/server/billing'
+import { getCoreBillingStatusForSite } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from '@/server/post-live-purge'
 import { assertPostImagesPublishable } from '@/server/publishing-images'
@@ -129,7 +129,7 @@ export async function publishPostForApp(
       siteId: app.siteId,
       postId,
       expectedVersionNumber,
-      billingStatus: await getBillingStatus(app.workspaceId),
+      billingStatus: await getCoreBillingStatusForSite(app.siteId),
     })
     const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
     if (siteSlug) scheduleLiveArticlePurges(app.siteId, siteSlug, previousLiveSlug, published.slug)

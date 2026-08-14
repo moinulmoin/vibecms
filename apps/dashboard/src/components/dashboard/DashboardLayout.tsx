@@ -3,6 +3,7 @@ import type { FormStatus } from '@vc/config'
 import {
   ActivityLogIcon,
   CaretSortIcon,
+  CheckIcon,
   DashboardIcon,
   ExitIcon,
   FileTextIcon,
@@ -13,7 +14,7 @@ import {
 import { ChartNoAxesCombined } from 'lucide-react'
 import { Alert, Button } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { useTransition, type ComponentType, type ReactNode } from 'react'
+import { useState, useTransition, type ComponentType, type ReactNode } from 'react'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
 import {
   Sidebar,
@@ -42,6 +43,8 @@ import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { Separator } from "@vc/ui"
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
+import { selectDashboardApp } from '~/lib/api-client'
+import type { AppChoice } from '~/types/dashboard'
 // Page primitives moved to the shared block kit; keep re-exports for
 // compatibility during the transition, then drop them.
 export { PageHeader, Panel, StatCard, StatusBadge, EmptyState, DataRow } from './blocks'
@@ -173,7 +176,13 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
   )
 }
 
-function DashboardNavigation({ current }: { current: string }) {
+function DashboardNavigation({
+  current,
+  role,
+}: {
+  current: string
+  role?: 'owner' | 'editor' | 'viewer'
+}) {
   const { isMobile, setOpenMobile } = useSidebar()
   const closeMobileNavigation = () => {
     if (isMobile) setOpenMobile(false)
@@ -182,26 +191,142 @@ function DashboardNavigation({ current }: { current: string }) {
   return (
     <SidebarGroup className="px-2 py-3">
       <SidebarMenu className="gap-1">
-        {navItems.map(({ label, to, Icon }) => {
-          const active = current === to || (to !== '/dashboard' && current.startsWith(to))
-          return (
-            <SidebarMenuItem key={to}>
-              <SidebarMenuButton
-                asChild
-                isActive={active}
-                tooltip={label}
-                className="relative h-9 px-2.5 font-medium text-muted-foreground data-[active=true]:bg-transparent data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-primary data-[active=true]:[&>svg]:text-primary"
-              >
-                <Link to={to} onClick={closeMobileNavigation}>
-                  <Icon aria-hidden />
-                  <span>{label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+        {navItems
+          .filter(
+            ({ to }) =>
+              role !== 'viewer' ||
+              !['/dashboard/media', '/dashboard/connect', '/dashboard/settings'].includes(to),
           )
-        })}
+          .map(({ label, to, Icon }) => {
+            const active = current === to || (to !== '/dashboard' && current.startsWith(to))
+            return (
+              <SidebarMenuItem key={to}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  tooltip={label}
+                  className="relative h-9 px-2.5 font-medium text-muted-foreground data-[active=true]:bg-transparent data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-primary data-[active=true]:[&>svg]:text-primary"
+                >
+                  <Link to={to} onClick={closeMobileNavigation}>
+                    <Icon aria-hidden />
+                    <span>{label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
       </SidebarMenu>
     </SidebarGroup>
+  )
+}
+
+function SiteIdentity({ siteName }: { siteName?: string }) {
+  return (
+    <>
+      <img src="/brand/icon.svg" alt="" className="size-8 shrink-0 rounded-lg" aria-hidden="true" />
+      <div className="grid flex-1 text-left leading-tight">
+        <span className="truncate text-sm font-semibold tracking-[-0.01em]">
+          {siteName ?? BRAND.name}
+        </span>
+        <span className="truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
+          vibecms<span className="text-primary">.</span>
+        </span>
+      </div>
+    </>
+  )
+}
+
+function SiteSwitcher({
+  apps,
+  currentWorkspaceId,
+  currentSiteId,
+  currentRole,
+  siteName,
+}: {
+  apps: AppChoice[]
+  currentWorkspaceId?: string
+  currentSiteId?: string
+  currentRole?: 'owner' | 'editor' | 'viewer'
+  siteName?: string
+}) {
+  const [pendingSiteId, setPendingSiteId] = useState<string | null>(null)
+  if (apps.length <= 1) {
+    return (
+      <SidebarMenuButton asChild size="lg">
+        <Link to="/dashboard">
+          <SiteIdentity siteName={siteName} />
+        </Link>
+      </SidebarMenuButton>
+    )
+  }
+
+  const switchApp = async (choice: AppChoice) => {
+    if (
+      pendingSiteId ||
+      (choice.workspaceId === currentWorkspaceId &&
+        choice.siteId === currentSiteId)
+    ) {
+      return
+    }
+    setPendingSiteId(choice.siteId)
+    try {
+      await selectDashboardApp({
+        workspaceId: choice.workspaceId,
+        siteId: choice.siteId,
+      })
+      window.location.assign('/dashboard')
+    } catch {
+      setPendingSiteId(null)
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton
+          size="lg"
+          aria-label="Switch site"
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+        >
+          <SiteIdentity siteName={siteName} />
+          <CaretSortIcon className="ml-auto size-4 text-muted-foreground" />
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="min-w-64"
+      >
+        <DropdownMenuLabel>Sites</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {apps.map((choice) => {
+          const selected =
+            choice.workspaceId === currentWorkspaceId &&
+            choice.siteId === currentSiteId
+          return (
+            <DropdownMenuItem
+              key={`${choice.workspaceId}:${choice.siteId}`}
+              disabled={pendingSiteId !== null}
+              onSelect={(event) => {
+                event.preventDefault()
+                void switchApp(choice)
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">
+                  {choice.siteName}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {choice.workspaceName}
+                </span>
+              </div>
+              {selected ? <CheckIcon className="ml-auto" /> : null}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -210,11 +335,19 @@ export function AppShell({
   current: currentProp,
   siteName,
   userEmail,
+  apps = [],
+  currentWorkspaceId,
+  currentSiteId,
+  currentRole,
 }: {
   children: ReactNode
   current?: string
   siteName?: string
   userEmail?: string
+  apps?: AppChoice[]
+  currentWorkspaceId?: string
+  currentSiteId?: string
+  currentRole?: 'owner' | 'editor' | 'viewer'
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const formStatus = useFormStatusFromSearch()
@@ -227,25 +360,18 @@ export function AppShell({
           <SidebarHeader>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild size="lg">
-                  <Link to="/dashboard">
-                    <img src="/brand/icon.svg" alt="" className="size-8 shrink-0 rounded-lg" aria-hidden="true" />
-                    <div className="grid flex-1 text-left leading-tight">
-                      <span className="truncate text-sm font-semibold tracking-[-0.01em]">
-                        {siteName ?? BRAND.name}
-                      </span>
-                      <span className="truncate font-mono text-[11px] tracking-[0.12em] text-muted-foreground">
-                        vibecms<span className="text-primary">.</span>
-                      </span>
-                    </div>
-                  </Link>
-                </SidebarMenuButton>
+                <SiteSwitcher
+                  apps={apps}
+                  currentWorkspaceId={currentWorkspaceId}
+                  currentSiteId={currentSiteId}
+                  siteName={siteName}
+                />
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarHeader>
 
           <SidebarContent>
-            <DashboardNavigation current={current} />
+            <DashboardNavigation current={current} role={currentRole} />
           </SidebarContent>
 
           <SidebarFooter>

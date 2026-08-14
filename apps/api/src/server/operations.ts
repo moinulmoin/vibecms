@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, hasActiveSubscription, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -13,7 +13,10 @@ import {
 } from "@vc/api-contract";
 import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
-import { getBillingStatusForSite } from "./billing";
+import {
+  billingStatusForCore,
+  resolveEffectiveEntitlementForSite,
+} from "./effective-entitlement";
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
@@ -57,11 +60,11 @@ function postPublicUrl(base: string | null, post: { status: string; slug: string
 }
 
 async function requireBillableSite(siteId: string) {
-  const billingStatus = await getBillingStatusForSite(siteId);
-  if (!hasActiveSubscription(billingStatus)) {
+  const entitlement = await resolveEffectiveEntitlementForSite(siteId);
+  if (!entitlement.effective) {
     throw new AppError("BILLING_REQUIRED", "An active subscription is required for MCP writes", 402);
   }
-  return billingStatus;
+  return entitlement;
 }
 
 // Cover asset ownership: an agent-supplied coverAssetId must reference an asset
@@ -215,11 +218,12 @@ export async function publishPostOp(
 ) {
   await assertPostImagesPublishable(ctx.siteId, input.postId);
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
+  const entitlement = await resolveEffectiveEntitlementForSite(ctx.siteId);
   const published = await publishPost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
     expectedVersionNumber: input.expectedVersionNumber,
-    billingStatus: await getBillingStatusForSite(ctx.siteId),
+    billingStatus: billingStatusForCore(entitlement),
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, published.slug);

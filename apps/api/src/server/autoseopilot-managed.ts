@@ -7,6 +7,7 @@ import {
 } from '@vc/db'
 import { isReservedSiteSlug } from '@vc/validators'
 import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
+import { scheduleManagedSitePurge } from '@/server/purge-scheduler'
 import { z } from 'zod'
 
 export const MANAGED_BODY_LIMIT = 64 * 1024
@@ -383,6 +384,21 @@ async function resolveReceipt(
   }
 }
 
+async function managedMutationResult(
+  environment: ManagedEnvironment,
+  snapshot: ManagedSiteSnapshot,
+  correlationId: string,
+  status: 200 | 201,
+) {
+  scheduleManagedSitePurge(
+    environment.DB,
+    snapshot.siteId,
+    snapshot.siteSlug,
+  )
+  const receipt = await resolveReceipt(environment, snapshot, correlationId)
+  return { status, receipt }
+}
+
 function newProvisionIds(externalWorkspaceId: string, generation: number) {
   return {
     ownerId: `user_autoseopilot_${externalWorkspaceId}`,
@@ -698,7 +714,7 @@ export async function provisionManagedSite(
             correlationId,
           )
         }
-        return { status: 200 as const, receipt: await resolveReceipt(environment, snapshot, correlationId) }
+        return managedMutationResult(environment, snapshot, correlationId, 200)
       }
     } catch (error) {
       if (error instanceof ManagedInternalError) throw error
@@ -734,13 +750,12 @@ export async function provisionManagedSite(
                   timestamp,
                   correlationId,
                 )
-          return { status: 200 as const, receipt: await resolveReceipt(environment, recovered, correlationId) }
+          return managedMutationResult(environment, recovered, correlationId, 200)
         }
       }
       throw new ManagedInternalError('INTERNAL_ERROR', 'Request failed.', 500)
     }
-    const receipt = await resolveReceipt(environment, snapshot, correlationId)
-    return { status: 201 as const, receipt }
+    return managedMutationResult(environment, snapshot, correlationId, 201)
   }
 
   assertOwnerAndCredential(current, {
@@ -763,7 +778,7 @@ export async function provisionManagedSite(
       if (current.apiKeyHash !== tokenHash) {
         throw conflict('CREDENTIAL_CONFLICT', 'The managed credential does not match.')
       }
-      return { status: 200 as const, receipt: await resolveReceipt(environment, current, correlationId) }
+      return managedMutationResult(environment, current, correlationId, 200)
     }
     throw conflict('CONFLICT', 'Use revoke to revoke an active managed site.')
   }
@@ -786,7 +801,7 @@ export async function provisionManagedSite(
       timestamp,
       correlationId,
     )
-    return { status: 200 as const, receipt: await resolveReceipt(environment, rotated.snapshot, correlationId) }
+    return managedMutationResult(environment, rotated.snapshot, correlationId, 200)
   }
 
   classifyGeneration(current, request.credential.generation)
@@ -795,7 +810,7 @@ export async function provisionManagedSite(
       throw conflict('CREDENTIAL_CONFLICT', 'The managed credential does not match.')
     }
     if (current.entitlementExpiresAt === requestedExpiry) {
-      return { status: 200 as const, receipt: await resolveReceipt(environment, current, correlationId) }
+      return managedMutationResult(environment, current, correlationId, 200)
     }
     const reconciled = await reconcileManagedEntitlement(
       db,
@@ -806,7 +821,7 @@ export async function provisionManagedSite(
       timestamp,
       correlationId,
     )
-    return { status: 200 as const, receipt: await resolveReceipt(environment, reconciled, correlationId) }
+    return managedMutationResult(environment, reconciled, correlationId, 200)
   }
 
   if (current.apiKeyHash === tokenHash) {
@@ -822,7 +837,7 @@ export async function provisionManagedSite(
     timestamp,
     correlationId,
   )
-  return { status: 200 as const, receipt: await resolveReceipt(environment, rotated.snapshot, correlationId) }
+  return managedMutationResult(environment, rotated.snapshot, correlationId, 200)
 }
 
 export async function revokeManagedSite(
@@ -845,7 +860,7 @@ export async function revokeManagedSite(
     throw conflict('STALE_GENERATION', 'The credential generation is stale.')
   }
   if (current.entitlementStatus === 'revoked' || current.revokedAt !== null) {
-    return { status: 200 as const, receipt: await resolveReceipt(environment, current, correlationId) }
+    return managedMutationResult(environment, current, correlationId, 200)
   }
   const revoked = await db.managedSites.revoke({
     externalWorkspaceId,
@@ -865,9 +880,9 @@ export async function revokeManagedSite(
       revoked.snapshot.credentialId === request.credentialId &&
       revoked.snapshot.credentialGeneration === request.generation
     ) {
-      return { status: 200 as const, receipt: await resolveReceipt(environment, revoked.snapshot, correlationId) }
+      return managedMutationResult(environment, revoked.snapshot, correlationId, 200)
     }
     throw conflict('STALE_GENERATION', 'The managed site changed before revoke completed.')
   }
-  return { status: 200 as const, receipt: await resolveReceipt(environment, revoked.snapshot, correlationId) }
+  return managedMutationResult(environment, revoked.snapshot, correlationId, 200)
 }

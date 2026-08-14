@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   markdownRequested,
   publicHtmlResponseHeaders,
+  publicListingResponseHeaders,
   RESERVED_ROOT_SLUGS,
   stripMarkdownSuffix,
 } from "./public-blog";
@@ -13,9 +14,11 @@ import {
   articleResponseCacheRequest,
   matchArticleResponseCache,
   putArticleResponseCache,
+  publicCacheControlForEntitlement,
   siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
+import type { SiteRow } from "./public-blog-data";
 
 const site = {
   id: "site-1",
@@ -37,7 +40,15 @@ const site = {
   billing_status: "active",
   current_period_end: null,
   published_count: 1,
-};
+  effective_entitlement: {
+    effective: true,
+    access: "hosted_paid",
+    activeSources: ["polar"],
+    effectiveUntil: null,
+    polar: { status: "active", currentPeriodEnd: null, active: true },
+    managedSponsorship: { status: null, expiresAt: null, active: false },
+  },
+} satisfies SiteRow;
 
 const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false };
 
@@ -84,8 +95,52 @@ describe("cache tags and SEO headers", () => {
     expect(headers["cache-tag"]).toBe("vc-site:site-1,vc-article:site-1:hello");
   });
 
+  it("keeps listing responses out of page and shared caches", () => {
+    const headers = publicListingResponseHeaders(site, env);
+    expect(headers["cache-control"]).toBe("no-store");
+    expect(headers["cache-tag"]).toBeUndefined();
+    expect(headers["content-signal"]).toContain("search=yes");
+  });
+
+  it("caps cache lifetime at finite entitlement expiry without stale reuse", () => {
+    expect(
+      publicCacheControlForEntitlement(
+        { ...site.effective_entitlement, effectiveUntil: 1_000 },
+        950,
+      ),
+    ).toBe("public, max-age=50, s-maxage=50");
+    expect(
+      publicCacheControlForEntitlement(
+        { ...site.effective_entitlement, effective: false, effectiveUntil: null },
+        950,
+      ),
+    ).toBe("no-store");
+  });
+
+  it("does not write no-store article responses to the Workers cache", async () => {
+    const url = "https://demo.example.com/no-store-article";
+    await putArticleResponseCache(
+      url,
+      "html",
+      new Response("<html>free</html>", {
+        headers: { "cache-control": "no-store" },
+      }),
+    );
+    expect(await matchArticleResponseCache(url, "html")).toBeUndefined();
+  });
+
   it("noindexes unpaid blogs", () => {
-    const unpaid = { ...site, billing_status: "inactive" };
+    const unpaid: SiteRow = {
+      ...site,
+      billing_status: "inactive",
+      effective_entitlement: {
+        ...site.effective_entitlement,
+        effective: false,
+        access: "hosted_free",
+        activeSources: [],
+        polar: { status: "none", currentPeriodEnd: null, active: false },
+      },
+    };
     const headers = publicHtmlResponseHeaders(unpaid, env);
     expect(headers["x-robots-tag"]).toBe("noindex, nofollow");
     expect(headers["content-signal"]).toContain("search=no");

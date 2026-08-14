@@ -4,7 +4,7 @@ vi.mock('~/lib/api-client', () => ({
   loadDashboardOverview: vi.fn(),
 }))
 
-import { postEditorLink, narrowDashboardData } from './DashboardOverview'
+import { postEditorLink, narrowDashboardData, overviewEntitlementBadge } from './DashboardOverview'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
 
@@ -43,6 +43,42 @@ describe('DashboardOverview recent-post navigation', () => {
       to: '/dashboard/posts/$postId/edit',
       params: { postId: 'post_123' },
     })
+  })
+})
+
+describe('DashboardOverview entitlement status', () => {
+  it('shows managed access instead of a free-plan label', () => {
+    expect(
+      overviewEntitlementBadge({
+        status: 'none',
+        polarStatus: 'none',
+        effective: true,
+        access: 'hosted_paid',
+        source: 'managed_sponsorship',
+        managed: {
+          status: 'active',
+          expiresAt: null,
+          effective: true,
+        },
+      }),
+    ).toBe('Managed access')
+  })
+
+  it('does not report a stale managed state while Polar access is effective', () => {
+    expect(
+      overviewEntitlementBadge({
+        status: 'active',
+        polarStatus: 'active',
+        effective: true,
+        access: 'hosted_paid',
+        source: 'polar',
+        managed: {
+          status: 'revoked',
+          expiresAt: null,
+          effective: false,
+        },
+      }),
+    ).toBeNull()
   })
 })
 

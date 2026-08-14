@@ -10,11 +10,29 @@ import { scheduleSitePurge } from './purge-scheduler'
 
 type AuthSessionUser = { id: string; name: string; email: string }
 
+export type AppChoice = {
+  workspaceId: string
+  workspaceName: string
+  siteId: string
+  siteName: string
+  siteSlug: string
+  role: 'owner' | 'editor' | 'viewer'
+  managed: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
+}
+
 export type AppUserContext = {
   user: AuthSessionUser
   siteId: string
   workspaceId: string
   actor: Actor
+}
+
+type UserAppChoice = AppChoice & {
+  setupComplete: boolean
 }
 
 function now() {
@@ -30,7 +48,63 @@ function slugify(input: string) {
   return slug || 'site'
 }
 
+function appFromChoice(
+  user: AuthSessionUser,
+  choice: UserAppChoice,
+): AppUserContext {
+  return {
+    user,
+    siteId: choice.siteId,
+    workspaceId: choice.workspaceId,
+    actor: {
+      type: 'human',
+      id: user.id,
+      name: user.name || user.email,
+      role: choice.role,
+    },
+  }
+}
+
+export async function listUserAppChoices(
+  userId: string,
+  timestamp = now(),
+): Promise<UserAppChoice[]> {
+  const rows = await createDataAccess(env.DB).sites.listAccessibleApps(userId)
+  return rows.map((row) => ({
+    workspaceId: row.workspaceId,
+    workspaceName: row.workspaceName,
+    siteId: row.siteId,
+    siteName: row.siteName,
+    siteSlug: row.siteSlug,
+    role: row.role,
+    setupComplete: row.setupComplete,
+    managed: row.managedStatus
+      ? {
+          status: row.managedStatus,
+          expiresAt: row.managedExpiresAt,
+          effective:
+            row.managedStatus === 'active' &&
+            (row.managedExpiresAt === null || row.managedExpiresAt > timestamp),
+        }
+      : null,
+  }))
+}
+
+function publicAppChoice(choice: UserAppChoice): AppChoice {
+  return {
+    workspaceId: choice.workspaceId,
+    workspaceName: choice.workspaceName,
+    siteId: choice.siteId,
+    siteName: choice.siteName,
+    siteSlug: choice.siteSlug,
+    role: choice.role,
+    managed: choice.managed,
+  }
+}
+
 export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserContext> {
+  const existing = await listUserAppChoices(user.id)
+  if (existing[0]) return appFromChoice(user, existing[0])
   const timestamp = now()
   const workspaceId = `workspace_${user.id}`
   const siteId = `site_${user.id}`
@@ -71,6 +145,32 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   }
 
   return { user, siteId, workspaceId, actor }
+}
+
+export async function resolveUserAppContext(
+  user: AuthSessionUser,
+  selection?: { workspaceId: string; siteId: string } | null,
+): Promise<{ app: AppUserContext; apps: AppChoice[] }> {
+  let apps = await listUserAppChoices(user.id)
+  if (apps.length === 0) {
+    const app = await ensureOnboarding(user)
+    apps = await listUserAppChoices(user.id)
+    return { app, apps: apps.map(publicAppChoice) }
+  }
+  const selected =
+    (selection
+      ? apps.find(
+          (choice) =>
+            choice.workspaceId === selection.workspaceId &&
+            choice.siteId === selection.siteId,
+        )
+      : null) ??
+    apps.find((choice) => choice.managed !== null || choice.setupComplete) ??
+    apps[0]!
+  return {
+    app: appFromChoice(user, selected),
+    apps: apps.map(publicAppChoice),
+  }
 }
 
 export async function getSiteSetup(app: AppUserContext) {

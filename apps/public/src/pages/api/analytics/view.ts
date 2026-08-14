@@ -1,5 +1,3 @@
-import { hasActiveSubscription } from "@vc/config";
-
 import type { APIRoute } from "astro";
 import { loadPublicPostByHost } from "../../../server/public-blog";
 import {
@@ -48,8 +46,7 @@ export const POST: APIRoute = async (context) => {
 
   const blog = await loadPublicPostByHost(publicDb(context), context.request, body.slug, runtime);
   if (!blog) return emptyResponse();
-  if (!hasActiveSubscription(blog.site.billing_status)) return emptyResponse();
-
+  if (!blog.indexable) return emptyResponse();
 
   writePageView(workerEnv(context).ANALYTICS, {
     siteId: blog.site.id,

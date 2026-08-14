@@ -3,8 +3,7 @@ import Base from "../../layouts/Base.astro";
 import { PublicBlogIndexView } from "../../components/PublicBlogPages";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
 import { resolveSocialImage } from "../../lib/seo-meta";
-import { loadPublicIndexByHost, publicHtmlResponseHeaders } from "../../server/public-blog";
-import { siteCacheTag } from "../../server/public-blog-cache";
+import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicOrigin } from "../../server/public-url";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 
@@ -35,10 +34,7 @@ if (!blog) {
 const headers =
   blog.listing.kind === "search"
     ? { "cache-control": "no-store", "x-robots-tag": "noindex" }
-    : publicHtmlResponseHeaders(blog.site, env, [siteCacheTag(blog.site.id)]);
-if (blog.listing.kind !== "search") {
-  Astro.cache.set({ maxAge: 300, swr: 86400, tags: [siteCacheTag(blog.site.id)] });
-}
+    : publicListingResponseHeaders(blog.site, env);
 for (const [key, value] of Object.entries(headers)) {
   Astro.response.headers.set(key, value);
 }

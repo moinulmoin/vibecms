@@ -71,7 +71,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   });
 
   if (isArticleHtml) {
-    if (!articleHtmlCacheHit) {
+    // Non-indexable default-domain pages must remain readable but should not
+    // poison the shared article cache with noindex metadata. Entitlement is
+    // resolved on every uncached public read; paid/self-hosted responses are
+    // the only article variants persisted here.
+    if (!articleHtmlCacheHit && !headers.has("x-robots-tag")) {
       const waitUntil = context.locals.cfContext?.waitUntil.bind(context.locals.cfContext);
       await cachePublicPostHtmlResponse(context.request.url, outbound, waitUntil);
     }

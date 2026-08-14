@@ -662,21 +662,30 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // classification (HTTP 200 vs conflict/stale) remains an app concern,
       // but the repository never creates a second site/key for a replay.
       const existing = await readSnapshot(db, input.binding.externalWorkspaceId);
-      if (existing) {
-        const error = replayError(existing, input, email);
-        if (error) throw error;
-        return { created: false, snapshot: existing };
-      }
 
       // A legacy database may contain mixed-case rows that compare equal under
       // the repository's canonical lookup. Refuse an ambiguous owner instead
-      // of silently attaching a new managed site to an arbitrary identity.
+      // of silently attaching a managed site to an arbitrary identity.
       const ownerMatches = await db
-        .prepare("SELECT id FROM user WHERE lower(email) = ? ORDER BY created_at ASC, id ASC LIMIT 2")
+        .prepare("SELECT id, email FROM user WHERE lower(email) = ? ORDER BY created_at ASC, id ASC LIMIT 2")
         .bind(email)
-        .all<{ id: string }>();
+        .all<{ id: string; email: string }>();
       if ((ownerMatches.results ?? []).length > 1) {
         throw new Error("managed_owner_email_ambiguous");
+      }
+
+      if (existing) {
+        const error = replayError(existing, input, email);
+        if (error) throw error;
+        await db
+          .prepare(
+            `UPDATE user
+             SET email = ?, updated_at = ?
+             WHERE id = ? AND lower(email) = ? AND email <> ?`,
+          )
+          .bind(email, input.timestamp, existing.ownerUserId, email, email)
+          .run();
+        return { created: false, snapshot: existing };
       }
 
       const revision = input.binding.lifecycleRevision ?? 1;
@@ -688,6 +697,17 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // earlier in this same D1 transaction. A conflict anywhere rolls back
       // the whole batch, preventing orphan rows on retries or collisions.
       const statements = [
+        // Better Auth performs an exact canonical-email lookup after OTP
+        // verification. Normalize a unique reused legacy row in the same
+        // transaction so login resolves the managed owner instead of creating
+        // a second lowercase user.
+        db
+          .prepare(
+            `UPDATE user
+             SET email = ?, updated_at = ?
+             WHERE lower(email) = ? AND email <> ?`,
+          )
+          .bind(email, input.timestamp, email, email),
         db
           .prepare(
             `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)

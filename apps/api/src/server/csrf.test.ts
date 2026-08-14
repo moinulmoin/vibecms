@@ -17,4 +17,12 @@ describe('csrf', () => {
     })
     expect(rejectCrossOriginBrowserPost(req)?.status).toBe(403)
   })
+
+  it('blocks cross-origin dashboard app selection', () => {
+    const req = new Request('https://app.example.com/api/dashboard/context/select', {
+      method: 'POST',
+      headers: { origin: 'https://tenant.example' },
+    })
+    expect(rejectCrossOriginBrowserPost(req)?.status).toBe(403)
+  })
 })

@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { parsePublicRuntimeEnv } from "./public-url";
-import { resolveSite } from "./public-blog-data";
+import { resolveSite, type SiteRow } from "./public-blog-data";
 import {
   handlePublicPostByHostGet,
   loadPublicPostByHost,
@@ -106,7 +106,15 @@ describe("Accept markdown after HTML response cache", () => {
               billing_status: "active",
               current_period_end: null,
               published_count: 1,
-            },
+              effective_entitlement: {
+                effective: true,
+                access: "hosted_paid",
+                activeSources: ["polar"],
+                effectiveUntil: null,
+                polar: { status: "active", currentPeriodEnd: null, active: true },
+                managedSponsorship: { status: null, expiresAt: null, active: false },
+              },
+            } satisfies SiteRow,
             runtimeEnv,
             articleCacheTags("site-public-isolation", "hello"),
             {

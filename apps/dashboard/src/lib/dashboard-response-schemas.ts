@@ -27,10 +27,27 @@ export const appRouterContextSchema = z.object({
         type: z.literal('human'),
         id: z.string(),
         name: z.string(),
-        role: z.enum(['owner', 'editor']),
+        role: z.enum(['owner', 'editor', 'viewer']),
       }),
     })
     .nullable(),
+  apps: z.array(
+    z.object({
+      workspaceId: z.string(),
+      workspaceName: z.string(),
+      siteId: z.string(),
+      siteName: z.string(),
+      siteSlug: z.string(),
+      role: z.enum(['owner', 'editor', 'viewer']),
+      managed: z
+        .object({
+          status: z.enum(['active', 'revoked']),
+          expiresAt: z.number().nullable(),
+          effective: z.boolean(),
+        })
+        .nullable(),
+    }),
+  ),
   siteSetupComplete: z.boolean(),
   siteDisplayName: z.string().nullable(),
 })
@@ -43,14 +60,35 @@ export const mutationResultSchema = z.object({
 })
 
 const billingStatusSchema = z.enum(['active', 'past_due', 'canceled', 'unpaid', 'none'])
+const entitlementAccessSchema = z.enum(['self_hosted', 'hosted_paid', 'hosted_free'])
+const entitlementSourceSchema = z.enum(['self_hosted', 'polar', 'managed_sponsorship', 'none'])
 
 export const dashboardDataSchema = z.object({
   site: z.object({ name: z.string(), slug: z.string() }).nullable(),
   publicUrl: z.string().nullable(),
   publicUrlLocal: z.boolean(),
-  billing: z.object({ status: billingStatusSchema }),
+  billing: z.object({
+    status: billingStatusSchema,
+    polarStatus: billingStatusSchema.optional(),
+    effective: z.boolean().optional(),
+    access: entitlementAccessSchema.optional(),
+    source: entitlementSourceSchema.optional(),
+    managed: z
+      .object({
+        status: z.enum(['active', 'revoked']),
+        expiresAt: z.number().nullable(),
+        effective: z.boolean(),
+      })
+      .nullable()
+      .optional(),
+  }),
   apiUsage: z.object({
     enforced: z.boolean(),
+    billingStatus: billingStatusSchema.optional(),
+    polarStatus: billingStatusSchema.optional(),
+    effective: z.boolean().optional(),
+    access: entitlementAccessSchema.optional(),
+    source: entitlementSourceSchema.optional(),
     calls: z.object({
       minute: apiUsageStatusSchema,
       day: apiUsageStatusSchema,
@@ -245,6 +283,21 @@ export const settingsPageDataSchema = z.object({
     cnameTarget: z.string().nullable(),
   }),
   billingStatus: z.string(),
+  polarBillingStatus: billingStatusSchema.optional(),
+  effectiveEntitlement: z.object({
+    effective: z.boolean(),
+    access: entitlementAccessSchema,
+    source: entitlementSourceSchema,
+    effectiveUntil: z.number().nullable(),
+  }).optional(),
+  managed: z
+    .object({
+      status: z.enum(['active', 'revoked']),
+      expiresAt: z.number().nullable(),
+      effective: z.boolean(),
+    })
+    .nullable()
+    .optional(),
   selfHosted: z.boolean(),
   isOwner: z.boolean(),
   mcpUrl: z.string(),

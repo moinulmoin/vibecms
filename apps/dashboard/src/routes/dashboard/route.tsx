@@ -16,10 +16,17 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function AppLayout() {
-  const { app, siteDisplayName } = Route.useRouteContext()
+  const { app, apps, siteDisplayName } = Route.useRouteContext()
 
   return (
-    <AppShell siteName={siteDisplayName ?? undefined} userEmail={app?.user.email}>
+    <AppShell
+      siteName={siteDisplayName ?? undefined}
+      userEmail={app?.user.email}
+      apps={apps}
+      currentWorkspaceId={app?.workspaceId}
+      currentSiteId={app?.siteId}
+      currentRole={app?.actor.role}
+    >
       <Outlet />
     </AppShell>
   )

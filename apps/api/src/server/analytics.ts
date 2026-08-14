@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers'
 import { createDataAccess, createD1DomainRepository, type AnalyticsRollupRecord } from '@vc/db'
-import { hasActiveSubscription, listCustomDomains } from '@vc/core'
-import { getBilling, isSelfHosted } from '@/server/billing'
+import { listCustomDomains } from '@vc/core'
+import { isSelfHosted } from '@/server/billing'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 
 export const ANALYTICS_RETENTION_DAYS = 365
@@ -327,9 +328,11 @@ export async function loadAnalyticsForApp(
   rangeDays: AnalyticsRange,
   fetcher: Fetcher = fetch,
 ): Promise<AnalyticsPageData> {
-  if (isSelfHosted()) return { status: 'unavailable', retentionDays: ANALYTICS_RETENTION_DAYS, reason: 'self_hosted' }
-  const billing = await getBilling(app.workspaceId)
-  if (!hasActiveSubscription(billing.status)) {
+  if (isSelfHosted()) {
+    return { status: 'unavailable', retentionDays: ANALYTICS_RETENTION_DAYS, reason: 'self_hosted' }
+  }
+  const entitlement = await resolveEffectiveEntitlementForWorkspace(app.workspaceId)
+  if (!entitlement.effective) {
     return { status: 'locked', retentionDays: ANALYTICS_RETENTION_DAYS }
   }
 

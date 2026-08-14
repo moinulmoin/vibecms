@@ -1,7 +1,8 @@
-import { hasActiveSubscription, type Presentation } from "@vc/config";
+import type { Presentation } from "@vc/config";
 import {
   createDataAccess,
   PUBLIC_BLOG_LIMITS,
+  type EffectiveHostedEntitlement,
   type PublicPostBodyRow,
   type PublicPostDetailRow,
   type PublicPostSummaryRow,
@@ -32,6 +33,7 @@ export type SiteRow = {
   billing_status: string | null;
   current_period_end: number | null;
   published_count: number | null;
+  effective_entitlement: EffectiveHostedEntitlement;
   resolved_domain_type?: "default" | "custom" | null;
 };
 
@@ -64,7 +66,7 @@ export type PostDetailRow = PostBodyRow & {
   presentation: Presentation | null;
 };
 
-function toSiteRow(row: PublicSiteRow): SiteRow {
+function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEntitlement): SiteRow {
   return {
     id: row.id,
     workspace_id: row.workspaceId,
@@ -85,6 +87,7 @@ function toSiteRow(row: PublicSiteRow): SiteRow {
     billing_status: row.billingStatus,
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,
+    effective_entitlement: effectiveEntitlement,
     resolved_domain_type: row.resolvedDomainType ?? null,
   };
 }
@@ -146,15 +149,28 @@ export function isMarketingHost(request: Request, env: PublicRuntimeEnv): boolea
 }
 
 export async function resolveSite(request: Request, db: D1Database, env: PublicRuntimeEnv): Promise<SiteRow | null> {
-  const readModel = createDataAccess(db).publicBlog;
+  const dataAccess = createDataAccess(db);
+  const readModel = dataAccess.publicBlog;
+  const now = Math.floor(Date.now() / 1000);
+
+  async function resolveRow(row: PublicSiteRow | null): Promise<SiteRow | null> {
+    if (!row) return null;
+    const effectiveEntitlement = await dataAccess.managedSites.resolveSite(row.id, {
+      selfHosted: env.selfHosted,
+      now,
+    });
+    if (!effectiveEntitlement) return null;
+    if (row.resolvedDomainType === "custom" && !effectiveEntitlement.effective) return null;
+    return toSiteRow(row, effectiveEntitlement);
+  }
+
   if (env.selfHosted) {
     const row = await readModel.resolveSingleSite();
-    return row ? toSiteRow(row) : null;
+    return resolveRow(row);
   }
   if (isMarketingHost(request, env)) return null;
   const row = await readModel.resolveSiteByHost(normalizeHost(request));
-  if (!row || (row.resolvedDomainType === "custom" && !hasActiveSubscription(row.billingStatus))) return null;
-  return toSiteRow(row);
+  return resolveRow(row);
 }
 
 export async function getPublishedPost(db: D1Database, siteId: string, slug: string): Promise<PostDetailRow | null> {
@@ -183,8 +199,8 @@ export async function listPublishedPostsForFeed(
   return rows.map(toPostBodyRow);
 }
 
-export function isPublicBlogIndexable(site: SiteRow, env: PublicRuntimeEnv) {
-  return env.selfHosted || hasActiveSubscription(site.billing_status);
+export function isPublicBlogIndexable(site: SiteRow, _env: PublicRuntimeEnv) {
+  return site.effective_entitlement.effective;
 }
 
 export async function listPublishedPostSummariesByTag(

@@ -8,6 +8,7 @@ import {
   publicHtmlResponseHeaders,
 } from "../server/public-blog";
 import { buildPostHeadContent } from "../lib/seo-meta";
+import { resolveSite } from "../server/public-blog-data";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
 import pageViewScriptUrl from "../scripts/page-view.js?url";
 
@@ -18,8 +19,17 @@ const postSlug = Astro.params.postSlug;
 const early = await handlePublicPostByHostGet(db, Astro.request, postSlug, env);
 if (early) return early;
 
-const cachedHtml = await matchCachedPublicPostHtml(Astro.request);
-if (cachedHtml) return cachedHtml;
+// Resolve the current site entitlement before serving an HTML cache hit. This
+// keeps revoked/expired custom domains out of the cache path and ensures free
+// default domains render their noindex metadata instead of reusing a paid hit.
+const cacheSite = await resolveSite(Astro.request, db, env);
+if (!cacheSite) {
+  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+if (cacheSite.effective_entitlement.effective) {
+  const cachedHtml = await matchCachedPublicPostHtml(Astro.request);
+  if (cachedHtml) return cachedHtml;
+}
 
 const blog = await loadPublicPostByHost(db, Astro.request, postSlug, env);
 if (!blog) {

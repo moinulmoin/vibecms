@@ -14,7 +14,7 @@ import {
 } from '@vc/core'
 import { createD1DomainRepository } from '@vc/db'
 import { mapCustomHostnameStatus } from '@/lib/custom-domain'
-import { getBillingStatus } from '@/server/billing'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import {
   createCustomHostname,
   customHostnameCnameTarget,
@@ -131,8 +131,11 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
   const cnameTarget = customHostnameCnameTarget()
   if (!isOwner(app)) return { domains: [], cnameTarget }
   const repo = createD1DomainRepository(env.DB)
-  const rows = await listCustomDomains(repo, app.siteId)
-  const provisioning = customHostnameProvisioningEnabled()
+  const [rows, entitlement] = await Promise.all([
+    listCustomDomains(repo, app.siteId),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+  ])
+  const provisioning = entitlement.effective && customHostnameProvisioningEnabled()
 
   const domains: CustomDomainView[] = []
   for (const row of rows) {
@@ -169,11 +172,12 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
 export async function addCustomDomainForApp(app: AppUserContext, hostname: string): Promise<AddCustomDomainResult> {
   try {
     const repo = createD1DomainRepository(env.DB)
+    const entitlement = await resolveEffectiveEntitlementForWorkspace(app.workspaceId)
     const { record, reclaimedCfHostnameId, reclaimedSiteId } = await addCustomDomain(repo, {
       siteId: app.siteId,
       hostname,
       isOwner: isOwner(app),
-      isPaid: (await getBillingStatus(app.workspaceId)) === 'active',
+      isPaid: entitlement.effective,
       appHost: appHost(),
       platformZone: publicBlogBaseDomain() ?? '',
     })

@@ -5,7 +5,21 @@
  * cannot collide with a prior HTML page-cache entry (miniflare Cache ignores Vary).
  */
 
+import type { EffectiveHostedEntitlement } from "@vc/db";
+
 export const publicCacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
+
+export function publicCacheControlForEntitlement(
+  entitlement: EffectiveHostedEntitlement,
+  now = Math.floor(Date.now() / 1000),
+): string {
+  if (!entitlement.effective) return "no-store";
+  if (entitlement.effectiveUntil === null) return publicCacheControl;
+  const remaining = Math.max(0, entitlement.effectiveUntil - now);
+  if (remaining === 0) return "no-store";
+  const maxAge = Math.min(300, remaining);
+  return `public, max-age=${maxAge}, s-maxage=${maxAge}`;
+}
 
 export type ArticleRepresentation = "html" | "markdown";
 
@@ -68,7 +82,8 @@ export async function putArticleResponseCache(
   waitUntil?: (promise: Promise<unknown>) => void,
 ): Promise<void> {
   const cache = workersDefaultCache();
-  if (!cache || !response.ok) return;
+  const cacheControl = response.headers.get("cache-control") ?? "";
+  if (!cache || !response.ok || /(?:^|,)\s*no-store\s*(?:,|$)/i.test(cacheControl)) return;
   const put = cache.put(articleResponseCacheRequest(requestUrl, representation), response.clone());
   if (waitUntil) waitUntil(put);
   else await put;

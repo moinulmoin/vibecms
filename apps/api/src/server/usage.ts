@@ -1,14 +1,19 @@
 import { API_USAGE_LIMITS } from "@vc/config";
-import { hasActiveSubscription, RateLimitError, type BillingStatus } from "@vc/core";
+import { RateLimitError, type BillingStatus } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { createDataAccess, type UsageRepository } from "@vc/db";
 import { getBillingStatus, isSelfHosted } from "./billing";
+import { resolveEffectiveEntitlementForWorkspace } from "./effective-entitlement";
 
 export type ApiUsageKind = "read" | "write";
 export type ApiUsageStatus = { metric: string; period: string; used: number; limit: number; remaining: number; resetsAt: number };
 export type ApiUsageSummary = {
   enforced: boolean;
   billingStatus: BillingStatus;
+  polarStatus: BillingStatus;
+  effective: boolean;
+  access: "self_hosted" | "hosted_paid" | "hosted_free";
+  source: "self_hosted" | "polar" | "managed_sponsorship" | "none";
   calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus };
   writes: { day: ApiUsageStatus; month: ApiUsageStatus };
   token: { minute: ApiUsageStatus } | null;
@@ -66,11 +71,11 @@ function testLimitPlan(): LimitPlan | null {
   };
 }
 
-function planFor(status?: BillingStatus): LimitPlan {
+function planFor(effective = false): LimitPlan {
   const testPlan = testLimitPlan();
   if (testPlan) return testPlan;
   if (String(env.APP_ENV) === "development" || String(env.APP_ENV) === "test") return API_USAGE_LIMITS.dev;
-  return hasActiveSubscription(status) ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
+  return effective ? API_USAGE_LIMITS.paid : API_USAGE_LIMITS.free;
 }
 
 function workspaceCounterId(workspaceId: string, metric: string, period: string) {
@@ -151,7 +156,8 @@ export function apiRateLimitHeaders(error: unknown): HeadersInit | undefined {
 
 export async function enforceApiBudget(input: { workspaceId: string; siteId: string; tokenId: string; kind: ApiUsageKind; force?: boolean }): Promise<void> {
   if (isSelfHosted() && !input.force) return;
-  const limits = planFor(await getBillingStatus(input.workspaceId));
+  const entitlement = await resolveEffectiveEntitlementForWorkspace(input.workspaceId);
+  const limits = planFor(entitlement.effective);
   const period = windows();
   const counters: UsageCounter[] = [
     { id: workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), workspaceId: input.workspaceId, siteId: null, metric: CALLS_METRIC, period: period.minute, limit: limits.calls.minute },
@@ -168,14 +174,21 @@ export async function enforceApiBudget(input: { workspaceId: string; siteId: str
 }
 
 export async function getApiUsageSummary(input: { workspaceId: string; siteId: string; tokenId?: string | null }): Promise<ApiUsageSummary> {
-  const billingStatus = await getBillingStatus(input.workspaceId);
-  const limits = planFor(billingStatus);
+  const [billingStatus, entitlement] = await Promise.all([
+    getBillingStatus(input.workspaceId),
+    resolveEffectiveEntitlementForWorkspace(input.workspaceId),
+  ]);
+  const limits = planFor(entitlement.effective);
   const period = windows();
   const enforced = !isSelfHosted();
   const usage = createDataAccess(env.DB).usage;
   return {
     enforced,
     billingStatus,
+    polarStatus: entitlement.rawPolarStatus,
+    effective: entitlement.effective,
+    access: entitlement.access,
+    source: entitlement.source,
     calls: {
       minute: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.calls.minute),
       day: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.day.period), CALLS_METRIC, period.day, limits.calls.day),

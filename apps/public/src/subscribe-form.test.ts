@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PublicPostLoaderData } from "./server/public-blog";
+import type { SiteRow } from "./server/public-blog-data";
 import { PublicBlogPostView, PublicShell } from "./components/PublicBlogPages";
 import {
   SUBSCRIBE_BUTTON,
@@ -219,7 +220,15 @@ const site = {
   billing_status: null,
   current_period_end: null,
   published_count: 1,
-};
+  effective_entitlement: {
+    effective: false,
+    access: "hosted_free",
+    activeSources: [],
+    effectiveUntil: null,
+    polar: { status: null, currentPeriodEnd: null, active: false },
+    managedSponsorship: { status: null, expiresAt: null, active: false },
+  },
+} satisfies SiteRow;
 
 const post = {
   id: "post-1",

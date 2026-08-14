@@ -175,7 +175,10 @@ async function rollupSite(
 export async function runAnalyticsRollup(workerEnv: RollupEnv = env, fetcher: typeof fetch = fetch) {
   if (String(workerEnv.SELF_HOSTED) === 'true') return { sites: 0, compactedMonths: 0 }
   const data = createDataAccess(workerEnv.DB)
-  const sites = await data.analytics.listActiveSites()
+  const sites = await data.managedSites.listEffectiveEntitledActiveSites({
+    selfHosted: false,
+    now: Math.floor(Date.now() / 1000),
+  })
   const yesterday = utcDate(-1)
   const sourceFloor = utcDate(-(SOURCE_RETENTION_DAYS - 1))
 

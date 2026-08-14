@@ -10,6 +10,7 @@ import {
   isSelfHosted,
   type CheckoutInterval,
 } from '@/server/billing'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import { getActivity } from '@/server/cms'
 import { getDashboardData } from '@/server/cms-dashboard'
 import {
@@ -62,6 +63,15 @@ export type ConnectPageData = {
   canManage: boolean
   mcpUrl: string
   apiKeys: ApiKeyListItem[]
+  effectiveEntitlement: {
+    effective: boolean
+    source: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+  }
+  managed: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
 }
 
 export type OnboardingKey = null | {
@@ -137,10 +147,12 @@ export async function loadSetupPage(app: AppUserContext) {
 }
 
 export async function loadSettingsPage(app: AppUserContext) {
-  const [site, voiceProfile, billing, customDomains, assets] = await Promise.all([
+  const [site, voiceProfile, billing, entitlement, managedSnapshot, customDomains, assets] = await Promise.all([
     getSiteSettings(app),
     getVoiceProfileSettings(app),
     getBilling(app.workspaceId),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+    createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
     listCustomDomainsForApp(app),
     getMedia(app),
   ])
@@ -154,6 +166,20 @@ export async function loadSettingsPage(app: AppUserContext) {
     customDomains,
     assets,
     billingStatus: billing.status,
+    polarBillingStatus: entitlement.rawPolarStatus,
+    effectiveEntitlement: {
+      effective: entitlement.effective,
+      access: entitlement.access,
+      source: entitlement.source,
+      effectiveUntil: entitlement.effectiveUntil,
+    },
+    managed: managedSnapshot
+      ? {
+          status: managedSnapshot.entitlementStatus,
+          expiresAt: managedSnapshot.entitlementExpiresAt,
+          effective: entitlement.managedSponsorship.active,
+        }
+      : null,
     selfHosted,
     isOwner,
     mcpUrl,
@@ -178,8 +204,27 @@ export async function loadAnalyticsPage(app: AppUserContext, rangeDays: Analytic
 
 export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageData> {
   const canManage = canManageApiKeys(app)
-  const apiKeys = await listApiKeys(app)
-  return { canManage, mcpUrl: `${env.APP_URL}/mcp`, apiKeys }
+  const [apiKeys, managedSnapshot, entitlement] = await Promise.all([
+    listApiKeys(app),
+    createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+  ])
+  return {
+    canManage,
+    mcpUrl: `${env.APP_URL}/mcp`,
+    apiKeys,
+    effectiveEntitlement: {
+      effective: entitlement.effective,
+      source: entitlement.source,
+    },
+    managed: managedSnapshot
+      ? {
+          status: managedSnapshot.entitlementStatus,
+          expiresAt: managedSnapshot.entitlementExpiresAt,
+          effective: entitlement.managedSponsorship.active,
+        }
+      : null,
+  }
 }
 
 export async function loadPostsPage(
@@ -275,8 +320,23 @@ export async function loadBillingPage(app: AppUserContext) {
       billing: { status: 'active' as const, currentPeriodEnd: null },
     }
   }
-  const billing = await getBilling(app.workspaceId)
-  return { selfHosted: false as const, isOwner, billing }
+  const [billing, managedSnapshot, entitlement] = await Promise.all([
+    getBilling(app.workspaceId),
+    createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+  ])
+  return {
+    selfHosted: false as const,
+    isOwner,
+    billing,
+    managed: managedSnapshot
+      ? {
+          status: managedSnapshot.entitlementStatus,
+          expiresAt: managedSnapshot.entitlementExpiresAt,
+          effective: entitlement.managedSponsorship.active,
+        }
+      : null,
+  }
 }
 
 // Maps the read-model activation proof into the API contract shape, appending a

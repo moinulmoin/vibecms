@@ -89,6 +89,7 @@ describe('hostname ownership-transition cache invalidation', () => {
       'https://blog.example.com/rss.xml',
       'https://blog.example.com/atom.xml',
       'https://blog.example.com/sitemap.xml',
+      'https://blog.example.com/robots.txt',
       'https://blog.example.com/llms.txt',
     ])
     expect(hostnameCacheUrls('')).toEqual([])

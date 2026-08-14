@@ -1,6 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { createDbClient } from "../client";
-import { activityEvents, domains, memberships, sites, workspaces } from "../schema";
+import {
+  activityEvents,
+  autoseopilotManagedSites,
+  domains,
+  memberships,
+  sites,
+  workspaces,
+} from "../schema";
 
 type ActorType = "human" | "agent" | "api_key" | "system";
 
@@ -48,6 +55,18 @@ export interface SiteSettings {
 }
 
 export type MembershipRole = "owner" | "editor" | "viewer";
+
+export interface AccessibleApp {
+  workspaceId: string;
+  workspaceName: string;
+  siteId: string;
+  siteName: string;
+  siteSlug: string;
+  role: MembershipRole;
+  setupComplete: boolean;
+  managedStatus: "active" | "revoked" | null;
+  managedExpiresAt: number | null;
+}
 
 // Activity row carried by the setup/settings write batches (entity is always the site itself).
 export interface SiteActivityEntry {
@@ -118,6 +137,7 @@ export interface SitesRepository {
   getSiteSetup(siteId: string): Promise<SiteSetup | null>;
   getSiteSettings(siteId: string): Promise<SiteSettings | null>;
   getMembershipRole(workspaceId: string, userId: string): Promise<MembershipRole | null>;
+  listAccessibleApps(userId: string): Promise<AccessibleApp[]>;
   ensureOnboardingBase(input: EnsureOnboardingBaseInput): Promise<void>;
   completeSiteSetup(input: CompleteSiteSetupInput): Promise<void>;
   updateSiteSettings(input: UpdateSiteSettingsInput): Promise<void>;
@@ -224,6 +244,47 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         .where(and(eq(memberships.workspaceId, workspaceId), eq(memberships.userId, userId)))
         .limit(1);
       return rows[0]?.role ?? null;
+    },
+
+    async listAccessibleApps(userId) {
+      const rows = await client
+        .select({
+          workspaceId: workspaces.id,
+          workspaceName: workspaces.name,
+          siteId: sites.id,
+          siteName: sites.name,
+          siteSlug: sites.slug,
+          defaultSeoTitle: sites.defaultSeoTitle,
+          role: memberships.role,
+          managedStatus: autoseopilotManagedSites.entitlementStatus,
+          managedExpiresAt: autoseopilotManagedSites.entitlementExpiresAt,
+        })
+        .from(memberships)
+        .innerJoin(workspaces, eq(workspaces.id, memberships.workspaceId))
+        .innerJoin(sites, eq(sites.workspaceId, workspaces.id))
+        .leftJoin(
+          autoseopilotManagedSites,
+          eq(autoseopilotManagedSites.siteId, sites.id),
+        )
+        .where(eq(memberships.userId, userId))
+        .orderBy(asc(workspaces.createdAt), asc(sites.createdAt));
+      return rows.map((row) => ({
+        workspaceId: row.workspaceId,
+        workspaceName: row.workspaceName,
+        siteId: row.siteId,
+        siteName: row.siteName,
+        siteSlug: row.siteSlug,
+        role:
+          row.role === "owner" || row.role === "editor"
+            ? row.role
+            : "viewer",
+        setupComplete: Boolean(row.defaultSeoTitle?.trim()),
+        managedStatus:
+          row.managedStatus === "active" || row.managedStatus === "revoked"
+            ? row.managedStatus
+            : null,
+        managedExpiresAt: row.managedExpiresAt,
+      }));
     },
 
     // Atomic 5-row onboarding insert (INSERT OR IGNORE workspace, membership, site, default

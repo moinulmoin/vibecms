@@ -130,6 +130,17 @@ export function loadAppRouterContext(signal?: AbortSignal) {
   return dashboardFetch('/api/dashboard/context', { method: 'GET', signal }, appRouterContextSchema)
 }
 
+export function selectDashboardApp(
+  selection: { workspaceId: string; siteId: string },
+  signal?: AbortSignal,
+) {
+  return dashboardPost<{ ok: true }>(
+    '/api/dashboard/context/select',
+    selection,
+    signal,
+  )
+}
+
 export function loadDashboardOverview(signal?: AbortSignal) {
   return dashboardFetch('/api/dashboard/overview', { method: 'GET', signal }, dashboardDataSchema)
 }

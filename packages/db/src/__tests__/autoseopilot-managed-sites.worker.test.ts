@@ -304,6 +304,59 @@ describe("managed site database foundation", () => {
         .bind("owner-same-email-a@example.test")
         .first<{ c: number }>(),
     ).toMatchObject({ c: 1 });
+    expect(await data.sites.listAccessibleApps(first.owner.id)).toEqual([
+      expect.objectContaining({
+        workspaceId: first.workspace.id,
+        siteId: first.site.id,
+        role: "owner",
+        managedStatus: "active",
+      }),
+      expect.objectContaining({
+        workspaceId: second.workspace.id,
+        siteId: second.site.id,
+        role: "owner",
+        managedStatus: "active",
+      }),
+    ]);
+  });
+
+  it("canonicalizes a unique reused legacy owner email for OTP lookup", async () => {
+    await env.DB.prepare(
+      `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
+       VALUES (?, ?, ?, 0, NULL, ?, ?)`,
+    ).bind(
+      "legacy-mixed-case-owner",
+      "Legacy owner",
+      "Legacy.Owner@Example.Test",
+      NOW - 10,
+      NOW - 10,
+    ).run();
+
+    const input = provisionInput("legacy-mixed-case", {
+      owner: {
+        id: "managed-user-legacy-request",
+        name: "Legacy owner",
+        email: "legacy.owner@example.test",
+      },
+    });
+    const snapshot = await data.managedSites.firstProvision(input);
+
+    expect(snapshot.ownerUserId).toBe("legacy-mixed-case-owner");
+    expect(
+      await env.DB.prepare("SELECT email FROM user WHERE id = ?")
+        .bind("legacy-mixed-case-owner")
+        .first<{ email: string }>(),
+    ).toMatchObject({ email: "legacy.owner@example.test" });
+
+    await env.DB.prepare("UPDATE user SET email = ? WHERE id = ?")
+      .bind("Legacy.Owner@Example.Test", "legacy-mixed-case-owner")
+      .run();
+    await data.managedSites.firstProvision(input);
+    expect(
+      await env.DB.prepare("SELECT email FROM user WHERE id = ?")
+        .bind("legacy-mixed-case-owner")
+        .first<{ email: string }>(),
+    ).toMatchObject({ email: "legacy.owner@example.test" });
   });
 
   it("resolves isolated snapshots and effective analytics sites", async () => {

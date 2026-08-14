@@ -2,6 +2,7 @@ import type { BillingStatus, Post } from '@vc/core'
 import { createDataAccess, type ActivationPost } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '@/server/billing'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 import {
   defaultHostname,
@@ -17,7 +18,18 @@ export type DashboardData = {
   site: { name: string; slug: string } | null
   publicUrl: string | null
   publicUrlLocal: boolean
-  billing: { status: BillingStatus }
+  billing: {
+    status: BillingStatus
+    polarStatus: BillingStatus
+    effective: boolean
+    access: 'self_hosted' | 'hosted_paid' | 'hosted_free'
+    source: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+    managed: {
+      status: 'active' | 'revoked'
+      expiresAt: number | null
+      effective: boolean
+    } | null
+  }
   apiUsage: ApiUsageSummary
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
@@ -55,8 +67,9 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
   const db = createDataAccess(env.DB)
   const agg = await db.dashboard.getDashboardAggregate(app.siteId)
 
-  const [billingStatus, apiUsage] = await Promise.all([
+  const [billingStatus, entitlement, apiUsage] = await Promise.all([
     getBillingStatus(app.workspaceId),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
     getApiUsageSummary({ workspaceId: app.workspaceId, siteId: app.siteId }),
   ])
 
@@ -82,7 +95,20 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     site: agg.site,
     publicUrl: publicBaseUrl,
     publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
-    billing: { status: billingStatus },
+    billing: {
+      status: billingStatus,
+      polarStatus: entitlement.rawPolarStatus,
+      effective: entitlement.effective,
+      access: entitlement.access,
+      source: entitlement.source,
+      managed: entitlement.managedSponsorship.status
+        ? {
+            status: entitlement.managedSponsorship.status,
+            expiresAt: entitlement.managedSponsorship.expiresAt,
+            effective: entitlement.managedSponsorship.active,
+          }
+        : null,
+    },
     apiUsage,
     counts: agg.counts,
     media: agg.media,

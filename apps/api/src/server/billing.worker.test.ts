@@ -68,6 +68,45 @@ async function seedWorkspace(id: string) {
     .run()
 }
 
+async function seedManagedWorkspace(id: string) {
+  await seedWorkspace(id)
+  const ts = Math.floor(Date.now() / 1000)
+  const siteId = `site_${id}`
+  const userId = `user_${id}`
+  const keyId = `key_${id}`
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)',
+    ).bind(userId, id, `${id}@billing.example.test`, ts, ts),
+    env.DB.prepare(
+      "INSERT INTO sites (id, workspace_id, name, slug, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', ?, ?)",
+    ).bind(siteId, id, id, id, ts, ts),
+    env.DB.prepare(
+      `INSERT INTO api_keys (
+         id, site_id, name, token_prefix, token_hash, scopes_json, actor_name,
+         created_by_user_id, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
+    ).bind(keyId, siteId, id, 'managed-billing', `hash-${id}`, id, userId, ts, ts),
+    env.DB.prepare(
+      `INSERT INTO autoseopilot_managed_sites (
+         id, external_workspace_id, owner_user_id, workspace_id, site_id,
+         credential_id, credential_generation, api_key_id, entitlement_status,
+         entitlement_expires_at, lifecycle_revision, created_at, updated_at, revoked_at
+       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'active', NULL, 1, ?, ?, NULL)`,
+    ).bind(
+      `binding_${id}`,
+      `external_${id}`,
+      userId,
+      id,
+      siteId,
+      `credential_${id}`,
+      keyId,
+      ts,
+      ts,
+    ),
+  ])
+}
+
 describe('checkoutIdempotencyKey', () => {
   it('is stable for the same workspace and interval', () => {
     expect(checkoutIdempotencyKey('ws_a', 'monthly')).toBe('vc-checkout:ws_a:monthly')
@@ -140,6 +179,26 @@ describe('createCheckoutSessionForApp — active subscription guard', () => {
       listOpenCheckouts,
     })
     expect(result).toEqual({ kind: 'error', code: 'self_hosted' })
+    expect(createCheckout).not.toHaveBeenCalled()
+    expect(listOpenCheckouts).not.toHaveBeenCalled()
+  })
+
+  it('rejects checkout for managed workspaces without creating a Polar relationship', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
+    mutableEnv.POLAR_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-billing-managed-guard'
+    await seedManagedWorkspace(workspaceId)
+    const createCheckout = vi.fn()
+    const listOpenCheckouts = vi.fn()
+
+    const result = await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', {
+      createCheckout,
+      listOpenCheckouts,
+    })
+
+    expect(result).toEqual({ kind: 'error', code: 'managed_workspace' })
     expect(createCheckout).not.toHaveBeenCalled()
     expect(listOpenCheckouts).not.toHaveBeenCalled()
   })

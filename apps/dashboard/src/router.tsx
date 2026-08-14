@@ -8,6 +8,7 @@ const emptyRouterContext: AppRouterContext = {
   googleEnabled: false,
   user: null,
   app: null,
+  apps: [],
   siteSetupComplete: false,
   siteDisplayName: null,
 }

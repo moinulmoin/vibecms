@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers'
 import { auth, googleSignInEnabled } from '@/server/auth'
+import { readAppSelection } from '@/server/app-selection'
 import { isAppContextHost } from '@/server/canonical-host'
-import { ensureOnboarding, getSiteSetup } from '@/server/onboarding'
+import { getSiteSetup, resolveUserAppContext } from '@/server/onboarding'
 import type { AppRouterContext, SessionUser } from '@/server/auth-context-types'
 
 export async function resolveAppSessionContext(request: Request): Promise<AppRouterContext> {
@@ -10,6 +11,7 @@ export async function resolveAppSessionContext(request: Request): Promise<AppRou
     googleEnabled,
     user: null,
     app: null,
+    apps: [],
     siteSetupComplete: false,
     siteDisplayName: null,
   }
@@ -38,14 +40,20 @@ export async function resolveAppSessionContext(request: Request): Promise<AppRou
     name: session.user.name,
     email: session.user.email,
   }
-  const app = await ensureOnboarding(user)
+  const { app, apps } = await resolveUserAppContext(
+    user,
+    await readAppSelection(request),
+  )
   const setup = await getSiteSetup(app)
+  const selected = apps.find((choice) => choice.siteId === app.siteId)
+  const setupComplete = selected?.managed !== null || setup.isComplete
   return {
     googleEnabled,
     user,
     app,
-    siteSetupComplete: setup.isComplete,
-    siteDisplayName: setup.isComplete ? setup.name : null,
+    apps,
+    siteSetupComplete: setupComplete,
+    siteDisplayName: setupComplete ? setup.name : null,
   }
 }
 

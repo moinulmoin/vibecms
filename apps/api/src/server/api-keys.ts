@@ -98,8 +98,18 @@ export { allScopes }
 export async function listApiKeys(app: AppUserContext) {
   if (!canManageApiKeys(app)) return []
   const db = createDataAccess(env.DB)
-  const rows = await db.apiKeys.listActive(app.siteId)
-  return rows.map(mapRow)
+  const [rows, managed] = await Promise.all([
+    db.apiKeys.listActive(app.siteId),
+    db.managedSites.getSnapshotBySiteId(app.siteId),
+  ])
+  return rows
+    .filter((row) => row.id !== managed?.apiKeyId)
+    .map(mapRow)
+}
+
+async function isCurrentManagedApiKey(app: AppUserContext, keyId: string) {
+  const managed = await createDataAccess(env.DB).managedSites.getSnapshotBySiteId(app.siteId)
+  return managed?.apiKeyId === keyId
 }
 
 export type ApiKeyMutationResult =
@@ -153,6 +163,9 @@ export async function revokeApiKeyForApp(
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   try {
     requireApiKeyManager(app)
+    if (await isCurrentManagedApiKey(app, keyId)) {
+      return { kind: 'error', code: 'managed_key' }
+    }
     const timestamp = now()
     const changes = await revokeApiKeyWithActivity(app.siteId, keyId, timestamp, app.actor, crypto.randomUUID())
     if (!changes) return { kind: 'error', code: 'not_found' }
@@ -201,6 +214,9 @@ export async function createApiKeyFromRequest(app: AppUserContext, request: Requ
 
 export async function revokeApiKey(app: AppUserContext, keyId: string) {
   requireApiKeyManager(app)
+  if (await isCurrentManagedApiKey(app, keyId)) {
+    return new Response(null, { status: 409 })
+  }
   const timestamp = now()
   const changes = await revokeApiKeyWithActivity(app.siteId, keyId, timestamp, app.actor, crypto.randomUUID())
   if (!changes) return new Response(null, { status: 404 })

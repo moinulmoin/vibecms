@@ -57,6 +57,20 @@ export function postEditorLink(postId: string) {
   return { to: '/dashboard/posts/$postId/edit' as const, params: { postId } }
 }
 
+export function overviewEntitlementBadge(
+  billing: DashboardData['billing'],
+): string | null {
+  if (billing.managed?.effective) return 'Managed access'
+  if (billing.effective) return null
+  if (billing.managed?.status === 'revoked') return 'Managed revoked'
+  if (billing.managed) return 'Managed expired'
+  if (billing.status === 'none') return 'Free plan'
+  if (billing.status === 'past_due') return 'Past due'
+  if (billing.status === 'canceled') return 'Canceled'
+  if (billing.status === 'unpaid') return 'Unpaid'
+  return null
+}
+
 function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   if (!usage.enforced) {
     return (
@@ -137,16 +151,7 @@ export function DashboardOverview() {
 
   const siteName = data.site?.name ?? BRAND.name
   const quotaLabel = MEDIA.paidStorageLabel
-  const billingBadgeLabel =
-    data.billing.status === 'none'
-      ? 'Free plan'
-      : data.billing.status === 'past_due'
-        ? 'Past due'
-        : data.billing.status === 'canceled'
-          ? 'Canceled'
-          : data.billing.status === 'unpaid'
-            ? 'Unpaid'
-            : null
+  const billingBadgeLabel = overviewEntitlementBadge(data.billing)
   const showBillingBadge = data.apiUsage.enforced && billingBadgeLabel !== null
   const isLive = Boolean(data.publicUrl) && !data.publicUrlLocal
 

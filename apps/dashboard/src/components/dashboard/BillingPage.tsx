@@ -110,6 +110,34 @@ export function BillingPage() {
   const { isOwner } = data
   const isActive = billing.status === 'active'
 
+  if (data.managed && !isActive) {
+    const managedStatus = data.managed.effective
+      ? 'Active'
+      : data.managed.status === 'revoked'
+        ? 'Revoked'
+        : 'Expired'
+    return (
+      <>
+        <PageHeader
+          title="Managed access"
+          description="Hosted access for this workspace is managed by AutoSEOPilot."
+        />
+        <div className="grid max-w-2xl gap-4">
+          <Panel
+            title="AutoSEOPilot sponsorship"
+            meta={<Badge variant="outline">{managedStatus}</Badge>}
+          >
+            <p className="font-sans text-base leading-7 text-muted-foreground">
+              {data.managed.effective
+                ? 'Publishing, media, analytics, custom domains, search indexing, and paid API limits are enabled. No separate VibeCMS subscription is required.'
+                : 'Paid hosted features are unavailable unless AutoSEOPilot restores sponsorship. Existing content and workspace data remain intact.'}
+            </p>
+          </Panel>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <PageHeader

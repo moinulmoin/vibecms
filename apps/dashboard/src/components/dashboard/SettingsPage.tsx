@@ -19,7 +19,7 @@ import {
   type PresetId,
   type ResolvedPresentation,
 } from '@vc/config'
-import type { Asset } from '@vc/core'
+import type { Asset, BillingStatus } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView } from '~/types/dashboard'
 import { DownloadIcon, GlobeIcon, PlusIcon, ReloadIcon, ResetIcon, CheckIcon } from '@radix-ui/react-icons'
 import {
@@ -78,6 +78,18 @@ type SettingsPageData = {
   assets: Asset[]
   customDomains: CustomDomainsPanel
   billingStatus: string
+  polarBillingStatus?: BillingStatus
+  effectiveEntitlement?: {
+    effective: boolean
+    access: 'self_hosted' | 'hosted_paid' | 'hosted_free'
+    source: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
+    effectiveUntil: number | null
+  }
+  managed?: {
+    status: 'active' | 'revoked'
+    expiresAt: number | null
+    effective: boolean
+  } | null
   selfHosted: boolean
   isOwner: boolean
   publicBaseUrl: string | null
@@ -628,7 +640,12 @@ export function SettingsPage() {
     )
   }
 
-  const { site, customDomains, billingStatus, selfHosted, isOwner } = data
+  const { site, customDomains, billingStatus, managed, selfHosted, isOwner } = data
+  const managedBinding = managed != null
+  const managedAccess = managed?.effective === true
+  const polarAccess =
+    data.effectiveEntitlement?.effective === true &&
+    data.effectiveEntitlement.source === 'polar'
 
   return (
     <>
@@ -1267,7 +1284,19 @@ export function SettingsPage() {
         <TabsContent value="billing" className="grid gap-4">
       <Panel
         title="Billing"
-        meta={selfHosted ? <Badge variant="outline">self-hosted</Badge> : <BillingStatusBadge status={billingStatus} />}
+        meta={
+          selfHosted ? (
+            <Badge variant="outline">self-hosted</Badge>
+          ) : polarAccess && !managedAccess ? (
+            <BillingStatusBadge status={billingStatus} />
+          ) : managedBinding ? (
+            <Badge variant="outline">
+              {managedAccess ? 'managed access' : managed?.status === 'revoked' ? 'managed revoked' : 'managed expired'}
+            </Badge>
+          ) : (
+            <BillingStatusBadge status={billingStatus} />
+          )
+        }
       >
         <div className="rounded-xl bg-muted/35 p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -1275,11 +1304,21 @@ export function SettingsPage() {
               <p className="font-display text-sm font-medium text-foreground">
                 {selfHosted
                   ? 'Billing is disabled for this self-hosted workspace'
+                  : polarAccess && !managedAccess
+                    ? `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`
+                  : managedBinding
+                    ? 'Paid hosted access is managed by AutoSEOPilot'
                   : `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`}
               </p>
               <p className="mt-2 max-w-2xl font-sans text-sm leading-6 text-muted-foreground">
                 {selfHosted
                   ? 'Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout.'
+                  : polarAccess && !managedAccess
+                    ? `Your independent VibeCMS subscription keeps paid hosted features active. AutoSEOPilot sponsorship is currently unavailable. Media storage is capped at ${MEDIA.paidStorageLabel}.`
+                  : managedBinding
+                    ? managedAccess
+                      ? `Publishing, media uploads, API and MCP quotas, analytics, custom domains, and search indexing are enabled while sponsorship is active. Polar billing remains separate. Media storage is capped at ${MEDIA.paidStorageLabel}.`
+                      : 'Paid hosted features are unavailable until AutoSEOPilot restores sponsorship. Existing content and workspace data remain intact.'
                   : `Drafting, agent tokens, and your first 5 published posts are free. Subscribe to publish more, upload media, and make posts search-indexable. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
               </p>
             </div>
@@ -1291,7 +1330,11 @@ export function SettingsPage() {
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Button asChild>
                   <Link to="/dashboard/billing" search={emptyDashboardStatusSearch}>
-                    {billingStatus === 'active' ? 'Manage billing' : 'Subscribe to publish'}
+                    {billingStatus === 'active'
+                      ? 'Manage billing'
+                      : managedBinding
+                        ? 'Managed access'
+                        : 'Subscribe to publish'}
                   </Link>
                 </Button>
               </div>

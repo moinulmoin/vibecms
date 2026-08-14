@@ -17,7 +17,7 @@ import {
   articleMarkdownAlternateLink,
   contentEtag,
   matchArticleResponseCache,
-  publicCacheControl,
+  publicCacheControlForEntitlement,
   putArticleResponseCache,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
@@ -94,7 +94,7 @@ export function publicHtmlResponseHeaders(
 ): Record<string, string> {
   const indexable = isPublicBlogIndexable(site, env);
   const headers: Record<string, string> = {
-    "cache-control": publicCacheControl,
+    "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
     "content-signal": indexable ? "ai-train=yes, search=yes, ai-input=yes" : "ai-train=no, search=no, ai-input=yes",
   };
   if (options?.markdownAlternateHref) headers.vary = "Accept";
@@ -104,6 +104,20 @@ export function publicHtmlResponseHeaders(
     headers.link = articleMarkdownAlternateLink(options.markdownAlternateHref);
   }
   if (options?.etag) headers.etag = options.etag;
+  return headers;
+}
+
+/**
+ * Listing routes must resolve entitlement on every request. Unlike article
+ * routes, Astro's page cache can return a listing before route code runs, so a
+ * stale paid response could outlive managed sponsorship expiry or revocation.
+ */
+export function publicListingResponseHeaders(
+  site: SiteRow,
+  env: PublicRuntimeEnv,
+): Record<string, string> {
+  const headers = publicHtmlResponseHeaders(site, env);
+  headers["cache-control"] = "no-store";
   return headers;
 }
 
@@ -163,10 +177,14 @@ export async function tryPublicPostMarkdownResponse(
   if (!slug) return notFound();
 
   const cached = await matchArticleResponseCache(request.url, "markdown");
-  if (cached && hasContentEtag(cached)) return conditionalCachedArticleResponse(request, cached);
+  if (site.effective_entitlement.effective && cached && hasContentEtag(cached)) {
+    return conditionalCachedArticleResponse(request, cached);
+  }
 
   const response = await publicPostMarkdownResponse(db, site, slug, request, basePath, env);
-  if (response.ok) await putArticleResponseCache(request.url, "markdown", response);
+  if (response.ok && site.effective_entitlement.effective) {
+    await putArticleResponseCache(request.url, "markdown", response);
+  }
   return response;
 }
 

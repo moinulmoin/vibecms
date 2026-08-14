@@ -35,6 +35,7 @@ import {
   voiceProfileSettingsInputSchema,
 } from '@/server/dashboard-api'
 import { jsonAppError } from '@/server/http-errors'
+import { appSelectionCookie } from '@/server/app-selection'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -52,9 +53,54 @@ dashboardRoutes.get('/context', async (c) => {
     googleEnabled: ctx.googleEnabled,
     user: ctx.user,
     app: ctx.app,
+    apps: ctx.apps,
     siteSetupComplete: ctx.siteSetupComplete,
     siteDisplayName: ctx.siteDisplayName,
   })
+})
+
+dashboardRoutes.post('/context/select', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const ctx = await resolveAppSessionContext(c.req.raw)
+  if (!ctx.user) {
+    return c.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+      401,
+    )
+  }
+  const body = await c.req.json<{
+    workspaceId?: unknown
+    siteId?: unknown
+  }>()
+  if (
+    typeof body.workspaceId !== 'string' ||
+    typeof body.siteId !== 'string'
+  ) {
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Invalid app selection' } },
+      400,
+    )
+  }
+  const selected = ctx.apps.find(
+    (choice) =>
+      choice.workspaceId === body.workspaceId &&
+      choice.siteId === body.siteId,
+  )
+  if (!selected) {
+    return c.json(
+      { error: { code: 'FORBIDDEN', message: 'App selection is not available' } },
+      403,
+    )
+  }
+  c.header(
+    'Set-Cookie',
+    await appSelectionCookie({
+      workspaceId: selected.workspaceId,
+      siteId: selected.siteId,
+    }),
+  )
+  return c.json({ ok: true })
 })
 
 dashboardRoutes.get('/overview', async (c) => {
