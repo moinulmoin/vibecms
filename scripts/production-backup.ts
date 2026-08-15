@@ -11,7 +11,6 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 
-requireEnvironment("CLOUDFLARE_API_TOKEN");
 requireEnvironment("CLOUDFLARE_ACCOUNT_ID");
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -160,8 +159,10 @@ Captures (no Worker deploy, no D1 restore, no schema mutation):
   - Current API and public Worker deployment/version IDs
 
 Required environment:
-  CLOUDFLARE_API_TOKEN
   CLOUDFLARE_ACCOUNT_ID
+
+Cloudflare authentication:
+  CLOUDFLARE_API_TOKEN or an existing Wrangler OAuth login
 
 Notes:
   - Defaults are non-destructive metadata only.

@@ -19,7 +19,9 @@ const productionApiConfig = apiConfig.slice(apiConfig.indexOf('"production"'));
 const productionPublicConfig = publicConfig.slice(publicConfig.indexOf('"production"'));
 
 const accountId = requireEnvironment("CLOUDFLARE_ACCOUNT_ID");
-const apiToken = requireEnvironment("CLOUDFLARE_API_TOKEN");
+const apiToken =
+  process.env.CLOUDFLARE_PREFLIGHT_API_TOKEN?.trim()
+  || requireEnvironment("CLOUDFLARE_API_TOKEN");
 
 const smokeToken = process.env.PRODUCTION_SMOKE_TOKEN?.trim();
 const bootstrapSmoke = process.env.ALLOW_BOOTSTRAP_SMOKE === "1";
@@ -145,7 +147,7 @@ Runs before any D1 mutation:
   - builds dashboard, API production dry-run, and public production artifacts
 
 Required environment:
-  CLOUDFLARE_API_TOKEN
+  CLOUDFLARE_PREFLIGHT_API_TOKEN or CLOUDFLARE_API_TOKEN
   CLOUDFLARE_ACCOUNT_ID
   PRODUCTION_SMOKE_TOKEN   (authenticated mode)
   or ALLOW_BOOTSTRAP_SMOKE=1  (first deploy only; authenticated smoke must run later)

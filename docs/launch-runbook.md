@@ -84,12 +84,18 @@ The webhook secret must match `POLAR_WEBHOOK_SECRET`. Receipt ids and source tim
 ```sh
 pnpm install --frozen-lockfile
 CLOUDFLARE_ACCOUNT_ID=<account-id> \
-CLOUDFLARE_API_TOKEN=<deploy-token> \
+CLOUDFLARE_PREFLIGHT_API_TOKEN=<read-only-token> \
 PRODUCTION_SMOKE_TOKEN=<read-token> \
 pnpm deploy:prod
 ```
 
 `deploy:prod` is the only hosted production path. It runs `production:preflight` (typecheck/lint/tests/public audit/OpenAPI + resource/secret checks + production artifact builds) before any D1 mutation, captures backup metadata, applies migrations, deploys API then already-built public, then smokes. Do not deploy on a failed preflight.
+
+For local releases, authenticate Wrangler with `wrangler login`. Keep the
+read-only verification credential in `CLOUDFLARE_PREFLIGHT_API_TOKEN`; do not
+export it as `CLOUDFLARE_API_TOKEN`, because Wrangler gives that variable
+precedence over OAuth for migrations and deploys. Non-interactive CI instead
+uses a deployment-capable `CLOUDFLARE_API_TOKEN`.
 
 First deploy only: use `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`, then create a site/read token/published post and immediately run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Later deploys require the token.
 

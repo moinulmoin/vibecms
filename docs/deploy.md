@@ -63,8 +63,15 @@ Order is fixed:
 Canonical manual path:
 
 ```sh
-CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<deploy-token> PRODUCTION_SMOKE_TOKEN=<read-token> pnpm deploy:prod
+CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_PREFLIGHT_API_TOKEN=<read-only-token> PRODUCTION_SMOKE_TOKEN=<read-token> pnpm deploy:prod
 ```
+
+The local path uses an existing `wrangler login` OAuth session for backup,
+migrations, and Worker deploys. Keep the verification token in
+`CLOUDFLARE_PREFLIGHT_API_TOKEN`; setting a read-only token as
+`CLOUDFLARE_API_TOKEN` overrides OAuth and blocks production writes. The
+non-interactive GitHub workflow uses a deployment-capable
+`CLOUDFLARE_API_TOKEN` for the full command instead.
 
 Order is fixed and owned by `pnpm deploy:prod`:
 
