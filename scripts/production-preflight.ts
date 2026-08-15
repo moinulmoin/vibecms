@@ -199,12 +199,8 @@ function runGate(label: string, command: string[], extraEnv: Record<string, stri
   }
 }
 
-function runJson(command: string[]): unknown {
-  const result = spawnSync(command[0]!, command.slice(1), {
-    cwd: root,
-    encoding: "utf8",
-    env: process.env,
-  });
+async function runJson(command: string[]): Promise<unknown> {
+  const result = await runWithNetworkRetry(command);
   if (result.status !== 0) {
     throw new Error(`Command failed (${command.join(" ")}): ${result.stderr || result.stdout}`);
   }
@@ -218,32 +214,38 @@ function runJson(command: string[]): unknown {
 }
 
 async function cloudflare<T>(path: string): Promise<{ ok: true; result: T } | { ok: false; detail: string }> {
-  try {
-    const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-    const body = (await response.json()) as {
-      success?: boolean;
-      errors?: Array<{ message?: string; code?: number }>;
-      result?: T;
-    };
-    if (!response.ok || !body.success) {
-      const detail = body.errors?.map((error) => error.message).filter(Boolean).join(", ") || `HTTP ${response.status}`;
-      return { ok: false, detail };
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = (await response.json()) as {
+        success?: boolean;
+        errors?: Array<{ message?: string; code?: number }>;
+        result?: T;
+      };
+      if (!response.ok || !body.success) {
+        const detail = body.errors?.map((error) => error.message).filter(Boolean).join(", ") || `HTTP ${response.status}`;
+        return { ok: false, detail };
+      }
+      return { ok: true, result: body.result as T };
+    } catch (error) {
+      if (attempt === 3) {
+        return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+      }
+      await delay(attempt * 750);
     }
-    return { ok: true, result: body.result as T };
-  } catch (error) {
-    return { ok: false, detail: error instanceof Error ? error.message : String(error) };
   }
+  return { ok: false, detail: "Cloudflare API request failed" };
 }
 
 async function assertD1Exists(name: string, id: string, missing: string[]): Promise<void> {
   try {
-    const listed = runJson([
+    const listed = await runJson([
       "pnpm",
       "--filter",
       "@vc/api",
@@ -268,11 +270,16 @@ async function assertD1Exists(name: string, id: string, missing: string[]): Prom
 
 async function assertR2Exists(name: string, missing: string[]): Promise<void> {
   try {
-    const listed = spawnSync(
+    const listed = await runWithNetworkRetry([
       "pnpm",
-      ["--filter", "@vc/api", "exec", "wrangler", "r2", "bucket", "list"],
-      { cwd: root, encoding: "utf8", env: process.env },
-    );
+      "--filter",
+      "@vc/api",
+      "exec",
+      "wrangler",
+      "r2",
+      "bucket",
+      "list",
+    ]);
     if (listed.status !== 0) {
       missing.push(`Unable to list R2 buckets: ${listed.stderr || listed.stdout}`);
       return;
@@ -347,7 +354,7 @@ async function assertCustomHostnameFallback(zone: string, missing: string[]): Pr
 
 async function assertSecrets(missing: string[]): Promise<void> {
   try {
-    const listed = runJson([
+    const listed = await runJson([
       "pnpm",
       "--filter",
       "@vc/api",
@@ -376,5 +383,30 @@ async function assertSecrets(missing: string[]): Promise<void> {
   } catch (error) {
     missing.push(`Unable to list production Worker secrets: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+async function runWithNetworkRetry(
+  command: string[],
+): Promise<ReturnType<typeof spawnSync>> {
+  let result = spawnSync(command[0]!, command.slice(1), {
+    cwd: root,
+    encoding: "utf8",
+    env: process.env,
+  });
+  for (let attempt = 1; result.status !== 0 && attempt < 3; attempt += 1) {
+    const output = `${result.stderr ?? ""}\n${result.stdout ?? ""}`;
+    if (!/fetch failed|connectivity issue|network/i.test(output)) break;
+    await delay(attempt * 750);
+    result = spawnSync(command[0]!, command.slice(1), {
+      cwd: root,
+      encoding: "utf8",
+      env: process.env,
+    });
+  }
+  return result;
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
