@@ -1,0 +1,95 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { BRAND } from "@vc/config";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+
+const env = publicRuntimeEnv(Astro);
+if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
+  return new Response("Not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+---
+<LegalLayout
+  title="Terms of Service"
+  description={`The agreement for using ${BRAND.name} during public early access.`}
+  updated="August 16, 2026"
+>
+  <h2>The service</h2>
+  <p>
+    vibecms is a publishing platform and API operated by Ideaplexa LLC: one hosted blog, Markdown
+    posts with version history, media storage, analytics, and scoped access for AI agents over
+    MCP, REST, and a CLI. These terms apply to the hosted service. Self-hosting remains free and
+    open under its own license.
+  </p>
+
+  <h2>Public early access</h2>
+  <p>
+    You are joining early. We work hard to keep the service stable, but features, limits, and
+    quotas may change as the product matures. We will give reasonable notice before changes that
+    could affect your published content.
+  </p>
+
+  <h2>Your account and tokens</h2>
+  <p>
+    Keep your sign-in email accessible and your API tokens secret. You are responsible for
+    activity that happens through your tokens, including actions taken by AI agents you connect.
+    Scope tokens narrowly and revoke any you no longer use.
+  </p>
+
+  <h2>Your content</h2>
+  <p>
+    You own your content. You grant us only the rights needed to host, serve, and back it up.
+    You are responsible for the legality of what you publish and for having the rights to it.
+  </p>
+
+  <h2>Acceptable use</h2>
+  <ul>
+    <li>No unlawful, deceptive, or rights-violating content.</li>
+    <li>No malware distribution, spam infrastructure, or attempts to access other workspaces.</li>
+    <li>Respect published API rate limits and quotas.</li>
+  </ul>
+  <p>
+    We may suspend workspaces that violate these rules, and we will say why when we do.
+  </p>
+
+  <h2>Free and paid plans</h2>
+  <p>
+    Drafting, agent connection, and your first 5 published posts are free, with no card required.
+    Publishing beyond that, media uploads, custom domains, and the full API surface require a
+    subscription, billed in USD by Polar. Subscriptions renew automatically and you can cancel
+    anytime; cancellation takes effect at the end of the paid period and unused time is not
+    refunded except where required by law.
+  </p>
+
+  <h2>Founding rates</h2>
+  <p>
+    Founding prices are available to the first 100 subscribers across monthly and yearly billing
+    and are applied automatically at checkout. While your subscription stays continuously active,
+    your founding rate is locked: future list-price increases do not apply to you. If the
+    subscription lapses, the founding rate ends and available-at-that-time pricing applies to a
+    new subscription.
+  </p>
+
+  <h2>Availability and changes</h2>
+  <p>
+    The service is provided as is during early access. We target high availability but do not
+    guarantee uninterrupted service, and we are not liable for indirect or consequential losses.
+    In any case, our total liability is limited to the amounts you paid in the twelve months
+    before the claim.
+  </p>
+
+  <h2>Ending things</h2>
+  <p>
+    You can stop using vibecms anytime. Canceling a subscription switches the workspace off
+    paid features at period end; your content remains exportable through the API, and we remove
+    it on request.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions about these terms: <a href="mailto:support@vibecms.dev">support@vibecms.dev</a>.
+  </p>
+</LegalLayout>

@@ -3,6 +3,11 @@ import { GlassCard, SectionShell } from "./primitives";
 
 const faqs = [
   {
+    question: "What is the founding rate?",
+    answer:
+      "Public early access pricing: $13/month or $99/year instead of the standard $19/$190. The discount applies automatically at checkout for the first 100 subscribers and stays locked for as long as your subscription remains active.",
+  },
+  {
     question: "Is vibecms an AI writer?",
     answer:
       "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; vibecms is the publication layer underneath.",
@@ -33,7 +38,7 @@ export function FaqAccordion() {
             <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
               Questions
               <br />
-              before launch.
+              about early access.
             </h2>
           </div>
           <div className="space-y-4" data-reveal data-d="1">

@@ -4,6 +4,15 @@ export const BRAND = {
   description:
     "The CMS your agents publish into: Markdown posts, versions, and media over scoped MCP - you own every post.",
   repoUrl: "https://github.com/moinulmoin/vibecms",
+  /** Canonical marketing origin. Auth/onboarding brand links escape here. */
+  marketingUrl: "https://vibecms.dev",
+} as const;
+
+/** Legal/support routes served on the marketing origin (apps/public, `/legal/*`). */
+export const LEGAL = {
+  privacy: "/legal/privacy",
+  terms: "/legal/terms",
+  support: "/legal/support",
 } as const;
 
 export const MEDIA = {
@@ -47,6 +56,30 @@ export const PRICING = {
   annualUsd: 190,
   monthlyLabel: "$19/month",
   annualLabel: "$190/year",
+} as const;
+
+/**
+ * Public Early Access founding offer. Separate Polar monthly/annual discounts
+ * auto-applied at checkout; a shared VibeCMS counter caps eligibility at the
+ * first 100 subscribers across both intervals. The rate is retained while the
+ * subscription stays active. Standard prices remain the visual anchor.
+ */
+export const FOUNDING_OFFER = {
+  phaseLabel: "Public early access",
+  slotsLabel: "First 100 subscribers",
+  monthlyUsd: 13,
+  annualUsd: 99,
+  monthlyLabel: "$13/month",
+  annualLabel: "$99/year",
+  lockNote: "Locked while you stay subscribed.",
+  applyNote: "Founding discount applies automatically at checkout, shared across monthly and yearly.",
+} as const;
+
+/** Hosted free boundary, disclosed on marketing prices/upgrades. */
+export const FREE_TIER = {
+  publishedPosts: 5,
+  marketingLine:
+    "Free to start - no card. Draft, connect your agent, and publish your first 5 posts. Upgrade for more publishing, media, analytics, and your own domain.",
 } as const;
 
 export const ENTITLEMENTS = [

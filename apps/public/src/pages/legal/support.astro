@@ -1,0 +1,48 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { BRAND } from "@vc/config";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+
+const env = publicRuntimeEnv(Astro);
+if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
+  return new Response("Not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+---
+<LegalLayout
+  title="Support"
+  description={`How to get help with ${BRAND.name}.`}
+  updated="August 16, 2026"
+>
+  <h2>Bug reports and feature ideas</h2>
+  <p>
+    vibecms is open source. The fastest route for bugs, regressions, and feature ideas is a
+    GitHub issue, which gets a tracked, public answer:{" "}
+    <a href={BRAND.repoUrl} rel="noopener noreferrer" target="_blank">{BRAND.repoUrl.replace("https://", "")}</a>.
+  </p>
+
+  <h2>Account, billing, and private matters</h2>
+  <p>
+    Anything involving your workspace, invoices, tokens, or content privacy goes to{" "}
+    <a href="mailto:support@vibecms.dev">support@vibecms.dev</a> from the email you sign in with.
+    Tell us the symptom and what you expected instead; posting your token is never necessary and
+    please do not include it.
+  </p>
+
+  <h2>Response time and status</h2>
+  <p>
+    During public early access, support is best-effort: we aim to answer within two business
+    days, usually much faster. There is no live chat or public status page yet. When a broad
+    incident occurs, we will post an update on the site and GitHub.
+  </p>
+
+  <h2>What helps us help you</h2>
+  <ul>
+    <li>Your blog URL and the email on the workspace.</li>
+    <li>What you did, what happened, and what you expected.</li>
+    <li>For agent or MCP issues: the client and version, and the action that failed.</li>
+  </ul>
+</LegalLayout>

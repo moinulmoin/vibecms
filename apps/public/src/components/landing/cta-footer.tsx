@@ -1,5 +1,5 @@
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { BRAND } from "@vc/config";
+import { BRAND, LEGAL } from "@vc/config";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
 
 const productLinks = [
@@ -8,7 +8,13 @@ const productLinks = [
   ["Pricing", "#pricing"],
 ] as const;
 
-const exploreLinks = [
+const legalLinks = [
+  ["Privacy", LEGAL.privacy],
+  ["Terms", LEGAL.terms],
+  ["Support", LEGAL.support],
+] as const;
+
+const makerLinks = [
   ["Ideaplexa", "https://ideaplexa.com"],
   ["VoiceTypr", "https://voicetypr.com"],
   ["ChadNext", "https://chadnext.moinulmoin.com"],
@@ -113,16 +119,14 @@ export function CtaFooter({
             </div>
             <div>
               <p className="mb-4 font-mono text-xs text-brand-bright">
-                Explore
+                Legal
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                {exploreLinks.map(([label, href]) => (
+              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Legal">
+                {legalLinks.map(([label, href]) => (
                   <a
                     className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
-                    rel="noopener noreferrer"
-                    target="_blank"
                   >
                     {label}
                   </a>
@@ -174,6 +178,22 @@ export function CtaFooter({
               Ideaplexa LLC
             </a>
             .
+          </p>
+          <p className="mt-2 font-mono text-[11px] tracking-[0.04em] text-muted-foreground/60">
+            Also from the maker:{" "}
+            {makerLinks.map(([label, href], index) => (
+              <span key={label}>
+                {index > 0 ? " · " : ""}
+                <a
+                  className="underline-offset-2 hover:text-muted-foreground"
+                  href={href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {label}
+                </a>
+              </span>
+            ))}
           </p>
         </div>
       </footer>

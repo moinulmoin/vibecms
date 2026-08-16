@@ -16,7 +16,7 @@ function surfaces(apiDocsUrl: string): Surface[] {
   return [
     {
       tag: "MCP",
-      title: "19 tools over POST /mcp",
+      title: "Up to 19 tools over POST /mcp",
       body: "Draft, publish, version, upload, read - JSON-RPC, each behind a scope.",
     },
     {
@@ -74,14 +74,14 @@ export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
             <div className="mt-3 text-foreground">
               <span className="text-brand-bright">●</span> connected{" "}
               <span className="text-muted-foreground">
-                · 19 tools available, scoped to publish
+                · 18 tools available with Publisher scope
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
               {TOOLS.map((t) => (
                 <span key={t}>{t}</span>
               ))}
-              <span className="text-foreground/45">+14 more</span>
+              <span className="text-foreground/45">+13 more</span>
             </div>
           </div>
         </div>

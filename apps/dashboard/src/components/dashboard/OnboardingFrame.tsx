@@ -1,5 +1,4 @@
 import { BRAND } from '@vc/config'
-import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { CheckIcon } from '@radix-ui/react-icons'
 
@@ -54,13 +53,13 @@ export function OnboardingFrame({
     <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
       <header className="mb-10 flex flex-col gap-7">
         <div className="flex items-center justify-between gap-3">
-          <Link
-            to="/"
+          <a
+            href={BRAND.marketingUrl}
             className="flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
           >
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
-          </Link>
+          </a>
           <OnboardingStepper step={step} />
         </div>
         <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">

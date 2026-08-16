@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { BRAND } from '@vc/config'
+import { BRAND, LEGAL } from '@vc/config'
 import { AuthForm } from '~/components/AuthForm'
 
 export const Route = createFileRoute('/login')({
@@ -14,7 +14,7 @@ function LoginPage() {
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
         <header className="space-y-5">
           <a
-            href="/"
+            href={BRAND.marketingUrl}
             className="inline-flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
           >
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
@@ -31,6 +31,32 @@ function LoginPage() {
         </header>
         <AuthForm googleEnabled={googleEnabled} />
       </div>
+      <nav
+        aria-label="Legal"
+        className="mx-auto flex w-full max-w-sm items-center justify-center gap-2 pt-8 font-mono text-[12px] text-muted-foreground"
+      >
+        {(
+          [
+            ['Privacy', LEGAL.privacy],
+            ['Terms', LEGAL.terms],
+            ['Support', LEGAL.support],
+          ] as const
+        ).map(([label, path], index) => (
+          <span key={label} className="flex items-center gap-2">
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-muted-foreground/40">
+                ·
+              </span>
+            ) : null}
+            <a
+              href={`${BRAND.marketingUrl}${path}`}
+              className="inline-flex min-h-[40px] items-center rounded-md px-2 underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {label}
+            </a>
+          </span>
+        ))}
+      </nav>
     </main>
   )
 }

@@ -1,6 +1,6 @@
 # Launch Rehearsal Checklist
 
-Use this before making vibecms public or announcing a hosted alpha.
+Use this before widening public early access or running an announcement.
 
 ## 1. Secret safety
 
@@ -31,8 +31,11 @@ pnpm deploy:dev
 
 Confirm Polar sandbox product settings:
 
-- monthly product: $9/month
-- yearly product: $99/year, if separate
+- standard monthly product: $19/month
+- standard yearly product: $190/year
+- founding monthly discount: $19 -> $13/month
+- founding yearly discount: $190 -> $99/year
+- founding discounts apply automatically; first 100 subscribers across both intervals share one eligibility pool
 - card required
 - webhook endpoint: `/polar/webhook`
 - webhook events include subscription lifecycle events and `checkout.updated`
@@ -61,6 +64,4 @@ Confirm:
 ## 5. Known deferred work
 
 - Email verification enforcement before publishing
-- Custom domain provisioning and verification UI
-- Real production hosted domain/config
 - Final brand/logo polish
