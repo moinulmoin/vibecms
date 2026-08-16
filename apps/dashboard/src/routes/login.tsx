@@ -7,7 +7,7 @@ export const Route = createFileRoute('/login')({
 })
 
 function LoginPage() {
-  const { googleEnabled } = Route.useRouteContext()
+  const { googleEnabled, githubEnabled } = Route.useRouteContext()
 
   return (
     <main className="flex min-h-svh flex-col bg-background px-4 py-10 text-foreground">
@@ -15,7 +15,7 @@ function LoginPage() {
         <header className="space-y-5">
           <a
             href={BRAND.marketingUrl}
-            className="inline-flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
+            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
           >
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
@@ -27,9 +27,12 @@ function LoginPage() {
             <p className="text-pretty font-sans text-sm leading-6 text-muted-foreground">
               We&apos;ll email you a one-time code. No password needed.
             </p>
+            <p className="font-mono text-[11px] leading-5 text-muted-foreground/70">
+              {'// your agent never sees this login'}
+            </p>
           </div>
         </header>
-        <AuthForm googleEnabled={googleEnabled} />
+        <AuthForm googleEnabled={googleEnabled} githubEnabled={githubEnabled} />
       </div>
       <nav
         aria-label="Legal"
@@ -50,7 +53,7 @@ function LoginPage() {
             ) : null}
             <a
               href={`${BRAND.marketingUrl}${path}`}
-              className="inline-flex min-h-[40px] items-center rounded-md px-2 underline-offset-4 hover:text-foreground hover:underline"
+              className="inline-flex min-h-[44px] items-center rounded-md px-2 underline-offset-4 hover:text-foreground hover:underline"
             >
               {label}
             </a>

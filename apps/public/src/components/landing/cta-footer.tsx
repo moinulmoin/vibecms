@@ -111,7 +111,7 @@ export function CtaFooter({
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {productLinks.map(([label, href]) => (
-                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
                   </a>
                 ))}
@@ -124,7 +124,7 @@ export function CtaFooter({
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Legal">
                 {legalLinks.map(([label, href]) => (
                   <a
-                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
+                    className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
                   >
@@ -140,7 +140,7 @@ export function CtaFooter({
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {deployLinks.map(([label, href]) => (
                   <a
-                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
+                    className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
                     {...(href.startsWith("http") ? { rel: "noopener noreferrer", target: "_blank" } : {})}
@@ -156,7 +156,7 @@ export function CtaFooter({
               </p>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
                 {accountLinks.map(([label, href]) => (
-                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
                   </a>
                 ))}

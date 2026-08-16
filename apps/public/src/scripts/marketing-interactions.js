@@ -251,6 +251,33 @@ function initHeroDemo() {
   mq.addEventListener("change", runLoop);
 }
 
+function initMobileNav() {
+  const nav = document.querySelector("[data-mobile-nav]");
+  if (!(nav instanceof HTMLDetailsElement)) return;
+
+  const summary = nav.querySelector("summary");
+
+  document.addEventListener("click", (event) => {
+    if (nav.open && !(event.target instanceof Node && nav.contains(event.target))) {
+      nav.open = false;
+    }
+  });
+
+  nav.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && nav.open) {
+      nav.open = false;
+      if (summary instanceof HTMLElement) summary.focus();
+    }
+  });
+
+  for (const link of nav.querySelectorAll("[data-mobile-nav-link]")) {
+    link.addEventListener("click", () => {
+      nav.open = false;
+    });
+  }
+}
+
 initNav();
+initMobileNav();
 initScopeDemo();
 initHeroDemo();

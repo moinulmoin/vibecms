@@ -6,6 +6,7 @@ import type { AppRouterContext } from '~/types/dashboard'
 
 const emptyRouterContext: AppRouterContext = {
   googleEnabled: false,
+  githubEnabled: false,
   user: null,
   app: null,
   apps: [],

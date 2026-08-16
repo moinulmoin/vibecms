@@ -51,6 +51,7 @@ dashboardRoutes.get('/context', async (c) => {
   const ctx = await resolveAppSessionContext(c.req.raw)
   return c.json({
     googleEnabled: ctx.googleEnabled,
+    githubEnabled: ctx.githubEnabled,
     user: ctx.user,
     app: ctx.app,
     apps: ctx.apps,

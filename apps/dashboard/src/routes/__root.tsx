@@ -15,6 +15,7 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
       if (error instanceof DashboardApiError && error.status === 401) {
         return {
           googleEnabled: false,
+          githubEnabled: false,
           user: null,
           app: null,
           apps: [],

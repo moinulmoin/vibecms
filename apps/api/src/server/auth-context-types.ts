@@ -4,6 +4,7 @@ export type SessionUser = { id: string; name: string; email: string }
 
 export type AppRouterContext = {
   googleEnabled: boolean
+  githubEnabled: boolean
   user: SessionUser | null
   app: AppUserContext | null
   apps: AppChoice[]

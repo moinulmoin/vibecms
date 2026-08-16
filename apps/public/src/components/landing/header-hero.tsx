@@ -1,7 +1,7 @@
 import { BRAND } from "@vc/config";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
-import { HeaderNav } from "./header-nav";
+import { HeaderNav, MobileNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
 
 const agents = [
@@ -19,7 +19,7 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
       <header className="sticky top-0 z-[60] bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-4 sm:px-7">
           <a
-            className="flex items-center gap-2.5 font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground no-underline"
+            className="relative flex items-center gap-2.5 font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground no-underline before:absolute before:-inset-y-2 before:inset-x-[-4px] before:content-['']"
             href="/"
           >
             <img
@@ -37,9 +37,10 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
 
           <HeaderNav />
 
-          <div className="flex items-center gap-3 sm:gap-3.5">
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            <MobileNav loginUrl={loginUrl} />
             <a
-              className="inline-flex min-h-[44px] items-center whitespace-nowrap text-sm font-medium text-secondary-foreground no-underline transition-colors hover:text-foreground"
+              className="hidden min-h-[44px] items-center whitespace-nowrap text-sm font-medium text-secondary-foreground no-underline transition-colors hover:text-foreground sm:inline-flex"
               href={loginUrl}
             >
               Sign in

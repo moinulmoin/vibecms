@@ -26,6 +26,7 @@ export type AppUserContext = {
 
 export type AppRouterContext = {
   googleEnabled: boolean
+  githubEnabled: boolean
   user: SessionUser | null
   app: AppUserContext | null
   apps: AppChoice[]

@@ -7,8 +7,18 @@ import { Spinner } from '~/components/ui/spinner'
 
 type Step = 'email' | 'otp'
 
-export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
+type SocialProvider = 'google' | 'github'
+
+const SOCIAL_LABELS: Record<SocialProvider, string> = {
+  google: 'Google',
+  github: 'GitHub',
+}
+
+export function AuthForm({ googleEnabled, githubEnabled }: { googleEnabled: boolean; githubEnabled: boolean }) {
   const authClient = setupAuthClient()
+  const providers: SocialProvider[] = []
+  if (googleEnabled) providers.push('google')
+  if (githubEnabled) providers.push('github')
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -70,17 +80,17 @@ export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
     })
   }
 
-  async function continueWithGoogle() {
+  async function continueWithProvider(provider: SocialProvider) {
     setError(null)
     setLoading(true)
     try {
-      const { error: socialError } = await authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' })
+      const { error: socialError } = await authClient.signIn.social({ provider, callbackURL: '/dashboard' })
       if (socialError) {
-        setError(socialError.message ?? 'Could not start Google sign-in.')
+        setError(socialError.message ?? `Could not start ${SOCIAL_LABELS[provider]} sign-in.`)
         setLoading(false)
       }
     } catch {
-      setError('Could not reach Google sign-in. Check your connection and try again.')
+      setError(`Could not reach ${SOCIAL_LABELS[provider]} sign-in. Check your connection and try again.`)
       setLoading(false)
     }
   }
@@ -97,17 +107,22 @@ export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
         </Alert>
       ) : null}
 
-      {googleEnabled ? (
+      {providers.length > 0 ? (
         <>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-xl"
-            disabled={loading}
-            onClick={() => void continueWithGoogle()}
-          >
-            Continue with Google
-          </Button>
+          <div className="space-y-3">
+            {providers.map((provider) => (
+              <Button
+                key={provider}
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl"
+                disabled={loading}
+                onClick={() => void continueWithProvider(provider)}
+              >
+                Continue with {SOCIAL_LABELS[provider]}
+              </Button>
+            ))}
+          </div>
           <div className="my-6 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
             or
@@ -141,6 +156,7 @@ export function AuthForm({ googleEnabled }: { googleEnabled: boolean }) {
                 spellCheck={false}
                 required
                 autoFocus
+                className="h-11 rounded-xl"
               />
             </Field>
             <Field>

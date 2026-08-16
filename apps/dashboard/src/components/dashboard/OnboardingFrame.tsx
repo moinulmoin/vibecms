@@ -55,7 +55,7 @@ export function OnboardingFrame({
         <div className="flex items-center justify-between gap-3">
           <a
             href={BRAND.marketingUrl}
-            className="flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
+            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
           >
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}

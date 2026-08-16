@@ -7,6 +7,7 @@ import { env } from 'cloudflare:workers'
 import { sendOtpEmail } from '@/server/email'
 
 const googleConfigured = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+const githubConfigured = Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET)
 
 const trustedOrigins =
   env.APP_ENV === 'production'
@@ -18,14 +19,24 @@ export const auth = betterAuth({
     provider: 'sqlite',
     schema,
   }),
-  socialProviders: googleConfigured
-    ? {
-        google: {
-          clientId: env.GOOGLE_CLIENT_ID!,
-          clientSecret: env.GOOGLE_CLIENT_SECRET!,
-        },
-      }
-    : undefined,
+  socialProviders: {
+    ...(googleConfigured
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID!,
+            clientSecret: env.GOOGLE_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+    ...(githubConfigured
+      ? {
+          github: {
+            clientId: env.GITHUB_CLIENT_ID!,
+            clientSecret: env.GITHUB_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+  },
   plugins: [
     emailOTP({
       otpLength: 6,
@@ -48,4 +59,8 @@ export const auth = betterAuth({
 
 export function googleSignInEnabled() {
   return googleConfigured
+}
+
+export function githubSignInEnabled() {
+  return githubConfigured
 }

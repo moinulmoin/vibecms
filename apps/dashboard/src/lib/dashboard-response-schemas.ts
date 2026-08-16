@@ -11,6 +11,7 @@ const apiUsageStatusSchema = z.object({
 
 export const appRouterContextSchema = z.object({
   googleEnabled: z.boolean(),
+  githubEnabled: z.boolean(),
   user: z
     .object({
       id: z.string(),

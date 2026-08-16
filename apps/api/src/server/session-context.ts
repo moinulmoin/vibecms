@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers'
-import { auth, googleSignInEnabled } from '@/server/auth'
+import { auth, githubSignInEnabled, googleSignInEnabled } from '@/server/auth'
 import { readAppSelection } from '@/server/app-selection'
 import { isAppContextHost } from '@/server/canonical-host'
 import { getSiteSetup, resolveUserAppContext } from '@/server/onboarding'
@@ -7,8 +7,10 @@ import type { AppRouterContext, SessionUser } from '@/server/auth-context-types'
 
 export async function resolveAppSessionContext(request: Request): Promise<AppRouterContext> {
   const googleEnabled = googleSignInEnabled()
+  const githubEnabled = githubSignInEnabled()
   const signedOut: AppRouterContext = {
     googleEnabled,
+    githubEnabled,
     user: null,
     app: null,
     apps: [],
@@ -49,6 +51,7 @@ export async function resolveAppSessionContext(request: Request): Promise<AppRou
   const setupComplete = selected?.managed !== null || setup.isComplete
   return {
     googleEnabled,
+    githubEnabled,
     user,
     app,
     apps,
