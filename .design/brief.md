@@ -61,6 +61,25 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    were removed, page-title hierarchy was strengthened, and Overview, Posts,
    Media, Connect, Activity, Analytics, Billing, Settings, and the editor rail
    were aligned to the same density and responsive rhythm.
+6. **Launch finish** — IN PROGRESS. Driven by the Launch UX Review
+   (`.design/review-report.md`, 2026-08-15, score 3.0/4.0, no P0). Done and
+   committed (26e7167): login/onboarding brand links escape to
+   `BRAND.marketingUrl`; `/legal/privacy|terms|support` pages with footer
+   Legal group (maker links demoted) and login legal nav; marketing founding
+   offer (`FOUNDING_OFFER` in `@vc/config`, pricing module with standard
+   $19/$190 anchors, FAQ entry); free-tier disclosure line under the pricing
+   CTA (`FREE_TIER`); agent-surface MCP counts corrected (18 with Publisher
+   scope / up to 19); FAQ heading "Questions about early access"; launch
+   rehearsal refreshed to current pricing/facts. Open: P2 compact mobile nav, skip link,
+   touch targets. Onboarding progress continuity landed 2026-08-16: a compact
+   `OnboardingStepper` rail renders under the connect page header until the
+   first post is live, driven by tested `connectOnboardingStep` (existing
+   connection/first-post status, no second state machine). **DESCOPED (user decision, 2026-08-16):** no artificial
+   checkout enforcement for the founding offer — no Polar auto-applied
+   discounts, no first-100 eligibility counter in billing. The founding rate
+   is a plain launch offer expressed as the discounted price; Polar products
+   are set to the offer price directly. Review finding P1 #1 is satisfied by
+   the marketing-side module alone.
 
 ## Invariants
 

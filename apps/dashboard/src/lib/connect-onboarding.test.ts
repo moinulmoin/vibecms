@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOnboardingActivationComplete } from './connect-onboarding'
+import { connectOnboardingStep, isOnboardingActivationComplete } from './connect-onboarding'
 
 describe('Connect onboarding activation', () => {
   it('completes only after the first post goes live', () => {
@@ -14,5 +14,18 @@ describe('Connect onboarding activation', () => {
   it('keeps incomplete and missing status active', () => {
     expect(isOnboardingActivationComplete(null)).toBe(false)
     expect(isOnboardingActivationComplete(undefined)).toBe(false)
+  })
+})
+
+describe('Connect onboarding step', () => {
+  it('stays on Connect agent while nothing has connected', () => {
+    expect(connectOnboardingStep(undefined, false)).toBe(2)
+    expect(connectOnboardingStep({ state: 'waiting' }, false)).toBe(2)
+  })
+
+  it('advances to First post once the agent connects or a draft exists', () => {
+    expect(connectOnboardingStep({ state: 'waiting' }, true)).toBe(3)
+    expect(connectOnboardingStep({ state: 'draft' }, false)).toBe(3)
+    expect(connectOnboardingStep({ state: 'live' }, false)).toBe(3)
   })
 })

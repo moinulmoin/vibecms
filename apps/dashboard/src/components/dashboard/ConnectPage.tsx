@@ -53,7 +53,8 @@ import {
   getActivationKeyId,
   saveTokenFlash,
 } from '~/lib/token-flash'
-import { isOnboardingActivationComplete } from '~/lib/connect-onboarding'
+import { isOnboardingActivationComplete, connectOnboardingStep } from '~/lib/connect-onboarding'
+import { OnboardingStepper } from '~/components/dashboard/OnboardingFrame'
 import { resolveDisplayConnection, shouldClearMissingActivationKey } from './connect-display'
 
 const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
@@ -548,6 +549,14 @@ export function ConnectPage() {
               ) : undefined
             }
           />
+
+          {!loading && !live && effectiveTab === 'setup' && (
+            <div className="mb-8">
+              <OnboardingStepper
+                step={connectOnboardingStep(status?.firstPost, displayConn === 'connected')}
+              />
+            </div>
+          )}
 
           {loading && (
             <>
