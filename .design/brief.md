@@ -70,11 +70,20 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    $19/$190 anchors, FAQ entry); free-tier disclosure line under the pricing
    CTA (`FREE_TIER`); agent-surface MCP counts corrected (18 with Publisher
    scope / up to 19); FAQ heading "Questions about early access"; launch
-   rehearsal refreshed to current pricing/facts. Open: P2 compact mobile nav, skip link,
-   touch targets. Onboarding progress continuity landed 2026-08-16: a compact
+   rehearsal refreshed to current pricing/facts. Onboarding progress continuity landed 2026-08-16 (77618c7): a compact
    `OnboardingStepper` rail renders under the connect page header until the
    first post is live, driven by tested `connectOnboardingStep` (existing
-   connection/first-post status, no second state machine). **DESCOPED (user decision, 2026-08-16):** no artificial
+   connection/first-post status, no second state machine). P2 batch landed
+   2026-08-16 (50e3c1a): disclosure mobile section menu (icon-only <380px,
+   Sign in inside it <sm), skip-to-content link, and invisible hit-area
+   extensions bringing landing/login/onboarding links and the email input to
+   ~44px without visual change. Also in 50e3c1a: GitHub OAuth mirrors the
+   existing env-gated Google wiring (`GITHUB_CLIENT_ID/SECRET` worker
+   secrets; AuthForm renders one button per enabled provider), and the login
+   page gained the restrained `// your agent never sees this login` cue
+   (P3 #12). Remaining operator steps (no code): set Google/GitHub worker
+   secrets with the `{BETTER_AUTH_URL}/api/auth/callback/{provider}` OAuth
+   clients, verify the compact-menu keyboard behavior, and deploy dev. **DESCOPED (user decision, 2026-08-16):** no artificial
    checkout enforcement for the founding offer — no Polar auto-applied
    discounts, no first-100 eligibility counter in billing. The founding rate
    is a plain launch offer expressed as the discounted price; Polar products
