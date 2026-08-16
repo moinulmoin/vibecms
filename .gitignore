@@ -34,6 +34,7 @@ plans/HANDOFF.md
 apps/public/.astro/dev.json
 apps/public/.astro/settings.json
 apps/public/.astro/collections/
+apps/public/.astro/data-store.json
 apps/public/.astro/content-assets.mjs
 apps/public/.astro/content-modules.mjs
 apps/public/.astro/preview.json
