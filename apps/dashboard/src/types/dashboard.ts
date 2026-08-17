@@ -159,6 +159,14 @@ export type ApiKeyListItem = {
   revokedAt: number | null
 }
 
+export type AgentPreference = 'claude_code' | 'codex' | 'cursor' | 'droid' | 'other'
+
+export type SitePersonalization = {
+  agentPreference: AgentPreference | null
+  voiceSeed: string[]
+  onboardingNote: string | null
+}
+
 export type ConnectPageData = {
   canManage: boolean
   mcpUrl: string
@@ -172,6 +180,10 @@ export type ConnectPageData = {
     expiresAt: number | null
     effective: boolean
   } | null
+  personalization: {
+    agentPreference: AgentPreference | null
+    voiceSeedPending: boolean
+  }
 }
 
 export type ActivationKeyInfo = {

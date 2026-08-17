@@ -36,6 +36,7 @@ import {
 } from '@/server/dashboard-api'
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
+import { loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -123,6 +124,21 @@ dashboardRoutes.post('/setup', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ name: string; slug: string; description?: string }>()
   return c.json(await completeSiteSetupForApp(auth.app, body))
+})
+
+dashboardRoutes.get('/personalization', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await loadPersonalization(auth.app))
+})
+
+dashboardRoutes.post('/personalization', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json()
+  return c.json(await updatePersonalizationForApp(auth.app, body))
 })
 
 dashboardRoutes.get('/settings', async (c) => {

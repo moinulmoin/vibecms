@@ -2,7 +2,7 @@ import { BRAND } from '@vc/config'
 import type { ReactNode } from 'react'
 import { CheckIcon } from '@radix-ui/react-icons'
 
-const STEPS = ['Blog setup', 'Connect agent', 'First post'] as const
+const STEPS = ['Blog setup', 'Make it yours', 'Connect agent', 'First post'] as const
 
 export function OnboardingStepper({ step, complete = false }: { step: number; complete?: boolean }) {
   return (

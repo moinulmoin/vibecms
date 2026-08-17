@@ -16,6 +16,7 @@ import type {
   OnboardingConnectStatus,
   RemoveCustomDomainResult,
   SettingsPageData,
+  SitePersonalization,
   VoiceProfileMutationResult,
   VoiceProfileSettingsInput,
 } from '~/types/dashboard'
@@ -162,6 +163,21 @@ export function loadSetupPage(signal?: AbortSignal) {
 
 export function completeSetupMutation(data: { name: string; slug: string; description?: string }) {
   return dashboardPost('/api/dashboard/setup', data, undefined, mutationResultSchema)
+}
+
+export function loadPersonalization(signal?: AbortSignal) {
+  return dashboardFetch<SitePersonalization>('/api/dashboard/personalization', {
+    method: 'GET',
+    signal,
+  })
+}
+
+export function savePersonalizationMutation(data: {
+  agentPreference?: string | null
+  voiceSeed?: string[]
+  onboardingNote?: string | null
+}) {
+  return dashboardPost('/api/dashboard/personalization', data, undefined, mutationResultSchema)
 }
 
 export function loadSettingsPage(signal?: AbortSignal) {

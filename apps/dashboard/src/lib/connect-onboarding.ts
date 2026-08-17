@@ -7,17 +7,18 @@ export function isOnboardingActivationComplete(
 }
 
 /**
- * 1-based position in the three-step onboarding journey (Blog setup, Connect
- * agent, First post) for the connect-route progress rail. Blog setup is
- * complete by the time the connect route renders, so the rail starts at
- * step 2; an established connection or an existing draft moves it to step 3.
+ * 1-based position in the four-step onboarding journey (Blog setup, Make it
+ * yours, Connect agent, First post) for the connect-route progress rail.
+ * Blog setup and Make it yours come before the connect route, so the rail
+ * starts at step 3; an established connection or an existing draft moves it
+ * to step 4.
  */
 export function connectOnboardingStep(
   firstPost: { state: ActivationFirstPostState } | null | undefined,
   agentConnected: boolean,
-): 2 | 3 {
+): 3 | 4 {
   if (agentConnected || firstPost?.state === 'draft' || firstPost?.state === 'live') {
-    return 3
+    return 4
   }
-  return 2
+  return 3
 }

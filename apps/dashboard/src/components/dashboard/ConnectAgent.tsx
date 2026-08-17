@@ -1,6 +1,7 @@
 'use client'
 
 import { CopyButton } from '@vc/ui'
+import type { AgentPreference } from '~/types/dashboard'
 
 export const READ_ONLY_CHECK_PROMPT =
   'Use the "vibecms" MCP server to verify this connection without changing any content. Call sites.get, posts.list, then posts.format_guide. Report the site name, its public URL when present, and whether the format guide loaded. Do not create, update, publish, archive, delete, restore, or upload anything.'
@@ -58,6 +59,7 @@ export function ConnectAgent({
   tokenName,
   connected = false,
   promptOnly = false,
+  preferredAgent = null,
 }: {
   mcpUrl: string
   token?: string
@@ -66,16 +68,18 @@ export function ConnectAgent({
   connected?: boolean
   /** When true, show only the protected check and approval-first writing prompts. */
   promptOnly?: boolean
+  /** From "Make it yours"; promotes that agent's config to the primary snippet. */
+  preferredAgent?: AgentPreference | null
 }) {
   const tok = token ?? 'vc_YOUR_TOKEN'
-  const claudeCode = `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${tok}"`
+  const claudeCodeCmd = `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${tok}"`
   const skillsInstall =
     'npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing'
-  const codex = `# ~/.codex/config.toml
+  const codexToml = `# ~/.codex/config.toml
 [mcp_servers.vibecms]
 url = "${mcpUrl}"
 http_headers = { "Authorization" = "Bearer ${tok}" }`
-  const cursor = `// ~/.cursor/mcp.json
+  const cursorJson = `// ~/.cursor/mcp.json
 {
   "mcpServers": {
     "vibecms": {
@@ -84,7 +88,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
     }
   }
 }`
-  const generic = `{
+  const genericJson = `{
   "mcpServers": {
     "vibecms": {
       "type": "http",
@@ -93,6 +97,25 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
     }
   }
 }`
+
+  type AgentConfig = { id: string; name: string; hint: string; code: string }
+  const claudeConfig: AgentConfig = { id: 'claude_code', name: 'Claude Code', hint: 'Run this once in your terminal.', code: claudeCodeCmd }
+  const codexConfig: AgentConfig = { id: 'codex', name: 'Codex CLI', hint: 'Add to ~/.codex/config.toml.', code: codexToml }
+  const cursorConfig: AgentConfig = { id: 'cursor', name: 'Cursor', hint: 'Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project).', code: cursorJson }
+  const droidConfig: AgentConfig = { id: 'droid', name: 'Droid', hint: 'Standard Streamable HTTP — same URL and Authorization header.', code: genericJson }
+  const genericConfig: AgentConfig = { id: 'generic', name: 'Any Streamable HTTP MCP client', hint: 'Use standard mcpServers JSON with the endpoint and Bearer token.', code: genericJson }
+
+  const byId: Record<AgentPreference, AgentConfig> = {
+    claude_code: claudeConfig,
+    codex: codexConfig,
+    cursor: cursorConfig,
+    droid: droidConfig,
+    other: genericConfig,
+  }
+  const primary = preferredAgent ? byId[preferredAgent] : claudeConfig
+  const alternates = [claudeConfig, codexConfig, cursorConfig, genericConfig].filter(
+    (config) => config.id !== primary.id && config.code !== primary.code,
+  )
 
   return (
     <div className="grid gap-5">
@@ -116,31 +139,29 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
       {!promptOnly ? (
         <>
           <Section
-            title="1. Add VibeCMS to your agent"
+            title={preferredAgent ? `1. Add VibeCMS to ${primary.name}` : '1. Add VibeCMS to your agent'}
             description={
-              token
-                ? 'Claude Code is the primary example. VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client uses the same URL and Authorization header.'
-                : 'Use a token you saved previously, or create a new token above to get a ready-to-paste command.'
+              preferredAgent
+                ? `Pre-configured from your Make it yours answer. VibeCMS uses the standard Streamable HTTP transport, so any compatible MCP client uses the same URL and Authorization header.`
+                : token
+                  ? 'Claude Code is the primary example. VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client uses the same URL and Authorization header.'
+                  : 'Use a token you saved previously, or create a new token above to get a ready-to-paste command.'
             }
           >
             <div className="grid min-w-0 gap-3">
-              <CodeBlock name="Claude Code · primary example" hint="Run this once in your terminal." code={claudeCode} />
+              <CodeBlock
+                name={preferredAgent ? `${primary.name} · configured for you` : 'Claude Code · primary example'}
+                hint={primary.hint}
+                code={primary.code}
+              />
               <details className="group rounded-xl bg-muted/35">
                 <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
                   Other MCP clients
                 </summary>
                 <div className="grid min-w-0 gap-3 px-3 pb-3">
-                  <CodeBlock name="Codex CLI" hint="Add to ~/.codex/config.toml." code={codex} />
-                  <CodeBlock
-                    name="Cursor"
-                    hint="Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project)."
-                    code={cursor}
-                  />
-                  <CodeBlock
-                    name="Any Streamable HTTP MCP client"
-                    hint="Use standard mcpServers JSON with the endpoint and Bearer token."
-                    code={generic}
-                  />
+                  {alternates.map((config) => (
+                    <CodeBlock key={config.id} name={config.name} hint={config.hint} code={config.code} />
+                  ))}
                 </div>
               </details>
               <div className="flex min-w-0 flex-wrap items-center gap-3">

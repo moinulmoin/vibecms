@@ -190,6 +190,92 @@ export type CompleteSiteSetupPayload = {
   description?: string
 }
 
+// Agent identity codes the "Make it yours" step collects; anything outside
+// this set is stored as null (including "I'd rather not say").
+
+export const AGENT_PREFERENCES = ['claude_code', 'codex', 'cursor', 'droid', 'other'] as const
+export type AgentPreference = (typeof AGENT_PREFERENCES)[number]
+
+export type SitePersonalizationPayload = {
+  agentPreference?: string | null
+  voiceSeed?: string[]
+  onboardingNote?: string | null
+}
+
+export type SitePersonalization = {
+  agentPreference: AgentPreference | null
+  voiceSeed: string[]
+  onboardingNote: string | null
+}
+
+function sanitizeAgentPreference(raw: string | null | undefined): AgentPreference | null {
+  return AGENT_PREFERENCES.find((value) => value === raw) ?? null
+}
+
+function sanitizeVoiceSeed(raw: string[] | undefined): string[] {
+  if (!Array.isArray(raw)) return []
+  const urls: string[] = []
+  for (const value of raw) {
+    if (typeof value !== 'string') continue
+    const trimmed = value.trim().slice(0, 2000)
+    if (!trimmed) continue
+    let url: URL
+    try {
+      url = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`)
+    } catch {
+      continue
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') continue
+    const normalized = url.toString()
+    if (!urls.includes(normalized)) urls.push(normalized)
+    if (urls.length >= 3) break
+  }
+  return urls
+}
+
+export async function loadPersonalization(app: AppUserContext): Promise<SitePersonalization> {
+  const row = await createDataAccess(env.DB).sites.getSitePersonalization(app.siteId)
+  return {
+    agentPreference: sanitizeAgentPreference(row?.agentPreference),
+    voiceSeed: sanitizeVoiceSeed(safeParseStringArray(row?.voiceSeedJson)),
+    onboardingNote: row?.onboardingNote ?? null,
+  }
+}
+
+function safeParseStringArray(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export async function updatePersonalizationForApp(
+  app: AppUserContext,
+  payload: SitePersonalizationPayload,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
+  const timestamp = now()
+  await createDataAccess(env.DB).sites.updateSitePersonalization({
+    timestamp,
+    siteId: app.siteId,
+    agentPreference: sanitizeAgentPreference(payload.agentPreference),
+    voiceSeed: sanitizeVoiceSeed(payload.voiceSeed),
+    onboardingNote: payload.onboardingNote?.trim() ? payload.onboardingNote.trim().slice(0, 500) : null,
+    activity: {
+      id: `activity_site_personalization_${app.user.id}_${timestamp}_${crypto.randomUUID()}`,
+      actorType: app.actor.type,
+      actorId: app.actor.id,
+      actorName: app.actor.name,
+      action: 'site.updated',
+      summary: 'Personalized the onboarding guidance',
+    },
+  })
+  return { kind: 'ok', code: 'personalization_saved' }
+}
+
 export type SiteSettingsPayload = {
   name: string
   description?: string

@@ -7,9 +7,19 @@ type SiteMapperRow = {
   name: string;
   slug: string;
   description: string | null;
+  voiceSeedJson: string;
   createdAt: number;
   updatedAt: number;
 };
+
+function parseVoiceSeedJson(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 type SiteVoiceProfileMapper = {
   audience: string | null;
@@ -51,6 +61,7 @@ export function mapSiteRow(
     slug: row.slug,
     description: row.description,
     url,
+    voiceSeedUrls: parseVoiceSeedJson(row.voiceSeedJson),
     voiceProfile: voiceProfile
       ? {
           configured: true,

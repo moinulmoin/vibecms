@@ -98,7 +98,7 @@ export function SetupPage() {
       const result = await completeSetupMutation({ name, slug, description: description || undefined })
       if (result.kind === 'ok') {
         await router.invalidate()
-        await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ ok: result.code }) })
+        await navigate({ to: '/dashboard/personalize', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
         await navigate({ to: '/dashboard/setup', search: dashboardStatusSearch({ error: result.code }) })
       }

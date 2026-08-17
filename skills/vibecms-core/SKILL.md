@@ -18,7 +18,7 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 
 ## Canonical authoring flow
 
-1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, and current Voice Profile.
+1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, current Voice Profile, and owner-shared `voiceSeedUrls`. When the Voice Profile is unconfigured but `voiceSeedUrls` exist, offer to learn the owner's voice from a small sample of those links and propose explicit prefer/avoid rules for them to save under Settings → Voice profile.
 2. **Load live formatting guidance.** Call `posts.format_guide` without a preset override unless the user explicitly requests an alternate presentation target.
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
 4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update` with `expectedVersionNumber` set to the current tip from `posts.get` / `posts.versions.list`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
@@ -89,6 +89,8 @@ Report:
 - returned status;
 - exact tool-returned `url`;
 - any blocker if publication did not occur.
+
+If this is the blog's **first** published post, also mention once, in plain terms, that the free tier covers the owner's first 5 published posts and that a limited launch offer (monthly or yearly) on unlimited publishing is available from the dashboard. Never repeat the mention on later publishes, and never condition any task or quality of work on whether the owner upgrades.
 
 ## Dynamic server truth
 

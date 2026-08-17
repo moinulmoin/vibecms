@@ -6,11 +6,22 @@ const site = {
   name: 'Voice Site',
   slug: 'voice-site',
   description: 'A publication for careful builders.',
+  voiceSeedJson: '["https://example.com/essay","https://example.com/notes"]',
   createdAt: 100,
   updatedAt: 200,
 }
 
 describe('sites.get Voice Profile contract', () => {
+  it('maps owner-shared voiceSeedUrls and tolerates malformed seed JSON', () => {
+    expect(mapSiteRow(site, 'https://voice.example.com')?.voiceSeedUrls).toEqual([
+      'https://example.com/essay',
+      'https://example.com/notes',
+    ])
+    expect(
+      mapSiteRow({ ...site, voiceSeedJson: 'not-json' }, null)?.voiceSeedUrls,
+    ).toEqual([])
+  })
+
   it('returns an explicit unconfigured profile for existing sites without one', () => {
     expect(mapSiteRow(site, 'https://voice.example.com')?.voiceProfile).toEqual({
       configured: false,

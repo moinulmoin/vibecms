@@ -33,9 +33,9 @@ Confirm Polar sandbox product settings:
 
 - standard monthly product: $19/month
 - standard yearly product: $190/year
-- founding monthly discount: $19 -> $13/month
-- founding yearly discount: $190 -> $99/year
-- founding discounts apply automatically; first 100 subscribers across both intervals share one eligibility pool
+- launch-offer monthly price: $19 -> $13/month
+- launch-offer yearly price: $190 -> $99/year
+- launch pricing applies automatically; first 100 subscribers across both intervals share one eligibility pool
 - card required
 - webhook endpoint: `/polar/webhook`
 - webhook events include subscription lifecycle events and `checkout.updated`

@@ -59,12 +59,13 @@ export const PRICING = {
 } as const;
 
 /**
- * Public Early Access founding offer. Separate Polar monthly/annual discounts
- * auto-applied at checkout; a shared VibeCMS counter caps eligibility at the
- * first 100 subscribers across both intervals. The rate is retained while the
- * subscription stays active. Standard prices remain the visual anchor.
+ * Public Early Access launch offer. The operator prices the Polar monthly and
+ * yearly products directly at the offer during the launch window (no checkout
+ * enforcement); the first 100 subscribers across both intervals share the
+ * promise, and the rate is retained while the subscription stays active.
+ * Standard prices remain the visual anchor.
  */
-export const FOUNDING_OFFER = {
+export const LAUNCH_OFFER = {
   phaseLabel: "Public early access",
   slotsLabel: "First 100 subscribers",
   monthlyUsd: 13,
@@ -72,7 +73,7 @@ export const FOUNDING_OFFER = {
   monthlyLabel: "$13/month",
   annualLabel: "$99/year",
   lockNote: "Locked while you stay subscribed.",
-  applyNote: "Founding discount applies automatically at checkout, shared across monthly and yearly.",
+  applyNote: "Launch pricing applies automatically at checkout, shared across monthly and yearly.",
 } as const;
 
 /** Hosted free boundary, disclosed on marketing prices/upgrades. */

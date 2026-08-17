@@ -11,14 +11,22 @@ import {
 
 type ActorType = "human" | "agent" | "api_key" | "system";
 
-// SELECT id, name, slug, description, created_at, updated_at FROM sites
+// SELECT id, name, slug, description, voice_seed_json, created_at, updated_at FROM sites
 export interface CurrentSite {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  voiceSeedJson: string;
   createdAt: number;
   updatedAt: number;
+}
+
+// SELECT agent_preference, voice_seed_json, onboarding_note FROM sites
+export interface SitePersonalization {
+  agentPreference: string | null;
+  voiceSeedJson: string;
+  onboardingNote: string | null;
 }
 
 export interface SiteSlugLookup {
@@ -126,8 +134,20 @@ export interface RepairDefaultHostnameInput {
   newHostname: string;
 }
 
+// Personalized onboarding write: UPDATE sites personalization columns + activity.
+export interface UpdateSitePersonalizationInput {
+  timestamp: number;
+  siteId: string;
+  agentPreference: string | null;
+  voiceSeed: string[];
+  onboardingNote: string | null;
+  activity: SiteActivityEntry;
+}
+
 export interface SitesRepository {
   getCurrentSite(siteId: string): Promise<CurrentSite | null>;
+  getSitePersonalization(siteId: string): Promise<SitePersonalization | null>;
+  updateSitePersonalization(input: UpdateSitePersonalizationInput): Promise<void>;
   getSiteSlug(siteId: string): Promise<string | null>;
   // Exact global slug lookup, including archived sites. Managed provisioning
   // must reserve a slug before its multi-row insert begins.
@@ -158,6 +178,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           name: sites.name,
           slug: sites.slug,
           description: sites.description,
+          voiceSeedJson: sites.voiceSeedJson,
           createdAt: sites.createdAt,
           updatedAt: sites.updatedAt,
         })
@@ -165,6 +186,45 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         .where(eq(sites.id, siteId))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+    async getSitePersonalization(siteId) {
+      const rows = await client
+        .select({
+          agentPreference: sites.agentPreference,
+          voiceSeedJson: sites.voiceSeedJson,
+          onboardingNote: sites.onboardingNote,
+        })
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+
+    async updateSitePersonalization(input) {
+      await client.batch([
+        client
+          .update(sites)
+          .set({
+            agentPreference: input.agentPreference,
+            voiceSeedJson: JSON.stringify(input.voiceSeed),
+            onboardingNote: input.onboardingNote,
+            updatedAt: input.timestamp,
+          })
+          .where(eq(sites.id, input.siteId)),
+        client.insert(activityEvents).values({
+          id: input.activity.id,
+          siteId: input.siteId,
+          actorType: input.activity.actorType,
+          actorId: input.activity.actorId,
+          actorName: input.activity.actorName,
+          action: input.activity.action,
+          entityType: "site",
+          entityId: input.siteId,
+          summary: input.activity.summary,
+          createdAt: input.timestamp,
+        }),
+      ]);
     },
 
     async getSiteSlug(siteId) {

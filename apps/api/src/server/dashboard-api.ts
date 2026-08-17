@@ -25,12 +25,14 @@ import {
   completeSiteSetupForApp,
   getSiteSettings,
   getSiteSetup,
+  loadPersonalization,
   updateSiteSettingsForApp,
+  type AgentPreference,
 } from '@/server/onboarding'
 import { getSitePublicBaseUrl } from '@/server/site-public-url'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '@/server/custom-domains'
 import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
-import { clearVoiceProfileForApp, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
+import { clearVoiceProfileForApp, getVoiceProfileForSite, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
 import type { AppUserContext } from '@/server/onboarding'
 import {
   archivePostForApp,
@@ -72,6 +74,12 @@ export type ConnectPageData = {
     expiresAt: number | null
     effective: boolean
   } | null
+  personalization: {
+    /** Agent identity from "Make it yours"; drives the connect-page dialect. */
+    agentPreference: AgentPreference | null
+    /** Voice seed saved but voice profile not built yet — agent/deferred recommendation. */
+    voiceSeedPending: boolean
+  }
 }
 
 export type OnboardingKey = null | {
@@ -204,15 +212,21 @@ export async function loadAnalyticsPage(app: AppUserContext, rangeDays: Analytic
 
 export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageData> {
   const canManage = canManageApiKeys(app)
-  const [apiKeys, managedSnapshot, entitlement] = await Promise.all([
+  const [apiKeys, managedSnapshot, entitlement, personalization, voiceProfile] = await Promise.all([
     listApiKeys(app),
     createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+    loadPersonalization(app),
+    getVoiceProfileForSite(app.siteId),
   ])
   return {
     canManage,
     mcpUrl: `${env.APP_URL}/mcp`,
     apiKeys,
+    personalization: {
+      agentPreference: personalization.agentPreference,
+      voiceSeedPending: personalization.voiceSeed.length > 0 && !voiceProfile,
+    },
     effectiveEntitlement: {
       effective: entitlement.effective,
       source: entitlement.source,

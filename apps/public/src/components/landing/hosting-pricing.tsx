@@ -1,4 +1,4 @@
-import { ENTITLEMENTS, FOUNDING_OFFER, FREE_TIER, MEDIA, PRICING } from "@vc/config";
+import { ENTITLEMENTS, LAUNCH_OFFER, FREE_TIER, MEDIA, PRICING } from "@vc/config";
 import { CheckIcon } from "@radix-ui/react-icons";
 import { GREEN_BG, GREEN_CTA, GlassCard, Pill, SectionShell } from "./primitives";
 
@@ -37,37 +37,37 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
                 <Pill className="uppercase tracking-[0.1em]" pulse>
-                  {FOUNDING_OFFER.phaseLabel} · {FOUNDING_OFFER.slotsLabel}
+                  {LAUNCH_OFFER.phaseLabel} · {LAUNCH_OFFER.slotsLabel}
                 </Pill>
                 <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
                   {PRICING.planName}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">Founding rate · cancel anytime.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Launch offer · cancel anytime.</p>
               </div>
               <div className="text-right">
                 <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
                   <span className="mr-2 align-middle font-mono text-base font-medium text-muted-foreground line-through decoration-foreground/40 sm:text-lg">
                     ${PRICING.monthlyUsd}
                   </span>
-                  ${FOUNDING_OFFER.monthlyUsd}
+                  ${LAUNCH_OFFER.monthlyUsd}
                   <span className="text-lg font-medium text-muted-foreground">/mo</span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  or ${FOUNDING_OFFER.annualUsd}/year · standard annual{" "}
+                  or ${LAUNCH_OFFER.annualUsd}/year · standard annual{" "}
                   <span className="line-through decoration-foreground/40">${PRICING.annualUsd}</span>
                 </p>
               </div>
             </div>
             <p className="mt-6 border-t border-[color:var(--hairline)] pt-4 font-mono text-[12px] leading-6 text-muted-foreground">
-              <span className="text-brand-bright">//</span> {FOUNDING_OFFER.applyNote}{" "}
-              {FOUNDING_OFFER.lockNote}
+              <span className="text-brand-bright">//</span> {LAUNCH_OFFER.applyNote}{" "}
+              {LAUNCH_OFFER.lockNote}
             </p>
             <a
               className={`mt-7 h-12 w-full px-8 text-[15px] sm:w-auto ${GREEN_CTA}`}
               href={loginUrl}
               style={{ background: GREEN_BG }}
             >
-              Claim the founding rate
+              Claim the launch offer
             </a>
             <p className="mt-3 text-center text-[12.5px] leading-5 text-muted-foreground">
               {FREE_TIER.marketingLine}

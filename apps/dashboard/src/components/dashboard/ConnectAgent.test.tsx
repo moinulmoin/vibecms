@@ -22,6 +22,25 @@ describe('ConnectAgent onboarding contract', () => {
     expect(html).not.toContain('mcp-remote')
   })
 
+  it('promotes the Make it yours agent to the primary snippet', () => {
+    const cursorHtml = renderToStaticMarkup(
+      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" preferredAgent="cursor" />,
+    )
+    expect(cursorHtml).toContain('1. Add VibeCMS to Cursor')
+    expect(cursorHtml).toContain('Cursor · configured for you')
+    expect(cursorHtml).toContain('Pre-configured from your Make it yours answer')
+    // Alternates keep every other client reachable.
+    expect(cursorHtml).toContain('Claude Code')
+    expect(cursorHtml).toContain('Codex CLI')
+
+    const droidHtml = renderToStaticMarkup(
+      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" preferredAgent="droid" />,
+    )
+    expect(droidHtml).toContain('Droid · configured for you')
+    // The generic block is folded into the Droid primary, not duplicated below.
+    expect((droidHtml.match(/Any Streamable HTTP MCP client/g) ?? []).length).toBe(0)
+  })
+
   it('progressively discloses alternate clients and writing guidance with native details', () => {
     const disconnected = renderToStaticMarkup(
       <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" />,

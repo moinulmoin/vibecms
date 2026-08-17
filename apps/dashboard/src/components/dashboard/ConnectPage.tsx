@@ -2,7 +2,7 @@
 
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { MEDIA, PRICING } from '@vc/config'
+import { LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
 import {
   Alert,
@@ -123,6 +123,18 @@ function UpgradeCtas({
     <div className="grid gap-4">
       <p className="font-sans text-sm leading-6 text-muted-foreground">
         Upgrade to make the blog indexable, publish more posts, and upload media.
+      </p>
+
+      <p className="rounded-xl bg-muted/40 px-3 py-2.5 font-mono text-[11px] leading-5 text-primary">
+        {'// launch offer: '}
+        {LAUNCH_OFFER.monthlyLabel}
+        {' or '}
+        {LAUNCH_OFFER.annualLabel}
+        {' instead of '}
+        <span className="line-through decoration-foreground/40">
+          {PRICING.monthlyLabel} · {PRICING.annualLabel}
+        </span>
+        {' — first 100 subscribers, locked while you stay subscribed.'}
       </p>
 
       <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
@@ -578,6 +590,16 @@ export function ConnectPage() {
               </TabsList>
 
               <TabsContent value="setup" className="mt-4 space-y-4">
+                {!live && connectData?.personalization.voiceSeedPending && (
+                  <Alert variant="info" title="Voice profile recommended.">
+                    You shared writing links in Make it yours, but the voice profile is not configured yet. Your
+                    agent can learn from those links and propose rules for drafts — review and save them in{' '}
+                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'voice' }}>
+                      Settings → Voice profile
+                    </Link>
+                    .
+                  </Alert>
+                )}
                 {live && status && (
                   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                     <Panel title="Publication proof">
@@ -643,6 +665,7 @@ export function ConnectPage() {
                         token={flash.token}
                         tokenName={flash.name}
                         connected={displayConn === 'connected'}
+                        preferredAgent={connectData?.personalization.agentPreference ?? null}
                       />
                       <div className="mt-4 flex justify-end">
                         <Button
@@ -782,7 +805,11 @@ export function ConnectPage() {
                       Use a token you saved previously. Token secrets are shown only once; create a new token to
                       connect another agent.
                     </p>
-                    <ConnectAgent mcpUrl={mcpUrl} connected={displayConn === 'connected'} />
+                    <ConnectAgent
+                      mcpUrl={mcpUrl}
+                      connected={displayConn === 'connected'}
+                      preferredAgent={connectData.personalization.agentPreference}
+                    />
                   </Panel>
                 )}
               </TabsContent>

@@ -44,6 +44,12 @@ export const sites = sqliteTable("sites", {
   themeAccent: text("theme_accent"),
   themeFont: text("theme_font"),
   themeMode: text("theme_mode").notNull().default("system"),
+  // Personalized onboarding (Layer 3) — nullable so pre-personalization rows
+  // simply read as "not answered yet". voice_seed_json holds up to 3 writing
+  // sample URLs the owner shared so an agent can build the voice profile.
+  agentPreference: text("agent_preference"),
+  voiceSeedJson: text("voice_seed_json").notNull().default("[]"),
+  onboardingNote: text("onboarding_note"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 

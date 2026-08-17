@@ -46,6 +46,8 @@ export const siteDtoSchema = z.object({
   slug: z.string(),
   description: z.string().nullable(),
   url: z.string().nullable(),
+  /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
+  voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
   createdAt: z.number(),
   updatedAt: z.number(),

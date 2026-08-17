@@ -18,6 +18,7 @@ import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analy
 import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
 import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
 import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
+import { Route as DashboardPersonalizeRouteImport } from './routes/dashboard/personalize'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardSetupRouteImport } from './routes/dashboard_/setup'
 import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
@@ -70,6 +71,11 @@ const DashboardMediaRoute = DashboardMediaRouteImport.update({
   path: '/media',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardPersonalizeRoute = DashboardPersonalizeRouteImport.update({
+  id: '/personalize',
+  path: '/personalize',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/dashboard/setup': typeof DashboardSetupRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/dashboard/setup': typeof DashboardSetupRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
+  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
   '/dashboard_/setup': typeof DashboardSetupRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
+    | '/dashboard/personalize'
     | '/dashboard/settings'
     | '/dashboard/setup'
     | '/dashboard/'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
+    | '/dashboard/personalize'
     | '/dashboard/settings'
     | '/dashboard/setup'
     | '/dashboard'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
+    | '/dashboard/personalize'
     | '/dashboard/settings'
     | '/dashboard_/setup'
     | '/dashboard/'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMediaRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/personalize': {
+      id: '/dashboard/personalize'
+      path: '/personalize'
+      fullPath: '/dashboard/personalize'
+      preLoaderRoute: typeof DashboardPersonalizeRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
@@ -341,6 +360,7 @@ interface DashboardRouteRouteChildren {
   DashboardBillingRoute: typeof DashboardBillingRoute
   DashboardConnectRoute: typeof DashboardConnectRoute
   DashboardMediaRoute: typeof DashboardMediaRoute
+  DashboardPersonalizeRoute: typeof DashboardPersonalizeRoute
   DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardPostsNewRoute: typeof DashboardPostsNewRoute
@@ -354,6 +374,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardBillingRoute: DashboardBillingRoute,
   DashboardConnectRoute: DashboardConnectRoute,
   DashboardMediaRoute: DashboardMediaRoute,
+  DashboardPersonalizeRoute: DashboardPersonalizeRoute,
   DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardPostsNewRoute: DashboardPostsNewRoute,

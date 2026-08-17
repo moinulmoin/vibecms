@@ -35,7 +35,7 @@ describe("landing URL props", () => {
   it("wires login CTAs through static HostingPricing", () => {
     const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
     expect(html).toContain(`href="${loginUrl}"`);
-    expect(html).toContain("Claim the founding rate");
+    expect(html).toContain("Claim the launch offer");
   });
 
   it("wires login and docs through static CtaFooter", () => {

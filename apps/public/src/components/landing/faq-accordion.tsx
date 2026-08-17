@@ -3,9 +3,9 @@ import { GlassCard, SectionShell } from "./primitives";
 
 const faqs = [
   {
-    question: "What is the founding rate?",
+    question: "What is the launch offer?",
     answer:
-      "Public early access pricing: $13/month or $99/year instead of the standard $19/$190. The discount applies automatically at checkout for the first 100 subscribers and stays locked for as long as your subscription remains active.",
+      "Public early access pricing: $13/month or $99/year instead of the standard $19/$190. The launch offer applies automatically at checkout for the first 100 subscribers and stays locked for as long as your subscription remains active.",
   },
   {
     question: "Is vibecms an AI writer?",
