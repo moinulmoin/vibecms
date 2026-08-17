@@ -49,6 +49,13 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: Array.from(new Set(trustedOrigins)),
+  account: {
+    accountLinking: {
+      // Google/GitHub return provider-verified emails; OTP sign-ins always
+      // set emailVerified, so same-email sign-ins link instead of duplicating.
+      trustedProviders: ['google', 'github'],
+    },
+  },
   advanced: {
     ipAddress: {
       ipAddressHeaders: ['cf-connecting-ip'],
