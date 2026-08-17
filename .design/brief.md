@@ -35,9 +35,8 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    archived state via tested `editorLiveState`, last-saved actor + time,
    open-live link, publish action next to the state it acts on. Review-before-
    publish (8c27065): strip's Review changes opens the pinned-vs-tip diff.
-   DEFERRED (explicit): mobile Preview/Markdown/Settings tabs — the stacked
-   layout recomposes correctly today; a tab system needs shared mode state
-   across panels and deserves its own pass with mobile QA.
+   Mobile Write/Preview/Settings tabs shipped later (that "DEFERRED" note was
+   stale; corrected in phase 8).
 3. **Dashboard composition/typeset** — DONE (b6c5877 + f93cd66): 1200px canvas,
    optional kicker with echo kickers removed, editor status dedup. Overview is
    decisions-first (status → Needs review drafts → latest publish → activity →
@@ -115,8 +114,25 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    under human approval — we do not build our own fetchers; coding agents
    already fetch URLs natively. Brand-URL fetch / theme-preset
    recommendation: POSTPONED to a later polish phase (heaviest payoff, can be
-   agent-triggered). No paywall mid-onboarding: the founder rate surfaces at
-   the first-live success peak (pull, not interruption).
+   agent-triggered). No paywall mid-onboarding: the launch-offer line surfaces
+   at the first-live success peak (pull, not interruption). (**Corrected a
+   stale "founder rate" mention; the agreed name is launch offer.**)
+8. **Editor live preview** — BUILD (2026-08-18, user approved the direction in
+   plain terms: "when you type, the page next to your text updates by itself;
+   no buttons"). Informed by studying usemarble/marble (local clone +
+   marblecms.com): Marble's editor is Tiptap/Novel with bubble menus, slash
+   commands, and a metadata/analysis sidebar — rich, but it stores HTML and
+   can't round-trip a shared Markdown canonical, so the engine is NOT adopted.
+   What transfers: contextual over persistent chrome, the live/always-fresh
+   preview, an analysis-as-quiet-stats idea (word count + reading time in the
+   write toolbar), and the separate-settings-rail composition. Build: the
+   manual Refresh/stale-warning machinery (`isPreviewCurrent` revisions) is
+   replaced by a tested debounced `usePostPreviewSync` (~400ms after input
+   settles); desktop renders write | exact-public-page | settings rail (rail
+   full-width below the split on lg, right column from xl); mobile keeps the
+   Write/Preview/Settings tabs, now auto-fresh; the preview stays the shared
+   PublicPageChrome/PresentedPostArticle surface, inert to link clicks, and
+   the stale phase-2 note about deferred mobile tabs is corrected.
 
 ## Invariants
 

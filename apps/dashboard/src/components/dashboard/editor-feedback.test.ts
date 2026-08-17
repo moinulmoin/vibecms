@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { renderRichContent } from '@vc/content'
 import { PresentedPostArticle } from '@vc/content/presented-post'
 import { describe, expect, it } from 'vitest'
-import { isPreviewCurrent } from './MarkdownEditor'
 import { resolveFormStatus } from './useFormStatusFromSearch'
 
 describe('dashboard preview article contract', () => {
@@ -138,11 +137,3 @@ describe('dashboard form-status feedback', () => {
   })
 })
 
-describe('Markdown preview freshness', () => {
-  it('is current only when both Markdown and post metadata match the rendered snapshot', () => {
-    expect(isPreviewCurrent(2, 2, 4, 4)).toBe(true)
-    expect(isPreviewCurrent(3, 3, 4, 4)).toBe(true)
-    expect(isPreviewCurrent(3, 2, 4, 4)).toBe(false)
-    expect(isPreviewCurrent(2, 2, 5, 4)).toBe(false)
-  })
-})

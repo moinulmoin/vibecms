@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { ReactNode } from 'react'
-import { MarkdownEditor } from './MarkdownEditor'
+import { PREVIEW_DEBOUNCE_MS, PostPreviewPane, usePostPreviewSync } from './MarkdownEditor'
 
 function render(node: ReactNode) {
   const container = document.createElement('div')
@@ -20,36 +20,49 @@ function render(node: ReactNode) {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   document.body.innerHTML = ''
 })
 
 const site = { name: 'QA Blog', description: 'A clean blog for you and your agents.', slug: 'qa-blog' }
+// Stable identity — the hook treats `assets` as an effect dep.
+const NO_ASSETS: never[] = []
 
-describe('MarkdownEditor exact public-page preview', () => {
+function LivePreviewHarness({ initialSource }: { initialSource: string }) {
+  const live = usePostPreviewSync(initialSource, 0, NO_ASSETS)
+  return (
+    <PostPreviewPane
+      source={live.source}
+      metadata={live.metadata}
+      presetId="minimal"
+      site={site}
+      publishedAt={null}
+    />
+  )
+}
+
+function renderEditorForm(initialSource: string) {
+  return render(
+    <form>
+      <input id="post-title" defaultValue="Ship the preview" />
+      <textarea id="post-excerpt" defaultValue="Why the preview is the page" />
+      <select id="post-cover" defaultValue="">
+        <option value="">No image</option>
+      </select>
+      <input id="post-tags" defaultValue="launch, notes" />
+      <textarea id="post-markdown" defaultValue={initialSource} />
+      <LivePreviewHarness initialSource={initialSource} />
+    </form>,
+  )
+}
+
+describe('PostPreviewPane exact public page', () => {
   it('renders the full public chrome: masthead, article metadata, and an inert subscribe block', () => {
-    const { container, unmount } = render(
-      <div>
-        <input id="post-title" defaultValue="Ship the preview" />
-        <textarea id="post-excerpt" defaultValue="Why the preview is the page" />
-        <input id="post-tags" defaultValue="launch, notes" />
-        <MarkdownEditor
-          assets={[]}
-          defaultValue={'# Ship the preview\n\nFirst paragraph of the post.'}
-          presetId="minimal"
-          site={site}
-          siteTheme={{ accent: null, font: null, mode: null }}
-          publishedAt={null}
-        />
-      </div>,
-    )
+    const { container, unmount } = renderEditorForm('# Ship the preview\n\nFirst paragraph of the post.')
     try {
-      const previewButton = [...container.querySelectorAll('button')].find(
-        (button) => button.textContent?.trim() === 'Preview',
-      ) as HTMLButtonElement
-      act(() => previewButton.click())
-
       const preview = container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
       expect(preview).toBeTruthy()
+      expect(preview.textContent).toContain('live as you type')
 
       // The public page shell, not a lookalike: themed <main> + masthead brand.
       const page = preview.querySelector('main[data-vc-theme="minimal"]') as HTMLElement
@@ -67,6 +80,72 @@ describe('MarkdownEditor exact public-page preview', () => {
       expect(form).toBeTruthy()
       expect(form?.getAttribute('data-site-slug')).toBeNull()
       expect(page.textContent).toContain('Get new posts by email')
+    } finally {
+      unmount()
+    }
+  })
+})
+
+describe('usePostPreviewSync live refresh', () => {
+  it('updates the preview shortly after typing, not before the debounce settles', () => {
+    vi.useFakeTimers()
+    const { container, unmount } = renderEditorForm('# Seed\n\nFirst paragraph.')
+    try {
+      const preview = container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
+      expect(preview.textContent).toContain('First paragraph.')
+
+      const textarea = container.querySelector('#post-markdown') as HTMLTextAreaElement
+      act(() => {
+        textarea.value = '# Seed\n\nEdited paragraph.'
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+
+      // Not immediate — the writer is still typing.
+      act(() => vi.advanceTimersByTime(PREVIEW_DEBOUNCE_MS - 1))
+      expect(preview.textContent).toContain('First paragraph.')
+      expect(preview.textContent).not.toContain('Edited paragraph.')
+
+      // Settles into the exact public page without any refresh action.
+      act(() => vi.advanceTimersByTime(1))
+      expect(preview.textContent).toContain('Edited paragraph.')
+    } finally {
+      unmount()
+    }
+  })
+
+  it('keeps article metadata (title, tags, deck) in sync with the form', () => {
+    vi.useFakeTimers()
+    const { container, unmount } = renderEditorForm('# Seed\n\nBody.')
+    try {
+      const preview = container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
+      const page = preview.querySelector('main[data-vc-theme="minimal"]') as HTMLElement
+      expect(page.querySelector('article h1')?.textContent).toBe('Ship the preview')
+
+      const titleInput = container.querySelector('#post-title') as HTMLInputElement
+      act(() => {
+        titleInput.value = 'Retitled post'
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      act(() => vi.advanceTimersByTime(PREVIEW_DEBOUNCE_MS))
+      expect(page.querySelector('article h1')?.textContent).toBe('Retitled post')
+    } finally {
+      unmount()
+    }
+  })
+
+  it('shows an empty-state hint, not a broken page, before any content exists', () => {
+    vi.useFakeTimers()
+    const { container, unmount } = renderEditorForm('')
+    try {
+      const preview = container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
+      const textarea = container.querySelector('#post-markdown') as HTMLTextAreaElement
+      act(() => {
+        textarea.value = ''
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      act(() => vi.advanceTimersByTime(PREVIEW_DEBOUNCE_MS))
+      expect(preview.querySelector('main[data-vc-theme]')).toBeNull()
+      expect(preview.textContent).toContain('Nothing here yet')
     } finally {
       unmount()
     }

@@ -23,7 +23,14 @@ import { Skeleton } from "@vc/ui"
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { Switch } from '~/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { MarkdownEditor, PostSlugFromTitle, UnsavedChangesGuard, serializeForm } from '~/components/dashboard/MarkdownEditor'
+import {
+  MarkdownEditor,
+  PostPreviewPane,
+  PostSlugFromTitle,
+  UnsavedChangesGuard,
+  serializeForm,
+  usePostPreviewSync,
+} from '~/components/dashboard/MarkdownEditor'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useMediaQuery } from '~/hooks/use-media-query'
 import type { EditorSiteInfo } from '~/types/dashboard'
@@ -231,9 +238,10 @@ function EditorSkeleton() {
         </div>
         <Skeleton className="h-9 w-32" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_18rem]">
         <Skeleton className="h-[34rem] rounded-2xl" />
-        <div className="grid gap-3">
+        <Skeleton className="h-[34rem] rounded-2xl" />
+        <div className="grid gap-3 lg:col-span-2 xl:col-span-1">
           <Skeleton className="h-72 rounded-2xl" />
           <Skeleton className="h-32 rounded-2xl" />
         </div>
@@ -354,6 +362,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
+  const livePreview = usePostPreviewSync(post?.contentMarkdown ?? '', formKey, assets)
   const [selectedCoverAssetId, setSelectedCoverAssetId] = useState('')
   const [coverUploadPending, setCoverUploadPending] = useState(false)
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
@@ -674,7 +683,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     <>
       <PageHeader
         title={post ? 'Edit post' : 'Create post'}
-        description="Write in Markdown, then check the exact public page in Preview before you publish."
+        description="Write in Markdown — the page beside your text is your exact public page, live as you type."
         action={
           <div className="flex items-center gap-2">
             {post && <PostStatusBadge status={post.status} />}
@@ -712,7 +721,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <form
           key={formKey}
           ref={formRef}
-          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start"
+          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_22rem]"
           onSubmit={(event) => void handleSave(event)}
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
@@ -736,8 +745,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           ) : null}
 
-          {/* Writing surface — no panel wrapper, just the title and body */}
-          <div className={isNarrow && mobileTab === 'settings' ? 'hidden' : undefined}>
+          {/* Write pane — no panel wrapper, just the title and body */}
+          <div className={isNarrow && mobileTab !== 'write' ? 'hidden' : 'min-w-0'}>
             <input
               id="post-title"
               name="title"
@@ -756,21 +765,34 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </span>
             </div>
             {/* PostSlugFromTitle writes into the slug input in the rail */}
-            <MarkdownEditor
-              assets={assets}
-              defaultValue={post?.contentMarkdown ?? ''}
+            <MarkdownEditor assets={assets} defaultValue={post?.contentMarkdown ?? ''} />
+          </div>
+
+          {/* Live exact-public-page preview. Hidden (but always re-rendering
+              with the latest text) on the mobile Write tab; visible side by
+              side on desktop. */}
+          <div className={isNarrow && mobileTab !== 'preview' ? 'hidden' : 'min-w-0'}>
+            <PostPreviewPane
+              source={livePreview.source}
+              metadata={livePreview.metadata}
               presetId={presetId}
               presentation={{ layout: selectedLayout, toc: selectedToc }}
               site={site}
               siteTheme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
               publishedAt={post?.publishedAt ?? null}
-              mode={isNarrow ? (mobileTab === 'preview' ? 'preview' : 'write') : undefined}
             />
           </div>
 
-          {/* Rail — settings, actions, versions */}
-          <aside className={isNarrow && mobileTab !== 'settings' ? 'hidden' : 'grid gap-3 lg:sticky lg:top-20'}>
-            <div className="px-1 pb-1">
+          {/* Rail — settings, actions, versions. Full-width below the split on
+              lg, a right column from xl. */}
+          <aside
+            className={
+              isNarrow && mobileTab !== 'settings'
+                ? 'hidden'
+                : 'grid content-start gap-3 lg:col-span-2 lg:grid-cols-2 lg:gap-4 xl:col-span-1 xl:grid-cols-1 xl:gap-3 xl:sticky xl:top-20'
+            }
+          >
+            <div className="px-1 pb-1 lg:col-span-2 xl:col-span-1">
               <p className="font-sans text-sm font-semibold text-foreground">Post settings</p>
               <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
                 Details, presentation, search metadata, and history.
@@ -1077,7 +1099,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             ) : null}
 
             {/* Sticky save/publish */}
-            <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2 lg:sticky lg:bottom-6">
+            <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2 lg:col-span-2 xl:sticky xl:bottom-6 xl:col-span-1">
               <PendingSubmitButton
                 variant="outline"
                 className="min-w-0 flex-1"

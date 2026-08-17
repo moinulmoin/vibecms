@@ -5,7 +5,7 @@ import { PresentedPostArticle, type SiteThemeInput } from '@vc/content/presented
 import { PublicPageChrome } from '@vc/content/public-chrome'
 import { MEDIA, resolvePresentation, type Presentation } from '@vc/config'
 import { Button, Field, FieldDescription, FieldLabel, Input, Textarea } from '@vc/ui'
-import { EyeOpenIcon, ImageIcon, Pencil2Icon, UploadIcon } from '@radix-ui/react-icons'
+import { ImageIcon, UploadIcon } from '@radix-ui/react-icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Dialog,
@@ -31,28 +31,7 @@ type EditorSite = {
   slug: string
 }
 
-type MarkdownEditorProps = {
-  assets: MarkdownAsset[]
-  defaultValue: string
-  presetId?: string
-  presentation?: { layout?: string; toc?: boolean }
-  /** Site identity for the exact-page preview masthead and byline. */
-  site?: EditorSite | null
-  /** Site accent/font/mode so the preview renders the blog's real theme. */
-  siteTheme?: SiteThemeInput
-  /** Published timestamp; drafts preview as "published today". */
-  publishedAt?: number | null
-  /**
-   * Controlled mode (mobile page tabs). When set, the internal Write/Preview
-   * toggle hides — the caller owns mode. Switching to 'preview' refreshes the
-   * preview from the live form.
-   */
-  mode?: EditorMode
-}
-
-type EditorMode = 'write' | 'preview'
-
-type PreviewMetadata = {
+export type PreviewMetadata = {
   title?: string
   excerpt?: string
   coverAssetSrc?: string
@@ -62,29 +41,157 @@ type PreviewMetadata = {
   tags?: string[]
 }
 
-export function isPreviewCurrent(
-  draftRevision: number,
-  previewDraftRevision: number,
-  metadataRevision: number,
-  previewMetadataRevision: number,
-) {
-  return draftRevision === previewDraftRevision && metadataRevision === previewMetadataRevision
+// Typing settles ~400ms before the exact public page re-renders beside the
+// textarea. Short enough to feel live, long enough that renderRichContent
+// never runs per keystroke.
+export const PREVIEW_DEBOUNCE_MS = 400
+
+function readPreviewMetadata(assets: MarkdownAsset[]): PreviewMetadata {
+  const title = document.getElementById('post-title')
+  const excerpt = document.getElementById('post-excerpt')
+  const cover = document.getElementById('post-cover')
+  const tagsField = document.getElementById('post-tags')
+  const coverAssetId = cover instanceof HTMLSelectElement ? cover.value : ''
+  const coverAsset = coverAssetId ? assets.find((asset) => asset.id === coverAssetId) : undefined
+  const tagsValue = tagsField instanceof HTMLInputElement ? tagsField.value : ''
+  const tags = tagsValue.split(',').map((tag) => tag.trim()).filter(Boolean)
+  return {
+    title: title instanceof HTMLInputElement ? title.value.trim() || undefined : undefined,
+    excerpt: excerpt instanceof HTMLTextAreaElement ? excerpt.value.trim() || undefined : undefined,
+    coverAssetSrc: coverAssetId ? `/media-assets/${coverAssetId}` : undefined,
+    coverAssetAlt: coverAsset?.altText ?? undefined,
+    coverAssetWidth: coverAsset?.width ?? undefined,
+    coverAssetHeight: coverAsset?.height ?? undefined,
+    tags: tags.length > 0 ? tags : undefined,
+  }
 }
 
-export function MarkdownEditor({ assets, defaultValue, presetId, presentation, site, siteTheme, publishedAt, mode: controlledMode }: MarkdownEditorProps) {
+/**
+ * Keeps an { source, metadata } snapshot of the live post form, refreshed
+ * shortly after any field changes. Flushes immediately on mount and whenever
+ * formKey or assets change (version restore / cover upload complete), so the
+ * preview is never stale and needs no manual refresh.
+ */
+export function usePostPreviewSync(initialSource: string, formKey: unknown, assets: MarkdownAsset[]) {
+  const [source, setSource] = useState(initialSource)
+  const [metadata, setMetadata] = useState<PreviewMetadata>({})
+  useEffect(() => {
+    let timer: number | undefined
+    const flush = () => {
+      const textarea = document.getElementById('post-markdown')
+      setSource(textarea instanceof HTMLTextAreaElement ? textarea.value : '')
+      setMetadata(readPreviewMetadata(assets))
+    }
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(flush, PREVIEW_DEBOUNCE_MS)
+    }
+    const form = document.getElementById('post-markdown')?.closest('form')
+    form?.addEventListener('input', schedule)
+    flush()
+    return () => {
+      window.clearTimeout(timer)
+      form?.removeEventListener('input', schedule)
+    }
+  }, [formKey, assets])
+  return { source, metadata }
+}
+
+/** Exact public page, live. Rendered beside the write surface on desktop and
+ *  as the Preview tab on mobile; the surrounding frame is inert (links never
+ *  navigate the editor away). */
+export function PostPreviewPane({
+  source,
+  metadata,
+  presetId,
+  presentation,
+  site,
+  siteTheme,
+  publishedAt,
+}: {
+  source: string
+  metadata: PreviewMetadata
+  presetId?: string
+  presentation?: { layout?: string; toc?: boolean }
+  site?: EditorSite | null
+  siteTheme?: SiteThemeInput
+  publishedAt?: number | null
+}) {
+  const previewResult = useMemo(
+    () => renderRichContent(source, { pageTitle: metadata.title }),
+    [source, metadata.title],
+  )
+  return (
+    <div aria-label="Markdown preview" className="min-w-0 lg:sticky lg:top-20">
+      <p className="mb-3 flex items-center gap-2 font-mono text-[11px] text-muted-foreground" aria-live="polite">
+        <span className="relative flex size-1.5">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-bright/40 motion-reduce:animate-none" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-brand-bright" />
+        </span>
+        Exact public page · live as you type
+      </p>
+      {/* Read-only frame: in-page links (tags, masthead, anchors) must not
+          navigate the editor away, so anchor activation is captured here —
+          click and middle-click (auxclick) alike. */}
+      <div
+        className="overflow-y-auto rounded-xl border border-[color:var(--hairline)] lg:max-h-[calc(100dvh-10rem)]"
+        onClickCapture={(event) => {
+          if ((event.target as HTMLElement).closest('a')) event.preventDefault()
+        }}
+        onAuxClickCapture={(event) => {
+          if ((event.target as HTMLElement).closest('a')) event.preventDefault()
+        }}
+      >
+        {source.trim() ? (
+          <PublicPageChrome
+            siteName={site?.name ?? 'Your blog'}
+            tagline={site?.description ?? null}
+            homeHref="/"
+            allPostsHref="/"
+            presetId={presetId ?? 'minimal'}
+            theme={siteTheme}
+            article
+            subscribeVariant="end"
+          >
+            <PresentedPostArticle
+              renderResult={previewResult}
+              presetId={presetId ?? 'minimal'}
+              presentation={resolvePresentation(presetId ?? 'minimal', presentation as Presentation | null | undefined).resolved}
+              theme={siteTheme}
+              title={metadata.title}
+              excerpt={metadata.excerpt}
+              byline={site?.name}
+              coverAssetSrc={metadata.coverAssetSrc}
+              coverAssetAlt={metadata.coverAssetAlt}
+              coverAssetWidth={metadata.coverAssetWidth}
+              coverAssetHeight={metadata.coverAssetHeight}
+              dateText={new Date((publishedAt ?? Math.floor(Date.now() / 1000)) * 1000).toLocaleDateString()}
+              readingMinutes={readingTimeMinutes(source)}
+              tags={metadata.tags}
+              basePath="/"
+            />
+          </PublicPageChrome>
+        ) : (
+          <div className="bg-muted/50 p-8">
+            <p className="font-mono text-xs text-muted-foreground">
+              Nothing here yet — start writing and the page builds itself.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+type MarkdownEditorProps = {
+  assets: MarkdownAsset[]
+  defaultValue: string
+}
+
+export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const selectionRef = useRef({ start: defaultValue.length, end: defaultValue.length })
-  const contentRevisionRef = useRef(0)
-  const metadataRevisionRef = useRef(0)
-  const [internalMode, setInternalMode] = useState<EditorMode>('write')
-  const isControlled = controlledMode !== undefined
-  const mode = controlledMode ?? internalMode
-  const [previewSource, setPreviewSource] = useState(defaultValue)
-  const [previewMetadata, setPreviewMetadata] = useState<PreviewMetadata>({})
-  const [draftRevision, setDraftRevision] = useState(0)
-  const [previewDraftRevision, setPreviewDraftRevision] = useState(0)
-  const [metadataRevision, setMetadataRevision] = useState(0)
-  const [previewMetadataRevision, setPreviewMetadataRevision] = useState(0)
+  const [wordCount, setWordCount] = useState(() => countWords(defaultValue))
   const [selectedAssetId, setSelectedAssetId] = useState(assets[0]?.id ?? '')
   const [availableAssets, setAvailableAssets] = useState(assets)
   const [imagePickerOpen, setImagePickerOpen] = useState(false)
@@ -92,14 +199,7 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
   const [imageUploadPending, setImageUploadPending] = useState(false)
   const [imagePickerError, setImagePickerError] = useState<string | null>(null)
 
-  const previewResult = useMemo(() => renderRichContent(previewSource, { pageTitle: previewMetadata.title }), [previewSource, previewMetadata.title])
   const selectedAsset = availableAssets.find((asset) => asset.id === selectedAssetId) ?? availableAssets[0]
-  const previewIsCurrent = isPreviewCurrent(
-    draftRevision,
-    previewDraftRevision,
-    metadataRevision,
-    previewMetadataRevision,
-  )
 
   useEffect(() => {
     setAvailableAssets(assets)
@@ -109,83 +209,11 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
       return assets[0]?.id ?? ''
     })
   }, [assets])
-  useEffect(() => {
-    const metadataFields = ['post-title', 'post-excerpt', 'post-cover', 'post-tags']
-      .map((id) => document.getElementById(id))
-      .filter((field): field is HTMLElement => field instanceof HTMLElement)
-    const markMetadataChanged = () => {
-      metadataRevisionRef.current += 1
-      setMetadataRevision(metadataRevisionRef.current)
-    }
-    metadataFields.forEach((field) => {
-      field.addEventListener('input', markMetadataChanged)
-      field.addEventListener('change', markMetadataChanged)
-    })
-    return () => {
-      metadataFields.forEach((field) => {
-        field.removeEventListener('input', markMetadataChanged)
-        field.removeEventListener('change', markMetadataChanged)
-      })
-    }
-  }, [])
-
-  function updateContentRevision() {
-    contentRevisionRef.current += 1
-    setDraftRevision(contentRevisionRef.current)
-  }
-
-  function readPreviewMetadata(): PreviewMetadata {
-    const title = document.getElementById('post-title')
-    const excerpt = document.getElementById('post-excerpt')
-    const cover = document.getElementById('post-cover')
-    const tagsField = document.getElementById('post-tags')
-    const coverAssetId = cover instanceof HTMLSelectElement ? cover.value : ''
-    const coverAsset = coverAssetId ? availableAssets.find((asset) => asset.id === coverAssetId) : undefined
-    const tagsValue = tagsField instanceof HTMLInputElement ? tagsField.value : ''
-    const tags = tagsValue.split(',').map((tag) => tag.trim()).filter(Boolean)
-    return {
-      title: title instanceof HTMLInputElement ? title.value.trim() || undefined : undefined,
-      excerpt: excerpt instanceof HTMLTextAreaElement ? excerpt.value.trim() || undefined : undefined,
-      coverAssetSrc: coverAssetId ? `/media-assets/${coverAssetId}` : undefined,
-      coverAssetAlt: coverAsset?.altText ?? undefined,
-      coverAssetWidth: coverAsset?.width ?? undefined,
-      coverAssetHeight: coverAsset?.height ?? undefined,
-      tags: tags.length > 0 ? tags : undefined,
-    }
-  }
-
-  function refreshPreview() {
-    setPreviewSource(textareaRef.current?.value ?? '')
-    setPreviewMetadata(readPreviewMetadata())
-    setPreviewDraftRevision(contentRevisionRef.current)
-    setPreviewMetadataRevision(metadataRevisionRef.current)
-  }
-
-  function showWrite() {
-    setInternalMode('write')
-  }
-
-  function showPreview() {
-    refreshPreview()
-    setInternalMode('preview')
-  }
-
-  // Controlled mode (mobile page tabs): refresh the preview when the caller
-  // flips us into it so it always reflects the live form.
-  useEffect(() => {
-    if (controlledMode === 'preview') refreshPreview()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controlledMode])
 
   function rememberSelection() {
     const textarea = textareaRef.current
     if (!textarea) return
     selectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd }
-  }
-
-  function handleContentChange() {
-    rememberSelection()
-    updateContentRevision()
   }
 
   async function handleImageUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -254,54 +282,22 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
     const nextCaret = before.length + prefix.length + imageMarkdown.length
 
     textarea.value = nextValue
+    // The form input listener in usePostPreviewSync catches this dispatch and
+    // brings the live preview up to date — no manual refresh anywhere.
     textarea.dispatchEvent(new Event('input', { bubbles: true }))
     textarea.focus()
     textarea.setSelectionRange(nextCaret, nextCaret)
     selectionRef.current = { start: nextCaret, end: nextCaret }
-    if (mode === 'preview') {
-      setPreviewSource(nextValue)
-      setPreviewDraftRevision(contentRevisionRef.current)
-    }
     setImagePickerOpen(false)
   }
 
   return (
     <div className="grid gap-3">
       <div className="flex flex-col gap-3 rounded-xl border border-[color:var(--hairline)] p-2 sm:flex-row sm:items-center sm:justify-between">
-        {isControlled ? (
-          <p className="px-1 font-mono text-[11px] text-muted-foreground" aria-live="polite">
-            {mode === 'preview' ? 'Exact public page' : 'Markdown'}
-          </p>
-        ) : (
-          <div
-            className="flex w-full rounded-lg bg-background/70 p-1 sm:w-auto"
-            role="group"
-            aria-label="Editor mode"
-          >
-            <Button
-              type="button"
-              variant={mode === 'write' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
-              aria-pressed={mode === 'write'}
-              onClick={showWrite}
-            >
-              <Pencil2Icon className="size-4" aria-hidden="true" />
-              Write
-            </Button>
-            <Button
-              type="button"
-              variant={mode === 'preview' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 flex-1 gap-1.5 rounded-lg font-mono text-[11px] sm:flex-none"
-              aria-pressed={mode === 'preview'}
-              onClick={showPreview}
-            >
-              <EyeOpenIcon className="size-4" aria-hidden="true" />
-              Preview
-            </Button>
-          </div>
-        )}
+        <p className="px-1 font-mono text-[11px] text-muted-foreground">
+          Markdown · <span className="tabular-nums">{wordCount}</span> words ·{' '}
+          <span className="tabular-nums">{Math.max(1, Math.ceil(wordCount / 238))}</span> min read
+        </p>
         <Button
           type="button"
           variant="outline"
@@ -436,90 +432,32 @@ export function MarkdownEditor({ assets, defaultValue, presetId, presentation, s
         </DialogContent>
       </Dialog>
 
+      <Textarea
+        ref={textareaRef}
+        id="post-markdown"
+        name="contentMarkdown"
+        className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
+        maxLength={500000}
+        defaultValue={defaultValue}
+        placeholder="Start writing… # for a heading, a blank line between paragraphs."
+        onChange={(event) => {
+          rememberSelection()
+          setWordCount(countWords(event.currentTarget.value))
+        }}
+        onClick={rememberSelection}
+        onKeyUp={rememberSelection}
+        onSelect={rememberSelection}
+      />
       <FieldDescription className="font-mono text-[11px] text-muted-foreground">
-        Start with a heading, then use Markdown for links, lists, tables, code, quotes, and images.
+        Markdown for links, lists, tables, code, quotes, and images — the page next door shows the result.
       </FieldDescription>
-
-      <div className={mode === 'write' ? 'block' : 'hidden'}>
-        <Textarea
-          ref={textareaRef}
-          id="post-markdown"
-          name="contentMarkdown"
-          className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
-          maxLength={500000}
-          defaultValue={defaultValue}
-          onChange={handleContentChange}
-          onClick={rememberSelection}
-          onKeyUp={rememberSelection}
-          onSelect={rememberSelection}
-        />
-      </div>
-
-      {mode === 'preview' ? (
-        <div aria-label="Markdown preview">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-[11px] text-muted-foreground" aria-live="polite">
-              {previewIsCurrent
-                ? 'Exact public page — masthead, theme, article, and subscribe block as readers get them'
-                : 'Preview is stale after recent edits'}
-            </p>
-            <Button type="button" variant="outline" size="sm" onClick={refreshPreview}>
-              Refresh preview
-            </Button>
-          </div>
-          {/* Read-only frame: in-page links (tags, masthead, anchors) must not
-              navigate the editor away, so anchor activation is captured here —
-              click and middle-click (auxclick) alike. */}
-          <div
-            className="overflow-hidden rounded-xl border border-[color:var(--hairline)]"
-            onClickCapture={(event) => {
-              if ((event.target as HTMLElement).closest('a')) event.preventDefault()
-            }}
-            onAuxClickCapture={(event) => {
-              if ((event.target as HTMLElement).closest('a')) event.preventDefault()
-            }}
-          >
-            {previewSource.trim() ? (
-              <PublicPageChrome
-                siteName={site?.name ?? 'Your blog'}
-                tagline={site?.description ?? null}
-                homeHref="/"
-                allPostsHref="/"
-                presetId={presetId ?? 'minimal'}
-                theme={siteTheme}
-                article
-                subscribeVariant="end"
-              >
-                <PresentedPostArticle
-                  renderResult={previewResult}
-                  presetId={presetId ?? 'minimal'}
-                  presentation={resolvePresentation(presetId ?? 'minimal', presentation as Presentation | null | undefined).resolved}
-                  theme={siteTheme}
-                  title={previewMetadata.title}
-                  excerpt={previewMetadata.excerpt}
-                  byline={site?.name}
-                  coverAssetSrc={previewMetadata.coverAssetSrc}
-                  coverAssetAlt={previewMetadata.coverAssetAlt}
-                  coverAssetWidth={previewMetadata.coverAssetWidth}
-                  coverAssetHeight={previewMetadata.coverAssetHeight}
-                  dateText={new Date((publishedAt ?? Math.floor(Date.now() / 1000)) * 1000).toLocaleDateString()}
-                  readingMinutes={readingTimeMinutes(previewSource)}
-                  tags={previewMetadata.tags}
-                  basePath="/"
-                />
-              </PublicPageChrome>
-            ) : (
-              <div className="bg-muted/50 p-8">
-                <p className="font-mono text-xs text-muted-foreground">
-                  Nothing to preview yet. Add a heading or a first paragraph, then refresh this preview.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   )
+}
+
+function countWords(value: string) {
+  const trimmed = value.trim()
+  return trimmed ? trimmed.split(/\s+/).length : 0
 }
 
 export function slugifyPostTitle(title: string) {
