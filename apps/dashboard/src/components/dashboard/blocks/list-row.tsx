@@ -36,14 +36,30 @@ export function ListRow({
 }
 
 /** Grid-based data row used by the list pages (posts, activity). Kept for
- *  continuity with the previous `DataRow`; prefer `ListRow` for new work. */
+ *  continuity with the previous `DataRow`; prefer `ListRow` for new work.
+ *
+ *  A row whose content includes an `a[data-row-key]` is itself clickable:
+ *  clicking anywhere that is NOT an interactive element activates that key
+ *  link (Marble-style row navigation). Modifier-clicks and text selection
+ *  are left alone — the key link itself remains the focusable, middle-
+ *  clickable target with full link semantics. */
 export function DataRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
+      role="presentation"
       className={cn(
-        'grid gap-2 border-b border-foreground/[0.065] px-1 py-3.5 text-sm last:border-b-0 sm:items-center',
+        'grid gap-2 border-b border-foreground/[0.065] px-1 py-3.5 text-sm transition-colors last:border-b-0 sm:items-center',
+        'has-[a[data-row-key]]:cursor-pointer has-[a[data-row-key]]:hover:bg-foreground/[0.02]',
         className,
       )}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        const target = event.target as HTMLElement
+        if (target.closest('a,button,[role="button"],input,select,textarea,summary,label')) return
+        if (window.getSelection()?.toString()) return
+        const keyLink = event.currentTarget.querySelector<HTMLAnchorElement>('a[data-row-key]')
+        keyLink?.click()
+      }}
     >
       {children}
     </div>
