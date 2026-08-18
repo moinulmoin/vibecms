@@ -133,6 +133,8 @@ export function MediaPage() {
   const [altPending, setAltPending] = useState(false)
   const [selectedFileMessage, setSelectedFileMessage] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [liveAnnounce, setLiveAnnounce] = useState<string | null>(null)
   const [inspectorId, setInspectorId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<MediaFilter>('all')
@@ -208,6 +210,7 @@ export function MediaPage() {
 
     let lastOkCode: string | undefined
     let errorCode: string | null = null
+    let failures = 0
     for (const [index, file] of files.entries()) {
       const key = String(index)
       setQueueItem(key, { status: 'uploading', progress: 0 })
@@ -219,6 +222,7 @@ export function MediaPage() {
         } else {
           setQueueItem(key, { status: 'error' })
           errorCode = result.code
+          failures += 1
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'unknown'
@@ -229,10 +233,19 @@ export function MediaPage() {
         }
         setQueueItem(key, { status: 'error' })
         errorCode = errorCode ?? 'unknown'
+        failures += 1
       }
     }
 
     setUploadPending(false)
+    const succeeded = files.length - failures
+    setLiveAnnounce(
+      errorCode
+        ? `${succeeded} of ${files.length} images uploaded.`
+        : files.length === 1
+          ? '1 image uploaded.'
+          : `${files.length} images uploaded.`,
+    )
     if (lastOkCode) {
       const data = await loadMediaPage()
       setAssets(data.assets)
@@ -262,6 +275,7 @@ export function MediaPage() {
       const result = parseMutationResultJson(await response.json())
       if (result.kind === 'ok') {
         setAssets((prev) => prev?.filter((a) => a.id !== assetId) ?? null)
+        setLiveAnnounce('Image deleted.')
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
@@ -271,6 +285,55 @@ export function MediaPage() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  // Optimistic bulk delete: tiles vanish immediately; each file is deleted
+  // sequentially with polite progress announcements; a partial failure rolls
+  // back only the failed ones, in their original grid order.
+  async function handleBulkDelete() {
+    if (!assets || selectedIds.length === 0 || bulkDeleting) return
+    const ids = selectedIds
+    const snapshot = assets
+    const label = ids.length === 1 ? '1 image' : `${ids.length} images`
+    setBulkDeleting(true)
+    setSelectedIds([])
+    setAssets(snapshot.filter((asset) => !ids.includes(asset.id)))
+    let lastOkCode: string | undefined
+    const failed: string[] = []
+    for (const [index, assetId] of ids.entries()) {
+      setLiveAnnounce(`Deleting ${index + 1} of ${ids.length}…`)
+      try {
+        const response = await fetch('/api/media/delete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ assetId }),
+          credentials: 'include',
+        })
+        if (response.status === 401) {
+          setBulkDeleting(false)
+          await navigate({ to: '/login' })
+          return
+        }
+        const result = parseMutationResultJson(await response.json())
+        if (result.kind === 'ok') lastOkCode = result.code
+        else failed.push(assetId)
+      } catch {
+        failed.push(assetId)
+      }
+    }
+    if (failed.length > 0) {
+      setAssets(snapshot.filter((asset) => !ids.includes(asset.id) || failed.includes(asset.id)))
+      setLiveAnnounce(
+        failed.length === 1
+          ? '1 image could not be deleted and was restored.'
+          : `${failed.length} images could not be deleted and were restored.`,
+      )
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: failed.length === ids.length ? 'unknown' : (lastOkCode ?? 'unknown') }) })
+    } else {
+      setLiveAnnounce(`${label} deleted.`)
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: lastOkCode ?? 'unknown' }) })
+    }
+    setBulkDeleting(false)
   }
 
   if (loadError) return <LoadError message={loadError} />
@@ -293,6 +356,10 @@ export function MediaPage() {
 
   return (
     <>
+      {/* Polite announcements for upload/delete progress (screen readers). */}
+      <p className="sr-only" role="status">
+        {liveAnnounce}
+      </p>
       <PageHeader
         title="Media library"
         description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
@@ -447,12 +514,7 @@ export function MediaPage() {
 
       <Panel
         title="Library"
-        meta={[
-          `${filteredAssets.length} ${filteredAssets.length === 1 ? 'asset' : 'assets'}`,
-          selectedIds.length ? `${selectedIds.length} selected` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        meta={`${filteredAssets.length} ${filteredAssets.length === 1 ? 'asset' : 'assets'}`}
       >
         <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="relative">
@@ -489,6 +551,45 @@ export function MediaPage() {
             <option value="missing-alt">Missing alt text</option>
           </Select>
         </div>
+
+        {selectedIds.length > 0 ? (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-brand-bright/25 bg-brand-bright/[0.04] px-3 py-2">
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-foreground">
+              <Checkbox
+                checked={filteredAssets.length > 0 && filteredAssets.every((asset) => selectedIds.includes(asset.id))}
+                onCheckedChange={(checked) =>
+                  setSelectedIds(checked === true ? filteredAssets.map((asset) => asset.id) : [])
+                }
+                aria-label={`Select all ${filteredAssets.length} filtered images`}
+              />
+              {selectedIds.length} selected
+            </label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setSelectedIds([])}
+            >
+              Clear
+            </Button>
+            <div className="ms-auto">
+              <SpaConfirmButton
+                size="sm"
+                variant="outline"
+                confirmLabel={`Confirm delete ${selectedIds.length}`}
+                pendingLabel={`Deleting ${selectedIds.length}…`}
+                helperText={`Permanently removes ${selectedIds.length === 1 ? 'this image' : `these ${selectedIds.length} images`} from storage.`}
+                disabled={bulkDeleting}
+                onConfirm={() => void handleBulkDelete()}
+                className="text-destructive hover:text-destructive"
+              >
+                <TrashIcon className="size-3.5" aria-hidden />
+                Delete {selectedIds.length === 1 ? '1 image' : `${selectedIds.length} images`}
+              </SpaConfirmButton>
+            </div>
+          </div>
+        ) : null}
 
         {assets.length === 0 ? (
           <EmptyState
@@ -559,7 +660,7 @@ export function MediaPage() {
                       aria-label={`Select ${asset.filename}`}
                       className={cn(
                         'absolute right-2 top-2 z-10 size-4 bg-background/90 focus-visible:ring-offset-1',
-                        isSelected ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-100',
+                        isSelected ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100',
                       )}
                     />
                   </div>
