@@ -362,7 +362,10 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
-  const livePreview = usePostPreviewSync(post?.contentMarkdown ?? '', formKey, assets)
+  // Re-flush when the async post load lands or a version restore swaps the
+  // form, not only when assets change (a post with zero assets must still
+  // preview immediately).
+  const livePreview = usePostPreviewSync(post?.contentMarkdown ?? '', [formKey, post], assets)
   const [selectedCoverAssetId, setSelectedCoverAssetId] = useState('')
   const [coverUploadPending, setCoverUploadPending] = useState(false)
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
@@ -683,7 +686,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
     <>
       <PageHeader
         title={post ? 'Edit post' : 'Create post'}
-        description="Write in Markdown — the page beside your text is your exact public page, live as you type."
+        description="Write in Markdown; your exact public page updates live — beside your text on desktop, in the Preview tab on mobile."
         action={
           <div className="flex items-center gap-2">
             {post && <PostStatusBadge status={post.status} />}

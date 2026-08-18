@@ -183,10 +183,10 @@ function readPreviewMetadata(assets: MarkdownAsset[]): PreviewMetadata {
 /**
  * Keeps an { source, metadata } snapshot of the live post form, refreshed
  * shortly after any field changes. Flushes immediately on mount and whenever
- * formKey or assets change (version restore / cover upload complete), so the
- * preview is never stale and needs no manual refresh.
+ * a dep changes (version restore, async post/asset load), so the preview is
+ * never stale and needs no manual refresh.
  */
-export function usePostPreviewSync(initialSource: string, formKey: unknown, assets: MarkdownAsset[]) {
+export function usePostPreviewSync(initialSource: string, deps: unknown[], assets: MarkdownAsset[]) {
   const [source, setSource] = useState(initialSource)
   const [metadata, setMetadata] = useState<PreviewMetadata>({})
   useEffect(() => {
@@ -207,7 +207,8 @@ export function usePostPreviewSync(initialSource: string, formKey: unknown, asse
       window.clearTimeout(timer)
       form?.removeEventListener('input', schedule)
     }
-  }, [formKey, assets])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, assets])
   return { source, metadata }
 }
 

@@ -132,7 +132,15 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    full-width below the split on lg, right column from xl); mobile keeps the
    Write/Preview/Settings tabs, now auto-fresh; the preview stays the shared
    PublicPageChrome/PresentedPostArticle surface, inert to link clicks, and
-   the stale phase-2 note about deferred mobile tabs is corrected.
+   the stale phase-2 note about deferred mobile tabs is corrected. Follow-ons
+   same day: slash-command block insertion into the textarea (caret-anchored
+   menu, /image routes to the alt-text-enforcing media dialog, no H1 — the
+   title owns it); posts rows navigate via data-row-key row clicks (Marble
+   pattern, guarded against interactive descendants/modifiers); media bulk
+   select+delete with optimistic removal, ordered partial-failure rollback,
+   and sr-only progress announcements. Hook detail fixed in review: preview
+   deps include the post identity so asset-less posts preview on load without
+   a keystroke. Copy adjusted for mobile (preview lives in the Preview tab).
 
 ## Invariants
 

@@ -20,6 +20,7 @@ function render(node: ReactNode) {
   act(() => root.render(node))
   return {
     container,
+    rerender: (next: ReactNode) => act(() => root.render(next)),
     unmount: () => {
       act(() => root.unmount())
       container.remove()
@@ -47,7 +48,7 @@ function typeValue(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
 }
 
 function LivePreviewHarness({ initialSource }: { initialSource: string }) {
-  const live = usePostPreviewSync(initialSource, 0, NO_ASSETS)
+  const live = usePostPreviewSync(initialSource, ['loaded'], NO_ASSETS)
   return (
     <PostPreviewPane
       source={live.source}
@@ -166,6 +167,37 @@ describe('usePostPreviewSync live refresh', () => {
       expect(preview.textContent).toContain('Nothing here yet')
     } finally {
       unmount()
+    }
+  })
+})
+
+describe('usePostPreviewSync async load', () => {
+  it('previews the post as soon as its form exists, without a single keystroke', () => {
+    function DeferredPanel({ loaded }: { loaded: boolean }) {
+      // Mirror PostEditorPage: deps include the post identity so the effect
+      // re-flushes when the async load lands.
+      const live = usePostPreviewSync(loaded ? '# Loaded\n\nServer paragraph.' : '', [loaded ? 'post-1' : 'loading'], NO_ASSETS)
+      return (
+        <form>
+          <input id="post-title" defaultValue={loaded ? 'Loaded post' : ''} />
+          <textarea id="post-excerpt" defaultValue="" />
+          <input id="post-tags" defaultValue="" />
+          {loaded ? <textarea id="post-markdown" defaultValue={'# Loaded\n\nServer paragraph.'} /> : null}
+          <PostPreviewPane source={live.source} metadata={live.metadata} presetId="minimal" site={site} publishedAt={null} />
+        </form>
+      )
+    }
+
+    const view = render(<DeferredPanel loaded={false} />)
+    try {
+      const preview = () => view.container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
+      expect(preview().textContent).toContain('Nothing here yet')
+
+      // Simulate the route loader landing: same tree, props swap in.
+      view.rerender(<DeferredPanel loaded />)
+      expect(preview().textContent).toContain('Server paragraph.')
+    } finally {
+      view.unmount()
     }
   })
 })
