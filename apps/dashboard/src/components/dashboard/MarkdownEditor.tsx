@@ -46,6 +46,120 @@ export type PreviewMetadata = {
 // never runs per keystroke.
 export const PREVIEW_DEBOUNCE_MS = 400
 
+// ---------------------------------------------------------------------------
+// Slash commands — Notion-lite block insertion into the Markdown textarea.
+// Deliberately no H1 (the post title is the page's one H1), and "Image"
+// routes to the media dialog so alt text is never skippable.
+// ---------------------------------------------------------------------------
+export type SlashCommand = {
+  id: string
+  title: string
+  description: string
+  keywords: string[]
+  /** Text inserted in place of the typed `/query`. */
+  text?: string
+  /** [from, to] offsets into `text` selecting the word the writer replaces. */
+  placeholder?: readonly [number, number]
+  /** Non-text command: handled by the caller. */
+  action?: 'open-image-dialog'
+}
+
+function block(text: string, selected: string): { text: string; placeholder: readonly [number, number] } {
+  const from = text.indexOf(selected)
+  return { text, placeholder: [from, from + selected.length] }
+}
+
+export const SLASH_COMMANDS: SlashCommand[] = [
+  { id: 'h2', title: 'Heading 2', description: 'Start a new section', keywords: ['h2', 'heading', 'title'], ...block('## Heading\n\n', 'Heading') },
+  { id: 'h3', title: 'Heading 3', description: 'Subsection of the current section', keywords: ['h3', 'heading', 'sub'], ...block('### Subheading\n\n', 'Subheading') },
+  { id: 'bullet', title: 'Bulleted list', description: 'Unordered list of points', keywords: ['ul', 'bullet', 'point'], ...block('- First item\n- Second item\n', 'First item') },
+  { id: 'numbered', title: 'Numbered list', description: 'Ordered steps', keywords: ['ol', 'number', 'step', 'order'], ...block('1. First item\n2. Second item\n', 'First item') },
+  { id: 'task', title: 'To-do item', description: 'Checkable box in the rendered page', keywords: ['todo', 'task', 'check', 'box'], ...block('- [ ] Task\n', 'Task') },
+  { id: 'quote', title: 'Quote', description: 'Pull-quote or blockquote', keywords: ['quote', 'blockquote', 'cite'], ...block('> Quote\n\n', 'Quote') },
+  { id: 'code', title: 'Code block', description: 'Fenced block with a language', keywords: ['code', 'snippet', 'fence', 'terminal'], ...block('```language\ncode\n```\n\n', 'language') },
+  { id: 'divider', title: 'Divider', description: 'Horizontal rule between sections', keywords: ['hr', 'rule', 'separator', 'line'], text: '---\n\n' },
+  { id: 'table', title: 'Table', description: 'Two-column table — extend with |pipes|', keywords: ['table', 'grid', 'column'], ...block('| Column | Column |\n| --- | --- |\n| Value | Value |\n\n', 'Value') },
+  { id: 'link', title: 'Link', description: 'Inline Markdown link', keywords: ['url', 'anchor', 'href'], ...block('[text](https://)', 'text') },
+  { id: 'image', title: 'Image…', description: 'Media library or upload, with alt text', keywords: ['img', 'photo', 'picture', 'figure', 'cover'], action: 'open-image-dialog' },
+]
+
+/** The `/query` under the caret, only when `/` opens a new line. */
+export function slashQueryAt(value: string, caret: number): { start: number; query: string } | null {
+  const lineStart = value.lastIndexOf('\n', caret - 1) + 1
+  if (value[lineStart] !== '/' || caret <= lineStart) return null
+  const query = value.slice(lineStart + 1, caret)
+  return /^[a-z0-9-]*$/i.test(query) ? { start: lineStart, query } : null
+}
+
+/** Commands matching the query; best (prefix) matches first. */
+export function filterSlashCommands(query: string): SlashCommand[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return SLASH_COMMANDS
+  const scored = SLASH_COMMANDS.map((cmd) => {
+    const title = cmd.title.toLowerCase()
+    const words = title.split(/[^a-z0-9]+/).filter(Boolean)
+    const hay = [title, ...cmd.keywords, ...words]
+    let score = -1 // -1 no match; 0 word/title prefix; 1 keyword prefix; 2 substring
+    for (const candidate of hay) {
+      if (candidate.startsWith(q)) score = Math.max(score, title.startsWith(q) || words.some((w) => w.startsWith(q)) ? 0 : 1)
+      else if (candidate.includes(q)) score = Math.max(score, 2)
+    }
+    return { cmd, score }
+  })
+  return scored
+    .filter((entry) => entry.score >= 0)
+    .sort((a, b) => a.score - b.score || a.cmd.title.localeCompare(b.cmd.title))
+    .map((entry) => entry.cmd)
+}
+
+/** Replace the typed `/query` span with a command's snippet. */
+export function applySlashCommand(
+  value: string,
+  caret: number,
+  queryStart: number,
+  cmd: SlashCommand,
+): { value: string; selectionStart: number; selectionEnd: number } {
+  const text = cmd.text ?? ''
+  const next = value.slice(0, queryStart) + text + value.slice(caret)
+  const [selStart, selEnd] = cmd.placeholder ?? [text.length, text.length]
+  return { value: next, selectionStart: queryStart + selStart, selectionEnd: queryStart + selEnd }
+}
+
+/** Caret pixel position inside the textarea (mirror-div measure), for the
+ *  menu anchor. Returns null when measurement is impossible. */
+function caretPixelOffset(textarea: HTMLTextAreaElement, position: number): { left: number; top: number } | null {
+  try {
+    const style = getComputedStyle(textarea)
+    const mirror = document.createElement('div')
+    mirror.style.position = 'absolute'
+    mirror.style.visibility = 'hidden'
+    mirror.style.whiteSpace = 'pre-wrap'
+    mirror.style.wordWrap = 'break-word'
+    for (const prop of [
+      'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textIndent',
+      'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+      'width', 'boxSizing', 'textTransform', 'wordBreak',
+    ] as const) {
+      mirror.style[prop] = style[prop]
+    }
+    mirror.textContent = textarea.value.slice(0, position)
+    const marker = document.createElement('span')
+    marker.textContent = '.'
+    mirror.appendChild(marker)
+    document.body.appendChild(mirror)
+    const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.6
+    const result = {
+      left: marker.offsetLeft - textarea.scrollLeft,
+      top: marker.offsetTop - textarea.scrollTop + lineHeight,
+    }
+    document.body.removeChild(mirror)
+    return result
+  } catch {
+    return null
+  }
+}
+
 function readPreviewMetadata(assets: MarkdownAsset[]): PreviewMetadata {
   const title = document.getElementById('post-title')
   const excerpt = document.getElementById('post-excerpt')
@@ -198,6 +312,17 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   const [imageAltText, setImageAltText] = useState(assets[0]?.altText ?? '')
   const [imageUploadPending, setImageUploadPending] = useState(false)
   const [imagePickerError, setImagePickerError] = useState<string | null>(null)
+  // Slash menu: the typed `/query` span plus the focused command index.
+  const [slash, setSlash] = useState<{ start: number; query: string; index: number } | null>(null)
+  const slashCommands = slash ? filterSlashCommands(slash.query) : []
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    menuRef.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: 'nearest' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slash?.index])
 
   const selectedAsset = availableAssets.find((asset) => asset.id === selectedAssetId) ?? availableAssets[0]
 
@@ -215,6 +340,72 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
     if (!textarea) return
     selectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd }
   }
+
+  function closeSlash() {
+    setSlash((current) => (current === null ? current : null))
+  }
+
+  function runSlashCommand(cmd: SlashCommand) {
+    const textarea = textareaRef.current
+    const state = slash
+    closeSlash()
+    if (cmd.action === 'open-image-dialog') {
+      // Rewind the `/query` so the dialog opens on a clean line.
+      if (textarea && state) {
+        const next = textarea.value.slice(0, state.start) + textarea.value.slice(textarea.selectionStart)
+        textarea.value = next
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+        textarea.setSelectionRange(state.start, state.start)
+        selectionRef.current = { start: state.start, end: state.start }
+      }
+      rememberSelection()
+      setImagePickerError(null)
+      setImagePickerOpen(true)
+      return
+    }
+    if (!textarea || !state) return
+    const applied = applySlashCommand(textarea.value, textarea.selectionStart, state.start, cmd)
+    textarea.value = applied.value
+    textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    textarea.focus()
+    textarea.setSelectionRange(applied.selectionStart, applied.selectionEnd)
+    selectionRef.current = { start: applied.selectionStart, end: applied.selectionEnd }
+  }
+
+  function handleEditorInput(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    const textarea = event.currentTarget
+    rememberSelection()
+    setWordCount(countWords(textarea.value))
+    const match = slashQueryAt(textarea.value, textarea.selectionStart)
+    if (!match) {
+      closeSlash()
+      return
+    }
+    setSlash((current) =>
+      current && current.start === match.start
+        ? { ...current, query: match.query, index: 0 }
+        : { ...match, index: 0 },
+    )
+  }
+
+  function handleEditorKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!slash || slashCommands.length === 0) return
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setSlash({ ...slash, index: (slash.index + 1) % slashCommands.length })
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setSlash({ ...slash, index: (slash.index - 1 + slashCommands.length) % slashCommands.length })
+    } else if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      runSlashCommand(slashCommands[Math.min(slash.index, slashCommands.length - 1)])
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      closeSlash()
+    }
+  }
+
+  const anchor = slash && textareaRef.current ? caretPixelOffset(textareaRef.current, slash.start) : null
 
   async function handleImageUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -432,24 +623,59 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
         </DialogContent>
       </Dialog>
 
-      <Textarea
-        ref={textareaRef}
-        id="post-markdown"
-        name="contentMarkdown"
-        className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
-        maxLength={500000}
-        defaultValue={defaultValue}
-        placeholder="Start writing… # for a heading, a blank line between paragraphs."
-        onChange={(event) => {
-          rememberSelection()
-          setWordCount(countWords(event.currentTarget.value))
-        }}
-        onClick={rememberSelection}
-        onKeyUp={rememberSelection}
-        onSelect={rememberSelection}
-      />
+      <div className="relative">
+        <Textarea
+          ref={textareaRef}
+          id="post-markdown"
+          name="contentMarkdown"
+          className="min-h-[22rem] font-mono text-sm leading-6 sm:min-h-[32rem]"
+          maxLength={500000}
+          defaultValue={defaultValue}
+          placeholder="Start writing… type / on a new line for blocks, a blank line between paragraphs."
+          onChange={handleEditorInput}
+          onKeyDown={handleEditorKeyDown}
+          onScroll={closeSlash}
+          onClick={rememberSelection}
+          onKeyUp={rememberSelection}
+          onSelect={rememberSelection}
+        />
+        {slash && slashCommands.length > 0 ? (
+          <div
+            ref={menuRef}
+            role="listbox"
+            aria-label="Insert a block"
+            className="absolute z-20 w-72 max-w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-popover p-1 shadow-lg shadow-black/25"
+            style={anchor ? { left: Math.max(0, anchor.left - 4), top: anchor.top + 4 } : { left: 4, top: 4 }}
+          >
+            <div className="max-h-64 overflow-y-auto">
+              {slashCommands.map((cmd, i) => (
+                <button
+                  key={cmd.id}
+                  type="button"
+                  role="option"
+                  aria-selected={i === slash.index}
+                  className={`flex w-full items-baseline justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left outline-none ${
+                    i === slash.index ? 'bg-accent' : ''
+                  }`}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    runSlashCommand(cmd)
+                  }}
+                  onMouseEnter={() => setSlash((current) => (current ? { ...current, index: i } : current))}
+                >
+                  <span className="shrink-0 font-sans text-sm font-medium text-foreground">{cmd.title}</span>
+                  <span className="min-w-0 truncate font-sans text-xs text-muted-foreground">{cmd.description}</span>
+                </button>
+              ))}
+            </div>
+            <p className="border-t border-[color:var(--hairline)] px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
+              ↑↓ choose · ↵ insert · esc close
+            </p>
+          </div>
+        ) : null}
+      </div>
       <FieldDescription className="font-mono text-[11px] text-muted-foreground">
-        Markdown for links, lists, tables, code, quotes, and images — the page next door shows the result.
+        Markdown for links, lists, tables, code, and quotes — or type <code>/</code> on a new line for a block. The page next door shows the result.
       </FieldDescription>
     </div>
   )
