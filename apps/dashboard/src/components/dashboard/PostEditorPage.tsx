@@ -22,7 +22,7 @@ import { Badge, Card } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { Switch } from '~/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import {
   MarkdownEditor,
   PostPreviewPane,
@@ -238,10 +238,10 @@ function EditorSkeleton() {
         </div>
         <Skeleton className="h-9 w-32" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_18rem]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <Skeleton className="h-[34rem] rounded-2xl" />
         <Skeleton className="h-[34rem] rounded-2xl" />
-        <div className="grid gap-3 lg:col-span-2 xl:col-span-1">
+        <div className="grid gap-3 lg:col-span-2">
           <Skeleton className="h-72 rounded-2xl" />
           <Skeleton className="h-32 rounded-2xl" />
         </div>
@@ -682,6 +682,332 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const derivedSeoTitle = post?.seoTitle || currentTitle || 'Post title'
   const derivedCanonical = publicBaseUrl && currentSlug ? `${publicBaseUrl}/${currentSlug}` : null
 
+  // Settings field groups, shared between the desktop horizontal tabs and the
+  // mobile collapsible rail. These are JSX consts (not components) so field
+  // state closes over this render — and only one surface mounts at a time,
+  // so form ids never duplicate.
+  const detailsFields = (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor="post-slug" className="font-mono text-[11px] font-medium text-muted-foreground">
+          Slug
+        </FieldLabel>
+        <Input
+          id="post-slug"
+          className="font-mono text-sm"
+          name="slug"
+          required
+          maxLength={120}
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          defaultValue={post?.slug ?? ''}
+          placeholder="auto-generated-from-title"
+          onInput={(e) => setCurrentSlug(e.currentTarget.value)}
+        />
+        <FieldDescription className="font-sans">
+          Lowercase letters, numbers, and hyphens.
+        </FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="post-tags" className="font-mono text-[11px] font-medium text-muted-foreground">
+          Tags
+        </FieldLabel>
+        <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
+      </Field>
+      <Field className="md:col-span-2">
+        <FieldLabel htmlFor="post-excerpt" className="font-mono text-[11px] font-medium text-muted-foreground">
+          Excerpt
+        </FieldLabel>
+        <Textarea
+          id="post-excerpt"
+          name="excerpt"
+          maxLength={500}
+          rows={3}
+          defaultValue={post?.excerpt ?? ''}
+          placeholder="First paragraph of the post will be used if left empty."
+        />
+        <div className="flex justify-end">
+          <CharCounter targetId="post-excerpt" max={500} />
+        </div>
+      </Field>
+    </div>
+  )
+
+  const presentationFields = (
+    <div className="grid gap-5 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor="post-cover" className="font-mono text-[11px] font-medium text-muted-foreground">
+          Featured image
+        </FieldLabel>
+        <Select
+          id="post-cover"
+          name="coverAssetId"
+          value={selectedCoverAssetId}
+          onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
+        >
+          <option value="">No featured image</option>
+          {assets.map((asset) => (
+            <option key={asset.id} value={asset.id}>{asset.filename}</option>
+          ))}
+        </Select>
+        {selectedCoverAsset ? (
+          <div className="flex min-w-0 items-center gap-3 pt-2">
+            <img
+              src={`/media-assets/${selectedCoverAsset.id}`}
+              alt=""
+              className="h-16 w-24 shrink-0 rounded-md object-cover"
+            />
+            <div className="min-w-0 text-sm">
+              <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
+              {!selectedCoverAsset.altText ? (
+                <p className="text-destructive text-xs">
+                  Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link>
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        <details className="mt-2 rounded-lg bg-muted/50 p-3">
+          <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
+            Upload new
+          </summary>
+          <div className="grid gap-3 pt-3">
+            <Input
+              ref={coverFileInputRef}
+              type="file"
+              accept={MEDIA.mimeTypes.join(',')}
+            />
+            <Input
+              ref={coverAltInputRef}
+              maxLength={180}
+              placeholder="Alt text"
+            />
+            {coverUploadError ? (
+              <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              disabled={coverUploadPending}
+              onClick={() => void handleCoverUpload()}
+            >
+              <UploadIcon className="size-4" aria-hidden="true" />
+              {coverUploadPending ? 'Uploading…' : 'Upload'}
+            </Button>
+          </div>
+        </details>
+      </Field>
+      <div className="grid content-start gap-5">
+        <Field>
+          <FieldLabel htmlFor="post-layout" className="font-mono text-[11px] font-medium text-muted-foreground">
+            Article layout
+          </FieldLabel>
+          <Select
+            id="post-layout"
+            value={selectedLayout}
+            onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
+          >
+            {capability.supportedLayouts.map((l) => (
+              <option key={l} value={l}>
+                {l.charAt(0).toUpperCase() + l.slice(1)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {capability.supportsToc ? (
+          <Field>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="post-toc"
+                checked={selectedToc}
+                onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
+              />
+              <FieldLabel htmlFor="post-toc" className="font-mono text-[11px] font-medium text-muted-foreground">
+                Table of contents
+              </FieldLabel>
+            </div>
+          </Field>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  const seoFields = (
+    <div className="grid gap-5 md:grid-cols-2">
+      <div>
+        <p className="font-mono text-[11px] font-medium text-muted-foreground">SEO title</p>
+        <p className="mt-0.5 text-sm text-foreground">{derivedSeoTitle}</p>
+        <Input
+          id="post-seo-title"
+          name="seoTitle"
+          maxLength={70}
+          defaultValue={post?.seoTitle ?? ''}
+          placeholder={`Same as post title`}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <p className="font-mono text-[11px] font-medium text-muted-foreground">Canonical URL</p>
+        <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+          {derivedCanonical ?? 'Set after first save'}
+        </p>
+        <Input
+          id="post-canonical-url"
+          name="canonicalUrl"
+          type="text"
+          maxLength={2048}
+          defaultValue={post?.canonicalUrl ?? ''}
+          placeholder="Override canonical URL"
+          className="mt-1"
+        />
+      </div>
+    </div>
+  )
+
+  const historyContent = (
+    <div className="grid gap-2">
+      <Sheet
+        open={versionDrawerOpen}
+        onOpenChange={(open) => void handleVersionDrawerOpenChange(open)}
+      >
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="justify-start gap-2"
+          >
+            <CounterClockwiseClockIcon className="size-4" aria-hidden="true" />
+            Version history
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Version history</SheetTitle>
+            <SheetDescription>
+              Past saved versions of this post.
+            </SheetDescription>
+          </SheetHeader>
+          <Separator />
+          <ScrollArea className="max-h-[26rem] min-h-0 flex-1">
+            {versionsLoading ? (
+              <div className="grid gap-3 p-4">
+                <Skeleton className="h-16 rounded-lg" />
+                <Skeleton className="h-16 rounded-lg" />
+              </div>
+            ) : versionsError ? (
+              <div className="grid gap-3 p-4">
+                <p className="text-sm text-destructive" role="alert">{versionsError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-fit"
+                  onClick={() => void handleVersionDrawerOpenChange(true)}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : versions.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
+            ) : (
+              <ItemGroup className="p-4">
+                {versions.map((v) => (
+                  <Item key={v.versionNumber} variant="outline">
+                    <ItemHeader>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">
+                          v{v.versionNumber}
+                        </Badge>
+                        {latestVersion?.versionNumber === v.versionNumber ? (
+                          <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
+                            <span className="size-1.5 rounded-full bg-brand-bright" />
+                            Current
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </ItemHeader>
+                    <ItemContent>
+                      <ItemTitle>{v.title}</ItemTitle>
+                      <ItemDescription>
+                        {v.actorName.trim() ? `${v.actorName} · ` : ''}
+                        {relativeTime(v.createdAt)}
+                      </ItemDescription>
+                      {v.changeSummary ? (
+                        <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
+                      ) : null}
+                    </ItemContent>
+                    <ItemActions className="pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => void handleViewVersion(v.versionNumber)}
+                        disabled={restoreVersionPending !== null}
+                      >
+                        <EyeOpenIcon className="size-3.5" aria-hidden="true" />
+                        View
+                      </Button>
+                      <SpaConfirmButton
+                        size="sm"
+                        confirmLabel="Confirm restore"
+                        helperText="This overwrites the current draft with this version."
+                        disabled={restoreVersionPending !== null}
+                        onConfirm={() => void handleRestoreVersion(v.versionNumber)}
+                      >
+                        <ResetIcon className="size-3.5" aria-hidden="true" />
+                        Restore
+                      </SpaConfirmButton>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+      {post && post.status !== 'archived' ? (
+        <SpaConfirmButton
+          size="sm"
+          variant="outline"
+          confirmLabel="Confirm archive"
+          helperText="Archiving hides this post from the public blog."
+          disabled={archivePending}
+          onConfirm={() => void handleArchive()}
+          className="justify-start"
+        >
+          <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive post
+        </SpaConfirmButton>
+      ) : null}
+    </div>
+  )
+
+  const saveBar = (
+    <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2">
+      <PendingSubmitButton
+        variant="outline"
+        className="min-w-0 flex-1"
+        pending={savePending}
+        pendingText="Saving…"
+      >
+        Save draft
+      </PendingSubmitButton>
+      {postId && shouldShowPublishAction(post, currentVersionNumber) ? (
+        <Button
+          type="button"
+          variant="default"
+          className="hidden min-w-0 flex-1 lg:inline-flex"
+          disabled={publishPending}
+          onClick={() => void handlePublish()}
+        >
+          {publishPending ? 'Publishing…' : post?.status === 'published' ? 'Publish changes' : 'Publish'}
+        </Button>
+      ) : null}
+    </div>
+  )
+
   return (
     <>
       <PageHeader
@@ -724,7 +1050,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <form
           key={formKey}
           ref={formRef}
-          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_22rem]"
+          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start"
           onSubmit={(event) => void handleSave(event)}
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
@@ -786,344 +1112,75 @@ function PostEditorShell({ postId }: { postId?: string }) {
             />
           </div>
 
-          {/* Rail — settings, actions, versions. Full-width below the split on
-              lg, a right column from xl. */}
+          {/* Mobile rail only — desktop mounts the horizontal settings tabs
+              below instead (single instance, so form ids never duplicate). */}
+          {isNarrow && (
           <aside
-            className={
-              isNarrow && mobileTab !== 'settings'
-                ? 'hidden'
-                : 'grid content-start gap-3 lg:col-span-2 lg:grid-cols-2 lg:gap-4 xl:col-span-1 xl:grid-cols-1 xl:gap-3 xl:sticky xl:top-20'
-            }
+            className={mobileTab !== 'settings' ? 'hidden' : 'grid content-start gap-3'}
           >
-            <div className="px-1 pb-1 lg:col-span-2 xl:col-span-1">
+            <div className="px-1 pb-1">
               <p className="font-sans text-sm font-semibold text-foreground">Post settings</p>
               <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
                 Details, presentation, search metadata, and history.
               </p>
             </div>
             <RailSection title="Post details" defaultOpen>
-              <div className="grid gap-4">
-                <Field>
-                  <FieldLabel htmlFor="post-slug" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Slug
-                  </FieldLabel>
-                  <Input
-                    id="post-slug"
-                    className="font-mono text-sm"
-                    name="slug"
-                    required
-                    maxLength={120}
-                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                    defaultValue={post?.slug ?? ''}
-                    placeholder="auto-generated-from-title"
-                    onInput={(e) => setCurrentSlug(e.currentTarget.value)}
-                  />
-                  <FieldDescription className="font-sans">
-                    Lowercase letters, numbers, and hyphens.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="post-excerpt" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Excerpt
-                  </FieldLabel>
-                  <Textarea
-                    id="post-excerpt"
-                    name="excerpt"
-                    maxLength={500}
-                    rows={3}
-                    defaultValue={post?.excerpt ?? ''}
-                    placeholder="First paragraph of the post will be used if left empty."
-                  />
-                  <div className="flex justify-end">
-                    <CharCounter targetId="post-excerpt" max={500} />
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="post-tags" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Tags
-                  </FieldLabel>
-                  <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
-                </Field>
-              </div>
+              {detailsFields}
             </RailSection>
 
             <RailSection title="Presentation">
-              <div className="grid gap-5">
-                <Field>
-                  <FieldLabel htmlFor="post-cover" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Featured image
-                  </FieldLabel>
-                  <Select
-                    id="post-cover"
-                    name="coverAssetId"
-                    value={selectedCoverAssetId}
-                    onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
-                  >
-                    <option value="">No featured image</option>
-                    {assets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>{asset.filename}</option>
-                    ))}
-                  </Select>
-                  {selectedCoverAsset ? (
-                    <div className="flex min-w-0 items-center gap-3 pt-2">
-                      <img
-                        src={`/media-assets/${selectedCoverAsset.id}`}
-                        alt=""
-                        className="h-16 w-24 shrink-0 rounded-md object-cover"
-                      />
-                      <div className="min-w-0 text-sm">
-                        <p className="truncate font-medium text-foreground">{selectedCoverAsset.filename}</p>
-                        {!selectedCoverAsset.altText ? (
-                          <p className="text-destructive text-xs">
-                            Add alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="underline underline-offset-4">Media</Link>
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                  <details className="mt-2 rounded-lg bg-muted/50 p-3">
-                    <summary className="cursor-pointer font-mono text-[11px] font-medium text-foreground marker:text-muted-foreground">
-                      Upload new
-                    </summary>
-                    <div className="grid gap-3 pt-3">
-                      <Input
-                        ref={coverFileInputRef}
-                        type="file"
-                        accept={MEDIA.mimeTypes.join(',')}
-                      />
-                      <Input
-                        ref={coverAltInputRef}
-                        maxLength={180}
-                        placeholder="Alt text"
-                      />
-                      {coverUploadError ? (
-                        <p className="text-sm text-destructive" role="alert">{coverUploadError}</p>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-fit"
-                        disabled={coverUploadPending}
-                        onClick={() => void handleCoverUpload()}
-                      >
-                        <UploadIcon className="size-4" aria-hidden="true" />
-                        {coverUploadPending ? 'Uploading…' : 'Upload'}
-                      </Button>
-                    </div>
-                  </details>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="post-layout" className="font-mono text-[11px] font-medium text-muted-foreground">
-                    Article layout
-                  </FieldLabel>
-                  <Select
-                    id="post-layout"
-                    value={selectedLayout}
-                    onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
-                  >
-                    {capability.supportedLayouts.map((l) => (
-                      <option key={l} value={l}>
-                        {l.charAt(0).toUpperCase() + l.slice(1)}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {capability.supportsToc ? (
-                  <Field>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        id="post-toc"
-                        checked={selectedToc}
-                        onCheckedChange={(checked) => { setSelectedToc(checked); setPresentationDirty(true) }}
-                      />
-                      <FieldLabel htmlFor="post-toc" className="font-mono text-[11px] font-medium text-muted-foreground">
-                        Table of contents
-                      </FieldLabel>
-                    </div>
-                  </Field>
-                ) : null}
-              </div>
+              {presentationFields}
             </RailSection>
 
             {/* SEO — shows inherited values by default */}
             <RailSection title="Search & sharing">
-              <div className="grid gap-3">
-                <div>
-                  <p className="font-mono text-[11px] font-medium text-muted-foreground">SEO title</p>
-                  <p className="mt-0.5 text-sm text-foreground">{derivedSeoTitle}</p>
-                  <Input
-                    id="post-seo-title"
-                    name="seoTitle"
-                    maxLength={70}
-                    defaultValue={post?.seoTitle ?? ''}
-                    placeholder={`Same as post title`}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <p className="font-mono text-[11px] font-medium text-muted-foreground">Canonical URL</p>
-                  <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                    {derivedCanonical ?? 'Set after first save'}
-                  </p>
-                  <Input
-                    id="post-canonical-url"
-                    name="canonicalUrl"
-                    type="text"
-                    maxLength={2048}
-                    defaultValue={post?.canonicalUrl ?? ''}
-                    placeholder="Override canonical URL"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+              {seoFields}
             </RailSection>
 
             {/* Versions + Archive */}
             {postId ? (
               <RailSection title="History">
-                <div className="grid gap-2">
-                  <Sheet
-                    open={versionDrawerOpen}
-                    onOpenChange={(open) => void handleVersionDrawerOpenChange(open)}
-                  >
-                    <SheetTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="justify-start gap-2"
-                      >
-                        <CounterClockwiseClockIcon className="size-4" aria-hidden="true" />
-                        Version history
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
-                      <SheetHeader>
-                        <SheetTitle>Version history</SheetTitle>
-                        <SheetDescription>
-                          Past saved versions of this post.
-                        </SheetDescription>
-                      </SheetHeader>
-                      <Separator />
-                      <ScrollArea className="max-h-[26rem] min-h-0 flex-1">
-                        {versionsLoading ? (
-                          <div className="grid gap-3 p-4">
-                            <Skeleton className="h-16 rounded-lg" />
-                            <Skeleton className="h-16 rounded-lg" />
-                          </div>
-                        ) : versionsError ? (
-                          <div className="grid gap-3 p-4">
-                            <p className="text-sm text-destructive" role="alert">{versionsError}</p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-fit"
-                              onClick={() => void handleVersionDrawerOpenChange(true)}
-                            >
-                              Retry
-                            </Button>
-                          </div>
-                        ) : versions.length === 0 ? (
-                          <p className="p-4 text-sm text-muted-foreground">No versions saved yet.</p>
-                        ) : (
-                          <ItemGroup className="p-4">
-                            {versions.map((v) => (
-                              <Item key={v.versionNumber} variant="outline">
-                                <ItemHeader>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="font-mono text-xs">
-                                      v{v.versionNumber}
-                                    </Badge>
-                                    {latestVersion?.versionNumber === v.versionNumber ? (
-                                      <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">
-                                        <span className="size-1.5 rounded-full bg-brand-bright" />
-                                        Current
-                                      </Badge>
-                                    ) : null}
-                                  </div>
-                                </ItemHeader>
-                                <ItemContent>
-                                  <ItemTitle>{v.title}</ItemTitle>
-                                  <ItemDescription>
-                                    {v.actorName.trim() ? `${v.actorName} · ` : ''}
-                                    {relativeTime(v.createdAt)}
-                                  </ItemDescription>
-                                  {v.changeSummary ? (
-                                    <p className="text-xs italic text-muted-foreground">{v.changeSummary}</p>
-                                  ) : null}
-                                </ItemContent>
-                                <ItemActions className="pt-1">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1.5"
-                                    onClick={() => void handleViewVersion(v.versionNumber)}
-                                    disabled={restoreVersionPending !== null}
-                                  >
-                                    <EyeOpenIcon className="size-3.5" aria-hidden="true" />
-                                    View
-                                  </Button>
-                                  <SpaConfirmButton
-                                    size="sm"
-                                    confirmLabel="Confirm restore"
-                                    helperText="This overwrites the current draft with this version."
-                                    disabled={restoreVersionPending !== null}
-                                    onConfirm={() => void handleRestoreVersion(v.versionNumber)}
-                                  >
-                                    <ResetIcon className="size-3.5" aria-hidden="true" />
-                                    Restore
-                                  </SpaConfirmButton>
-                                </ItemActions>
-                              </Item>
-                            ))}
-                          </ItemGroup>
-                        )}
-                      </ScrollArea>
-                    </SheetContent>
-                  </Sheet>
-                  {post && post.status !== 'archived' ? (
-                    <SpaConfirmButton
-                      size="sm"
-                      variant="outline"
-                      confirmLabel="Confirm archive"
-                      helperText="Archiving hides this post from the public blog."
-                      disabled={archivePending}
-                      onConfirm={() => void handleArchive()}
-                      className="justify-start"
-                    >
-                      <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive post
-                    </SpaConfirmButton>
-                  ) : null}
-                </div>
+                {historyContent}
               </RailSection>
             ) : null}
 
             {/* Sticky save/publish */}
-            <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2 lg:col-span-2 xl:sticky xl:bottom-6 xl:col-span-1">
-              <PendingSubmitButton
-                variant="outline"
-                className="min-w-0 flex-1"
-                pending={savePending}
-                pendingText="Saving…"
-              >
-                Save draft
-              </PendingSubmitButton>
-              {postId && shouldShowPublishAction(post, currentVersionNumber) ? (
-                <Button
-                  type="button"
-                  variant="default"
-                  className="hidden min-w-0 flex-1 lg:inline-flex"
-                  disabled={publishPending}
-                  onClick={() => void handlePublish()}
-                >
-                  {publishPending ? 'Publishing…' : post?.status === 'published' ? 'Publish changes' : 'Publish'}
-                </Button>
-              ) : null}
-            </div>
+            {saveBar}
           </aside>
+          )}
+
+          {/* Desktop: horizontal settings tabs. Full width gives the field
+              groups real room, and the freed column goes to the live preview. */}
+          {!isNarrow && (
+            <section className="grid gap-4 lg:col-span-2">
+              <div className="px-1 pb-1">
+                <p className="font-sans text-sm font-semibold text-foreground">Post settings</p>
+                <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
+                  Details, presentation, search metadata, and history.
+                </p>
+              </div>
+              <Tabs defaultValue="details" className="gap-4">
+                <TabsList
+                  variant="line"
+                  aria-label="Post settings sections"
+                  className="w-full justify-start rounded-none border-t border-[color:var(--hairline)] p-0"
+                >
+                  <TabsTrigger value="details" className="px-3">Post details</TabsTrigger>
+                  <TabsTrigger value="presentation" className="px-3">Presentation</TabsTrigger>
+                  <TabsTrigger value="seo" className="px-3">Search &amp; sharing</TabsTrigger>
+                  {postId ? <TabsTrigger value="history" className="px-3">History</TabsTrigger> : null}
+                </TabsList>
+                {/* forceMount: fields are uncontrolled form data, so every
+                    tab's inputs must stay in the DOM for serialization and
+                    unsaved-changes baselines even when the tab is inactive. */}
+                <TabsContent forceMount value="details" className="pt-4">{detailsFields}</TabsContent>
+                <TabsContent forceMount value="presentation" className="pt-4">{presentationFields}</TabsContent>
+                <TabsContent forceMount value="seo" className="pt-4">{seoFields}</TabsContent>
+                {postId ? <TabsContent forceMount value="history" className="pt-4">{historyContent}</TabsContent> : null}
+              </Tabs>
+              {saveBar}
+            </section>
+          )}
         </form>
       )}
 

@@ -562,7 +562,9 @@ export function ConnectPage() {
             }
           />
 
-          {!loading && !live && effectiveTab === 'setup' && (
+          {/* The rail disappears when the first post goes live — and stays put
+              across the setup/tokens tabs so switching doesn't shift layout. */}
+          {!loading && !live && (
             <div className="mb-8">
               <OnboardingStepper
                 step={connectOnboardingStep(status?.firstPost, displayConn === 'connected')}
