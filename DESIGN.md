@@ -42,9 +42,16 @@ placement, not from flooding color.
 | `--secondary` / `--muted` | `oklch(0.22 0.012 168)` | Quiet fills |
 | `--muted-foreground` | `oklch(0.72 0.014 155)` | Secondary text - verify ≥4.5:1 |
 | `--accent` | `oklch(0.28 0.055 152)` | Hover / active green-tinted fill |
-| `--border` | `oklch(0.47 0.014 168)` | Borders |
+| `--border` | `oklch(0.3 0.018 168)` | Borders (component boundaries) |
 | `--destructive` | `oklch(0.54 0.2 25)` | Errors / danger |
 | `--sidebar` | `oklch(0.165 0.008 244)` | Dashboard sidebar |
+
+**Two-tier line rule:** `--border` (near-surface, ~0.3L on dark — a quiet but
+real edge around inputs, buttons, cards) is the component-boundary tier; any
+bare `border` utility resolves to it, so default components stay consistent
+without per-class overrides. `--hairline` (translucent white on dark / black
+on light) is the decorative tier for ruled lists and section separators.
+Between them lies nothing: no third border color, no hard outlines.
 
 Surface helpers: `--hairline` (`oklch(1 0 0 / 0.12)`), `--surface-glass` /
 `--surface-glass-strong`, `--surface-panel-from/to`, `--dot-grid-fill`.
