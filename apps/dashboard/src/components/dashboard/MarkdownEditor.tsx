@@ -484,26 +484,23 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
   }
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-col gap-3 rounded-xl border border-[color:var(--hairline)] p-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="px-1 font-mono text-[11px] text-muted-foreground">
-          Markdown · <span className="tabular-nums">{wordCount}</span> words ·{' '}
-          <span className="tabular-nums">{Math.max(1, Math.ceil(wordCount / 238))}</span> min read
-        </p>
-        <Button
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <button
           type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 justify-center gap-1.5 font-mono text-[11px]"
+          className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => {
             rememberSelection()
             setImagePickerError(null)
             setImagePickerOpen(true)
           }}
         >
-          <ImageIcon className="size-4" aria-hidden="true" />
+          <ImageIcon className="size-3.5" aria-hidden="true" />
           Add image
-        </Button>
+        </button>
+        <p className="font-mono text-[11px] tabular-nums text-muted-foreground" aria-live="off">
+          {wordCount} words · {Math.max(1, Math.ceil(wordCount / 238))} min
+        </p>
       </div>
       <Dialog open={imagePickerOpen} onOpenChange={setImagePickerOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
@@ -675,9 +672,6 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
           </div>
         ) : null}
       </div>
-      <FieldDescription className="font-mono text-[11px] text-muted-foreground">
-        Markdown for links, lists, tables, code, and quotes — or type <code>/</code> on a new line for a block. The page next door shows the result.
-      </FieldDescription>
     </div>
   )
 }

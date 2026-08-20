@@ -17,12 +17,12 @@ import {
   updatePostMutation,
 } from '~/lib/api-client'
 import { Button, formatDateTime } from '~/components/dashboard/DashboardLayout'
-import { PageHeader, Panel } from '~/components/dashboard/blocks'
+import { Panel } from '~/components/dashboard/blocks'
 import { Badge, Card } from "@vc/ui"
 import { Skeleton } from "@vc/ui"
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { Switch } from '~/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import {
   MarkdownEditor,
   PostPreviewPane,
@@ -36,7 +36,7 @@ import { useMediaQuery } from '~/hooks/use-media-query'
 import type { EditorSiteInfo } from '~/types/dashboard'
 import { emptyDashboardStatusSearch, emptyPostsListSearch, emptyPostEditorSearch, postEditorSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { ArchiveIcon, ChevronDownIcon, ChevronLeftIcon, CounterClockwiseClockIcon, EyeOpenIcon, ResetIcon, RocketIcon, UploadIcon } from '@radix-ui/react-icons'
+import { ArchiveIcon, ChevronDownIcon, ChevronLeftIcon, CounterClockwiseClockIcon, EyeOpenIcon, GearIcon, ResetIcon, UploadIcon } from '@radix-ui/react-icons'
 import {
   Sheet,
   SheetContent,
@@ -116,108 +116,40 @@ function PostStatusBadge({ status }: { status: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Editor state strip: version, status, last-saved, publish CTA.
-// Rendered above the writing surface so the author always sees the state.
+// Compact state signal: one colored dot + label. Green = live, amber = ahead
+// of the public version, muted = nothing public yet.
 // ---------------------------------------------------------------------------
-function EditorStateStrip({
-  post,
-  currentVersionNumber,
-  latestVersion,
-  publicBaseUrl,
-  publishPending,
-  onPublish,
-  onReviewChanges,
-}: {
-  post: Post
-  currentVersionNumber: number | null
-  latestVersion: PostVersionSummary | null
-  publicBaseUrl: string | null
-  publishPending: boolean
-  onPublish: () => void
-  onReviewChanges: () => void
-}) {
-  const state = editorLiveState(post, currentVersionNumber)
-  const liveUrl =
-    post.status === 'published' && publicBaseUrl ? `${publicBaseUrl}/${post.slug}` : null
-
-  // State signal — one colored dot + label. Green = live, amber = ahead of the
-  // public version, muted = nothing public yet. This is the strip's headline.
-  const stateSignal =
-    state === 'live' ? (
-      <span className="flex items-center gap-2 font-mono text-xs font-medium text-primary">
+export function editorStateSignal(state: EditorLiveState) {
+  if (state === 'live') {
+    return (
+      <span className="flex items-center gap-2 font-mono text-[11px] font-medium text-primary">
         <span className="relative flex size-2">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-bright/40 motion-reduce:animate-none" />
           <span className="relative inline-flex size-2 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
         </span>
-        All changes live
-      </span>
-    ) : state === 'unpublished' ? (
-      <span className="flex items-center gap-2 font-mono text-xs font-medium text-amber-600 dark:text-amber-400">
-        <span className="size-2 rounded-full bg-amber-500" />
-        Unpublished changes
-      </span>
-    ) : state === 'draft' ? (
-      <span className="flex items-center gap-2 font-mono text-xs font-medium text-muted-foreground">
-        <span className="size-2 rounded-full bg-muted-foreground/40" />
-        Draft
-      </span>
-    ) : (
-      <span className="flex items-center gap-2 font-mono text-xs font-medium text-muted-foreground">
-        <span className="size-2 rounded-full bg-muted-foreground/40" />
-        Archived
+        Live
       </span>
     )
-
+  }
+  if (state === 'unpublished') {
+    return (
+      <span className="flex items-center gap-2 font-mono text-[11px] font-medium text-amber-600 dark:text-amber-400">
+        <span className="size-2 rounded-full bg-amber-500" />
+        Unpublished
+      </span>
+    )
+  }
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-foreground/[0.065] bg-card px-4 py-2.5">
-      {/* Quiet metadata — version + last saved read as one cluster, never compete */}
-      <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
-        <span className="tabular-nums">v{currentVersionNumber ?? '—'}</span>
-        {latestVersion ? (
-          <>
-            <span aria-hidden className="text-muted-foreground/40">·</span>
-            <span className="truncate">
-              Saved {relativeTime(latestVersion.createdAt)}
-              {latestVersion.actorName.trim() ? ` by ${latestVersion.actorName}` : ''}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        {state === 'unpublished' ? (
-          <Button type="button" variant="outline" size="sm" onClick={onReviewChanges}>
-            <EyeOpenIcon aria-hidden data-icon="inline-start" /> Review changes
-          </Button>
-        ) : null}
-        {liveUrl ? (
-          <a
-            href={liveUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Open live ↗
-          </a>
-        ) : null}
-        {stateSignal}
-        {shouldShowPublishAction(post, currentVersionNumber) ? (
-          <PendingSubmitButton
-            type="button"
-            size="sm"
-            className="lg:hidden"
-            pending={publishPending}
-            pendingText="Publishing…"
-            onClick={onPublish}
-          >
-            <RocketIcon aria-hidden data-icon="inline-start" />
-            {post.status === 'published' ? 'Publish changes' : 'Publish'}
-          </PendingSubmitButton>
-        ) : null}
-      </div>
-    </div>
+    <span className="flex items-center gap-2 font-mono text-[11px] font-medium text-muted-foreground">
+      <span className="size-2 rounded-full bg-muted-foreground/40" />
+      {state === 'draft' ? 'Draft' : state === 'new' ? 'New' : 'Archived'}
+    </span>
   )
 }
+
+/** The form's stable id — settings lives in a portaled Sheet on desktop, so
+ *  its inputs bind to the form via `form={FORM_ID}` instead of DOM nesting. */
+const FORM_ID = 'post-editor-form'
 
 export function NewPostEditorPage() {
   return <PostEditorShell postId={undefined} />
@@ -229,24 +161,14 @@ export function EditPostEditorPage({ postId }: { postId: string }) {
 
 function EditorSkeleton() {
   return (
-    <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <Skeleton className="h-9 w-32" />
+    <div className="grid gap-5">
+      <Skeleton className="h-11 rounded-2xl" />
+      <div className="mx-auto w-full max-w-[46rem] space-y-5">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-4 w-56" />
+        <Skeleton className="h-[26rem] rounded-2xl" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
-        <Skeleton className="h-[34rem] rounded-2xl" />
-        <Skeleton className="h-[34rem] rounded-2xl" />
-        <div className="grid gap-3 lg:col-span-2">
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-32 rounded-2xl" />
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
 
@@ -362,10 +284,17 @@ function PostEditorShell({ postId }: { postId?: string }) {
   const [presentationDirty, setPresentationDirty] = useState(false)
   const [hasPriorPresentation, setHasPriorPresentation] = useState(false)
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // Re-flush when the async post load lands or a version restore swaps the
   // form, not only when assets change (a post with zero assets must still
   // preview immediately).
   const livePreview = usePostPreviewSync(post?.contentMarkdown ?? '', [formKey, post], assets)
+
+  // Resizing from mobile (Settings tab) to desktop has no Write surface
+  // — return to writing; desktop settings live in the Sheet.
+  useEffect(() => {
+    if (!isNarrow && mobileTab === 'settings') setMobileTab('write')
+  }, [isNarrow, mobileTab])
   const [selectedCoverAssetId, setSelectedCoverAssetId] = useState('')
   const [coverUploadPending, setCoverUploadPending] = useState(false)
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
@@ -694,6 +623,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </FieldLabel>
         <Input
           id="post-slug"
+          form={FORM_ID}
           className="font-mono text-sm"
           name="slug"
           required
@@ -711,7 +641,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <FieldLabel htmlFor="post-tags" className="font-mono text-[11px] font-medium text-muted-foreground">
           Tags
         </FieldLabel>
-        <Input id="post-tags" name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
+        <Input id="post-tags" form={FORM_ID} name="tags" placeholder="launch, notes" defaultValue={post?.tags.join(', ') ?? ''} />
       </Field>
       <Field className="md:col-span-2">
         <FieldLabel htmlFor="post-excerpt" className="font-mono text-[11px] font-medium text-muted-foreground">
@@ -719,6 +649,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </FieldLabel>
         <Textarea
           id="post-excerpt"
+          form={FORM_ID}
           name="excerpt"
           maxLength={500}
           rows={3}
@@ -740,6 +671,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </FieldLabel>
         <Select
           id="post-cover"
+          form={FORM_ID}
           name="coverAssetId"
           value={selectedCoverAssetId}
           onChange={(event) => setSelectedCoverAssetId(event.currentTarget.value)}
@@ -805,6 +737,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
           </FieldLabel>
           <Select
             id="post-layout"
+            form={FORM_ID}
             value={selectedLayout}
             onChange={(e) => { setSelectedLayout(e.currentTarget.value); setPresentationDirty(true) }}
           >
@@ -840,6 +773,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <p className="mt-0.5 text-sm text-foreground">{derivedSeoTitle}</p>
         <Input
           id="post-seo-title"
+          form={FORM_ID}
           name="seoTitle"
           maxLength={70}
           defaultValue={post?.seoTitle ?? ''}
@@ -854,6 +788,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         </p>
         <Input
           id="post-canonical-url"
+          form={FORM_ID}
           name="canonicalUrl"
           type="text"
           maxLength={2048}
@@ -998,7 +933,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <Button
           type="button"
           variant="default"
-          className="hidden min-w-0 flex-1 lg:inline-flex"
+          className="min-w-0 flex-1"
           disabled={publishPending}
           onClick={() => void handlePublish()}
         >
@@ -1010,29 +945,6 @@ function PostEditorShell({ postId }: { postId?: string }) {
 
   return (
     <>
-      <PageHeader
-        title={post ? 'Edit post' : 'Create post'}
-        description="Write in Markdown; your exact public page updates live — beside your text on desktop, in the Preview tab on mobile."
-        action={
-          <div className="flex items-center gap-2">
-            {post && <PostStatusBadge status={post.status} />}
-            <Button asChild variant="outline">
-              <Link to="/dashboard/posts" search={emptyPostsListSearch}><ChevronLeftIcon aria-hidden data-icon="inline-start" /> Back to posts</Link>
-            </Button>
-          </div>
-        }
-      />
-      {post ? (
-        <EditorStateStrip
-          post={post}
-          currentVersionNumber={currentVersionNumber}
-          latestVersion={latestVersion}
-          publicBaseUrl={publicBaseUrl}
-          publishPending={publishPending}
-          onPublish={() => void handlePublish()}
-          onReviewChanges={() => void handleReviewChanges()}
-        />
-      ) : null}
       {loadError ? (
         <Panel title="Could not load post">
           <div className="grid gap-3">
@@ -1050,11 +962,93 @@ function PostEditorShell({ postId }: { postId?: string }) {
         <form
           key={formKey}
           ref={formRef}
-          className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start"
+          id={FORM_ID}
+          className="grid gap-5"
           onSubmit={(event) => void handleSave(event)}
         >
           <UnsavedChangesGuard message="You have unsaved post changes. Leave without saving?" resetKey={post} />
           <PostSlugFromTitle enabled={!post} />
+
+          {/* Slim editor bar (Marble-style composition): back + state on the
+              left, view switch + actions on the right. Sticky so Publish and
+              the Preview switch stay one glance away while writing. */}
+          <div className="sticky top-2 z-20 -mx-1 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-card/85 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:top-20">
+            <Button asChild variant="ghost" size="sm" className="-ms-1.5">
+              <Link to="/dashboard/posts" search={emptyPostsListSearch}>
+                <ChevronLeftIcon aria-hidden data-icon="inline-start" /> Posts
+              </Link>
+            </Button>
+            {editorStateSignal(editorLiveState(post, currentVersionNumber))}
+            <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
+              v{currentVersionNumber ?? '—'}
+              {latestVersion ? ` · saved ${relativeTime(latestVersion.createdAt)}` : ''}
+            </span>
+            <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
+              {!isNarrow ? (
+                <div className="flex rounded-lg bg-background/70 p-1" role="group" aria-label="Editor view">
+                  {(['write', 'preview'] as const).map((view) => (
+                    <Button
+                      key={view}
+                      type="button"
+                      variant={mobileTab === view ? 'default' : 'ghost'}
+                      size="sm"
+                      className="h-7 rounded-md px-2.5 font-mono text-[11px]"
+                      aria-pressed={mobileTab === view}
+                      onClick={() => setMobileTab(view)}
+                    >
+                      {view === 'write' ? 'Write' : 'Preview'}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              {post && editorLiveState(post, currentVersionNumber) === 'unpublished' ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => void handleReviewChanges()}>
+                  <EyeOpenIcon aria-hidden data-icon="inline-start" /> Review changes
+                </Button>
+              ) : null}
+              {post?.status === 'published' && publicBaseUrl ? (
+                <a
+                  href={`${publicBaseUrl}/${post.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline sm:inline"
+                >
+                  Open live ↗
+                </a>
+              ) : null}
+              {!isNarrow ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSettingsOpen(true)}
+                  aria-label="Post settings"
+                >
+                  <GearIcon aria-hidden data-icon="inline-start" /> Settings
+                </Button>
+              ) : null}
+              <PendingSubmitButton
+                variant="outline"
+                size="sm"
+                className={isNarrow ? 'hidden' : undefined}
+                pending={savePending}
+                pendingText="Saving…"
+              >
+                Save draft
+              </PendingSubmitButton>
+              {postId && shouldShowPublishAction(post, currentVersionNumber) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className={isNarrow ? 'hidden' : undefined}
+                  disabled={publishPending}
+                  onClick={() => void handlePublish()}
+                >
+                  {publishPending ? 'Publishing…' : post?.status === 'published' ? 'Publish changes' : 'Publish'}
+                </Button>
+              ) : null}
+            </div>
+          </div>
           {isNarrow ? (
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-foreground/[0.065] bg-card p-2">
               <Tabs
@@ -1074,8 +1068,8 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           ) : null}
 
-          {/* Write pane — no panel wrapper, just the title and body */}
-          <div className={isNarrow && mobileTab !== 'write' ? 'hidden' : 'min-w-0'}>
+          {/* Write pane — one centered wide column, no chrome around it */}
+          <div className={mobileTab !== 'write' ? 'hidden' : 'min-w-0 mx-auto w-full max-w-[46rem]'}>
             <input
               id="post-title"
               name="title"
@@ -1084,7 +1078,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
               defaultValue={post?.title ?? ''}
               placeholder="Post title"
               aria-label="Post title"
-              className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-[2.25rem]"
+              className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-[2.5rem]"
               onInput={(e) => setCurrentTitle(e.currentTarget.value)}
             />
             <div className="mt-1 mb-6 flex items-center gap-2">
@@ -1093,14 +1087,13 @@ function PostEditorShell({ postId }: { postId?: string }) {
                 {publicBaseUrl && currentSlug ? `${publicBaseUrl.replace('https://', '')}/${currentSlug}` : 'slug will generate from title'}
               </span>
             </div>
-            {/* PostSlugFromTitle writes into the slug input in the rail */}
+            {/* PostSlugFromTitle writes into the slug input in settings */}
             <MarkdownEditor assets={assets} defaultValue={post?.contentMarkdown ?? ''} />
           </div>
 
-          {/* Live exact-public-page preview. Hidden (but always re-rendering
-              with the latest text) on the mobile Write tab; visible side by
-              side on desktop. */}
-          <div className={isNarrow && mobileTab !== 'preview' ? 'hidden' : 'min-w-0'}>
+          {/* Preview is a full-page mode (Marble composition), not a side
+              strip — the exact public page, live as you type. */}
+          <div className={mobileTab !== 'preview' ? 'hidden' : 'min-w-0 mx-auto w-full max-w-5xl'}>
             <PostPreviewPane
               source={livePreview.source}
               metadata={livePreview.metadata}
@@ -1112,8 +1105,9 @@ function PostEditorShell({ postId }: { postId?: string }) {
             />
           </div>
 
-          {/* Mobile rail only — desktop mounts the horizontal settings tabs
-              below instead (single instance, so form ids never duplicate). */}
+          {/* Mobile rail — settings as the third tab; desktop gets the
+              settings Sheet instead (single instance per viewport, so form
+              ids never duplicate). */}
           {isNarrow && (
           <aside
             className={mobileTab !== 'settings' ? 'hidden' : 'grid content-start gap-3'}
@@ -1144,44 +1138,56 @@ function PostEditorShell({ postId }: { postId?: string }) {
               </RailSection>
             ) : null}
 
-            {/* Sticky save/publish */}
+            {/* Save/publish also lives in the rail on mobile (the slim bar
+                hides them there). */}
             {saveBar}
           </aside>
           )}
-
-          {/* Desktop: horizontal settings tabs. Full width gives the field
-              groups real room, and the freed column goes to the live preview. */}
-          {!isNarrow && (
-            <section className="grid gap-4 lg:col-span-2">
-              <div className="px-1 pb-1">
-                <p className="font-sans text-sm font-semibold text-foreground">Post settings</p>
-                <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
-                  Details, presentation, search metadata, and history.
-                </p>
-              </div>
-              <Tabs defaultValue="details" className="gap-4">
-                <TabsList
-                  variant="line"
-                  aria-label="Post settings sections"
-                  className="w-full justify-start rounded-none border-t border-[color:var(--hairline)] p-0"
-                >
-                  <TabsTrigger value="details" className="px-3">Post details</TabsTrigger>
-                  <TabsTrigger value="presentation" className="px-3">Presentation</TabsTrigger>
-                  <TabsTrigger value="seo" className="px-3">Search &amp; sharing</TabsTrigger>
-                  {postId ? <TabsTrigger value="history" className="px-3">History</TabsTrigger> : null}
-                </TabsList>
-                {/* forceMount: fields are uncontrolled form data, so every
-                    tab's inputs must stay in the DOM for serialization and
-                    unsaved-changes baselines even when the tab is inactive. */}
-                <TabsContent forceMount value="details" className="pt-4">{detailsFields}</TabsContent>
-                <TabsContent forceMount value="presentation" className="pt-4">{presentationFields}</TabsContent>
-                <TabsContent forceMount value="seo" className="pt-4">{seoFields}</TabsContent>
-                {postId ? <TabsContent forceMount value="history" className="pt-4">{historyContent}</TabsContent> : null}
-              </Tabs>
-              {saveBar}
-            </section>
-          )}
         </form>
+      )}
+
+      {/* Desktop settings: right overlay sheet. Inputs are portaled out of
+          the DOM form, so each binds to #{FORM_ID} via the form attribute. */}
+      {!isNarrow && (
+        <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <SheetContent side="right" className="flex w-full flex-col gap-5 overflow-y-auto sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle>Post settings</SheetTitle>
+              <SheetDescription>Details, presentation, search metadata, and history.</SheetDescription>
+            </SheetHeader>
+            <section className="grid gap-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                Post details
+              </p>
+              {detailsFields}
+            </section>
+            <Separator />
+            <section className="grid gap-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                Presentation
+              </p>
+              {presentationFields}
+            </section>
+            <Separator />
+            <section className="grid gap-4">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                Search &amp; sharing
+              </p>
+              {seoFields}
+            </section>
+            {postId ? (
+              <>
+                <Separator />
+                <section className="grid gap-4">
+                  <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    History
+                  </p>
+                  {historyContent}
+                </section>
+              </>
+            ) : null}
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Version viewer dialog */}

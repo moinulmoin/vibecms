@@ -141,6 +141,16 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    and sr-only progress announcements. Hook detail fixed in review: preview
    deps include the post identity so asset-less posts preview on load without
    a keystroke. Copy adjusted for mobile (preview lives in the Preview tab).
+   V2 COMPOSITION (2026-08-20, user: the editor page still read too busy):
+   adopt Marble's page composition in our skin — one centered 46rem writing
+   column, slim sticky bar (back · state signal · Write/Preview switch ·
+   settings · Save/Publish), Preview as a full-canvas live mode, settings as
+   a right overlay Sheet whose inputs bind to the form via the form
+   attribute (portal-safe), mobile rail unchanged. The horizontal settings
+   tabs from earlier today were superseded by this Sheet; the user's actual
+   ask was horizontal tabs on the MAIN Settings page — still queued. Dark
+   --border/--input corrected to near-surface oklch(0.30/0.28) (learned from
+   Marble's dark tokens) and DESIGN.md documents the two-tier line rule.
 
 ## Invariants
 
