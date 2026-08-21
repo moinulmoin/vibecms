@@ -227,7 +227,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
           <>
             <div className="grid gap-0 md:hidden">
               {posts.map((post) => (
-                <article className="grid gap-3 border-b border-foreground/[0.065] py-4 last:border-b-0" key={post.id}>
+                <article className="grid gap-3 border-b border-[color:var(--hairline)] py-4 last:border-b-0" key={post.id}>
                   <div className="min-w-0">
                     {canEdit ? (
                       <Link

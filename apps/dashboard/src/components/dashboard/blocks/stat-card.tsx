@@ -35,8 +35,8 @@ export function StatCardGrid({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        'grid overflow-hidden rounded-2xl border border-foreground/[0.065] bg-card sm:grid-cols-2 xl:grid-cols-4',
-        '[&>*]:border-b [&>*]:border-foreground/[0.065] [&>*:last-child]:border-b-0',
+        'grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-4',
+        '[&>*]:border-b [&>*]:border-border [&>*:last-child]:border-b-0',
         'sm:[&>*:nth-child(odd)]:border-r sm:[&>*:nth-child(n+3)]:border-b-0',
         'xl:[&>*]:border-b-0 xl:[&>*:not(:last-child)]:border-r',
         className,

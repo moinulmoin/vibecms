@@ -162,7 +162,7 @@ function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'availa
       ) : (
         <ol className="space-y-1">
           {data.topPosts.map((post, index) => (
-            <li key={post.postId} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
+            <li key={post.postId} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0">
               <span className="font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
               <Link
                 to="/dashboard/posts/$postId/edit"
@@ -189,7 +189,7 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
       ) : (
         <ol className="space-y-1">
           {data.referrers.map((referrer) => (
-            <li key={referrer.domain} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
+            <li key={referrer.domain} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0">
               <div className="min-w-0">
                 <p className="truncate font-mono text-sm text-foreground">{referrer.domain}</p>
                 {referrer.ai ? <p className="mt-1 text-xs text-muted-foreground">AI referral · {referrer.operator}</p> : null}
@@ -226,7 +226,7 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
       ) : (
         <div className="grid gap-x-8 md:grid-cols-2">
           {data.aiCrawlers.agents.map((crawler) => (
-            <div key={crawler.agent} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0 md:border-b-0">
+            <div key={crawler.agent} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0 md:border-b-0">
               <div className="min-w-0">
                 <p className="truncate font-mono text-sm font-medium text-foreground">{crawler.agent}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{crawler.operator} · {crawler.category}</p>

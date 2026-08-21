@@ -150,103 +150,105 @@ export function BillingPage() {
         }
       />
       <div className="grid max-w-2xl gap-4">
-          <Panel
-            title={PRICING.monthlyLabel}
-            meta={
-              <span className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {PRICING.planName}
-                </span>
-                <BillingStatusBadge status={billing.status} />
+        <Panel
+          title={PRICING.monthlyLabel}
+          meta={
+            <span className="flex items-center gap-2">
+              <span className="font-mono text-xs text-muted-foreground">
+                {PRICING.planName}
               </span>
-            }
-          >
-            <p className="mb-5 font-sans text-base leading-7 text-muted-foreground">
-              or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
-            </p>
-            <ul className="grid gap-3 rounded-xl bg-muted/35 p-4 text-base leading-6 sm:grid-cols-2">
-              {ENTITLEMENTS.map((entitlement) => (
-                <li key={entitlement} className="flex items-start gap-2.5">
-                  <CheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                  <span className="font-sans text-foreground">{entitlement}</span>
-                </li>
-              ))}
-              <li className="flex items-start gap-2.5">
-                <CheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
-              </li>
-            </ul>
-            {isActive ? (
-              <Alert className="mt-5" title="If you cancel">
-                Paid access ends when the subscription ends. More publishing, media uploads, custom domains,
-                search indexing, analytics, and paid API limits will lock. Existing posts stay online, and your
-                drafts, media, domains, versions, and analytics history are kept for you if you resubscribe.
-              </Alert>
-            ) : null}
-            {isOwner ? (
-              isActive ? (
-                <div className="mt-5 grid gap-2">
-                  <PendingSubmitButton
-                    type="button"
-                    className="h-11 w-full rounded-xl"
-                    pending={portalPending}
-                    pendingText="Opening portal…"
-                    onClick={() => void openPortal()}
-                  >
-                    <IdCardIcon aria-hidden data-icon="inline-start" /> Manage subscription
-                  </PendingSubmitButton>
-                </div>
-              ) : (
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                  <PendingSubmitButton
-                    type="button"
-                    className="h-11 w-full rounded-xl"
-                    pending={checkoutPending === 'monthly'}
-                    disabled={checkoutPending !== null && checkoutPending !== 'monthly'}
-                    pendingText="Starting checkout…"
-                    onClick={() => void startCheckout('monthly')}
-                  >
-                    <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe monthly
-                  </PendingSubmitButton>
-                  <PendingSubmitButton
-                    type="button"
-                    variant="outline"
-                    className="h-11 w-full rounded-xl"
-                    pending={checkoutPending === 'yearly'}
-                    disabled={checkoutPending !== null && checkoutPending !== 'yearly'}
-                    pendingText="Starting checkout…"
-                    onClick={() => void startCheckout('yearly')}
-                  >
-                    <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe yearly
-                  </PendingSubmitButton>
-                  <PendingSubmitButton
-                    type="button"
-                    variant="outline"
-                    className="h-11 w-full rounded-xl sm:col-span-2"
-                    pending={portalPending}
-                    disabled={checkoutPending !== null}
-                    pendingText="Opening portal…"
-                    onClick={() => void openPortal()}
-                  >
-                    <ExternalLinkIcon aria-hidden data-icon="inline-start" /> Customer portal
-                  </PendingSubmitButton>
-                </div>
-              )
+              <BillingStatusBadge status={billing.status} />
+            </span>
+          }
+        >
+          <p className="max-w-xl font-sans text-base leading-7 text-muted-foreground">
+            or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
+          </p>
+          {isActive ? (
+            <Alert title="If you cancel">
+              Paid access ends when the subscription ends. More publishing, media uploads, custom domains,
+              search indexing, analytics, and paid API limits will lock. Existing posts stay online, and your
+              drafts, media, domains, versions, and analytics history are kept for you if you resubscribe.
+            </Alert>
+          ) : null}
+          {billing.status === 'canceled' ? (
+            <Alert title="Your data is retained">
+              Existing posts remain online, but search indexing and paid tools are locked. Drafts, media,
+              domains, versions, and analytics history will be available again if you resubscribe.
+            </Alert>
+          ) : null}
+          {isOwner ? (
+            isActive ? (
+              <div className="grid gap-2 sm:max-w-sm">
+                <PendingSubmitButton
+                  type="button"
+                  pending={portalPending}
+                  pendingText="Opening portal…"
+                  onClick={() => void openPortal()}
+                >
+                  <IdCardIcon aria-hidden data-icon="inline-start" /> Manage subscription
+                </PendingSubmitButton>
+              </div>
             ) : (
-              <p className="mt-5 font-sans text-base leading-7 text-muted-foreground">Only workspace owners can manage billing.</p>
-            )}
-            {billing.status === 'canceled' ? (
-              <Alert className="mt-5" title="Your data is retained">
-                Existing posts remain online, but search indexing and paid tools are locked. Drafts, media,
-                domains, versions, and analytics history will be available again if you resubscribe.
-              </Alert>
-            ) : null}
-            <p className="mt-5 font-mono text-xs leading-5 text-muted-foreground">
-              {isActive
-                ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
-                : 'Your first 5 published posts stay free. Subscribe to unlock every paid feature immediately.'}
-            </p>
-          </Panel>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <PendingSubmitButton
+                  type="button"
+                  className="h-11"
+                  pending={checkoutPending === 'monthly'}
+                  disabled={checkoutPending !== null && checkoutPending !== 'monthly'}
+                  pendingText="Starting checkout…"
+                  onClick={() => void startCheckout('monthly')}
+                >
+                  <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe monthly
+                </PendingSubmitButton>
+                <PendingSubmitButton
+                  type="button"
+                  variant="outline"
+                  className="h-11"
+                  pending={checkoutPending === 'yearly'}
+                  disabled={checkoutPending !== null && checkoutPending !== 'yearly'}
+                  pendingText="Starting checkout…"
+                  onClick={() => void startCheckout('yearly')}
+                >
+                  <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe yearly
+                </PendingSubmitButton>
+                <PendingSubmitButton
+                  type="button"
+                  variant="outline"
+                  className="sm:col-span-2"
+                  pending={portalPending}
+                  disabled={checkoutPending !== null}
+                  pendingText="Opening portal…"
+                  onClick={() => void openPortal()}
+                >
+                  <ExternalLinkIcon aria-hidden data-icon="inline-start" /> Customer portal
+                </PendingSubmitButton>
+              </div>
+            )
+          ) : (
+            <p className="font-sans text-base leading-7 text-muted-foreground">Only workspace owners can manage billing.</p>
+          )}
+        </Panel>
+
+        <Panel title="Included in the plan" meta={isActive ? 'All features unlocked' : undefined}>
+          <ul className="grid gap-x-8 gap-y-3 text-base leading-6 sm:grid-cols-2">
+            {ENTITLEMENTS.map((entitlement) => (
+              <li key={entitlement} className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0">
+                <CheckIcon className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                <span className="font-sans text-foreground">{entitlement}</span>
+              </li>
+            ))}
+            <li className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0">
+              <CheckIcon className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+              <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
+            </li>
+          </ul>
+          <p className="font-mono text-xs leading-5 text-muted-foreground">
+            {isActive
+              ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
+              : 'Your first 5 published posts stay free. Subscribe to unlock every paid feature immediately.'}
+          </p>
+        </Panel>
       </div>
     </>
   )

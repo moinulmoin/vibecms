@@ -15,7 +15,7 @@ export function MetricStrip({
       className={cn(
         'grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4',
         variant === 'surface'
-          ? 'rounded-2xl border border-foreground/[0.065] bg-card'
+          ? 'rounded-2xl border border-border bg-card'
           : 'rounded-xl bg-muted/30',
       )}
     >
@@ -24,11 +24,11 @@ export function MetricStrip({
           key={metric.label}
           className={cn(
             'min-w-0 px-4 py-5 sm:px-5 sm:py-6',
-            index < metrics.length - 1 && 'border-b border-foreground/[0.065]',
-            index % 2 === 0 && 'sm:border-r sm:border-foreground/[0.065]',
+            index < metrics.length - 1 && 'border-b border-[color:var(--hairline)]',
+            index % 2 === 0 && 'sm:border-r sm:border-[color:var(--hairline)]',
             index >= metrics.length - 2 && 'sm:border-b-0',
             'xl:border-b-0 xl:border-r-0',
-            index > 0 && 'xl:border-l xl:border-foreground/[0.065]',
+            index > 0 && 'xl:border-l xl:border-[color:var(--hairline)]',
           )}
         >
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{metric.label}</p>

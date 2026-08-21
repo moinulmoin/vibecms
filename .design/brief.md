@@ -152,6 +152,30 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    --border/--input corrected to near-surface oklch(0.30/0.28) (learned from
    Marble's dark tokens) and DESIGN.md documents the two-tier line rule.
 
+9. **Cleanliness contract** — DONE (2026-08-21). Outcome of a full Marble-vs-
+   vibecms detail audit (4 read-only scouts + first-hand reads): Marble's
+   quality comes from making each decision ONCE, not from any component. The
+   contract now binding on all future dashboard passes:
+   - **One boundary tier per role:** `border-border` for component boundaries
+     (panels, cards, inputs, popovers); `border-[color:var(--hairline)]` for
+     ruled-list separators and section dividers. No third border color — the
+     old `border-foreground/[0.065]` ad-hoc tier is fully migrated out.
+   - **One feedback channel:** mutations confirm through the canonical
+     `FORM_STATUS` map (packages/config) via the URL-flash toast; codes are
+     named after what happened (`media_alt_saved`, `media_bulk_deleted`,
+     `bulk_delete_partial`, `delete_failed`) and copy is past-tense fact.
+   - **Dirty-gated saves:** settings Save buttons stay disabled until the
+     form differs from loaded values; label flips Save changes ↔ Saved;
+     success resets the baseline. Never ship an always-enabled Save.
+   - **No dead primitives:** unused decorative components get deleted, not
+     parked (DotGrid/Glow removed).
+   - **Flatten box-in-box:** a Panel may contain ruled lists or alerts, not
+     another rounded fill surface (BillingPage rewritten: Plan panel +
+     "Included in the plan" quiet checklist).
+   - Craft lesson recorded verbatim (user framing): UI/UX from references is
+     something to LEARN, not copy-paste — adopt the discipline of one shared
+     recipe reused ruthlessly; keep our identity and our better bones.
+
 ## Invariants
 
 - Geist / Geist Mono only in app chrome. `--vc-*` tokens for blog templates;

@@ -319,6 +319,11 @@ export function SettingsPage() {
   const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
   const [voiceSaveStatus, setVoiceSaveStatus] = useState<string | null>(null)
   const [voiceEditorOpen, setVoiceEditorOpen] = useState(false)
+  // Dirty-gated saves: the site form is uncontrolled (FormData on submit), so
+  // dirtiness is tracked by comparing a serialized snapshot of the live form
+  // against the loaded values.
+  const [siteDirty, setSiteDirty] = useState(false)
+  const [voiceDirty, setVoiceDirty] = useState(false)
   // Live preview content: the latest published post when one exists,
   // otherwise the canonical sample. Rendered fresh against the selected
   // theme so the preview is always the real blog, not a mock.
@@ -389,6 +394,16 @@ export function SettingsPage() {
   ].filter(Boolean).join(' ')
   const selectedSocialAsset = data?.assets.find((asset) => asset.id === selectedSocialAssetId) ?? null
 
+  function markSiteDirty(form: HTMLFormElement) {
+    const fields = new FormData(form)
+    const dirty =
+      String(fields.get('name') ?? '') !== (data?.site.name ?? '') ||
+      String(fields.get('description') ?? '') !== (data?.site.description ?? '') ||
+      String(fields.get('defaultSeoTitle') ?? '') !== (data?.site.defaultSeoTitle ?? '') ||
+      String(fields.get('defaultSeoDescription') ?? '') !== (data?.site.defaultSeoDescription ?? '') ||
+      selectedSocialAssetId !== (data?.site.defaultSocialAssetId ?? '')
+    setSiteDirty(dirty)
+  }
 
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -419,6 +434,7 @@ export function SettingsPage() {
             defaultSocialAssetId: payload.defaultSocialAssetId,
           },
         } : prev)
+        setSiteDirty(false)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -568,6 +584,7 @@ export function SettingsPage() {
         setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
         setVoiceSaveStatus('Voice profile saved.')
         setVoiceEditorOpen(false)
+        setVoiceDirty(false)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -576,11 +593,6 @@ export function SettingsPage() {
           error: result.kind === 'ok' ? undefined : result.code,
           tab: 'voice',
         },
-      })
-    } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: { ok: undefined, error: 'unknown', tab: 'voice' },
       })
     } finally {
       setFormPending(null)
@@ -602,6 +614,7 @@ export function SettingsPage() {
         setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
         setVoiceSaveStatus('Voice profile cleared. Agents will use the VibeCMS writing baseline and the current brief.')
         setVoiceEditorOpen(false)
+        setVoiceDirty(false)
       }
       await navigate({
         to: '/dashboard/settings',
@@ -702,7 +715,7 @@ export function SettingsPage() {
         </div>
         <TabsContent value="general" className="grid gap-4">
           <Panel title="Site" meta="Name & SEO defaults">
-            <form className="grid max-w-3xl gap-4" onSubmit={(e) => void handleSiteSave(e)}>
+            <form className="grid max-w-3xl gap-4" onChange={(e) => markSiteDirty(e.currentTarget)} onSubmit={(e) => void handleSiteSave(e)}>
               <Field>
                 <FieldLabel htmlFor="site-name">Blog name</FieldLabel>
                 <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
@@ -770,9 +783,9 @@ export function SettingsPage() {
             className="w-fit"
             pending={formPending === 'site'}
             pendingText="Saving…"
-            disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
+            disabled={siteDirty !== true || Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
           >
-            <CheckIcon aria-hidden data-icon="inline-start" /> Save
+            {siteDirty ? 'Save changes' : 'Saved'}
           </PendingSubmitButton>
         </form>
       </Panel>
@@ -903,20 +916,33 @@ export function SettingsPage() {
                   </p>
                 </FieldSet>
 
-                {(selectedTheme !== site.theme ||
-                  selectedAccent !== site.themeAccent ||
-                  selectedFont !== site.themeFont ||
-                  selectedMode !== site.themeMode) && (
-                  <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
-                    Changes not yet saved.
-                  </p>
-                )}
+                {(() => {
+                  const themeDirty =
+                    selectedTheme !== site.theme ||
+                    selectedAccent !== site.themeAccent ||
+                    selectedFont !== site.themeFont ||
+                    selectedMode !== site.themeMode
+                  return (
+                    <>
+                      {themeDirty && (
+                        <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
+                          Changes not yet saved.
+                        </p>
+                      )}
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <PendingSubmitButton className="w-fit" pending={formPending === 'theme'} pendingText="Saving…">
-                    <CheckIcon aria-hidden data-icon="inline-start" /> Save changes
-                  </PendingSubmitButton>
-                </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <PendingSubmitButton
+                          className="w-fit"
+                          pending={formPending === 'theme'}
+                          pendingText="Saving…"
+                          disabled={!themeDirty}
+                        >
+                          {themeDirty ? 'Save changes' : 'Saved'}
+                        </PendingSubmitButton>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
 
               <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
@@ -935,7 +961,7 @@ export function SettingsPage() {
                     </Button>
                   ) : null}
                 </div>
-                <div className="overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-background shadow-[0_16px_50px_-35px_oklch(0.2_0.03_155/0.45)]">
+                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-[0_16px_50px_-35px_oklch(0.2_0.03_155/0.45)]">
                   <div className="border-b border-[color:var(--hairline)] bg-muted/45 px-4 py-2 font-mono text-[11px] text-muted-foreground">
                     {data.publicBaseUrl?.replace('https://', '') ?? `${site.slug}.your-domain.com`}/{previewArticle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
                   </div>
@@ -1016,6 +1042,7 @@ export function SettingsPage() {
                   value={voiceAudience}
                   onChange={(e) => {
                     setVoiceSaveStatus(null)
+                    setVoiceDirty(true)
                     setVoiceAudience(e.target.value)
                   }}
                   maxLength={300}
@@ -1033,15 +1060,13 @@ export function SettingsPage() {
                   value={voiceSummary}
                   onChange={(e) => {
                     setVoiceSaveStatus(null)
+                    setVoiceDirty(true)
                     setVoiceSummary(e.target.value)
                   }}
                   maxLength={500}
                   rows={3}
                   placeholder="For example: Calm, specific, and practical; lead with the useful detail."
                 />
-                <p className="mt-1 font-sans text-xs text-muted-foreground">
-                  The overall register and rhythm. {voiceSummary.length}/500 characters
-                </p>
               </Field>
               <FieldSet>
                 <FieldLegend variant="label">Style rules</FieldLegend>
@@ -1056,6 +1081,7 @@ export function SettingsPage() {
                       value={voicePreferText}
                       onChange={(e) => {
                         setVoiceSaveStatus(null)
+                        setVoiceDirty(true)
                         setVoicePreferText(e.target.value)
                       }}
                       aria-describedby={voicePreferDescribedBy}
@@ -1079,6 +1105,7 @@ export function SettingsPage() {
                       value={voiceAvoidText}
                       onChange={(e) => {
                         setVoiceSaveStatus(null)
+                        setVoiceDirty(true)
                         setVoiceAvoidText(e.target.value)
                       }}
                       aria-describedby={voiceAvoidDescribedBy}
@@ -1180,9 +1207,9 @@ export function SettingsPage() {
                   className="w-fit"
                   pending={formPending === 'voice'}
                   pendingText="Saving voice profile..."
-                  disabled={!voiceValidation.isValid}
+                  disabled={voiceDirty !== true || !voiceValidation.isValid}
                 >
-                  <CheckIcon aria-hidden data-icon="inline-start" /> Save
+                  {voiceDirty ? 'Save changes' : 'Saved'}
                 </PendingSubmitButton>
                 {data.voiceProfile.configured && (
                   <SpaConfirmButton

@@ -15,7 +15,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        'flex flex-col gap-5 rounded-2xl border border-foreground/[0.065] bg-card p-5 sm:p-6',
+        'flex flex-col gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6',
         className,
       )}
     >

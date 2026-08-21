@@ -167,7 +167,7 @@ export async function updateAssetAltForApp(
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   try {
     await updateAssetAltText(assetRepository(), app.actor, app.siteId, assetId, altText)
-    return { kind: 'ok', code: 'media_updated' }
+    return { kind: 'ok', code: 'media_alt_saved' }
   } catch (error) {
     if (error instanceof ConflictError) return { kind: 'error', code: 'alt_required_in_use' }
     if (error instanceof NotFoundError) return { kind: 'error', code: 'not_found' }

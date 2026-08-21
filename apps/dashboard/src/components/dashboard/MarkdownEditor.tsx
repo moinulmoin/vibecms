@@ -249,7 +249,7 @@ export function PostPreviewPane({
           navigate the editor away, so anchor activation is captured here —
           click and middle-click (auxclick) alike. */}
       <div
-        className="overflow-y-auto rounded-xl border border-[color:var(--hairline)] lg:max-h-[calc(100dvh-10rem)]"
+        className="overflow-y-auto rounded-xl border border-border lg:max-h-[calc(100dvh-10rem)]"
         onClickCapture={(event) => {
           if ((event.target as HTMLElement).closest('a')) event.preventDefault()
         }}
@@ -642,7 +642,7 @@ export function MarkdownEditor({ assets, defaultValue }: MarkdownEditorProps) {
             ref={menuRef}
             role="listbox"
             aria-label="Insert a block"
-            className="absolute z-20 w-72 max-w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-[color:var(--hairline)] bg-popover p-1 shadow-lg shadow-black/25"
+            className="absolute z-20 w-72 max-w-[calc(100%-1rem)] overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-lg shadow-black/25"
             style={anchor ? { left: Math.max(0, anchor.left - 4), top: anchor.top + 4 } : { left: 4, top: 4 }}
           >
             <div className="max-h-64 overflow-y-auto">

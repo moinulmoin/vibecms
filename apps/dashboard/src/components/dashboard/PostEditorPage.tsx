@@ -920,7 +920,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
   )
 
   const saveBar = (
-    <div className="flex gap-2 rounded-2xl border border-foreground/[0.065] bg-card/95 p-2">
+    <div className="flex gap-2 rounded-2xl border border-border bg-card/95 p-2">
       <PendingSubmitButton
         variant="outline"
         className="min-w-0 flex-1"
@@ -1050,7 +1050,7 @@ function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           </div>
           {isNarrow ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-foreground/[0.065] bg-card p-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2">
               <Tabs
                 value={mobileTab}
                 onValueChange={(value) => setMobileTab(value as typeof mobileTab)}

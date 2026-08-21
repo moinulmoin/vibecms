@@ -107,7 +107,7 @@ function MediaSkeleton() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="grid gap-3 rounded-xl border border-[color:var(--hairline)] p-3">
+            <div key={i} className="grid gap-3 rounded-xl border border-border p-3">
               <Skeleton className="aspect-[4/3] w-full rounded-xl" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-3/4" />
@@ -149,6 +149,7 @@ export function MediaPage() {
         const next = altDraft.trim().slice(0, 180) || null
         setAssets((prev) => prev?.map((asset) => (asset.id === assetId ? { ...asset, altText: next } : asset)) ?? null)
         setEditingAltId(null)
+        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
       } else {
         await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
       }
@@ -328,10 +329,10 @@ export function MediaPage() {
           ? '1 image could not be deleted and was restored.'
           : `${failed.length} images could not be deleted and were restored.`,
       )
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: failed.length === ids.length ? 'unknown' : (lastOkCode ?? 'unknown') }) })
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: failed.length === ids.length ? 'delete_failed' : 'bulk_delete_partial' }) })
     } else {
       setLiveAnnounce(`${label} deleted.`)
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: lastOkCode ?? 'unknown' }) })
+      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: lastOkCode === 'media_deleted' ? 'media_bulk_deleted' : (lastOkCode ?? 'unknown') }) })
     }
     setBulkDeleting(false)
   }
@@ -412,7 +413,7 @@ export function MediaPage() {
               className={`relative min-h-44 place-items-center overflow-hidden rounded-2xl border border-dashed p-6 text-center transition-colors ${
                 dragActive
                   ? 'border-brand-bright/60 bg-muted'
-                  : 'border-[color:var(--hairline)] bg-muted/50 focus-within:bg-muted'
+                  : 'border-border bg-muted/50 focus-within:bg-muted'
               }`}
             >
               <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
@@ -450,7 +451,7 @@ export function MediaPage() {
                 {uploadQueue.map((entry) => (
                   <li
                     key={entry.key}
-                    className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-foreground/[0.065] py-2.5 last:border-b-0"
+                    className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-[color:var(--hairline)] py-2.5 last:border-b-0"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-foreground">{entry.name}</span>
                     <span
