@@ -373,6 +373,7 @@ async function assertSecrets(missing: string[]): Promise<void> {
     const requiredSecrets = [
       "BETTER_AUTH_SECRET",
       "TOKEN_PEPPER",
+      "AUTOSEOPILOT_INTERNAL_SECRET",
       "POLAR_ACCESS_TOKEN",
       "POLAR_WEBHOOK_SECRET",
       "CACHE_PURGE_API_TOKEN",

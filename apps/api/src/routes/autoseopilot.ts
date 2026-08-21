@@ -22,6 +22,8 @@ const CORRELATION_HEADER = 'X-Correlation-Id'
 const CORRELATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const SECRETISH_CORRELATION_RE =
   /(?:vc_(?:live|test)_|bearer|authorization|token|secret|password|@)/i
+const EXTERNAL_WORKSPACE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function errorBody(
   code: string,
@@ -43,6 +45,40 @@ function correlationId(request: Request, internalSecret: string | undefined) {
   const supplied = request.headers.get(CORRELATION_HEADER)
   if (supplied !== null && validCorrelationId(supplied, internalSecret)) return supplied
   return crypto.randomUUID()
+}
+
+function safeExternalWorkspaceId(value: string) {
+  return EXTERNAL_WORKSPACE_ID_RE.test(value) ? value.toLowerCase() : null
+}
+
+function logManagedLifecycle(input: {
+  operation: 'provision' | 'status' | 'revoke'
+  outcome: 'success' | 'conflict' | 'failure'
+  correlationId: string
+  externalWorkspaceId: string
+  status: number
+  code: string
+  lifecycleRevision?: number
+  lifecycleStatus?: 'active' | 'revoked'
+}) {
+  const entry = {
+    level: input.outcome === 'success' ? 'info' : input.outcome === 'conflict' ? 'warn' : 'error',
+    event: 'autoseopilot_managed_lifecycle',
+    operation: input.operation,
+    outcome: input.outcome,
+    status: input.status,
+    code: input.code,
+    correlationId: input.correlationId,
+    externalWorkspaceId: safeExternalWorkspaceId(input.externalWorkspaceId),
+    ...(input.lifecycleRevision === undefined ? {} : { lifecycleRevision: input.lifecycleRevision }),
+    ...(input.lifecycleStatus === undefined ? {} : { lifecycleStatus: input.lifecycleStatus }),
+  }
+  const log = input.outcome === 'success'
+    ? console.info
+    : input.outcome === 'conflict'
+      ? console.warn
+      : console.error
+  log(JSON.stringify(entry))
 }
 
 async function sameSecret(expected: string, supplied: string) {
@@ -129,9 +165,19 @@ autoseopilotRoutes.put('/sites/:externalWorkspaceId', async (c) => {
   }
   try {
     const resultWithReceipt = await provisionManagedSite(c.env, params, result.data, id)
+    logManagedLifecycle({
+      operation: 'provision',
+      outcome: 'success',
+      correlationId: id,
+      externalWorkspaceId: params,
+      status: resultWithReceipt.status,
+      code: resultWithReceipt.status === 201 ? 'PROVISIONED' : 'REPLAYED',
+      lifecycleRevision: resultWithReceipt.receipt.lifecycle.revision,
+      lifecycleStatus: resultWithReceipt.receipt.lifecycle.status,
+    })
     return c.json(resultWithReceipt.receipt, resultWithReceipt.status)
   } catch (error) {
-    return handleManagedError(c, error, id)
+    return handleManagedError(c, error, id, 'provision', params)
   }
 })
 
@@ -139,9 +185,20 @@ autoseopilotRoutes.get('/sites/:externalWorkspaceId', async (c) => {
   const id = c.get('correlationId')
   const externalWorkspaceId = c.req.param('externalWorkspaceId')
   try {
-    return c.json(await getManagedSite(c.env, externalWorkspaceId, id), 200)
+    const receipt = await getManagedSite(c.env, externalWorkspaceId, id)
+    logManagedLifecycle({
+      operation: 'status',
+      outcome: 'success',
+      correlationId: id,
+      externalWorkspaceId,
+      status: 200,
+      code: 'STATUS_READ',
+      lifecycleRevision: receipt.lifecycle.revision,
+      lifecycleStatus: receipt.lifecycle.status,
+    })
+    return c.json(receipt, 200)
   } catch (error) {
-    return handleManagedError(c, error, id)
+    return handleManagedError(c, error, id, 'status', externalWorkspaceId)
   }
 })
 
@@ -159,9 +216,19 @@ autoseopilotRoutes.post('/sites/:externalWorkspaceId/revoke', async (c) => {
   }
   try {
     const resultWithReceipt = await revokeManagedSite(c.env, externalWorkspaceId, result.data, id)
+    logManagedLifecycle({
+      operation: 'revoke',
+      outcome: 'success',
+      correlationId: id,
+      externalWorkspaceId,
+      status: resultWithReceipt.status,
+      code: resultWithReceipt.receipt.lifecycle.status === 'revoked' ? 'REVOKED' : 'RECONCILED',
+      lifecycleRevision: resultWithReceipt.receipt.lifecycle.revision,
+      lifecycleStatus: resultWithReceipt.receipt.lifecycle.status,
+    })
     return c.json(resultWithReceipt.receipt, resultWithReceipt.status)
   } catch (error) {
-    return handleManagedError(c, error, id)
+    return handleManagedError(c, error, id, 'revoke', externalWorkspaceId)
   }
 })
 
@@ -171,9 +238,27 @@ function handleManagedError(
   },
   error: unknown,
   id: string,
+  operation: 'provision' | 'status' | 'revoke',
+  externalWorkspaceId: string,
 ) {
   if (error instanceof ManagedInternalError) {
+    logManagedLifecycle({
+      operation,
+      outcome: error.status === 409 ? 'conflict' : 'failure',
+      correlationId: id,
+      externalWorkspaceId,
+      status: error.status,
+      code: error.code,
+    })
     return c.json(errorBody(error.code, error.message, id), error.status)
   }
+  logManagedLifecycle({
+    operation,
+    outcome: 'failure',
+    correlationId: id,
+    externalWorkspaceId,
+    status: 500,
+    code: 'INTERNAL_ERROR',
+  })
   return c.json(errorBody('INTERNAL_ERROR', 'Request failed.', id), 500)
 }

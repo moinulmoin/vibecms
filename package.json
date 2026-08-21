@@ -28,6 +28,9 @@
       },
       "TOKEN_PEPPER": {
         "description": "Required secret. Generate with `openssl rand -hex 32`. Used to hash vibecms API tokens."
+      },
+      "AUTOSEOPILOT_INTERNAL_SECRET": {
+        "description": "Required only when enabling the managed AutoSEOPilot routes. Store as a Worker secret and rotate with the AutoSEOPilot caller."
       }
     }
   },

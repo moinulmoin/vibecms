@@ -216,15 +216,14 @@ and Cloudflare image transforms. Provider responses are untrusted data even
 when authenticated. Provider credentials must stay server-side and be scoped
 to the smallest operation set.
 
-### Zone G: Planned AutoSEOPilot internal integration
+### Zone G: AutoSEOPilot internal integration
 
-The planned managed integration is a separate service-to-service boundary.
-It is not implemented in the current repository and must not be exposed or
-assumed to exist. When implemented, only a narrowly scoped internal secret,
-strict request schema, TLS, replay-safe lifecycle rules, and transactionally
-consistent binding state may cross this boundary. Browser sessions and
-customer-provided bearer tokens are explicitly not the trust mechanism for
-this integration.
+The managed integration is an implemented service-to-service boundary under
+`/internal/autoseopilot`. It uses a narrowly scoped internal secret, strict
+request schemas, TLS, replay-safe lifecycle rules, and transactionally
+consistent binding state. Browser sessions and customer-provided bearer
+tokens are explicitly not the trust mechanism for this integration.
+Credentialed production deployment proof remains a launch requirement.
 
 ## 3. Attack Surface Inventory
 
@@ -364,7 +363,7 @@ operational access bypassing application authorization.
 - HMAC token pepper and Better Auth signing secret.
 - Polar access and webhook secrets.
 - Cloudflare API tokens for cache purge, analytics, and custom hostnames.
-- Any future AutoSEOPilot internal secret and managed credential material.
+- `AUTOSEOPILOT_INTERNAL_SECRET` and managed credential material.
 - D1 rows that connect a user, membership, workspace, site, domain, and
   billing entitlement.
 
@@ -722,18 +721,19 @@ tags, dataset identifiers, and query dimensions before constructing provider
 requests. Provider failure should not silently mark a domain active or
 discard a cleanup obligation.
 
-### 5.11 Planned AutoSEOPilot managed integration (not implemented)
+### 5.11 AutoSEOPilot managed integration
 
-**Status:** Planned only. The repository currently has no implemented
-`/internal/autoseopilot` routes, managed-site table, lifecycle handler, or
-internal secret enforcement. The document
-`docs/autoseopilot-managed-integration.md` is the contract source, not
-evidence that the controls exist.
+**Status:** Implemented in the current repository. The
+`/internal/autoseopilot` routes, managed-site table, lifecycle handler,
+internal-secret enforcement, and focused tests are present. The document
+`docs/autoseopilot-managed-integration.md` remains the canonical contract;
+credentialed production deployment proof is still required before launch
+claims.
 
-The planned integration has unusually high impact because it provisions
+The integration has unusually high impact because it provisions
 workspaces, sites, a scoped VibeCMS API key, and hosted entitlement from an
-internal service. The following threats must be treated as release blockers
-for the implementation:
+internal service. The following controls remain release blockers for
+production enablement:
 
 - **Spoofing:** Every route must require the configured internal secret in a
   dedicated header, compare it in constant time, use TLS, and return 404 when
@@ -1083,9 +1083,9 @@ internal logs that are themselves redacted. Review source maps, traces,
 backups, test snapshots, and local development logs as secret-bearing
 artifacts.
 
-### 6.16 Planned AutoSEOPilot managed binding
+### 6.16 AutoSEOPilot managed binding
 
-The planned route must use a closed schema and a constant-time comparison of
+The route must use a closed schema and a constant-time comparison of
 the internal secret. The raw credential token must be consumed only by the
 existing hash path and immediately discarded. Enforce unique
 `externalWorkspaceId`, immutable identity checks, exact generation sequencing,
@@ -1199,9 +1199,9 @@ generation/checks, migration/preflight checks, and a deployment smoke test
 without printing secrets. Review observability output for authorization,
 cookie, token, OTP, request-body, and provider-secret leakage.
 
-### 7.8 Planned AutoSEOPilot acceptance tests
+### 7.8 AutoSEOPilot acceptance tests
 
-Before enabling the planned integration, add tests for:
+Before production enablement, maintain tests for:
 
 - unset, wrong, missing, and correctly configured internal secret;
 - constant-time comparison path and generic 401/404 semantics;
@@ -1273,8 +1273,8 @@ Before enabling the planned integration, add tests for:
 - Public draft/unpublished content exposure.
 - Stored XSS in dashboard or public blog rendering.
 - Forged or stale webhook changing entitlement.
-- A planned AutoSEOPilot route that provisions state without atomic,
-  idempotent, generation-aware, raw-token-safe controls.
+- An AutoSEOPilot route that provisions state without atomic, idempotent,
+  generation-aware, raw-token-safe controls.
 
 ## 9. Security Maintenance Rules
 

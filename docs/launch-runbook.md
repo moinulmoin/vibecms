@@ -36,6 +36,7 @@ Public production uses the same `APP_URL` and `PUBLIC_BLOG_DOMAIN`. Keep the API
 ```sh
 pnpm --filter @vc/api exec wrangler secret put BETTER_AUTH_SECRET --env production
 pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --env production
+pnpm --filter @vc/api exec wrangler secret put AUTOSEOPILOT_INTERNAL_SECRET --env production
 pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env production
 pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env production
 pnpm --filter @vc/api exec wrangler secret put CACHE_PURGE_API_TOKEN --env production
@@ -43,7 +44,9 @@ pnpm --filter @vc/api exec wrangler secret put ANALYTICS_API_TOKEN --env product
 pnpm --filter @vc/api exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env production
 ```
 
-Generate Better Auth and token-pepper values independently with `openssl rand -hex 32`. Rotating `TOKEN_PEPPER` invalidates every issued agent token.
+Generate Better Auth and token-pepper values independently with `openssl rand -hex 32`. Generate
+`AUTOSEOPILOT_INTERNAL_SECRET` with a separate high-entropy value and keep it shared
+only with the AutoSEOPilot service. Rotating `TOKEN_PEPPER` invalidates every issued agent token.
 The three Cloudflare API tokens should be narrowly scoped to their runtime jobs:
 
 - `CACHE_PURGE_API_TOKEN`: purge cache for the production zone.

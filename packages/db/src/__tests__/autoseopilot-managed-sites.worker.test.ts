@@ -229,6 +229,77 @@ describe("managed site database foundation", () => {
     ).toMatchObject({ c: 1 });
   });
 
+  it("rolls back a late first-provision failure and permits a clean retry", async () => {
+    const input = provisionInput("rollback");
+    const blockerBase = provisionInput("rollback-blocker");
+    const blocker = {
+      ...blockerBase,
+      apiKey: {
+        ...blockerBase.apiKey,
+        tokenHash: input.apiKey.tokenHash,
+      },
+    };
+    await data.managedSites.firstProvision(blocker);
+
+    // The duplicate token hash fails after the dependent user/workspace/site/
+    // domain statements have been queued. D1 batch atomicity must remove all
+    // of those rows instead of leaving an unusable partial provision.
+    await expect(data.managedSites.firstProvisionWithOutcome(input)).rejects.toThrow();
+
+    const orphanCounts = await env.DB
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM user WHERE id = ?) AS users,
+           (SELECT COUNT(*) FROM workspaces WHERE id = ?) AS workspaces,
+           (SELECT COUNT(*) FROM sites WHERE id = ?) AS sites,
+           (SELECT COUNT(*) FROM domains WHERE id = ?) AS domains,
+           (SELECT COUNT(*) FROM api_keys WHERE id = ?) AS api_keys,
+           (SELECT COUNT(*) FROM autoseopilot_managed_sites WHERE external_workspace_id = ?) AS bindings,
+           (SELECT COUNT(*) FROM activity_events WHERE site_id = ?) AS activity`,
+      )
+      .bind(
+        input.owner.id,
+        input.workspace.id,
+        input.site.id,
+        input.defaultDomain.id,
+        input.apiKey.id,
+        input.binding.externalWorkspaceId,
+        input.site.id,
+      )
+      .first<{
+        users: number;
+        workspaces: number;
+        sites: number;
+        domains: number;
+        api_keys: number;
+        bindings: number;
+        activity: number;
+      }>();
+    expect(orphanCounts).toEqual({
+      users: 0,
+      workspaces: 0,
+      sites: 0,
+      domains: 0,
+      api_keys: 0,
+      bindings: 0,
+      activity: 0,
+    });
+
+    const retry = {
+      ...input,
+      apiKey: {
+        ...input.apiKey,
+        tokenPrefix: "vc_test_managed_rollback_retry",
+        tokenHash: "hash-managed-rollback-retry",
+      },
+    };
+    await expect(data.managedSites.firstProvision(retry)).resolves.toMatchObject({
+      externalWorkspaceId: input.binding.externalWorkspaceId,
+      siteId: input.site.id,
+      apiKeyId: input.apiKey.id,
+    });
+  });
+
   it("enforces one canonical user identity regardless of email casing", async () => {
     const input = provisionInput("canonical-email");
     await data.managedSites.firstProvision(input);

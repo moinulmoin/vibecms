@@ -1,5 +1,8 @@
 BETTER_AUTH_SECRET=generate_with_openssl_rand_hex_32
 TOKEN_PEPPER=generate_with_openssl_rand_hex_32
+# Optional: required to enable the managed AutoSEOPilot internal routes locally.
+# Keep this value in a secret store; never commit the real secret.
+AUTOSEOPILOT_INTERNAL_SECRET=generate_with_a_long_random_value
 # OTP email is sent via the native `send_email` Workers binding (named EMAIL) declared in
 # wrangler.jsonc - no API token secret is needed, just an onboarded sending domain. When
 # the binding is absent (local dev/tests) the code is logged to the console instead.

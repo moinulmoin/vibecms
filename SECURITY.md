@@ -25,6 +25,7 @@ If a secret is accidentally committed, pasted into a public issue, or exposed in
 
 - `BETTER_AUTH_SECRET`
 - `TOKEN_PEPPER`
+- `AUTOSEOPILOT_INTERNAL_SECRET`
 - `POLAR_ACCESS_TOKEN`
 - `POLAR_WEBHOOK_SECRET`
 - Cloudflare API tokens
