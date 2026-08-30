@@ -126,6 +126,7 @@ export type ManagedReceipt = {
   externalWorkspaceId: string
   workspaceId: string
   siteId: string
+  siteName: string
   apiKeyId: string
   apiKeyPrefix: string
   publicUrl: string | null
@@ -367,6 +368,7 @@ async function resolveReceipt(
     externalWorkspaceId: snapshot.externalWorkspaceId,
     workspaceId: snapshot.workspaceId,
     siteId: snapshot.siteId,
+    siteName: snapshot.siteName,
     apiKeyId: snapshot.apiKeyId,
     apiKeyPrefix: snapshot.apiKeyPrefix,
     publicUrl: resolvedPublicUrl,

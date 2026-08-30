@@ -200,6 +200,7 @@ and a reconciliation:
   "externalWorkspaceId": "00000000-0000-4000-8000-000000000001",
   "workspaceId": "vc-workspace-example",
   "siteId": "vc-site-example",
+  "siteName": "Example journal",
   "apiKeyId": "vc-key-example",
   "apiKeyPrefix": "vc_live_EXAMPLE",
   "publicUrl": "https://example.vibecms.example",
@@ -247,11 +248,13 @@ PUT idempotency and generation rules are:
 ### GET status
 
 `GET /internal/autoseopilot/sites/{externalWorkspaceId}` uses the same
-secret and returns the current receipt shape without changing state. It is
-the recovery read after a timeout or lost response. An unknown external
-workspace returns HTTP 404 with `NOT_FOUND`. An expired active sponsorship
-returns `status: "active"` and `effective: false`; expiry does not silently
-create a new key or change the stored lifecycle status.
+secret and returns the current receipt shape without changing state. The
+receipt re-reads the current VibeCMS-owned `siteName` and `publicUrl`, so a
+caller refresh observes customer changes without overwriting them. It is the
+recovery read after a timeout or lost response. An unknown external workspace
+returns HTTP 404 with `NOT_FOUND`. An expired active sponsorship returns
+`status: "active"` and `effective: false`; expiry does not silently create a
+new key or change the stored lifecycle status.
 
 ### POST revoke
 
@@ -285,7 +288,8 @@ receipt shape with:
 ```
 
 The complete response still includes `externalWorkspaceId`, `workspaceId`,
-`siteId`, `apiKeyId`, `apiKeyPrefix`, `publicUrl`, and `correlationId`.
+`siteId`, `siteName`, `apiKeyId`, `apiKeyPrefix`, `publicUrl`, and
+`correlationId`.
 `effective` is normally false for a managed-only site. It MAY remain true if
 self-hosting or an independent Polar subscription supplies entitlement, but
 the AutoSEOPilot API key is still revoked.

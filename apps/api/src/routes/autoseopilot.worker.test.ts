@@ -209,6 +209,7 @@ describe('managed AutoSEOPilot internal routes', () => {
     const firstBody = await json(first)
     expect(firstBody).toMatchObject({
       externalWorkspaceId: EXTERNAL_WORKSPACE_ID,
+      siteName: 'Managed Route Site',
       entitlement: { status: 'active', effective: true },
       lifecycle: { revision: 1, status: 'active' },
       correlationId,
@@ -547,10 +548,15 @@ describe('managed AutoSEOPilot internal routes', () => {
       .prepare("UPDATE domains SET hostname = ? WHERE site_id = ? AND type = 'default'")
       .bind(localHostname, firstBody.siteId)
       .run()
+    await env.DB
+      .prepare("UPDATE sites SET name = ? WHERE id = ?")
+      .bind('Managed Route Site Renamed', firstBody.siteId)
+      .run()
     const recovery = await request(`/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`)
     expect(recovery.status).toBe(200)
     const recoveryBody = await json(recovery)
     expect(recoveryBody.lifecycle).toEqual({ revision: 3, status: 'revoked' })
+    expect(recoveryBody.siteName).toBe('Managed Route Site Renamed')
     expect(recoveryBody.publicUrl).toMatch(/^https:\/\//)
     expect(
       await env.DB
