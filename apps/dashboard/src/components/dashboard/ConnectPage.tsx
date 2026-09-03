@@ -313,7 +313,7 @@ export function ConnectPage() {
   }, [flash, mcpUrl])
 
   // Poll the connection/first-post status. Monotonic + terminal-sticky: once connected,
-  // the display never regresses to waiting; polling stops only after this agent publishes.
+  // the display never regresses to waiting; polling stops after an agent-authored post is live.
   useEffect(() => {
     let cancelled = false
     let timerId: number | undefined

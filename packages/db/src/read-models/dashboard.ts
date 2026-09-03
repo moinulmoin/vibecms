@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, like, lte, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import type { Post } from "@vc/core";
-import { isNotNull } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, subscribers, user } from "../schema";
 
@@ -48,10 +48,10 @@ export interface AttributionPublishedPost {
   publishedAt: number | null;
 }
 
-// Site-level activation proof derived from API-key activity: the newest post an
-// api_key published (live), or when none exists the newest draft an api_key
-// created/updated (draft). Human-only posts never qualify. URL is appended by
-// the app layer (it needs the resolved public base URL).
+// Site-level activation proof derived from API-key activity: the newest live
+// post an api_key created/updated, or when none exists the newest draft an
+// api_key created/updated. A human can approve the live version; posts without
+// agent authorship never qualify. URL is appended by the app layer.
 export interface ActivationDraftPost {
   id: string;
   title: string;
@@ -104,6 +104,7 @@ export interface DashboardReadModel {
 // Dashboard aggregate read model extracted from cms-dashboard.getDashboardData's env.DB.batch. Takes a D1Database and builds its own Drizzle client; no env import. The eight read-only selects run in parallel (the plan permits this for the dashboard read-only aggregate); the returned data is identical to the original single batch.
 export function createDashboardReadModel(db: D1Database): DashboardReadModel {
   const client = createDbClient(db);
+  const agentActivity = alias(activityEvents, "agent_activity");
 
   return {
     async getDashboardAggregate(siteId) {
@@ -259,9 +260,9 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         .limit(limit);
     },
     async getActivationPost(siteId: string): Promise<ActivationPost> {
-      // LIVE: newest api_key 'post.published' activity on a currently-published
-      // post. A human-only publish (actor_type != 'api_key') never matches, so
-      // human pre-published content cannot activate onboarding.
+      // LIVE: newest publication of a currently-published post with prior
+      // api_key create/update activity. The publisher may be the human approver;
+      // unrelated human-only content cannot activate onboarding.
       const liveRows = await client
         .select({
           id: posts.id,
@@ -272,10 +273,20 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         })
         .from(activityEvents)
         .innerJoin(posts, and(eq(posts.id, activityEvents.entityId), eq(posts.siteId, activityEvents.siteId)))
+        .innerJoin(
+          agentActivity,
+          and(
+            eq(agentActivity.siteId, activityEvents.siteId),
+            eq(agentActivity.entityId, activityEvents.entityId),
+            eq(agentActivity.entityType, "post"),
+            eq(agentActivity.actorType, "api_key"),
+            inArray(agentActivity.action, ["post.created", "post.updated"]),
+            lte(agentActivity.createdAt, activityEvents.createdAt),
+          ),
+        )
         .where(
           and(
             eq(activityEvents.siteId, siteId),
-            eq(activityEvents.actorType, "api_key"),
             eq(activityEvents.entityType, "post"),
             eq(activityEvents.action, "post.published"),
             eq(posts.status, "published"),

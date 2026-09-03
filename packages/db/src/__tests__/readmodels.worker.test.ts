@@ -294,8 +294,9 @@ async function seedDashboardSite(): Promise<void> {
 }
 
 // Activation-proof fixtures for getActivationPost on rm-site-activation: an
-// api_key-published post (live), an api_key-created draft (draft), a
-// human-only published post (must NOT count), and a post version on the draft.
+// api_key-authored, human-approved post (live), an api_key-created draft, a
+// human-only published post (must NOT count), an agent edit after a human-only
+// publication (must not retroactively count), and a post version on the draft.
 async function seedActivationSite(): Promise<void> {
   const site = "rm-site-activation";
   const insPost = (
@@ -315,9 +316,10 @@ async function seedActivationSite(): Promise<void> {
       id, site, actorType, actorId, actorName, action, "post", entityId, `${action} ${entityId}`, createdAt,
     );
 
-  // api_key published post -> LIVE activation proof.
+  // Agent authors the post, then a human approves it -> LIVE activation proof.
   await insPost("rm-act-live", "live-agent", "published", T + 5, T + 60, "api_key", "rm-key-agent");
-  await insAct("rm-act-live-evt", "api_key", "rm-key-agent", "Agent Key", "post.published", "rm-act-live", T + 60);
+  await insAct("rm-act-live-draft-evt", "api_key", "rm-key-agent", "Agent Key", "post.created", "rm-act-live", T + 50);
+  await insAct("rm-act-live-evt", "human", "rm-user-approver", "Human Approver", "post.published", "rm-act-live", T + 60);
 
   // api_key draft post -> DRAFT activation proof (only when no live post exists).
   await insPost("rm-act-draft", "draft-agent", "draft", null, T + 40, "api_key", "rm-key-agent");
@@ -326,6 +328,11 @@ async function seedActivationSite(): Promise<void> {
   // Human-only published post -> must NEVER activate (excluded by actor_type).
   await insPost("rm-act-human", "human-post", "published", T + 5, T + 70, "human", "rm-user-human");
   await insAct("rm-act-human-evt", "human", "rm-user-human", "Human User", "post.published", "rm-act-human", T + 70);
+
+  // Agent activity after a human-only publication cannot retroactively qualify it.
+  await insPost("rm-act-late-edit", "late-agent-edit", "published", T + 5, T + 80, "api_key", "rm-key-agent");
+  await insAct("rm-act-late-publish-evt", "human", "rm-user-human", "Human User", "post.published", "rm-act-late-edit", T + 75);
+  await insAct("rm-act-late-update-evt", "api_key", "rm-key-agent", "Agent Key", "post.updated", "rm-act-late-edit", T + 80);
 
   // A post version on the draft so versionNumber resolves to 3 (not 0).
   await exec(
@@ -614,15 +621,15 @@ describe("assets.getAssetForServe — by-id, not site-scoped", () => {
 // ===========================================================================
 
 describe("dashboard.getActivationPost — live wins, draft fallback, human excluded", () => {
-  it("returns the live api_key-published post and ignores human-only publishes", async () => {
+  it("returns a human-approved agent post and ignores human-only publishes", async () => {
     const proof = await da.dashboard.getActivationPost("rm-site-activation");
-    // The human post (rm-act-human) was published LATER (T+70) than the agent
-    // post (T+60). If actor_type were not filtered, the human post would win.
+    // Both human-origin posts were published later than the agent-authored post;
+    // a later agent edit cannot retroactively qualify an earlier publication.
     expect(proof.state).toBe("live");
     if (proof.state !== "live") return;
     expect(proof.post.id).toBe("rm-act-live");
     expect(proof.post).toMatchObject({ title: "rm-act-live", slug: "live-agent", publishedAt: T + 5 });
-    expect(proof.actorName).toBe("Agent Key");
+    expect(proof.actorName).toBe("Human Approver");
   });
 
   it("falls back to the latest api_key draft only when no live post exists", async () => {
