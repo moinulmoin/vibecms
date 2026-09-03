@@ -36,8 +36,9 @@ export async function checkOtpSendBudget(email: string): Promise<OtpSendDecision
     if (allowed) return { allowed: true, retryAfter: 0 }
     return { allowed: false, retryAfter: Math.max(windowEnd - ts, 1) }
   } catch (error) {
-    // Fail open - allow the send if the rate-limit check itself errors.
-    console.error(`[otp-rate-limit] check failed, allowing send: ${error}`)
-    return { allowed: true, retryAfter: 0 }
+    // OTP is a pre-auth action. If its durable budget cannot be checked, do
+    // not turn a storage outage into an unbounded email-sending endpoint.
+    console.error(`[otp-rate-limit] check failed, blocking send: ${error}`)
+    return { allowed: false, retryAfter: 60 }
   }
 }

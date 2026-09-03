@@ -107,6 +107,7 @@ export const dashboardDataSchema = z.object({
   }),
   media: z.object({ bytes: z.number(), count: z.number() }),
   tokenCount: z.number(),
+  subscriberCount: z.number().optional(),
   versionCount: z.number(),
   recentPosts: z.array(
     z.object({
@@ -223,7 +224,6 @@ export const onboardingConnectStatusSchema = z.object({
   connection: z.enum(['no_token', 'waiting', 'connected', 'revoked']),
   firstPost: activationFirstPostSchema,
 })
-
 export const settingsPageDataSchema = z.object({
   site: z.object({
     name: z.string(),
@@ -236,6 +236,13 @@ export const settingsPageDataSchema = z.object({
     themeAccent: z.string(),
     themeFont: z.string(),
     themeMode: z.string(),
+    updatedAt: z.number(),
+    newsletterSettings: z.object({
+      enabled: z.boolean(),
+      heading: z.string(),
+      subtext: z.string(),
+      buttonLabel: z.string(),
+    }),
   }),
   assets: z.array(
     z.object({
@@ -303,4 +310,23 @@ export const settingsPageDataSchema = z.object({
   isOwner: z.boolean(),
   mcpUrl: z.string(),
   publicBaseUrl: z.string().nullable(),
+})
+export const newsletterSettingsSchema = z.object({
+  enabled: z.boolean(),
+  heading: z.string(),
+  subtext: z.string(),
+  buttonLabel: z.string(),
+})
+
+export const subscribersPageLoadSchema = z.object({
+  rows: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+    status: z.enum(['pending', 'confirmed', 'unsubscribed']),
+    sourceUrl: z.string().nullable(),
+    createdAt: z.number(),
+    consentVersion: z.string(),
+  })),
+  total: z.number(),
+  pendingCount: z.number(),
 })

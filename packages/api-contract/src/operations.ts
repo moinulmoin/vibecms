@@ -222,10 +222,10 @@ export const operations = [
   {
     toolName: "assets.delete",
     operationId: "deleteAsset",
-    requiredScope: "assets:write",
+    requiredScope: "assets:delete",
     description: opDescription(
-      "Delete an image asset (file + metadata). CONFLICT if it is a post cover image.",
-      "assets:write",
+      "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image.",
+      "assets:delete",
       writeErrors,
     ),
     requestSchema: deleteAssetRequestSchema,

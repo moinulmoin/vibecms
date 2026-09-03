@@ -16,13 +16,13 @@ function surfaces(apiDocsUrl: string): Surface[] {
   return [
     {
       tag: "MCP",
-      title: "Up to 19 tools over POST /mcp",
+      title: "19 tools, scoped per token, over POST /mcp",
       body: "Draft, publish, version, upload, read - JSON-RPC, each behind a scope.",
     },
     {
       tag: "REST",
-      title: "18 typed operations · OpenAPI 3.1",
-      body: "The same actions over plain HTTP, with live docs.",
+      title: "18 typed endpoints · OpenAPI 3.1",
+      body: "The same capabilities over plain HTTP, with search on the posts list and live docs.",
       href: apiDocsUrl,
       hrefLabel: "Open API docs",
     },
@@ -74,27 +74,27 @@ export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
             <div className="mt-3 text-foreground">
               <span className="text-brand-bright">●</span> connected{" "}
               <span className="text-muted-foreground">
-                · 18 tools available with Publisher scope
+                · 17 tools available with Publisher scope
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
               {TOOLS.map((t) => (
                 <span key={t}>{t}</span>
               ))}
-              <span className="text-foreground/45">+13 more</span>
+              <span className="text-foreground/45">+12 more</span>
             </div>
           </div>
         </div>
 
         <div data-reveal data-d="1" className="min-w-0">
           <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-            Your agent drives
+            Your agent runs the workflow.
             <br />
-            the whole blog.
+            You control the release.
           </h2>
           <p className="mt-4 max-w-[440px] text-[16.5px] leading-[1.62] text-muted-foreground">
-            Connect once. Your agent gets MCP, a typed REST API, and a CLI - all
-            behind one scoped token, all speaking the same actions.
+            Connect once. MCP, the typed REST API, and the CLI all preserve the
+            same Markdown, version checks, scopes, and audit trail.
           </p>
 
           <div className="mt-7 grid gap-3.5">

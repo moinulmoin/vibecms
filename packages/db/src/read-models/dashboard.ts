@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle
 import type { Post } from "@vc/core";
 import { isNotNull } from "drizzle-orm";
 import { createDbClient } from "../client";
-import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, user } from "../schema";
+import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, subscribers, user } from "../schema";
 
 export interface DashboardRecentPost {
   id: string;
@@ -78,6 +78,7 @@ export interface DashboardAggregate {
   counts: { published: number; draft: number; archived: number };
   media: { bytes: number; count: number };
   tokenCount: number;
+  subscriberCount: number;
   versionCount: number;
   recentPosts: DashboardRecentPost[];
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
@@ -106,7 +107,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
 
   return {
     async getDashboardAggregate(siteId) {
-      const [siteRows, statusRows, recentPostRows, recentDraftRows, mediaRows, tokenRows, versionRows, activityRows, domainRows] =
+      const [siteRows, statusRows, recentPostRows, recentDraftRows, mediaRows, tokenRows, subscriberRows, versionRows, activityRows, domainRows] =
         await Promise.all([
           client.select({ name: sites.name, slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1),
           client
@@ -155,6 +156,10 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
             .where(and(eq(apiKeys.siteId, siteId), isNull(apiKeys.revokedAt))),
           client
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(subscribers)
+            .where(eq(subscribers.siteId, siteId)),
+          client
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
             .from(postVersions)
             .where(eq(postVersions.siteId, siteId)),
           client
@@ -185,6 +190,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         counts,
         media: { bytes: media.bytes, count: media.count },
         tokenCount: tokenRows[0]?.count ?? 0,
+        subscriberCount: subscriberRows[0]?.count ?? 0,
         versionCount: versionRows[0]?.count ?? 0,
         recentPosts: recentPostRows.map((post) => ({
           id: post.id,

@@ -5,12 +5,12 @@ const faqs = [
   {
     question: "What is the launch offer?",
     answer:
-      "Public early access pricing: $13/month or $99/year instead of the standard $19/$190. The launch offer applies automatically at checkout for the first 100 subscribers and stays locked for as long as your subscription remains active.",
+      "Public early access pricing is $13/month or $99/year instead of the standard $19/$190. It applies automatically at checkout while the offer is displayed and stays locked for as long as your subscription remains active.",
   },
   {
     question: "Is vibecms an AI writer?",
     answer:
-      "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; vibecms is the publication layer underneath.",
+      "No. It is the publishing control plane your trusted agents prepare content in. Bring your own agent or use the dashboard; either way, you review an exact version before it goes live.",
   },
   {
     question: "Who is this for?",

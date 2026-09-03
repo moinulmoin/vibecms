@@ -58,7 +58,7 @@ beforeAll(async () => {
 });
 
 describe("site personalization", () => {
-  it("defaults to an unanswered profile before Make it yours is completed", async () => {
+  it("defaults to an unanswered profile before a client is chosen", async () => {
     const profile = await loadPersonalization(ownerApp());
     expect(profile).toEqual({ agentPreference: null, voiceSeed: [], onboardingNote: null });
   });
@@ -93,7 +93,7 @@ describe("site personalization", () => {
       .bind(SITE_ID)
       .first<{ action: string; summary: string }>();
     expect(activity?.action).toBe("site.updated");
-    expect(activity?.summary).toBe("Personalized the onboarding guidance");
+    expect(activity?.summary).toBe("Updated agent onboarding preferences");
   });
 
   it("sanitizes the voice seed: dedupes, caps at three, drops invalid URLs", async () => {

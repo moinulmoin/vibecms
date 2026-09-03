@@ -50,7 +50,7 @@ pnpm --filter @vc/api exec wrangler secret put TOKEN_PEPPER --config ../../wrang
 
 Generate each secret with `openssl rand -hex 32`. Do not configure Polar secrets unless you intentionally want to exercise hosted billing.
 
-## Sign-in email and optional Google OAuth
+## Sign-in email and optional OAuth
 
 Enable Cloudflare Email Sending for your sender domain, keep the `EMAIL` binding in root `wrangler.jsonc`, and set `EMAIL_FROM` to an address on that domain:
 
@@ -60,14 +60,16 @@ pnpm --filter @vc/api exec wrangler email sending enable <your-domain> --config 
 
 Without the binding, self-hosted OTP codes are written to Worker logs for operator testing; that is not suitable for real users.
 
-Google sign-in is optional. Set both values or neither:
+Google and GitHub sign-in are optional. Set both values for each provider you enable:
 
 ```sh
 pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_ID --config ../../wrangler.jsonc
 pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler secret put GITHUB_CLIENT_ID --config ../../wrangler.jsonc
+pnpm --filter @vc/api exec wrangler secret put GITHUB_CLIENT_SECRET --config ../../wrangler.jsonc
 ```
 
-Use `<APP_URL>/api/auth/callback/google` as the authorized redirect URI.
+Use `<APP_URL>/api/auth/callback/google` and/or `<APP_URL>/api/auth/callback/github` as the authorized redirect URI for the providers you enable.
 
 ## Deploy
 

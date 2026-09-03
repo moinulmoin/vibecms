@@ -17,6 +17,8 @@ import type {
   RemoveCustomDomainResult,
   SettingsPageData,
   SitePersonalization,
+  SubscribersPageLoad,
+  NewsletterSettings,
   VoiceProfileMutationResult,
   VoiceProfileSettingsInput,
 } from '~/types/dashboard'
@@ -27,8 +29,10 @@ import {
   analyticsPageDataSchema,
   dashboardDataSchema,
   mutationResultSchema,
+  newsletterSettingsSchema,
   onboardingConnectStatusSchema,
   settingsPageDataSchema,
+  subscribersPageLoadSchema,
 } from '~/lib/dashboard-response-schemas'
 
 export class DashboardApiError extends Error {
@@ -185,10 +189,11 @@ export function loadSettingsPage(signal?: AbortSignal) {
 }
 
 export function updateSiteSettingsMutation(data: {
-  name: string
-  description?: string
+  expectedUpdatedAt: number
+  name?: string
+  description?: string | null
   defaultSeoTitle?: string
-  defaultSeoDescription?: string
+  defaultSeoDescription?: string | null
   defaultSocialAssetId?: string | null
   theme?: string
   themeAccent?: string | null
@@ -196,6 +201,50 @@ export function updateSiteSettingsMutation(data: {
   themeMode?: string | null
 }) {
   return dashboardPost('/api/dashboard/settings', data, undefined, mutationResultSchema)
+}
+
+export function loadNewsletterSettings(signal?: AbortSignal) {
+  return dashboardFetch<NewsletterSettings>(
+    '/api/dashboard/newsletter-settings',
+    { method: 'GET', signal },
+    newsletterSettingsSchema,
+  )
+}
+
+export function updateNewsletterSettingsMutation(data: NewsletterSettings) {
+  return dashboardFetch<MutationResult>(
+    '/api/dashboard/newsletter-settings',
+    { method: 'PUT', body: JSON.stringify(data) },
+    mutationResultSchema,
+  )
+}
+
+export function loadSubscribersPage(
+  data: { search?: string; status?: string; offset?: number } = {},
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams()
+  if (data.search) params.set('q', data.search)
+  if (data.status) params.set('status', data.status)
+  if (data.offset !== undefined) params.set('offset', String(data.offset))
+  const query = params.toString()
+  return dashboardFetch<SubscribersPageLoad>(
+    `/api/dashboard/subscribers${query ? `?${query}` : ''}`,
+    { method: 'GET', signal },
+    subscribersPageLoadSchema,
+  )
+}
+
+export function deleteSubscriberMutation(id: string) {
+  return dashboardFetch<MutationResult>(
+    `/api/dashboard/subscriber/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+    mutationResultSchema,
+  )
+}
+
+export function subscribersExportUrl() {
+  return '/api/dashboard/subscribers/export.csv'
 }
 
 export function updateVoiceProfileMutation(data: VoiceProfileSettingsInput) {
@@ -227,7 +276,7 @@ export function removeCustomDomainMutation(data: { domainId: string }) {
 }
 
 export function loadMediaPage(signal?: AbortSignal) {
-  return dashboardFetch<{ assets: Asset[] }>('/api/dashboard/media', { method: 'GET', signal })
+  return dashboardFetch<{ assets: Asset[]; mediaGate: { effective: boolean; selfHosted: boolean } }>('/api/dashboard/media', { method: 'GET', signal })
 }
 
 export function loadActivityPage(data: { offset?: number } = {}, signal?: AbortSignal) {
@@ -318,6 +367,10 @@ export function publishPostMutation(data: { postId: string; expectedVersionNumbe
 
 export function archivePostMutation(data: { postId: string }) {
   return dashboardPost<MutationResult>('/api/dashboard/posts/archive', data)
+}
+
+export function unarchivePostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/unarchive', data)
 }
 
 export function listPostVersionsFn(data: { postId: string }, signal?: AbortSignal) {

@@ -1,24 +1,23 @@
 import * as React from "react";
+import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { cn } from "../lib/utils";
 
 const alertVariants = cva(
-  "relative flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm font-sans ring-1 ring-[color:var(--hairline)]",
+  "relative flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm font-sans",
   {
     variants: {
       variant: {
         info: "border-border bg-card text-card-foreground",
         success: "border-primary/30 bg-accent text-accent-foreground",
         error: "border-destructive/40 bg-destructive/10 text-foreground",
-        warning: "border-amber-500/40 bg-amber-500/10 text-foreground",
+        warning: "border-warning/40 bg-warning/10 text-foreground",
       },
     },
     defaultVariants: { variant: "info" },
   },
 );
-
-const icons = { info: InfoCircledIcon, success: CheckCircledIcon, error: CrossCircledIcon, warning: ExclamationTriangleIcon } as const;
+const icons = { info: Info, success: CheckCircle2, error: XCircle, warning: AlertTriangle } as const;
 
 interface AlertProps extends React.ComponentProps<"div">, VariantProps<typeof alertVariants> {
   title?: string;

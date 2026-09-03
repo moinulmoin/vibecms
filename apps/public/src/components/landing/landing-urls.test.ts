@@ -19,6 +19,11 @@ describe("landing URL props", () => {
     expect(html).toContain("Sign in");
     expect(html).toContain("data-landing-nav");
     expect(html).toContain("data-hero-demo");
+    expect(html).toContain("review the exact")
+    expect(html).toContain("publishing pins that version")
+    expect(html).toContain("rejects stale edits")
+    expect(html).toContain("draft &quot;Shipping with MCP&quot;")
+    expect(html).not.toContain("publish &quot;Shipping with MCP&quot;")
   });
 
   it("wires API docs through AgentsDemo and static AgentSurface", () => {

@@ -20,7 +20,7 @@ Commands:
   posts get-by-slug <slug>
   posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [--excerpt <e> --tags a,b]
   posts update <postId> --expected-version <n> [--title --slug --content --content-file --excerpt --tags]
-  posts publish <postId> [--expected-version <n>]
+  posts publish <postId> --expected-version <n>
   posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
   assets list
@@ -178,19 +178,6 @@ function parseExpectedVersion(v: Values, required: boolean): number | undefined 
   return n;
 }
 
-async function currentVersionNumber(cfg: ResolvedConfig, postId: string): Promise<number> {
-  const result = await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(postId)}`);
-  if (!result.res.ok) {
-    fail(result.json ?? { error: { code: "HTTP", message: `HTTP ${result.res.status}` } }, exitCodeForStatus(result.res.status));
-  }
-  const body = result.json as { currentVersionNumber?: unknown };
-  const n = body?.currentVersionNumber;
-  if (typeof n !== "number" || !Number.isInteger(n) || n < 1) {
-    fail({ error: { code: "INVALID_RESPONSE", message: "Post response missing currentVersionNumber" } }, EXIT.OTHER);
-  }
-  return n;
-}
-
 async function postsCommand(
   action: string | undefined,
   rest: string[],
@@ -245,8 +232,7 @@ async function postsCommand(
     }
     case "publish": {
       const id = need(rest[0], "<postId>");
-      const expectedVersionNumber = parseExpectedVersion(v, false) ?? (v["dry-run"] ? undefined : await currentVersionNumber(cfg, id));
-      if (expectedVersionNumber === undefined) need(undefined, "--expected-version");
+      const expectedVersionNumber = parseExpectedVersion(v, true);
       return mutate(
         cfg,
         "POST",
@@ -310,7 +296,7 @@ async function assetsCommand(
       const result = await apiRequest(cfg, "DELETE", `/api/v1/assets/${encodeURIComponent(assetId)}`);
       if (result.res.status === 409) {
         fail(
-          result.json ?? { error: { code: "CONFLICT", message: "Asset is in use as a post cover image and cannot be deleted." } },
+          result.json ?? { error: { code: "CONFLICT", message: "Asset is in use as a post cover or site social image and cannot be deleted." } },
           EXIT.CONFLICT,
         );
       }

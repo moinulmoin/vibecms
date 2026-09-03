@@ -8,11 +8,12 @@ import {
   type PublicPostSummaryRow,
   type PublicSiteRow,
 } from "@vc/db";
+import type { SubscribeSettings } from "@vc/content/public-chrome";
 import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
 
 export { PUBLIC_BLOG_LIMITS };
-
+type NewsletterSettings = Required<SubscribeSettings>;
 export type SiteRow = {
   id: string;
   workspace_id: string;
@@ -30,6 +31,7 @@ export type SiteRow = {
   default_social_asset_width: number | null;
   default_social_asset_height: number | null;
   default_social_asset_alt_text: string | null;
+  newsletter_settings?: NewsletterSettings | null;
   billing_status: string | null;
   current_period_end: number | null;
   published_count: number | null;
@@ -65,6 +67,29 @@ export type PostDetailRow = PostBodyRow & {
   presentation_json: string | null;
   presentation: Presentation | null;
 };
+function parseNewsletterSettings(raw: string | null): NewsletterSettings | null {
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Record<string, unknown>;
+    if (
+      typeof candidate.enabled !== "boolean" ||
+      typeof candidate.heading !== "string" ||
+      typeof candidate.subtext !== "string" ||
+      typeof candidate.buttonLabel !== "string"
+    ) return null;
+    return {
+      enabled: candidate.enabled,
+      heading: candidate.heading,
+      subtext: candidate.subtext,
+      buttonLabel: candidate.buttonLabel,
+    };
+  } catch {
+    return null;
+  }
+}
+
 
 function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEntitlement): SiteRow {
   return {
@@ -84,6 +109,7 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     default_social_asset_width: row.defaultSocialAssetWidth,
     default_social_asset_height: row.defaultSocialAssetHeight,
     default_social_asset_alt_text: row.defaultSocialAssetAltText,
+    newsletter_settings: parseNewsletterSettings(row.newsletterSettings),
     billing_status: row.billingStatus,
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,

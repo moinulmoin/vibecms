@@ -27,7 +27,7 @@ function LoginPage() {
             <p className="text-pretty font-sans text-sm leading-6 text-muted-foreground">
               We&apos;ll email you a one-time code. No password needed.
             </p>
-            <p className="font-mono text-[11px] leading-5 text-muted-foreground/70">
+            <p className="font-mono text-[11px] leading-5 text-muted-foreground">
               {'// your agent never sees this login'}
             </p>
           </div>

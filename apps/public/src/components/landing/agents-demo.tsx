@@ -12,14 +12,14 @@ export function AgentsDemo({ apiDocsUrl }: { apiDocsUrl: string }) {
         <div data-reveal className="min-w-0">
           <MonoEyebrow label="Scoped access" className="mb-4" />
           <h2 className="text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-            Let agents publish
+            Let agents prepare posts
             <br />
             without your login.
           </h2>
           <p className="mt-4 mb-6 max-w-[420px] text-[16.5px] leading-[1.62] text-muted-foreground">
-            Give each assistant only the scopes it needs. Flip a switch - the
-            token updates instantly, shown once then hashed. Nothing leaks to
-            your account or billing.
+            Start with draft-only access. Grant publishing only to an agent that
+            must release a version after your explicit approval. Every token is
+            shown once, then stored as a hash.
           </p>
           <GeneratedScopeTokenBox />
           <p className="mt-5 max-w-[440px] text-[13.5px] leading-[1.6] text-muted-foreground">

@@ -46,7 +46,7 @@ export function validatePostsSearch(search: Record<string, unknown>): PostsListS
   }
 }
 
-const SETTINGS_TABS: Record<string, true> = { general: true, theme: true, voice: true, domain: true, billing: true, data: true }
+const SETTINGS_TABS: Record<string, true> = { general: true, theme: true, voice: true, newsletter: true, domain: true, billing: true, data: true }
 
 export function validateSettingsSearch(search: Record<string, unknown>): SettingsSearch {
   const tab = typeof search.tab === 'string' && SETTINGS_TABS[search.tab] ? search.tab : undefined

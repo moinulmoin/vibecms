@@ -2,7 +2,7 @@ import { BRAND } from '@vc/config'
 import type { ReactNode } from 'react'
 import { CheckIcon } from '@radix-ui/react-icons'
 
-const STEPS = ['Blog setup', 'Make it yours', 'Connect agent', 'First post'] as const
+const STEPS = ['Blog setup', 'Choose client', 'Connect agent', 'First draft', 'Review version', 'Publish proof'] as const
 
 export function OnboardingStepper({ step, complete = false }: { step: number; complete?: boolean }) {
   return (
@@ -19,15 +19,22 @@ export function OnboardingStepper({ step, complete = false }: { step: number; co
             {state === 'done' ? (
               <CheckIcon className="size-4 text-primary" aria-hidden="true" />
             ) : (
-              <span className={state === 'current' ? 'text-primary' : 'text-muted-foreground/70'}>
+              <span
+                aria-hidden="true"
+                className={state === 'current' ? 'text-primary' : 'hidden text-muted-foreground md:inline'}
+              >
                 0{position}
               </span>
             )}
+            <span className="sr-only">
+              {state === 'done' ? `Completed, ` : state === 'current' ? `Step ${position} of ${STEPS.length}, ` : `Upcoming, `}
+              {label}
+            </span>
             <span
               className={
                 state === 'current'
                   ? 'font-medium text-foreground'
-                  : 'hidden text-muted-foreground/70 sm:inline'
+                  : 'hidden text-muted-foreground md:inline'
               }
             >
               {label}

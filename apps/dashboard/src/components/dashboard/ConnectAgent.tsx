@@ -24,9 +24,14 @@ function CodeBlock({ name, hint, code }: { name: string; hint: string; code: str
           <p className="font-mono text-[11px] font-medium text-foreground">{name}</p>
           <p className="mt-1 font-sans text-xs text-muted-foreground">{hint}</p>
         </div>
-        <CopyButton value={code} label="Copy" copiedLabel="Copied" iconOnly className="shrink-0" />
+        <CopyButton value={code} label="Copy" copiedLabel="Copied" className="shrink-0" />
       </div>
-      <pre className="max-w-full overflow-x-auto rounded-xl bg-background/70 p-3 font-mono text-xs leading-relaxed text-foreground">
+      <pre
+        role="region"
+        className="max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-background/70 p-3 font-mono text-xs leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`${name} configuration`}
+        tabIndex={0}
+      >
         {code}
       </pre>
     </div>
@@ -68,7 +73,7 @@ export function ConnectAgent({
   connected?: boolean
   /** When true, show only the protected check and approval-first writing prompts. */
   promptOnly?: boolean
-  /** From "Make it yours"; promotes that agent's config to the primary snippet. */
+  /** From onboarding's client choice; promotes that agent's config to the primary snippet. */
   preferredAgent?: AgentPreference | null
 }) {
   const tok = token ?? 'vc_YOUR_TOKEN'
@@ -129,7 +134,12 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
               Copy this token now. For security it is shown only once - it is already baked into the snippets below.
             </p>
           </div>
-          <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-background/80 p-4 font-mono text-sm text-primary">
+          <pre
+            role="region"
+            className="max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-background/80 p-4 font-mono text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="One-time API token"
+            tabIndex={0}
+          >
             {token}
           </pre>
           <CopyButton value={token} label="Copy token" copiedLabel="Token copied" className="w-fit" />
@@ -142,7 +152,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
             title={preferredAgent ? `1. Add VibeCMS to ${primary.name}` : '1. Add VibeCMS to your agent'}
             description={
               preferredAgent
-                ? `Pre-configured from your Make it yours answer. VibeCMS uses the standard Streamable HTTP transport, so any compatible MCP client uses the same URL and Authorization header.`
+                ? `Pre-configured from your client choice. VibeCMS uses the standard Streamable HTTP transport, so any compatible MCP client uses the same URL and Authorization header.`
                 : token
                   ? 'Claude Code is the primary example. VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client uses the same URL and Authorization header.'
                   : 'Use a token you saved previously, or create a new token above to get a ready-to-paste command.'
@@ -174,7 +184,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
           </Section>
 
           <Section
-            title="Install the VibeCMS skills"
+            title="2. Install the VibeCMS skills"
             description="The MCP server provides capabilities; these two client-independent skills provide the safe operating contract and editorial method."
           >
             <CodeBlock
@@ -187,7 +197,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
       ) : null}
 
       <Section
-        title="2. Verify read-only access"
+        title="3. Verify read-only access"
         description="Run this protected check next. It confirms the connection without changing your site."
       >
         <CodeBlock
@@ -199,7 +209,7 @@ http_headers = { "Authorization" = "Bearer ${tok}" }`
 
       <details className="group rounded-xl bg-muted/35" open={connected || undefined}>
         <summary className="cursor-pointer select-none px-3 py-2.5 font-display text-sm font-semibold text-foreground">
-          3. Draft, review, then approve
+          4. Draft, review, then approve
         </summary>
         <div className="grid min-w-0 gap-3 px-3 pb-3">
           <p className="font-sans text-xs leading-5 text-muted-foreground">

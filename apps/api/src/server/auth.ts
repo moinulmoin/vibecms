@@ -9,10 +9,17 @@ import { sendOtpEmail } from '@/server/email'
 const googleConfigured = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
 const githubConfigured = Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET)
 
+// Local dev reaches the worker through vite's http proxy, so the effective
+// origin is the plain-http route host; trust it only outside production.
 const trustedOrigins =
   env.APP_ENV === 'production'
     ? [env.BETTER_AUTH_URL, env.APP_URL].filter(Boolean)
-    : [env.BETTER_AUTH_URL, env.APP_URL, 'http://localhost:3000'].filter(Boolean)
+    : [
+        env.BETTER_AUTH_URL,
+        env.APP_URL,
+        'http://localhost:3000',
+        'http://app.basedui.dev',
+      ].filter(Boolean)
 
 export const auth = betterAuth({
   database: drizzleAdapter(createDbClient(env.DB), {

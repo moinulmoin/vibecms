@@ -21,17 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from '@vc/ui'
-import { CheckIcon, Link2Icon, PlusIcon, TrashIcon } from '@radix-ui/react-icons'
+import { Check, Link2, Plus, Trash2 } from 'lucide-react'
 import { Button, LoadError, formatDate } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
+import { EmptyState, PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
-import { Skeleton } from '@vc/ui'
 import type { ApiKeyListItem } from '~/types/dashboard'
 import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
-import { Spinner } from '~/components/ui/spinner'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
   checkoutBillingMutation,
@@ -69,13 +67,13 @@ type TokenPreset = {
 }
 
 const TOKEN_PRESETS: TokenPreset[] = [
-  { id: 'draft', label: 'Drafter', description: 'Create and edit drafts and upload media. Cannot publish or archive posts.' },
-  { id: 'publish', label: 'Publisher', description: 'Everything in Drafter, plus publish posts live. Cannot archive.', recommended: true },
-  { id: 'full', label: 'Full publisher', description: 'Everything in Publisher, plus archive posts.' },
+  { id: 'draft', label: 'Drafter', description: 'Create and edit drafts and upload media. Cannot publish, archive, or delete media.', recommended: true },
+  { id: 'publish', label: 'Publisher', description: 'Everything in Drafter, plus publish posts live. Cannot archive or delete media.' },
+  { id: 'full', label: 'Full publisher', description: 'Everything in Publisher, plus archive posts and delete unused media.' },
 ]
 
 function capabilityLabel(scopes: Scope[]): string {
-  if (scopes.includes('posts:archive')) return 'Full publisher'
+  if (scopes.includes('posts:archive') || scopes.includes('assets:delete')) return 'Full publisher'
   if (scopes.includes('posts:publish')) return 'Publisher'
   return 'Drafter'
 }
@@ -88,6 +86,7 @@ function isScope(value: string): value is Scope {
     value === 'posts:publish' ||
     value === 'posts:archive' ||
     value === 'assets:write' ||
+    value === 'assets:delete' ||
     value === 'activity:read'
   )
 }
@@ -125,8 +124,7 @@ function UpgradeCtas({
         Upgrade to make the blog indexable, publish more posts, and upload media.
       </p>
 
-      <p className="rounded-xl bg-muted/40 px-3 py-2.5 font-mono text-[11px] leading-5 text-primary">
-        {'// launch offer: '}
+      <p className="border-b border-[color:var(--hairline)] pb-3 font-sans text-sm leading-5 text-primary">
         {LAUNCH_OFFER.monthlyLabel}
         {' or '}
         {LAUNCH_OFFER.annualLabel}
@@ -134,22 +132,21 @@ function UpgradeCtas({
         <span className="line-through decoration-foreground/40">
           {PRICING.monthlyLabel} · {PRICING.annualLabel}
         </span>
-        {' — first 100 subscribers, locked while you stay subscribed.'}
+        {' — early access rate, locked while you stay subscribed.'}
       </p>
 
-      <ul className="grid gap-2.5 rounded-xl bg-muted/50 p-4 text-sm">
+      <ul className="grid gap-2.5 border-b border-[color:var(--hairline)] pb-4 text-sm">
         {(['Indexable public blog', 'More publishes'] as const).map((item) => (
-          <li key={item} className="flex items-start gap-2.5">
-            <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <li key={item} className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-2.5 last:border-b-0 last:pb-0">
+            <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
             <span className="font-sans text-foreground">{item}</span>
           </li>
         ))}
         <li className="flex items-start gap-2.5">
-          <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media</span>
         </li>
       </ul>
-
       <div className="grid gap-2 sm:grid-cols-2">
         <PendingSubmitButton
           type="button"
@@ -172,7 +169,7 @@ function UpgradeCtas({
             {`Save with annual - ${PRICING.annualLabel}`}
           </PendingSubmitButton>
           {MONTHS_FREE >= 1 && (
-            <p className="text-center font-mono text-[11px] text-muted-foreground">
+            <p className="text-center font-sans text-xs text-muted-foreground">
               {MONTHS_FREE} {MONTHS_FREE === 1 ? 'month' : 'months'} free
             </p>
           )}
@@ -181,15 +178,14 @@ function UpgradeCtas({
     </div>
   )
 }
-
 function scopeTooltip(label: string): string {
   if (label === 'Publisher') {
     return 'Everything Drafter allows, plus publishing posts live.'
   }
   if (label === 'Full publisher') {
-    return 'Everything Publisher allows, plus archiving posts.'
+    return 'Everything Publisher allows, plus archiving posts and deleting unused media.'
   }
-  return 'Can create and edit drafts and upload media.'
+  return 'Can create and edit drafts and upload media, but cannot delete media.'
 }
 
 function TokenRow({
@@ -207,7 +203,9 @@ function TokenRow({
       <TableCell>
         <div className="min-w-0">
           <strong className="font-display text-sm font-semibold text-foreground">{apiKey.name}</strong>
-          <p className="mt-0.5 font-mono text-xs text-primary">{apiKey.tokenPrefix}</p>
+          <p className="mt-0.5 font-mono text-xs text-muted-foreground" title="Non-secret token identifier">
+            ID · {apiKey.tokenPrefix}
+          </p>
         </div>
       </TableCell>
       <TableCell>
@@ -225,7 +223,6 @@ function TokenRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end gap-2">
-          <CopyButton value={apiKey.tokenPrefix} iconOnly label="Copy token prefix" copiedLabel="Copied" />
           <SpaConfirmButton
             size="sm"
             confirmLabel="Confirm revoke"
@@ -234,7 +231,7 @@ function TokenRow({
             disabled={pending}
             onConfirm={() => onDelete(apiKey.id)}
           >
-            <TrashIcon aria-hidden data-icon="inline-start" /> Revoke token
+            <Trash2 aria-hidden data-icon="inline-start" /> Revoke token
           </SpaConfirmButton>
         </div>
       </TableCell>
@@ -260,6 +257,7 @@ export function ConnectPage() {
   const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
   // null = no explicit choice yet; the effective tab falls back to the state-derived default.
   const [activeTab, setActiveTab] = useState<string | null>(null)
+  const [showCompletedSetup, setShowCompletedSetup] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const [connectLoadFailed, setConnectLoadFailed] = useState(false)
   const [statusLoadFailed, setStatusLoadFailed] = useState(false)
@@ -401,9 +399,9 @@ export function ConnectPage() {
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const rawPreset = String(form.get('preset') ?? 'publish')
+    const rawPreset = String(form.get('preset') ?? 'draft')
     const preset: 'draft' | 'publish' | 'full' =
-      rawPreset === 'full' || rawPreset === 'draft' ? rawPreset : 'publish'
+      rawPreset === 'full' || rawPreset === 'publish' ? rawPreset : 'draft'
     setCreatePending(true)
     stickyConnectedRef.current = false
     try {
@@ -504,7 +502,7 @@ export function ConnectPage() {
           ? 'Token created'
           : 'Connect your agent'
   const pageDesc = live
-    ? 'Your agent published successfully. Open the article, copy its URL, or continue to your dashboard.'
+    ? 'Your approved version is live. Open the article, copy its URL, or continue to your dashboard.'
     : draft
       ? 'Your agent saved a draft. Review it, then approve publishing when you are ready.'
       : displayConn === 'connected'
@@ -544,45 +542,38 @@ export function ConnectPage() {
               Token management still works. Connection detection will retry automatically.
             </Alert>
           ) : null}
-          <PageHeader
-            title={effectiveTab === 'tokens' ? 'API tokens' : pageTitle}
-            description={
-              effectiveTab === 'tokens'
-                ? 'Create and manage scoped tokens that connect MCP agents to this blog.'
-                : pageDesc
-            }
-            action={
-              live ? (
-                <Button asChild>
-                  <Link to="/dashboard" search={emptyDashboardStatusSearch}>
-                    Continue to Overview
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-          />
+          {!loading && (
+            <PageHeader
+              title={effectiveTab === 'tokens' ? 'API tokens' : pageTitle}
+              description={
+                effectiveTab === 'tokens'
+                  ? 'Create and manage scoped tokens that connect MCP agents to this blog.'
+                  : pageDesc
+              }
+              action={
+                live ? (
+                  <Button asChild>
+                    <Link to="/dashboard" search={emptyDashboardStatusSearch}>
+                      Continue to Overview
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          )}
 
-          {/* The rail disappears when the first post goes live — and stays put
-              across the setup/tokens tabs so switching doesn't shift layout. */}
-          {!loading && !live && (
+          {/* Keep the journey visible through publication proof so users know
+              exactly which durable milestone completed activation. */}
+          {!loading && (
             <div className="mb-8">
               <OnboardingStepper
                 step={connectOnboardingStep(status?.firstPost, displayConn === 'connected')}
+                complete={live}
               />
             </div>
           )}
 
-          {loading && (
-            <>
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-full max-w-2xl" />
-              </div>
-              <Skeleton className="h-32 rounded-2xl" />
-              <Skeleton className="h-72 rounded-2xl" />
-            </>
-          )}
+          {loading && <PageSkeleton variant="panels" />}
 
           {!loading && (
             <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
@@ -594,7 +585,7 @@ export function ConnectPage() {
               <TabsContent value="setup" className="mt-4 space-y-4">
                 {!live && connectData?.personalization.voiceSeedPending && (
                   <Alert variant="info" title="Voice profile recommended.">
-                    You shared writing links in Make it yours, but the voice profile is not configured yet. Your
+                    You shared writing links during earlier onboarding, but the voice profile is not configured yet. Your
                     agent can learn from those links and propose rules for drafts — review and save them in{' '}
                     <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'voice' }}>
                       Settings → Voice profile
@@ -657,16 +648,13 @@ export function ConnectPage() {
                 )}
 
                 {flash && mcpUrl && displayConn !== 'revoked' && (
-                  <div ref={tokenRevealRef} tabIndex={-1} aria-label="Your token is ready">
+                  <div ref={tokenRevealRef} role="region" tabIndex={-1} aria-label="Your token is ready">
                     <Panel title="Your token is ready">
-                      <div className="mb-4 rounded-xl bg-muted p-3 font-sans text-sm leading-6 text-foreground">
-                        Copy this token now. For security it is shown only once and cannot be retrieved later.
-                      </div>
                       <ConnectAgent
                         mcpUrl={mcpUrl}
                         token={flash.token}
                         tokenName={flash.name}
-                        connected={displayConn === 'connected'}
+                        connected={displayConn === 'connected' && !draft}
                         preferredAgent={connectData?.personalization.agentPreference ?? null}
                       />
                       <div className="mt-4 flex justify-end">
@@ -691,19 +679,14 @@ export function ConnectPage() {
                     <div className="grid gap-3">
                       <div
                         className={[
-                          'flex items-start gap-2 rounded-xl p-3 font-sans text-sm leading-5',
+                          'flex items-start gap-3 border border-[color:var(--hairline)] p-3 font-sans text-sm leading-5',
                           selfTestSub === 'revoked'
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'bg-muted/50 text-foreground',
+                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                            : 'bg-muted/35 text-foreground',
                         ].join(' ')}
                       >
-                        {selfTestSub === 'waiting' && (
-                          <Spinner aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 motion-reduce:animate-none" />
-                        )}
-                        {selfTestSub === 'connected' && (
-                          <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                        )}
-                        <span>
+                        <StatusBadge status={selfTestSub} className="shrink-0" />
+                        <span className="pt-0.5">
                           {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
                           {selfTestSub === 'stalled' &&
                             "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
@@ -741,7 +724,7 @@ export function ConnectPage() {
                             Version {draft.post.versionNumber} · {formatDate(draft.post.updatedAt)}
                           </p>
                         </div>
-                        <Button asChild variant="link" size="sm">
+                        <Button asChild size="sm">
                           <Link
                             to="/dashboard/posts/$postId/edit"
                             params={{ postId: draft.post.id }}
@@ -755,7 +738,21 @@ export function ConnectPage() {
                   </Panel>
                 )}
 
-                {connectData && canManage && (
+                {draft && (
+                  <div className="flex justify-center py-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-expanded={showCompletedSetup}
+                      onClick={() => setShowCompletedSetup((visible) => !visible)}
+                    >
+                      {showCompletedSetup ? 'Hide agent setup' : 'Add or reconnect an agent'}
+                    </Button>
+                  </div>
+                )}
+
+                {connectData && canManage && (!draft || showCompletedSetup) && (
                   <Panel title="Create a token">
                     <form className="grid gap-4" onSubmit={(e) => void handleCreate(e)}>
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -771,7 +768,10 @@ export function ConnectPage() {
                       </div>
                       <FieldSet className="gap-3">
                         <FieldLegend>Capabilities</FieldLegend>
-                        <RadioGroup name="preset" defaultValue="publish" className="grid gap-2 sm:grid-cols-3">
+                        <p className="font-sans text-xs leading-5 text-muted-foreground">
+                          Start with Drafter. Grant live publishing only when this agent must publish after your explicit version approval.
+                        </p>
+                        <RadioGroup name="preset" defaultValue="draft" className="grid gap-2 sm:grid-cols-3">
                           {TOKEN_PRESETS.map((preset) => (
                             <label
                               key={preset.id}
@@ -795,13 +795,13 @@ export function ConnectPage() {
                         </RadioGroup>
                       </FieldSet>
                       <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
-                        <PlusIcon aria-hidden data-icon="inline-start" /> Create token
+                        <Plus aria-hidden data-icon="inline-start" /> Create token
                       </PendingSubmitButton>
                     </form>
                   </Panel>
                 )}
 
-                {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (
+                {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (!draft || showCompletedSetup) && (
                   <Panel title="Connect an agent" meta="MCP over HTTPS">
                     <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
                       Use a token you saved previously. Token secrets are shown only once; create a new token to
@@ -809,7 +809,7 @@ export function ConnectPage() {
                     </p>
                     <ConnectAgent
                       mcpUrl={mcpUrl}
-                      connected={displayConn === 'connected'}
+                      connected={displayConn === 'connected' && !draft}
                       preferredAgent={connectData.personalization.agentPreference}
                     />
                   </Panel>
@@ -846,9 +846,14 @@ export function ConnectPage() {
                         </Table>
                       ) : (
                         <EmptyState
-                          icon={<Link2Icon />}
+                          icon={<Link2 />}
                           title="No agent connected yet"
-                          description="Create a token above to connect an AI agent to this blog over MCP."
+                          description="Create a token on the Setup tab to connect an AI agent to this blog over MCP."
+                          action={
+                            <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('setup')}>
+                              Go to Setup
+                            </Button>
+                          }
                         />
                       )
                     ) : (

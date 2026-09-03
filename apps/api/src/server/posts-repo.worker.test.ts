@@ -8,8 +8,8 @@
  * directly. It defends the behaviors that isolation.worker.test.ts does NOT cover and
  * that are most likely to silently regress in a Drizzle rewrite:
  *
- *   1. publish CAS: the free published-post cap (1 unless billing active) is enforced
- *      inside the guarded UPDATE. A 2nd publish at the cap with billing OFF is
+ *   1. publish CAS: the free published-post cap (5 unless billing active) is enforced
+ *      inside the guarded UPDATE. A 6th publish at the cap with billing OFF is
  *      rejected (draft unchanged); with billing ON it publishes; re-publishing an
  *      already-published post is idempotent (no cap error).
  *   2. version attribution COALESCE: listPostVersions resolves actorName to
@@ -437,6 +437,65 @@ describe("draft/live published version pin", () => {
     const liveAfterPublish = await publicBlog.getPublishedPost("pr-site-cap", "pr-pin-live", now);
     expect(liveAfterPublish?.contentMarkdown).toBe("# Version Two");
     expect(liveAfterPublish?.title).toBe("Pin Draft Tip");
+  });
+
+  it("keeps a successful restore private until the restored tip is published", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const { createPublicBlogReadModel } = await import("@vc/db");
+    const { restorePostVersion } = await import("@vc/core");
+    const publicBlog = createPublicBlogReadModel(env.DB);
+
+    const post = await createPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      title: "Restore Version One",
+      slug: "pr-restore-private",
+      contentMarkdown: "# Restore Version One",
+    });
+    await publishPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      expectedVersionNumber: 1,
+      billingStatus: "active",
+    });
+    await repo.updatePostWithHistory(
+      "pr-site-cap",
+      post.id,
+      { title: "Restore Version Two", contentMarkdown: "# Restore Version Two" },
+      fullApiActor,
+      { changeSummary: "v2", activityAction: "post.updated", activitySummary: "v2" },
+      1,
+    );
+    await publishPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      expectedVersionNumber: 2,
+      billingStatus: "active",
+    });
+
+    const restored = await restorePostVersion(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      versionNumber: 1,
+      expectedVersionNumber: 2,
+    });
+    expect(restored.currentVersionNumber).toBe(3);
+    expect(restored.publishedVersionNumber).toBe(2);
+    expect(restored.contentMarkdown).toBe("# Restore Version One");
+
+    const now = Math.floor(Date.now() / 1000) + 10;
+    const liveAfterRestore = await publicBlog.getPublishedPost("pr-site-cap", "pr-restore-private", now);
+    expect(liveAfterRestore?.contentMarkdown).toBe("# Restore Version Two");
+    expect(liveAfterRestore?.title).toBe("Restore Version Two");
+
+    await publishPost(repo, fullApiActor, {
+      siteId: "pr-site-cap",
+      postId: post.id,
+      expectedVersionNumber: 3,
+      billingStatus: "active",
+    });
+    const liveAfterPublish = await publicBlog.getPublishedPost("pr-site-cap", "pr-restore-private", now);
+    expect(liveAfterPublish?.contentMarkdown).toBe("# Restore Version One");
+    expect(liveAfterPublish?.title).toBe("Restore Version One");
   });
 
   it("rejects concurrent tip updates with the same expectedVersionNumber", async () => {

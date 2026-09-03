@@ -24,6 +24,8 @@ const NODE_IDLE =
   "relative z-10 grid size-14 scale-100 place-items-center rounded-2xl ring-1 ring-brand-bright/30 transition-all duration-500 [background:var(--surface-panel-from)]";
 const BADGE_LIVE =
   "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold transition-colors duration-500 text-brand-bright ring-1 ring-brand-bright/35 [background:oklch(0.8107_0.1705_152.72/0.12)]";
+const BADGE_REVIEW =
+  "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold transition-colors duration-500 text-foreground ring-1 ring-[color:var(--border)] [background:var(--surface-glass-strong)]";
 const BADGE_IDLE =
   "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold transition-colors duration-500 text-muted-foreground ring-1 ring-[color:var(--hairline)]";
 
@@ -147,10 +149,14 @@ function setHeroPhase(root, phase) {
   const post = root.querySelector("[data-hero-post]");
   const badge = root.querySelector("[data-hero-live-badge]");
   const liveDot = root.querySelector("[data-hero-live-dot]");
+  const badgeLabel = root.querySelector("[data-hero-badge-label]");
+  const approval = root.querySelector("[data-hero-approval]");
 
-  const publishing = phase === "publishing";
+  const drafting = phase === "drafting";
+  const reviewing = phase === "review";
   const published = phase === "live";
-  const active = publishing || published;
+  const active = drafting || reviewing || published;
+  const ready = reviewing || published;
   const typing = phase === "typing";
 
   if (cursor instanceof HTMLElement) {
@@ -162,27 +168,46 @@ function setHeroPhase(root, phase) {
     agent.classList.toggle("opacity-100", !typing);
   }
   if (agentDot instanceof HTMLElement) {
-    agentDot.classList.toggle("animate-vc-pulse", publishing);
+    agentDot.classList.toggle("animate-vc-pulse", drafting);
   }
   if (agentStatus instanceof HTMLElement) {
-    agentStatus.textContent = published ? "published to vibecms" : "routing through vibecms…";
+    agentStatus.textContent = published
+      ? "version 3 approved by you"
+      : reviewing
+        ? "draft saved · version 3"
+        : "saving exact Markdown…";
   }
   if (liveLine instanceof HTMLElement) {
-    liveLine.classList.toggle("opacity-0", !published);
-    liveLine.classList.toggle("opacity-100", published);
+    liveLine.textContent = published
+      ? "→ live at blog.acme.com"
+      : "→ waiting for your approval · version 3";
+    liveLine.classList.toggle("opacity-0", !ready);
+    liveLine.classList.toggle("opacity-100", ready);
   }
   if (trackH instanceof HTMLElement) trackH.style.width = active ? "100%" : "0%";
   if (trackV instanceof HTMLElement) trackV.style.height = active ? "100%" : "0%";
   if (node instanceof HTMLElement) node.className = active ? NODE_ACTIVE : NODE_IDLE;
   if (post instanceof HTMLElement) {
-    post.classList.toggle("opacity-100", published);
-    post.classList.toggle("opacity-45", !published);
+    post.classList.toggle("opacity-100", ready);
+    post.classList.toggle("opacity-45", !ready);
   }
-  if (badge instanceof HTMLElement) badge.className = published ? BADGE_LIVE : BADGE_IDLE;
+  if (badge instanceof HTMLElement) {
+    badge.className = published ? BADGE_LIVE : reviewing ? BADGE_REVIEW : BADGE_IDLE;
+  }
   if (liveDot instanceof HTMLElement) {
     liveDot.className = published
       ? "size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]"
-      : "size-1.5 rounded-full bg-muted-foreground/40";
+      : reviewing
+        ? "size-1.5 rounded-full bg-foreground/70"
+        : "size-1.5 rounded-full bg-muted-foreground/40";
+  }
+  if (badgeLabel instanceof HTMLElement) {
+    badgeLabel.textContent = published ? "live" : reviewing ? "review v3" : "draft";
+  }
+  if (approval instanceof HTMLElement) {
+    approval.textContent = published ? "approved by you" : "approval required";
+    approval.classList.toggle("text-brand-bright", published);
+    approval.classList.toggle("text-muted-foreground", !published);
   }
 }
 
@@ -237,9 +262,10 @@ function initHeroDemo() {
           i += 1;
           at(48, type);
         } else {
-          at(650, () => setHeroPhase(root, "publishing"));
-          at(2000, () => setHeroPhase(root, "live"));
-          at(5600, run);
+          at(650, () => setHeroPhase(root, "drafting"));
+          at(1900, () => setHeroPhase(root, "review"));
+          at(4000, () => setHeroPhase(root, "live"));
+          at(7200, run);
         }
       };
       at(700, type);

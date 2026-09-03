@@ -1,21 +1,25 @@
 export const SCOPE_ROWS = [
-  { key: "drafts", label: "Create drafts", token: "drafts:write" },
+  { key: "site", label: "Read site", token: "sites:read" },
+  { key: "posts", label: "Read posts", token: "posts:read" },
+  { key: "drafts", label: "Create drafts", token: "posts:create" },
   { key: "update", label: "Update posts", token: "posts:update" },
+  { key: "media", label: "Upload media", token: "assets:write" },
+  { key: "activity", label: "Read activity", token: "activity:read" },
   { key: "publish", label: "Publish posts", token: "posts:publish" },
-  { key: "media", label: "Upload media", token: "media:write" },
-  { key: "billing", label: "Change billing", token: "billing:write" },
-  { key: "ownership", label: "Transfer ownership", token: "account:owner" },
+  { key: "deleteMedia", label: "Delete media", token: "assets:delete" },
 ] as const;
 
 export type ScopeKey = (typeof SCOPE_ROWS)[number]["key"];
 
 export const INITIAL_SCOPES: Record<ScopeKey, boolean> = {
+  site: true,
+  posts: true,
   drafts: true,
   update: true,
-  publish: true,
   media: true,
-  billing: false,
-  ownership: false,
+  activity: true,
+  publish: false,
+  deleteMedia: false,
 };
 
 export function formatScopeToken(scopes: Record<ScopeKey, boolean>): string {

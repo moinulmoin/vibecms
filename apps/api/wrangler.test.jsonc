@@ -11,6 +11,12 @@
       "migrations_dir": "../../packages/db/drizzle"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "vibecms-assets-test"
+    }
+  ],
   "vars": {
     "APP_ENV": "development",
     "APP_URL": "https://app.basedui.dev",

@@ -29,12 +29,26 @@ export const SUBSCRIBE_CONSENT_TEXT =
   "By subscribing, you agree to receive one email when subscriptions launch. No marketing emails.";
 
 /**
- * The subscribe widget. On public pages pass the site slug: markup carries
- * `vc-subscribe-form` + data-site-slug and the public client script enhances
- * it. Without a slug (dashboard preview) it renders inert: no data attribute,
- * submit prevented, controls removed from tab order.
+ * Per-site copy and visibility for the capture form. Undefined fields preserve
+ * the original copy, which keeps older sites backwards-compatible.
  */
-export function SubscribeBlock({ siteSlug, variant }: { siteSlug?: string; variant: "footer" | "end" }) {
+export interface SubscribeSettings {
+  heading?: string;
+  subtext?: string;
+  buttonLabel?: string;
+  enabled?: boolean;
+}
+
+export function SubscribeBlock({
+  siteSlug,
+  variant,
+  settings,
+}: {
+  siteSlug?: string;
+  variant: "footer" | "end";
+  settings?: SubscribeSettings | null;
+}) {
+  if (settings?.enabled === false) return null;
   const inert = !siteSlug;
   const idSlug = siteSlug ?? "preview";
   return (
@@ -44,8 +58,8 @@ export function SubscribeBlock({ siteSlug, variant }: { siteSlug?: string; varia
       noValidate
       onSubmit={inert ? (event) => event.preventDefault() : undefined}
     >
-      <p className={subscribeStyles.heading}>{SUBSCRIBE_HEADING}</p>
-      <p className={subscribeStyles.subtext}>{SUBSCRIBE_SUBTEXT}</p>
+      <p className={subscribeStyles.heading}>{settings?.heading || SUBSCRIBE_HEADING}</p>
+      <p className={subscribeStyles.subtext}>{settings?.subtext || SUBSCRIBE_SUBTEXT}</p>
       <div className={subscribeStyles.honeypot} aria-hidden="true">
         <input name="company" type="text" tabIndex={-1} autoComplete="off" />
       </div>
@@ -63,7 +77,7 @@ export function SubscribeBlock({ siteSlug, variant }: { siteSlug?: string; varia
           tabIndex={inert ? -1 : undefined}
         />
         <button type="submit" className={subscribeStyles.submitBtn} tabIndex={inert ? -1 : undefined}>
-          {SUBSCRIBE_BUTTON}
+          {settings?.buttonLabel || SUBSCRIBE_BUTTON}
         </button>
       </div>
       <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
@@ -106,6 +120,7 @@ export interface PublicPageChromeProps {
   /** Subscribe placement; omit to render no subscribe block (preview passes "end" with no slug). */
   subscribeVariant?: "footer" | "end";
   subscribeSiteSlug?: string;
+  subscribeSettings?: SubscribeSettings | null;
   children: ReactNode;
 }
 
@@ -121,11 +136,12 @@ export function PublicPageChrome({
   robotsNoindex = false,
   subscribeVariant,
   subscribeSiteSlug,
+  subscribeSettings,
   children,
 }: PublicPageChromeProps) {
   const themeAttrs = theme ? resolveSiteTheme(theme) : undefined;
   const subscribe = subscribeVariant ? (
-    <SubscribeBlock siteSlug={subscribeSiteSlug} variant={subscribeVariant} />
+    <SubscribeBlock siteSlug={subscribeSiteSlug} variant={subscribeVariant} settings={subscribeSettings} />
   ) : null;
   return (
     <main

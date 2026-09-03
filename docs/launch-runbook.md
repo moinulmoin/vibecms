@@ -53,14 +53,16 @@ The three Cloudflare API tokens should be narrowly scoped to their runtime jobs:
 - `ANALYTICS_API_TOKEN`: read the configured Analytics Engine dataset.
 - `CUSTOM_HOSTNAME_API_TOKEN`: create, inspect, and remove Cloudflare for SaaS custom hostnames.
 
-Google sign-in is optional:
+Google and GitHub sign-in are optional. Configure both values for each provider you enable:
 
 ```sh
 pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_ID --env production
 pnpm --filter @vc/api exec wrangler secret put GOOGLE_CLIENT_SECRET --env production
+pnpm --filter @vc/api exec wrangler secret put GITHUB_CLIENT_ID --env production
+pnpm --filter @vc/api exec wrangler secret put GITHUB_CLIENT_SECRET --env production
 ```
 
-If enabled, authorize `https://app.vibecms.dev/api/auth/callback/google`.
+Authorize `https://app.vibecms.dev/api/auth/callback/google` and/or `https://app.vibecms.dev/api/auth/callback/github` for the providers you enable.
 
 ## 4. Configure OTP email
 
@@ -100,9 +102,9 @@ export it as `CLOUDFLARE_API_TOKEN`, because Wrangler gives that variable
 precedence over OAuth for migrations and deploys. Non-interactive CI instead
 uses a deployment-capable `CLOUDFLARE_API_TOKEN`.
 
-First deploy only: use `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`, then create a site/read token/published post and immediately run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Later deploys require the token.
+First deploy only: use `ALLOW_BOOTSTRAP_SMOKE=1 PRODUCTION_BOOTSTRAP_SHA=$(git rev-parse HEAD)` instead of `PRODUCTION_SMOKE_TOKEN`. Preflight requires that full reviewed SHA to match the checkout. Remove `PRODUCTION_BOOTSTRAP_SHA` immediately after deployment, then create a site/read token/published post and run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Later deploys require the token.
 
-Optional GitHub `workflow_dispatch` is a thin wrapper around the same command and requires an explicit `smoke_mode` input plus `PRODUCTION_SMOKE_TOKEN` for authenticated mode.
+Optional GitHub `workflow_dispatch` is a thin wrapper around the same command. It requires the full 40-character SHA of the reviewed release commit plus an explicit `smoke_mode`; authenticated mode also requires `PRODUCTION_SMOKE_TOKEN`. For the first bootstrap only, set the production environment secret `PRODUCTION_BOOTSTRAP_SHA` to that same commit and remove it immediately afterward. The workflow checks out and verifies the exact SHA, so branch movement cannot change what reaches production.
 
 ## 7. Post-deploy smoke checklist
 
@@ -116,6 +118,8 @@ Optional GitHub `workflow_dispatch` is a thin wrapper around the same command an
 6. Upload a valid image; reject an invalid image payload; verify the public media response is immutable and `nosniff`.
 7. Complete Polar checkout and portal flows; replay a webhook id and verify it does not apply twice.
 8. Confirm API logs correlate failures with `X-Request-ID` and contain no authorization, cookie, token, OTP, or request-body values.
+9. Add and verify one real custom domain, then confirm HTML, Markdown, canonical metadata, media, and removal on that host.
+10. Run the managed AutoSEOPilot lifecycle with production credentials: provision, status read, bearer REST/MCP use, generation rotation, revoke, denied reuse, and preserved customer content.
 
 ## 8. Backup and rollback
 

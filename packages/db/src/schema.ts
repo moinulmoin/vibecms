@@ -50,6 +50,8 @@ export const sites = sqliteTable("sites", {
   agentPreference: text("agent_preference"),
   voiceSeedJson: text("voice_seed_json").notNull().default("[]"),
   onboardingNote: text("onboarding_note"),
+  // Newsletter copy and visibility are nullable for backwards-compatible defaults.
+  newsletterSettings: text("newsletter_settings"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 

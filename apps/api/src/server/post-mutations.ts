@@ -9,6 +9,7 @@ import {
   createPost,
   publishPost,
   restorePostVersion,
+  unarchivePost,
   updatePost,
 } from '@vc/core'
 import { createDataAccess, createD1PostRepository } from '@vc/db'
@@ -147,6 +148,17 @@ export async function archivePostForApp(app: AppUserContext, postId: string): Pr
     const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
     if (siteSlug) scheduleLiveArticlePurges(app.siteId, siteSlug, previousLiveSlug, archived.slug)
     return { kind: 'ok', code: 'post_archived', postId }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function unarchivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
+  try {
+    await unarchivePost(repository(), app.actor, { siteId: app.siteId, postId })
+    // No purge needed: restoring to draft keeps the post offline (archive
+    // already removed it from the public blog).
+    return { kind: 'ok', code: 'post_unarchived', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }
   }

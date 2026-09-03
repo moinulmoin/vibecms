@@ -81,11 +81,11 @@ Order is fixed and owned by `pnpm deploy:prod`:
 4. Deploy already-built `vibecms-prod` (the existing API Worker), then already-built `vibecms-public-prod`.
 5. `production:smoke` — authenticated by default via `PRODUCTION_SMOKE_TOKEN`.
 
-First deploy only (no tenant token yet): set `ALLOW_BOOTSTRAP_SMOKE=1` instead of `PRODUCTION_SMOKE_TOKEN`. That mode skips authenticated tenant/article checks and must not be reused later. After creating a site + read token + one published post, run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`, then require the token on every later deploy.
+First deploy only (no tenant token yet): set `ALLOW_BOOTSTRAP_SMOKE=1` and `PRODUCTION_BOOTSTRAP_SHA=$(git rev-parse HEAD)` instead of `PRODUCTION_SMOKE_TOKEN`. Preflight rejects bootstrap unless that full reviewed SHA matches the checkout. Immediately remove the SHA after the deploy, create a site + read token + one published post, and run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Require the token on every later deploy.
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Hosted and self-host configs do not need a `SESSION` KV namespace.
 
-The GitHub workflow `.github/workflows/deploy-production.yml` is only a thin `workflow_dispatch` wrapper around the same `pnpm deploy:prod` path. It requires an explicit `smoke_mode` input (`authenticated` or `bootstrap`) and, for authenticated mode, the `PRODUCTION_SMOKE_TOKEN` environment secret. It does not implement a separate gate set.
+The GitHub workflow `.github/workflows/deploy-production.yml` is only a thin `workflow_dispatch` wrapper around the same `pnpm deploy:prod` path. It requires the full 40-character SHA of the reviewed release commit and verifies that the checkout matches it before deploying. It also requires an explicit `smoke_mode` input (`authenticated` or `bootstrap`). Authenticated mode requires the `PRODUCTION_SMOKE_TOKEN` environment secret. Bootstrap mode requires a temporary `PRODUCTION_BOOTSTRAP_SHA` production environment secret equal to the same reviewed commit; remove it immediately after the first deploy. The workflow does not implement a separate gate set.
 
 ## Secrets
 
@@ -102,7 +102,7 @@ pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN --env developm
 pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET --env development
 ```
 
-Google OAuth secrets are optional. OTP delivery uses the native `EMAIL` send-email binding and `EMAIL_FROM` var.
+Google and GitHub OAuth secrets are optional. Configure both the client ID and client secret for each provider you enable. OTP delivery uses the native `EMAIL` send-email binding and `EMAIL_FROM` var.
 
 ## Health and rollback
 

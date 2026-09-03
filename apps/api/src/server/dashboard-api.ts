@@ -23,9 +23,11 @@ import {
 import { getMedia, updateAssetAltForApp } from '@/server/media'
 import {
   completeSiteSetupForApp,
+  getNewsletterSettingsForApp,
   getSiteSettings,
   getSiteSetup,
   loadPersonalization,
+  updateNewsletterSettingsForApp,
   updateSiteSettingsForApp,
   type AgentPreference,
 } from '@/server/onboarding'
@@ -40,6 +42,7 @@ import {
   publishPostForApp,
   restorePostVersionForApp,
   updatePostForApp,
+  unarchivePostForApp,
   type PostFormPayload,
 } from '@/server/post-mutations'
 import { loadAnalyticsForApp, type AnalyticsRange } from '@/server/analytics'
@@ -75,7 +78,7 @@ export type ConnectPageData = {
     effective: boolean
   } | null
   personalization: {
-    /** Agent identity from "Make it yours"; drives the connect-page dialect. */
+    /** Agent identity from onboarding's client choice; drives the connect-page dialect. */
     agentPreference: AgentPreference | null
     /** Voice seed saved but voice profile not built yet — agent/deferred recommendation. */
     voiceSeedPending: boolean
@@ -150,6 +153,60 @@ export async function loadDashboardOverview(app: AppUserContext) {
   return getDashboardData(app)
 }
 
+const SUBSCRIBERS_PAGE_SIZE = 50
+
+type SubscriberStatus = 'pending' | 'confirmed' | 'unsubscribed'
+
+function subscriberStatus(value: string | undefined): SubscriberStatus | undefined {
+  return value === 'pending' || value === 'confirmed' || value === 'unsubscribed' ? value : undefined
+}
+
+export async function loadSubscribersPage(
+  app: AppUserContext,
+  input: { search?: string; status?: string; offset?: number } = {},
+) {
+  const status = subscriberStatus(input.status)
+  const search = input.search?.trim().slice(0, 120) || undefined
+  const offset = Math.min(Math.max(Math.floor(input.offset ?? 0), 0), 1_000_000)
+  const db = createDataAccess(env.DB)
+  const [rows, counts] = await Promise.all([
+    db.subscribers.list({ siteId: app.siteId, search, status, limit: SUBSCRIBERS_PAGE_SIZE, offset }),
+    db.subscribers.count(app.siteId, { search, status }),
+  ])
+  return { rows, total: counts.total, pendingCount: counts.pendingCount }
+}
+
+export async function deleteSubscriberForApp(app: AppUserContext, subscriberId: string) {
+  const deleted = await createDataAccess(env.DB).subscribers.deleteById(app.siteId, subscriberId)
+  return deleted ? { kind: 'ok' as const, code: 'subscriber_deleted' } : { kind: 'error' as const, code: 'not_found' }
+}
+
+function csvField(value: string | number | null): string {
+  const text = value === null ? '' : String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+export async function exportSubscribersCsv(app: AppUserContext): Promise<string> {
+  const db = createDataAccess(env.DB)
+  const { total } = await db.subscribers.count(app.siteId)
+  const rows = await db.subscribers.list({
+    siteId: app.siteId,
+    limit: Math.max(total, 1),
+    offset: 0,
+  })
+  const lines = [
+    ['email', 'status', 'source_url', 'consent_version', 'created_at'].join(','),
+    ...rows.map((row) => [
+      csvField(row.email),
+      csvField(row.status),
+      csvField(row.sourceUrl),
+      csvField(row.consentVersion),
+      csvField(new Date(row.createdAt * 1000).toISOString()),
+    ].join(',')),
+  ]
+  return `\uFEFF${lines.join('\r\n')}\r\n`
+}
+
 export async function loadSetupPage(app: AppUserContext) {
   return getSiteSetup(app)
 }
@@ -196,7 +253,14 @@ export async function loadSettingsPage(app: AppUserContext) {
 }
 
 export async function loadMediaPage(app: AppUserContext) {
-  return { assets: await getMedia(app) }
+  const [assets, entitlement] = await Promise.all([
+    getMedia(app),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+  ])
+  return {
+    assets,
+    mediaGate: { effective: entitlement.effective, selfHosted: entitlement.access === 'self_hosted' },
+  }
 }
 
 export async function loadActivityPage(app: AppUserContext, offset = 0) {
@@ -419,9 +483,10 @@ export async function loadOnboardingStatus(
     firstPost,
   }
 }
-
 export {
   completeSiteSetupForApp,
+  getNewsletterSettingsForApp,
+  updateNewsletterSettingsForApp,
   updateSiteSettingsForApp,
   updateVoiceProfileForApp,
   clearVoiceProfileForApp,
@@ -435,6 +500,7 @@ export {
   publishPostForApp,
   archivePostForApp,
   restorePostVersionForApp,
+  unarchivePostForApp,
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   voiceProfileSettingsInputSchema,

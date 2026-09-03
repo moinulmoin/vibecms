@@ -25,6 +25,7 @@ const apiToken =
 
 const smokeToken = process.env.PRODUCTION_SMOKE_TOKEN?.trim();
 const bootstrapSmoke = process.env.ALLOW_BOOTSTRAP_SMOKE === "1";
+const bootstrapSha = process.env.PRODUCTION_BOOTSTRAP_SHA?.trim();
 if (!smokeToken && !bootstrapSmoke) {
   throw new Error(
     "PRODUCTION_SMOKE_TOKEN is required for authenticated production smoke. For the first deploy only, set ALLOW_BOOTSTRAP_SMOKE=1 explicitly (authenticated smoke must be run later with PRODUCTION_SMOKE_TOKEN).",
@@ -36,8 +37,25 @@ if (smokeToken && bootstrapSmoke) {
   );
 }
 if (!smokeToken && bootstrapSmoke) {
+  if (!bootstrapSha || !/^[0-9a-fA-F]{40}$/.test(bootstrapSha)) {
+    throw new Error(
+      "Bootstrap smoke requires PRODUCTION_BOOTSTRAP_SHA to be the full 40-character SHA reviewed for the first deploy.",
+    );
+  }
+  const currentSha = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (currentSha.status !== 0) {
+    throw new Error(`Unable to verify the bootstrap release SHA: ${currentSha.stderr || currentSha.stdout}`);
+  }
+  if (currentSha.stdout.trim() !== bootstrapSha.toLowerCase()) {
+    throw new Error(
+      `PRODUCTION_BOOTSTRAP_SHA=${bootstrapSha} does not match checked-out release ${currentSha.stdout.trim()}.`,
+    );
+  }
   console.warn(
-    "Bootstrap smoke mode enabled: authenticated tenant smoke will be skipped. After first deploy, create a read token and run PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke before the next deploy.",
+    "Bootstrap smoke mode enabled for the pinned reviewed SHA: authenticated tenant smoke will be skipped. Remove PRODUCTION_BOOTSTRAP_SHA immediately after this deploy, then create a read token and run PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke.",
   );
 }
 
@@ -150,7 +168,8 @@ Required environment:
   CLOUDFLARE_PREFLIGHT_API_TOKEN or CLOUDFLARE_API_TOKEN
   CLOUDFLARE_ACCOUNT_ID
   PRODUCTION_SMOKE_TOKEN   (authenticated mode)
-  or ALLOW_BOOTSTRAP_SMOKE=1  (first deploy only; authenticated smoke must run later)
+  or ALLOW_BOOTSTRAP_SMOKE=1 plus PRODUCTION_BOOTSTRAP_SHA=<full reviewed HEAD SHA>
+     (first deploy only; remove the SHA immediately and run authenticated smoke)
 
 Notes:
   - Failures stop before migrations.
@@ -412,4 +431,3 @@ async function runWithNetworkRetry(
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-

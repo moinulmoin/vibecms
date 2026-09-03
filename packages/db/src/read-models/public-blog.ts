@@ -42,6 +42,7 @@ export interface PublicSiteRow {
   defaultSocialAssetWidth: number | null;
   defaultSocialAssetHeight: number | null;
   defaultSocialAssetAltText: string | null;
+  newsletterSettings: string | null;
   billingStatus: string | null;
   currentPeriodEnd: number | null;
   publishedCount: number;
@@ -169,6 +170,7 @@ const siteResolveColumns = {
     select ${assets.altText} from ${assets}
     where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
   )`,
+  newsletterSettings: sites.newsletterSettings,
   billingStatus: billingCustomers.status,
   currentPeriodEnd: billingCustomers.currentPeriodEnd,
   publishedCount: sql<number>`(select count(*) from ${posts} where ${posts.siteId} = ${sites.id} and ${posts.status} = 'published')`.mapWith(Number),

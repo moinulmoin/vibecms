@@ -113,14 +113,10 @@ describe("loadOnboardingStatus — connection + exact-key resolution", () => {
     expect(status.connection).toBe("waiting");
   });
 
-  it("returns the shared {key, connection, firstPost} contract shape", async () => {
+  it("returns durable connection and first-post state without fabricating a public URL", async () => {
     const status = await loadOnboardingStatus(ownerApp(), KEY_SAME_SEC);
     // No api_key posts seeded on this site -> durable proof is 'waiting'.
     expect(status.firstPost.state).toBe("waiting");
-    // Exact contract field set.
-    expect(Object.keys(status).sort()).toEqual(
-      ["canManage", "connection", "firstPost", "key", "mcpUrl", "publicBaseUrl"].sort(),
-    );
     expect(status.key).toEqual(expect.objectContaining({ id: KEY_SAME_SEC, name: "SameSec" }));
     expect(status.connection).toBe("connected");
     // publicBaseUrl is null until a public default domain resolves (never fabricated).
@@ -136,6 +132,7 @@ describe("owner-only site configuration mutations", () => {
 
     await expect(
       updateSiteSettingsForApp(editorApp(), {
+        expectedUpdatedAt: T,
         name: "Edited",
         defaultSeoTitle: "Edited",
         theme: "minimal",

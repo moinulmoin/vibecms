@@ -3,6 +3,12 @@
 Status: canonical V1 contract. This document supersedes
 `docs/asp-integration-spec.md`.
 
+Implementation status (2026-09-03): the binding, internal routes, entitlement
+gates, credential lifecycle, by-slug read, redaction, and focused worker tests
+are implemented and pass locally. The final launch gate remains a credentialed
+cross-system production proof of provision, status, REST/MCP use, generation
+rotation, revoke, denied credential reuse, and preserved customer content.
+
 ## Product boundary
 
 VibeCMS hosting is a built-in managed destination included with an active
@@ -142,6 +148,7 @@ posts:update
 posts:publish
 posts:archive
 assets:write
+assets:delete
 activity:read
 ```
 
@@ -408,7 +415,11 @@ or transfer, remote content purge, ASP account deletion initiated by VibeCMS,
 OAuth, browser-session authentication for internal calls, outbound webhooks,
 a general partner API, or a second queue.
 
-## Acceptance checklist
+## Production acceptance checklist
+
+The implementation and automated tests cover these invariants. Check them off
+only after rerunning the complete lifecycle with production credentials across
+both deployed systems; local green tests alone are not a launch claim.
 
 - [ ] One unique binding exists for `externalWorkspaceId`.
 - [ ] Workspace UUID, not email, is the cross-system key.

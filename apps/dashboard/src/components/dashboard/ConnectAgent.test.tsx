@@ -22,13 +22,13 @@ describe('ConnectAgent onboarding contract', () => {
     expect(html).not.toContain('mcp-remote')
   })
 
-  it('promotes the Make it yours agent to the primary snippet', () => {
+  it('promotes the onboarding client choice to the primary snippet', () => {
     const cursorHtml = renderToStaticMarkup(
       <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" preferredAgent="cursor" />,
     )
     expect(cursorHtml).toContain('1. Add VibeCMS to Cursor')
     expect(cursorHtml).toContain('Cursor · configured for you')
-    expect(cursorHtml).toContain('Pre-configured from your Make it yours answer')
+    expect(cursorHtml).toContain('Pre-configured from your client choice')
     // Alternates keep every other client reachable.
     expect(cursorHtml).toContain('Claude Code')
     expect(cursorHtml).toContain('Codex CLI')
@@ -51,12 +51,24 @@ describe('ConnectAgent onboarding contract', () => {
 
     expect(disconnected).toContain('<details')
     expect(disconnected).toContain('Other MCP clients')
-    expect(disconnected).toContain('2. Verify read-only access')
-    expect(disconnected).toContain('3. Draft, review, then approve')
+    expect(disconnected).toContain('2. Install the VibeCMS skills')
+    expect(disconnected).toContain('3. Verify read-only access')
+    expect(disconnected).toContain('4. Draft, review, then approve')
     expect(disconnected).not.toMatch(/<details[^>]* open="">/)
     expect(connected).toMatch(/<details[^>]* open="">/)
-    expect(disconnected).toContain('max-w-full overflow-x-auto')
-    expect(disconnected).toContain('break-all')
+
+    const container = document.createElement('div')
+    container.innerHTML = disconnected
+    const codeBlocks = [...container.querySelectorAll('pre')]
+    expect(codeBlocks.length).toBeGreaterThan(0)
+    for (const block of codeBlocks) {
+      expect(block.tabIndex).toBe(0)
+      expect(block.getAttribute('aria-label')).toBeTruthy()
+      expect(block.classList).toContain('max-w-full')
+      expect(block.classList).toContain('overflow-x-auto')
+      expect(block.classList).toContain('whitespace-pre-wrap')
+    }
+    expect(container.querySelector('[aria-label="One-time API token"]')?.classList).toContain('break-all')
   })
 
   it('keeps the protected connection check read-only', () => {

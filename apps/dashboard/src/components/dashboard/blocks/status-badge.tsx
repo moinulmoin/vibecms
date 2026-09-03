@@ -1,10 +1,52 @@
-import type { ReactNode } from 'react'
 import { Badge, cn } from '@vc/ui'
 
-type Status = 'published' | 'live' | 'active' | 'draft' | 'archived' | 'failed' | 'pending' | string
+type Status = string
+type StatusTone = 'success' | 'warning' | 'error' | 'draft' | 'muted'
 
-export function StatusBadge({ status, className }: { status: Status; className?: string }) {
-  if (status === 'published' || status === 'live' || status === 'active') {
+const STATUS_TONES: Record<string, StatusTone> = {
+  live: 'success',
+  published: 'success',
+  active: 'success',
+  connected: 'success',
+  verified: 'success',
+  confirmed: 'success',
+  pending: 'warning',
+  waiting: 'warning',
+  provisioning: 'warning',
+  past_due: 'warning',
+  unpaid: 'warning',
+  stalled: 'warning',
+  recovery: 'warning',
+  failed: 'error',
+  error: 'error',
+  draft: 'draft',
+  new: 'draft',
+  unpublished: 'draft',
+  archived: 'muted',
+  canceled: 'muted',
+  none: 'muted',
+  disabled: 'muted',
+  unknown: 'muted',
+}
+
+function statusLabel(status: string) {
+  return status.replaceAll('_', ' ')
+}
+
+export function StatusBadge({
+  status,
+  className,
+  label,
+}: {
+  status: Status
+  className?: string
+  label?: string
+}) {
+  const normalized = status.trim().toLowerCase()
+  const tone = STATUS_TONES[normalized] ?? 'muted'
+  const displayLabel = label ?? statusLabel(status)
+
+  if (tone === 'success') {
     return (
       <Badge
         className={cn(
@@ -13,34 +55,45 @@ export function StatusBadge({ status, className }: { status: Status; className?:
         )}
       >
         <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        {status}
+        {displayLabel}
       </Badge>
     )
   }
-  if (status === 'archived') {
+
+  if (tone === 'warning') {
     return (
       <Badge
-        variant="outline"
-        className={cn('gap-1.5 border-dashed capitalize text-muted-foreground/70', className)}
+        className={cn(
+          'border-warning/35 bg-warning/10 capitalize text-warning',
+          className,
+        )}
       >
-        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-        {status}
+        {displayLabel}
       </Badge>
     )
   }
-  if (status === 'failed') {
+
+  if (tone === 'error') {
     return (
       <Badge
-        variant="outline"
         className={cn('border-destructive/30 bg-destructive/10 capitalize text-destructive', className)}
       >
-        {status}
+        {displayLabel}
       </Badge>
     )
   }
+
+  if (tone === 'draft') {
+    return (
+      <Badge className={cn('border-border bg-muted capitalize text-foreground', className)}>
+        {displayLabel}
+      </Badge>
+    )
+  }
+
   return (
-    <Badge variant="outline" className={cn('capitalize', className)}>
-      {status}
+    <Badge variant="outline" className={cn('border-dashed capitalize text-muted-foreground', className)}>
+      {displayLabel}
     </Badge>
   )
 }

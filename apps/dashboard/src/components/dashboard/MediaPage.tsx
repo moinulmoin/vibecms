@@ -2,20 +2,13 @@
 
 import { MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import {
-  Cross2Icon,
-  ImageIcon,
-  MagnifyingGlassIcon,
-  Pencil1Icon,
-  TrashIcon,
-  UploadIcon,
-} from '@radix-ui/react-icons'
-import { Card, CopyButton, Field, FieldDescription, FieldLabel, Input, Select, Skeleton, cn } from '@vc/ui'
-import { useNavigate } from '@tanstack/react-router'
+import { Image, LockKeyhole, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
+import { Card, CopyButton, Field, FieldDescription, FieldLabel, Input, Select, cn } from '@vc/ui'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
+import { EmptyState, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Progress } from '~/components/ui/progress'
@@ -89,42 +82,12 @@ function uploadFileWithProgress(
   })
 }
 
-function MediaSkeleton() {
-  return (
-    <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-4 w-72" />
-        </div>
-      </div>
-      <Skeleton className="h-48 rounded-2xl" />
-      <Card className="gap-0 p-4">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="grid gap-3 rounded-xl border border-border p-3">
-              <Skeleton className="aspect-[4/3] w-full rounded-xl" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/3" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </>
-  )
-}
 
 export function MediaPage() {
   const navigate = useNavigate()
   const [assets, setAssets] = useState<Asset[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [mediaGate, setMediaGate] = useState<{ effective: boolean; selfHosted: boolean } | null>(null)
   const [uploadPending, setUploadPending] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -191,7 +154,10 @@ export function MediaPage() {
     let cancelled = false
     void loadMediaPage()
       .then((data) => {
-        if (!cancelled) setAssets(data.assets)
+        if (!cancelled) {
+          setAssets(data.assets)
+          setMediaGate(data.mediaGate)
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not load media.')
@@ -250,6 +216,7 @@ export function MediaPage() {
     if (lastOkCode) {
       const data = await loadMediaPage()
       setAssets(data.assets)
+      setMediaGate(data.mediaGate)
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
     setSelectedFileMessage(null)
@@ -338,7 +305,7 @@ export function MediaPage() {
   }
 
   if (loadError) return <LoadError message={loadError} />
-  if (!assets) return <MediaSkeleton />
+  if (!assets) return <PageSkeleton variant="panels" />
 
   const usedBytes = assets.reduce((total, asset) => total + asset.sizeBytes, 0)
   const usagePercent =
@@ -355,6 +322,8 @@ export function MediaPage() {
 
   const inspectorAsset = assets.find((asset) => asset.id === inspectorId) ?? null
 
+  const canUpload = mediaGate == null ? true : mediaGate.effective || mediaGate.selfHosted
+
   return (
     <>
       {/* Polite announcements for upload/delete progress (screen readers). */}
@@ -364,7 +333,7 @@ export function MediaPage() {
       <PageHeader
         title="Media library"
         description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
-        action={
+        action={canUpload ? (
           <div className="grid w-full min-w-60 gap-2 border-t border-[color:var(--hairline)] pt-4 sm:w-72 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
             <div className="flex items-center justify-between gap-3">
               <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
@@ -387,16 +356,17 @@ export function MediaPage() {
               )}
             />
             {storageNearLimit ? (
-              <p className="font-mono text-[11px] leading-4 text-amber-400/80">
+              <p className="font-sans text-sm leading-5 text-amber-400/80">
                 Almost full — delete unused images to make room.
               </p>
             ) : null}
           </div>
-        }
+        ) : null}
       />
 
       <Card className="gap-0 p-5 sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-[1fr_18rem] lg:items-start">
+        <div className="grid gap-4 md:grid-cols-[1fr_18rem] md:items-start">
+          {canUpload ? (
           <form
             className="grid gap-4"
             onSubmit={(e) => void handleUpload(e)}
@@ -416,7 +386,7 @@ export function MediaPage() {
                   : 'border-border bg-muted/50 focus-within:bg-muted'
               }`}
             >
-              <UploadIcon aria-hidden className="mb-3 size-8 text-primary/80" />
+              <Upload aria-hidden className="mb-3 size-8 text-primary/80" />
               <p className="font-display text-base font-medium text-foreground">Drop images here</p>
               <FieldDescription id="media-file-help" className="max-w-sm">
                 Add cover art or inline post images. Unsupported files stay blocked.
@@ -430,7 +400,7 @@ export function MediaPage() {
                 Choose images
               </Button>
               {selectedFileMessage ? (
-                <p className="mt-1 font-mono text-xs text-primary" role="status">
+                <p className="mt-1 font-sans text-sm text-primary" role="status">
                   {selectedFileMessage}
                 </p>
               ) : null}
@@ -492,12 +462,28 @@ export function MediaPage() {
                 pendingText="Uploading…"
                 disabled={!selectedFileMessage}
               >
-                <UploadIcon aria-hidden data-icon="inline-start" /> Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
+                <Upload aria-hidden data-icon="inline-start" /> Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
               </PendingSubmitButton>
             </div>
           </form>
+          ) : (
+            <div className="grid content-start gap-3" data-testid="media-upload-locked">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <LockKeyhole className="size-4" aria-hidden />
+              </span>
+              <p className="font-heading text-lg font-semibold tracking-[-0.02em] text-foreground">
+                Media uploads need an active subscription
+              </p>
+              <p className="max-w-md text-sm leading-6 text-muted-foreground">
+                Images already in your library keep working everywhere. Upgrade to upload new covers and inline images.
+              </p>
+              <Button asChild variant="outline" className="w-fit">
+                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>View plan</Link>
+              </Button>
+            </div>
+          )}
 
-          <div className="grid content-start gap-3 border-t border-[color:var(--hairline)] pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+          <div className="grid content-start gap-3 border-t border-[color:var(--hairline)] pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
             <p className="font-mono text-[11px] font-medium text-muted-foreground">Upload limits</p>
             <dl className="grid gap-2 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -519,7 +505,7 @@ export function MediaPage() {
       >
         <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="relative">
-            <MagnifyingGlassIcon
+            <Search
               aria-hidden
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
@@ -537,7 +523,7 @@ export function MediaPage() {
                 aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Cross2Icon className="size-4" aria-hidden />
+                <X className="size-4" aria-hidden />
               </button>
             ) : null}
           </div>
@@ -585,7 +571,7 @@ export function MediaPage() {
                 onConfirm={() => void handleBulkDelete()}
                 className="text-destructive hover:text-destructive"
               >
-                <TrashIcon className="size-3.5" aria-hidden />
+                <Trash2 className="size-3.5" aria-hidden />
                 Delete {selectedIds.length === 1 ? '1 image' : `${selectedIds.length} images`}
               </SpaConfirmButton>
             </div>
@@ -594,10 +580,10 @@ export function MediaPage() {
 
         {assets.length === 0 ? (
           <EmptyState
-            icon={<ImageIcon />}
+            icon={<Image />}
             title="No media yet"
-            description="Upload a cover image or inline post image to start building your blog library."
-            action={
+            description={canUpload ? 'Upload a cover image or inline post image to start building your blog library.' : 'Covers and inline images you upload appear here.'}
+            action={canUpload ? (
               <Button
                 type="button"
                 onClick={() => {
@@ -607,11 +593,11 @@ export function MediaPage() {
               >
                 Upload image
               </Button>
-            }
+            ) : null}
           />
         ) : filteredAssets.length === 0 ? (
           <EmptyState
-            icon={<MagnifyingGlassIcon />}
+            icon={<Search />}
             title="No matching images"
             description="Try a different filename or clear the filter."
             action={
@@ -628,7 +614,7 @@ export function MediaPage() {
             }
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {filteredAssets.map((asset) => {
               const isSelected = selectedIds.includes(asset.id)
               return (
@@ -691,7 +677,7 @@ export function MediaPage() {
                       variant="ghost"
                       confirmLabel={
                         <span className="flex items-center gap-1.5">
-                          <TrashIcon className="size-3.5" aria-hidden />
+                          <Trash2 className="size-3.5" aria-hidden />
                           Confirm delete
                         </span>
                       }
@@ -700,7 +686,7 @@ export function MediaPage() {
                       onConfirm={() => void handleDelete(asset.id)}
                       className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
                     >
-                      <TrashIcon className="size-3.5" aria-hidden />
+                      <Trash2 className="size-3.5" aria-hidden />
                       Delete
                     </SpaConfirmButton>
                   </div>
@@ -808,7 +794,7 @@ export function MediaPage() {
                         setAltDraft(inspectorAsset.altText ?? '')
                       }}
                     >
-                      <Pencil1Icon className="size-3.5" aria-hidden />
+                      <Pencil className="size-3.5" aria-hidden />
                       Edit
                     </Button>
                   </div>
@@ -821,7 +807,7 @@ export function MediaPage() {
                   variant="outline"
                   confirmLabel={
                     <span className="flex items-center gap-1.5">
-                      <TrashIcon className="size-3.5" aria-hidden />
+                    <Trash2 className="size-3.5" aria-hidden />
                       Confirm delete
                     </span>
                   }
@@ -833,7 +819,7 @@ export function MediaPage() {
                   }}
                   className="w-full text-muted-foreground hover:text-destructive"
                 >
-                  <TrashIcon className="size-3.5" aria-hidden />
+                  <Trash2 className="size-3.5" aria-hidden />
                   Delete image
                 </SpaConfirmButton>
                 <SheetClose asChild>

@@ -35,7 +35,7 @@ Confirm Polar sandbox product settings:
 - standard yearly product: $190/year
 - launch-offer monthly price: $19 -> $13/month
 - launch-offer yearly price: $190 -> $99/year
-- launch pricing applies automatically; first 100 subscribers across both intervals share one eligibility pool
+- launch pricing applies automatically while the public early-access offer is displayed; continuous subscribers retain that rate
 - card required
 - webhook endpoint: `/polar/webhook`
 - webhook events include subscription lifecycle events and `checkout.updated`
@@ -61,7 +61,12 @@ Confirm:
 - `APP_URL`, `BETTER_AUTH_URL`, and `PUBLIC_BLOG_DOMAIN` are changed from placeholders to the actual Worker URL
 - first signup lands in setup, then `/dashboard`, not `/dashboard/billing`
 
-## 5. Known deferred work
+## 5. Remaining launch proof
 
-- Email verification enforcement before publishing
-- Final brand/logo polish
+- Production email OTP delivery from the onboarded domain; a successful OTP sign-in already verifies ownership
+- One production Polar checkout, portal return, and replayed-webhook idempotency check
+- One real Cloudflare-for-SaaS custom-domain provision, serve, and removal cycle
+- One credentialed AutoSEOPilot provision, status, publish, rotate, and revoke lifecycle across both systems
+- Authenticated deployed smoke for the exact reviewed release SHA
+
+Newsletter double opt-in and delivery remain outside V1. The public capture form must continue to say that delivery is coming soon and must not imply that a pending address is subscribed.

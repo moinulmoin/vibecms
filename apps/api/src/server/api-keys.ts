@@ -24,6 +24,7 @@ const allScopes: Scope[] = [
   'posts:publish',
   'posts:archive',
   'assets:write',
+  'assets:delete',
   'activity:read',
 ]
 

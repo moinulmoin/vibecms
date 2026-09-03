@@ -1,13 +1,12 @@
 'use client'
 
 import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
-import { CheckIcon, IdCardIcon, ExternalLinkIcon } from '@radix-ui/react-icons'
+import { Check, CreditCard, ExternalLink } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { PageHeader, Panel } from '~/components/dashboard/blocks'
-import { Alert, Badge, Skeleton } from "@vc/ui"
-import { StatusBadge } from '~/components/dashboard/blocks'
+import { PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
+import { Alert, Badge } from '@vc/ui'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { dashboardStatusSearch } from '~/lib/dashboard-search'
 import type { BillingSnapshot, BillingPageLoadResult } from '~/types/dashboard'
@@ -17,9 +16,6 @@ import {
   portalBillingMutation,
 } from '~/lib/api-client'
 
-function BillingStatusBadge({ status }: { status: string }) {
-  return <StatusBadge status={status} />
-}
 
 export function BillingPage() {
   const navigate = useNavigate()
@@ -78,18 +74,7 @@ export function BillingPage() {
 
   if (loadError) return <LoadError message={loadError} />
 
-  if (!data) {
-    return (
-      <>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-full max-w-2xl" />
-        </div>
-        <Skeleton className="h-[26rem] max-w-2xl rounded-2xl" />
-      </>
-    )
-  }
+  if (!data) return <PageSkeleton variant="panels" />
 
   if (data.selfHosted) {
     return (
@@ -123,10 +108,10 @@ export function BillingPage() {
           title="Managed access"
           description="Hosted access for this workspace is managed by AutoSEOPilot."
         />
-        <div className="grid max-w-2xl gap-4">
+        <div className="grid max-w-3xl gap-4">
           <Panel
             title="AutoSEOPilot sponsorship"
-            meta={<Badge variant="outline">{managedStatus}</Badge>}
+            meta={<StatusBadge status={managedStatus.toLowerCase()} />}
           >
             <p className="font-sans text-base leading-7 text-muted-foreground">
               {data.managed.effective
@@ -149,7 +134,7 @@ export function BillingPage() {
             : 'Subscribe to publish more posts, upload media, and make your public blog indexable.'
         }
       />
-      <div className="grid max-w-2xl gap-4">
+      <div className="grid max-w-3xl gap-4">
         <Panel
           title={PRICING.monthlyLabel}
           meta={
@@ -157,7 +142,7 @@ export function BillingPage() {
               <span className="font-mono text-xs text-muted-foreground">
                 {PRICING.planName}
               </span>
-              <BillingStatusBadge status={billing.status} />
+              <StatusBadge status={billing.status} />
             </span>
           }
         >
@@ -186,7 +171,7 @@ export function BillingPage() {
                   pendingText="Opening portal…"
                   onClick={() => void openPortal()}
                 >
-                  <IdCardIcon aria-hidden data-icon="inline-start" /> Manage subscription
+                  <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
                 </PendingSubmitButton>
               </div>
             ) : (
@@ -199,7 +184,7 @@ export function BillingPage() {
                   pendingText="Starting checkout…"
                   onClick={() => void startCheckout('monthly')}
                 >
-                  <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe monthly
+                  <CreditCard aria-hidden data-icon="inline-start" /> Subscribe monthly
                 </PendingSubmitButton>
                 <PendingSubmitButton
                   type="button"
@@ -210,7 +195,7 @@ export function BillingPage() {
                   pendingText="Starting checkout…"
                   onClick={() => void startCheckout('yearly')}
                 >
-                  <IdCardIcon aria-hidden data-icon="inline-start" /> Subscribe yearly
+                  <CreditCard aria-hidden data-icon="inline-start" /> Subscribe yearly
                 </PendingSubmitButton>
                 <PendingSubmitButton
                   type="button"
@@ -221,7 +206,7 @@ export function BillingPage() {
                   pendingText="Opening portal…"
                   onClick={() => void openPortal()}
                 >
-                  <ExternalLinkIcon aria-hidden data-icon="inline-start" /> Customer portal
+                  <ExternalLink aria-hidden data-icon="inline-start" /> Customer portal
                 </PendingSubmitButton>
               </div>
             )
@@ -234,16 +219,16 @@ export function BillingPage() {
           <ul className="grid gap-x-8 gap-y-3 text-base leading-6 sm:grid-cols-2">
             {ENTITLEMENTS.map((entitlement) => (
               <li key={entitlement} className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0">
-                <CheckIcon className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
                 <span className="font-sans text-foreground">{entitlement}</span>
               </li>
             ))}
             <li className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0">
-              <CheckIcon className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+              <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
               <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
             </li>
           </ul>
-          <p className="font-mono text-xs leading-5 text-muted-foreground">
+          <p className="font-sans text-sm leading-5 text-muted-foreground">
             {isActive
               ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
               : 'Your first 5 published posts stay free. Subscribe to unlock every paid feature immediately.'}

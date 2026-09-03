@@ -27,6 +27,7 @@ const FULL_SCOPES = JSON.stringify([
   "posts:publish",
   "posts:archive",
   "assets:write",
+  "assets:delete",
   "activity:read",
 ]);
 

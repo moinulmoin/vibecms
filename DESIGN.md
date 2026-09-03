@@ -10,10 +10,12 @@ drift maximalist. See `PRODUCT.md` for the why.
 ## Theme
 
 Dark-first dev tool. The marketing landing renders dark (terminal aesthetic);
-the app respects system preference with explicit `.light` / `.dark` overrides and
-a `prefers-color-scheme` fallback. Tokens are OKLCH throughout, defined as raw
-`--*` custom properties and surfaced to Tailwind v4 via `@theme inline` (e.g.
-`bg-background`, `text-brand-bright`, `bg-vc-bg`).
+the app is dark by default with a Light/Dark/System switch in the sidebar
+persisted to `vc-theme` and stamped pre-paint by a no-FOUC bootstrap script
+(`.dark` / `.light` on `<html>`; System resolves via `matchMedia`). Tokens are
+OKLCH throughout, defined as raw `--*` custom properties and surfaced to
+Tailwind v4 via `@theme inline` (e.g. `bg-background`, `text-brand-bright`,
+`bg-vc-bg`).
 
 Color strategy: **Restrained** - monochrome (zero-chroma) neutrals carry the
 surface; one green brand color is the only saturated hue, used at ~8% for accents
@@ -52,6 +54,11 @@ bare `border` utility resolves to it, so default components stay consistent
 without per-class overrides. `--hairline` (translucent white on dark / black
 on light) is the decorative tier for ruled lists and section separators.
 Between them lies nothing: no third border color, no hard outlines.
+
+Semantic status color: `--warning` / `--warning-foreground` (amber, AA on both
+themes) completes the status vocabulary alongside `--destructive`. Elevation:
+`--shadow-menu` (popovers/dropdowns/tooltips) and `--shadow-overlay`
+(dialogs/sheets) are the only shadows — flat surfaces stay border-only.
 
 Surface helpers: `--hairline` (`oklch(1 0 0 / 0.12)`), `--surface-glass` /
 `--surface-glass-strong`, `--surface-panel-from/to`, `--dot-grid-fill`.

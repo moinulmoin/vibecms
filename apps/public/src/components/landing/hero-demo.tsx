@@ -1,8 +1,7 @@
-// Looping hero story shown as a real coding-agent terminal session: you ask the
-// agent to publish, it routes the post THROUGH vibecms (the green line fills
-// across the vibecms node), and the post goes live. Phase animation is driven
-// by marketing-interactions.js.
-export const HERO_PROMPT = 'publish "Shipping with MCP"';
+// Looping hero story shown as a real coding-agent terminal session: the agent
+// saves an exact draft version, the human approves that version, and only then
+// does it go live. Phase animation is driven by marketing-interactions.js.
+export const HERO_PROMPT = 'draft "Shipping with MCP"';
 
 const panel =
   "rounded-2xl ring-1 ring-[color:var(--hairline)] shadow-[inset_0_1px_0_var(--hairline),0_30px_60px_-42px_oklch(0_0_0/0.9)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]";
@@ -49,10 +48,10 @@ export function HeroDemo() {
               <span className="text-brand-bright" data-hero-agent-dot>
                 ●
               </span>{" "}
-              <span data-hero-agent-status>routing through vibecms…</span>
+              <span data-hero-agent-status>saving exact Markdown…</span>
             </div>
             <div className="text-brand-bright opacity-0 transition-opacity duration-500" data-hero-live-line>
-              → live at blog.acme.com
+              → waiting for your approval · version 3
             </div>
           </div>
         </div>
@@ -99,7 +98,7 @@ export function HeroDemo() {
             data-hero-live-badge
           >
             <span className="size-1.5 rounded-full bg-muted-foreground/40" data-hero-live-dot />
-            live
+            <span data-hero-badge-label>draft</span>
           </span>
         </div>
         <div className="min-h-[176px] px-5 py-4 text-left">
@@ -107,6 +106,12 @@ export function HeroDemo() {
             Shipping with MCP
           </div>
           <div className="mt-1 font-mono text-[11px] text-muted-foreground">by claude · just now</div>
+          <div className="mt-3 flex items-center justify-between gap-3 font-mono text-[10.5px]">
+            <span className="text-muted-foreground">exact Markdown · version 3</span>
+            <span className="text-muted-foreground transition-colors duration-500" data-hero-approval>
+              approval required
+            </span>
+          </div>
           <div className="mt-4 space-y-2.5">
             <div className="h-2 w-full rounded bg-muted-foreground/20" />
             <div className="h-2 w-[88%] rounded bg-muted-foreground/15" />

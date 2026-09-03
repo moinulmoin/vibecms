@@ -16,6 +16,7 @@ export function can(actor: Actor, scope: Scope): boolean {
         "posts:publish",
         "posts:archive",
         "assets:write",
+        "assets:delete",
         "activity:read",
       ].includes(scope);
     }

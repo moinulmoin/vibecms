@@ -60,6 +60,15 @@ export interface SiteSettings {
   themeAccent: string | null;
   themeFont: string | null;
   themeMode: string;
+  newsletterSettings: string | null;
+  updatedAt: number;
+}
+
+export interface UpdateNewsletterSettingsInput {
+  timestamp: number;
+  siteId: string;
+  newsletterSettings: string | null;
+  activity: SiteActivityEntry;
 }
 
 export type MembershipRole = "owner" | "editor" | "viewer";
@@ -113,7 +122,8 @@ export interface CompleteSiteSetupInput {
 export interface UpdateSiteSettingsInput {
   timestamp: number;
   siteId: string;
-  site: {
+  expectedUpdatedAt: number;
+  site: Partial<{
     name: string;
     description: string | null;
     defaultSeoTitle: string;
@@ -124,7 +134,7 @@ export interface UpdateSiteSettingsInput {
     themeAccent: string | null;
     themeFont: string | null;
     themeMode: string;
-  };
+  }>;
   activity: SiteActivityEntry;
 }
 
@@ -156,11 +166,13 @@ export interface SitesRepository {
   getSiteTheme(siteId: string): Promise<string | null>;
   getSiteSetup(siteId: string): Promise<SiteSetup | null>;
   getSiteSettings(siteId: string): Promise<SiteSettings | null>;
+  getSiteNewsletterSettings(siteId: string): Promise<string | null>;
   getMembershipRole(workspaceId: string, userId: string): Promise<MembershipRole | null>;
   listAccessibleApps(userId: string): Promise<AccessibleApp[]>;
   ensureOnboardingBase(input: EnsureOnboardingBaseInput): Promise<void>;
   completeSiteSetup(input: CompleteSiteSetupInput): Promise<void>;
-  updateSiteSettings(input: UpdateSiteSettingsInput): Promise<void>;
+  updateSiteSettings(input: UpdateSiteSettingsInput): Promise<boolean>;
+  updateNewsletterSettings(input: UpdateNewsletterSettingsInput): Promise<void>;
   getActiveDefaultHostname(siteId: string, preferredHostname?: string): Promise<string | null>;
   repairDefaultHostname(input: RepairDefaultHostnameInput): Promise<string>;
 }
@@ -290,11 +302,22 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           themeAccent: sites.themeAccent,
           themeFont: sites.themeFont,
           themeMode: sites.themeMode,
+          newsletterSettings: sites.newsletterSettings,
+          updatedAt: sites.updatedAt,
         })
         .from(sites)
         .where(eq(sites.id, siteId))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+    async getSiteNewsletterSettings(siteId) {
+      const rows = await client
+        .select({ newsletterSettings: sites.newsletterSettings })
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .limit(1);
+      return rows[0]?.newsletterSettings ?? null;
     },
 
     async getMembershipRole(workspaceId, userId) {
@@ -448,22 +471,73 @@ export function createSitesRepository(db: D1Database): SitesRepository {
       ]);
     },
 
-    // Settings update: two sequential statements (NOT batched) matching the original app path.
+    // Compare-and-swap prevents Theme and Settings (or two browser tabs) from
+    // silently replacing each other's fields. Only owned fields are patched.
     async updateSiteSettings(input) {
+      const settingsColumns: Array<[keyof typeof input.site, string]> = [
+        ["name", "name"],
+        ["description", "description"],
+        ["defaultSeoTitle", "default_seo_title"],
+        ["defaultSeoDescription", "default_seo_description"],
+        ["defaultSocialAssetId", "default_social_asset_id"],
+        ["theme", "theme"],
+        ["themeAccent", "theme_accent"],
+        ["themeFont", "theme_font"],
+        ["themeMode", "theme_mode"],
+      ];
+      const updates = settingsColumns.filter(([key]) => input.site[key] !== undefined);
+      const updateSql = [
+        ...updates.map(([, column]) => `${column} = ?`),
+        "updated_at = ?",
+      ].join(", ");
+      const updateValues = updates.map(([key]) => input.site[key] as string | null);
+
+      const [, result] = await db.batch([
+        db
+          .prepare(
+            `INSERT INTO activity_events (
+              id, site_id, actor_type, actor_id, actor_name, action,
+              entity_type, entity_id, summary, created_at
+            )
+            SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?
+            FROM sites
+            WHERE id = ? AND updated_at = ?`,
+          )
+          .bind(
+            input.activity.id,
+            input.siteId,
+            input.activity.actorType,
+            input.activity.actorId,
+            input.activity.actorName,
+            input.activity.action,
+            input.siteId,
+            input.activity.summary,
+            input.timestamp,
+            input.siteId,
+            input.expectedUpdatedAt,
+          ),
+        db
+          .prepare(
+            `UPDATE sites
+             SET ${updateSql}
+             WHERE id = ? AND updated_at = ?
+               AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`,
+          )
+          .bind(
+            ...updateValues,
+            input.timestamp,
+            input.siteId,
+            input.expectedUpdatedAt,
+            input.activity.id,
+          ),
+      ]);
+
+      return (result.meta.changes ?? 0) === 1;
+    },
+    async updateNewsletterSettings(input: UpdateNewsletterSettingsInput) {
       await client
         .update(sites)
-        .set({
-          name: input.site.name,
-          description: input.site.description,
-          defaultSeoTitle: input.site.defaultSeoTitle,
-          defaultSeoDescription: input.site.defaultSeoDescription,
-          defaultSocialAssetId: input.site.defaultSocialAssetId,
-          theme: input.site.theme,
-          themeAccent: input.site.themeAccent,
-          themeFont: input.site.themeFont,
-          themeMode: input.site.themeMode,
-          updatedAt: input.timestamp,
-        })
+        .set({ newsletterSettings: input.newsletterSettings, updatedAt: input.timestamp })
         .where(eq(sites.id, input.siteId))
         .run();
 

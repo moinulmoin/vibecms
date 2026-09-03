@@ -44,17 +44,16 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">Launch offer · cancel anytime.</p>
               </div>
-              <div className="text-right">
+              <div className="min-w-[11rem] text-left sm:text-right">
                 <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-                  <span className="mr-2 align-middle font-mono text-base font-medium text-muted-foreground line-through decoration-foreground/40 sm:text-lg">
-                    ${PRICING.monthlyUsd}
-                  </span>
                   ${LAUNCH_OFFER.monthlyUsd}
-                  <span className="text-lg font-medium text-muted-foreground">/mo</span>
+                  <span className="text-lg font-medium text-muted-foreground">/month</span>
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  or ${LAUNCH_OFFER.annualUsd}/year · standard annual{" "}
-                  <span className="line-through decoration-foreground/40">${PRICING.annualUsd}</span>
+                <p className="mt-1 font-display text-base font-semibold text-foreground">
+                  or ${LAUNCH_OFFER.annualUsd}/year
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Normally ${PRICING.monthlyUsd}/month or ${PRICING.annualUsd}/year.
                 </p>
               </div>
             </div>

@@ -1,5 +1,7 @@
 # Pre-launch plan (from external architecture review, 2026-07-02/04)
 
+> **Historical review.** This document records an earlier pre-launch assessment; it is not the current release checklist. Use [`FEATURES.md`](./FEATURES.md) for the implemented product surface and [`launch-runbook.md`](./launch-runbook.md) for release gates. The AutoSEOPilot provisioning and integration prerequisites below are implemented locally; credentialed cross-system production lifecycle proof is still required before launch.
+
 Findings from a full code review (architecture, SEO correctness, ASP-integration surface).
 Section A fully implemented: 774d6f3 (JSON-LD, absolute og tags, sitemap lastmod, RSS atom:self, h1 downgrade, updated badge) plus the canonical-override projection fix (canonical_url now reaches <head> canonical link / og:url / JSON-LD @id and the .md frontmatter) and the remaining og:site_name / article:*time / RSS lastBuildDate / content:encoded items. Ordered by launch impact.
 
@@ -30,11 +32,10 @@ Section A fully implemented: 774d6f3 (JSON-LD, absolute og tags, sitemap lastmod
 
 ## C. ASP-integration prerequisites (when AutoSEOPilot connects)
 
-9. **Tenant provisioning endpoint** — today a workspace+site auto-provisions only on interactive
-   sign-in; ASP needs an internal API to provision on a customer's behalf (invisible-integration
-   decision). Small endpoint, big unblock.
+9. **Tenant provisioning endpoint** — historical gap, now implemented locally through the managed
+   integration contract. Production proof remains a launch gate.
 10. **Billing gate foot-guns for automation**: asset upload returns 402 on unsubscribed sites and
-    free tier caps at 1 noindexed post — ASP-provisioned tenants must be active before first
+    free tier caps at 5 noindexed posts — ASP-provisioned tenants must be active before sustained
     publish, or automation fails silently. Decide the provisioning/billing story.
 11. **No idempotency-key / upsert-by-slug**: a create retry after partial success 409s on the slug.
     ASP will hold the id-map, but an `Idempotency-Key` header or `PUT /posts/by-slug/{slug}` would

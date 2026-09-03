@@ -1,5 +1,5 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { ActivityLogIcon, FileTextIcon, Pencil2Icon, PlusIcon, RocketIcon } from '@radix-ui/react-icons'
+import { Activity, FileText, Pencil, Plus, Rocket, Users } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '~/types/dashboard'
@@ -24,7 +24,7 @@ export function narrowDashboardData(result: DashboardApiResponse): DashboardData
     if (!isDashboardPostStatus(post.status)) continue
     recentDrafts.push({ ...post, status: post.status })
   }
-  return { ...result, recentPosts, recentDrafts }
+  return { ...result, subscriberCount: result.subscriberCount ?? 0, recentPosts, recentDrafts }
 }
 
 import { loadDashboardOverview } from '~/lib/api-client'
@@ -35,12 +35,13 @@ import {
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge, CopyButton, Skeleton } from "@vc/ui"
+import { Badge, CopyButton } from '@vc/ui'
 import {
   DataRow,
   EmptyState,
   MetricStrip,
   PageHeader,
+  PageSkeleton,
   Panel,
   StatCard,
   StatCardGrid,
@@ -103,30 +104,6 @@ function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
   )
 }
 
-function OverviewSkeleton() {
-  return (
-    <>
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-8 w-48" />
-        </div>
-        <Skeleton className="h-9 w-28" />
-      </div>
-      <Skeleton className="h-24 rounded-2xl" />
-      <Skeleton className="h-40 rounded-2xl" />
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Skeleton className="h-56 rounded-2xl" />
-        <Skeleton className="h-56 rounded-2xl" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-    </>
-  )
-}
 
 export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<DashboardData | null>(null)
@@ -150,7 +127,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
     return <LoadError message={error} />
   }
   if (!data) {
-    return <OverviewSkeleton />
+    return <PageSkeleton variant="stats" />
   }
 
   const siteName = data.site?.name ?? BRAND.name
@@ -167,7 +144,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-              <PlusIcon aria-hidden data-icon="inline-start" /> New post
+              <Plus aria-hidden data-icon="inline-start" /> New post
             </Link>
           </Button>
         ) : undefined}
@@ -177,18 +154,22 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         title="Blog status"
         meta={
           <div className="flex flex-wrap items-center gap-2">
-            {isLive ? (
-              <StatusBadge status="live" />
-            ) : (
-              <Badge variant="outline">{data.publicUrl ? 'Local only' : 'Default domain pending'}</Badge>
-            )}
-            {showBillingBadge ? <Badge variant="secondary">{billingBadgeLabel}</Badge> : null}
+            <StatusBadge
+              status={isLive ? 'live' : data.publicUrl ? 'none' : 'pending'}
+              label={isLive ? 'Live' : data.publicUrl ? 'Local only' : 'Default domain pending'}
+            />
+            {showBillingBadge && billingBadgeLabel ? (
+              <StatusBadge
+                status={billingBadgeLabel.toLowerCase().replaceAll(' ', '_')}
+                label={billingBadgeLabel}
+              />
+            ) : null}
           </div>
         }
       >
         {data.publicUrl ? (
           <a
-            className="break-all font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
+            className="min-w-0 [overflow-wrap:anywhere] font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
             href={data.publicUrl}
             target="_blank"
             rel="noreferrer"
@@ -227,9 +208,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                   </Link>
                   ) : post.title}
                 </strong>
-                <Badge variant="outline" className="w-fit capitalize">
-                  {post.status}
-                </Badge>
+                <StatusBadge status={post.status} className="w-fit" />
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {formatDate(post.updatedAt)}
                 </span>
@@ -279,7 +258,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         </Panel>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Panel
           title="Recent activity"
           meta={
@@ -292,11 +271,11 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
             <div className="grid gap-0">
               {data.recentActivity.map((event) => (
                 <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
-                  <strong className="truncate font-display font-semibold text-foreground">{event.summary}</strong>
+                  <strong className="min-w-0 break-words font-display font-semibold text-foreground line-clamp-2">{event.summary}</strong>
                   <span className="font-mono text-xs text-muted-foreground">
                     {labelAction(event.action)}
                   </span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="font-mono text-xs whitespace-nowrap tabular-nums text-muted-foreground">
                     {formatDateTime(event.created_at)}
                   </span>
                 </DataRow>
@@ -304,7 +283,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
             </div>
           ) : (
             <EmptyState
-              icon={<ActivityLogIcon />}
+              icon={<Activity />}
               title="No activity yet"
               description="Create a post, upload media, or issue an API token and this log fills in automatically."
             />
@@ -336,9 +315,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                     </Link>
                     ) : post.title}
                   </strong>
-                  <Badge variant="outline" className="w-fit capitalize">
-                    {post.status}
-                  </Badge>
+                  <StatusBadge status={post.status} className="w-fit" />
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     {formatDate(post.updatedAt)}
                   </span>
@@ -347,7 +324,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
             </div>
           ) : (
             <EmptyState
-              icon={<FileTextIcon />}
+              icon={<FileText />}
               title="No posts yet"
               description={
                 canEdit
@@ -360,12 +337,12 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      <RocketIcon aria-hidden data-icon="inline-start" /> Publish with agent
+                      <Rocket aria-hidden data-icon="inline-start" /> Publish with agent
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                      <Pencil2Icon aria-hidden data-icon="inline-start" /> Write manually
+                    <Pencil aria-hidden data-icon="inline-start" /> Write manually
                     </Link>
                   </Button>
                 </div>
@@ -413,6 +390,21 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         </Link> : (
           <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" />
         )}
+        {canEdit ? (
+          <Link
+            to="/dashboard/subscribers"
+            search={{ q: undefined, status: undefined, page: 1 }}
+            className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:col-span-2 xl:col-span-1"
+          >
+            <StatCard
+              label="Subscribers"
+              value={data.subscriberCount}
+              detail="Captured signups"
+              icon={Users}
+              interactive
+            />
+          </Link>
+        ) : null}
       </StatCardGrid>
 
       <ApiUsagePanel usage={data.apiUsage} />

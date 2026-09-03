@@ -18,8 +18,10 @@ import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analy
 import { Route as DashboardBillingRouteImport } from './routes/dashboard/billing'
 import { Route as DashboardConnectRouteImport } from './routes/dashboard/connect'
 import { Route as DashboardMediaRouteImport } from './routes/dashboard/media'
-import { Route as DashboardPersonalizeRouteImport } from './routes/dashboard/personalize'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardSubscribersRouteImport } from './routes/dashboard/subscribers'
+import { Route as DashboardThemeRouteImport } from './routes/dashboard/theme'
+import { Route as DashboardPersonalizeRouteImport } from './routes/dashboard_/personalize'
 import { Route as DashboardSetupRouteImport } from './routes/dashboard_/setup'
 import { Route as DashboardPostsIndexRouteImport } from './routes/dashboard/posts/index'
 import { Route as DashboardPostsNewRouteImport } from './routes/dashboard/posts/new'
@@ -71,15 +73,25 @@ const DashboardMediaRoute = DashboardMediaRouteImport.update({
   path: '/media',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardPersonalizeRoute = DashboardPersonalizeRouteImport.update({
-  id: '/personalize',
-  path: '/personalize',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSubscribersRoute = DashboardSubscribersRouteImport.update({
+  id: '/subscribers',
+  path: '/subscribers',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardThemeRoute = DashboardThemeRouteImport.update({
+  id: '/theme',
+  path: '/theme',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardPersonalizeRoute = DashboardPersonalizeRouteImport.update({
+  id: '/dashboard_/personalize',
+  path: '/dashboard/personalize',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSetupRoute = DashboardSetupRouteImport.update({
   id: '/dashboard_/setup',
@@ -118,8 +130,10 @@ export interface FileRoutesByFullPath {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
-  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/subscribers': typeof DashboardSubscribersRoute
+  '/dashboard/theme': typeof DashboardThemeRoute
+  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/setup': typeof DashboardSetupRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
@@ -135,8 +149,10 @@ export interface FileRoutesByTo {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
-  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/subscribers': typeof DashboardSubscribersRoute
+  '/dashboard/theme': typeof DashboardThemeRoute
+  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/setup': typeof DashboardSetupRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
@@ -154,8 +170,10 @@ export interface FileRoutesById {
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/connect': typeof DashboardConnectRoute
   '/dashboard/media': typeof DashboardMediaRoute
-  '/dashboard/personalize': typeof DashboardPersonalizeRoute
   '/dashboard/settings': typeof DashboardSettingsRouteWithChildren
+  '/dashboard/subscribers': typeof DashboardSubscribersRoute
+  '/dashboard/theme': typeof DashboardThemeRoute
+  '/dashboard_/personalize': typeof DashboardPersonalizeRoute
   '/dashboard_/setup': typeof DashboardSetupRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/posts/new': typeof DashboardPostsNewRoute
@@ -174,8 +192,10 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
-    | '/dashboard/personalize'
     | '/dashboard/settings'
+    | '/dashboard/subscribers'
+    | '/dashboard/theme'
+    | '/dashboard/personalize'
     | '/dashboard/setup'
     | '/dashboard/'
     | '/dashboard/posts/new'
@@ -191,8 +211,10 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
-    | '/dashboard/personalize'
     | '/dashboard/settings'
+    | '/dashboard/subscribers'
+    | '/dashboard/theme'
+    | '/dashboard/personalize'
     | '/dashboard/setup'
     | '/dashboard'
     | '/dashboard/posts/new'
@@ -209,8 +231,10 @@ export interface FileRouteTypes {
     | '/dashboard/billing'
     | '/dashboard/connect'
     | '/dashboard/media'
-    | '/dashboard/personalize'
     | '/dashboard/settings'
+    | '/dashboard/subscribers'
+    | '/dashboard/theme'
+    | '/dashboard_/personalize'
     | '/dashboard_/setup'
     | '/dashboard/'
     | '/dashboard/posts/new'
@@ -223,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  DashboardPersonalizeRoute: typeof DashboardPersonalizeRoute
   DashboardSetupRoute: typeof DashboardSetupRoute
 }
 
@@ -291,19 +316,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMediaRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/personalize': {
-      id: '/dashboard/personalize'
-      path: '/personalize'
-      fullPath: '/dashboard/personalize'
-      preLoaderRoute: typeof DashboardPersonalizeRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
       fullPath: '/dashboard/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/subscribers': {
+      id: '/dashboard/subscribers'
+      path: '/subscribers'
+      fullPath: '/dashboard/subscribers'
+      preLoaderRoute: typeof DashboardSubscribersRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/theme': {
+      id: '/dashboard/theme'
+      path: '/theme'
+      fullPath: '/dashboard/theme'
+      preLoaderRoute: typeof DashboardThemeRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard_/personalize': {
+      id: '/dashboard_/personalize'
+      path: '/dashboard/personalize'
+      fullPath: '/dashboard/personalize'
+      preLoaderRoute: typeof DashboardPersonalizeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard_/setup': {
       id: '/dashboard_/setup'
@@ -360,8 +399,9 @@ interface DashboardRouteRouteChildren {
   DashboardBillingRoute: typeof DashboardBillingRoute
   DashboardConnectRoute: typeof DashboardConnectRoute
   DashboardMediaRoute: typeof DashboardMediaRoute
-  DashboardPersonalizeRoute: typeof DashboardPersonalizeRoute
   DashboardSettingsRoute: typeof DashboardSettingsRouteWithChildren
+  DashboardSubscribersRoute: typeof DashboardSubscribersRoute
+  DashboardThemeRoute: typeof DashboardThemeRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardPostsNewRoute: typeof DashboardPostsNewRoute
   DashboardPostsIndexRoute: typeof DashboardPostsIndexRoute
@@ -374,8 +414,9 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardBillingRoute: DashboardBillingRoute,
   DashboardConnectRoute: DashboardConnectRoute,
   DashboardMediaRoute: DashboardMediaRoute,
-  DashboardPersonalizeRoute: DashboardPersonalizeRoute,
   DashboardSettingsRoute: DashboardSettingsRouteWithChildren,
+  DashboardSubscribersRoute: DashboardSubscribersRoute,
+  DashboardThemeRoute: DashboardThemeRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardPostsNewRoute: DashboardPostsNewRoute,
   DashboardPostsIndexRoute: DashboardPostsIndexRoute,
@@ -390,6 +431,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  DashboardPersonalizeRoute: DashboardPersonalizeRoute,
   DashboardSetupRoute: DashboardSetupRoute,
 }
 export const routeTree = rootRouteImport

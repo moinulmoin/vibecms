@@ -7,9 +7,9 @@ import {
 } from "./scope-toggle-demo";
 
 describe("formatScopeToken", () => {
-  it("joins enabled scope tokens with double spaces", () => {
+  it("shows the exact least-privilege Drafter scopes by default", () => {
     expect(formatScopeToken(INITIAL_SCOPES)).toBe(
-      "drafts:write  posts:update  posts:publish  media:write",
+      "sites:read  posts:read  posts:create  posts:update  assets:write  activity:read",
     );
   });
 
@@ -22,9 +22,9 @@ describe("formatScopeToken", () => {
   });
 
   it("includes only currently enabled tokens", () => {
-    const scopes = { ...INITIAL_SCOPES, publish: false, billing: true };
+    const scopes = { ...INITIAL_SCOPES, publish: true, media: false };
     expect(formatScopeToken(scopes)).toBe(
-      "drafts:write  posts:update  media:write  billing:write",
+      "sites:read  posts:read  posts:create  posts:update  activity:read  posts:publish",
     );
   });
 });

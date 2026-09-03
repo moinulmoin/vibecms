@@ -18,7 +18,7 @@ const underlineBase =
 /** Static nav; active section state is driven by marketing-interactions.js. */
 export function HeaderNav() {
   return (
-    <nav className="hidden items-center gap-8 md:flex" data-landing-nav>
+    <nav aria-label="Primary" className="hidden items-center gap-8 md:flex" data-landing-nav>
       {navItems.map(([label, id]) => (
         <a
           key={id}

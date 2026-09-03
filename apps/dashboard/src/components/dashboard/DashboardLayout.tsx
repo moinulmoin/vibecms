@@ -1,21 +1,25 @@
 import { BRAND } from '@vc/config'
-import type { FormStatus } from '@vc/config'
 import {
-  ActivityLogIcon,
-  CaretSortIcon,
-  CheckIcon,
-  DashboardIcon,
-  ExitIcon,
-  FileTextIcon,
-  GearIcon,
-  ImageIcon,
-  Link2Icon,
-} from '@radix-ui/react-icons'
-import { ChartNoAxesCombined } from 'lucide-react'
-import { Alert, Button } from '@vc/ui'
+  Activity,
+  ChartNoAxesCombined,
+  Check,
+  ChevronsUpDown,
+  FileText,
+  Image,
+  LayoutDashboard,
+  Link2,
+  LogOut,
+  Monitor,
+  Moon,
+  Palette,
+  Settings,
+  Sun,
+  Users,
+} from 'lucide-react'
+import { Button, Separator } from '@vc/ui'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useState, useTransition, type ComponentType, type ReactNode } from 'react'
-import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
+import { useAppTheme, type AppTheme } from '~/hooks/use-app-theme'
 import {
   Sidebar,
   SidebarContent,
@@ -40,23 +44,24 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
-import { Separator } from "@vc/ui"
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
 import { selectDashboardApp } from '~/lib/api-client'
 import type { AppChoice } from '~/types/dashboard'
 import { Panel } from './blocks'
 
-type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?: boolean }> }
+type NavItem = { label: string; to: string; Icon: ComponentType<{ 'aria-hidden'?: boolean; className?: string }> }
 
 const navItems: NavItem[] = [
-  { label: 'Overview', to: '/dashboard', Icon: DashboardIcon },
-  { label: 'Posts', to: '/dashboard/posts', Icon: FileTextIcon },
-  { label: 'Media', to: '/dashboard/media', Icon: ImageIcon },
-  { label: 'Connect', to: '/dashboard/connect', Icon: Link2Icon },
-  { label: 'Activity', to: '/dashboard/activity', Icon: ActivityLogIcon },
+  { label: 'Overview', to: '/dashboard', Icon: LayoutDashboard },
+  { label: 'Posts', to: '/dashboard/posts', Icon: FileText },
+  { label: 'Subscribers', to: '/dashboard/subscribers', Icon: Users },
+  { label: 'Media', to: '/dashboard/media', Icon: Image },
+  { label: 'Connect', to: '/dashboard/connect', Icon: Link2 },
+  { label: 'Activity', to: '/dashboard/activity', Icon: Activity },
   { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
-  { label: 'Settings', to: '/dashboard/settings', Icon: GearIcon },
+  { label: 'Theme', to: '/dashboard/theme', Icon: Palette },
+  { label: 'Settings', to: '/dashboard/settings', Icon: Settings },
 ]
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -86,17 +91,14 @@ export function labelAction(action: string) {
   return action.replaceAll('.', ' ').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function StatusAlert({ status }: { status: FormStatus | null }) {
-  if (!status) return null
-  return (
-    <Alert variant={status.variant} title={status.title}>
-      {status.message}
-    </Alert>
-  )
-}
+
+/** Non-nav routes that still deserve a truthful breadcrumb title. */
+const extraPageTitles: Array<Pick<NavItem, 'label' | 'to'>> = [
+  { label: 'Billing', to: '/dashboard/billing' },
+]
 
 function pageTitle(current: string) {
-  const match = [...navItems]
+  const match = [...navItems, ...extraPageTitles]
     .sort((a, b) => b.to.length - a.to.length)
     .find((item) => current === item.to || (item.to !== '/dashboard' && current.startsWith(item.to)))
   return match ? match.label : 'Overview'
@@ -139,7 +141,7 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
                 </span>
                 <span className="truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
               </div>
-              <CaretSortIcon className="ml-auto size-4 text-muted-foreground" />
+              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -163,13 +165,53 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
                 signOut()
               }}
             >
-              <ExitIcon />
+              <LogOut />
               {isPending ? 'Signing out…' : 'Sign out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+  )
+}
+
+const themeOptions: Array<{ value: AppTheme; label: string; Icon: ComponentType<{ 'aria-hidden'?: boolean; className?: string }> }> = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'system', label: 'System', Icon: Monitor },
+]
+
+function ThemeSwitcher() {
+  const { theme, setTheme } = useAppTheme()
+
+  return (
+    <div
+      role="group"
+      aria-label="Color theme"
+      className="flex items-center gap-0.5 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-0.5 md:group-data-[collapsible=icon]:flex-col"
+    >
+      {themeOptions.map(({ value, label, Icon }) => {
+        const selected = theme === value
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-label={`${label} theme`}
+            aria-pressed={selected}
+            title={label}
+            onClick={() => setTheme(value)}
+            className={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors duration-150 md:group-data-[collapsible=icon]:size-7 md:group-data-[collapsible=icon]:px-0 ${
+              selected
+                ? 'bg-background text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Icon aria-hidden className="size-3.5 shrink-0" />
+            <span className="md:group-data-[collapsible=icon]:hidden">{label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -192,7 +234,7 @@ function DashboardNavigation({
           .filter(
             ({ to }) =>
               role !== 'viewer' ||
-              !['/dashboard/media', '/dashboard/connect', '/dashboard/settings'].includes(to),
+              !['/dashboard/media', '/dashboard/connect', '/dashboard/settings', '/dashboard/subscribers'].includes(to),
           )
           .map(({ label, to, Icon }) => {
             const active = current === to || (to !== '/dashboard' && current.startsWith(to))
@@ -204,7 +246,7 @@ function DashboardNavigation({
                   tooltip={label}
                   className="relative h-9 px-2.5 font-medium text-muted-foreground data-[active=true]:bg-transparent data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-primary data-[active=true]:[&>svg]:text-primary"
                 >
-                  <Link to={to} onClick={closeMobileNavigation}>
+                  <Link to={to} onClick={closeMobileNavigation} aria-current={active ? 'page' : undefined}>
                     <Icon aria-hidden />
                     <span>{label}</span>
                   </Link>
@@ -286,7 +328,7 @@ function SiteSwitcher({
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
           <SiteIdentity siteName={siteName} />
-          <CaretSortIcon className="ml-auto size-4 text-muted-foreground" />
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -318,7 +360,7 @@ function SiteSwitcher({
                   {choice.workspaceName}
                 </span>
               </div>
-              {selected ? <CheckIcon className="ml-auto" /> : null}
+              {selected ? <Check className="ml-auto" /> : null}
             </DropdownMenuItem>
           )
         })}
@@ -347,13 +389,12 @@ export function AppShell({
   currentRole?: 'owner' | 'editor' | 'viewer'
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const formStatus = useFormStatusFromSearch()
   const current = currentProp ?? pathname
 
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider>
-        <Sidebar collapsible="icon">
+        <Sidebar collapsible="icon" role="complementary" aria-label="Dashboard sidebar">
           <SidebarHeader>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -372,6 +413,7 @@ export function AppShell({
           </SidebarContent>
 
           <SidebarFooter>
+            <ThemeSwitcher />
             <UserMenu userEmail={userEmail} />
           </SidebarFooter>
           <SidebarRail />
@@ -397,7 +439,6 @@ export function AppShell({
             tabIndex={-1}
             className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 px-4 py-6 outline-none sm:px-8 sm:py-9 lg:px-10 lg:py-10"
           >
-            <StatusAlert status={formStatus} />
             {children}
           </div>
         </SidebarInset>

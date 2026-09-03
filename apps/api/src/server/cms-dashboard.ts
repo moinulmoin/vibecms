@@ -34,6 +34,7 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  subscriberCount: number
   versionCount: number
   recentPosts: Array<{
     id: string
@@ -113,6 +114,7 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     counts: agg.counts,
     media: agg.media,
     tokenCount: agg.tokenCount,
+    subscriberCount: agg.subscriberCount,
     versionCount: agg.versionCount,
     recentPosts: agg.recentPosts,
     recentDrafts: agg.recentDrafts,

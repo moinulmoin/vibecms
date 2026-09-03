@@ -4,3 +4,67 @@
 @import "@vc/content/styles";
 @import "@vc/content/styles/presets";
 @source "../../../packages/ui/src";
+
+/* BlockNote slash menu: cap height inside the editor viewport. */
+.bn-container .bn-suggestion-menu {
+  max-height: min(60vh, 22rem);
+  overflow-y: auto;
+}
+
+/* Editor canvas blocks: mirror the published callout/toc rendering using the
+   preset token context the canvas is wrapped in. */
+.vc-rich-canvas .vc-editor-callout {
+  display: block;
+  margin-block: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: var(--vc-radius, 8px);
+}
+.vc-rich-canvas .vc-editor-callout[data-callout-kind='NOTE'] {
+  background: var(--vc-callout-note);
+  color: var(--vc-callout-note-fg);
+  border-color: var(--vc-callout-note-border);
+}
+.vc-rich-canvas .vc-editor-callout[data-callout-kind='TIP'] {
+  background: var(--vc-callout-tip);
+  color: var(--vc-callout-tip-fg);
+  border-color: var(--vc-callout-tip-border);
+}
+.vc-rich-canvas .vc-editor-callout[data-callout-kind='IMPORTANT'] {
+  background: var(--vc-callout-important);
+  color: var(--vc-callout-important-fg);
+  border-color: var(--vc-callout-important-border);
+}
+.vc-rich-canvas .vc-editor-callout[data-callout-kind='WARNING'] {
+  background: var(--vc-callout-warning);
+  color: var(--vc-callout-warning-fg);
+  border-color: var(--vc-callout-warning-border);
+}
+.vc-rich-canvas .vc-editor-callout[data-callout-kind='CAUTION'] {
+  background: var(--vc-callout-caution);
+  color: var(--vc-callout-caution-fg);
+  border-color: var(--vc-callout-caution-border);
+}
+.vc-rich-canvas .vc-editor-callout__label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.vc-rich-canvas .vc-editor-callout__content {
+  margin-top: 0.2rem;
+  min-width: 2rem;
+}
+.vc-rich-canvas .vc-editor-toc {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+  padding: 0.625rem 0.9rem;
+  border: 1px dashed var(--vc-border, rgba(127, 127, 127, 0.4));
+  border-radius: var(--vc-radius, 8px);
+  color: var(--vc-muted-foreground, inherit);
+  font-size: 0.875rem;
+}

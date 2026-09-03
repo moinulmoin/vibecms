@@ -7,6 +7,10 @@ function now() {
   return Math.floor(Date.now() / 1000);
 }
 
+// Rapid same-actor post.updated events (autosave, agent drafting) within this
+// window coalesce into one activity row instead of one row per save.
+const POST_UPDATE_COALESCE_WINDOW_SECONDS = 600;
+
 function normalizePostStatus(status: string): Post["status"] {
   return status === "published" || status === "archived" ? status : "draft";
 }
@@ -366,28 +370,91 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             postId,
             versionId,
           ),
-          db.prepare(
-            `INSERT INTO activity_events (
-              id, site_id, actor_type, actor_id, actor_name, action, entity_type,
-              entity_id, summary, before_json, after_json, created_at
-            )
-            SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
-            FROM post_versions
-            WHERE id = ?`,
-          ).bind(
-            activityId,
-            siteId,
-            actor.type,
-            actor.id,
-            actor.name,
-            history.activityAction,
-            postId,
-            history.activitySummary,
-            JSON.stringify(before),
-            JSON.stringify(after),
-            timestamp,
-            versionId,
-          ),
+          // post.updated is high-frequency (autosave, agent drafting): bump the
+          // same actor's recent event instead of inserting a new row, so the
+          // ledger stays a trust log rather than a keystroke log. Distinct
+          // lifecycle actions (publish, archive, restore…) always insert.
+          ...(history.activityAction === "post.updated"
+            ? [
+                db.prepare(
+                  `UPDATE activity_events
+                      SET created_at = ?, summary = ?, actor_name = ?, after_json = ?
+                    WHERE id = (
+                      SELECT id FROM activity_events
+                       WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
+                         AND actor_type = ? AND actor_id = ? AND created_at >= ?
+                       ORDER BY created_at DESC LIMIT 1
+                    )
+                      AND EXISTS (SELECT 1 FROM post_versions WHERE id = ?)`,
+                ).bind(
+                  timestamp,
+                  history.activitySummary,
+                  actor.name,
+                  JSON.stringify(after),
+                  siteId,
+                  postId,
+                  actor.type,
+                  actor.id,
+                  timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS,
+                  versionId,
+                ),
+                db.prepare(
+                  `INSERT INTO activity_events (
+                    id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+                    entity_id, summary, before_json, after_json, created_at
+                  )
+                  SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
+                  FROM post_versions
+                  WHERE id = ?
+                    AND NOT EXISTS (
+                      SELECT 1 FROM activity_events
+                       WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
+                         AND actor_type = ? AND actor_id = ? AND created_at >= ?
+                    )`,
+                ).bind(
+                  activityId,
+                  siteId,
+                  actor.type,
+                  actor.id,
+                  actor.name,
+                  history.activityAction,
+                  postId,
+                  history.activitySummary,
+                  JSON.stringify(before),
+                  JSON.stringify(after),
+                  timestamp,
+                  versionId,
+                  siteId,
+                  postId,
+                  actor.type,
+                  actor.id,
+                  timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS,
+                ),
+              ]
+            : [
+                db.prepare(
+                  `INSERT INTO activity_events (
+                    id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+                    entity_id, summary, before_json, after_json, created_at
+                  )
+                  SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
+                  FROM post_versions
+                  WHERE id = ?`,
+                ).bind(
+                  activityId,
+                  siteId,
+                  actor.type,
+                  actor.id,
+                  actor.name,
+                  history.activityAction,
+                  postId,
+                  history.activitySummary,
+                  JSON.stringify(before),
+                  JSON.stringify(after),
+                  timestamp,
+                  versionId,
+                ),
+              ]),
         ]);
       } catch (error) {
         throw mapPostError(error);

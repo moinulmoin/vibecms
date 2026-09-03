@@ -9,6 +9,8 @@ export type SpaConfirmButtonProps = ButtonProps & {
   /** Label shown while the onConfirm promise is in flight. Defaults to confirmLabel. */
   pendingLabel?: React.ReactNode
   armedTimeoutMs?: number
+  /** Changing the reviewed resource/version invalidates an armed confirmation. */
+  confirmationKey?: string | number
   onConfirm: () => void | Promise<void>
 }
 
@@ -19,6 +21,7 @@ export function SpaConfirmButton({
   helperText,
   pendingLabel,
   armedTimeoutMs = 5000,
+  confirmationKey,
   onConfirm,
   variant,
   disabled,
@@ -34,6 +37,10 @@ export function SpaConfirmButton({
     const timer = window.setTimeout(() => setArmed(false), armedTimeoutMs)
     return () => window.clearTimeout(timer)
   }, [armed, armedTimeoutMs])
+
+  React.useEffect(() => {
+    setArmed(false)
+  }, [confirmationKey])
 
   const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     onClick?.(event)

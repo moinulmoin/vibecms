@@ -13,22 +13,24 @@ export function EmptyState({
   description,
   action,
   icon,
+  compact = false,
 }: {
   title: string
   description: ReactNode
   action?: ReactNode
   icon?: ReactNode
+  compact?: boolean
 }) {
   return (
-    <Empty>
-      <EmptyHeader>
-        {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}
-        <EmptyContent>
+    <Empty className={compact ? 'gap-2 border-0 p-0 text-left sm:items-start' : undefined}>
+      <EmptyHeader className={compact ? 'max-w-none flex-row items-center gap-2' : undefined}>
+        {icon ? <EmptyMedia variant="icon" className={compact ? 'mb-0 size-6 [&_svg:not([class*=size-])]:size-3' : undefined}>{icon}</EmptyMedia> : null}
+        <EmptyContent className={compact ? 'w-auto max-w-none min-w-0 flex-row flex-wrap items-baseline gap-x-2 gap-y-0' : undefined}>
           <EmptyTitle>{title}</EmptyTitle>
           <EmptyDescription>{description}</EmptyDescription>
         </EmptyContent>
       </EmptyHeader>
-      {action ? <div className="mt-1 flex flex-wrap justify-center gap-2">{action}</div> : null}
+      {action ? <div className={compact ? 'flex flex-wrap gap-2' : 'mt-1 flex flex-wrap justify-center gap-2'}>{action}</div> : null}
     </Empty>
   )
 }

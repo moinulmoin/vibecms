@@ -19,4 +19,4 @@ Always provide concise alt text that describes the useful visual content. A feat
 
 ## Delete
 
-`assets.delete` is destructive. It returns `CONFLICT` when the asset is still used as a post cover image. Confirm deletion immediately before the call.
+`assets.delete` is destructive and requires the separate `assets:delete` scope. Drafter and Publisher tokens cannot call it. It returns `CONFLICT` while the asset is used as a post cover or site social image. Confirm deletion immediately before the call.

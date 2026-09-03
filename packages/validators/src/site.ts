@@ -86,3 +86,15 @@ export const voiceProfileSettingsInputSchema = z.object({
 
 export type SiteVoiceProfileInput = z.infer<typeof siteVoiceProfileInputSchema>;
 export type VoiceProfileSettingsInput = z.infer<typeof voiceProfileSettingsInputSchema>;
+export const NEWSLETTER_HEADING_MAX_LENGTH = 80;
+export const NEWSLETTER_SUBTEXT_MAX_LENGTH = 160;
+export const NEWSLETTER_BUTTON_LABEL_MAX_LENGTH = 24;
+
+export const newsletterSettingsSchema = z.object({
+  enabled: z.boolean(),
+  heading: z.string().trim().min(1).max(NEWSLETTER_HEADING_MAX_LENGTH),
+  subtext: z.string().trim().min(1).max(NEWSLETTER_SUBTEXT_MAX_LENGTH),
+  buttonLabel: z.string().trim().min(1).max(NEWSLETTER_BUTTON_LABEL_MAX_LENGTH),
+}).strict();
+
+export type NewsletterSettings = z.infer<typeof newsletterSettingsSchema>;

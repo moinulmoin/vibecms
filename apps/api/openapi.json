@@ -62,6 +62,12 @@
                         "null"
                       ]
                     },
+                    "voiceSeedUrls": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "voiceProfile": {
                       "type": "object",
                       "properties": {
@@ -222,6 +228,7 @@
                     "slug",
                     "description",
                     "url",
+                    "voiceSeedUrls",
                     "voiceProfile",
                     "createdAt",
                     "updatedAt"
@@ -3821,7 +3828,7 @@
       },
       "delete": {
         "operationId": "deleteAsset",
-        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover image. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Requires scope: assets:delete. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
         "security": [
           {
             "bearerAuth": []

@@ -38,3 +38,44 @@ describe('PublicPageChrome heading semantics', () => {
     expect(html).toContain('<h1>Article title</h1>')
   })
 })
+
+describe('SubscribeBlock settings', () => {
+  it('uses custom copy when newsletter settings are provided', () => {
+    const html = renderToStaticMarkup(
+      <PublicPageChrome
+        siteName="Example publication"
+        homeHref="/"
+        presetId="minimal"
+        subscribeVariant="footer"
+        subscribeSiteSlug="example"
+        subscribeSettings={{
+          enabled: true,
+          heading: 'Stay in the loop',
+          subtext: 'One note when something ships.',
+          buttonLabel: 'Join list',
+        }}
+      >
+        <p>Latest posts</p>
+      </PublicPageChrome>,
+    )
+    expect(html).toContain('Stay in the loop')
+    expect(html).toContain('One note when something ships.')
+    expect(html).toContain('Join list')
+  })
+
+  it('omits the form when newsletter settings disable it', () => {
+    const html = renderToStaticMarkup(
+      <PublicPageChrome
+        siteName="Example publication"
+        homeHref="/"
+        presetId="minimal"
+        subscribeVariant="footer"
+        subscribeSiteSlug="example"
+        subscribeSettings={{ enabled: false }}
+      >
+        <p>Latest posts</p>
+      </PublicPageChrome>,
+    )
+    expect(html).not.toContain('vc-subscribe-form')
+  })
+})

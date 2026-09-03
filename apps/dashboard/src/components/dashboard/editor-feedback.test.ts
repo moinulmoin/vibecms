@@ -121,6 +121,14 @@ describe('dashboard form-status feedback', () => {
     expect(resolveFormStatus({ ok: 'untrusted-message' })).toBeNull()
   })
 
+  it('explains that stale settings preserve local values for a retry', () => {
+    expect(resolveFormStatus({ error: 'settings_conflict' })).toMatchObject({
+      variant: 'error',
+      title: 'Settings changed elsewhere',
+      message: expect.stringContaining('local values were kept'),
+    })
+  })
+
   it('resolves archive/restore error and restore success feedback used by PostEditorPage', () => {
     expect(resolveFormStatus({ error: 'unknown' })).toMatchObject({
       variant: 'error',
@@ -136,4 +144,3 @@ describe('dashboard form-status feedback', () => {
     })
   })
 })
-

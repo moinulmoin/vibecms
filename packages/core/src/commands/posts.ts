@@ -1,5 +1,5 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
-import { BillingRequiredError, ConflictError, NotFoundError } from "../errors";
+import { BillingRequiredError, ConflictError, NotFoundError, ValidationError } from "../errors";
 import { hasActiveSubscription, requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
@@ -116,6 +116,21 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
     changeSummary: "Archived post",
     activityAction: "post.archived",
     activitySummary: `Archived ${before.title}`,
+  }, before.currentVersionNumber);
+  if (!after) throw new NotFoundError("Post not found");
+  return after.post;
+}
+
+export async function unarchivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+  requireScope(actor, "posts:update");
+  const before = await repo.getPost(input.siteId, input.postId);
+  if (!before) throw new NotFoundError("Post not found");
+  if (before.status !== "archived") throw new ValidationError("Only archived posts can be restored to draft");
+  // Like archive, not client-versioned; pin against the tip observed in this command.
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "draft" }, actor, {
+    changeSummary: "Restored post to draft",
+    activityAction: "post.unarchived",
+    activitySummary: `Restored ${before.title} to draft`,
   }, before.currentVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after.post;

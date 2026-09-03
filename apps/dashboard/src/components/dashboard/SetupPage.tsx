@@ -197,7 +197,7 @@ export function SetupPage() {
                 Draft for free and publish your first 5 posts to try it live. Subscribe to publish more and upload media.
               </p>
               <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pending={submitting} pendingText="Saving…">
-                Continue
+                Choose agent client
               </PendingSubmitButton>
             </div>
           </form>

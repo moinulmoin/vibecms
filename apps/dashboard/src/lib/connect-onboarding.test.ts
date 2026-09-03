@@ -23,9 +23,9 @@ describe('Connect onboarding step', () => {
     expect(connectOnboardingStep({ state: 'waiting' }, false)).toBe(3)
   })
 
-  it('advances to First post once the agent connects or a draft exists', () => {
+  it('advances from first draft to exact review and publish proof using durable state', () => {
     expect(connectOnboardingStep({ state: 'waiting' }, true)).toBe(4)
-    expect(connectOnboardingStep({ state: 'draft' }, false)).toBe(4)
-    expect(connectOnboardingStep({ state: 'live' }, false)).toBe(4)
+    expect(connectOnboardingStep({ state: 'draft' }, false)).toBe(5)
+    expect(connectOnboardingStep({ state: 'live' }, false)).toBe(6)
   })
 })

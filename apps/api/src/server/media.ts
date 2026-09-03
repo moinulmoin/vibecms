@@ -180,7 +180,7 @@ export async function updateAssetAltForApp(
  * R2 failure leaves the delete op for the reconciler. Response stays stable either way.
  */
 export async function deleteAssetTracked(app: AppUserContext, assetId: string): Promise<Asset> {
-  requireScope(app.actor, 'assets:write')
+  requireScope(app.actor, 'assets:delete')
   const repo = assetRepository()
   const asset = await repo.getAsset(app.siteId, assetId)
   if (!asset) throw new NotFoundError('Asset not found')

@@ -2,7 +2,7 @@ import type { Actor } from '@vc/core'
 import { listCustomDomains } from '@vc/core'
 import { resolveAccent, resolveFont, resolveMode, resolvePresetId } from '@vc/config'
 import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS } from '@vc/db'
-import { isReservedSiteSlug } from '@vc/validators'
+import { isReservedSiteSlug, newsletterSettingsSchema, type NewsletterSettings } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
 import { defaultHostname } from './public-url'
@@ -190,7 +190,7 @@ export type CompleteSiteSetupPayload = {
   description?: string
 }
 
-// Agent identity codes the "Make it yours" step collects; anything outside
+// Agent identity codes the client-choice step collects; anything outside
 // this set is stored as null (including "I'd rather not say").
 
 export const AGENT_PREFERENCES = ['claude_code', 'codex', 'cursor', 'droid', 'other'] as const
@@ -258,31 +258,102 @@ export async function updatePersonalizationForApp(
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
   const timestamp = now()
-  await createDataAccess(env.DB).sites.updateSitePersonalization({
+  const sites = createDataAccess(env.DB).sites
+  const current = await sites.getSitePersonalization(app.siteId)
+  await sites.updateSitePersonalization({
     timestamp,
     siteId: app.siteId,
-    agentPreference: sanitizeAgentPreference(payload.agentPreference),
-    voiceSeed: sanitizeVoiceSeed(payload.voiceSeed),
-    onboardingNote: payload.onboardingNote?.trim() ? payload.onboardingNote.trim().slice(0, 500) : null,
+    agentPreference: payload.agentPreference === undefined
+      ? current?.agentPreference ?? null
+      : sanitizeAgentPreference(payload.agentPreference),
+    voiceSeed: payload.voiceSeed === undefined
+      ? sanitizeVoiceSeed(safeParseStringArray(current?.voiceSeedJson))
+      : sanitizeVoiceSeed(payload.voiceSeed),
+    onboardingNote: payload.onboardingNote === undefined
+      ? current?.onboardingNote ?? null
+      : payload.onboardingNote?.trim().slice(0, 500) || null,
     activity: {
       id: `activity_site_personalization_${app.user.id}_${timestamp}_${crypto.randomUUID()}`,
       actorType: app.actor.type,
       actorId: app.actor.id,
       actorName: app.actor.name,
       action: 'site.updated',
-      summary: 'Personalized the onboarding guidance',
+      summary: 'Updated agent onboarding preferences',
     },
   })
   return { kind: 'ok', code: 'personalization_saved' }
 }
 
+export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = {
+  enabled: true,
+  heading: 'Get new posts by email',
+  subtext: "Email delivery is coming soon. Join now and we'll let you know when it launches.",
+  buttonLabel: 'Notify me',
+}
+
+function parseNewsletterSettings(raw: string | null | undefined): NewsletterSettings {
+  if (!raw) return DEFAULT_NEWSLETTER_SETTINGS
+  try {
+    const parsed = newsletterSettingsSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : DEFAULT_NEWSLETTER_SETTINGS
+  } catch {
+    return DEFAULT_NEWSLETTER_SETTINGS
+  }
+}
+
+export async function getNewsletterSettingsForApp(app: AppUserContext): Promise<NewsletterSettings> {
+  const raw = await createDataAccess(env.DB).sites.getSiteNewsletterSettings(app.siteId)
+  return parseNewsletterSettings(raw)
+}
+
+export async function updateNewsletterSettingsForApp(
+  app: AppUserContext,
+  payload: unknown,
+): Promise<{ kind: 'ok' | 'error'; code: string }> {
+  if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
+  const parsed = newsletterSettingsSchema.safeParse(payload)
+  if (!parsed.success) return { kind: 'error', code: 'validation_error' }
+  const timestamp = now()
+  const db = createDataAccess(env.DB)
+  const currentSite = await db.sites.getSiteSettings(app.siteId)
+  await db.sites.updateNewsletterSettings({
+    timestamp,
+    siteId: app.siteId,
+    newsletterSettings: JSON.stringify(parsed.data),
+    activity: {
+      id: crypto.randomUUID(),
+      actorType: app.actor.type,
+      actorId: app.actor.id,
+      actorName: app.actor.name,
+      action: 'site.updated',
+      summary: 'Updated newsletter settings',
+    },
+  })
+  if (currentSite) {
+    const published = await db.publicBlog.listPublishedPostSummaries(
+      app.siteId,
+      timestamp,
+      PUBLIC_BLOG_LIMITS.sitemapSummaries,
+    )
+    const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
+    scheduleSitePurge(
+      app.siteId,
+      currentSite.slug,
+      published.map((row) => row.slug),
+      domainRows.map((domain) => domain.hostname).filter(Boolean),
+    )
+  }
+  return { kind: 'ok', code: 'newsletter_saved' }
+}
+
 export type SiteSettingsPayload = {
-  name: string
-  description?: string
-  defaultSeoTitle: string
-  defaultSeoDescription?: string
+  expectedUpdatedAt: number
+  name?: string
+  description?: string | null
+  defaultSeoTitle?: string
+  defaultSeoDescription?: string | null
   defaultSocialAssetId?: string | null
-  theme: string
+  theme?: string
   // Theme customizer (Layer 2) — optional until the Appearance UI ships them.
   // null/undefined accent|font = use resolver default; mode resolves to 'system'.
   themeAccent?: string | null
@@ -304,6 +375,8 @@ export async function getSiteSettings(app: AppUserContext) {
     themeAccent: resolveAccent(site?.themeAccent),
     themeFont: resolveFont(site?.themeFont),
     themeMode: resolveMode(site?.themeMode),
+    newsletterSettings: parseNewsletterSettings(site?.newsletterSettings),
+    updatedAt: site?.updatedAt ?? 0,
   }
 }
 
@@ -349,46 +422,53 @@ export async function updateSiteSettingsForApp(
   payload: SiteSettingsPayload,
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
-  const timestamp = now()
-  const name = payload.name.trim().slice(0, 80) || 'My Blog'
-  const description = payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
-  const defaultSeoTitle = payload.defaultSeoTitle.trim().slice(0, 120) || name
-  const defaultSeoDescription = payload.defaultSeoDescription?.trim()
-    ? payload.defaultSeoDescription.trim().slice(0, 220)
-    : null
-  const theme = resolvePresetId(payload.theme)
-  // Theme customizer: null accent|font persists null (resolver defaults on read);
-  // an explicit value is resolved to a known id. Mode always resolves to a valid value.
-  const themeAccent = payload.themeAccent == null ? null : resolveAccent(payload.themeAccent)
-  const themeFont = payload.themeFont == null ? null : resolveFont(payload.themeFont)
-  const themeMode = resolveMode(payload.themeMode)
+  if (!Number.isInteger(payload.expectedUpdatedAt) || payload.expectedUpdatedAt < 1) {
+    return { kind: 'error', code: 'invalid_settings_version' }
+  }
 
   const db = createDataAccess(env.DB)
   const currentSite = await db.sites.getSiteSettings(app.siteId)
-  const defaultSocialAssetId =
-    payload.defaultSocialAssetId === undefined
-      ? currentSite?.defaultSocialAssetId ?? null
-      : payload.defaultSocialAssetId?.trim() || null
-  if (defaultSocialAssetId) {
-    const asset = await db.assets.getAsset(app.siteId, defaultSocialAssetId)
+  if (!currentSite) return { kind: 'error', code: 'site_not_found' }
+
+  const site: Parameters<typeof db.sites.updateSiteSettings>[0]['site'] = {}
+  if (payload.name !== undefined) {
+    site.name = payload.name.trim().slice(0, 80) || 'My Blog'
+  }
+  if (payload.description !== undefined) {
+    site.description = payload.description?.trim().slice(0, 220) || null
+  }
+  if (payload.defaultSeoTitle !== undefined) {
+    site.defaultSeoTitle = payload.defaultSeoTitle.trim().slice(0, 120) || site.name || currentSite.name
+  }
+  if (payload.defaultSeoDescription !== undefined) {
+    site.defaultSeoDescription = payload.defaultSeoDescription?.trim().slice(0, 220) || null
+  }
+  if (payload.defaultSocialAssetId !== undefined) {
+    site.defaultSocialAssetId = payload.defaultSocialAssetId?.trim() || null
+  }
+  if (payload.theme !== undefined) site.theme = resolvePresetId(payload.theme)
+  if (payload.themeAccent !== undefined) {
+    site.themeAccent = payload.themeAccent === null ? null : resolveAccent(payload.themeAccent)
+  }
+  if (payload.themeFont !== undefined) {
+    site.themeFont = payload.themeFont === null ? null : resolveFont(payload.themeFont)
+  }
+  if (payload.themeMode !== undefined) site.themeMode = resolveMode(payload.themeMode)
+
+  if (Object.keys(site).length === 0) return { kind: 'error', code: 'no_settings_changes' }
+
+  if (site.defaultSocialAssetId) {
+    const asset = await db.assets.getAsset(app.siteId, site.defaultSocialAssetId)
     if (!asset) return { kind: 'error', code: 'invalid_social_image' }
     if (!asset.altText) return { kind: 'error', code: 'social_image_alt_required' }
   }
 
-  await db.sites.updateSiteSettings({
+  const timestamp = Math.max(now(), currentSite.updatedAt + 1)
+  const updated = await db.sites.updateSiteSettings({
     timestamp,
     siteId: app.siteId,
-    site: {
-      name,
-      description,
-      defaultSeoTitle,
-      defaultSeoDescription,
-      defaultSocialAssetId,
-      theme,
-      themeAccent,
-      themeFont,
-      themeMode,
-    },
+    expectedUpdatedAt: payload.expectedUpdatedAt,
+    site,
     activity: {
       id: crypto.randomUUID(),
       actorType: app.actor.type,
@@ -398,20 +478,20 @@ export async function updateSiteSettingsForApp(
       summary: 'Updated site settings',
     },
   })
-  if (currentSite) {
-    // Theme/customizer saves re-render every public page; the purge must reach
-    // article HTML too (articles only self-purge on publish/archive). Enumerate
-    // with the sitemap cap so large sites purge fully, and include custom
-    // hostnames — their cache entries key by their own host.
-    const published = await db.publicBlog.listPublishedPostSummaries(
-      app.siteId,
-      timestamp,
-      PUBLIC_BLOG_LIMITS.sitemapSummaries,
-    )
-    const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
-    const customHosts = domainRows.map((domain) => domain.hostname).filter(Boolean)
-    scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), customHosts)
-  }
+  if (!updated) return { kind: 'error', code: 'settings_conflict' }
+
+  // Theme/customizer saves re-render every public page; the purge must reach
+  // article HTML too (articles only self-purge on publish/archive). Enumerate
+  // with the sitemap cap so large sites purge fully, and include custom
+  // hostnames — their cache entries key by their own host.
+  const published = await db.publicBlog.listPublishedPostSummaries(
+    app.siteId,
+    timestamp,
+    PUBLIC_BLOG_LIMITS.sitemapSummaries,
+  )
+  const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
+  const customHosts = domainRows.map((domain) => domain.hostname).filter(Boolean)
+  scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), customHosts)
 
   return { kind: 'ok', code: 'site_saved' }
 }

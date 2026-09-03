@@ -1,6 +1,5 @@
 import type { Asset, BillingStatus, DomainRecord, Post, PostVersionSummary } from '@vc/core'
-import type { VoiceProfileSettingsInput } from '@vc/validators'
-
+import type { NewsletterSettings, VoiceProfileSettingsInput } from '@vc/validators'
 export type SessionUser = { id: string; name: string; email: string }
 
 export type AppChoice = {
@@ -74,6 +73,7 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  subscriberCount: number
   versionCount: number
   recentPosts: Array<{
     id: string
@@ -252,6 +252,8 @@ export type SiteSettingsForm = {
   themeAccent: string
   themeFont: string
   themeMode: string
+  updatedAt: number
+  newsletterSettings: NewsletterSettings
 }
 
 export type SettingsPageData = {
@@ -351,5 +353,21 @@ export type VoiceProfileMutationResult =
 
 export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; code: string }
 export type RemoveCustomDomainResult = { ok: true } | { ok: false; code: string }
+export type SubscriberStatus = 'pending' | 'confirmed' | 'unsubscribed'
 
-export type { VoiceProfileSettingsInput }
+export type SubscriberRow = {
+  id: string
+  email: string
+  status: SubscriberStatus
+  sourceUrl: string | null
+  createdAt: number
+  consentVersion: string
+}
+
+export type SubscribersPageLoad = {
+  rows: SubscriberRow[]
+  total: number
+  pendingCount: number
+}
+
+export type { NewsletterSettings, VoiceProfileSettingsInput }

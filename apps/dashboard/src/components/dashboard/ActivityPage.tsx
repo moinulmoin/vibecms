@@ -1,17 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ActivityLogIcon, ReloadIcon } from '@radix-ui/react-icons'
+import { Activity, RefreshCw } from 'lucide-react'
 import {
   Button,
   LoadError,
   formatDateTime,
   labelAction,
 } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
+import { EmptyState, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
 import {
   Badge,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -70,24 +69,6 @@ function ActorBadge({ actorType }: { actorType: string }) {
   )
 }
 
-function ActivitySkeleton() {
-  return (
-    <>
-      <div className="space-y-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-4 w-80" />
-      </div>
-      <Panel title="Activity log">
-        <div className="grid gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 rounded-xl" />
-          ))}
-        </div>
-      </Panel>
-    </>
-  )
-}
 
 export function ActivityPage() {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
@@ -133,7 +114,7 @@ export function ActivityPage() {
   }
 
   if (loadError) return <LoadError message={loadError} />
-  if (!events) return <ActivitySkeleton />
+  if (!events) return <PageSkeleton variant="table" />
 
   // Filter the accumulated list client-side; "Load more" keeps appending to the
   // accumulated list, so the filter keeps working across pagination.
@@ -167,17 +148,17 @@ export function ActivityPage() {
 
         {events.length === 0 ? (
           <EmptyState
-            icon={<ActivityLogIcon />}
+            icon={<Activity />}
             title="No activity yet"
             description="Create a post, upload media, or issue an API token and this log will fill in automatically."
           />
         ) : filteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center gap-1 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">No matching events</p>
-            <p className="text-sm text-muted-foreground">
-              Nothing from this actor yet. Try a different filter.
-            </p>
-          </div>
+          <EmptyState
+            compact
+            icon={<Activity />}
+            title="No matching events"
+            description="Nothing from this actor yet. Try a different filter."
+          />
         ) : (
           <>
             {/* Desktop: flat audit table, no date grouping. Full timestamp in one cell. */}
@@ -223,7 +204,7 @@ export function ActivityPage() {
                 <ListRow
                   key={`${event.action}-${event.created_at}-${event.summary}`}
                   title={
-                    <span className="text-pretty font-sans text-base font-medium leading-6 text-foreground">
+                    <span className="text-pretty font-sans text-sm font-medium leading-5 text-foreground">
                       {event.summary}
                     </span>
                   }
@@ -255,7 +236,7 @@ export function ActivityPage() {
             {hasMore ? (
               <div className="mt-3 flex justify-center">
                 <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                  <ReloadIcon aria-hidden data-icon="inline-start" />
+                  <RefreshCw aria-hidden data-icon="inline-start" />
                   {loadingMore ? 'Loading…' : 'Load more'}
                 </Button>
               </div>

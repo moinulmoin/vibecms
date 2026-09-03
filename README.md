@@ -15,7 +15,7 @@ The CMS your agents publish into: Markdown posts, versions, and media over scope
 - D1 database
 - Activity history
 - Post version history
-- Scoped agent tokens with `vc_` prefixes
+- Scoped, reveal-once agent tokens with `vc_live_` prefixes
 - MCP endpoint for trusted agents
 - Polar billing for hosted vibecms Cloud
 - `SELF_HOSTED=true` mode without Polar
@@ -231,4 +231,3 @@ Subscribe to these webhook events:
 - Optional but useful for analytics later: `order.paid`.
 
 The app currently updates billing state from `subscription.*` payloads and from successful `checkout.updated` payloads. Keep the webhook delivery format as raw JSON and copy the endpoint signing secret into `POLAR_WEBHOOK_SECRET`.
-

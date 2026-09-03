@@ -84,7 +84,6 @@ export function CtaFooter({
         <div className="mx-auto max-w-[1200px] px-5 sm:px-7">
           <div
             className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-5"
-            data-reveal
           >
             <div className="sm:col-span-2 lg:col-span-1">
               <a
@@ -102,14 +101,14 @@ export function CtaFooter({
                 </span>
               </a>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                The CMS your agents publish into.
+                The publishing control plane for AI agents.
               </p>
             </div>
             <div>
               <p className="mb-4 font-mono text-xs text-brand-bright">
                 Product
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Product">
                 {productLinks.map(([label, href]) => (
                   <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
@@ -137,7 +136,7 @@ export function CtaFooter({
               <p className="mb-4 font-mono text-xs text-brand-bright">
                 Resources
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Resources">
                 {deployLinks.map(([label, href]) => (
                   <a
                     className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
@@ -154,7 +153,7 @@ export function CtaFooter({
               <p className="mb-4 font-mono text-xs text-brand-bright">
                 Account
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Account">
                 {accountLinks.map(([label, href]) => (
                   <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
@@ -164,13 +163,11 @@ export function CtaFooter({
             </div>
           </div>
           <p
-            className="mt-10 font-mono text-xs tracking-[0.08em] text-muted-foreground"
-            data-reveal
-            data-d="1"
+            className="mt-10 text-pretty font-mono text-xs leading-5 tracking-[0.06em] text-muted-foreground"
           >
             © {year} vibecms - a product of{" "}
             <a
-              className="text-muted-foreground underline-offset-2 hover:text-foreground"
+              className="whitespace-nowrap text-muted-foreground underline-offset-2 hover:text-foreground"
               href="https://ideaplexa.com"
               rel="noopener noreferrer"
               target="_blank"
@@ -179,11 +176,11 @@ export function CtaFooter({
             </a>
             .
           </p>
-          <p className="mt-2 font-mono text-[11px] tracking-[0.04em] text-muted-foreground/60">
-            Also from the maker:{" "}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] leading-5 tracking-[0.04em] text-muted-foreground">
+            <span className="w-full sm:w-auto">Also from the maker:</span>
             {makerLinks.map(([label, href], index) => (
-              <span key={label}>
-                {index > 0 ? " · " : ""}
+              <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
+                {index > 0 ? <span aria-hidden="true">·</span> : null}
                 <a
                   className="underline-offset-2 hover:text-muted-foreground"
                   href={href}
@@ -194,7 +191,7 @@ export function CtaFooter({
                 </a>
               </span>
             ))}
-          </p>
+          </div>
         </div>
       </footer>
     </>

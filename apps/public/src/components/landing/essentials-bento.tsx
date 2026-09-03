@@ -1,11 +1,17 @@
-import { MEDIA } from "@vc/config";
+import {
+  MEDIA,
+  STARTER_LOOKS,
+  getAccent,
+  getFont,
+  type PresetId,
+} from "@vc/config";
 import {
   CounterClockwiseClockIcon,
   CubeIcon,
   FileTextIcon,
   ReaderIcon,
 } from "@radix-ui/react-icons";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   GlassCard,
   MonoEyebrow,
@@ -82,20 +88,52 @@ const THEME_SWATCHES = [
   ["editorial", "Editorial"],
   ["technical", "Technical"],
   ["product", "Product"],
-] as const;
+] as const satisfies readonly (readonly [PresetId, string])[];
+
+const THEME_PREVIEW_TITLES: Record<PresetId, string> = {
+  minimal: "Clear notes",
+  editorial: "Field Notes",
+  technical: "01 / GUIDE",
+  product: "New: Launch",
+};
 
 // Renders a real, token-driven mini-preview of each blog preset (forced light
 // so the four accents read distinctly on the dark landing).
-function ThemePreview({ id, name }: { id: string; name: string }) {
+function ThemePreview({ id, name }: { id: PresetId; name: string }) {
+  const starter = id === "minimal"
+    ? { accent: "teal" as const, font: "geist-sans" as const }
+    : STARTER_LOOKS[id];
+  const accent = getAccent(starter.accent);
+  const font = getFont("font" in starter ? starter.font : "geist-sans");
+  const previewStyle = {
+    "--vc-accent-light": accent.oklchLight,
+    "--vc-font-body": font.bodyStack,
+    "--vc-font-heading": font.headingStack,
+  } as CSSProperties;
+
   return (
     <div>
       <div
         data-vc-theme={id}
         data-vc-mode="light"
-        className="rounded-xl border border-vc-border bg-vc-bg p-3 shadow-[0_12px_26px_-20px_oklch(0_0_0/0.85)]"
+        style={previewStyle}
+        className="rounded-[var(--vc-radius)] border border-vc-border bg-vc-bg p-3 shadow-[0_12px_26px_-20px_oklch(0_0_0/0.85)]"
       >
         <div className="h-1.5 w-7 rounded-full bg-vc-accent" />
-        <div className="mt-2.5 h-1.5 w-full rounded-full bg-vc-fg/85" />
+        <p
+          className={[
+            "mt-2 truncate text-[9px] leading-tight text-vc-fg",
+            id === "editorial"
+              ? "font-[family-name:var(--vc-font-heading)] text-[10px] italic"
+              : id === "technical"
+                ? "font-mono text-[8px] tracking-[0.08em]"
+                : id === "product"
+                  ? "font-[family-name:var(--vc-font-heading)] font-bold tracking-[-0.02em]"
+                  : "font-[family-name:var(--vc-font-heading)] font-medium",
+          ].join(" ")}
+        >
+          {THEME_PREVIEW_TITLES[id]}
+        </p>
         <div className="mt-1.5 h-1 w-4/5 rounded-full bg-vc-fg/30" />
         <div className="mt-1 h-1 w-2/3 rounded-full bg-vc-fg/30" />
       </div>
@@ -136,8 +174,8 @@ export function EssentialsBento() {
             Markdown editor
           </h3>
           <p className="mt-1.5 max-w-[320px] text-sm leading-[1.55] text-muted-foreground">
-            Live preview, drafts, and instant publish - with callouts, code blocks,
-            and a table of contents built in.
+            Exact Markdown, live preview, and version-aware publishing - with
+            callouts, code blocks, and a table of contents built in.
           </p>
           <div className="mt-[18px] rounded-t-[11px] px-[15px] py-3 font-mono text-[11.5px] leading-[1.7] text-muted-foreground ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass-strong)]">
             <div>
@@ -158,8 +196,8 @@ export function EssentialsBento() {
               Scoped MCP
             </h3>
             <p className="mt-1 text-[13px] leading-[1.5] text-muted-foreground">
-              Let agents draft, publish, archive, upload, and read - only what
-              you allow.
+              Draft and read by default. Grant publish, archive, or upload only
+              when the workflow needs it.
             </p>
           </GlassCard>
 
@@ -191,7 +229,7 @@ export function EssentialsBento() {
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-1.5 sm:max-w-[168px]">
-              <ActivityRow active label="agent published" />
+              <ActivityRow active label="you approved v3" />
               <ActivityRow label="you edited draft" />
               <ActivityRow label="media uploaded" />
             </div>

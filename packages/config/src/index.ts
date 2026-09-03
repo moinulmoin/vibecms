@@ -61,19 +61,19 @@ export const PRICING = {
 /**
  * Public Early Access launch offer. The operator prices the Polar monthly and
  * yearly products directly at the offer during the launch window (no checkout
- * enforcement); the first 100 subscribers across both intervals share the
- * promise, and the rate is retained while the subscription stays active.
- * Standard prices remain the visual anchor.
+ * eligibility enforcement). The offer remains available while it is displayed,
+ * and the rate is retained while the subscription stays active. Standard prices
+ * remain the visual anchor.
  */
 export const LAUNCH_OFFER = {
   phaseLabel: "Public early access",
-  slotsLabel: "First 100 subscribers",
+  slotsLabel: "Early access rate",
   monthlyUsd: 13,
   annualUsd: 99,
   monthlyLabel: "$13/month",
   annualLabel: "$99/year",
   lockNote: "Locked while you stay subscribed.",
-  applyNote: "Launch pricing applies automatically at checkout, shared across monthly and yearly.",
+  applyNote: "Launch pricing applies automatically at checkout.",
 } as const;
 
 /** Hosted free boundary, disclosed on marketing prices/upgrades. */

@@ -1,3 +1,7 @@
+/** Loopback hosts never serve real traffic: local dev (vite proxies to 127.0.0.1). */
+function isLocalDevHost(host: string): boolean {
+  return host === 'localhost' || host.endsWith('.localhost') || host === '127.0.0.1' || host === '[::1]' || host === '::1'
+}
 const APP_PATH_PREFIX = '/dashboard'
 
 export type CanonicalHostContext = {
@@ -22,7 +26,7 @@ export function resolveCanonicalRedirect(
   }
 
   const host = url.hostname.toLowerCase()
-  if (host === 'localhost' || host.endsWith('.localhost')) return undefined
+  if (isLocalDevHost(host)) return undefined
 
   const path = url.pathname
 
@@ -57,7 +61,6 @@ export function resolveCanonicalRedirect(
 
 // True when an auth session may be resolved for this host (app host, plus localhost dev).
 export function isAppContextHost(host: string, ctx: CanonicalHostContext): boolean {
-  const h = host.toLowerCase()
-  if (h === 'localhost' || h.endsWith('.localhost')) return true
-  return h === ctx.appHost.toLowerCase()
+  if (isLocalDevHost(host.toLowerCase())) return true
+  return host === ctx.appHost.toLowerCase()
 }

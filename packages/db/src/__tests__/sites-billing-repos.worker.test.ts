@@ -246,9 +246,29 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
     // Onboarding leaves theme at its schema default ('minimal') — sanity, then mutate.
     expect((await da.sites.getSiteSettings("site-sb-settings"))?.theme).toBe("minimal");
 
-    await da.sites.updateSiteSettings({
+    await expect(da.sites.updateSiteSettings({
       timestamp: T2,
       siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
+      site: { name: "Must roll back" },
+      activity: {
+        id: "act-sb-settings-created",
+        actorType: "human",
+        actorId: "user-sb-settings",
+        actorName: "Settings User",
+        action: "site.settings.updated",
+        summary: "Conflicting activity id",
+      },
+    })).rejects.toThrow();
+    expect(await da.sites.getSiteSettings("site-sb-settings")).toMatchObject({
+      name: "SB Settings Site",
+      updatedAt: T,
+    });
+
+    const applied = await da.sites.updateSiteSettings({
+      timestamp: T2,
+      siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
       site: {
         name: "SB Settings Renamed",
         description: "Settings description",
@@ -269,6 +289,7 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         summary: "Site settings updated",
       },
     });
+    expect(applied).toBe(true);
 
     expect(await da.sites.getSiteSettings("site-sb-settings")).toMatchObject({
       name: "SB Settings Renamed",
@@ -277,6 +298,7 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
       defaultSeoDescription: "Settings SEO Description",
       theme: "editorial",
       slug: "site-sb-settings",
+      updatedAt: T2,
     });
 
     expect(await countRows("SELECT COUNT(*) AS c FROM activity_events WHERE site_id = ?", "site-sb-settings")).toBe(2);
@@ -285,6 +307,24 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
       .bind("act-sb-settings-saved")
       .first<{ action: string }>();
     expect(act?.action).toBe("site.settings.updated");
+
+    const staleApplied = await da.sites.updateSiteSettings({
+      timestamp: T2 + 1,
+      siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
+      site: { name: "Stale replacement" },
+      activity: {
+        id: "act-sb-settings-stale",
+        actorType: "human",
+        actorId: "user-sb-settings",
+        actorName: "Settings User",
+        action: "site.settings.updated",
+        summary: "Stale settings update",
+      },
+    });
+    expect(staleApplied).toBe(false);
+    expect((await da.sites.getSiteSettings("site-sb-settings"))?.name).toBe("SB Settings Renamed");
+    expect(await countRows("SELECT COUNT(*) AS c FROM activity_events WHERE id = ?", "act-sb-settings-stale")).toBe(0);
   });
 });
 

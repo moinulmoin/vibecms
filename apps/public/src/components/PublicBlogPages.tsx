@@ -59,6 +59,7 @@ export function PublicShell({
       robotsNoindex={!indexable}
       subscribeVariant="footer"
       subscribeSiteSlug={site.slug}
+      subscribeSettings={site.newsletter_settings}
     >
       {children}
     </PublicPageChrome>
@@ -188,6 +189,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
       article
       subscribeVariant="end"
       subscribeSiteSlug={site.slug}
+      subscribeSettings={site.newsletter_settings}
     >
       <PresentedPostArticle
         renderResult={renderResult}

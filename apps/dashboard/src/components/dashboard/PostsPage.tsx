@@ -1,30 +1,28 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArchiveIcon, FileTextIcon, MagnifyingGlassIcon, MixerHorizontalIcon, Pencil2Icon, PlusIcon, ReloadIcon, RocketIcon } from '@radix-ui/react-icons'
+import { Archive, FileText, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
 import { Field, FieldLabel, Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/types/dashboard'
 import {
   archivePostMutation,
   loadPostsPage,
-  publishPostMutation,
+  unarchivePostMutation,
 } from '~/lib/api-client'
 import {
   Button,
   LoadError,
   formatDate,
 } from '~/components/dashboard/DashboardLayout'
-import { DataRow, EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
-import { Badge } from "@vc/ui"
-import { Skeleton } from "@vc/ui"
+import { DataRow, EmptyState, PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { StatusBadge } from '~/components/dashboard/blocks'
 
-export function postListRefreshError(action: 'publish' | 'archive') {
-  return `Post ${action === 'publish' ? 'published' : 'archived'}, but the list could not refresh.`
+function postListRefreshError(action: 'archive' | 'restore') {
+  const verb = action === 'restore' ? 'restored to draft' : 'archived'
+  return `Post ${verb}, but the list could not refresh.`
 }
 
 /**
@@ -38,21 +36,6 @@ export function actorDisplayName(updatedByType: string | null, updatedByName: st
   return updatedByType === 'api_key' || updatedByType === 'agent' ? 'agent' : 'you'
 }
 
-function PostsSkeleton() {
-  return (
-    <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-4 w-80" />
-        </div>
-        <Skeleton className="h-9 w-28" />
-      </div>
-      <Skeleton className="h-64 rounded-2xl" />
-    </>
-  )
-}
 
 export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdit: boolean }) {
   const navigate = useNavigate()
@@ -89,11 +72,6 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     }
   }, [search.status, search.search])
 
-  async function publishApprovedVersion(postId: string, versionNumber: number | null) {
-    if (versionNumber === null) return { kind: 'error' as const, code: 'not_found' }
-    return publishPostMutation({ postId, expectedVersionNumber: versionNumber })
-  }
-
   async function refreshPosts() {
     setListRefreshError(null)
     try {
@@ -107,7 +85,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
 
   async function runRowMutation(
     key: string,
-    action: 'publish' | 'archive',
+    action: 'archive' | 'restore',
     mutate: () => Promise<{ kind: 'ok' | 'error'; code: string }>,
   ) {
     setRowPending(key)
@@ -171,7 +149,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     return <LoadError message={loadError} />
   }
   if (!posts) {
-    return <PostsSkeleton />
+    return <PageSkeleton variant="table" />
   }
 
   return (
@@ -181,7 +159,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
         description="Draft, review, publish, and restore every post—whether it came from you or an agent."
         action={canEdit ? (
           <Button asChild>
-            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><PlusIcon aria-hidden data-icon="inline-start" /> New post</Link>
+            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><Plus aria-hidden data-icon="inline-start" /> New post</Link>
           </Button>
         ) : undefined}
       />
@@ -211,16 +189,24 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
               <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
                 Status
               </FieldLabel>
-              <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''}>
+              <Select
+                id="posts-status"
+                name="status"
+                value={statusFilter ?? ''}
+                onChange={(event) => {
+                  const next = event.currentTarget.value
+                  void navigate({
+                    to: '/dashboard/posts',
+                    search: postsListSearch({ status: next || undefined, search: searchQuery }),
+                  })
+                }}
+              >
                 <option value="">All statuses</option>
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
               </Select>
             </Field>
-            <Button className="h-9" type="submit">
-              <MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Filter
-            </Button>
           </form>
         ) : null}
         {posts.length ? (
@@ -243,35 +229,36 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                         {post.title}
                       </strong>
                     )}
-                    <p className="mt-1.5 break-words font-mono text-[11px] leading-5 text-muted-foreground">
-                      <span className="text-primary/90">/{post.slug}</span>
-                      <span className="text-muted-foreground"> · </span>
+                    <p className="mt-1.5 break-words text-sm leading-5 text-muted-foreground line-clamp-2">
+                      <span className="font-mono text-xs text-primary/90">/{post.slug}</span>
+                      <span aria-hidden> · </span>
                       {post.excerpt || 'No excerpt yet'}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 font-sans text-sm text-muted-foreground">
                     <StatusBadge status={post.status} />
                     <span className="truncate">By {actorDisplayName(post.updatedByType, post.updatedByName)}</span>
-                    <span className="tabular-nums">Updated {formatDate(post.updatedAt)}</span>
+                    <span>Updated <time className="font-mono text-xs tabular-nums">{formatDate(post.updatedAt)}</time></span>
                   </div>
                   {canEdit ? <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
+                        <Pencil aria-hidden data-icon="inline-start" /> Edit
                       </Link>
                     </Button>
-                    {post.status !== 'published' ? (
+                    {post.status === 'archived' ? (
                       <PendingSubmitButton
                         size="sm"
-                        pending={rowPending === `${post.id}:publish`}
-                        pendingText="Publishing…"
+                        variant="outline"
+                        pending={rowPending === `${post.id}:restore`}
+                        pendingText="Restoring…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
-                            publishApprovedVersion(post.id, post.versionNumber),
+                          void runRowMutation(`${post.id}:restore`, 'restore', () =>
+                            unarchivePostMutation({ postId: post.id }),
                           )
                         }
                       >
-                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
+                        <RotateCcw aria-hidden data-icon="inline-start" /> Restore to draft
                       </PendingSubmitButton>
                     ) : null}
                     {post.status !== 'archived' ? (
@@ -286,7 +273,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                           )
                         }
                       >
-                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
+                        <Archive aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
                   </div> : null}
@@ -302,7 +289,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
               ))}
             </div>
             <div className="hidden md:grid md:gap-0">
-              <div className={`grid gap-3 px-1 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground ${
+              <div className={`grid gap-3 border-b border-[color:var(--hairline)] px-1 pb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground ${
                 canEdit ? 'grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr]' : 'grid-cols-[1.5fr_.5fr_.55fr_.6fr]'
               }`}>
                 <span>Post</span>
@@ -334,15 +321,15 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                         {post.title}
                       </strong>
                     )}
-                    <p className="mt-1 max-w-xl truncate font-mono text-xs text-muted-foreground">
-                      <span className="text-primary/90">/{post.slug}</span>
-                      <span> · </span>
+                    <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground line-clamp-2">
+                      <span className="font-mono text-xs text-primary/90">/{post.slug}</span>
+                      <span aria-hidden> · </span>
                       {post.excerpt || 'No excerpt yet'}
                     </p>
                   </div>
                   <StatusBadge status={post.status} className="w-fit" />
                   <span
-                    className="truncate font-mono text-xs text-muted-foreground"
+                    className="truncate text-sm text-muted-foreground"
                     title={post.updatedByName ?? undefined}
                   >
                     {actorDisplayName(post.updatedByType, post.updatedByName)}
@@ -351,21 +338,22 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                   {canEdit ? <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
+                        <Pencil aria-hidden data-icon="inline-start" /> Edit
                       </Link>
                     </Button>
-                    {post.status !== 'published' ? (
+                    {post.status === 'archived' ? (
                       <PendingSubmitButton
                         size="sm"
-                        pending={rowPending === `${post.id}:publish`}
-                        pendingText="Publishing…"
+                        variant="outline"
+                        pending={rowPending === `${post.id}:restore`}
+                        pendingText="Restoring…"
                         onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
-                            publishApprovedVersion(post.id, post.versionNumber),
+                          void runRowMutation(`${post.id}:restore`, 'restore', () =>
+                            unarchivePostMutation({ postId: post.id }),
                           )
                         }
                       >
-                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
+                        <RotateCcw aria-hidden data-icon="inline-start" /> Restore to draft
                       </PendingSubmitButton>
                     ) : null}
                     {post.status !== 'archived' ? (
@@ -380,7 +368,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                           )
                         }
                       >
-                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
+                        <Archive aria-hidden data-icon="inline-start" /> Archive
                       </SpaConfirmButton>
                     ) : null}
                   </div> : null}
@@ -400,7 +388,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 {hasMore ? (
                   <div className="mt-3 flex justify-center">
                     <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                      <ReloadIcon aria-hidden data-icon="inline-start" />
+                      <RefreshCw aria-hidden data-icon="inline-start" />
                       {loadingMore ? 'Loading…' : 'Load more'}
                     </Button>
                   </div>
@@ -426,7 +414,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
           </>
         ) : (
           <EmptyState
-            icon={hasFilters ? <MagnifyingGlassIcon /> : <FileTextIcon />}
+            icon={hasFilters ? <Search /> : <FileText />}
             title={hasFilters ? 'No posts match' : 'No posts yet'}
             description={
               hasFilters
@@ -438,18 +426,18 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
             action={
               hasFilters ? (
                 <Button asChild variant="outline">
-                  <Link to="/dashboard/posts" search={emptyPostsListSearch}><MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Clear filters</Link>
+                  <Link to="/dashboard/posts" search={emptyPostsListSearch}><SlidersHorizontal aria-hidden data-icon="inline-start" /> Clear filters</Link>
                 </Button>
               ) : canEdit ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      <RocketIcon aria-hidden data-icon="inline-start" /> Publish with agent
+                      <Rocket aria-hidden data-icon="inline-start" /> Publish with agent
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                      <Pencil2Icon aria-hidden data-icon="inline-start" /> Write manually
+                    <Pencil aria-hidden data-icon="inline-start" /> Write manually
                     </Link>
                   </Button>
                 </div>

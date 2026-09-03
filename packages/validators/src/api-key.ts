@@ -8,6 +8,7 @@ export const scope = z.enum([
   "posts:publish",
   "posts:archive",
   "assets:write",
+  "assets:delete",
   "activity:read",
 ]);
 
@@ -15,5 +16,5 @@ export const createApiKeyInput = z.object({
   siteId: z.string().min(1),
   name: z.string().trim().min(1).max(80),
   actorName: z.string().trim().min(1).max(80),
-  scopes: z.array(scope).min(1).max(8),
+  scopes: z.array(scope).min(1).max(9),
 }).strict();

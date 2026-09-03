@@ -62,7 +62,8 @@ The server is authoritative, but the current capability groups are:
 - Update drafts or content and restore versions: `posts:update`
 - Publish: `posts:publish`
 - Archive: `posts:archive`
-- Upload/list/get/delete assets: `assets:write`
+- Upload/list/get assets: `assets:write`
+- Delete unused assets: `assets:delete`
 - Read activity: `activity:read`
 
 ## Completion contracts
