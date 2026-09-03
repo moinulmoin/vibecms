@@ -108,7 +108,7 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
   const timestamp = now()
   const workspaceId = `workspace_${user.id}`
   const siteId = `site_${user.id}`
-  const baseSlug = slugify(user.name || user.email.split('@')[0] || user.id)
+  const baseSlug = slugify(user.name || 'my-blog')
   const siteSlug = `${baseSlug}-${user.id.slice(0, 8).toLowerCase()}`
 
   const db = createDataAccess(env.DB)

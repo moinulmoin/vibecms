@@ -140,6 +140,18 @@ describe("validateRichContent – content warnings", () => {
     const warnings = validateRichContent("[[toc]]\n\nSome text without headings.");
     expect(warnings.some((w) => w.toLowerCase().includes("toc"))).toBe(true);
   });
+
+  it("does not mistake a labeled code fence's closing line for an unlabeled fence", () => {
+    const warnings = validateRichContent("```ts\nconst release = true;\n```");
+    expect(warnings.some((w) => w.toLowerCase().includes("language identifier"))).toBe(false);
+  });
+
+  it("warns when an opening backtick or tilde code fence has no language", () => {
+    expect(validateRichContent("```\nplain code\n```"))
+      .toContain("One or more code fences are missing a language identifier (e.g. ` ```js `)");
+    expect(validateRichContent("~~~\nplain code\n~~~"))
+      .toContain("One or more code fences are missing a language identifier (e.g. ` ```js `)");
+  });
 });
 
 describe("edge cases – renderer robustness", () => {

@@ -484,7 +484,7 @@ export function ConnectPage() {
     !live &&
     status !== null &&
     (displayConn === 'revoked' ||
-      (!draft && (displayConn === 'waiting' || displayConn === 'connected')))
+      (!draft && displayConn === 'waiting'))
 
   const canManage = connectData?.canManage ?? status?.canManage ?? false
   const managed = connectData?.managed ?? null
@@ -555,6 +555,16 @@ export function ConnectPage() {
                   <Button asChild>
                     <Link to="/dashboard" search={emptyDashboardStatusSearch}>
                       Continue to Overview
+                    </Link>
+                  </Button>
+                ) : draft ? (
+                  <Button asChild>
+                    <Link
+                      to="/dashboard/posts/$postId/edit"
+                      params={{ postId: draft.post.id }}
+                      search={emptyPostEditorSearch}
+                    >
+                      Review v{draft.post.versionNumber}
                     </Link>
                   </Button>
                 ) : undefined
@@ -752,7 +762,7 @@ export function ConnectPage() {
                   </div>
                 )}
 
-                {connectData && canManage && (!draft || showCompletedSetup) && (
+                {connectData && canManage && flash === null && (!draft || showCompletedSetup) && (
                   <Panel title="Create a token">
                     <form className="grid gap-4" onSubmit={(e) => void handleCreate(e)}>
                       <div className="grid gap-4 sm:grid-cols-2">

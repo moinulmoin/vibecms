@@ -86,6 +86,29 @@ afterEach(() => {
 })
 
 describe('same-email dashboard app selection', () => {
+  it('keeps the default blog name and address coherent when auth has no display name', async () => {
+    const user = {
+      id: 'selection-user-no-name',
+      name: '',
+      email: 'unrelated-inbox@example.test',
+    }
+    await env.DB.prepare(
+      `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
+       VALUES (?, ?, ?, 1, NULL, ?, ?)`,
+    )
+      .bind(user.id, user.name, user.email, NOW - 20, NOW - 20)
+      .run()
+
+    const app = await ensureOnboarding(user)
+    const site = await createDataAccess(env.DB).sites.getSiteSetup(app.siteId)
+
+    expect(site).toMatchObject({
+      name: 'My Blog',
+      slug: `my-blog-${user.id.slice(0, 8)}`,
+    })
+    expect(site?.slug).not.toContain('unrelated-inbox')
+  })
+
   it('reuses managed memberships without creating a derived personal workspace', async () => {
     const data = createDataAccess(env.DB)
     const owner = {

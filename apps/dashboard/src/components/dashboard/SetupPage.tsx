@@ -163,7 +163,7 @@ export function SetupPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="slug" className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Default Slug
+                  Hosted blog address
                 </FieldLabel>
                 <Input
                   id="slug"
@@ -175,7 +175,9 @@ export function SetupPage() {
                   onChange={(e) => { setSlugVal(e.target.value); setSlugTouched(true) }}
                   placeholder="moins-notes"
                 />
-                <FieldDescription>Lowercase letters, numbers, and hyphens. Custom domains can come later.</FieldDescription>
+                <FieldDescription>
+                  This becomes your hosted subdomain. Use lowercase letters, numbers, and hyphens; you can add a custom domain later.
+                </FieldDescription>
               </Field>
               <Field>
                 <FieldLabel htmlFor="description" className="font-mono text-[11px] font-medium text-muted-foreground">

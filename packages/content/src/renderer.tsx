@@ -600,6 +600,31 @@ export function renderRichContentToHtml(markdown: string, opts?: RenderOpts): st
 }
 
 export const MISSING_IMAGE_ALT_WARNING = "Image is missing alt text";
+
+function hasUnlabeledCodeFence(markdown: string) {
+  let openFence: { marker: "`" | "~"; length: number } | null = null;
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const match = line.match(/^[ \t]{0,3}(`{3,}|~{3,})(.*)$/);
+    if (!match) continue;
+
+    const fence = match[1]!;
+    const marker = fence[0] as "`" | "~";
+    const suffix = match[2]!;
+    if (openFence) {
+      if (marker === openFence.marker && fence.length >= openFence.length && suffix.trim() === "") {
+        openFence = null;
+      }
+      continue;
+    }
+
+    if (suffix.trim() === "") return true;
+    openFence = { marker, length: fence.length };
+  }
+
+  return false;
+}
+
 export function validateRichContent(
   markdown: string,
   opts?: ValidateRichContentOpts,
@@ -618,7 +643,7 @@ export function validateRichContent(
     }
   }
 
-  if (/^```[ \t]*\r?\n/m.test(markdown)) {
+  if (hasUnlabeledCodeFence(markdown)) {
     warnings.push("One or more code fences are missing a language identifier (e.g. ` ```js `)");
   }
 
