@@ -191,6 +191,45 @@ describe('managed AutoSEOPilot internal routes', () => {
     expect((await json(impossibleExpiry)).error.code).toBe('VALIDATION_ERROR')
   })
 
+  it('keeps managed site slugs within the DNS label limit', async () => {
+    const externalWorkspaceId = '00000000-0000-4000-8000-000000000907'
+    const credentialId = '00000000-0000-4000-8000-000000000908'
+    const oversizedSlug = await request(
+      `/internal/autoseopilot/sites/${externalWorkspaceId}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(provisionBody({ siteSlug: 'a'.repeat(64) })),
+      },
+    )
+    expect(oversizedSlug.status).toBe(400)
+    expect((await json(oversizedSlug)).error.code).toBe('VALIDATION_ERROR')
+
+    const generated = await request(
+      `/internal/autoseopilot/sites/${externalWorkspaceId}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(
+          provisionBody({
+            siteName: 'A'.repeat(120),
+            credential: {
+              rawToken: ['vc', 'test', 'f'.repeat(32)].join('_') + '_',
+              credentialId,
+              generation: 1,
+            },
+          }),
+        ),
+      },
+    )
+    expect(generated.status).toBe(201)
+    const generatedBody = await json(generated)
+    const generatedUrl = new URL(generatedBody.publicUrl)
+    const slug = generatedUrl.hostname.split('.')[0]!
+    expect(slug).toHaveLength(63)
+    expect(slug).toBe(`${'a'.repeat(26)}-${externalWorkspaceId}`)
+  })
+
   it('provisions, replays, rotates, revokes, and recovers a managed site', async () => {
     const correlationId = 'managed-route-provision'
     const first = await request(

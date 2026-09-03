@@ -23,13 +23,16 @@ export function isReservedSiteSlug(slug: string): boolean {
   return RESERVED_SITE_SLUGS[slug.trim().toLowerCase()] === true;
 }
 
+// Site slugs become the left-most label in `<slug>.<public-domain>`.
+export const SITE_SLUG_MAX_LENGTH = 63;
+
 export const createSiteInput = z.object({
   workspaceId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
   slug: z
     .string()
     .min(1)
-    .max(80)
+    .max(SITE_SLUG_MAX_LENGTH)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .refine((value) => !isReservedSiteSlug(value), { message: "That name is reserved." }),
   description: z.string().trim().max(300).optional(),

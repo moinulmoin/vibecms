@@ -5,7 +5,7 @@ import {
   normalizeManagedOwnerEmail,
   type ManagedSiteSnapshot,
 } from '@vc/db'
-import { isReservedSiteSlug } from '@vc/validators'
+import { isReservedSiteSlug, SITE_SLUG_MAX_LENGTH } from '@vc/validators'
 import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
 import { scheduleManagedSitePurge } from '@/server/purge-scheduler'
 import { z } from 'zod'
@@ -79,7 +79,7 @@ const expiresAtSchema = z.union([
 const slugSchema = z
   .string()
   .min(1)
-  .max(80)
+  .max(SITE_SLUG_MAX_LENGTH)
   .regex(SLUG_RE, 'Use lowercase words separated by hyphens')
   .refine((value) => !isReservedSiteSlug(value), 'That slug is reserved')
 
@@ -161,8 +161,11 @@ function slugify(value: string) {
 
 function managedSiteSlug(siteName: string, externalWorkspaceId: string) {
   const suffix = externalWorkspaceId.toLowerCase()
-  const base = slugify(siteName).slice(0, Math.max(1, 80 - suffix.length - 1))
-  const candidate = `${base}-${suffix}`.slice(0, 80)
+  const base = slugify(siteName).slice(
+    0,
+    Math.max(1, SITE_SLUG_MAX_LENGTH - suffix.length - 1),
+  )
+  const candidate = `${base}-${suffix}`
   return SLUG_RE.test(candidate) && !isReservedSiteSlug(candidate) ? candidate : `site-${suffix}`
 }
 
