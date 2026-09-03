@@ -79,7 +79,7 @@ function buildPostMarkdown(post: PostDetailRow, canonicalUrl: string) {
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
-  return `${frontmatter}\n\n# ${post.title}\n\n${post.content_markdown}\n`;
+  return `${frontmatter}\n\n${post.content_markdown}\n`;
 }
 
 export type PublicArticleHeaderOptions = {

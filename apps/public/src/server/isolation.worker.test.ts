@@ -158,7 +158,8 @@ describe("Accept markdown after HTML response cache", () => {
     expect(markdown!.headers.get("link")).toContain("text/markdown");
     expect(markdown!.headers.get("etag")).toBeTruthy();
     const body = await markdown!.text();
-    expect(body).toContain("# Hello");
+    expect(body.match(/^# Hello$/gm)).toHaveLength(1);
+    expect(body.endsWith("---\n\n# Hello\n")).toBe(true);
     expect(body).not.toContain("hello-html");
 
     const markdownNotModified = await handlePublicPostByHostGet(
