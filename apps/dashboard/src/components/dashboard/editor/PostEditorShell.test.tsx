@@ -61,6 +61,7 @@ vi.mock('./MarkdownSource', () => ({ MarkdownSource: () => null }))
 vi.mock('./PostMetadataRail', () => ({ PostMetadataRail: () => null }))
 vi.mock('./PreviewPane', () => ({ PreviewPane: () => null }))
 vi.mock('./VersionHistory', () => ({ VersionHistory: () => null }))
+vi.mock('./ReviewView', () => ({ ReviewView: () => <div data-testid="review-view" /> }))
 
 import { PostEditorShell } from './PostEditorShell'
 
@@ -121,15 +122,15 @@ describe('PostEditorShell', () => {
     document.body.innerHTML = ''
   })
 
-  it('preserves Markdown typed while a manual save and its readback are in flight', async () => {
+  it('keeps Markdown typed while a manual save is in flight and saves it right after', async () => {
     let resolveUpdate: ((value: { kind: 'ok'; code: string; versionNumber: number }) => void) | undefined
     const updatePending = new Promise<{ kind: 'ok'; code: string; versionNumber: number }>((resolve) => {
       resolveUpdate = resolve
     })
-    api.loadPostEditorPage
-      .mockResolvedValueOnce(editorPage('submitted Markdown', 1))
-      .mockResolvedValueOnce(editorPage('submitted Markdown', 2))
-    api.updatePostMutation.mockReturnValue(updatePending)
+    api.loadPostEditorPage.mockResolvedValueOnce(editorPage('submitted Markdown', 1))
+    api.updatePostMutation
+      .mockReturnValueOnce(updatePending)
+      .mockResolvedValueOnce({ kind: 'ok', code: 'post_saved', versionNumber: 2 })
 
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -143,21 +144,94 @@ describe('PostEditorShell', () => {
     expect(editor?.value).toBe('submitted Markdown')
     expect(api.blockerOptions?.shouldBlockFn()).toBe(false)
 
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="type-newer-markdown"]')?.click())
     await act(async () => {
       form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
       await Promise.resolve()
     })
-    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="type-newer-markdown"]')?.click())
-    expect(editor?.value).toBe('newer local Markdown')
+    expect(api.updatePostMutation).toHaveBeenCalledTimes(1)
+    expect(api.updatePostMutation.mock.calls[0][0]).toMatchObject({ expectedVersionNumber: 1, contentMarkdown: 'newer local Markdown' })
     expect(api.blockerOptions?.shouldBlockFn()).toBe(true)
     expect(api.blockerOptions?.enableBeforeUnload()).toBe(true)
 
-    await act(async () => resolveUpdate?.({ kind: 'ok', code: 'updated', versionNumber: 2 }))
+    await act(async () => resolveUpdate?.({ kind: 'ok', code: 'post_saved', versionNumber: 2 }))
     await settle()
 
     expect(editor?.value).toBe('newer local Markdown')
-    expect(container.textContent).toContain('Newer local changes remain unsaved.')
+    expect(api.blockerOptions?.shouldBlockFn()).toBe(false)
+    expect(container.textContent).toContain('Saved · v2')
     expect(api.navigate).not.toHaveBeenCalled()
+
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('opens an agent-written draft in review', async () => {
+    const page = editorPage('agent Markdown', 3)
+    page.latestVersion = { ...page.latestVersion!, actorType: 'api_key', actorName: 'Claude' }
+    api.loadPostEditorPage.mockResolvedValueOnce(page)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await settle()
+    expect(container.querySelector('[data-testid="review-view"]')).toBeTruthy()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+  it('saves a new post once, then updates it, and never lets a title edit move a live URL', async () => {
+    const page = editorPage('', 1)
+    api.loadPostEditorPage.mockResolvedValueOnce({ ...page, mode: 'new', post: null, currentVersionNumber: null, latestVersion: null })
+    api.createPostMutation.mockResolvedValueOnce({ kind: 'ok', code: 'post_created', postId: 'post-1', versionNumber: 1 })
+    const draft = editorPage('', 1)
+    draft.post = { ...draft.post!, title: 'Hello', slug: 'hello' }
+    const live = editorPage('', 1)
+    live.post = { ...live.post!, title: 'Hello', slug: 'hello', status: 'published', publishedVersionNumber: 1, publishedAt: 5 }
+    api.loadPostEditorPage.mockResolvedValueOnce(draft).mockResolvedValue(live)
+    api.publishPostMutation.mockResolvedValueOnce({ kind: 'ok', code: 'post_published' })
+    api.updatePostMutation.mockResolvedValue({ kind: 'ok', code: 'post_saved', versionNumber: 2 })
+
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell />))
+    await settle()
+
+    const setTitle = async (value: string) => {
+      const input = container.querySelector<HTMLInputElement>('#post-title')!
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      await act(async () => {
+        setter.call(input, value)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+    }
+    const submit = async () => {
+      await act(async () => {
+        container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      })
+      await settle()
+    }
+
+    await setTitle('Hello')
+    await submit()
+    expect(api.createPostMutation).toHaveBeenCalledTimes(1)
+    expect(api.createPostMutation.mock.calls[0][0]).toMatchObject({ title: 'Hello', slug: 'hello' })
+
+    // Publish v1 through the confirm dialog.
+    const publishButton = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Publish v1'))
+    await act(async () => publishButton?.click())
+    await settle()
+    const confirm = [...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.includes('Publish v1'))
+    expect(confirm).toBeTruthy()
+    await act(async () => (confirm as HTMLButtonElement).click())
+    await settle()
+    expect(api.publishPostMutation).toHaveBeenCalledWith({ postId: 'post-1', expectedVersionNumber: 1 })
+
+    await setTitle('Hello again')
+    await submit()
+    expect(api.createPostMutation).toHaveBeenCalledTimes(1)
+    expect(api.updatePostMutation).toHaveBeenCalledTimes(1)
+    expect(api.updatePostMutation.mock.calls[0][0]).toMatchObject({ postId: 'post-1', title: 'Hello again', slug: 'hello' })
 
     await act(async () => root.unmount())
     container.remove()

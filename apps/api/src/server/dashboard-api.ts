@@ -1,3 +1,4 @@
+import { publicBlogBaseDomain } from '@/server/public-url'
 import type { Post } from '@vc/core'
 import { listPostVersions, getPostVersion } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
@@ -11,7 +12,7 @@ import {
   type CheckoutInterval,
 } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
-import { getActivity } from '@/server/cms'
+import { getActivity, type ActivityActorFilter } from '@/server/cms'
 import { getDashboardData } from '@/server/cms-dashboard'
 import {
   canManageApiKeys,
@@ -33,7 +34,7 @@ import {
 } from '@/server/onboarding'
 import { getSitePublicBaseUrl } from '@/server/site-public-url'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '@/server/custom-domains'
-import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
+import { newsletterSettingsSchema, voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { clearVoiceProfileForApp, getVoiceProfileForSite, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
 import type { AppUserContext } from '@/server/onboarding'
 import {
@@ -62,7 +63,13 @@ export interface DashboardPostSummary {
   createdAt: number
   updatedAt: number
   versionNumber: number | null
+  publishedVersionNumber: number | null
+  latestActorType: string | null
+  updatedByType: string | null
+  updatedByName: string | null
 }
+
+const POST_LIST_SORTS = new Set(['updated', 'created', 'title', 'published'])
 
 export type ConnectPageData = {
   canManage: boolean
@@ -208,7 +215,7 @@ export async function exportSubscribersCsv(app: AppUserContext): Promise<string>
 }
 
 export async function loadSetupPage(app: AppUserContext) {
-  return getSiteSetup(app)
+  return { ...(await getSiteSetup(app)), baseDomain: publicBlogBaseDomain() }
 }
 
 export async function loadSettingsPage(app: AppUserContext) {
@@ -263,9 +270,9 @@ export async function loadMediaPage(app: AppUserContext) {
   }
 }
 
-export async function loadActivityPage(app: AppUserContext, offset = 0) {
+export async function loadActivityPage(app: AppUserContext, offset = 0, actor?: ActivityActorFilter) {
   const safeOffset = Math.min(Math.max(offset, 0), 10_000)
-  const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, safeOffset)
+  const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, safeOffset, actor)
   const hasMore = fetched.length > ACTIVITY_PAGE_SIZE
   return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
 }
@@ -307,18 +314,22 @@ export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageD
 
 export async function loadPostsPage(
   app: AppUserContext,
-  input: { status?: string; search?: string; offset?: number },
+  input: { status?: string; search?: string; sort?: string; offset?: number },
 ) {
   const status =
-    input.status === 'draft' || input.status === 'published' || input.status === 'archived'
+    input.status === 'draft' || input.status === 'published' || input.status === 'archived' || input.status === 'review'
       ? input.status
       : undefined
+  const sort = input.sort && POST_LIST_SORTS.has(input.sort)
+    ? (input.sort as 'updated' | 'created' | 'title' | 'published')
+    : undefined
   const offset = Math.min(Math.max(input.offset ?? 0, 0), 10_000)
   // One read-model query: summary + latest version number + last-change actor
   // (the previous shape fetched versions per row — N+1).
   const rows = await createDataAccess(env.DB).dashboard.listPostsForDashboard(app.siteId, {
     status,
     search: input.search?.trim() || undefined,
+    sort,
     limit: POSTS_PAGE_SIZE + 1,
     offset,
   })
@@ -334,11 +345,31 @@ export async function loadPostsPage(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     versionNumber: row.versionNumber,
+    publishedVersionNumber: row.publishedVersionNumber,
+    latestActorType: row.latestActorType,
     updatedByType: row.updatedByType,
     updatedByName: row.updatedByName,
   }))
   const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
-  return { posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions, hasMore }
+  // Only the first page needs the origin for "view live" links.
+  const siteSlug = offset === 0 ? await createDataAccess(env.DB).sites.getSiteSlug(app.siteId) : null
+  const publicBaseUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
+  return {
+    posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions,
+    hasMore,
+    publicBaseUrl,
+  }
+}
+
+/** Same reading as the public blog: unset or invalid settings keep the default copy. */
+function editorNewsletterSettings(raw: string | null) {
+  if (!raw) return null
+  try {
+    const parsed = newsletterSettingsSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
 }
 
 export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
@@ -357,6 +388,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
         themeAccent: siteRow.themeAccent,
         themeFont: siteRow.themeFont,
         themeMode: siteRow.themeMode,
+        newsletterSettings: editorNewsletterSettings(siteRow.newsletterSettings),
       }
     : null
   const publicBaseUrl = siteRow ? await getSitePublicBaseUrl(app.siteId, siteRow.slug) : null

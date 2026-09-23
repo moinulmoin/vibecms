@@ -4,17 +4,23 @@ import "../styles/tenant.css";
 import type { ResolvedSocialImage } from "../lib/seo-meta";
 import subscribeFormScriptUrl from "../scripts/subscribe-form.js?url";
 import codeCopyScriptUrl from "../scripts/code-copy.js?url";
+import readingScriptUrl from "../scripts/reading.js?url";
 interface Props {
+  /** Site theme attributes for <html> (from siteThemeRootAttributes). */
+  themeAttrs?: Record<string, string>;
+  /** RSS feed URL advertised to feed readers. */
+  feedHref?: string;
+  feedTitle?: string;
   title?: string;
   description?: string;
   robots?: string;
   canonical?: string;
   socialImage?: ResolvedSocialImage;
 }
-const { title, description, robots, canonical, socialImage } = Astro.props;
+const { title, description, robots, canonical, socialImage, themeAttrs, feedHref, feedTitle } = Astro.props;
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" {...themeAttrs}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,6 +29,7 @@ const { title, description, robots, canonical, socialImage } = Astro.props;
     {robots ? <meta name="robots" content={robots} /> : null}
     {canonical ? <link rel="canonical" href={canonical} /> : null}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {feedHref ? <link rel="alternate" type="application/rss+xml" title={feedTitle ?? "RSS"} href={feedHref} /> : null}
     {title && socialImage ? <meta property="og:title" content={title} /> : null}
     {description && socialImage ? <meta property="og:description" content={description} /> : null}
     {canonical && socialImage ? <meta property="og:url" content={canonical} /> : null}
@@ -43,5 +50,6 @@ const { title, description, robots, canonical, socialImage } = Astro.props;
     <slot />
     <script is:inline src={subscribeFormScriptUrl} defer></script>
     <script is:inline src={codeCopyScriptUrl} defer></script>
+    <script is:inline src={readingScriptUrl} defer></script>
   </body>
 </html>

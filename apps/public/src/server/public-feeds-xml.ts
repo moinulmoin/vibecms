@@ -13,6 +13,9 @@ import type { PostBodyRow, PostSummaryRow, SiteRow } from './public-blog-data';
 /** Escape the five XML significant characters for safe text/attribute embedding. */
 export function xmlEscape(value: string): string {
   return value
+    // Characters XML 1.0 forbids outright (tenant Markdown can carry them);
+    // one would make the whole feed unparseable.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

@@ -53,6 +53,19 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Posts waiting on a human decision: agent drafts and live posts with unpublished changes. */
+  needsReview: Array<{
+    id: string
+    title: string
+    slug: string
+    status: Post['status']
+    updatedAt: number
+    publishedAt: number | null
+    versionNumber: number | null
+    publishedVersionNumber: number | null
+    latestActorType: string | null
+  }>
+  needsReviewCount: number
   recentActivity: ActivityRow[]
   activationPost: null | {
     id: string
@@ -118,6 +131,8 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     versionCount: agg.versionCount,
     recentPosts: agg.recentPosts,
     recentDrafts: agg.recentDrafts,
+    needsReview: agg.needsReview,
+    needsReviewCount: agg.needsReviewCount,
     recentActivity: agg.recentActivity.map((a) => ({
       action: a.action,
       summary: a.summary,

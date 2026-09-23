@@ -1,9 +1,11 @@
-import { renderRichContent } from "@vc/content";
+import { renderRichContent, type CodeHighlighter } from "@vc/content";
+import { createCodeHighlighter } from "@vc/content/highlight";
 import {
   PresentedPostArticle,
-  type SiteThemeInput,
+  articleHasToc,
 } from "@vc/content/presented-post";
 import { PublicPageChrome } from "@vc/content/public-chrome";
+import { PublicPostList } from "@vc/content/public-post-list";
 import { resolvePresetId, resolvePresentation } from "@vc/config";
 import type {
   PublicIndexLoaderData,
@@ -17,7 +19,15 @@ import {
   resolveResponsiveMediaSource,
 } from "../lib/media-assets";
 import styles from "./public-blog.module.css";
+
 const DEFAULT_LISTING: PublicListingContext = { kind: "index" };
+export const PUBLIC_INDEX_PAGE_SIZE = 20;
+let highlighter: CodeHighlighter | null = null;
+/** Built on the first post render, not at Worker startup (index pages never need it). */
+function codeHighlighter(): CodeHighlighter {
+  highlighter ??= createCodeHighlighter();
+  return highlighter;
+}
 
 function publicIndexHref(basePath: string) {
   return basePath || "/";
@@ -33,30 +43,53 @@ function parseTags(tagsJson: string): string[] {
   }
 }
 
+function siteTheme(site: PublicIndexLoaderData["site"]) {
+  return { accent: site.theme_accent, font: site.theme_font, mode: site.theme_mode };
+}
+
+/** The listing page actually shown for a raw `?page=` value (clamped to the last page). */
+export function resolvePublicPage(raw: string | null | undefined, totalPosts: number): number {
+  const parsed = /^\d+$/.test(raw ?? "") ? Number(raw) : 1;
+  const pageCount = Math.max(1, Math.ceil(totalPosts / PUBLIC_INDEX_PAGE_SIZE));
+  return Math.min(Math.max(1, parsed), pageCount);
+}
+
+/** Canonical path for a listing page: page 1 is the bare path. */
+export function publicPageCanonicalPath(basePath: string, page: number): string {
+  return pageHref(basePath, page);
+}
+
+function pageHref(base: string, page: number, query?: string) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/** Index-page chrome with the footer subscribe block (used by listings and tests). */
 export function PublicShell({
   site,
   basePath,
-  indexable,
   homeHeading = false,
   children,
 }: {
   site: PublicIndexLoaderData["site"];
   basePath: string;
-  indexable: boolean;
+  indexable?: boolean;
   homeHeading?: boolean;
   children: React.ReactNode;
 }) {
-  const homeHref = publicIndexHref(basePath);
-
+  const indexHref = publicIndexHref(basePath);
   return (
     <PublicPageChrome
       siteName={site.name}
       tagline={site.description}
-      homeHref={homeHref}
+      homeHref={indexHref}
       homeHeading={homeHeading}
       presetId={site.theme}
-      theme={{ accent: site.theme_accent, font: site.theme_font, mode: site.theme_mode }}
-      robotsNoindex={!indexable}
+      theme={siteTheme(site)}
+      feedHref={`${basePath}/feed.xml`}
       subscribeVariant="footer"
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
@@ -68,88 +101,106 @@ export function PublicShell({
 
 export function PublicBlogIndexView({
   data,
+  page = 1,
 }: {
   data: PublicIndexLoaderData & { listing?: PublicListingContext };
+  page?: number;
 }) {
-  const { site, posts, basePath, indexable } = data;
+  const { site, posts, basePath } = data;
   const listing: PublicListingContext = data.listing ?? DEFAULT_LISTING;
   const searchQuery = listing.kind === "search" ? listing.query : "";
   const indexHref = publicIndexHref(basePath);
+  const pageCount = Math.max(1, Math.ceil(posts.length / PUBLIC_INDEX_PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), pageCount);
+  const visible = posts.slice((current - 1) * PUBLIC_INDEX_PAGE_SIZE, current * PUBLIC_INDEX_PAGE_SIZE);
+  const listingBase =
+    listing.kind === "tag" ? `${basePath}/tag/${encodeURIComponent(listing.tag)}` : indexHref;
 
   return (
-    <PublicShell
-      site={site}
-      basePath={basePath}
-      indexable={indexable}
+    <PublicPageChrome
+      siteName={site.name}
+      tagline={site.description}
+      homeHref={indexHref}
       homeHeading={listing.kind === "index"}
+      presetId={site.theme}
+      theme={siteTheme(site)}
+      searchAction={indexHref}
+      searchQuery={searchQuery}
+      feedHref={`${basePath}/feed.xml`}
+      allPostsHref={listing.kind === "index" ? undefined : indexHref}
+      subscribeVariant="footer"
+      subscribeSiteSlug={site.slug}
+      subscribeSettings={site.newsletter_settings}
     >
-      <form method="get" action={indexHref} className={styles.searchForm} role="search">
-        <label htmlFor="public-blog-search" className={styles.searchLabel}>
-          Search posts
-        </label>
-        <input
-          id="public-blog-search"
-          type="search"
-          name="q"
-          defaultValue={searchQuery}
-          placeholder="Search posts..."
-          className={styles.searchInput}
-        />
-        <button type="submit" className={styles.searchButton}>
-          Search
-        </button>
-      </form>
       {listing.kind === "tag" ? (
-        <div className={styles.listingBanner}>
+        <header className={styles.listingHeader}>
           <h1 className={styles.listingHeading}>Posts tagged {listing.tag}</h1>
-          <a href={indexHref} className={styles.backLink}>
-            {"\u2190"} All posts
-          </a>
-        </div>
+          <p className={styles.listingCount}>
+            {posts.length} {posts.length === 1 ? "post" : "posts"}
+          </p>
+        </header>
       ) : null}
       {listing.kind === "search" ? (
-        <div className={styles.listingBanner}>
+        <header className={styles.listingHeader}>
           <h1 className={styles.listingHeading}>Results for {listing.query}</h1>
-        </div>
+          <p className={styles.listingCount}>
+            {posts.length} {posts.length === 1 ? "result" : "results"}
+          </p>
+        </header>
       ) : null}
-      <section className={styles.postList}>
-        {posts.map((post) => {
-          const publishedText = post.published_at
-            ? new Date(post.published_at * 1000).toLocaleDateString()
-            : "Published";
-          const coverMedia = post.cover_asset_id
-            ? buildResponsiveMediaUrls(post.cover_asset_id)
-            : undefined;
-          return (
-            <article className={styles.postCard} key={post.id}>
-              {post.cover_asset_id ? (
-                <img
-                  className={styles.coverImage}
-                  src={coverMedia?.src}
-                  srcSet={coverMedia?.srcSet}
-                  sizes="(max-width: 860px) calc(100vw - 32px), 860px"
-                  alt={post.cover_asset_alt_text || `Cover image for ${post.title}`}
-                  width={post.cover_asset_width ?? 860}
-                  height={post.cover_asset_height ?? 484}
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : null}
-              <h2>
-                <a href={`${basePath}/${post.slug}`}>{post.title}</a>
-              </h2>
-              {post.excerpt ? <p>{post.excerpt}</p> : null}
-              <p className={styles.metaLine}>{publishedText}</p>
-            </article>
-          );
-        })}
-        {posts.length === 0 && listing.kind === "search" ? (
-          <p className={styles.empty}>No posts match {listing.query}.</p>
-        ) : posts.length === 0 ? (
-          <p className={styles.empty}>No published posts yet.</p>
-        ) : null}
-      </section>
-    </PublicShell>
+      {visible.length > 0 ? (
+        <PublicPostList
+          posts={visible.map((post) => {
+            const coverMedia = post.cover_asset_id ? buildResponsiveMediaUrls(post.cover_asset_id) : undefined;
+            return {
+              id: post.id,
+              title: post.title,
+              href: `${basePath}/${post.slug}`,
+              excerpt: post.excerpt,
+              publishedAt: post.published_at,
+              tags: parseTags(post.tags_json),
+              cover: coverMedia
+                ? { src: coverMedia.src, srcSet: coverMedia.srcSet, width: post.cover_asset_width, height: post.cover_asset_height }
+                : null,
+            };
+          })}
+        />
+      ) : (
+        <div className={styles.empty}>
+          {listing.kind === "search" ? (
+            <>
+              <p>Nothing matches “{listing.query}”.</p>
+              <a href={indexHref} className={styles.emptyLink}>
+                Browse all posts
+              </a>
+            </>
+          ) : (
+            <p>No posts yet. Check back soon.</p>
+          )}
+        </div>
+      )}
+      {pageCount > 1 ? (
+        <nav className={styles.pagination} aria-label="Pagination">
+          {current > 1 ? (
+            <a href={pageHref(listingBase, current - 1, searchQuery)} className={styles.pageLink} rel="prev">
+              ← Newer
+            </a>
+          ) : (
+            <span />
+          )}
+          <span className={styles.pageStatus}>
+            Page {current} of {pageCount}
+          </span>
+          {current < pageCount ? (
+            <a href={pageHref(listingBase, current + 1, searchQuery)} className={styles.pageLink} rel="next">
+              Older →
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
+    </PublicPageChrome>
   );
 }
 
@@ -157,36 +208,29 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
   const presetId = resolvePresetId(site.theme);
-  const siteTheme: SiteThemeInput = {
-    accent: site.theme_accent,
-    font: site.theme_font,
-    mode: site.theme_mode,
-  };
+  const theme = siteTheme(site);
   const { resolved } = resolvePresentation(presetId, post.presentation);
   const renderResult = renderRichContent(post.content_markdown, {
     presetId,
     pageTitle: post.title,
     resolveImage: resolveResponsiveMediaSource,
+    highlighter: codeHighlighter(),
   });
   const coverMedia = post.cover_asset_id
     ? buildResponsiveMediaUrls(post.cover_asset_id)
     : undefined;
-  const dateText = post.published_at ? new Date(post.published_at * 1000).toLocaleDateString() : undefined;
-  const updatedDateText = shouldShowUpdatedDate(post.published_at, post.updated_at)
-    ? new Date(post.updated_at * 1000).toLocaleDateString()
-    : undefined;
-  const readingMinutes = readingTimeMinutes(post.content_markdown);
-  const tags = parseTags(post.tags_json);
+  const showUpdated = shouldShowUpdatedDate(post.published_at, post.updated_at);
 
   return (
     <PublicPageChrome
       siteName={site.name}
-      tagline={site.description}
       homeHref={indexHref}
       allPostsHref={indexHref}
       presetId={site.theme}
-      theme={siteTheme}
+      theme={theme}
       article
+      wide={articleHasToc(resolved, renderResult.outline)}
+      feedHref={`${basePath}/feed.xml`}
       subscribeVariant="end"
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
@@ -197,7 +241,6 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         presentation={resolved}
         title={post.title}
         excerpt={post.excerpt ?? undefined}
-        byline={site.name}
         coverAssetSrc={coverMedia?.src}
         coverAssetAlt={post.cover_asset_alt_text ?? undefined}
         coverAssetWidth={post.cover_asset_width ?? undefined}
@@ -205,18 +248,46 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         coverAssetSrcSet={coverMedia?.srcSet}
         coverAssetSizes={
           resolved.layout === "feature"
-            ? "(max-width: 1008px) calc(100vw - 32px), 1008px"
-            : "(max-width: 720px) calc(100vw - 32px), 720px"
+            ? "(max-width: 1008px) calc(100vw - 40px), 1008px"
+            : "(max-width: 700px) calc(100vw - 40px), 640px"
         }
         coverAssetLoading={coverMedia ? "eager" : undefined}
         coverAssetFetchPriority={coverMedia ? "high" : undefined}
-        dateText={dateText}
-        updatedDateText={updatedDateText}
-        readingMinutes={readingMinutes}
-        tags={tags}
+        publishedAt={post.published_at}
+        updatedAt={showUpdated ? post.updated_at : null}
+        readingMinutes={readingTimeMinutes(post.content_markdown)}
+        tags={parseTags(post.tags_json)}
         basePath={basePath}
-        theme={siteTheme}
+        theme={theme}
+        newer={data.newer ? { title: data.newer.title, href: `${basePath}/${data.newer.slug}` } : null}
+        older={data.older ? { title: data.older.title, href: `${basePath}/${data.older.slug}` } : null}
       />
+    </PublicPageChrome>
+  );
+}
+
+export function PublicNotFoundView({
+  site,
+}: {
+  site: PublicIndexLoaderData["site"];
+}) {
+  return (
+    <PublicPageChrome
+      siteName={site.name}
+      homeHref="/"
+      allPostsHref="/"
+      presetId={site.theme}
+      theme={siteTheme(site)}
+      feedHref="/feed.xml"
+    >
+      <div className={styles.notFound}>
+        <p className={styles.listingEyebrow}>404</p>
+        <h1 className={styles.listingHeading}>This page doesn’t exist</h1>
+        <p className={styles.notFoundText}>It may have been moved, unpublished, or never existed.</p>
+        <a href="/" className={styles.emptyLink}>
+          Back to all posts
+        </a>
+      </div>
     </PublicPageChrome>
   );
 }

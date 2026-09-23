@@ -1,8 +1,8 @@
 import { BRAND } from "@vc/config";
-import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
 import { HeaderNav, MobileNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
+import { ArrowRight } from "./icons";
 
 const agents = [
   ["Claude", "claude.svg"],
@@ -61,9 +61,9 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
           <h1 className="mx-auto max-w-[15ch] text-balance font-display text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-foreground">
             CMS for <span className="text-brand-bright">AI agents.</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-[460px] text-balance text-lg leading-[1.6] text-muted-foreground">
-            Your coding agent prepares a version through scoped MCP. You review the exact
-            Markdown; publishing pins that version, and rejects stale edits.
+          <p className="mx-auto mt-5 max-w-[480px] text-balance text-lg leading-[1.6] text-muted-foreground">
+            Your coding agent drafts and publishes over scoped MCP. You keep your
+            login, every version, and the final say.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
@@ -80,13 +80,13 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
               target="_blank"
             >
               View on GitHub
-              <ArrowRightIcon className="size-4" aria-hidden="true" />
+              <ArrowRight className="size-4" />
             </a>
           </div>
 
           <div className="mt-9 flex flex-col items-center gap-3">
-            <span className="font-mono text-[11px] text-muted-foreground">
-              Works with your agents
+            <span className="font-mono text-xs text-muted-foreground">
+              Works with
             </span>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
               {agents.map(([name, file]) => (
@@ -103,7 +103,7 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
                   {name}
                 </span>
               ))}
-              <span className="text-[13px] font-medium text-muted-foreground/70">
+              <span className="text-[13px] font-medium text-muted-foreground">
                 + any MCP client
               </span>
             </div>

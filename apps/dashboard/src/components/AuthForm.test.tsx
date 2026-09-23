@@ -49,7 +49,7 @@ describe('AuthForm network recovery', () => {
 
     const button = container.querySelector('button[type="submit"]') as HTMLButtonElement
     expect(button.disabled).toBe(false)
-    expect(button.textContent).toBe('Send sign-in code')
+    expect(button.textContent).toBe('Email me a code')
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not reach the sign-in service')
 
     act(() => root.unmount())

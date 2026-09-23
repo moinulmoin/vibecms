@@ -25,28 +25,17 @@
   color: var(--vc-fg, inherit);
 }
 
-/* placement="end" - an honest, theme-aware tinted card centered after the
-   article body. The tint tracks the active --vc-* preset/accent and flips
-   with light/dark mode; centered and capped at 45rem so it reads as a
-   distinct callout without overwhelming the article column. */
-.formEnd {
-  box-sizing: border-box;
-  max-width: 45rem;
-  margin-inline: auto;
-  margin-top: var(--vc-section-gap, 2.75rem);
-  padding: clamp(1.5rem, 4vw, 2.25rem);
-  background: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 6%, var(--vc-card, oklch(100% 0 0)));
-  border: 1px solid color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 18%, var(--vc-border, oklch(91% 0.006 106)));
-  border-radius: calc(var(--vc-radius, 8px) + 4px);
-}
-
-/* placement="footer" - compact, inline, separated by the same thin rule.
-   margin-top clears the post list so the rule isn't glued to the last entry. */
+/* Both placements are the same quiet card, aligned to the reading column's
+   left edge; the only accent is the submit button. */
+.formEnd,
 .formFooter {
-  gap: 0.5rem;
+  box-sizing: border-box;
+  max-width: var(--vc-prose-measure, 40rem);
   margin-top: var(--vc-section-gap, 2.75rem);
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--vc-border, oklch(91% 0.006 106));
+  padding: clamp(1.25rem, 3.5vw, 1.75rem);
+  background: var(--vc-card, oklch(100% 0 0));
+  border: 1px solid var(--vc-border, oklch(91% 0.006 106));
+  border-radius: calc(var(--vc-radius, 8px) + 4px);
 }
 
 .heading {
@@ -58,9 +47,6 @@
   color: var(--vc-fg, inherit);
 }
 
-.formFooter .heading {
-  font-size: 0.9375rem;
-}
 
 .subtext {
   margin: 0;
@@ -69,9 +55,6 @@
   color: var(--vc-muted-fg, oklch(54% 0.012 106));
 }
 
-.formFooter .subtext {
-  font-size: 0.8125rem;
-}
 
 /* Input + submit read as one coherent control row. */
 .row {
@@ -195,7 +178,7 @@
 }
 
 /* Stack the control row only on very narrow viewports. */
-@media (max-width: 420px) {
+@container vc-page (max-width: 420px) {
   .row {
     flex-direction: column;
     align-items: stretch;

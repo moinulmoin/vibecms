@@ -1,129 +1,229 @@
-'use client'
-
-import { Alert, FieldDescription, FieldLegend, FieldSet, Skeleton } from '@vc/ui'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { FREE_TIER, LAUNCH_OFFER } from '@vc/config'
+import { CopyButton, Skeleton } from '@vc/ui'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, Check, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
-import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
-import { loadPersonalization, savePersonalizationMutation } from '~/lib/api-client'
-import { dashboardStatusSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
-import type { AgentPreference } from '~/types/dashboard'
+import { AgentSetup, FirstPostPrompt, clientFromPreference, type AgentClient } from '~/components/dashboard/ConnectAgent'
+import { createApiKeyMutation, savePersonalizationMutation } from '~/lib/api-client'
+import { emptyDashboardStatusSearch, emptyPostEditorSearch } from '~/lib/dashboard-search'
+import { connectQuery, onboardingStatusQuery, queryKeys } from '~/lib/queries'
+import { consumeTokenFlash, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
+import type { OnboardingConnectStatus } from '~/types/dashboard'
 
-const AGENT_CHOICES: Array<{ id: AgentPreference; label: string; note: string }> = [
-  { id: 'claude_code', label: 'Claude Code', note: 'Copy one terminal command' },
-  { id: 'codex', label: 'Codex CLI', note: 'Copy one config block' },
-  { id: 'cursor', label: 'Cursor', note: 'Connect from your editor' },
-  { id: 'droid', label: 'Droid', note: 'Use Streamable HTTP MCP' },
-  { id: 'other', label: 'Another MCP client', note: 'Use the standard endpoint and Bearer token' },
-]
+const STEP = { current: 2, total: 2 }
+
+function Waiting({ label }: { label: string }) {
+  return (
+    <p className="flex items-center gap-2.5 text-[0.9375rem] text-muted-foreground">
+      <span aria-hidden className="relative flex size-2">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-bright/60 motion-reduce:animate-none" />
+        <span className="relative inline-flex size-2 rounded-full bg-brand-bright" />
+      </span>
+      {label}
+    </p>
+  )
+}
+
+/** Live status for the first post, polled while the user works in their agent. */
+export function FirstPostStatus({ status }: { status: OnboardingConnectStatus | undefined }) {
+  if (!status) return <Waiting label="Watching for your agent…" />
+  const first = status.firstPost
+  if (first.state === 'live') {
+    return (
+      <div className="grid gap-4">
+        <p className="flex items-center gap-2.5 text-[0.9375rem] font-medium text-foreground">
+          <Check aria-hidden className="size-4 text-primary" /> Your first post is live.
+        </p>
+        {first.post.url ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2">
+            <a
+              href={first.post.url}
+              target="_blank"
+              rel="noopener"
+              className="min-w-0 flex-1 truncate font-mono text-sm text-foreground underline-offset-4 hover:underline"
+            >
+              {first.post.url}
+            </a>
+            <CopyButton value={first.post.url} label="Copy link" copiedLabel="Copied" iconOnly className="size-8" />
+            <Button asChild variant="ghost" size="sm">
+              <a href={first.post.url} target="_blank" rel="noopener">
+                <ExternalLink aria-hidden data-icon="inline-start" /> Open
+              </a>
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+  if (first.state === 'draft') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 text-[0.9375rem] text-foreground">
+          Your agent wrote a draft: <span className="font-medium">{first.post.title}</span>
+        </p>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/dashboard/posts/$postId/edit" params={{ postId: first.post.id }} search={emptyPostEditorSearch}>
+            Review it
+          </Link>
+        </Button>
+      </div>
+    )
+  }
+  if (status.connection === 'connected') return <Waiting label="Agent connected. Waiting for its first draft…" />
+  return <Waiting label="Watching for your agent…" />
+}
 
 export function PersonalizePage() {
-  const navigate = useNavigate()
-  const [loaded, setLoaded] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [agent, setAgent] = useState<AgentPreference | ''>('')
+  const queryClient = useQueryClient()
+  const connect = useQuery(connectQuery)
+  const [flash, setFlash] = useState<TokenFlash | null>(null)
+  const [client, setClient] = useState<AgentClient | null>(null)
+  const [keyError, setKeyError] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const autoCreated = useRef(false)
 
   useEffect(() => {
-    let cancelled = false
-    void loadPersonalization()
-      .then((data) => {
-        if (cancelled) return
-        setAgent(data.agentPreference ?? '')
-        setLoaded(true)
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load your agent choices.')
-      })
-    return () => { cancelled = true }
+    const restored = consumeTokenFlash()
+    if (restored) {
+      setFlash(restored)
+      saveTokenFlash(restored)
+    }
   }, [])
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSubmitError(null)
-    setSubmitting(true)
+  async function createKey() {
+    setCreating(true)
+    setKeyError(false)
     try {
-      const result = await savePersonalizationMutation({ agentPreference: agent || null })
-      if (result.kind === 'ok') {
-        await navigate({ to: '/dashboard/connect', search: emptyDashboardStatusSearch })
+      const result = await createApiKeyMutation({ name: 'My agent', actorName: 'My agent', preset: 'publish' })
+      if (result.kind !== 'ok') {
+        setKeyError(true)
         return
       }
-      setSubmitError(result.code === 'owner_required'
-        ? 'Only the workspace owner can save this choice. You can still continue to Connect.'
-        : 'Could not save this client choice. You can continue and choose a snippet on the next screen.')
+      const next = { token: result.token, name: result.name, id: result.id }
+      saveTokenFlash(next)
+      setFlash(next)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connect })
     } catch {
-      setSubmitError('Could not save this client choice. Check your connection or continue to see every setup option.')
+      setKeyError(true)
     } finally {
-      setSubmitting(false)
+      setCreating(false)
     }
   }
 
-  if (loadError) return <LoadError message={loadError} />
-  if (!loaded) {
+  // First visit: make the key for them. Returning visitors with keys choose to make another.
+  useEffect(() => {
+    if (!connect.data || flash || autoCreated.current) return
+    if (!connect.data.canManage || connect.data.apiKeys.length > 0) return
+    autoCreated.current = true
+    void createKey()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connect.data, flash])
+
+  const status = useQuery({
+    ...onboardingStatusQuery(flash?.id ?? null),
+    refetchInterval: (query) => (query.state.data?.firstPost.state === 'live' ? false : 3000),
+    refetchIntervalInBackground: false,
+  })
+
+  const live = status.data?.firstPost.state === 'live'
+  const activeClient = client ?? clientFromPreference(connect.data?.personalization.agentPreference)
+
+  function chooseClient(next: AgentClient) {
+    setClient(next)
+    if (connect.data?.canManage) void savePersonalizationMutation({ agentPreference: next }).catch(() => undefined)
+  }
+
+  if (connect.isError && !connect.data) {
     return (
-      <OnboardingFrame step={2} title="Which agent are you connecting?">
-        <Skeleton className="h-[22rem] rounded-xl" />
+      <OnboardingFrame step={STEP} title="Connect your agent">
+        <LoadError message="This step didn’t load. Check your connection and try again." onRetry={() => void connect.refetch()} />
       </OnboardingFrame>
     )
   }
 
   return (
-    <OnboardingFrame step={2} title="Which agent are you connecting?">
-      <p className="-mt-4 mb-7 max-w-[52ch] font-sans text-sm leading-6 text-muted-foreground">
-        Choose a client so the next screen leads with the exact command or config it needs. The MCP endpoint and capabilities are identical in every client.
-      </p>
-      {submitError ? <Alert variant="error" className="mb-4">{submitError}</Alert> : null}
-      <form className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6" onSubmit={(event) => void handleSubmit(event)}>
-        <FieldSet className="min-w-0 gap-3">
-          <FieldLegend className="font-mono text-[11px] font-medium text-muted-foreground">
-            Agent client
-          </FieldLegend>
-          <RadioGroup
-            value={agent}
-            onValueChange={(value) => setAgent(value as AgentPreference)}
-            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2"
-          >
-            {AGENT_CHOICES.map((choice) => (
-              <label
-                key={choice.id}
-                htmlFor={`agent-${choice.id}`}
-                className="flex min-h-16 min-w-0 cursor-pointer items-start gap-3 rounded-xl p-3 ring-1 ring-border/60 transition-colors last:sm:col-span-2 hover:bg-muted/40 has-[[data-state=checked]]:bg-brand-bright/[0.045] has-[[data-state=checked]]:ring-brand-bright/50"
-              >
-                <RadioGroupItem id={`agent-${choice.id}`} value={choice.id} className="mt-0.5" />
-                <span className="min-w-0">
-                  <span className="block font-display text-sm font-medium text-foreground">{choice.label}</span>
-                  <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">{choice.note}</span>
-                </span>
-              </label>
-            ))}
-          </RadioGroup>
-          <FieldDescription>
-            No lock-in. The setup guide includes every supported client, regardless of this choice.
-          </FieldDescription>
-        </FieldSet>
+    <OnboardingFrame
+      step={live ? undefined : STEP}
+      title={live ? 'You’re all set' : 'Connect your agent'}
+      description={
+        live
+          ? 'Your agent can draft and publish here. You review and approve.'
+          : 'Copy one command into your agent, then paste the prompt. Watch your first post arrive here.'
+      }
+    >
+      {!connect.data ? (
+        <div className="grid gap-4" aria-busy="true">
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-28 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
+        </div>
+      ) : (
+        <div className="grid gap-10">
+          {!live ? (
+            <>
+              <section className="grid gap-4" aria-labelledby="onboarding-add">
+                <h2 id="onboarding-add" className="text-base font-semibold text-foreground">
+                  1. Add vibecms to your agent
+                </h2>
+                {flash ? (
+                  <AgentSetup mcpUrl={connect.data.mcpUrl} token={flash.token} client={activeClient} onClientChange={chooseClient} />
+                ) : creating ? (
+                  <Skeleton className="h-36 rounded-lg" />
+                ) : connect.data.canManage ? (
+                  <div className="grid gap-3 rounded-lg border border-border p-4">
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {keyError
+                        ? 'We couldn’t create a key just now.'
+                        : 'Your earlier key is hidden for safety. Make a fresh one to get a ready-to-paste command.'}
+                    </p>
+                    <Button type="button" className="w-fit" onClick={() => void createKey()}>
+                      {keyError ? 'Try again' : 'Create a key'}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Ask the blog owner for an agent key.</p>
+                )}
+                {flash ? (
+                  <p className="text-sm text-muted-foreground">
+                    Your key is in the command. It won’t be shown again, so keep this tab open until you’ve pasted it.
+                  </p>
+                ) : null}
+              </section>
 
-        <div className="flex flex-col gap-4 rounded-xl bg-muted/35 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-mono text-[11px] leading-5 text-muted-foreground">
-            Voice, theme, and domains wait until after your first verified publish.
-          </p>
-          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <Button variant="ghost" asChild className="h-11 w-full rounded-xl sm:w-auto">
-              <Link to="/dashboard/connect" search={dashboardStatusSearch({})}>Skip to setup guide</Link>
+              <section className="grid gap-4" aria-labelledby="onboarding-try">
+                <h2 id="onboarding-try" className="text-base font-semibold text-foreground">
+                  2. Ask for your first post
+                </h2>
+                <FirstPostPrompt />
+              </section>
+            </>
+          ) : null}
+
+          <section aria-live="polite" className="grid gap-4 border-t border-[color:var(--hairline)] pt-6">
+            <FirstPostStatus status={status.data} />
+          </section>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {live ? (
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+                The free plan includes {FREE_TIER.publishedPosts} published posts. Unlimited publishing, images, and your own domain are{' '}
+                {LAUNCH_OFFER.monthlyLabel} during early access.
+              </p>
+            ) : (
+              <span />
+            )}
+            <Button asChild variant={live ? 'default' : 'ghost'}>
+              <Link to="/dashboard" search={emptyDashboardStatusSearch}>
+                {live ? 'Go to your dashboard' : 'Skip for now'}
+                {live ? <ArrowRight aria-hidden data-icon="inline-end" /> : null}
+              </Link>
             </Button>
-            <PendingSubmitButton
-              className="h-11 w-full rounded-xl px-6 sm:w-auto"
-              pending={submitting}
-              pendingText="Saving…"
-              disabled={!agent}
-            >
-              Continue to Connect
-            </PendingSubmitButton>
           </div>
         </div>
-      </form>
+      )}
     </OnboardingFrame>
   )
 }

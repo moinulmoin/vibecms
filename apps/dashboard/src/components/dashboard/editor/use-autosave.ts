@@ -1,5 +1,3 @@
-'use client'
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type AutosaveStatus = 'saved' | 'saving' | 'unsaved' | 'error'
@@ -25,6 +23,7 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
   const onErrorRef = useRef(onError)
   const timerRef = useRef<number | undefined>(undefined)
   const inFlightRef = useRef(false)
+  const inFlightPromiseRef = useRef<Promise<void> | null>(null)
   const [status, setStatus] = useState<AutosaveStatus>('saved')
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [savedVersion, setSavedVersion] = useState<number | null>(null)
@@ -52,6 +51,8 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
     let failed = false
     inFlightRef.current = true
     setStatus('saving')
+    let settle: () => void = () => {}
+    inFlightPromiseRef.current = new Promise<void>((resolve) => { settle = resolve })
     try {
       const result = await saveRef.current(value)
       baselineRef.current = value
@@ -65,6 +66,8 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
       onErrorRef.current?.(error, value)
     } finally {
       inFlightRef.current = false
+      inFlightPromiseRef.current = null
+      settle()
       if (!failed && serializedRef.current !== baselineRef.current && enabled) {
         clearTimer()
         timerRef.current = window.setTimeout(() => void runSave(), delayMs)
@@ -89,6 +92,19 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
 
   useEffect(() => clearTimer, [clearTimer])
 
+  /**
+   * Save now: waits for any in-flight save, then saves pending changes.
+   * Resolves true when everything on screen is saved.
+   */
+  const flush = useCallback(async () => {
+    clearTimer()
+    if (inFlightPromiseRef.current) await inFlightPromiseRef.current
+    clearTimer()
+    if (serializedRef.current !== baselineRef.current) await runSave()
+    clearTimer()
+    return serializedRef.current === baselineRef.current
+  }, [clearTimer, runSave])
+
   const retry = useCallback(() => {
     clearTimer()
     void runSave()
@@ -101,5 +117,6 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
     isInFlight: inFlightRef.current,
     markSaved,
     retry,
+    flush,
   }
 }

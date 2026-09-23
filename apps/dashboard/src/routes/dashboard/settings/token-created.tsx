@@ -1,8 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { TokenCreatedPage } from '~/components/dashboard/TokenCreatedPage'
-import { validateDashboardSearch } from '~/lib/dashboard-search'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 
+/** Legacy URL: the one-time key now appears on Connect, which reads it from session storage. */
 export const Route = createFileRoute('/dashboard/settings/token-created')({
-  validateSearch: validateDashboardSearch,
-  component: TokenCreatedPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/dashboard/connect', search: emptyDashboardStatusSearch })
+  },
 })

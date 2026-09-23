@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@vc/ui'
 import { useBlocker, type ShouldBlockFn } from '@tanstack/react-router'
 import { useCallback, useRef } from 'react'

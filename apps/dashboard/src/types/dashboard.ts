@@ -92,6 +92,9 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Posts waiting on a human decision: agent drafts and live posts with unpublished changes. */
+  needsReview?: DashboardReviewPost[]
+  needsReviewCount?: number
   recentActivity: Array<{ action: string; summary: string; actor_name: string; created_at: number }>
   activationPost: null | {
     id: string
@@ -281,12 +284,19 @@ export type SettingsPageData = {
 }
 
 export type ActivityEvent = {
+  id?: string
   action: string
   summary: string
   actor_type: string
   actor_name: string
   created_at: number
+  entity_type?: string
+  entity_id?: string
+  /** Short before → after lines (title, URL, status, body size). */
+  changes?: string[]
 }
+
+export type ActivityActorFilter = 'human' | 'agent'
 
 export type ActivityPageLoad = {
   events: ActivityEvent[]
@@ -300,6 +310,8 @@ export type EditorSiteInfo = {
   themeAccent: string | null
   themeFont: string | null
   themeMode: string
+  /** Subscribe form copy/visibility, as the public end-of-post form uses it. */
+  newsletterSettings?: { enabled: boolean; heading: string; subtext: string; buttonLabel: string } | null
 }
 
 export type PostEditorPageLoad = {
@@ -319,9 +331,23 @@ export type PostEditorPageLoad = {
 export type PostsPageLoad = {
   posts: DashboardPostSummary[]
   hasMore: boolean
+  /** Public origin for "view live" links; only on the first page. */
+  publicBaseUrl?: string | null
 }
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
+
+export type DashboardReviewPost = {
+  id: string
+  title: string
+  slug: string
+  status: Post['status']
+  updatedAt: number
+  publishedAt: number | null
+  versionNumber: number | null
+  publishedVersionNumber: number | null
+  latestActorType: string | null
+}
 
 export type DashboardPostSummary = {
   id: string
@@ -335,6 +361,10 @@ export type DashboardPostSummary = {
   createdAt: number
   updatedAt: number
   versionNumber: number | null
+  /** Version pinned live; lower than versionNumber = changes waiting for review. */
+  publishedVersionNumber?: number | null
+  /** Who wrote the tip version (human/agent/api_key/system). */
+  latestActorType?: string | null
   /** Last-change actor: type (human/agent/api_key/system) + resolved name
    * (user.name or api key name; null when neither matches). */
   updatedByType: string | null

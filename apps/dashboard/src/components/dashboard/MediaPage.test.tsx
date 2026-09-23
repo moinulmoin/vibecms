@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Asset } from '@vc/core'
 import { MediaPage } from './MediaPage'
+import { withQueryClient } from '~/test/query'
 
 function asset(id: string, filename: string, altText: string | null = null): Asset {
   return {
@@ -30,6 +31,7 @@ const FIXTURES = [
 vi.mock('~/lib/api-client', () => ({
   loadMediaPage: vi.fn(async () => ({ assets: FIXTURES })),
   updateMediaAltMutation: vi.fn(async () => ({ kind: 'ok', code: 'media_alt_saved' })),
+  notifyDashboardMutation: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -67,8 +69,13 @@ describe('MediaPage bulk delete', () => {
     document.body.appendChild(container)
     const root = createRoot(container)
     await act(async () => {
-      root.render(<MediaPage />)
+      root.render(withQueryClient(<MediaPage />))
     })
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+    }
     return {
       container,
       unmount: async () => {

@@ -1,257 +1,215 @@
-'use client'
-
-import { useEffect, useRef, useState } from 'react'
-import { Activity, RefreshCw } from 'lucide-react'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  Button,
-  LoadError,
-  formatDateTime,
-  labelAction,
-} from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
-import {
-  Badge,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@vc/ui'
-import { ListRow } from '~/components/dashboard/blocks'
+  Activity,
+  Archive,
+  ArchiveRestore,
+  Bot,
+  FilePlus2,
+  Globe,
+  History,
+  ImageMinus,
+  ImagePlus,
+  Images,
+  KeyRound,
+  PenLine,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
+import { cn } from '@vc/ui'
+import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
-import { loadActivityPage } from '~/lib/api-client'
+import { emptyPostEditorSearch } from '~/lib/dashboard-search'
+import { activityQuery } from '~/lib/queries'
+import type { ActivityEvent } from '~/types/dashboard'
 
-type ActivityEvent = {
-  action: string
-  summary: string
-  actor_type: string
-  actor_name: string
-  created_at: number
+export type ActivityActor = 'all' | 'human' | 'agent'
+
+const ACTION_ICONS: Array<[prefix: string, Icon: LucideIcon]> = [
+  ['post.created', FilePlus2],
+  ['post.updated', PenLine],
+  ['post.published', Globe],
+  ['post.archived', Archive],
+  ['post.unarchived', ArchiveRestore],
+  ['post.restored', History],
+  ['asset.uploaded', ImagePlus],
+  ['asset.deleted', ImageMinus],
+  ['asset.', Images],
+  ['api_key.', KeyRound],
+  ['site.voice', Sparkles],
+  ['site.', Settings2],
+  ['autoseopilot.', ShieldCheck],
+]
+
+export function activityIcon(action: string): LucideIcon {
+  return ACTION_ICONS.find(([prefix]) => action.startsWith(prefix))?.[1] ?? Activity
 }
 
-// The trust surface: tell at a glance whether you, a token, or an agent acted.
-// We bucket to three reader-facing categories so the empty state, filter chips,
-// and badges all speak the same language.
-type ActorCategory = 'you' | 'agent' | 'system'
-type ActorFilter = 'all' | ActorCategory
+const SUMMARY_OVERRIDES: Record<string, string> = {
+  'api_key.revoked': 'Deleted an agent token',
+}
 
-function actorCategory(type: string): ActorCategory {
-  switch (type) {
-    case 'human':
-      return 'you'
-    case 'api_key':
-      return 'agent'
-    default:
-      return 'system'
+function summaryFor(event: ActivityEvent) {
+  return SUMMARY_OVERRIDES[event.action] ?? event.summary.replace(/^Created API key /, 'Created agent key ')
+}
+
+function isAgent(actorType: string) {
+  return actorType === 'api_key' || actorType === 'agent'
+}
+
+/** Stable, collision-free key even for legacy rows without an id. */
+export function activityKey(event: ActivityEvent, index: number) {
+  return event.id ?? `${event.created_at}:${event.action}:${event.entity_id ?? ''}:${index}`
+}
+
+/**
+ * Pages are offset-based and newest-first, so events written between "Show
+ * older" clicks shift rows onto the next page. Drop repeats by id.
+ */
+export function uniqueActivityEvents(pages: Array<{ events: ActivityEvent[] }>) {
+  const seen = new Set<string>()
+  const events: ActivityEvent[] = []
+  for (const page of pages) {
+    for (const event of page.events) {
+      if (event.id) {
+        if (seen.has(event.id)) continue
+        seen.add(event.id)
+      }
+      events.push(event)
+    }
   }
+  return events
 }
 
-const ACTOR_CATEGORY_LABEL: Record<ActorCategory, string> = {
-  you: 'You',
-  agent: 'Agent',
-  system: 'System',
-}
+function ActivityRow({ event }: { event: ActivityEvent }) {
+  const Icon = activityIcon(event.action)
+  const agent = isAgent(event.actor_type)
+  const postId = event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' ? event.entity_id : null
+  const summary = summaryFor(event)
 
-const ACTOR_DOT: Record<ActorCategory, string> = {
-  you: 'bg-foreground',
-  agent: 'bg-muted-foreground',
-  system: 'bg-muted-foreground/60',
-}
-
-function ActorBadge({ actorType }: { actorType: string }) {
-  const category = actorCategory(actorType)
   return (
-    <Badge variant="outline" className="gap-1.5 font-mono text-[10px]">
-      <span aria-hidden className={`size-1.5 rounded-full ${ACTOR_DOT[category]}`} />
-      {ACTOR_CATEGORY_LABEL[category]}
-    </Badge>
+    <li className="group relative flex items-start gap-3.5 border-b border-[color:var(--hairline)] py-4 last:border-b-0">
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground',
+          event.action === 'post.published' && 'text-primary',
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.9375rem] leading-6 text-foreground">
+          {postId ? (
+            <Link
+              to="/dashboard/posts/$postId/edit"
+              params={{ postId }}
+              search={emptyPostEditorSearch}
+              className="underline-offset-4 after:absolute after:inset-0 hover:underline focus-visible:outline-none focus-visible:after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            >
+              {summary}
+            </Link>
+          ) : (
+            summary
+          )}
+        </p>
+        <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+          {agent ? <Bot aria-hidden className="size-3.5 shrink-0" /> : null}
+          <span className="truncate">{agent ? event.actor_name : event.actor_type === 'human' ? event.actor_name : 'vibecms'}</span>
+          {agent ? <span className="sr-only">(agent)</span> : null}
+        </p>
+        {event.changes?.length ? (
+          <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
+            {event.changes.map((change) => (
+              <li key={change} className="truncate font-mono text-[0.8125rem]">
+                {change}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+      <time
+        dateTime={new Date(event.created_at * 1000).toISOString()}
+        title={formatDateTime(event.created_at)}
+        className="shrink-0 whitespace-nowrap pt-0.5 text-sm tabular-nums text-muted-foreground"
+      >
+        {formatRelative(event.created_at)}
+      </time>
+    </li>
   )
 }
 
+export function ActivityPage({ actor = 'all' }: { actor?: ActivityActor }) {
+  const navigate = useNavigate()
+  const query = useInfiniteQuery(activityQuery(actor))
+  const events = query.data ? uniqueActivityEvents(query.data.pages) : []
 
-export function ActivityPage() {
-  const [events, setEvents] = useState<ActivityEvent[] | null>(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
-  const [actorFilter, setActorFilter] = useState<ActorFilter>('all')
-
-  useEffect(() => {
-    let cancelled = false
-    void loadActivityPage({})
-      .then((data) => {
-        if (!cancelled) {
-          setEvents(data.events)
-          setHasMore(data.hasMore)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load activity.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const loadingMoreRef = useRef(false)
-  async function loadMore() {
-    if (!events || loadingMoreRef.current) return
-    loadingMoreRef.current = true
-    setLoadingMore(true)
-    setLoadMoreError(null)
-    try {
-      const data = await loadActivityPage({ offset: events.length })
-      setEvents((prev) => [...(prev ?? []), ...data.events])
-      setHasMore(data.hasMore)
-    } catch {
-      setLoadMoreError('Could not load more activity. Your current log is still available.')
-    } finally {
-      loadingMoreRef.current = false
-      setLoadingMore(false)
-    }
-  }
-
-  if (loadError) return <LoadError message={loadError} />
-  if (!events) return <PageSkeleton variant="table" />
-
-  // Filter the accumulated list client-side; "Load more" keeps appending to the
-  // accumulated list, so the filter keeps working across pagination.
-  const filteredEvents =
-    actorFilter === 'all'
-      ? events
-      : events.filter((event) => actorCategory(event.actor_type) === actorFilter)
+  const filter = (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={actor}
+      onValueChange={(value) => {
+        if (!value) return
+        void navigate({ to: '/dashboard/activity', search: value === 'human' || value === 'agent' ? { actor: value } : {} })
+      }}
+      aria-label="Show activity from"
+    >
+      <ToggleGroupItem value="all" className="px-3">Everyone</ToggleGroupItem>
+      <ToggleGroupItem value="human" className="px-3">People</ToggleGroupItem>
+      <ToggleGroupItem value="agent" className="px-3">Agents</ToggleGroupItem>
+    </ToggleGroup>
+  )
 
   return (
     <>
       <PageHeader
         title="Activity"
-        description="Every meaningful action from you or an agent, with enough context to debug and trust the system."
+        description="What you and your agents changed on this blog."
+        action={filter}
       />
-      <Panel title="Activity log" meta={<Badge variant="outline">{filteredEvents.length} events</Badge>}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={actorFilter}
-            onValueChange={(value) => setActorFilter((value as ActorFilter | undefined) ?? 'all')}
-            aria-label="Filter activity by actor"
-          >
-            <ToggleGroupItem value="all">All</ToggleGroupItem>
-            <ToggleGroupItem value="you">You</ToggleGroupItem>
-            <ToggleGroupItem value="agent">Agent</ToggleGroupItem>
-            <ToggleGroupItem value="system">System</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        {events.length === 0 ? (
-          <EmptyState
-            icon={<Activity />}
-            title="No activity yet"
-            description="Create a post, upload media, or issue an API token and this log will fill in automatically."
-          />
-        ) : filteredEvents.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Activity />}
-            title="No matching events"
-            description="Nothing from this actor yet. Try a different filter."
-          />
-        ) : (
-          <>
-            {/* Desktop: flat audit table, no date grouping. Full timestamp in one cell. */}
-            <Table className="hidden md:table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-44">Timestamp</TableHead>
-                  <TableHead className="w-40">Actor</TableHead>
-                  <TableHead className="w-48">Action</TableHead>
-                  <TableHead>Summary</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEvents.map((event) => (
-                  <TableRow key={`${event.action}-${event.created_at}-${event.summary}`}>
-                    <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
-                      {formatDateTime(event.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-2">
-                        <ActorBadge actorType={event.actor_type} />
-                        <span className="max-w-[12rem] truncate font-mono text-xs text-muted-foreground">
-                          {event.actor_name}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                      {labelAction(event.action)}
-                    </TableCell>
-                    <TableCell className="w-full max-w-0">
-                      <span className="block truncate text-pretty font-sans text-sm text-foreground">
-                        {event.summary}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {/* Mobile: timeline-style rows, no date grouping. */}
-            <div className="grid gap-0 md:hidden">
-              {filteredEvents.map((event) => (
-                <ListRow
-                  key={`${event.action}-${event.created_at}-${event.summary}`}
-                  title={
-                    <span className="text-pretty font-sans text-sm font-medium leading-5 text-foreground">
-                      {event.summary}
-                    </span>
-                  }
-                  description={
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {labelAction(event.action)}
-                      </span>
-                      <span aria-hidden className="text-muted-foreground/40">·</span>
-                      <ActorBadge actorType={event.actor_type} />
-                      <span className="truncate font-mono text-xs text-muted-foreground">
-                        {event.actor_name}
-                      </span>
-                    </span>
-                  }
-                  actions={
-                    <time className="font-mono text-xs tabular-nums text-muted-foreground">
-                      {formatDateTime(event.created_at)}
-                    </time>
-                  }
-                />
-              ))}
+      {query.isError && !query.data ? (
+        <LoadError message="Activity didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
+      ) : !query.data ? (
+        <PageSkeleton variant="list" withHeader={false} />
+      ) : events.length === 0 ? (
+        <EmptyState
+          icon={<Activity />}
+          title={actor === 'all' ? 'Nothing here yet' : actor === 'agent' ? 'No agent activity yet' : 'No activity from people yet'}
+          description={
+            actor === 'agent'
+              ? 'When a connected agent drafts or edits a post, it shows up here.'
+              : 'Posts, uploads, and settings changes show up here as they happen.'
+          }
+        />
+      ) : (
+        <div>
+          <ol aria-label="Activity" className="grid">
+            {events.map((event, index) => (
+              <ActivityRow key={activityKey(event, index)} event={event} />
+            ))}
+          </ol>
+          {query.hasNextPage || query.isFetchNextPageError ? (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              {query.isFetchNextPageError ? (
+                <p role="alert" className="text-sm text-destructive">Couldn’t load older activity.</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void query.fetchNextPage()}
+                disabled={query.isFetchingNextPage}
+              >
+                {query.isFetchingNextPage ? 'Loading…' : query.isFetchNextPageError ? 'Try again' : 'Show older'}
+              </Button>
             </div>
-          </>
-        )}
-
-        {hasMore || loadMoreError ? (
-          <>
-            {hasMore ? (
-              <div className="mt-3 flex justify-center">
-                <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                  <RefreshCw aria-hidden data-icon="inline-start" />
-                  {loadingMore ? 'Loading…' : 'Load more'}
-                </Button>
-              </div>
-            ) : null}
-            {loadMoreError ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
-                <span>{loadMoreError}</span>
-                <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void loadMore()}>
-                  Try again
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : null}
-      </Panel>
+          ) : null}
+        </div>
+      )}
     </>
   )
 }

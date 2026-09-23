@@ -1,9 +1,11 @@
+import { FREE_TIER, LAUNCH_OFFER, PRICING } from "@vc/config";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AgentSurface } from "./agent-surface";
 import { AgentsDemo } from "./agents-demo";
 import { CtaFooter } from "./cta-footer";
+import { FaqAccordion } from "./faq-accordion";
 import { HeaderHero } from "./header-hero";
 import { HostingPricing } from "./hosting-pricing";
 import { formatScopeToken, INITIAL_SCOPES } from "./scope-toggle-demo";
@@ -19,9 +21,8 @@ describe("landing URL props", () => {
     expect(html).toContain("Sign in");
     expect(html).toContain("data-landing-nav");
     expect(html).toContain("data-hero-demo");
-    expect(html).toContain("review the exact")
-    expect(html).toContain("publishing pins that version")
-    expect(html).toContain("rejects stale edits")
+    expect(html).toContain("drafts and publishes over scoped MCP")
+    expect(html).toContain("the final say")
     expect(html).toContain("draft &quot;Shipping with MCP&quot;")
     expect(html).not.toContain("publish &quot;Shipping with MCP&quot;")
   });
@@ -34,13 +35,22 @@ describe("landing URL props", () => {
 
     const surface = renderToStaticMarkup(createElement(AgentSurface, { apiDocsUrl }));
     expect(surface).toContain(`href="${apiDocsUrl}"`);
-    expect(surface).toContain("Open API docs");
+    expect(surface).toContain("API docs");
   });
 
   it("wires login CTAs through static HostingPricing", () => {
     const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
     expect(html).toContain(`href="${loginUrl}"`);
-    expect(html).toContain("Claim the launch offer");
+    expect(html).toContain("Start free");
+    expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}`);
+    expect(html).toContain(`$${PRICING.monthlyUsd}`);
+    expect(html).toContain(`up to ${FREE_TIER.publishedPosts} posts`);
+  });
+
+  it("keeps FAQ pricing copy in sync with config", () => {
+    const html = renderToStaticMarkup(createElement(FaqAccordion));
+    expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}/month`);
+    expect(html).toContain(`up to ${FREE_TIER.publishedPosts} published posts`);
   });
 
   it("wires login and docs through static CtaFooter", () => {

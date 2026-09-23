@@ -1,31 +1,29 @@
-'use client'
-
 import {
   ACCENTS,
   DEFAULT_PRESET_ID,
   FONTS,
   PRESET_IDS,
   resolvePresentation,
-  STARTER_LOOKS,
   THEME_MODES,
   THEME_PRESETS,
   type AccentId,
   type FontId,
   type PresetId,
   type ResolvedPresentation,
-  type StarterLookId,
   type ThemeMode,
 } from '@vc/config'
-import { useEffect, useRef, useState } from 'react'
-import { renderRichContent, type RenderResult } from '@vc/content'
-import { PresentedPostArticle } from '@vc/content/presented-post'
-import { PublicPageChrome } from '@vc/content/public-chrome'
+import { readingTimeMinutes, renderRichContent, type CodeHighlighter, type RenderResult } from '@vc/content'
+import { PresentedPostArticle, articleHasToc } from '@vc/content/presented-post'
+import { PublicPageChrome, type SubscribeSettings } from '@vc/content/public-chrome'
+import { PublicPostList, type PublicPostListItem } from '@vc/content/public-post-list'
+import { cn } from '@vc/ui'
+import { Check, ExternalLink, Monitor, Moon, Smartphone, Sun } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
-import { PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
+import { PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
-import { FieldLegend, FieldSet, cn } from '@vc/ui'
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { useCodeHighlighter } from '~/components/dashboard/editor/PreviewPane'
 import {
   getPostVersionFn,
   loadPostEditorPage,
@@ -34,116 +32,104 @@ import {
   updateSiteSettingsMutation,
 } from '~/lib/api-client'
 
-// ---------------------------------------------------------------------------
-// Canonical markdown sample - exercises the full renderer vocabulary.
-// Used only as a preview fallback when no published post exists yet.
-// Computed once at module load; safe because renderRichContent is synchronous.
-// ---------------------------------------------------------------------------
-const CANONICAL_SAMPLE_MD = `# Shipping calm software
-
-Your agents draft, you approve, and the public blog reflects only what you
-explicitly publish. This preview is one article that shows every block the
-renderer supports.
-
-Every meaningful change creates a version. You can roll back any post from
-the activity log with a single restore, and the audit trail stays readable.
-
-Whether the actor was **you**, a token, or an **agent**, the trail reads the
-same. Learn more in the [format guide](https://example.com).
-
-> [!NOTE]
-> Versions are immutable. Restoring creates a new tip; it never rewrites
-> history.
-
-> A quote pulls out a line worth remembering, *styled per preset.*
+// A sample article that exercises the renderer vocabulary. Shown until the
+// blog has a published post of its own.
+const SAMPLE_TITLE = 'Shipping calm software'
+const SAMPLE_MD = `Your agents draft, you approve, and the public blog shows only what you publish. This sample shows every block the theme styles.[^1]
 
 ## A calm publishing loop
 
-vibecms keeps agent drafts separate from the public page until you say publish.
-The result is a loop with one owner of record:
+Every change becomes a version. Publishing pins the live page to the exact version you approved, so later edits stay private until you publish again.
 
-1. Draft and preview with \`posts.preview\`
-2. Save as a draft and record the version
-3. Approve publishing in a later message
+:::tip[Try it]
+Change the **accent** or the **font** on the left and watch links, callouts, and code update here.
+:::
 
-## Applied in practice
+### What it looks like in code
 
-Agents prepare drafts and previews, but publishing waits for your explicit
-go-ahead. Requests funnel through \`posts.versionTip\` and return a clean
-version cursor:
-
-\`\`\`ts
-export async function publishPost(id: string) {
-  const tip = await db.posts.versionTip(id)
-  return db.posts.publish(id, { expectedVersionNumber: tip })
+\`\`\`ts title="publish.ts" {2}
+export async function publish(id: string) {
+  const tip = await cms.posts.get(id)
+  return cms.posts.publish(id, { expectedVersionNumber: tip.versionNumber })
 }
 \`\`\`
 
-> [!TIP]
-> Change the **accent** above and watch the links, callouts, and code cursor
-> update here.
+> Good tools make the safe path the easy path.
 
 ## Readable everywhere
 
-![A calm blog layout](https://picsum.photos/seed/vc/800/400)
-*Caption: the same post, your chosen style.*
+| Style | Voice | Best for |
+| --- | --- | --- |
+| Minimal | Neutral | Everyday writing |
+| Editorial | Literary | Essays |
+| Technical | Precise | Docs and tutorials |
+| Product | Confident | Launches |
 
-| Preset | Density | Best for |
-| ------ | ------- | -------- |
-| Minimal | Airy | General writing |
-| Editorial | Comfortable | Narrative |
+> [!NOTE]
+> Readers can switch between light and dark when your default mode is System.
+
+## Wrapping up
+
+- One owner of record
+- A version for every change
+- A theme that looks like *your* brand
+
+[^1]: Footnotes, tables, callouts, and code all follow your theme.
 `
-const SAMPLE_TITLE = 'Shipping calm software'
-const SAMPLE_RENDER = renderRichContent(CANONICAL_SAMPLE_MD, { pageTitle: SAMPLE_TITLE })
 
-type ThemePreviewArticle = {
-  renderResult: RenderResult
+type PreviewArticle = {
+  markdown: string
   title: string
   excerpt: string
-  dateText: string
+  publishedAt: number
   tags: string[]
-  presentation: ResolvedPresentation
+  presentation: ResolvedPresentation | null
   source: 'sample' | 'published'
 }
 
-const SAMPLE_PREVIEW_ARTICLE: ThemePreviewArticle = {
-  renderResult: SAMPLE_RENDER,
+const SAMPLE_ARTICLE: PreviewArticle = {
+  markdown: SAMPLE_MD,
   title: SAMPLE_TITLE,
-  excerpt: 'A complete article preview for judging typography, rhythm, media, callouts, code, and tables.',
-  dateText: 'Preview article',
+  excerpt: 'A sample article for judging typography, rhythm, callouts, code, and tables.',
+  publishedAt: Math.floor(Date.UTC(2026, 8, 12) / 1000),
   tags: ['workflow', 'publishing'],
-  presentation: resolvePresentation(DEFAULT_PRESET_ID, null).resolved,
+  presentation: null,
   source: 'sample',
 }
 
-function isAccentId(value: string): value is AccentId {
+const SAMPLE_INDEX: PublicPostListItem[] = [
+  { id: 's1', title: SAMPLE_TITLE, href: '#', excerpt: SAMPLE_ARTICLE.excerpt, publishedAt: SAMPLE_ARTICLE.publishedAt, tags: ['workflow'] },
+  { id: 's2', title: 'Versions are the product', href: '#', excerpt: 'Every save is a snapshot you can diff and restore.', publishedAt: SAMPLE_ARTICLE.publishedAt - 9 * 86400, tags: ['versions'] },
+  { id: 's3', title: 'Markdown, all the way down', href: '#', excerpt: 'Callouts, footnotes, highlighted code, and a feed that reads cleanly everywhere.', publishedAt: SAMPLE_ARTICLE.publishedAt - 20 * 86400 },
+]
+
+function isAccentId(value: string | null | undefined): value is AccentId {
   return ACCENTS.some((accent) => accent.id === value)
 }
 
-function isFontId(value: string): value is FontId {
+function isFontId(value: string | null | undefined): value is FontId {
   return FONTS.some((font) => font.id === value)
 }
 
-function isThemeMode(value: string): value is ThemeMode {
+function isThemeMode(value: string | null | undefined): value is ThemeMode {
   return THEME_MODES.some((mode) => mode === value)
+}
+
+function isPresetId(value: string): value is PresetId {
+  return PRESET_IDS.some((id) => id === value)
 }
 
 type ThemeSiteBaseline = {
   name: string
   description: string
   slug: string
-  defaultSeoTitle: string
-  defaultSeoDescription: string
   theme: PresetId
   themeAccent: AccentId
   themeFont: FontId
   themeMode: ThemeMode
   updatedAt: number
   publicBaseUrl: string | null
-}
-
-function isPresetId(value: string): value is PresetId {
-  return PRESET_IDS.some((id) => id === value)
+  newsletter: SubscribeSettings | null
 }
 
 function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSettingsPage>>): ThemeSiteBaseline {
@@ -152,35 +138,90 @@ function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSetting
     name: site.name,
     description: site.description ?? '',
     slug: site.slug,
-    defaultSeoTitle: site.defaultSeoTitle,
-    defaultSeoDescription: site.defaultSeoDescription ?? '',
     theme: isPresetId(site.theme) ? site.theme : DEFAULT_PRESET_ID,
     themeAccent: isAccentId(site.themeAccent) ? site.themeAccent : 'teal',
     themeFont: isFontId(site.themeFont) ? site.themeFont : 'geist-sans',
     themeMode: isThemeMode(site.themeMode) ? site.themeMode : 'system',
     updatedAt: site.updatedAt,
     publicBaseUrl: loaded.publicBaseUrl ?? null,
+    newsletter: (site as { newsletterSettings?: SubscribeSettings | null }).newsletterSettings ?? null,
   }
+}
+
+const MODE_LABEL: Record<ThemeMode, string> = { light: 'Light', dark: 'Dark', system: 'System' }
+
+function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <div className="mb-2.5 flex items-baseline justify-between gap-3">
+      <h2 className="text-sm font-medium text-foreground">{children}</h2>
+      {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
+    </div>
+  )
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T
+  options: { value: T; label: React.ReactNode; title?: string }[]
+  onChange: (value: T) => void
+  label: string
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-lg border border-border p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          title={option.title}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+            value === option.value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function renderArticle(article: PreviewArticle, highlighter: CodeHighlighter | null): RenderResult {
+  return renderRichContent(article.markdown, { pageTitle: article.title, highlighter })
 }
 
 export function ThemePage() {
   const [site, setSite] = useState<ThemeSiteBaseline | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [justSaved, setJustSaved] = useState(false)
   const [selectedTheme, setSelectedTheme] = useState<PresetId>(DEFAULT_PRESET_ID)
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
   const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
   const selectedRef = useRef({ theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode })
   selectedRef.current = { theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode }
-  // Live preview content: the latest published post when one exists,
-  // otherwise the canonical sample. Rendered fresh against the selected
-  // theme so the preview is always the real blog, not a mock.
-  const [previewArticle, setPreviewArticle] = useState<ThemePreviewArticle>(SAMPLE_PREVIEW_ARTICLE)
+
+  const [article, setArticle] = useState<PreviewArticle>(SAMPLE_ARTICLE)
+  const [indexPosts, setIndexPosts] = useState<PublicPostListItem[] | null>(null)
+  const [previewPage, setPreviewPage] = useState<'article' | 'home'>('article')
+  const [previewWidth, setPreviewWidth] = useState<'desktop' | 'phone'>('desktop')
+  const [previewScheme, setPreviewScheme] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+  )
+  const highlighter = useCodeHighlighter()
 
   useEffect(() => {
     let cancelled = false
+    setLoadError(null)
     void loadSettingsPage()
       .then((loaded) => {
         if (cancelled) return
@@ -190,55 +231,57 @@ export function ThemePage() {
         setSelectedAccent(baseline.themeAccent)
         setSelectedFont(baseline.themeFont)
         setSelectedMode(baseline.themeMode)
+        if (baseline.themeMode !== 'system') setPreviewScheme(baseline.themeMode)
       })
       .catch(() => {
-        if (!cancelled) setLoadError('Could not load theme.')
+        if (!cancelled) setLoadError('We couldn’t load your theme settings.')
       })
-    // Pull the most recent published post for the live preview.
+    // Preview with the blog's own posts when it has any.
     void loadPostsPage({ status: 'published' })
       .then((list) => {
-        if (cancelled || list.posts.length === 0) return
+        if (cancelled || list.posts.length === 0) return null
+        setIndexPosts(
+          list.posts.slice(0, 8).map((post) => ({
+            id: post.id,
+            title: post.title,
+            href: '#',
+            excerpt: post.excerpt,
+            publishedAt: post.publishedAt,
+            tags: post.tags,
+          })),
+        )
         return loadPostEditorPage({ postId: list.posts[0]?.id })
       })
       .then(async (page) => {
-        const publishedVersionNumber = page?.post?.publishedVersionNumber
-        if (cancelled || !page?.post || publishedVersionNumber == null) return null
-        const publishedVersion = await getPostVersionFn({
-          postId: page.post.id,
-          versionNumber: publishedVersionNumber,
+        const versionNumber = page?.post?.publishedVersionNumber
+        if (cancelled || !page?.post || versionNumber == null) return
+        const version = await getPostVersionFn({ postId: page.post.id, versionNumber })
+        if (cancelled || !version?.contentMarkdown) return
+        setArticle({
+          markdown: version.contentMarkdown,
+          title: version.title,
+          excerpt: version.excerpt ?? '',
+          publishedAt: page.post.publishedAt ?? SAMPLE_ARTICLE.publishedAt,
+          tags: version.tags,
+          presentation: resolvePresentation(page.presetId, version.presentation).resolved,
+          source: 'published',
         })
-        return { page, post: page.post, publishedVersion }
-      })
-      .then((published) => {
-        if (cancelled || !published?.publishedVersion) return
-        const { page, post, publishedVersion } = published
-        if (publishedVersion.contentMarkdown) {
-          setPreviewArticle({
-            renderResult: renderRichContent(publishedVersion.contentMarkdown, { pageTitle: publishedVersion.title }),
-            title: publishedVersion.title,
-            excerpt: publishedVersion.excerpt ?? 'Published article preview',
-            dateText: post.publishedAt
-              ? new Date(post.publishedAt * 1000).toLocaleDateString()
-              : 'Published article',
-            tags: publishedVersion.tags,
-            presentation: resolvePresentation(page.presetId, publishedVersion.presentation).resolved,
-            source: 'published',
-          })
-        }
       })
       .catch(() => {
-        // Keep the sample preview; the preview is a nice-to-have, not a blocker.
+        // The sample stays; the preview is never a blocker.
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
+
+  const renderResult = useMemo(() => renderArticle(article, highlighter), [article, highlighter])
 
   if (loadError) {
     return (
       <>
-        <PageHeader title="Theme" description="Typography, color, and reading experience for your public blog." />
-        <LoadError message={loadError} />
+        <PageHeader title="Theme" />
+        <LoadError message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
       </>
     )
   }
@@ -246,7 +289,7 @@ export function ThemePage() {
   if (!site) {
     return (
       <>
-        <PageHeader title="Theme" description="Typography, color, and reading experience for your public blog." />
+        <PageHeader title="Theme" />
         <PageSkeleton />
       </>
     )
@@ -257,6 +300,15 @@ export function ThemePage() {
     selectedAccent !== site.themeAccent ||
     selectedFont !== site.themeFont ||
     selectedMode !== site.themeMode
+
+  function discard() {
+    if (!site) return
+    setSelectedTheme(site.theme)
+    setSelectedAccent(site.themeAccent)
+    setSelectedFont(site.themeFont)
+    setSelectedMode(site.themeMode)
+    setSaveError(null)
+  }
 
   async function handleThemeSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -278,245 +330,293 @@ export function ThemePage() {
         const refreshed = themeBaselineFromSettings(await loadSettingsPage())
         setSite(refreshed)
         if (
-          selectedRef.current.theme === submitted.theme
-          && selectedRef.current.accent === submitted.accent
-          && selectedRef.current.font === submitted.font
-          && selectedRef.current.mode === submitted.mode
+          selectedRef.current.theme === submitted.theme &&
+          selectedRef.current.accent === submitted.accent &&
+          selectedRef.current.font === submitted.font &&
+          selectedRef.current.mode === submitted.mode
         ) {
           setSelectedTheme(refreshed.theme)
           setSelectedAccent(refreshed.themeAccent)
           setSelectedFont(refreshed.themeFont)
           setSelectedMode(refreshed.themeMode)
         }
+        setJustSaved(true)
+        window.setTimeout(() => setJustSaved(false), 2400)
       } else if (result.code === 'settings_conflict') {
         const refreshed = themeBaselineFromSettings(await loadSettingsPage())
         setSite(refreshed)
-        setSaveError('The saved theme changed elsewhere. Your choices remain in the preview; review them against the latest settings, then save again.')
+        setSaveError('The saved theme changed elsewhere. Your choices are still in the preview. Check them, then save again.')
       } else {
-        setSaveError('Could not save your theme. Try again.')
+        setSaveError('Your theme didn’t save. Try again.')
       }
     } catch {
-      setSaveError(settingsSaved
-        ? 'Theme saved, but the editor could not refresh its version. Reload before making another change.'
-        : 'Could not save your theme. Check your connection and try again.')
+      setSaveError(
+        settingsSaved
+          ? 'Theme saved, but the page couldn’t refresh. Reload before changing anything else.'
+          : 'Your theme didn’t save. Check your connection and try again.',
+      )
     } finally {
       setSaving(false)
     }
   }
 
+  const effectiveMode = selectedMode === 'system' ? previewScheme : selectedMode
+  const previewTheme = { accent: selectedAccent, font: selectedFont, mode: effectiveMode }
+  const presentation = resolvePresentation(selectedTheme, article.presentation).resolved
+
   return (
     <>
       <UnsavedNavigationGuard when={themeDirty} />
-      <PageHeader title="Theme" description="Typography, color, and reading experience for your public blog." />
-      <Panel title="Reading experience">
-        <p className="mb-6 max-w-3xl font-sans text-base leading-7 text-muted-foreground">
-          Set the typography and color system on the left. The right side is the same article shell readers receive, including the masthead, title, metadata, body, and table of contents.
-        </p>
-        <form
-          className="grid gap-6 xl:grid-cols-[minmax(19rem,24rem)_minmax(0,1fr)] xl:items-start"
-          onSubmit={(e) => void handleThemeSave(e)}
-        >
-          <div className="grid gap-5 rounded-xl bg-muted/30 p-4 sm:p-5">
-            <FieldSet>
-              <FieldLegend variant="label">Style</FieldLegend>
-              <div className="grid grid-cols-2 gap-2">
-                {PRESET_IDS.map((id) => {
-                  const preset = THEME_PRESETS[id]
-                  const isCurrent = selectedTheme === id
-                  const isLive = site.theme === id
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      aria-pressed={isCurrent}
-                      onClick={() => {
-                        setSelectedTheme(id)
-                        const look = id === 'minimal' ? undefined : STARTER_LOOKS[id as StarterLookId]
-                        if (look) {
-                          setSelectedAccent(look.accent)
-                          if ('font' in look && look.font) setSelectedFont(look.font)
-                        }
-                      }}
-                      className={cn(
-                        'flex min-h-16 min-w-0 flex-col gap-1 rounded-lg bg-background/25 p-3 text-left ring-1 ring-border/50 transition-colors hover:bg-background/65',
-                        isCurrent &&
-                          'bg-brand-bright/[0.045] ring-1 ring-brand-bright/50',
-                      )}
-                    >
-                      <span className="flex items-center gap-1.5 font-display text-[13px] font-medium text-foreground">
+      <PageHeader
+        title="Theme"
+        description="How your public blog looks to readers."
+        action={
+          site.publicBaseUrl ? (
+            <Button asChild variant="outline" size="sm">
+              <a href={site.publicBaseUrl} target="_blank" rel="noopener noreferrer">
+                View blog <ExternalLink aria-hidden data-icon="inline-end" />
+              </a>
+            </Button>
+          ) : null
+        }
+      />
+      <form
+        className="mt-6 grid gap-8 xl:grid-cols-[18.5rem_minmax(0,1fr)] xl:items-start"
+        onSubmit={(e) => void handleThemeSave(e)}
+      >
+        <div className="flex flex-col gap-7 xl:sticky xl:top-6">
+          <section>
+            <SectionLabel>Style</SectionLabel>
+            <div className="grid gap-1.5">
+              {PRESET_IDS.map((id) => {
+                const preset = THEME_PRESETS[id]
+                const isCurrent = selectedTheme === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={isCurrent}
+                    onClick={() => setSelectedTheme(id)}
+                    className={cn(
+                      'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                      isCurrent ? 'border-foreground/25 bg-muted/60' : 'border-transparent hover:bg-muted/40',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                         {preset.name}
-                        {isLive && (
-                          <StatusBadge status="live" className="text-[0.6rem]" />
-                        )}
+                        {site.theme === id ? <span className="text-xs font-normal text-muted-foreground">Live</span> : null}
                       </span>
-                      <span className="font-sans text-xs leading-4 text-muted-foreground">
-                        {preset.designIntent}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </FieldSet>
+                      <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{preset.designIntent}</span>
+                    </span>
+                    {isCurrent ? <Check className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-            <FieldSet>
-              <FieldLegend variant="label">Accent</FieldLegend>
-              <div className="grid grid-cols-2 gap-2">
-                {ACCENTS.map((accent) => {
-                  const isCurrent = selectedAccent === accent.id
-                  return (
-                    <button
-                      key={accent.id}
-                      type="button"
-                      aria-pressed={isCurrent}
-                      onClick={() => setSelectedAccent(accent.id)}
-                      className={cn(
-                        'flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-left font-sans text-xs text-muted-foreground transition-colors',
-                        'hover:bg-background/65 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        isCurrent && 'bg-background text-foreground ring-1 ring-brand-bright/50',
-                      )}
-                      aria-label={`Accent ${accent.name}`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="size-6 shrink-0 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
-                        style={{ backgroundColor: accent.oklchLight }}
-                      />
-                      <span>{accent.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </FieldSet>
+          <section>
+            <SectionLabel hint={ACCENTS.find((a) => a.id === selectedAccent)?.name}>Accent</SectionLabel>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Accent color">
+              {ACCENTS.map((accent) => {
+                const isCurrent = selectedAccent === accent.id
+                return (
+                  <button
+                    key={accent.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isCurrent}
+                    aria-label={accent.name}
+                    title={accent.name}
+                    onClick={() => setSelectedAccent(accent.id)}
+                    className={cn(
+                      'grid size-8 place-items-center rounded-full ring-offset-2 ring-offset-background transition focus-visible:outline-2 focus-visible:outline-ring',
+                      isCurrent ? 'ring-2 ring-foreground/70' : 'hover:ring-2 hover:ring-border',
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="size-6 rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/10"
+                      style={{
+                        backgroundColor:
+                          effectiveMode === 'dark' ? accent.oklchDark : accent.oklchLight,
+                      }}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-            <FieldSet>
-              <FieldLegend variant="label">Type</FieldLegend>
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={selectedFont}
-                onValueChange={(value) => { if (value) setSelectedFont(value as FontId) }}
-                aria-label="Font type"
-                className="w-full flex-wrap justify-start"
-              >
-                {FONTS.map((font) => (
-                  <ToggleGroupItem
+          <section>
+            <SectionLabel>Font</SectionLabel>
+            <div className="grid gap-1.5" role="radiogroup" aria-label="Font">
+              {FONTS.map((font) => {
+                const isCurrent = selectedFont === font.id
+                return (
+                  <button
                     key={font.id}
-                    value={font.id}
-                    className="min-h-11 px-2.5 data-[state=on]:border-brand-bright/40 data-[state=on]:bg-brand-bright/10 data-[state=on]:text-primary"
+                    type="button"
+                    role="radio"
+                    aria-checked={isCurrent}
+                    onClick={() => setSelectedFont(font.id)}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                      isCurrent ? 'border-foreground/25 bg-muted/60' : 'border-transparent hover:bg-muted/40',
+                    )}
                   >
-                    {font.name}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </FieldSet>
+                    <span
+                      aria-hidden="true"
+                      className="w-8 text-lg leading-none text-foreground"
+                      style={{ fontFamily: font.headingStack }}
+                    >
+                      Aa
+                    </span>
+                    <span className="flex-1 text-sm text-foreground">{font.name}</span>
+                    {isCurrent ? <Check className="size-4 shrink-0 text-foreground" aria-hidden /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-            <FieldSet>
-              <FieldLegend variant="label">Default mode</FieldLegend>
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={selectedMode}
-                onValueChange={(value) => { if (value) setSelectedMode(value as ThemeMode) }}
-                aria-label="Default color mode"
-                className="w-full flex-wrap justify-start"
-              >
-                {THEME_MODES.map((mode) => (
-                  <ToggleGroupItem
-                    key={mode}
-                    value={mode}
-                    className="min-h-11 px-2.5 capitalize data-[state=on]:border-brand-bright/40 data-[state=on]:bg-brand-bright/10 data-[state=on]:text-primary"
-                  >
-                    {mode}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <p className="mt-1 font-sans text-xs leading-5 text-muted-foreground">
-                What visitors see. System follows this device&apos;s current light or dark setting.
-              </p>
-            </FieldSet>
+          <section>
+            <SectionLabel>Color mode</SectionLabel>
+            <Segmented
+              label="Default color mode"
+              value={selectedMode}
+              onChange={(mode) => {
+                setSelectedMode(mode)
+                if (mode !== 'system') setPreviewScheme(mode)
+              }}
+              options={THEME_MODES.map((mode) => ({ value: mode, label: MODE_LABEL[mode] }))}
+            />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {selectedMode === 'system'
+                ? 'Follows each reader’s device setting.'
+                : `Every reader sees ${selectedMode} mode.`}
+            </p>
+          </section>
 
-            {themeDirty && (
-              <p className="font-sans text-xs text-amber-600 dark:text-amber-400">
-                Changes not yet saved.
-              </p>
-            )}
+          <div className="flex flex-col gap-2 border-t border-[color:var(--hairline)] pt-5">
             {saveError ? (
-              <p className="font-sans text-xs text-destructive" role="alert">{saveError}</p>
+              <p className="text-sm text-destructive" role="alert">
+                {saveError}
+              </p>
             ) : null}
-
-            <div className="flex flex-wrap items-center gap-3">
-              <PendingSubmitButton
-                className="min-h-11 w-fit"
-                pending={saving}
-                pendingText="Saving…"
-                disabled={!themeDirty}
-              >
+            <div className="flex items-center gap-2">
+              <PendingSubmitButton pending={saving} pendingText="Saving…" disabled={!themeDirty}>
                 {themeDirty ? 'Save changes' : 'Saved'}
               </PendingSubmitButton>
-              <Button asChild variant="outline" className="min-h-11 xl:hidden">
-                <a href="#theme-preview">Preview below</a>
-              </Button>
-            </div>
-          </div>
-
-          <div id="theme-preview" className="min-w-0 scroll-mt-20 xl:sticky xl:top-20 xl:self-start">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-sans text-sm font-semibold text-foreground">Article preview</p>
-                <p className="mt-0.5 font-sans text-xs text-muted-foreground">
-                  {previewArticle.source === 'published' ? 'Latest published post' : 'Complete sample article'}
-                </p>
-              </div>
-              {site.publicBaseUrl ? (
-                <Button asChild variant="outline" size="sm" className="min-h-11">
-                  <a href={site.publicBaseUrl} target="_blank" rel="noopener noreferrer">
-                    View live blog
-                  </a>
+              {themeDirty ? (
+                <Button type="button" variant="ghost" onClick={discard} disabled={saving}>
+                  Discard
                 </Button>
               ) : null}
             </div>
-            <div className="overflow-hidden rounded-xl border border-border bg-background">
-              <div className="border-b border-[color:var(--hairline)] bg-muted/45 px-4 py-2 font-mono text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
-                {site.publicBaseUrl?.replace('https://', '') ?? `${site.slug}.your-domain.com`}/{previewArticle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
-              </div>
-              <div
-                className="h-[44rem] max-h-[72dvh] overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                role="region"
-                aria-label="Scrollable article theme preview"
-                tabIndex={0}
-              >
-                <div inert>
-                  <PublicPageChrome
-                    siteName={site.name}
-                    tagline={site.description}
-                    homeHref="#"
-                    allPostsHref="#"
-                    presetId={selectedTheme}
-                    theme={{ accent: selectedAccent, font: selectedFont, mode: selectedMode }}
-                    article
-                  >
-                    <PresentedPostArticle
-                      renderResult={previewArticle.renderResult}
-                      presetId={selectedTheme}
-                      presentation={resolvePresentation(selectedTheme, previewArticle.presentation).resolved}
-                      title={previewArticle.title}
-                      excerpt={previewArticle.excerpt}
-                      byline={site.name}
-                      dateText={previewArticle.dateText}
-                      readingMinutes={4}
-                      tags={previewArticle.tags}
-                      basePath=""
-                      theme={{ accent: selectedAccent, font: selectedFont, mode: selectedMode }}
-                    />
-                  </PublicPageChrome>
-                </div>
-              </div>
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              {themeDirty ? 'Unsaved changes. Readers still see your current theme.' : justSaved ? 'Your blog is updated.' : ''}
+            </p>
+          </div>
+        </div>
+
+        <div className="min-w-0 xl:sticky xl:top-6">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+            <Segmented
+              label="Preview page"
+              value={previewPage}
+              onChange={setPreviewPage}
+              options={[
+                { value: 'article', label: 'Post' },
+                { value: 'home', label: 'Home' },
+              ]}
+            />
+            <div className="flex items-center gap-2">
+              <Segmented
+                label="Preview width"
+                value={previewWidth}
+                onChange={setPreviewWidth}
+                options={[
+                  { value: 'desktop', label: <Monitor className="size-3.5" aria-hidden />, title: 'Desktop' },
+                  { value: 'phone', label: <Smartphone className="size-3.5" aria-hidden />, title: 'Phone' },
+                ]}
+              />
+              {selectedMode === 'system' ? (
+                <Segmented
+                  label="Preview color scheme"
+                  value={previewScheme}
+                  onChange={setPreviewScheme}
+                  options={[
+                    { value: 'light', label: <Sun className="size-3.5" aria-hidden />, title: 'Light' },
+                    { value: 'dark', label: <Moon className="size-3.5" aria-hidden />, title: 'Dark' },
+                  ]}
+                />
+              ) : null}
             </div>
           </div>
-        </form>
-      </Panel>
+          <div
+            className="h-[calc(100dvh-12rem)] min-h-[32rem] overflow-y-auto rounded-xl border border-border bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring"
+            role="region"
+            aria-label="Theme preview"
+            tabIndex={0}
+          >
+            <div
+              className="mx-auto transition-[max-width] duration-200 motion-reduce:transition-none"
+              style={{ maxWidth: previewWidth === 'phone' ? 390 : '100%' }}
+              inert
+            >
+              {previewPage === 'home' ? (
+                <PublicPageChrome
+                  siteName={site.name}
+                  tagline={site.description || null}
+                  homeHref="#"
+                  homeHeading
+                  presetId={selectedTheme}
+                  theme={previewTheme}
+                  embedded
+                  searchAction="#"
+                  feedHref="#"
+                  subscribeVariant="footer"
+                  subscribeSettings={site.newsletter}
+                >
+                  <PublicPostList posts={indexPosts ?? SAMPLE_INDEX} />
+                </PublicPageChrome>
+              ) : (
+                <PublicPageChrome
+                  siteName={site.name}
+                  homeHref="#"
+                  allPostsHref="#"
+                  presetId={selectedTheme}
+                  theme={previewTheme}
+                  article
+                  embedded
+                  wide={articleHasToc(presentation, renderResult.outline)}
+                  feedHref="#"
+                  subscribeVariant="end"
+                  subscribeSettings={site.newsletter}
+                >
+                  <PresentedPostArticle
+                    renderResult={renderResult}
+                    presetId={selectedTheme}
+                    presentation={presentation}
+                    title={article.title}
+                    excerpt={article.excerpt || undefined}
+                    publishedAt={article.publishedAt}
+                    readingMinutes={readingTimeMinutes(article.markdown)}
+                    tags={article.tags}
+                    basePath=""
+                    theme={previewTheme}
+                  />
+                </PublicPageChrome>
+              )}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {article.source === 'published' ? 'Showing your latest published post.' : 'Showing a sample post until you publish one.'}
+          </p>
+        </div>
+      </form>
     </>
   )
 }

@@ -1,73 +1,76 @@
-/* Article prose typography — merge class onto RichContentFrame root via className. */
+/* Article prose typography — merged onto the RichContentFrame root. */
 
 .prose {
   min-width: 0;
-  max-width: var(--vc-prose-measure);
   font-family: var(--vc-font-body);
+  font-size: var(--vc-prose-size);
+  line-height: var(--vc-prose-leading);
   color: var(--vc-fg);
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose :is(h2, h3, h4, h5, h6) {
+  font-family: var(--vc-font-heading);
+  font-weight: var(--vc-heading-weight);
+  letter-spacing: var(--vc-heading-tracking);
+  color: var(--vc-fg);
+  text-wrap: balance;
 }
 
 .prose h2 {
-  margin-top: calc(var(--vc-section-gap) * 0.9);
-  margin-bottom: 14px;
-  font-family: var(--vc-font-heading);
-  font-size: calc(28px * var(--vc-heading-scale));
-  letter-spacing: -0.02em;
-  font-weight: 700;
-  line-height: 1.05;
+  margin: var(--vc-section-gap) 0 0.75rem;
+  font-size: calc(1.5rem * var(--vc-heading-scale));
+  line-height: 1.25;
 }
 
 .prose h3 {
-  margin-top: 28px;
-  margin-bottom: 8px;
-  font-family: var(--vc-font-heading);
-  font-size: calc(20px * var(--vc-heading-scale));
-  font-weight: 600;
+  margin: calc(var(--vc-section-gap) * 0.7) 0 0.5rem;
+  font-size: calc(1.2rem * var(--vc-heading-scale));
+  line-height: 1.35;
 }
 
 .prose h4 {
-  margin-top: 24px;
-  margin-bottom: 8px;
-  font-family: var(--vc-font-heading);
-  font-size: calc(17px * var(--vc-heading-scale));
-  font-weight: 600;
-  line-height: 1.3;
+  margin: 1.75rem 0 0.4rem;
+  font-size: calc(1.05rem * var(--vc-heading-scale));
+  line-height: 1.4;
 }
 
-.prose h5 {
-  margin-top: 20px;
-  margin-bottom: 6px;
-  font-family: var(--vc-font-heading);
-  font-size: calc(15px * var(--vc-heading-scale));
-  font-weight: 600;
-  line-height: 1.3;
+.prose h5,
+.prose h6 {
+  margin: 1.5rem 0 0.35rem;
+  font-size: 1rem;
+  line-height: 1.4;
 }
 
 .prose h6 {
-  margin-top: 18px;
-  margin-bottom: 6px;
-  font-family: var(--vc-font-heading);
-  font-size: calc(13.5px * var(--vc-heading-scale));
-  font-weight: 600;
-  line-height: 1.3;
   color: var(--vc-muted-fg);
 }
 
 .prose p {
-  max-width: var(--vc-prose-measure);
-  font-size: clamp(1rem, 1vw + 0.75rem, 1.125rem);
-  line-height: var(--vc-prose-leading);
   margin: 0 0 var(--vc-prose-gap);
   text-wrap: pretty;
 }
 
+/* Components carry their own inner rhythm (these beat the layered component
+   styles in vc-rich-content.css, which is why they live here). */
+.prose :global(.vc-callout) p {
+  margin-bottom: 0.6em;
+}
+
+.prose :is(:global(.vc-callout), details, blockquote, li, figure) > :last-child {
+  margin-bottom: 0;
+}
+
 .prose ul,
 .prose ol {
-  padding-left: 1.5rem;
-  margin: 1rem 0 1.25rem;
-  font-size: clamp(1rem, 1vw + 0.75rem, 1.06rem);
-  line-height: var(--vc-prose-leading);
-  max-width: var(--vc-prose-measure);
+  margin: 0 0 var(--vc-prose-gap);
+  padding-left: 1.4rem;
 }
 
 .prose ul {
@@ -79,13 +82,20 @@
 }
 
 .prose li {
-  margin-bottom: 0.4rem;
-  line-height: var(--vc-prose-leading);
+  margin: 0 0 0.35em;
+  padding-left: 0.2rem;
 }
 
-.prose li > ul,
-.prose li > ol {
-  margin: 0.25rem 0;
+.prose li::marker {
+  color: var(--vc-muted-fg);
+}
+
+.prose li > p {
+  margin-bottom: 0.35em;
+}
+
+.prose li > :is(ul, ol) {
+  margin: 0.35em 0 0;
 }
 
 .prose :global(.contains-task-list) {
@@ -95,13 +105,14 @@
 
 .prose :global(.task-list-item) {
   list-style: none;
+  padding-left: 0;
 }
 
 .prose :global(.task-list-item) input[type="checkbox"] {
-  width: 1em;
-  height: 1em;
-  margin: 0 0.5em 0 0;
-  vertical-align: -0.16em;
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0 0.55em 0 0;
+  vertical-align: -0.12em;
   accent-color: var(--vc-accent);
   cursor: default;
 }
@@ -110,53 +121,59 @@
   margin: 0.25rem 0 0.25rem 1.5rem;
 }
 
-.prose p,
-.prose li,
-.prose blockquote {
+.prose :is(p, li, blockquote) {
   overflow-wrap: break-word;
 }
 
 .prose a {
   color: var(--vc-link);
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklch, var(--vc-link) 40%, transparent);
   text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: color 150ms ease, text-decoration-color 150ms ease;
 }
 
 .prose a:hover {
   color: var(--vc-link-hover);
+  text-decoration-color: currentColor;
+}
+
+.prose a:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.prose :is(h2, h3, h4) a:not(:global(.vc-heading-anchor)) {
+  color: inherit;
 }
 
 .prose blockquote {
   margin: var(--vc-prose-gap) 0;
-  padding: 0.35rem 0 0.35rem 1.25rem;
+  padding: 0.1rem 0 0.1rem 1.15rem;
   color: var(--vc-quote-fg);
-  border-left: 2px solid var(--vc-border);
-  font-size: clamp(1.06rem, 0.8vw + 0.9rem, 1.2rem);
-  line-height: calc(var(--vc-prose-leading) * 0.94);
+  border-left: 2px solid var(--vc-quote-border);
 }
 
-.prose blockquote p {
-  color: inherit;
-  font-size: inherit;
+.prose blockquote > :last-child {
+  margin-bottom: 0;
 }
 
-/* Editorial identity: the blockquote becomes a pull quote — heading-font
-   italic, foreground ink, no border rail. Matches editorial's high blockquote
-   emphasis in THEME_PRESETS. */
+/* Editorial identity: blockquotes become pull quotes in the heading voice. */
 .prose[data-vc-theme="editorial"] blockquote {
-  margin: calc(var(--vc-prose-gap) * 1.25) 0;
-  padding: 0.25rem 0;
+  margin: calc(var(--vc-prose-gap) * 1.4) 0;
+  padding: 0 0 0 1.25rem;
   color: var(--vc-fg);
   font-family: var(--vc-font-heading);
-  font-size: 1.15em;
+  font-size: 1.2em;
   font-style: italic;
-  line-height: 1.6;
-  border-left: none;
+  line-height: 1.5;
 }
 
 .prose strong {
-  font-weight: 700;
+  font-weight: 650;
+  color: var(--vc-fg);
 }
 
 .prose em {
@@ -165,38 +182,35 @@
 
 .prose del {
   text-decoration: line-through;
+  color: var(--vc-muted-fg);
 }
 
 .prose hr {
   border: none;
-  text-align: center;
-  margin: var(--vc-section-gap) 0;
-}
-
-.prose hr::after {
-  content: "\00b7\00a0\00b7\00a0\00b7";
-  color: var(--vc-muted-fg);
-  opacity: 0.5;
-  letter-spacing: 0.1em;
-  font-size: 1rem;
+  height: 1px;
+  margin: var(--vc-section-gap) auto;
+  background: var(--vc-hairline);
 }
 
 .prose img {
+  display: block;
   max-width: 100%;
   height: auto;
+  margin: calc(var(--vc-prose-gap) * 1.2) 0;
   border-radius: var(--vc-radius);
-  margin: 1.5rem 0;
 }
 
-@media (max-width: 640px) {
-  .prose h2 {
-    font-size: calc(22px * var(--vc-heading-scale));
+.prose p > img:only-child {
+  margin: 0;
+}
+
+@container vc-page (max-width: 640px) {
+  .prose {
+    font-size: max(1rem, calc(var(--vc-prose-size) - 0.0625rem));
   }
 
-  .prose p,
-  .prose ul,
-  .prose ol {
-    font-size: 18px;
+  .prose h2 {
+    font-size: calc(1.35rem * var(--vc-heading-scale));
   }
 }
 

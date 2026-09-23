@@ -1,883 +1,346 @@
-'use client'
-
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
 import type { Scope } from '@vc/core'
+import { CopyButton, Field, FieldLabel, Input, cn } from '@vc/ui'
+import { KeyRound, Plus, Trash2 } from 'lucide-react'
+import { Button, LoadError, formatDate, formatRelative } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, PageHeader, PageSkeleton, Section } from '~/components/dashboard/blocks'
 import {
-  Alert,
-  Badge,
-  CopyButton,
-  Field,
-  FieldDescription,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-  Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@vc/ui'
-import { Check, Link2, Plus, Trash2 } from 'lucide-react'
-import { Button, LoadError, formatDate } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
-import type { ApiKeyListItem } from '~/types/dashboard'
-import { ConnectAgent } from '~/components/dashboard/ConnectAgent'
+  AgentSetup,
+  CodeBlock,
+  FirstPostPrompt,
+  SKILLS_INSTALL_COMMAND,
+  clientFromPreference,
+  type AgentClient,
+} from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import {
-  checkoutBillingMutation,
-  createApiKeyMutation,
-  loadConnectPage,
-  loadOnboardingStatus,
-  revokeApiKeyMutation,
-} from '~/lib/api-client'
-import type { ConnectPageData, OnboardingConnectStatus } from '~/types/dashboard'
-import {
-  dashboardStatusSearch,
-  emptyDashboardStatusSearch,
-  emptyPostEditorSearch,
-} from '~/lib/dashboard-search'
-import {
-  clearActivationKeyId,
-  clearTokenFlash,
-  consumeTokenFlash,
-  getActivationKeyId,
-  saveTokenFlash,
-} from '~/lib/token-flash'
-import { isOnboardingActivationComplete, connectOnboardingStep } from '~/lib/connect-onboarding'
-import { OnboardingStepper } from '~/components/dashboard/OnboardingFrame'
-import { resolveDisplayConnection, shouldClearMissingActivationKey } from './connect-display'
+import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
+import { useToast } from '~/components/Toaster'
+import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
+import { createApiKeyMutation, revokeApiKeyMutation } from '~/lib/api-client'
+import { clearTokenFlash, consumeTokenFlash, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
+import { connectQuery, queryKeys } from '~/lib/queries'
+import type { ApiKeyListItem } from '~/types/dashboard'
 
-const MONTHS_FREE = Math.round(12 - PRICING.annualUsd / PRICING.monthlyUsd)
+export type KeyAccess = 'draft' | 'publish' | 'full'
 
-type SelfTestSub = 'waiting' | 'stalled' | 'recovery' | 'connected' | 'revoked'
-
-type TokenPreset = {
-  id: 'draft' | 'publish' | 'full'
-  label: string
-  description: string
-  recommended?: boolean
-}
-
-const TOKEN_PRESETS: TokenPreset[] = [
-  { id: 'draft', label: 'Drafter', description: 'Create and edit drafts and upload media. Cannot publish, archive, or delete media.', recommended: true },
-  { id: 'publish', label: 'Publisher', description: 'Everything in Drafter, plus publish posts live. Cannot archive or delete media.' },
-  { id: 'full', label: 'Full publisher', description: 'Everything in Publisher, plus archive posts and delete unused media.' },
+export const KEY_ACCESS: Array<{ id: KeyAccess; label: string; description: string }> = [
+  { id: 'publish', label: 'Write and publish', description: 'Drafts, edits, image uploads, and publishing after you approve.' },
+  { id: 'draft', label: 'Write drafts', description: 'Drafts, edits, and image uploads. You publish.' },
+  { id: 'full', label: 'Full access', description: 'Everything above, plus archiving posts and deleting unused images.' },
 ]
 
-function capabilityLabel(scopes: Scope[]): string {
-  if (scopes.includes('posts:archive') || scopes.includes('assets:delete')) return 'Full publisher'
-  if (scopes.includes('posts:publish')) return 'Publisher'
-  return 'Drafter'
+export function accessLabel(scopes: string[]): string {
+  const set = new Set(scopes as Scope[])
+  if (set.has('posts:archive') || set.has('assets:delete')) return 'Full access'
+  if (set.has('posts:publish')) return 'Write and publish'
+  return 'Write drafts'
 }
-function isScope(value: string): value is Scope {
+
+export function lastUsedLabel(lastUsedAt: number | null) {
+  return lastUsedAt ? `Last used ${formatRelative(lastUsedAt)}` : 'Never used'
+}
+
+/** The one-time key reveal. Shown right after creation, then gone for good. */
+export function KeyReveal({ flash, onDone }: { flash: TokenFlash; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.focus()
+  }, [])
   return (
-    value === 'sites:read' ||
-    value === 'posts:read' ||
-    value === 'posts:create' ||
-    value === 'posts:update' ||
-    value === 'posts:publish' ||
-    value === 'posts:archive' ||
-    value === 'assets:write' ||
-    value === 'assets:delete' ||
-    value === 'activity:read'
-  )
-}
-
-function getSub(connection: OnboardingConnectStatus['connection'], elapsedMs: number): SelfTestSub | null {
-  if (connection === 'revoked') return 'revoked'
-  if (connection === 'connected') return 'connected'
-  if (connection === 'waiting') {
-    if (elapsedMs > 60_000) return 'recovery'
-    if (elapsedMs > 20_000) return 'stalled'
-    return 'waiting'
-  }
-  return null
-}
-
-function announcementFor(sub: SelfTestSub | null): string {
-  if (sub === 'revoked') return "This token can't be used anymore. Generate a new token to connect an agent."
-  if (sub === 'connected') return 'Connected. vibecms saw your agent authenticate.'
-  if (sub === 'recovery') return 'Not detected yet. Check your configuration or create a new token.'
-  if (sub === 'stalled') return "Still waiting. Some MCP clients don't call tools until you ask."
-  if (sub === 'waiting') return 'Waiting for your agent to connect...'
-  return ''
-}
-
-function UpgradeCtas({
-  checkoutPending,
-  onCheckout,
-}: {
-  checkoutPending: 'monthly' | 'yearly' | null
-  onCheckout: (interval: 'monthly' | 'yearly') => void
-}) {
-  return (
-    <div className="grid gap-4">
-      <p className="font-sans text-sm leading-6 text-muted-foreground">
-        Upgrade to make the blog indexable, publish more posts, and upload media.
-      </p>
-
-      <p className="border-b border-[color:var(--hairline)] pb-3 font-sans text-sm leading-5 text-primary">
-        {LAUNCH_OFFER.monthlyLabel}
-        {' or '}
-        {LAUNCH_OFFER.annualLabel}
-        {' instead of '}
-        <span className="line-through decoration-foreground/40">
-          {PRICING.monthlyLabel} · {PRICING.annualLabel}
-        </span>
-        {' — early access rate, locked while you stay subscribed.'}
-      </p>
-
-      <ul className="grid gap-2.5 border-b border-[color:var(--hairline)] pb-4 text-sm">
-        {(['Indexable public blog', 'More publishes'] as const).map((item) => (
-          <li key={item} className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-2.5 last:border-b-0 last:pb-0">
-            <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-            <span className="font-sans text-foreground">{item}</span>
-          </li>
-        ))}
-        <li className="flex items-start gap-2.5">
-          <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-          <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media</span>
-        </li>
-      </ul>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <PendingSubmitButton
-          type="button"
-          className="h-11 w-full rounded-xl"
-          pending={checkoutPending === 'monthly'}
-          pendingText="Starting checkout..."
-          onClick={() => onCheckout('monthly')}
-        >
-          {`Make it discoverable - ${PRICING.monthlyLabel}`}
-        </PendingSubmitButton>
-        <div className="grid gap-1">
-          <PendingSubmitButton
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-xl"
-            pending={checkoutPending === 'yearly'}
-            pendingText="Starting checkout..."
-            onClick={() => onCheckout('yearly')}
-          >
-            {`Save with annual - ${PRICING.annualLabel}`}
-          </PendingSubmitButton>
-          {MONTHS_FREE >= 1 && (
-            <p className="text-center font-sans text-xs text-muted-foreground">
-              {MONTHS_FREE} {MONTHS_FREE === 1 ? 'month' : 'months'} free
-            </p>
-          )}
+    <div
+      ref={ref}
+      tabIndex={-1}
+      role="region"
+      aria-label="Your new key"
+      className="grid gap-3 rounded-xl border border-brand-bright/40 p-5 outline-none"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="font-display text-[1.0625rem] font-semibold tracking-[-0.015em] text-foreground">
+            Your key for “{flash.name}”
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Copy it now. For your security, it won’t be shown again. It’s already filled in below.
+          </p>
         </div>
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+          Done
+        </Button>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <code
+          aria-label="One-time key"
+          className="min-w-0 flex-1 break-all rounded-lg bg-muted/60 px-3 py-2.5 font-mono text-sm text-foreground"
+        >
+          {flash.token}
+        </code>
+        <CopyButton value={flash.token} label="Copy key" copiedLabel="Copied" className="h-10" />
       </div>
     </div>
   )
 }
-function scopeTooltip(label: string): string {
-  if (label === 'Publisher') {
-    return 'Everything Drafter allows, plus publishing posts live.'
-  }
-  if (label === 'Full publisher') {
-    return 'Everything Publisher allows, plus archiving posts and deleting unused media.'
-  }
-  return 'Can create and edit drafts and upload media, but cannot delete media.'
-}
 
-function TokenRow({
-  apiKey,
-  pending,
-  onDelete,
-}: {
-  apiKey: ApiKeyListItem
-  pending: boolean
-  onDelete: (keyId: string) => Promise<void>
-}) {
-  const label = capabilityLabel(apiKey.scopes.filter(isScope))
+function KeyRow({ apiKey, onDelete }: { apiKey: ApiKeyListItem; onDelete: (id: string) => Promise<void> }) {
   return (
-    <TableRow>
-      <TableCell>
+    <li className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--hairline)] py-4 last:border-b-0">
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span aria-hidden className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground">
+          <KeyRound className="size-4" />
+        </span>
         <div className="min-w-0">
-          <strong className="font-display text-sm font-semibold text-foreground">{apiKey.name}</strong>
-          <p className="mt-0.5 font-mono text-xs text-muted-foreground" title="Non-secret token identifier">
-            ID · {apiKey.tokenPrefix}
+          <p className="flex flex-wrap items-baseline gap-x-2 text-[0.9375rem]">
+            <span className="font-medium text-foreground">{apiKey.name}</span>
+            <span className="text-sm text-muted-foreground">{accessLabel(apiKey.scopes)}</span>
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            <span className={cn(apiKey.lastUsedAt ? 'text-foreground/80' : undefined)}>{lastUsedLabel(apiKey.lastUsedAt)}</span>
+            <span aria-hidden className="px-1.5 text-muted-foreground/50">·</span>
+            Created {formatDate(apiKey.createdAt)}
+            <span aria-hidden className="px-1.5 text-muted-foreground/50">·</span>
+            <span className="font-mono text-[0.8125rem]">{apiKey.tokenPrefix}…</span>
           </p>
         </div>
-      </TableCell>
-      <TableCell>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="secondary" tabIndex={0} className="cursor-help">
-              {label}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="top">{scopeTooltip(label)}</TooltipContent>
-        </Tooltip>
-      </TableCell>
-      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-        {formatDate(apiKey.createdAt)}
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center justify-end gap-2">
-          <SpaConfirmButton
-            size="sm"
-            confirmLabel="Confirm revoke"
-            pendingLabel="Revoking..."
-            helperText="Revoking blocks this token immediately. It stays in activity and audit history."
-            disabled={pending}
-            onConfirm={() => onDelete(apiKey.id)}
-          >
-            <Trash2 aria-hidden data-icon="inline-start" /> Revoke token
-          </SpaConfirmButton>
-        </div>
-      </TableCell>
-    </TableRow>
+      </div>
+      <SpaConfirmButton
+        size="sm"
+        variant="ghost"
+        confirmLabel="Delete key"
+        pendingLabel="Deleting…"
+        helperText="Any agent using this key stops working right away."
+        onConfirm={() => onDelete(apiKey.id)}
+        aria-label={`Delete ${apiKey.name}`}
+        className="text-muted-foreground hover:text-destructive"
+      >
+        <Trash2 aria-hidden data-icon="inline-start" /> Delete
+      </SpaConfirmButton>
+    </li>
+  )
+}
+
+export function NewKeyForm({
+  pending,
+  onCreate,
+  onCancel,
+  defaultName = 'My agent',
+}: {
+  pending: boolean
+  onCreate: (input: { name: string; preset: KeyAccess }) => void
+  onCancel?: () => void
+  defaultName?: string
+}) {
+  const [name, setName] = useState(defaultName)
+  const [preset, setPreset] = useState<KeyAccess>('publish')
+  return (
+    <form
+      className="grid gap-5 rounded-xl border border-border p-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onCreate({ name: name.trim() || defaultName, preset })
+      }}
+    >
+      <Field className="max-w-sm">
+        <FieldLabel htmlFor="key-name">Name</FieldLabel>
+        <Input id="key-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
+        <p className="text-sm text-muted-foreground">Shown in Activity next to what this agent changes.</p>
+      </Field>
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-sm font-medium text-foreground">What it can do</legend>
+        <RadioGroup value={preset} onValueChange={(value) => setPreset(value as KeyAccess)} className="grid gap-2 sm:grid-cols-3">
+          {KEY_ACCESS.map((option) => (
+            <label
+              key={option.id}
+              htmlFor={`key-access-${option.id}`}
+              className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-brand-bright/50"
+            >
+              <RadioGroupItem id={`key-access-${option.id}`} value={option.id} className="mt-1" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-foreground">{option.label}</span>
+                <span className="mt-0.5 block text-sm leading-5 text-muted-foreground">{option.description}</span>
+              </span>
+            </label>
+          ))}
+        </RadioGroup>
+      </fieldset>
+      <div className="flex flex-wrap gap-2">
+        <PendingSubmitButton pending={pending} pendingText="Creating…">
+          Create key
+        </PendingSubmitButton>
+        {onCancel ? (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+    </form>
   )
 }
 
 export function ConnectPage() {
   const navigate = useNavigate()
-
-  const [connectData, setConnectData] = useState<ConnectPageData | null>(null)
-  const [status, setStatus] = useState<OnboardingConnectStatus | null>(null)
-  const [flash, setFlashState] = useState<{ token: string; name: string; id?: string } | null>(null)
-  // Mirror flash in a ref so the once-mounted poll closure observes the latest reveal
-  // without restarting the poll loop when the one-time token flash appears or is dismissed.
-  const flashRef = useRef(flash)
-  const setFlash = (value: { token: string; name: string; id?: string } | null) => {
-    flashRef.current = value
-    setFlashState(value)
-  }
+  const search = useSearch({ strict: false }) as { client?: string }
+  const client = search.client
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const query = useQuery(connectQuery)
+  const [flash, setFlash] = useState<TokenFlash | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
   const [createPending, setCreatePending] = useState(false)
-  const [revokePending, setRevokePending] = useState<string | null>(null)
-  const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
-  // null = no explicit choice yet; the effective tab falls back to the state-derived default.
-  const [activeTab, setActiveTab] = useState<string | null>(null)
-  const [showCompletedSetup, setShowCompletedSetup] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
-  const [connectLoadFailed, setConnectLoadFailed] = useState(false)
-  const [statusLoadFailed, setStatusLoadFailed] = useState(false)
-  const tokenRevealRef = useRef<HTMLDivElement>(null)
-  const activeTokenCountRef = useRef<number | null>(null)
-  const mcpUrl = connectData?.mcpUrl ?? status?.mcpUrl ?? ''
 
-  const waitingStartedAtRef = useRef<number | null>(null)
-  const lastSubRef = useRef<string>('')
-  const stickyConnectedRef = useRef(false)
-  const selectedKeyMissCountRef = useRef(0)
-
-  async function refreshTokens() {
-    try {
-      const data = await loadConnectPage()
-      activeTokenCountRef.current = data.apiKeys.length
-      setConnectData(data)
-      setConnectLoadFailed(false)
-    } catch {
-      // Keep stale list; the status toast surfaces the failure.
-      setConnectLoadFailed(true)
+  useEffect(() => {
+    // Reload fallback: keep the one-time key on screen until the user dismisses it.
+    const restored = consumeTokenFlash()
+    if (restored) {
+      setFlash(restored)
+      saveTokenFlash(restored)
     }
+  }, [])
+
+  const data = query.data
+  const activeClient: AgentClient =
+    client === 'claude_code' || client === 'codex' || client === 'cursor' || client === 'other'
+      ? client
+      : clientFromPreference(data?.personalization.agentPreference)
+
+  function setClient(next: AgentClient) {
+    void navigate({ to: '/dashboard/connect', search: { ok: undefined, error: undefined, client: next }, replace: true })
   }
 
-  // Mount: restore a one-time reveal from sessionStorage (reload fallback) and load the token list.
-  useEffect(() => {
-    setFlash(consumeTokenFlash())
-    void refreshTokens()
-  }, [])
-
-  // A selected activation key is only useful while that token still exists or
-  // while its one-time reveal is fresh. Once the authoritative token list is
-  // empty, discard historical revocation context instead of carrying an error
-  // card into the normal "create a token" state.
-  useEffect(() => {
-    if (
-      connectData &&
-      connectData.apiKeys.length === 0 &&
-      flash === null &&
-      status?.connection === 'revoked'
-    ) {
-      clearActivationKeyId()
-    }
-  }, [connectData, flash, status?.connection])
-
-  // Creation is a security-sensitive moment. Bring the one-time reveal into view and
-  // move focus to its labeled region without stealing focus during ordinary status polls.
-  useEffect(() => {
-    if (flash && mcpUrl) {
-      tokenRevealRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      tokenRevealRef.current?.focus()
-    }
-  }, [flash, mcpUrl])
-
-  // Poll the connection/first-post status. Monotonic + terminal-sticky: once connected,
-  // the display never regresses to waiting; polling stops after an agent-authored post is live.
-  useEffect(() => {
-    let cancelled = false
-    let timerId: number | undefined
-
-    async function poll() {
-      if (cancelled) return
-      try {
-        const storedKeyId = getActivationKeyId()
-        const s = await loadOnboardingStatus({
-          keyId: storedKeyId ?? undefined,
-        })
-        if (cancelled) return
-        setStatusLoadFailed(false)
-
-        // A fresh reveal bridges short D1 propagation lag, but cannot pin a
-        // missing exact key forever. After four consecutive misses, clear the
-        // stale selection so the next poll can fall back to the site's latest key.
-        if (storedKeyId && s.key === null) {
-          selectedKeyMissCountRef.current += 1
-          const freshFlashMatches = flashRef.current?.id === storedKeyId
-          if (shouldClearMissingActivationKey(freshFlashMatches, selectedKeyMissCountRef.current)) {
-            clearActivationKeyId()
-            selectedKeyMissCountRef.current = 0
-          }
-        } else {
-          selectedKeyMissCountRef.current = 0
-        }
-
-        if (s.connection === 'connected') stickyConnectedRef.current = true
-
-        if (s.connection === 'waiting') {
-          if (waitingStartedAtRef.current === null) waitingStartedAtRef.current = Date.now()
-        } else {
-          waitingStartedAtRef.current = null
-        }
-
-        const displayConn = resolveDisplayConnection(
-          s.connection,
-          flashRef.current !== null,
-          stickyConnectedRef.current,
-          activeTokenCountRef.current,
-          storedKeyId === s.key?.id && s.connection === 'revoked',
-        )
-        const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
-        const sub = getSub(displayConn, elapsedMs)
-
-        // Once activation is complete (live), connection announcements are stale.
-        const live = isOnboardingActivationComplete(s.firstPost)
-        const subKey = live
-          ? '__live__'
-          : `${displayConn}|${s.firstPost.state}|${sub ?? ''}`
-        if (subKey !== lastSubRef.current) {
-          lastSubRef.current = subKey
-          if (live) {
-            setAnnouncement('')
-          } else {
-            const msg = announcementFor(sub)
-            if (msg) setAnnouncement(msg)
-          }
-        }
-
-        setStatus(s)
-
-        if (!live) {
-          const interval = stickyConnectedRef.current ? 5_000 : 3_000
-          timerId = window.setTimeout(poll, interval)
-        }
-      } catch {
-        if (!cancelled) {
-          setStatusLoadFailed(true)
-          timerId = window.setTimeout(poll, 5_000)
-        }
-      }
-    }
-
-    void poll()
-    return () => {
-      cancelled = true
-      window.clearTimeout(timerId)
-    }
-  }, [])
-
-  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const rawPreset = String(form.get('preset') ?? 'draft')
-    const preset: 'draft' | 'publish' | 'full' =
-      rawPreset === 'full' || rawPreset === 'publish' ? rawPreset : 'draft'
+  async function createKey(input: { name: string; preset: KeyAccess }) {
     setCreatePending(true)
-    stickyConnectedRef.current = false
     try {
-      const result = await createApiKeyMutation({
-        name: String(form.get('name') ?? 'My agent'),
-        actorName: String(form.get('actorName') ?? 'My agent'),
-        preset,
-      })
+      const result = await createApiKeyMutation({ name: input.name, actorName: input.name, preset: input.preset })
       if (result.kind === 'ok') {
-        saveTokenFlash({ token: result.token, name: result.name, id: result.id })
-        setFlash({ token: result.token, name: result.name, id: result.id })
-        // The token exists locally right now. Start the waiting clock immediately and
-        // announce waiting so users hear a useful state before the first poll lands.
-        waitingStartedAtRef.current = Date.now()
-        setAnnouncement(announcementFor('waiting'))
-        await refreshTokens()
-        await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ ok: 'token_created' }) })
+        const next = { token: result.token, name: result.name, id: result.id }
+        saveTokenFlash(next)
+        setFlash(next)
+        setFormOpen(false)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.connect })
         return
       }
-      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: result.code }) })
+      const status = resolveFormStatus({ error: result.code })
+      if (status) toast(status)
     } catch {
-      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'unknown' }) })
+      toast({ variant: 'error', title: 'Key not created', message: 'Check your connection and try again.' })
     } finally {
       setCreatePending(false)
     }
   }
 
-  async function handleDelete(keyId: string) {
-    setRevokePending(keyId)
-    stickyConnectedRef.current = false
+  async function deleteKey(keyId: string) {
     try {
       const result = await revokeApiKeyMutation({ keyId })
-      await refreshTokens()
-      await navigate({
-        to: '/dashboard/connect',
-        search: dashboardStatusSearch(result.kind === 'ok' ? { ok: result.code } : { error: result.code }),
-      })
-    } catch {
-      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'unknown' }) })
-    } finally {
-      setRevokePending(null)
-    }
-  }
-
-  async function startCheckout(interval: 'monthly' | 'yearly') {
-    setCheckoutPending(interval)
-    try {
-      const result = await checkoutBillingMutation({ interval })
-      if (result.kind === 'ok') {
-        window.location.assign(result.url)
+      if (result.kind !== 'ok') {
+        toast({ variant: 'error', title: 'Key not deleted', message: 'Try again in a moment.' })
         return
       }
-      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      if (flash?.id === keyId) dismissFlash()
+      queryClient.setQueryData(queryKeys.connect, (prev: typeof data) =>
+        prev ? { ...prev, apiKeys: prev.apiKeys.filter((key) => key.id !== keyId) } : prev,
+      )
+      toast({ variant: 'success', title: 'Key deleted', message: 'Agents using it can no longer reach your blog.' })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connect })
     } catch {
-      await navigate({ to: '/dashboard/connect', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
-    } finally {
-      setCheckoutPending(null)
+      toast({ variant: 'error', title: 'Key not deleted', message: 'Check your connection and try again.' })
     }
   }
 
-  const live = isOnboardingActivationComplete(status?.firstPost)
-  const draft = status?.firstPost.state === 'draft' ? status.firstPost : null
-  const livePost = status?.firstPost.state === 'live' ? status.firstPost.post : null
-  const liveActorName = status?.firstPost.state === 'live' ? status.firstPost.actorName : null
-  const apiKeys = connectData?.apiKeys ?? []
-  const defaultTab = live && apiKeys.length > 0 ? 'tokens' : 'setup'
-  const effectiveTab = activeTab ?? defaultTab
-  const selectedKeyId = getActivationKeyId()
-  const displayConn = resolveDisplayConnection(
-    status?.connection,
-    flash !== null,
-    stickyConnectedRef.current,
-    apiKeys.length,
-    selectedKeyId === status?.key?.id && status?.connection === 'revoked',
+  function dismissFlash() {
+    clearTokenFlash()
+    setFlash(null)
+  }
+
+  const header = (
+    <PageHeader
+      title="Connect an agent"
+      description="Give an AI agent its own key so it can write on this blog. You approve before anything goes live."
+    />
   )
 
-  const elapsedMs = waitingStartedAtRef.current ? Date.now() - waitingStartedAtRef.current : 0
-  const selfTestSub = getSub(displayConn, elapsedMs)
-  const showSelfTest =
-    !live &&
-    status !== null &&
-    (displayConn === 'revoked' ||
-      (!draft && displayConn === 'waiting'))
+  if (query.isError && !data) {
+    return (
+      <>
+        {header}
+        <LoadError message="Your keys didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
+      </>
+    )
+  }
+  if (!data) {
+    return (
+      <>
+        {header}
+        <PageSkeleton variant="list" withHeader={false} />
+      </>
+    )
+  }
 
-  const canManage = connectData?.canManage ?? status?.canManage ?? false
-  const managed = connectData?.managed ?? null
-  const effectiveEntitlement = connectData?.effectiveEntitlement ?? null
-  const loading = !connectData && !status
-  const showInitialError = loading && connectLoadFailed && statusLoadFailed
-
-  const pageTitle = live
-    ? 'Your first post is live'
-    : draft
-      ? 'Agent draft ready for review'
-      : displayConn === 'connected'
-        ? 'Agent connected'
-        : flash !== null
-          ? 'Token created'
-          : 'Connect your agent'
-  const pageDesc = live
-    ? 'Your approved version is live. Open the article, copy its URL, or continue to your dashboard.'
-    : draft
-      ? 'Your agent saved a draft. Review it, then approve publishing when you are ready.'
-      : displayConn === 'connected'
-        ? 'Your agent authenticated. Ask it to prepare a draft, then approve publishing when you are ready.'
-        : flash !== null
-          ? 'Copy the token and config below now. It is shown only once.'
-          : 'Create one scoped token, connect any compatible MCP agent, and verify the connection here.'
+  const keys = data.apiKeys
 
   return (
-    <TooltipProvider>
-      <noscript>
-        <p className="rounded-xl bg-muted p-4 font-sans text-sm text-muted-foreground">
-          vibecms needs JavaScript to manage tokens and detect your agent. Enable JavaScript and refresh this page.
-        </p>
-      </noscript>
+    <>
+      {header}
 
-      <div role="status" aria-live="polite" className="sr-only">
-        {live ? '' : announcement}
-      </div>
+      {flash ? <KeyReveal flash={flash} onDone={dismissFlash} /> : null}
 
-      {showInitialError ? (
-        <LoadError message="Could not load connect status. Check your connection and try again." />
-      ) : (
-        <>
-          {connectLoadFailed ? (
-            <Alert variant="error" title="API tokens could not be loaded.">
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <span>Your connection status is still available, but token management may be incomplete.</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => void refreshTokens()}>
-                  Retry tokens
-                </Button>
-              </div>
-            </Alert>
-          ) : null}
-          {statusLoadFailed ? (
-            <Alert variant="warning" title="Agent status is temporarily unavailable.">
-              Token management still works. Connection detection will retry automatically.
-            </Alert>
-          ) : null}
-          {!loading && (
-            <PageHeader
-              title={effectiveTab === 'tokens' ? 'API tokens' : pageTitle}
-              description={
-                effectiveTab === 'tokens'
-                  ? 'Create and manage scoped tokens that connect MCP agents to this blog.'
-                  : pageDesc
-              }
-              action={
-                live ? (
-                  <Button asChild>
-                    <Link to="/dashboard" search={emptyDashboardStatusSearch}>
-                      Continue to Overview
-                    </Link>
+      <Section title="Add vibecms to your agent" description="Pick your agent and copy one thing. That’s the whole setup.">
+        <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} />
+      </Section>
+
+      <Section title="Try it" description="Paste this into your agent. It will show you the draft and ask before publishing.">
+        <FirstPostPrompt />
+        <details className="group text-sm">
+          <summary className="w-fit cursor-pointer text-muted-foreground transition-colors hover:text-foreground">
+            Optional: install the vibecms writing skills
+          </summary>
+          <div className="mt-3 grid gap-2">
+            <p className="text-muted-foreground">They teach your agent this blog’s format and a careful review routine.</p>
+            <CodeBlock label="Terminal command" code={SKILLS_INSTALL_COMMAND} copyLabel="Copy command" />
+          </div>
+        </details>
+      </Section>
+
+      <Section
+        title="Keys"
+        description={data.canManage ? 'Each agent gets its own key. Delete one to cut that agent off instantly.' : undefined}
+        action={
+          data.canManage && !formOpen ? (
+            <Button type="button" variant="outline" onClick={() => setFormOpen(true)}>
+              <Plus aria-hidden data-icon="inline-start" /> New key
+            </Button>
+          ) : undefined
+        }
+      >
+        {!data.canManage ? (
+          <p className="text-sm text-muted-foreground">Only the blog owner can create and delete keys.</p>
+        ) : (
+          <>
+            {formOpen ? (
+              <NewKeyForm pending={createPending} onCreate={(input) => void createKey(input)} onCancel={() => setFormOpen(false)} />
+            ) : null}
+            {keys.length ? (
+              <ul aria-label="Agent keys" className="grid">
+                {keys.map((key) => (
+                  <KeyRow key={key.id} apiKey={key} onDelete={deleteKey} />
+                ))}
+              </ul>
+            ) : formOpen ? null : (
+              <EmptyState
+                compact
+                icon={<KeyRound />}
+                title="No keys yet."
+                description="Create one to connect your first agent."
+                action={
+                  <Button type="button" onClick={() => setFormOpen(true)}>
+                    <Plus aria-hidden data-icon="inline-start" /> New key
                   </Button>
-                ) : draft ? (
-                  <Button asChild>
-                    <Link
-                      to="/dashboard/posts/$postId/edit"
-                      params={{ postId: draft.post.id }}
-                      search={emptyPostEditorSearch}
-                    >
-                      Review v{draft.post.versionNumber}
-                    </Link>
-                  </Button>
-                ) : undefined
-              }
-            />
-          )}
-
-          {/* Keep the journey visible through publication proof so users know
-              exactly which durable milestone completed activation. */}
-          {!loading && (
-            <div className="mb-8">
-              <OnboardingStepper
-                step={connectOnboardingStep(status?.firstPost, displayConn === 'connected')}
-                complete={live}
+                }
               />
-            </div>
-          )}
-
-          {loading && <PageSkeleton variant="panels" />}
-
-          {!loading && (
-            <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList>
-                <TabsTrigger value="setup">Setup</TabsTrigger>
-                <TabsTrigger value="tokens">Tokens</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="setup" className="mt-4 space-y-4">
-                {!live && connectData?.personalization.voiceSeedPending && (
-                  <Alert variant="info" title="Voice profile recommended.">
-                    You shared writing links during earlier onboarding, but the voice profile is not configured yet. Your
-                    agent can learn from those links and propose rules for drafts — review and save them in{' '}
-                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'voice' }}>
-                      Settings → Voice profile
-                    </Link>
-                    .
-                  </Alert>
-                )}
-                {live && status && (
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-                    <Panel title="Publication proof">
-                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-                        {livePost && (
-                          <div className="grid gap-1">
-                            <p className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
-                              {livePost.title}
-                            </p>
-                            {liveActorName && (
-                              <p className="font-sans text-sm text-muted-foreground">
-                                Published by {liveActorName}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        <p className="font-sans text-base leading-7 text-muted-foreground">
-                          {livePost?.url && managed?.effective
-                            ? 'Your post is live and search-indexable while managed access is active.'
-                            : livePost?.url && effectiveEntitlement?.effective
-                              ? 'Your post is live and search-indexable with active access.'
-                            : livePost?.url && managed
-                              ? 'People with the link can still read this post. Paid hosted features return when AutoSEOPilot restores sponsorship.'
-                            : livePost?.url
-                              ? "Your first 5 published posts are free. People with the link can read it now; search engines won't index it until you upgrade."
-                            : 'The publish is recorded. The public link will appear when the default domain is active.'}
-                        </p>
-                        {livePost?.url && (
-                          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 px-3 py-2.5">
-                            <span className="min-w-0 flex-1 truncate font-mono text-base text-foreground sm:text-lg">
-                              {livePost.url}
-                            </span>
-                            <a
-                              href={livePost.url}
-                              target="_blank"
-                              rel="noopener"
-                              className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-                            >
-                              Open article
-                            </a>
-                            <CopyButton value={livePost.url} label="Copy link" copiedLabel="Copied" iconOnly />
-                          </div>
-                        )}
-                      </div>
-                    </Panel>
-
-                    {!managed ? (
-                      <Panel title="Publish more posts">
-                        <UpgradeCtas checkoutPending={checkoutPending} onCheckout={startCheckout} />
-                      </Panel>
-                    ) : null}
-                  </div>
-                )}
-
-                {flash && mcpUrl && displayConn !== 'revoked' && (
-                  <div ref={tokenRevealRef} role="region" tabIndex={-1} aria-label="Your token is ready">
-                    <Panel title="Your token is ready">
-                      <ConnectAgent
-                        mcpUrl={mcpUrl}
-                        token={flash.token}
-                        tokenName={flash.name}
-                        connected={displayConn === 'connected' && !draft}
-                        preferredAgent={connectData?.personalization.agentPreference ?? null}
-                      />
-                      <div className="mt-4 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            clearTokenFlash()
-                            setFlash(null)
-                          }}
-                        >
-                          I&apos;ve copied it - hide
-                        </Button>
-                      </div>
-                    </Panel>
-                  </div>
-                )}
-
-                {showSelfTest && selfTestSub && (
-                  <Panel title="Connection status">
-                    <div className="grid gap-3">
-                      <div
-                        className={[
-                          'flex items-start gap-3 border border-[color:var(--hairline)] p-3 font-sans text-sm leading-5',
-                          selfTestSub === 'revoked'
-                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                            : 'bg-muted/35 text-foreground',
-                        ].join(' ')}
-                      >
-                        <StatusBadge status={selfTestSub} className="shrink-0" />
-                        <span className="pt-0.5">
-                          {selfTestSub === 'waiting' && 'Waiting for your agent to connect...'}
-                          {selfTestSub === 'stalled' &&
-                            "Still waiting. Some MCP clients don't call tools until you ask. Run the read-only check below."}
-                          {selfTestSub === 'recovery' &&
-                            'Not detected yet. Check the token, the MCP URL, and the Authorization: Bearer header, or create a new token.'}
-                          {selfTestSub === 'connected' &&
-                            'Connected. vibecms saw your agent authenticate. Run the read-only check, then ask your agent to prepare a draft.'}
-                          {selfTestSub === 'revoked' &&
-                            "This token can't be used anymore. Create a new token below to connect an agent."}
-                        </span>
-                      </div>
-                    </div>
-                  </Panel>
-                )}
-
-                {draft && (
-                  <Panel title="Agent draft ready for review">
-                    <div className="grid gap-3">
-                      <p className="font-sans text-sm leading-6 text-muted-foreground">
-                        Your agent saved a draft. Review it, then approve publishing when you are ready.
-                      </p>
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2.5">
-                        <div className="min-w-0">
-                          <strong className="truncate font-display font-semibold text-foreground">
-                            <Link
-                              className="no-underline hover:underline"
-                              to="/dashboard/posts/$postId/edit"
-                              params={{ postId: draft.post.id }}
-                              search={emptyPostEditorSearch}
-                            >
-                              {draft.post.title}
-                            </Link>
-                          </strong>
-                          <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                            Version {draft.post.versionNumber} · {formatDate(draft.post.updatedAt)}
-                          </p>
-                        </div>
-                        <Button asChild size="sm">
-                          <Link
-                            to="/dashboard/posts/$postId/edit"
-                            params={{ postId: draft.post.id }}
-                            search={emptyPostEditorSearch}
-                          >
-                            Review draft
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </Panel>
-                )}
-
-                {draft && (
-                  <div className="flex justify-center py-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-expanded={showCompletedSetup}
-                      onClick={() => setShowCompletedSetup((visible) => !visible)}
-                    >
-                      {showCompletedSetup ? 'Hide agent setup' : 'Add or reconnect an agent'}
-                    </Button>
-                  </div>
-                )}
-
-                {connectData && canManage && flash === null && (!draft || showCompletedSetup) && (
-                  <Panel title="Create a token">
-                    <form className="grid gap-4" onSubmit={(e) => void handleCreate(e)}>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field>
-                          <FieldLabel htmlFor="token-name">Token name</FieldLabel>
-                          <Input id="token-name" name="name" required maxLength={80} defaultValue="My agent" />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="token-actor-name">Actor name</FieldLabel>
-                          <Input id="token-actor-name" name="actorName" required maxLength={80} defaultValue="My agent" />
-                          <FieldDescription>Shown in activity when this token changes content.</FieldDescription>
-                        </Field>
-                      </div>
-                      <FieldSet className="gap-3">
-                        <FieldLegend>Capabilities</FieldLegend>
-                        <p className="font-sans text-xs leading-5 text-muted-foreground">
-                          Start with Drafter. Grant live publishing only when this agent must publish after your explicit version approval.
-                        </p>
-                        <RadioGroup name="preset" defaultValue="draft" className="grid gap-2 sm:grid-cols-3">
-                          {TOKEN_PRESETS.map((preset) => (
-                            <label
-                              key={preset.id}
-                              htmlFor={`preset-${preset.id}`}
-                              className="flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:bg-brand-bright/[0.045] has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-brand-bright/50"
-                            >
-                              <RadioGroupItem id={`preset-${preset.id}`} value={preset.id} className="mt-0.5" />
-                              <span>
-                                <span className="flex items-center gap-1.5 font-display text-sm font-medium text-foreground">
-                                  {preset.label}
-                                  {preset.recommended && (
-                                    <span className="font-mono text-[0.6rem] text-primary">default</span>
-                                  )}
-                                </span>
-                                <span className="mt-1 block font-sans text-xs leading-5 text-muted-foreground">
-                                  {preset.description}
-                                </span>
-                              </span>
-                            </label>
-                          ))}
-                        </RadioGroup>
-                      </FieldSet>
-                      <PendingSubmitButton className="w-fit" pending={createPending} pendingText="Creating...">
-                        <Plus aria-hidden data-icon="inline-start" /> Create token
-                      </PendingSubmitButton>
-                    </form>
-                  </Panel>
-                )}
-
-                {!flash && connectData && mcpUrl && !live && apiKeys.length > 0 && !showInitialError && (!draft || showCompletedSetup) && (
-                  <Panel title="Connect an agent" meta="MCP over HTTPS">
-                    <p className="mb-4 font-sans text-sm leading-6 text-muted-foreground">
-                      Use a token you saved previously. Token secrets are shown only once; create a new token to
-                      connect another agent.
-                    </p>
-                    <ConnectAgent
-                      mcpUrl={mcpUrl}
-                      connected={displayConn === 'connected' && !draft}
-                      preferredAgent={connectData.personalization.agentPreference}
-                    />
-                  </Panel>
-                )}
-              </TabsContent>
-
-              <TabsContent value="tokens" className="mt-4 space-y-4">
-                {connectData && (
-                  <Panel
-                    title="API tokens"
-                    meta={canManage ? `${apiKeys.length} active` : 'Owner access required'}
-                  >
-                    {canManage ? (
-                      apiKeys.length ? (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Scopes</TableHead>
-                              <TableHead>Created</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {apiKeys.map((key) => (
-                              <TokenRow
-                                key={key.id}
-                                apiKey={key}
-                                pending={revokePending === key.id}
-                                onDelete={handleDelete}
-                              />
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <EmptyState
-                          icon={<Link2 />}
-                          title="No agent connected yet"
-                          description="Create a token on the Setup tab to connect an AI agent to this blog over MCP."
-                          action={
-                            <Button type="button" variant="outline" size="sm" onClick={() => setActiveTab('setup')}>
-                              Go to Setup
-                            </Button>
-                          }
-                        />
-                      )
-                    ) : (
-                      <p className="font-sans text-sm text-muted-foreground">
-                        Only the workspace owner can create and delete agent tokens.
-                      </p>
-                    )}
-                  </Panel>
-                )}
-              </TabsContent>
-            </Tabs>
-          )}
-        </>
-      )}
-    </TooltipProvider>
+            )}
+          </>
+        )}
+      </Section>
+    </>
   )
 }

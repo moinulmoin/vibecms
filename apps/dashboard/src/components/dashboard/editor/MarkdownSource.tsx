@@ -1,11 +1,9 @@
-'use client'
-
 import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import { Annotation, EditorState, Transaction } from '@codemirror/state'
+import { Annotation, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state'
 import { tags } from '@lezer/highlight'
 import {
   EditorView,
@@ -20,6 +18,7 @@ import {
   rectangularSelection,
 } from '@codemirror/view'
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react'
+import { altFromFileName } from './image-alt'
 
 export type SlashCommand = {
   id: string
@@ -168,7 +167,66 @@ const sourceHighlightStyle = HighlightStyle.define([
   { tag: tags.invalid, color: 'var(--destructive)' },
 ])
 
-function editorExtensions(onChange: (value: string) => void, onSelection: (view: EditorView) => void, onKeyDown: (event: KeyboardEvent, view: EditorView) => boolean) {
+/** Wrap (or unwrap) every selection range with a Markdown marker, e.g. ** or _. */
+export function toggleInlineMarker(view: EditorView, marker: string) {
+  const { state } = view
+  const size = marker.length
+  view.dispatch(state.changeByRange((range) => {
+    const before = state.sliceDoc(range.from - size, range.from)
+    const after = state.sliceDoc(range.to, range.to + size)
+    if (before === marker && after === marker) {
+      return {
+        changes: [{ from: range.from - size, to: range.from }, { from: range.to, to: range.to + size }],
+        range: EditorSelection.range(range.from - size, range.to - size),
+      }
+    }
+    const text = state.sliceDoc(range.from, range.to)
+    if (text.length > size * 2 && text.startsWith(marker) && text.endsWith(marker)) {
+      return {
+        changes: { from: range.from, to: range.to, insert: text.slice(size, -size) },
+        range: EditorSelection.range(range.from, range.to - size * 2),
+      }
+    }
+    return {
+      changes: [{ from: range.from, insert: marker }, { from: range.to, insert: marker }],
+      range: EditorSelection.range(range.from + size, range.to + size),
+    }
+  }), { userEvent: 'input.format' })
+  return true
+}
+
+/** Turn the selection into a Markdown link and select the URL placeholder. */
+export function insertMarkdownLink(view: EditorView) {
+  const { state } = view
+  view.dispatch(state.changeByRange((range) => {
+    const text = state.sliceDoc(range.from, range.to)
+    const isUrl = /^https?:\/\/\S+$/.test(text)
+    const label = isUrl ? 'link' : text || 'link'
+    const url = isUrl ? text : 'https://'
+    const insert = `[${label}](${url})`
+    const urlStart = range.from + label.length + 3
+    return {
+      changes: { from: range.from, to: range.to, insert },
+      range: isUrl || !text
+        ? EditorSelection.range(range.from + 1, range.from + 1 + label.length)
+        : EditorSelection.range(urlStart, urlStart + url.length),
+    }
+  }), { userEvent: 'input.format' })
+  return true
+}
+
+const formattingKeymap = keymap.of([
+  { key: 'Mod-b', run: (view) => toggleInlineMarker(view, '**') },
+  { key: 'Mod-i', run: (view) => toggleInlineMarker(view, '_') },
+  { key: 'Mod-k', run: insertMarkdownLink },
+])
+
+function editorExtensions(
+  onChange: (value: string) => void,
+  onSelection: (view: EditorView) => void,
+  onKeyDown: (event: KeyboardEvent, view: EditorView) => boolean,
+  onFiles: (files: File[], view: EditorView, position: number | null) => boolean,
+) {
   return [
     lineNumbers(),
     highlightActiveLineGutter(),
@@ -185,6 +243,9 @@ function editorExtensions(onChange: (value: string) => void, onSelection: (view:
     indentOnInput(),
     markdown({ base: markdownLanguage, addKeymap: false }),
     syntaxHighlighting(sourceHighlightStyle),
+    // Slash-menu navigation must win over Enter/arrow bindings below.
+    Prec.highest(EditorView.domEventHandlers({ keydown: onKeyDown })),
+    formattingKeymap,
     keymap.of([
       ...closeBracketsKeymap,
       ...markdownKeymap,
@@ -194,7 +255,7 @@ function editorExtensions(onChange: (value: string) => void, onSelection: (view:
       ...completionKeymap,
     ]),
     EditorView.lineWrapping,
-    placeholder('Write Markdown… type / on a new line for blocks.'),
+    placeholder('Write in Markdown. Type / on a new line for blocks, paste or drop images.'),
     EditorView.contentAttributes.of({
       'aria-label': 'Post Markdown source',
       spellcheck: 'true',
@@ -204,7 +265,20 @@ function editorExtensions(onChange: (value: string) => void, onSelection: (view:
       if (!transaction.docChanged || transaction.annotation(externalSync)) return transaction
       return transaction.newDoc.length <= MAX_MARKDOWN_LENGTH ? transaction : []
     }),
-    EditorView.domEventHandlers({ keydown: onKeyDown }),
+    EditorView.domEventHandlers({
+      paste: (event, view) => {
+        const files = [...(event.clipboardData?.files ?? [])].filter((file) => file.type.startsWith('image/'))
+        if (files.length === 0) return false
+        event.preventDefault()
+        return onFiles(files, view, null)
+      },
+      drop: (event, view) => {
+        const files = [...(event.dataTransfer?.files ?? [])].filter((file) => file.type.startsWith('image/'))
+        if (files.length === 0) return false
+        event.preventDefault()
+        return onFiles(files, view, view.posAtCoords({ x: event.clientX, y: event.clientY }))
+      },
+    }),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         const isExternal = update.transactions.some((transaction) => transaction.annotation(externalSync) === true)
@@ -316,6 +390,10 @@ export function MarkdownSource({ value, onChange, onRequestImage, uploadFile }: 
           (nextValue) => onChangeRef.current(nextValue),
           updateSlash,
           handleEditorKeyDown,
+          (files, view, position) => {
+            void insertUploadedImages(files, view, position)
+            return true
+          },
         ),
       }),
     })
@@ -341,33 +419,48 @@ export function MarkdownSource({ value, onChange, onRequestImage, uploadFile }: 
     menuRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
   }, [slash?.index])
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0]
-    event.currentTarget.value = ''
+  async function insertUploadedImages(files: File[], view: EditorView, position: number | null, replace?: { from: number; to: number; trigger: string }) {
     const upload = uploadFileRef.current
-    const pending = pendingImageRef.current
-    pendingImageRef.current = null
-    if (!file || !upload || !pending) return
-    setUploadStatus('Uploading image…')
+    if (!upload) {
+      setUploadStatus('Image uploads are not available here.')
+      return
+    }
+    setUploadStatus(files.length > 1 ? `Uploading ${files.length} images…` : 'Uploading image…')
+    let missingAlt = false
     try {
-      const url = await upload(file)
-      const view = viewRef.current
-      if (!view) return
-      const currentTrigger = view.state.doc.sliceString(pending.from, pending.to)
-      const from = currentTrigger === pending.trigger ? pending.from : view.state.selection.main.head
-      const to = currentTrigger === pending.trigger ? pending.to : from
-      const alt = file.name.replace(/\.[^.]+$/, '').replace(/[\[\]]/g, '').trim() || 'Image'
-      const markdownImage = `![${alt}](${url})`
-      view.dispatch({
-        changes: { from, to, insert: markdownImage },
-        selection: { anchor: from + markdownImage.length },
+      const snippets: string[] = []
+      for (const file of files) {
+        const url = await upload(file)
+        const alt = altFromFileName(file.name)
+        if (!alt) missingAlt = true
+        snippets.push(`![${alt}](${url})`)
+      }
+      const current = viewRef.current ?? view
+      const docLength = current.state.doc.length
+      const triggerStillThere = replace && current.state.doc.sliceString(replace.from, replace.to) === replace.trigger
+      const from = triggerStillThere ? replace.from : Math.min(position ?? current.state.selection.main.head, docLength)
+      const to = triggerStillThere ? replace.to : from
+      const insert = snippets.join('\n\n')
+      current.dispatch({
+        changes: { from, to, insert },
+        selection: missingAlt ? { anchor: from + 2 } : { anchor: from + insert.length },
         userEvent: 'input.complete',
       })
-      view.focus()
-      setUploadStatus('Image inserted')
+      current.focus()
+      setUploadStatus(missingAlt ? 'Image added. Describe it between the brackets so readers and search engines know what it shows.' : 'Image added.')
     } catch (error) {
       setUploadStatus(error instanceof Error ? error.message : 'Image upload failed. Try again.')
     }
+  }
+
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.currentTarget.files ?? [])]
+    event.currentTarget.value = ''
+    const pending = pendingImageRef.current
+    pendingImageRef.current = null
+    const view = viewRef.current
+    if (files.length === 0 || !view) return
+    await insertUploadedImages(files, view, pending?.from ?? null, pending ?? undefined)
   }
 
   return (
@@ -377,14 +470,14 @@ export function MarkdownSource({ value, onChange, onRequestImage, uploadFile }: 
         data-testid="markdown-source-editor"
         className="min-w-0 sm:[&_.cm-editor]:min-h-[32rem] sm:[&_.cm-scroller]:min-h-[32rem]"
       />
-      <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(event) => void handleImageChange(event)} />
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="sr-only" tabIndex={-1} aria-hidden="true" data-testid="markdown-image-input" onChange={(event) => void handleImageChange(event)} />
       {uploadStatus ? <p role="status" className="mt-2 font-mono text-xs text-muted-foreground">{uploadStatus}</p> : null}
       {slash && commands.length > 0 ? (
         <div
           ref={menuRef}
           role="listbox"
           aria-label="Insert a block"
-          className="absolute inset-x-2 top-2 z-20 max-w-72 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-lg shadow-black/25"
+          className="absolute inset-x-2 top-2 z-20 max-w-72 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-[var(--shadow-menu)]"
         >
           <div className="max-h-64 overflow-y-auto">
             {commands.map((command, index) => (

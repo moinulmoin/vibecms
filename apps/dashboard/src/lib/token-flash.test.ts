@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   clearActivationKeyId,
+  clearSessionSecrets,
   clearTokenFlash,
   consumeTokenFlash,
   getActivationKeyId,
@@ -62,5 +63,14 @@ describe('token flash storage', () => {
 
     expect(consumeTokenFlash()).toBeNull()
     expect(sessionStorage.getItem('vc_token_flash')).toBeNull()
+  })
+
+  it('forgets the one-time key and activation key when the session changes', () => {
+    saveTokenFlash({ token: 'vc_previous_user', name: 'My agent', id: 'key_1' })
+
+    clearSessionSecrets()
+
+    expect(consumeTokenFlash()).toBeNull()
+    expect(getActivationKeyId()).toBeNull()
   })
 })

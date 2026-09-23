@@ -1,4 +1,4 @@
-import { and, desc, eq, like, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { subscribers } from "../schema";
 
@@ -34,10 +34,18 @@ export type SubscriberCountInput = {
   status?: "pending" | "confirmed" | "unsubscribed";
 };
 
+/** Treat `%`, `_`, and backslash in a search term as literal characters. */
+export function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 function conditionsFor(siteId: string, input: SubscriberCountInput = {}) {
   const conditions = [eq(subscribers.siteId, siteId)];
   const search = input.search?.trim().slice(0, 120);
-  if (search) conditions.push(like(subscribers.email, `%${search}%`));
+  if (search) {
+    const pattern = `%${escapeLike(search.toLowerCase())}%`;
+    conditions.push(sql`lower(${subscribers.email}) LIKE ${pattern} ESCAPE '\\'`);
+  }
   if (input.status) conditions.push(eq(subscribers.status, input.status));
   return conditions;
 }

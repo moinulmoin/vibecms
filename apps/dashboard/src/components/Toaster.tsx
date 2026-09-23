@@ -1,7 +1,5 @@
-'use client'
-
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { CheckCircledIcon, Cross2Icon, CrossCircledIcon } from '@radix-ui/react-icons'
+import { CircleAlert, CircleCheck, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { FormStatus } from '@vc/config'
 import { useFormStatusFromSearch } from '~/components/dashboard/useFormStatusFromSearch'
@@ -11,10 +9,11 @@ type ToastContextValue = { toast: (status: FormStatus) => void }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
+const noopToast: ToastContextValue = { toast: () => undefined }
+
+/** Outside the provider (isolated tests, previews) toasts are dropped rather than crashing. */
 export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx
+  return useContext(ToastContext) ?? noopToast
 }
 
 // Module-scoped counter for stable keys (Date.now/Math.random not needed; this
@@ -67,14 +66,14 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
       role={isError ? 'alert' : 'status'}
       aria-live={isError ? 'assertive' : 'polite'}
       className={[
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border p-3.5 shadow-[0_16px_40px_-16px_oklch(0_0_0/0.5)] backdrop-blur-sm',
-        isError ? 'border-destructive/30 bg-destructive/10' : 'border-brand-bright/30 bg-brand-bright/10',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-popover p-3.5 shadow-[var(--shadow-menu)]',
+        isError ? 'border-destructive/40' : 'border-border',
       ].join(' ')}
     >
       {isError ? (
-        <CrossCircledIcon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
       ) : (
-        <CheckCircledIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+        <CircleCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
       )}
       <div className="min-w-0 flex-1">
         <p className="font-display text-sm font-semibold text-foreground">{toast.title}</p>
@@ -88,7 +87,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
         aria-label="Dismiss notification"
         className="-m-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
       >
-        <Cross2Icon className="size-4" aria-hidden="true" />
+        <X className="size-4" aria-hidden="true" />
       </button>
     </div>
   )

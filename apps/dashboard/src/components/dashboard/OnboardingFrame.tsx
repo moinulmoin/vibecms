@@ -1,79 +1,43 @@
 import { BRAND } from '@vc/config'
 import type { ReactNode } from 'react'
-import { CheckIcon } from '@radix-ui/react-icons'
 
-const STEPS = ['Blog setup', 'Choose client', 'Connect agent', 'First draft', 'Review version', 'Publish proof'] as const
-
-export function OnboardingStepper({ step, complete = false }: { step: number; complete?: boolean }) {
-  return (
-    <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-xs sm:gap-5 sm:text-[13px]">
-      {STEPS.map((label, index) => {
-        const position = index + 1
-        const state = complete || position < step ? 'done' : position === step ? 'current' : 'todo'
-        return (
-          <li
-            key={label}
-            aria-current={state === 'current' ? 'step' : undefined}
-            className="flex items-center gap-2"
-          >
-            {state === 'done' ? (
-              <CheckIcon className="size-4 text-primary" aria-hidden="true" />
-            ) : (
-              <span
-                aria-hidden="true"
-                className={state === 'current' ? 'text-primary' : 'hidden text-muted-foreground md:inline'}
-              >
-                0{position}
-              </span>
-            )}
-            <span className="sr-only">
-              {state === 'done' ? `Completed, ` : state === 'current' ? `Step ${position} of ${STEPS.length}, ` : `Upcoming, `}
-              {label}
-            </span>
-            <span
-              className={
-                state === 'current'
-                  ? 'font-medium text-foreground'
-                  : 'hidden text-muted-foreground md:inline'
-              }
-            >
-              {label}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
+/** Quiet frame for the two onboarding screens. No sidebar, no stepper. */
 export function OnboardingFrame({
   children,
-  step = 1,
-  title = 'Set up a calm publishing system for you and your AI agents.',
+  step,
+  title,
+  description,
 }: {
   children: ReactNode
-  /** 1-based position in the onboarding journey; earlier steps render as done. */
-  step?: number
-  title?: string
+  step?: { current: number; total: number }
+  title: string
+  description?: ReactNode
 }) {
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
-      <header className="mb-10 flex flex-col gap-7">
-        <div className="flex items-center justify-between gap-3">
-          <a
-            href={BRAND.marketingUrl}
-            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
-          >
-            <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
-            {BRAND.name}
-          </a>
-          <OnboardingStepper step={step} />
-        </div>
-        <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">
-          {title}
-        </h1>
-      </header>
-      {children}
+    <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col px-5 py-8 sm:py-12">
+      <div className="flex items-center justify-between gap-3">
+        <a
+          href={BRAND.marketingUrl}
+          className="inline-flex min-h-11 items-center gap-2 text-[0.9375rem] font-semibold tracking-[-0.02em] text-foreground no-underline"
+        >
+          <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
+          {BRAND.name}
+        </a>
+        {step ? (
+          <span className="text-sm tabular-nums text-muted-foreground">
+            Step {step.current} of {step.total}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-1 flex-col justify-center py-10">
+        <header className="mb-8 space-y-2">
+          <h1 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-foreground">
+            {title}
+          </h1>
+          {description ? <p className="text-pretty text-base leading-7 text-muted-foreground">{description}</p> : null}
+        </header>
+        {children}
+      </div>
     </main>
   )
 }

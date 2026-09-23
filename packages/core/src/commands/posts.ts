@@ -7,7 +7,48 @@ export type PostMutationHistory = {
   changeSummary: string;
   activityAction: string;
   activitySummary: string;
+  /** Fields this mutation changed, in display order (edit mutations only). */
+  changedFields?: string[];
+  /**
+   * Allow folding this edit into the tip version when the same actor is still
+   * editing it (autosave). The repository decides whether it is safe.
+   */
+  coalesceVersion?: boolean;
+  /** Rebuilds the activity summary when coalescing widens the changed-field set. */
+  activitySummaryFor?: (fields: string[]) => string;
 };
+
+const POST_FIELD_LABELS: Array<[keyof Post, string]> = [
+  ["title", "title"],
+  ["contentMarkdown", "body"],
+  ["slug", "slug"],
+  ["excerpt", "excerpt"],
+  ["tags", "tags"],
+  ["coverAssetId", "cover"],
+  ["seoTitle", "SEO"],
+  ["seoDescription", "SEO"],
+  ["canonicalUrl", "canonical URL"],
+  ["presentation", "layout"],
+];
+
+/** Human labels for the fields that differ between two post states, deduped, in display order. */
+export function changedPostFields(before: Partial<Post>, after: Partial<Post>): string[] {
+  const labels: string[] = [];
+  for (const [key, label] of POST_FIELD_LABELS) {
+    if (!(key in after)) continue;
+    if (JSON.stringify(before[key] ?? null) === JSON.stringify(after[key] ?? null)) continue;
+    if (!labels.includes(label)) labels.push(label);
+  }
+  return labels;
+}
+
+function editActivitySummary(title: string, fields: string[]) {
+  return fields.length ? `Edited ${title} (${fields.join(", ")})` : `Saved ${title}`;
+}
+
+export function describeEdit(fields: string[]): string {
+  return fields.length ? `Edited ${fields.join(", ")}` : "Saved without changes";
+}
 
 export type PostRepository = {
   createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory): Promise<Post>;
@@ -58,7 +99,7 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
   const patch = {
     title: data.title ?? before.title,
     slug: data.slug ?? before.slug,
-    excerpt: data.excerpt ?? before.excerpt,
+    excerpt: data.excerpt === undefined ? before.excerpt : data.excerpt || null,
     contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
     coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
     canonicalUrl: data.canonicalUrl === undefined ? before.canonicalUrl : data.canonicalUrl || null,
@@ -68,10 +109,22 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
     presentation: data.presentation === undefined ? before.presentation : data.presentation,
   };
+  const changedFields = changedPostFields(before, patch);
+  // A dashboard autosave that normalizes back to the saved state (e.g. a
+  // trailing space trimmed) is not an edit: cutting an identical version would
+  // flag a live post as having unpublished changes and void pending approvals.
+  if (actor.type === "human" && changedFields.length === 0 && before.currentVersionNumber === data.expectedVersionNumber) {
+    return { post: before, versionNumber: before.currentVersionNumber };
+  }
   const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {
-    changeSummary: "Updated post",
+    changeSummary: describeEdit(changedFields),
     activityAction: "post.updated",
-    activitySummary: `Updated ${patch.title}`,
+    activitySummary: editActivitySummary(patch.title, changedFields),
+    activitySummaryFor: (fields) => editActivitySummary(patch.title, fields),
+    changedFields,
+    // Autosave from the dashboard folds into the tip while the same person keeps
+    // editing. Agent and API writes always cut a version so each can be approved.
+    coalesceVersion: actor.type === "human",
   }, data.expectedVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after;

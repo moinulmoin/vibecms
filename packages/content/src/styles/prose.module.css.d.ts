@@ -1,5 +1,4 @@
-declare const classes: {
+declare const styles: {
   readonly prose: string;
 };
-
-export default classes;
+export default styles;

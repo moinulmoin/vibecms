@@ -1,240 +1,178 @@
-'use client'
-
-import { ENTITLEMENTS, MEDIA, PRICING } from '@vc/config'
-import { Check, CreditCard, ExternalLink } from 'lucide-react'
-import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
+import { Check, CreditCard, Minus } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { cn, Skeleton } from '@vc/ui'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
-import { Alert, Badge } from '@vc/ui'
+import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { dashboardStatusSearch } from '~/lib/dashboard-search'
-import type { BillingSnapshot, BillingPageLoadResult } from '~/types/dashboard'
-import {
-  checkoutBillingMutation,
-  loadBillingPage,
-  portalBillingMutation,
-} from '~/lib/api-client'
+import { useToast } from '~/components/Toaster'
+import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
+import { checkoutBillingMutation, portalBillingMutation } from '~/lib/api-client'
+import { billingQuery } from '~/lib/queries'
 
+type Allowance = string | boolean
 
-export function BillingPage() {
-  const navigate = useNavigate()
-  const [data, setData] = useState<BillingPageLoadResult | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [checkoutPending, setCheckoutPending] = useState<'monthly' | 'yearly' | null>(null)
-  const [portalPending, setPortalPending] = useState(false)
+/** One truth for what each plan includes. `∞` instead of limits on the paid plan. */
+export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance }> = [
+  { label: 'Published posts', free: String(FREE_TIER.publishedPosts), paid: '∞' },
+  { label: 'Drafts and versions', free: '∞', paid: '∞' },
+  { label: 'Agent keys', free: true, paid: true },
+  { label: 'Image uploads', free: false, paid: MEDIA.paidStorageLabel },
+  { label: 'Found by search engines', free: false, paid: true },
+  { label: 'Your own domain', free: false, paid: true },
+  { label: 'Analytics', free: false, paid: true },
+]
 
-  useEffect(() => {
-    let cancelled = false
-    void loadBillingPage()
-      .then((page) => {
-        if (cancelled) return
-        setData(page)
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load billing details.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+function AllowanceCell({ value }: { value: Allowance }) {
+  if (value === true) return <Check aria-label="Included" className="size-4 text-primary" />
+  if (value === false) return <Minus aria-label="Not included" className="size-4 text-muted-foreground/60" />
+  return <span className="tabular-nums text-foreground">{value}</span>
+}
 
-  async function startCheckout(interval: 'monthly' | 'yearly') {
-    if (checkoutPending !== null) return
-    setCheckoutPending(interval)
+function PlanTable({ paidActive }: { paidActive: boolean }) {
+  return (
+    <table className="w-full max-w-2xl text-left text-[0.9375rem]">
+      <thead>
+        <tr className="border-b border-[color:var(--hairline)] text-sm text-muted-foreground">
+          <th scope="col" className="py-2.5 font-normal">
+            <span className="sr-only">Feature</span>
+          </th>
+          <th scope="col" className={cn('w-28 py-2.5 font-normal', !paidActive && 'font-medium text-foreground')}>
+            Free
+          </th>
+          <th scope="col" className={cn('w-36 py-2.5 font-normal', paidActive && 'font-medium text-foreground')}>
+            Paid · {LAUNCH_OFFER.monthlyLabel}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {PLAN_ROWS.map((row) => (
+          <tr key={row.label} className="border-b border-[color:var(--hairline)] last:border-b-0">
+            <th scope="row" className="py-3 pr-4 font-normal text-foreground">
+              {row.label}
+            </th>
+            <td className="py-3">
+              <AllowanceCell value={row.free} />
+            </td>
+            <td className="py-3">
+              <AllowanceCell value={row.paid} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/** Plan & billing, rendered inside Settings. */
+export function PlanAndBilling() {
+  const query = useQuery(billingQuery)
+  const { toast } = useToast()
+  const [pending, setPending] = useState<'monthly' | 'yearly' | 'portal' | null>(null)
+
+  async function redirectTo(action: 'monthly' | 'yearly' | 'portal') {
+    if (pending) return
+    setPending(action)
     try {
-      const result = await checkoutBillingMutation({ interval })
+      const result = action === 'portal' ? await portalBillingMutation() : await checkoutBillingMutation({ interval: action })
       if (result.kind === 'ok') {
         window.location.assign(result.url)
         return
       }
-      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: result.code }) })
+      toast(resolveFormStatus({ error: result.code }) ?? { variant: 'error', title: 'Checkout didn’t open', message: 'Try again.' })
     } catch {
-      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: 'checkout_failed' }) })
+      toast({ variant: 'error', title: 'Checkout didn’t open', message: 'Check your connection and try again.' })
     } finally {
-      setCheckoutPending(null)
+      setPending(null)
     }
   }
 
-  async function openPortal() {
-    setPortalPending(true)
-    try {
-      const result = await portalBillingMutation()
-      if (result.kind === 'ok') {
-        window.location.assign(result.url)
-        return
-      }
-      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: result.code }) })
-    } catch {
-      void navigate({ to: '/dashboard/billing', search: dashboardStatusSearch({ error: 'polar_unconfigured' }) })
-    } finally {
-      setPortalPending(false)
-    }
+  if (query.isError && !query.data) {
+    return <LoadError message="Your plan didn’t load." onRetry={() => void query.refetch()} />
   }
-
-  if (loadError) return <LoadError message={loadError} />
-
-  if (!data) return <PageSkeleton variant="panels" />
+  const data = query.data
+  if (!data) {
+    return (
+      <div className="grid max-w-2xl gap-4" aria-busy="true" aria-label="Loading plan">
+        <Skeleton className="h-16 rounded-lg" />
+        <Skeleton className="h-64 rounded-lg" />
+      </div>
+    )
+  }
 
   if (data.selfHosted) {
     return (
-      <>
-        <PageHeader
-          title="Self-hosted workspace"
-          description="Billing stays disabled while publishing, media, and agent access run on your Cloudflare resources."
-        />
-        <Panel title="Self-hosted" meta={<Badge variant="outline">SELF_HOSTED=true</Badge>}>
-          <p className="font-sans text-sm text-muted-foreground">
-            Publishing, media uploads, and agent access run on your own Cloudflare resources without Polar.
-          </p>
-        </Panel>
-      </>
+      <div className="grid max-w-2xl gap-2">
+        <h2 className="text-lg font-semibold text-foreground">Self-hosted</h2>
+        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          Everything is unlocked and runs on your own Cloudflare account. There’s nothing to pay here.
+        </p>
+      </div>
     )
   }
 
-  const billing: BillingSnapshot = data.billing
-  const { isOwner } = data
-  const isActive = billing.status === 'active'
-
-  if (data.managed && !isActive) {
-    const managedStatus = data.managed.effective
-      ? 'Active'
-      : data.managed.status === 'revoked'
-        ? 'Revoked'
-        : 'Expired'
-    return (
-      <>
-        <PageHeader
-          title="Managed access"
-          description="Hosted access for this workspace is managed by AutoSEOPilot."
-        />
-        <div className="grid max-w-3xl gap-4">
-          <Panel
-            title="AutoSEOPilot sponsorship"
-            meta={<StatusBadge status={managedStatus.toLowerCase()} />}
-          >
-            <p className="font-sans text-base leading-7 text-muted-foreground">
-              {data.managed.effective
-                ? 'Publishing, media, analytics, custom domains, search indexing, and paid API limits are enabled. No separate VibeCMS subscription is required.'
-                : 'Paid hosted features are unavailable unless AutoSEOPilot restores sponsorship. Existing content and workspace data remain intact.'}
-            </p>
-          </Panel>
-        </div>
-      </>
-    )
-  }
+  const billing = data.billing
+  const active = billing.status === 'active'
+  const managed = data.managed && !active ? data.managed : null
+  const paidActive = active || managed?.effective === true
+  const renews = active && billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd * 1000) : null
 
   return (
-    <>
-      <PageHeader
-        title="Billing"
-        description={
-          isActive
-            ? 'Manage your subscription and customer portal.'
-            : 'Subscribe to publish more posts, upload media, and make your public blog indexable.'
-        }
-      />
-      <div className="grid max-w-3xl gap-4">
-        <Panel
-          title={PRICING.monthlyLabel}
-          meta={
-            <span className="flex items-center gap-2">
-              <span className="font-mono text-xs text-muted-foreground">
-                {PRICING.planName}
-              </span>
-              <StatusBadge status={billing.status} />
-            </span>
-          }
-        >
-          <p className="max-w-xl font-sans text-base leading-7 text-muted-foreground">
-            or {PRICING.annualLabel} billed yearly. Cancel anytime from the customer portal.
+    <div className="grid gap-8">
+      <div className="flex max-w-2xl flex-wrap items-start justify-between gap-4 rounded-xl border border-border p-5">
+        <div className="min-w-0 space-y-1">
+          <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
+            {managed ? 'Sponsored plan' : active ? 'Paid plan' : 'Free plan'}
+            {billing.status !== 'none' && !managed ? <StatusBadge status={billing.status} /> : null}
+            {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'active' : 'ended'} /> : null}
           </p>
-          {isActive ? (
-            <Alert title="If you cancel">
-              Paid access ends when the subscription ends. More publishing, media uploads, custom domains,
-              search indexing, analytics, and paid API limits will lock. Existing posts stay online, and your
-              drafts, media, domains, versions, and analytics history are kept for you if you resubscribe.
-            </Alert>
-          ) : null}
-          {billing.status === 'canceled' ? (
-            <Alert title="Your data is retained">
-              Existing posts remain online, but search indexing and paid tools are locked. Drafts, media,
-              domains, versions, and analytics history will be available again if you resubscribe.
-            </Alert>
-          ) : null}
-          {isOwner ? (
-            isActive ? (
-              <div className="grid gap-2 sm:max-w-sm">
-                <PendingSubmitButton
-                  type="button"
-                  pending={portalPending}
-                  pendingText="Opening portal…"
-                  onClick={() => void openPortal()}
-                >
-                  <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
-                </PendingSubmitButton>
-              </div>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <PendingSubmitButton
-                  type="button"
-                  className="h-11"
-                  pending={checkoutPending === 'monthly'}
-                  disabled={checkoutPending !== null && checkoutPending !== 'monthly'}
-                  pendingText="Starting checkout…"
-                  onClick={() => void startCheckout('monthly')}
-                >
-                  <CreditCard aria-hidden data-icon="inline-start" /> Subscribe monthly
-                </PendingSubmitButton>
-                <PendingSubmitButton
-                  type="button"
-                  variant="outline"
-                  className="h-11"
-                  pending={checkoutPending === 'yearly'}
-                  disabled={checkoutPending !== null && checkoutPending !== 'yearly'}
-                  pendingText="Starting checkout…"
-                  onClick={() => void startCheckout('yearly')}
-                >
-                  <CreditCard aria-hidden data-icon="inline-start" /> Subscribe yearly
-                </PendingSubmitButton>
-                <PendingSubmitButton
-                  type="button"
-                  variant="outline"
-                  className="sm:col-span-2"
-                  pending={portalPending}
-                  disabled={checkoutPending !== null}
-                  pendingText="Opening portal…"
-                  onClick={() => void openPortal()}
-                >
-                  <ExternalLink aria-hidden data-icon="inline-start" /> Customer portal
-                </PendingSubmitButton>
-              </div>
-            )
-          ) : (
-            <p className="font-sans text-base leading-7 text-muted-foreground">Only workspace owners can manage billing.</p>
-          )}
-        </Panel>
-
-        <Panel title="Included in the plan" meta={isActive ? 'All features unlocked' : undefined}>
-          <ul className="grid gap-x-8 gap-y-3 text-base leading-6 sm:grid-cols-2">
-            {ENTITLEMENTS.map((entitlement) => (
-              <li key={entitlement} className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0">
-                <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
-                <span className="font-sans text-foreground">{entitlement}</span>
-              </li>
-            ))}
-            <li className="flex items-start gap-2.5 border-b border-[color:var(--hairline)] pb-3 last:border-b-0">
-              <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
-              <span className="font-sans text-foreground">{MEDIA.paidStorageLabel} media storage</span>
-            </li>
-          </ul>
-          <p className="font-sans text-sm leading-5 text-muted-foreground">
-            {isActive
-              ? 'Your plan is active: unlimited publishing, media uploads, custom domains, search indexing, analytics, and paid API limits are on.'
-              : 'Your first 5 published posts stay free. Subscribe to unlock every paid feature immediately.'}
+          <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+            {managed
+              ? managed.effective
+                ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
+                : 'The sponsorship ended. Your posts stay online; paid features are paused.'
+              : active
+                ? renews
+                  ? `Renews ${renews.toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' })}.`
+                  : 'Everything is unlocked.'
+                : billing.status === 'canceled'
+                  ? 'Your subscription ended. Posts stay online and nothing was deleted.'
+                  : `Publish up to ${FREE_TIER.publishedPosts} posts for free. Upgrade for unlimited publishing.`}
           </p>
-        </Panel>
+        </div>
+        {!data.isOwner ? (
+          <p className="text-sm text-muted-foreground">Only the owner can change the plan.</p>
+        ) : active ? (
+          <PendingSubmitButton type="button" variant="outline" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
+            <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
+          </PendingSubmitButton>
+        ) : managed?.effective ? null : (
+          <div className="flex flex-wrap gap-2">
+            <PendingSubmitButton type="button" pending={pending === 'monthly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('monthly')}>
+              Upgrade · {LAUNCH_OFFER.monthlyLabel}
+            </PendingSubmitButton>
+            <PendingSubmitButton type="button" variant="outline" pending={pending === 'yearly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('yearly')}>
+              Yearly · {LAUNCH_OFFER.annualLabel}
+            </PendingSubmitButton>
+            <p className="basis-full text-xs text-muted-foreground">
+              Early access rate (normally {PRICING.monthlyLabel}). {LAUNCH_OFFER.lockNote}
+            </p>
+          </div>
+        )}
       </div>
-    </>
+
+      <PlanTable paidActive={paidActive} />
+
+      {!active && !managed && data.isOwner && billing.polarCustomerId ? (
+        <button
+          type="button"
+          onClick={() => void redirectTo('portal')}
+          className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          {pending === 'portal' ? 'Opening…' : 'Invoices and payment details'}
+        </button>
+      ) : null}
+    </div>
   )
 }

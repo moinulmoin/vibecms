@@ -1,10 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { SubscribersPage } from '~/components/dashboard/SubscribersPage'
+import { SubscribersPage, SUBSCRIBERS_PAGE_SIZE, subscribersParams } from '~/components/dashboard/SubscribersPage'
+import { newsletterQuery, queryClient, subscribersQuery, warm } from '~/lib/queries'
 
 type SubscribersSearch = {
   q: string | undefined
   status: string | undefined
   page: number
+  tab?: 'form'
 }
 
 function validateSubscribersSearch(search: Record<string, unknown>): SubscribersSearch {
@@ -13,6 +15,7 @@ function validateSubscribersSearch(search: Record<string, unknown>): Subscribers
     q: typeof search.q === 'string' ? search.q : undefined,
     status: typeof search.status === 'string' ? search.status : undefined,
     page: Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1,
+    ...(search.tab === 'form' ? { tab: 'form' as const } : {}),
   }
 }
 
@@ -23,6 +26,11 @@ export const Route = createFileRoute('/dashboard/subscribers')({
     }
   },
   validateSearch: validateSubscribersSearch,
+  loaderDeps: ({ search }) => ({ q: search.q, status: search.status, page: search.page, tab: search.tab }),
+  loader: ({ deps, context }) =>
+    deps.tab === 'form' && context.app?.actor.role === 'owner'
+      ? warm(queryClient.prefetchQuery(newsletterQuery))
+      : warm(queryClient.prefetchQuery(subscribersQuery(subscribersParams(deps, SUBSCRIBERS_PAGE_SIZE)))),
   component: SubscribersRoutePage,
 })
 

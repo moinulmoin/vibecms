@@ -18,8 +18,31 @@ export interface RenderedImageAttributes {
   readonly sizes?: string;
 }
 
+/** One Shiki-highlighted line list; each line is a HAST `span.line`. */
+export interface HighlightedCode {
+  readonly lines: readonly { type: string; [key: string]: unknown }[];
+}
+
+/** Injectable syntax highlighter (see `@vc/content/highlight`). */
+export interface CodeHighlighter {
+  supports(lang: string): boolean;
+  highlight(code: string, lang: string): HighlightedCode | null;
+}
+
 export interface RenderOpts {
   readonly presetId?: string;
+  /**
+   * Syntax highlighter for fenced code. Omit for plain (still framed) code;
+   * public pages pass the bundled Shiki highlighter, the dashboard lazy-loads it.
+   */
+  readonly highlighter?: CodeHighlighter | null;
+  /**
+   * "feed" drops interactive chrome (copy buttons, heading anchors) and makes
+   * relative URLs absolute against `baseUrl`, for RSS `content:encoded`.
+   */
+  readonly target?: "web" | "feed";
+  /** Absolute URL of the rendered page; required for `target: "feed"`. */
+  readonly baseUrl?: string;
   readonly className?: string;
   /**
    * When set (nonempty), a leading top-level H1 whose normalized visible text

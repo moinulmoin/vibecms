@@ -15,7 +15,7 @@ export function MetricStrip({
       className={cn(
         'grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4',
         variant === 'surface'
-          ? 'rounded-2xl border border-border bg-card'
+          ? 'rounded-xl border border-border bg-card'
           : 'rounded-xl bg-muted/30',
       )}
     >
@@ -31,7 +31,7 @@ export function MetricStrip({
             index > 0 && 'xl:border-l xl:border-[color:var(--hairline)]',
           )}
         >
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{metric.label}</p>
+          <p className="text-sm text-muted-foreground">{metric.label}</p>
           <p className="mt-2.5 font-display text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground sm:text-4xl">
             {metric.value}
           </p>

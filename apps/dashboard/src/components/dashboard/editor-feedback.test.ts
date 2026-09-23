@@ -65,7 +65,7 @@ Nested detail text.
     const html = previewHtml()
     const h1Pos = html.indexOf('<h1')
     const deckPos = html.indexOf('An introductory lede paragraph that serves as the excerpt.')
-    const metaPos = html.indexOf('By Author')
+    const metaPos = html.indexOf('>Author<')
     const tagsPos = html.indexOf('/blog/tag/essay')
     const bodyTextPos = html.indexOf('Body text under the first section heading.')
     expect(h1Pos).toBeLessThan(deckPos)

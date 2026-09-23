@@ -1,4 +1,55 @@
 @import "tailwindcss" source(none);
-@import "@vc/ui/styles/app";
+@import "@vc/ui/styles/fonts";
 @import "@vc/content/styles";
 @import "@vc/content/styles/presets";
+
+/* The blog theme owns the whole document: Base.astro stamps the site's
+   data-vc-theme / data-vc-mode / accent + font variables on <html>, so the
+   canvas, overscroll, scrollbars, and selection all follow the reader's theme
+   instead of the vibecms app chrome. */
+html[data-vc-theme] {
+  background: var(--vc-bg);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-body);
+  scroll-padding-top: 1.5rem;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[data-vc-theme] body {
+  background: var(--vc-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-vc-theme] {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Lightbox for zoomable post images (see scripts/reading.js). */
+.vc-lightbox {
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-out;
+}
+
+.vc-lightbox::backdrop {
+  background: color-mix(in oklch, var(--vc-bg, #000) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.vc-lightbox img {
+  display: block;
+  max-width: min(94vw, 1600px);
+  max-height: 92vh;
+  margin: 4vh auto 0;
+  object-fit: contain;
+  border-radius: 6px;
+}

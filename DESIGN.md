@@ -69,33 +69,43 @@ Monochrome zero-chroma neutrals: bg `oklch(0.985 0 0)`, ink `oklch(0.18 0 0)`,
 card `oklch(1 0 0)`, border `oklch(0.9 0 0)`. Primary is a deep green
 `oklch(0.32 0.095 152)`. Hairline/dot-grid use black alpha.
 
-### Blog templates / presets (user-selectable, `presets.css`)
+### Blog templates / presets (user-selectable, `--vc-*`)
 
 These are the **blog themes a vibecms user picks for their own published blog** -
-a product feature, not app chrome. All presets share one surface/color token
-vocabulary (`--vc-*`, ~43 tokens × light/dark) selected via `[data-vc-theme]`
-(`minimal`, …). The source lives in `packages/content/src/styles/`
-(`presets.css` + `vc-rich-content.css`), imported by both apps via the
-`@vc/content/styles` package exports. The vocabulary covers surface,
-callouts, code, quote, figure, type, and spacing.
+a product feature, not app chrome. Source: `packages/content/src/styles/`.
 
-Presets are not color themes - they are **typographic identities**. Each
-non-minimal preset overrides the type/rhythm tokens (measure, leading, heading
-scale, prose gap, section gap, radius) in the `PRESET IDENTITIES` block of
-`presets.css`, with matching chrome rules in `presented-post.module.css`
-(title voice, meta line), `prose.module.css` (editorial pull quote), and
-`public-blog.module.css` (index density). `PresentedPostArticle` stamps
-`data-vc-theme` on its `<article>` so chrome rules apply identically in public
-SSR and dashboard preview. Minimal is the reference identity and keeps the base
-values. Editorial = 66ch/1.8/scale 1.06/radius 4; Technical = 72ch/1.6/0.94/6;
-Product = 64ch/1.65/1.14/12.
+- **One token contract** (`vc-rich-content.css`): ~45 `--vc-*` tokens written once
+  with `light-dark()`, on any `[data-vc-theme]` / `[data-rich-content]` root. The
+  root's `color-scheme` picks the side: no `data-vc-mode` = follow the reader's OS,
+  `data-vc-mode="light" | "dark"` forces one. Neutral surfaces (no vibecms teal),
+  two line tiers (`--vc-border`, `--vc-hairline`), semantic callout hues, code
+  tokens incl. line highlight / diff add / diff remove.
+- **Customizer hooks** (inline style from `resolveSiteTheme`): `--vc-accent-light`,
+  `--vc-accent-dark`, `--vc-font-body`, `--vc-font-heading`. Accents (9, incl.
+  Graphite) and font pairings (Geist, Newsreader, Space Grotesk, Hanken Grotesk,
+  Geist Mono headings) live in `packages/config`.
+- **Presets are voices** (`presets.css`): minimal / editorial / technical / product
+  only re-voice type + rhythm tokens (`--vc-prose-size`, `--vc-prose-measure`,
+  leading, gaps, heading scale/weight/tracking, radius), with matching chrome
+  rules in the CSS modules. Every preset supports every layout
+  (`standard`, `essay`, `feature`) and the page-level ToC.
+- **The theme owns the document**: public pages stamp the theme on `<html>`
+  (`siteThemeRootAttributes`), so canvas, overscroll, scrollbars, and selection
+  follow the blog, not vibecms. `tenant.css` imports fonts only, never app chrome.
+- **Layout**: the shell width follows the content (reading column, or column +
+  13.5rem ToC rail), so the masthead always shares the article's left edge.
+  Responsive rules are `@container vc-page` queries, so the dashboard preview at
+  phone width renders exactly like a phone.
+- **Code**: Shiki (`@vc/content/highlight`, JS regex engine, dual `vitesse`
+  themes via `--shiki-light/-dark`), fence titles, `{1,3-5}` highlights, line
+  numbers, `[!code ++/--/highlight/focus]`, diff.
+- **Harness**: `pnpm --filter @vc/content harness` renders the real components
+  with a sample post (`?view=post|index&preset=&mode=&font=&accent=&layout=`).
 
 This token set is **deliberately decoupled** from the vibecms app/landing tokens
 above: the user's blog should look like *their* brand, not like vibecms. When
-designing app chrome use the `--*` / `--color-*` tokens; when designing or adding
-a blog template, work in the `--vc-*` set. Adding a new preset = a new
-`[data-vc-theme]` token block plus its chrome rules (a shippable product surface
-in its own right).
+designing app chrome use the `--*` / `--color-*` tokens; when designing a blog
+template, work in the `--vc-*` set.
 
 ## Typography
 
@@ -122,7 +132,7 @@ Landing primitives (`components/landing/primitives.tsx`):
 - **`DotGrid`** / **`Glow`** - ambient background texture (radial dot mask, blurred brand glow).
 
 Dashboard primitives live in `components/dashboard/DashboardPrimitives.tsx`.
-Radius scale anchored at `--radius: 0.9375rem` (`radius-sm`…`radius-2xl`).
+Radius scale anchored at `--radius: 0.625rem` (10px; controls are never pill-shaped) (`radius-sm`…`radius-2xl`).
 Cards only wrap genuinely interactive/bounded things - no decorative cards, no
 nesting (per PRODUCT.md "just enough").
 

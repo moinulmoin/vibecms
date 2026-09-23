@@ -71,44 +71,6 @@ export function GlassCard({ className, children }: Classable) {
   );
 }
 
-export function GreenCard({ className, children }: Classable) {
-  return (
-    <div
-      className={[
-        "rounded-[18px] text-brand-bright-foreground shadow-[inset_0_1px_0_var(--hairline),0_40px_80px_-30px_oklch(0.8107_0.1705_152.72/0.55)]",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        background:
-          "linear-gradient(160deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-type MonoEyebrowProps = Classable & {
-  label: string;
-};
-
-export function MonoEyebrow({ className, label }: MonoEyebrowProps) {
-  return (
-    <p
-      className={[
-        "font-mono text-xs text-brand-bright",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {label.startsWith("//") ? label : `// ${label}`}
-    </p>
-  );
-}
-
 type PillProps = Classable & {
   pulse?: boolean;
 };
@@ -134,17 +96,26 @@ export function Pill({ className, children, pulse }: PillProps) {
   );
 }
 
+/** Flat panel surface for product mocks (hairline ring, no heavy shadow). */
+export const PANEL =
+  "overflow-hidden rounded-2xl ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]";
+
+export const H2 =
+  "text-balance font-display text-[clamp(1.875rem,4vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground";
+
+export const LEAD = "text-[16.5px] leading-[1.6] text-muted-foreground";
+
 export function SectionShell({ className, children }: Classable) {
   return (
-    <section
+    <div
       className={[
-        "relative mx-auto w-full max-w-[1200px] px-5 py-16 sm:px-7 md:py-[110px]",
+        "relative mx-auto w-full max-w-[1200px] px-5 py-16 sm:px-7 md:py-24",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
       {children}
-    </section>
+    </div>
   );
 }

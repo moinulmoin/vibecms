@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffLines, type DiffLine } from './diff';
+import { collapseUnchanged, diffLines, type DiffLine } from './diff';
 
 // Helper: build the exact DiffLine[] the contract expects.
 const same = (text: string): DiffLine => ({ type: 'same', text });
@@ -61,3 +61,60 @@ describe('diffLines', () => {
     expect(diffLines('', '')).toEqual([]);
   });
 });
+
+describe('diffLines at scale', () => {
+  it('handles a small edit in a long document without an n·m table', () => {
+    const base = Array.from({ length: 20000 }, (_, i) => `line ${i}`)
+    const edited = [...base]
+    edited[10000] = 'changed'
+    edited.splice(15000, 0, 'inserted')
+    const result = diffLines(base.join('\n'), edited.join('\n'))
+    expect(result.filter((line) => line.type !== 'same')).toEqual([del('line 10000'), add('changed'), add('inserted')])
+  })
+
+  it('groups a rewritten block as removals then additions', () => {
+    expect(diffLines('a\nb\nc\nd', 'a\nx\ny\nd')).toEqual([same('a'), del('b'), del('c'), add('x'), add('y'), same('d')])
+  })
+})
+
+describe('collapseUnchanged', () => {
+  it('keeps context around changes and folds the rest', () => {
+    const before = Array.from({ length: 20 }, (_, i) => `l${i}`).join('\n')
+    const after = before.replace('l10', 'L10')
+    const hunks = collapseUnchanged(diffLines(before, after), 2)
+    expect(hunks.map((hunk) => hunk.type)).toEqual(['skip', 'lines', 'skip'])
+    expect(hunks[0]).toMatchObject({ count: 8 })
+    const middle = hunks[1]
+    expect(middle.type === 'lines' ? middle.lines.map((line) => line.text) : []).toEqual(['l8', 'l9', 'l10', 'L10', 'l11', 'l12'])
+  })
+})
+
+describe('diffLines property checks', () => {
+  function lcsLength(a: string[], b: string[]) {
+    const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0))
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+    return dp[a.length][b.length]
+  }
+  let seed = 12345
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return seed / 0x7fffffff
+  }
+  const randomDoc = () => Array.from({ length: Math.floor(rand() * 14) }, () => 'abcde'[Math.floor(rand() * 5)])
+
+  it('reconstructs both sides and is minimal (matches a naive LCS) on random inputs', () => {
+    for (let run = 0; run < 2000; run++) {
+      const a = randomDoc()
+      const b = randomDoc()
+      const diff = diffLines(a.join('\n'), b.join('\n'))
+      expect(diff.filter((line) => line.type !== 'add').map((line) => line.text)).toEqual(a.join('\n') === '' ? [] : a)
+      expect(diff.filter((line) => line.type !== 'del').map((line) => line.text)).toEqual(b.join('\n') === '' ? [] : b)
+      const lcs = a.join('\n') === '' || b.join('\n') === '' ? 0 : lcsLength(a, b)
+      expect(diff.filter((line) => line.type === 'same')).toHaveLength(lcs)
+    }
+  })
+})

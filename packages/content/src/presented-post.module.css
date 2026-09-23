@@ -1,266 +1,308 @@
-/* Shared presented-post article structure — public SSR + dashboard preview. */
+/* Presented post — public SSR + dashboard preview share this layout.
+   One left edge: header, cover, and prose start where the masthead starts.
+   The ToC rail joins on the right once the article's own inline size can
+   hold both (container query, so the preview pane behaves like the page). */
 
 .article {
-  /* One left-anchored content axis: 45rem prose + 3rem gap + 15rem optional TOC
-     (63rem total). Header, cover, and prose all share this left start; the title
-     may span wider. --vc-prose-measure cascades to the rich-content root and text
-     elements. container-type lets the ToC rail activate on the article's own
-     inline size, not the browser viewport. */
-  max-width: 63rem;
-  --vc-prose-measure: 70ch;
   container-type: inline-size;
+  --vc-toc-width: 13.5rem;
+  --vc-toc-gap: 3.5rem;
 }
 
-/* Header stage: H1 → deck → byline/date/read-time meta → tags. */
 .articleHeader {
-  max-width: 63rem;
+  max-width: var(--vc-prose-measure);
+  margin-bottom: 2.25rem;
 }
 
-/* Title — 52-64px desktop, 36-42px mobile, balanced. */
 .articleTitle {
-  margin: 0 0 16px;
-  max-width: 63rem;
+  margin: 0 0 0.9rem;
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(2.25rem, 5vw, 4rem) * var(--vc-heading-scale));
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  font-weight: 700;
+  font-size: calc(clamp(2rem, 1.35rem + 2.6vw, 2.75rem) * var(--vc-heading-scale));
+  font-weight: max(var(--vc-heading-weight), 650);
+  line-height: 1.12;
+  letter-spacing: calc(var(--vc-heading-tracking) - 0.008em);
+  color: var(--vc-fg);
   text-wrap: balance;
 }
 
-/* Excerpt deck — 20-22px, muted, sits between title and metadata. */
 .articleDeck {
-  margin: 0 0 1.25rem;
-  max-width: 45rem;
-  font-size: clamp(1.25rem, 2vw, 1.375rem);
+  margin: 0 0 1.1rem;
+  font-size: calc(var(--vc-prose-size) * 1.18);
   line-height: 1.5;
   color: var(--vc-muted-fg);
   text-wrap: pretty;
 }
 
-/* ONE quiet meta line — muted (AA), middle-dot separated. No icons/labels. */
 .metaLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0;
+  margin: 0;
   color: var(--vc-muted-fg);
-  font-family: var(--vc-font-mono);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   line-height: 1.5;
-  margin: 0 0 0.5rem;
-  max-width: 45rem;
-  letter-spacing: -0.01em;
 }
 
-/* Quiet tag row — mono, sentence-case, dot-separated. */
+.metaLine > span + span::before {
+  content: "\00b7";
+  margin: 0 0.55em;
+  opacity: 0.6;
+}
+
 .tagRow {
-  margin: 0 0 1rem;
-  font-size: 0.8125rem;
-  font-family: var(--vc-font-mono);
-  line-height: 1.6;
-  max-width: 45rem;
-}
-
-.tagEntry {
-  display: inline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
 }
 
 .tagLink {
+  display: inline-block;
+  padding: 0.14rem 0.5rem;
+  border: 1px solid var(--vc-border);
+  border-radius: 5px;
   color: var(--vc-muted-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
   text-decoration: none;
+  transition: color 150ms ease, border-color 150ms ease;
 }
 
 .tagLink:hover {
   color: var(--vc-fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  border-color: color-mix(in oklch, var(--vc-fg) 30%, var(--vc-border));
 }
 
-.tagSep {
-  color: var(--vc-muted-fg);
-  opacity: 0.55;
-  margin: 0 0.45em;
-}
-
-/* ==========================================================================
-   Preset identities — chrome divergence matching presets.css token blocks.
-   .article re-declares --vc-prose-measure locally, so each theme restates its
-   own measure here; type/rhythm tokens arrive from the [data-vc-theme] root.
-   ========================================================================== */
-
-/* Editorial — softer serif voice: gentler tracking/weight, italic deck, and a
-   reading meta line in the heading font instead of mono. */
-.article[data-vc-theme="editorial"] {
-  --vc-prose-measure: 66ch;
-}
-
-.article[data-vc-theme="editorial"] .articleTitle {
-  font-weight: 650;
-  letter-spacing: -0.015em;
-}
+/* ── Preset voices ─────────────────────────────────────────────────────── */
 
 .article[data-vc-theme="editorial"] .articleDeck {
+  font-family: var(--vc-font-heading);
   font-style: italic;
 }
 
-.article[data-vc-theme="editorial"] .metaLine,
-.article[data-vc-theme="editorial"] .tagRow {
-  font-family: var(--vc-font-heading);
-  font-size: 0.875rem;
-  letter-spacing: 0;
-}
-
-/* Technical — reference voice: tighter title, mono uppercase metadata. */
-.article[data-vc-theme="technical"] {
-  --vc-prose-measure: 72ch;
-}
-
-.article[data-vc-theme="technical"] .articleTitle {
-  letter-spacing: -0.03em;
-}
-
-.article[data-vc-theme="technical"] .metaLine,
-.article[data-vc-theme="technical"] .tagRow {
-  font-size: 0.75rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-/* Product — launch voice: heaviest title, deck promoted to foreground. */
-.article[data-vc-theme="product"] {
-  --vc-prose-measure: 64ch;
-}
-
-.article[data-vc-theme="product"] .articleTitle {
-  font-weight: 750;
-  letter-spacing: -0.035em;
+.article[data-vc-theme="technical"] .metaLine {
+  font-family: var(--vc-font-mono);
+  font-size: 0.8125rem;
 }
 
 .article[data-vc-theme="product"] .articleDeck {
   color: var(--vc-fg);
-  font-size: clamp(1.375rem, 2.4vw, 1.5rem);
 }
 
-/* Standard cover — measured to the prose column. */
-.heroImage {
-  width: 100%;
-  max-width: var(--vc-prose-measure);
-  max-height: 520px;
-  object-fit: cover;
-  border-radius: calc(var(--vc-radius) + 4px);
-  margin: 18px 0 28px;
+/* ── Layouts ───────────────────────────────────────────────────────────── */
+
+/* Essay: a lead paragraph and a roomier title. */
+.article[data-vc-layout="essay"] .articleTitle {
+  font-size: calc(clamp(2.25rem, 1.4rem + 3.2vw, 3.25rem) * var(--vc-heading-scale));
 }
 
-/* Feature cover — full article width, taller cap for impact. */
+.article[data-vc-layout="essay"] .articleBody :global([data-rich-content]) > p:first-child {
+  font-size: 1.14em;
+  line-height: 1.62;
+  color: var(--vc-fg);
+}
+
+/* Covers */
+.heroImage,
 .featureCover {
   display: block;
   width: 100%;
-  max-height: 560px;
+  height: auto;
   object-fit: cover;
-  border-radius: calc(var(--vc-radius) + 4px);
-  margin: 0 0 28px;
+  background: var(--vc-muted);
+  border-radius: calc(var(--vc-radius) + 2px);
 }
 
-/* Body wrapper holds the prose column; the sticky ToC rail joins via @container. */
+.heroImage {
+  max-width: var(--vc-prose-measure);
+  aspect-ratio: 1.91 / 1;
+  margin: 0 0 2.5rem;
+}
+
+.featureCover {
+  aspect-ratio: 2 / 1;
+  margin: 0 0 2.25rem;
+}
+
+/* ── Body + ToC ────────────────────────────────────────────────────────── */
+
 .articleBody {
   display: block;
-  max-width: 63rem;
 }
 
-/* No-TOC editorial breakout — widen body so media/code/tables extend beyond the
-   prose column. Text elements stay flush-left at the prose measure. */
-.article:not([data-vc-has-toc]) .articleBody {
-  max-width: 900px;
-}
-
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) {
-  max-width: 100%;
-}
-
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > p,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h2,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h3,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h4,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h5,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > h6,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > ul,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > ol,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > blockquote,
-.article:not([data-vc-has-toc]) .articleBody :global([data-rich-content]) > .vc-callout {
-  max-width: min(var(--vc-prose-measure), 45rem);
-}
-
-/* Narrow-surface ToC — native <details>, collapsed. Hidden when the rail shows. */
-.tocDetails {
-  margin: 0 0 var(--vc-section-gap);
+.articleBody > :global([data-rich-content]) {
   max-width: var(--vc-prose-measure);
 }
 
-.tocSummary {
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: var(--vc-muted-fg);
-  font-weight: 600;
-}
-
-.tocSummary::-webkit-details-marker {
-  display: none;
-}
-
-/* Sticky right rail — hidden until the article container is wide enough. */
 .tocRail {
   display: none;
 }
 
 .tocRailLabel {
-  font-size: 0.78rem;
+  margin: 0 0 0.75rem;
+  color: var(--vc-fg);
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--vc-muted-fg);
-  margin: 0 0 0.5rem;
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .tocList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
   display: grid;
-  gap: 0.3rem;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .tocItemH2 > a,
 .tocItemH3 > a {
-  color: var(--vc-muted-fg);
-  text-decoration: none;
-  font-size: 0.84rem;
-  line-height: 1.4;
   display: block;
+  padding: 0.22rem 0 0.22rem 0.85rem;
+  margin-left: -1px;
+  border-left: 1px solid transparent;
+  color: var(--vc-muted-fg);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-decoration: none;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.tocItemH3 > a {
+  padding-left: 1.6rem;
 }
 
 .tocItemH2 > a:hover,
 .tocItemH3 > a:hover {
   color: var(--vc-fg);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
-.tocItemH3 {
-  padding-left: 0.85rem;
+.tocItemH2 > a[aria-current="true"],
+.tocItemH3 > a[aria-current="true"] {
+  color: var(--vc-fg);
+  border-left-color: var(--vc-accent);
 }
 
 .tagLink:focus-visible,
 .tocItemH2 > a:focus-visible,
-.tocItemH3 > a:focus-visible {
+.tocItemH3 > a:focus-visible,
+.adjacentLink:focus-visible,
+.tocPillSummary:focus-visible {
   outline: 2px solid var(--vc-accent);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
-/* ToC rail joins the prose column when the article's own inline size holds both.
-   Uses @container (not viewport @media) so dashboard preview matches public. */
-@container (min-width: 52rem) {
+/* Narrow surfaces: a floating pill at the bottom of the viewport that opens
+   the outline upward. Sticky (not fixed) so it stays inside the preview pane
+   and settles at the end of the article. */
+.tocPill {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 5;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  margin: 2rem auto 0;
+}
+
+.tocPillSummary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--vc-border);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--vc-card) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px -8px oklch(0% 0 0 / 0.25);
+  color: var(--vc-fg);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.tocPillSummary::-webkit-details-marker {
+  display: none;
+}
+
+.tocPillIcon {
+  width: 0.9rem;
+  height: 0.9rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 6h18M3 12h12M3 18h15'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 6h18M3 12h12M3 18h15'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.tocPillPanel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  translate: -50% 0;
+  width: min(20rem, 88vw);
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+  padding: 0.75rem 0.75rem 0.75rem 0.4rem;
+  border: 1px solid var(--vc-border);
+  border-radius: calc(var(--vc-radius) + 4px);
+  background: var(--vc-card);
+  box-shadow: 0 16px 40px -12px oklch(0% 0 0 / 0.3);
+}
+
+/* ── Newer / older ─────────────────────────────────────────────────────── */
+
+.adjacent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  max-width: var(--vc-prose-measure);
+  margin-top: var(--vc-section-gap);
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--vc-hairline);
+}
+
+.adjacentLink {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--vc-border);
+  border-radius: var(--vc-radius);
+  color: var(--vc-fg);
+  text-decoration: none;
+  transition: border-color 150ms ease;
+}
+
+.adjacentLink:hover {
+  border-color: color-mix(in oklch, var(--vc-fg) 30%, var(--vc-border));
+}
+
+.adjacentOlder {
+  grid-column: 2;
+  text-align: right;
+}
+
+.adjacentLabel {
+  color: var(--vc-muted-fg);
+  font-size: 0.8125rem;
+}
+
+.adjacentTitle {
+  font-family: var(--vc-font-heading);
+  font-weight: 600;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+@container (min-width: 54rem) {
   .article[data-vc-has-toc] .articleBody {
     display: grid;
-    grid-template-columns: minmax(0, min(var(--vc-prose-measure), 45rem)) 15rem;
-    gap: 3rem;
+    grid-template-columns: minmax(0, var(--vc-prose-measure)) var(--vc-toc-width);
+    gap: var(--vc-toc-gap);
     align-items: start;
   }
 
@@ -270,32 +312,51 @@
     top: 2rem;
     max-height: calc(100vh - 4rem);
     overflow-y: auto;
+    padding-top: 0.2rem;
+    border-left: 1px solid var(--vc-hairline);
   }
 
-  .article[data-vc-has-toc] .tocDetails {
+  .article[data-vc-has-toc] .tocRailLabel {
+    padding-left: 0.85rem;
+  }
+
+  .article[data-vc-has-toc] .tocPill {
     display: none;
   }
 }
 
-@media (max-width: 640px) {
-  .heroImage {
-    max-height: 320px;
-    border-radius: var(--vc-radius);
+@container vc-page (max-width: 640px) {
+  .articleHeader {
+    margin-bottom: 1.75rem;
   }
 
+  .heroImage,
   .featureCover {
-    max-height: 280px;
     border-radius: var(--vc-radius);
+    margin-bottom: 1.75rem;
+  }
+
+  .adjacent {
+    grid-template-columns: 1fr;
+  }
+
+  .adjacentOlder {
+    grid-column: 1;
+  }
+}
+
+@media print {
+  .tocRail,
+  .tocPill,
+  .adjacent {
+    display: none !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .article,
   .article *,
   .article *::before,
   .article *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

@@ -1,63 +1,41 @@
-'use client'
-
 import {
   ACCENTS,
   DEFAULT_PRESET_ID,
-  ENTITLEMENTS,
   FONTS,
-  MEDIA,
   PRESET_IDS,
-  PRICING,
   THEME_MODES,
   type AccentId,
   type FontId,
   type PresetId,
   type ThemeMode,
 } from '@vc/config'
-import { Check, Download, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw } from 'lucide-react'
+import { Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw } from 'lucide-react'
 import type { Asset, BillingStatus } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, VoiceProfileSettings } from '~/types/dashboard'
-import {
-  Alert,
-  Field,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-  Input,
-  Textarea,
-  cn,
-  Select,
-} from '@vc/ui'
+import { Alert, CopyButton, Field, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import {
-  Button,
-  LoadError,
-} from '~/components/dashboard/DashboardLayout'
-import { EmptyState, ListRow, PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
-import { Badge } from '@vc/ui'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
+import { PageHeader, PageSkeleton, PageTabs, Section, StatusBadge } from '~/components/dashboard/blocks'
+import { PlanAndBilling } from '~/components/dashboard/BillingPage'
+import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { Checkbox } from '~/components/ui/checkbox'
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from '~/components/ui/collapsible'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import {
   addCustomDomainMutation,
   removeCustomDomainMutation,
-  loadSettingsPage,
   updateSiteSettingsMutation,
   updateVoiceProfileMutation,
   clearVoiceProfileMutation,
 } from '~/lib/api-client'
 import type { z } from 'zod'
 import { settingsPageDataSchema } from '~/lib/dashboard-response-schemas'
-import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import { emptyDashboardStatusSearch, type SettingsTab } from '~/lib/dashboard-search'
+import { refreshContext, settingsQuery } from '~/lib/queries'
+
 type SettingsPageData = {
   site: SiteSettingsForm
   assets: Asset[]
@@ -214,60 +192,130 @@ function isSiteDraftDirty(draft: ReturnType<typeof siteDraftFromForm>, baseline:
     || draft.defaultSocialAssetId !== (baseline.defaultSocialAssetId ?? '')
 }
 
-function BillingStatusBadge({ status }: { status: string }) {
-  return <StatusBadge status={status} />
+/** Save row at the foot of a form: disabled and quiet until something changes. */
+function SaveRow({
+  dirty,
+  pending,
+  disabled,
+  onDiscard,
+  pendingText = 'Saving…',
+  children,
+}: {
+  dirty: boolean
+  pending: boolean
+  disabled?: boolean
+  onDiscard?: () => void
+  pendingText?: string
+  children?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--hairline)] pt-5">
+      <PendingSubmitButton pending={pending} pendingText={pendingText} disabled={!dirty || disabled}>
+        {dirty ? 'Save changes' : 'Saved'}
+      </PendingSubmitButton>
+      {dirty && onDiscard ? (
+        <Button type="button" variant="ghost" onClick={onDiscard}>
+          Discard
+        </Button>
+      ) : null}
+      {children}
+    </div>
+  )
 }
 
-function DomainStatusBadge({ status }: { status: CustomDomainView['status'] }) {
-  return <StatusBadge status={status} />
+function FieldHint({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} className="text-sm leading-6 text-muted-foreground">
+      {children}
+    </p>
+  )
 }
 
+const DOMAIN_STATUS_COPY: Record<CustomDomainView['status'], string> = {
+  pending: 'Waiting for the DNS record. This usually takes a few minutes, sometimes up to an hour.',
+  active: 'Live, with HTTPS.',
+  failed: 'We couldn’t verify this domain. Check the record below, then check again.',
+  disabled: 'Paused. It comes back when your plan is active.',
+}
+
+function DnsRecord({ hostname, target }: { hostname: string; target: string }) {
+  const rows: Array<[string, string, boolean]> = [
+    ['Type', 'CNAME', false],
+    ['Name', hostname, true],
+    ['Target', target, true],
+  ]
+  return (
+    <dl className="grid overflow-hidden rounded-lg border border-border text-sm sm:grid-cols-3">
+      {rows.map(([label, value, copy]) => (
+        <div key={label} className="flex min-w-0 items-center justify-between gap-2 border-b border-[color:var(--hairline)] px-3 py-2.5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="truncate font-mono text-[0.8125rem] text-foreground">{value}</dd>
+          </div>
+          {copy ? <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} copiedLabel="Copied" iconOnly variant="ghost" className="size-8 shrink-0" /> : null}
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+const TAB_LABELS: Record<SettingsTab, string> = {
+  site: 'Site',
+  voice: 'Voice',
+  domain: 'Domain',
+  billing: 'Plan & billing',
+  export: 'Export posts',
+}
 
 export function SettingsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const search = useSearch({ from: '/dashboard/settings' })
-  const [data, setData] = useState<SettingsPageData | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const query = useQuery(settingsQuery)
+  const data = query.data ? narrowSettingsPageData(query.data) : null
   const [removeDomainPending, setRemoveDomainPending] = useState<string | null>(null)
   const [refreshingDomains, setRefreshingDomains] = useState(false)
-  const [formPending, setFormPending] = useState<'site' | 'theme' | 'domain' | 'voice' | 'newsletter' | null>(null)
+  const [formPending, setFormPending] = useState<'site' | 'domain' | 'voice' | null>(null)
   const [selectedSocialAssetId, setSelectedSocialAssetId] = useState('')
   const [voiceAudience, setVoiceAudience] = useState('')
   const [voiceSummary, setVoiceSummary] = useState('')
   const [voicePreferText, setVoicePreferText] = useState('')
   const [voiceAvoidText, setVoiceAvoidText] = useState('')
   const [voiceRepresentativeIds, setVoiceRepresentativeIds] = useState<string[]>([])
-  const [voiceSaveStatus, setVoiceSaveStatus] = useState<string | null>(null)
-  const [voiceEditorOpen, setVoiceEditorOpen] = useState(false)
+  const [seeded, setSeeded] = useState(false)
   // Dirty-gated saves: the site form is uncontrolled (FormData on submit), so
-  // dirtiness is tracked by comparing a serialized snapshot of the live form
-  // against the loaded values.
+  // dirtiness compares a snapshot of the live form against the loaded values.
   const [siteDirty, setSiteDirty] = useState(false)
   const [siteFormRevision, setSiteFormRevision] = useState(0)
   const [voiceDirty, setVoiceDirty] = useState(false)
 
+  function seedVoice(profile: VoiceProfileSettings) {
+    setVoiceAudience(profile.audience)
+    setVoiceSummary(profile.voiceSummary)
+    setVoicePreferText(profile.preferRules.join('\n'))
+    setVoiceAvoidText(profile.avoidRules.join('\n'))
+    setVoiceRepresentativeIds(profile.representativePostIds)
+  }
+
   useEffect(() => {
-    let cancelled = false
-    void loadSettingsPage()
-      .then((loaded) => {
-        const normalized = narrowSettingsPageData(loaded)
-        if (!cancelled) {
-          setData(normalized)
-          setSelectedSocialAssetId(normalized.site.defaultSocialAssetId ?? '')
-          setVoiceAudience(normalized.voiceProfile.audience)
-          setVoiceSummary(normalized.voiceProfile.voiceSummary)
-          setVoicePreferText(normalized.voiceProfile.preferRules.join('\n'))
-          setVoiceAvoidText(normalized.voiceProfile.avoidRules.join('\n'))
-          setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load settings.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (!data || seeded) return
+    setSeeded(true)
+    setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
+    seedVoice(data.voiceProfile)
+  }, [data, seeded])
+
+  async function reload() {
+    return narrowSettingsPageData(await queryClient.fetchQuery({ ...settingsQuery, staleTime: 0 }))
+  }
+
+  function feedback(result: { ok?: string; error?: string }) {
+    void navigate({
+      to: '/dashboard/settings',
+      search: (prev) => ({ ok: result.ok, error: result.error, tab: prev.tab }),
+      replace: true,
+    })
+  }
+
   const voiceValidation = validateVoiceProfileForm(voicePreferText, voiceAvoidText)
   const voicePreferDescribedBy = [
     'voice-prefer-help',
@@ -285,10 +333,17 @@ export function SettingsPage() {
     setSiteDirty(data ? isSiteDraftDirty(siteDraftFromForm(form), data.site) : false)
   }
 
+  function discardSite() {
+    setSelectedSocialAssetId(data?.site.defaultSocialAssetId ?? '')
+    setSiteDirty(false)
+    setSiteFormRevision((revision) => revision + 1)
+  }
+
   async function handleSiteSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formElement = event.currentTarget
     const submitted = siteDraftFromForm(formElement)
+    const nameChanged = submitted.name !== data?.site.name
     const payload = {
       expectedUpdatedAt: data?.site.updatedAt ?? 0,
       ...submitted,
@@ -298,9 +353,8 @@ export function SettingsPage() {
     try {
       const result = await updateSiteSettingsMutation(payload)
       if (result.kind === 'ok') {
-        const refreshed = narrowSettingsPageData(await loadSettingsPage())
+        const refreshed = await reload()
         const liveDraft = siteDraftFromForm(formElement)
-        setData(refreshed)
         if (isSiteDraftDirty(liveDraft, { ...refreshed.site, ...submitted })) {
           setSiteDirty(true)
         } else {
@@ -308,48 +362,32 @@ export function SettingsPage() {
           setSiteDirty(false)
           setSiteFormRevision((revision) => revision + 1)
         }
+        if (nameChanged) void refreshContext()
       } else if (result.code === 'settings_conflict') {
-        const refreshed = narrowSettingsPageData(await loadSettingsPage())
-        setData(refreshed)
+        const refreshed = await reload()
         setSiteDirty(isSiteDraftDirty(siteDraftFromForm(formElement), refreshed.site))
       }
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: result.kind === 'ok' ? result.code : undefined, error: result.kind === 'ok' ? undefined : result.code, tab: prev.tab }),
-      })
+      feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
     } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
-      })
+      feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
   }
 
-
   async function handleAddDomain(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const hostname = String(form.get('hostname') ?? '').trim()
+    const formElement = event.currentTarget
+    const hostname = String(new FormData(formElement).get('hostname') ?? '').trim()
     setFormPending('domain')
     try {
       const result = await addCustomDomainMutation({ hostname })
-      // Always refresh after the mutation: a transient domain_provisioning
-      // failure keeps a retryable row server-side, and the user needs to see
-      // it without a full page reload. The error toast (result.code) still
-      // fires through the navigate below.
-      const refreshed = await loadSettingsPage()
-      setData(narrowSettingsPageData(refreshed))
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: result.ok ? 'domain_added' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
-      })
+      // Always refresh: a transient provisioning failure keeps a retryable row server-side.
+      await reload()
+      if (result.ok) formElement.reset()
+      feedback(result.ok ? { ok: 'domain_added' } : { error: result.code })
     } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
-      })
+      feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
@@ -359,35 +397,21 @@ export function SettingsPage() {
     setRemoveDomainPending(domainId)
     try {
       const result = await removeCustomDomainMutation({ domainId })
-      const refreshed = await loadSettingsPage()
-      setData(narrowSettingsPageData(refreshed))
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: result.ok ? 'domain_removed' : undefined, error: result.ok ? undefined : result.code, tab: prev.tab }),
-      })
+      await reload()
+      feedback(result.ok ? { ok: 'domain_removed' } : { error: result.code })
     } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
-      })
+      feedback({ error: 'unknown' })
     } finally {
       setRemoveDomainPending(null)
     }
   }
+
   async function handleRefreshDomains() {
     setRefreshingDomains(true)
     try {
-      const refreshed = await loadSettingsPage()
-      setData(narrowSettingsPageData(refreshed))
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: undefined, error: undefined, tab: prev.tab }),
-      })
+      await reload()
     } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: (prev) => ({ ok: undefined, error: 'unknown', tab: prev.tab }),
-      })
+      feedback({ error: 'unknown' })
     } finally {
       setRefreshingDomains(false)
     }
@@ -407,26 +431,13 @@ export function SettingsPage() {
         representativePostIds: voiceRepresentativeIds,
       })
       if (result.kind === 'ok') {
-        const refreshed = await loadSettingsPage()
-        const normalized = narrowSettingsPageData(refreshed)
-        setData(normalized)
-        setVoiceAudience(normalized.voiceProfile.audience)
-        setVoiceSummary(normalized.voiceProfile.voiceSummary)
-        setVoicePreferText(normalized.voiceProfile.preferRules.join('\n'))
-        setVoiceAvoidText(normalized.voiceProfile.avoidRules.join('\n'))
-        setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
-        setVoiceSaveStatus('Voice profile saved.')
-        setVoiceEditorOpen(false)
+        const refreshed = await reload()
+        seedVoice(refreshed.voiceProfile)
         setVoiceDirty(false)
       }
-      await navigate({
-        to: '/dashboard/settings',
-        search: {
-          ok: result.kind === 'ok' ? result.code : undefined,
-          error: result.kind === 'ok' ? undefined : result.code,
-          tab: 'voice',
-        },
-      })
+      feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
+    } catch {
+      feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
@@ -437,212 +448,173 @@ export function SettingsPage() {
     try {
       const result = await clearVoiceProfileMutation()
       if (result.kind === 'ok') {
-        const refreshed = await loadSettingsPage()
-        const normalized = narrowSettingsPageData(refreshed)
-        setData(normalized)
-        setVoiceAudience(normalized.voiceProfile.audience)
-        setVoiceSummary(normalized.voiceProfile.voiceSummary)
-        setVoicePreferText(normalized.voiceProfile.preferRules.join('\n'))
-        setVoiceAvoidText(normalized.voiceProfile.avoidRules.join('\n'))
-        setVoiceRepresentativeIds(normalized.voiceProfile.representativePostIds)
-        setVoiceSaveStatus('Voice profile cleared. Agents will use the VibeCMS writing baseline and the current brief.')
-        setVoiceEditorOpen(false)
+        const refreshed = await reload()
+        seedVoice(refreshed.voiceProfile)
         setVoiceDirty(false)
       }
-      await navigate({
-        to: '/dashboard/settings',
-        search: {
-          ok: result.kind === 'ok' ? result.code : undefined,
-          error: result.kind === 'ok' ? undefined : result.code,
-          tab: 'voice',
-        },
-      })
+      feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
     } catch {
-      await navigate({
-        to: '/dashboard/settings',
-        search: { ok: undefined, error: 'unknown', tab: 'voice' },
-      })
+      feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
   }
 
-  if (loadError) return <LoadError message={loadError} />
-  if (!data) return <PageSkeleton variant="panels" />
+  const header = <PageHeader title="Settings" />
 
-  const { site, customDomains, billingStatus, managed, selfHosted, isOwner } = data
-  const managedBinding = managed != null
-  const managedAccess = managed?.effective === true
-  const polarAccess =
-    data.effectiveEntitlement?.effective === true &&
-    data.effectiveEntitlement.source === 'polar'
-  // Free hosted plans see the lock pattern; missing field (stale payload) stays unlocked.
+  if (query.isError && !data) {
+    return (
+      <>
+        {header}
+        <LoadError message="Settings didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
+      </>
+    )
+  }
+  if (!data) return <PageSkeleton variant="list" />
+
+  const { site, customDomains, isOwner } = data
+  // Free hosted plans see the lock; a missing field (stale payload) stays unlocked.
   const domainLocked = data.effectiveEntitlement?.effective === false
+  const tabs = (['site', 'voice', 'domain', 'billing', 'export'] as const).filter(
+    (tab) => isOwner || (tab !== 'domain' && tab !== 'export'),
+  )
+  const requested = search.tab === 'theme' ? undefined : (search.tab as SettingsTab | undefined)
+  const activeTab: SettingsTab = requested && tabs.some((tab) => tab === requested) ? requested : 'site'
+  const defaultAddress = data.publicBaseUrl
+
   return (
     <>
       <UnsavedNavigationGuard when={siteDirty || voiceDirty} />
-      <PageHeader
-        title="Settings"
-        description="Blog defaults, agent voice, domain, plan, and data."
-      />
+      {header}
       <Tabs
-        value={search.tab ?? 'general'}
-        onValueChange={(value) => void navigate({ to: '/dashboard/settings', search: { ok: undefined, error: undefined, tab: value === 'general' ? undefined : value }})}
-        className="grid gap-5"
+        value={activeTab}
+        onValueChange={(value) =>
+          void navigate({
+            to: '/dashboard/settings',
+            search: { ok: undefined, error: undefined, tab: value === 'site' ? undefined : value },
+          })
+        }
+        className="gap-8"
       >
-        <div className="relative overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsList
-            aria-label="Workspace settings sections"
-            variant="line"
-            className="min-w-max gap-1 pr-10"
+        <PageTabs label="Settings sections" tabs={tabs.map((tab) => ({ value: tab, label: TAB_LABELS[tab] }))} />
+
+        <TabsContent value="site">
+          <form
+            key={siteFormRevision}
+            className="grid max-w-2xl gap-8"
+            onChange={(event) => markSiteDirty(event.currentTarget)}
+            onSubmit={(event) => void handleSiteSave(event)}
           >
-            <TabsTrigger value="general" className="px-3 py-2.5 data-[state=active]:font-medium">Site</TabsTrigger>
-            <TabsTrigger value="voice" className="px-3 py-2.5 data-[state=active]:font-medium">Voice</TabsTrigger>
-            {isOwner ? (
-              <TabsTrigger value="domain" className="px-3 py-2.5 data-[state=active]:font-medium">Domain</TabsTrigger>
-            ) : null}
-            <TabsTrigger value="billing" className="px-3 py-2.5 data-[state=active]:font-medium">Plan</TabsTrigger>
-            {isOwner ? (
-              <TabsTrigger value="data" className="px-3 py-2.5 data-[state=active]:font-medium">Data</TabsTrigger>
-            ) : null}
-          </TabsList>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
-          />
-        </div>
-        <TabsContent value="general" className="grid gap-4">
-          <Panel title="Site" meta="Name & SEO defaults">
-            <form key={siteFormRevision} className="grid max-w-3xl gap-4" onChange={(e) => markSiteDirty(e.currentTarget)} onSubmit={(e) => void handleSiteSave(e)}>
+            <Section title="Your blog">
               <Field>
-                <FieldLabel htmlFor="site-name">Blog name</FieldLabel>
+                <FieldLabel htmlFor="site-name">Name</FieldLabel>
                 <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="site-description">Description</FieldLabel>
                 <Textarea id="site-description" name="description" maxLength={220} rows={3} defaultValue={site.description} />
+                <FieldHint>One or two sentences. Shown on your blog’s home page.</FieldHint>
               </Field>
-          <Field>
-            <FieldLabel htmlFor="default-seo-title">SEO title</FieldLabel>
-            <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="default-seo-description">Meta description</FieldLabel>
-            <Textarea
-              id="default-seo-description"
-              name="defaultSeoDescription"
-              maxLength={220}
-              rows={3}
-              defaultValue={site.defaultSeoDescription}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="default-social-image">Default social image</FieldLabel>
-            <Select
-              id="default-social-image"
-              name="defaultSocialAssetId"
-              value={selectedSocialAssetId}
-              onChange={(event) => setSelectedSocialAssetId(event.currentTarget.value)}
-              aria-describedby="default-social-image-help"
-            >
-              <option value="">No default image</option>
-              {data.assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.filename}{asset.altText ? '' : ' — add alt text first'}
-                </option>
-              ))}
-            </Select>
-            <p id="default-social-image-help" className="text-sm leading-6 text-muted-foreground">
-              Used for posts without a featured image and for shared blog pages. A 1200 × 630 image works best.
-              {' '}Manage images and alt text in <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="text-foreground underline underline-offset-4">Media</Link>.
-            </p>
-            {selectedSocialAsset ? (
-              <div className="flex min-w-0 items-center gap-3 pt-1">
-                <img
-                  src={`/media-assets/${selectedSocialAsset.id}`}
-                  alt={selectedSocialAsset.altText ?? ''}
-                  className="h-16 w-28 shrink-0 rounded-md object-cover"
-                />
-                <div className="min-w-0 text-sm">
-                  <p className="truncate font-medium text-foreground">{selectedSocialAsset.filename}</p>
-                  <p className="text-muted-foreground">
-                    {selectedSocialAsset.width && selectedSocialAsset.height
-                      ? `${selectedSocialAsset.width} × ${selectedSocialAsset.height}`
-                      : 'Dimensions unavailable'}
-                  </p>
-                  {!selectedSocialAsset.altText ? (
-                    <p className="text-destructive">Add alt text before saving.</p>
-                  ) : null}
+              {defaultAddress ? (
+                <div className="grid gap-1.5">
+                  <p className="text-sm font-medium text-foreground">Address</p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    <a href={defaultAddress} target="_blank" rel="noopener" className="font-mono text-foreground underline-offset-4 hover:underline">
+                      {defaultAddress.replace(/^https?:\/\//, '')}
+                    </a>
+                    {isOwner ? (
+                      <Link
+                        to="/dashboard/settings"
+                        search={{ ok: undefined, error: undefined, tab: 'domain' }}
+                        className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                      >
+                        Use your own domain
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </Field>
-          <PendingSubmitButton
-            className="w-fit"
-            pending={formPending === 'site'}
-            pendingText="Saving…"
-            disabled={siteDirty !== true || Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
-          >
-            {siteDirty ? 'Save changes' : 'Saved'}
-          </PendingSubmitButton>
-        </form>
-      </Panel>
-        </TabsContent>
-        <TabsContent value="voice" className="grid gap-4">
-          <Panel title="Writing voice" meta={data.voiceProfile.configured ? 'Custom' : 'VibeCMS default'}>
-            <Collapsible open={voiceEditorOpen} onOpenChange={setVoiceEditorOpen} className="grid gap-5">
-            <div className="rounded-xl bg-muted/35 p-4 md:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="max-w-2xl">
-                  <p className="font-display text-base font-medium text-foreground">
-                    {data.voiceProfile.configured ? 'Your voice profile is active' : 'A strong baseline, with no setup'}
-                  </p>
-                  <p className="mt-2 font-sans text-sm leading-6 text-muted-foreground">
-                    {data.voiceProfile.configured
-                      ? (data.voiceProfile.voiceSummary || 'Agents follow your saved audience, style rules, and example posts.')
-                      : 'Clear, specific, and practical. Agents use the reader’s language, keep one idea per section, support claims with evidence, and end with a concrete next step.'}
-                  </p>
-                  {data.voiceProfile.configured && data.voiceProfile.audience ? (
-                    <p className="mt-2 font-sans text-xs text-muted-foreground">
-                      Audience: {data.voiceProfile.audience}
-                    </p>
-                  ) : null}
-                  {voiceSaveStatus ? (
-                    <p aria-live="polite" className="mt-2 font-sans text-xs text-muted-foreground">
-                      {voiceSaveStatus}
-                    </p>
-                  ) : null}
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-expanded={voiceEditorOpen}
-                  >
-                    {voiceEditorOpen ? 'Close' : data.voiceProfile.configured ? 'Edit voice' : 'Customize voice'}
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-            </div>
-            <CollapsibleContent>
-            <form className="grid max-w-3xl gap-5" onSubmit={(e) => void handleVoiceProfileSave(e)}>
+              ) : null}
+            </Section>
+
+            <Section title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
               <Field>
-                <FieldLabel htmlFor="voice-audience">Audience</FieldLabel>
+                <FieldLabel htmlFor="default-seo-title">Title</FieldLabel>
+                <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="default-seo-description">Description</FieldLabel>
+                <Textarea id="default-seo-description" name="defaultSeoDescription" maxLength={220} rows={3} defaultValue={site.defaultSeoDescription} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="default-social-image">Share image</FieldLabel>
+                <Select
+                  id="default-social-image"
+                  name="defaultSocialAssetId"
+                  value={selectedSocialAssetId}
+                  onChange={(event) => setSelectedSocialAssetId(event.currentTarget.value)}
+                  aria-describedby="default-social-image-help"
+                >
+                  <option value="">None</option>
+                  {data.assets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.filename}
+                      {asset.altText ? '' : ' (needs alt text)'}
+                    </option>
+                  ))}
+                </Select>
+                <FieldHint id="default-social-image-help">
+                  Used when a post has no cover. 1200 × 630 works best.{' '}
+                  <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="text-foreground underline underline-offset-4">
+                    Manage images
+                  </Link>
+                </FieldHint>
+                {selectedSocialAsset ? (
+                  <div className="flex min-w-0 items-center gap-3 pt-1">
+                    <img
+                      src={`/media-assets/${selectedSocialAsset.id}`}
+                      alt={selectedSocialAsset.altText ?? ''}
+                      className="h-16 w-28 shrink-0 rounded-md border border-border object-cover"
+                    />
+                    {!selectedSocialAsset.altText ? (
+                      <p className="text-sm text-destructive">Add alt text to this image in Media before saving.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </Field>
+            </Section>
+
+            <SaveRow
+              dirty={siteDirty}
+              pending={formPending === 'site'}
+              disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
+              onDiscard={discardSite}
+            />
+          </form>
+        </TabsContent>
+
+        <TabsContent value="voice">
+          <form className="grid max-w-2xl gap-8" onSubmit={(event) => void handleVoiceProfileSave(event)}>
+            <Section
+              title="How your agents write"
+              description={
+                data.voiceProfile.configured
+                  ? 'Agents read this before every draft.'
+                  : 'Without this, agents write clearly and plainly: one idea per section, concrete examples, a useful ending. Add your own voice below.'
+              }
+            >
+              <Field>
+                <FieldLabel htmlFor="voice-audience">Who reads this blog</FieldLabel>
                 <Textarea
                   id="voice-audience"
                   value={voiceAudience}
                   onChange={(e) => {
-                    setVoiceSaveStatus(null)
                     setVoiceDirty(true)
                     setVoiceAudience(e.target.value)
                   }}
                   maxLength={300}
                   rows={2}
-                  placeholder="For example: technical operators building reliable SaaS products"
+                  placeholder="Engineers who run small SaaS products"
                 />
-                <p className="mt-1 font-sans text-xs text-muted-foreground">
-                  Who should feel addressed? {voiceAudience.length}/300 characters
-                </p>
               </Field>
               <Field>
                 <FieldLabel htmlFor="voice-summary">Tone</FieldLabel>
@@ -650,375 +622,277 @@ export function SettingsPage() {
                   id="voice-summary"
                   value={voiceSummary}
                   onChange={(e) => {
-                    setVoiceSaveStatus(null)
                     setVoiceDirty(true)
                     setVoiceSummary(e.target.value)
                   }}
                   maxLength={500}
                   rows={3}
-                  placeholder="For example: Calm, specific, and practical; lead with the useful detail."
+                  placeholder="Calm, specific, practical. Lead with the useful detail."
                 />
               </Field>
-              <FieldSet>
-                <FieldLegend variant="label">Style rules</FieldLegend>
-                <p className="mb-3 font-sans text-xs text-muted-foreground">
-                  One rule per line. Up to {VOICE_RULE_LIMIT} rules total.
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <FieldLabel htmlFor="voice-prefer-rules" className="text-sm">Do</FieldLabel>
-                    <Textarea
-                      id="voice-prefer-rules"
-                      value={voicePreferText}
-                      onChange={(e) => {
-                        setVoiceSaveStatus(null)
-                        setVoiceDirty(true)
-                        setVoicePreferText(e.target.value)
-                      }}
-                      aria-describedby={voicePreferDescribedBy}
-                      aria-invalid={!voiceValidation.prefer.isValid}
-                      rows={4}
-                      placeholder={"One guideline per line\nUse active voice\nInclude concrete examples"}
-                    />
-                    <p id="voice-prefer-help" className="mt-1 font-sans text-xs text-muted-foreground">
-                      {voiceValidation.prefer.ruleCount} of {VOICE_RULE_LIMIT} rules used here
+            </Section>
+
+            <Section title="Rules" description={`One per line, up to ${VOICE_RULE_LIMIT} in total.`}>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="voice-prefer-rules">Do</FieldLabel>
+                  <Textarea
+                    id="voice-prefer-rules"
+                    value={voicePreferText}
+                    onChange={(e) => {
+                      setVoiceDirty(true)
+                      setVoicePreferText(e.target.value)
+                    }}
+                    aria-describedby={voicePreferDescribedBy}
+                    aria-invalid={!voiceValidation.prefer.isValid}
+                    rows={5}
+                    placeholder={'Use short sentences\nShow a real example'}
+                  />
+                  <FieldHint id="voice-prefer-help">{voiceValidation.prefer.ruleCount} rules</FieldHint>
+                  {voiceValidation.prefer.lineNumbers.length > 0 ? (
+                    <p id="voice-prefer-line-error" role="alert" className="text-sm text-destructive">
+                      Shorten line{voiceValidation.prefer.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.prefer.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
                     </p>
-                    {voiceValidation.prefer.lineNumbers.length > 0 && (
-                      <p id="voice-prefer-line-error" role="alert" className="mt-1 font-sans text-xs text-destructive">
-                        Shorten line{voiceValidation.prefer.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.prefer.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="voice-avoid-rules" className="text-sm">Don’t</FieldLabel>
-                    <Textarea
-                      id="voice-avoid-rules"
-                      value={voiceAvoidText}
-                      onChange={(e) => {
-                        setVoiceSaveStatus(null)
-                        setVoiceDirty(true)
-                        setVoiceAvoidText(e.target.value)
-                      }}
-                      aria-describedby={voiceAvoidDescribedBy}
-                      aria-invalid={!voiceValidation.avoid.isValid}
-                      rows={4}
-                      placeholder={"One guideline per line\nAvoid jargon\nDo not use passive voice"}
-                    />
-                    <p id="voice-avoid-help" className="mt-1 font-sans text-xs text-muted-foreground">
-                      {voiceValidation.avoid.ruleCount} of {VOICE_RULE_LIMIT} rules used here
+                  ) : null}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="voice-avoid-rules">Don’t</FieldLabel>
+                  <Textarea
+                    id="voice-avoid-rules"
+                    value={voiceAvoidText}
+                    onChange={(e) => {
+                      setVoiceDirty(true)
+                      setVoiceAvoidText(e.target.value)
+                    }}
+                    aria-describedby={voiceAvoidDescribedBy}
+                    aria-invalid={!voiceValidation.avoid.isValid}
+                    rows={5}
+                    placeholder={'No buzzwords\nNo exclamation marks'}
+                  />
+                  <FieldHint id="voice-avoid-help">{voiceValidation.avoid.ruleCount} rules</FieldHint>
+                  {voiceValidation.avoid.lineNumbers.length > 0 ? (
+                    <p id="voice-avoid-line-error" role="alert" className="text-sm text-destructive">
+                      Shorten line{voiceValidation.avoid.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.avoid.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
                     </p>
-                    {voiceValidation.avoid.lineNumbers.length > 0 && (
-                      <p id="voice-avoid-line-error" role="alert" className="mt-1 font-sans text-xs text-destructive">
-                        Shorten line{voiceValidation.avoid.lineNumbers.length === 1 ? '' : 's'} {voiceValidation.avoid.lineNumbers.join(', ')} to {VOICE_RULE_LINE_LIMIT} characters or fewer.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {voiceValidation.ruleCount > VOICE_RULE_LIMIT && (
-                  <p id="voice-rule-count-error" role="alert" className="mt-2 font-sans text-xs text-destructive">
-                    {voiceValidation.ruleCount} rules entered. Keep the combined total to {VOICE_RULE_LIMIT} or fewer before saving.
-                  </p>
-                )}
-              </FieldSet>
-              <FieldSet>
-                <FieldLegend variant="label">Example posts</FieldLegend>
-                <p id="representative-posts-help" className="mb-3 font-sans text-xs text-muted-foreground">
-                  Select published posts that best demonstrate this voice. Agents use them as reading references, not source material.
+                  ) : null}
+                </Field>
+              </div>
+              {voiceValidation.ruleCount > VOICE_RULE_LIMIT ? (
+                <p id="voice-rule-count-error" role="alert" className="text-sm text-destructive">
+                  {voiceValidation.ruleCount} rules. Keep it to {VOICE_RULE_LIMIT} or fewer.
                 </p>
-                <p className="mb-3 font-sans text-sm font-medium" aria-live="polite">
-                  {voiceRepresentativeIds.length} of {REPRESENTATIVE_POST_LIMIT} posts selected
-                </p>
-                {voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT && (
-                  <p className="mb-3 font-sans text-xs text-muted-foreground">
-                    The three-post limit is reached. Deselect a post to choose another.
-                  </p>
-                )}
+              ) : null}
+            </Section>
+
+            <Section title="Example posts" description="Pick up to three published posts that sound like you. Agents read them for tone.">
+              <FieldSet className="gap-0">
+                <FieldLegend className="sr-only">Example posts</FieldLegend>
                 {data.voiceProfile.publishedPosts.length > 0 || voiceRepresentativeIds.length > 0 ? (
-                  <div className="max-h-64 space-y-2 overflow-y-auto pr-1 sm:max-h-80">
+                  <div className="grid max-h-80 overflow-y-auto">
                     {data.voiceProfile.publishedPosts.map((post) => (
-                      <Field key={post.id} orientation="horizontal">
+                      <Field
+                        key={post.id}
+                        orientation="horizontal"
+                        className="border-b border-[color:var(--hairline)] py-3 last:border-b-0"
+                      >
                         <Checkbox
                           id={`post-${post.id}`}
                           checked={voiceRepresentativeIds.includes(post.id)}
                           onCheckedChange={(checked) => {
                             if (checked === 'indeterminate') return
-                            setVoiceSaveStatus(null)
                             setVoiceDirty(true)
                             setVoiceRepresentativeIds(selectRepresentativePost(voiceRepresentativeIds, post.id, checked))
                           }}
                           disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT}
-                          aria-describedby="representative-posts-help"
                           className="mt-1"
                         />
                         <label htmlFor={`post-${post.id}`} className="min-w-0 flex-1 cursor-pointer">
-                          <div className="truncate font-sans text-sm font-medium">{post.title}</div>
-                          <div className="truncate font-sans text-xs text-muted-foreground">{post.slug}</div>
+                          <span className="block truncate text-[0.9375rem] text-foreground">{post.title}</span>
+                          <span className="block truncate font-mono text-sm text-muted-foreground">/{post.slug}</span>
                         </label>
                       </Field>
                     ))}
                     {voiceRepresentativeIds
-                      .filter(id => !data.voiceProfile.publishedPosts.some(p => p.id === id))
+                      .filter((id) => !data.voiceProfile.publishedPosts.some((post) => post.id === id))
                       .map((staleId) => (
-                        <Field key={staleId} orientation="horizontal">
+                        <Field key={staleId} orientation="horizontal" className="py-3">
                           <Checkbox
                             id={`post-${staleId}`}
-                            checked={true}
+                            checked
                             onCheckedChange={(checked) => {
                               if (!checked) {
-                                setVoiceSaveStatus(null)
                                 setVoiceDirty(true)
-                                setVoiceRepresentativeIds(voiceRepresentativeIds.filter(id => id !== staleId))
+                                setVoiceRepresentativeIds(voiceRepresentativeIds.filter((id) => id !== staleId))
                               }
                             }}
-                            aria-describedby="representative-posts-help"
                             className="mt-1"
                           />
-                          <label htmlFor={`post-${staleId}`} className="min-w-0 flex-1 cursor-pointer">
-                            <div className="font-sans text-sm font-medium text-muted-foreground">Archived or missing post</div>
-                            <div className="truncate font-sans text-xs text-muted-foreground">ID: {staleId}</div>
+                          <label htmlFor={`post-${staleId}`} className="min-w-0 flex-1 cursor-pointer text-[0.9375rem] text-muted-foreground">
+                            A post that’s no longer published
                           </label>
                         </Field>
                       ))}
                   </div>
                 ) : (
-                  <p className="font-sans text-sm text-muted-foreground">
-                    No published posts are available yet. Publish one first to add a reading reference.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Publish a post first, then pick it here.</p>
                 )}
               </FieldSet>
-              {data.voiceProfile.warnings.length > 0 && (
-                <Alert variant="warning" title="Warnings">
-                  <ul className="mt-1 list-disc space-y-1 pl-4">
-                    {data.voiceProfile.warnings.map((warning, i) => (
-                      <li key={i}>{warning}</li>
-                    ))}
-                  </ul>
-                </Alert>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                <PendingSubmitButton
-                  className="w-fit"
-                  pending={formPending === 'voice'}
-                  pendingText="Saving voice profile..."
-                  disabled={voiceDirty !== true || !voiceValidation.isValid}
-                >
-                  {voiceDirty ? 'Save changes' : 'Saved'}
-                </PendingSubmitButton>
-                {data.voiceProfile.configured && (
-                  <SpaConfirmButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    confirmLabel="Confirm clear"
-                    helperText="This removes the editorial guidance and reading references that agents receive."
-                    onConfirm={() => void handleVoiceProfileClear()}
-                  >
-                    <RotateCcw aria-hidden data-icon="inline-start" /> Reset to default
-                  </SpaConfirmButton>
-                )}
-              </div>
-            </form>
-            </CollapsibleContent>
-            </Collapsible>
-          </Panel>
-        </TabsContent>
-        <TabsContent value="domain" className="grid gap-4">
-      {isOwner ? (
-        <Panel
-          title="Custom domain"
-          meta={
-            <div className="flex items-center gap-3">
-              <span className="font-sans text-xs text-muted-foreground">Bring your own domain</span>
-              {customDomains.domains.length ? (
-                <Button
+            </Section>
+
+            {data.voiceProfile.warnings.length > 0 ? (
+              <Alert variant="warning" title="Worth a look">
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {data.voiceProfile.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </Alert>
+            ) : null}
+
+            <SaveRow
+              dirty={voiceDirty}
+              pending={formPending === 'voice'}
+              disabled={!voiceValidation.isValid}
+              onDiscard={() => {
+                seedVoice(data.voiceProfile)
+                setVoiceDirty(false)
+              }}
+            >
+              {data.voiceProfile.configured && !voiceDirty ? (
+                <SpaConfirmButton
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={refreshingDomains}
-                  onClick={() => void handleRefreshDomains()}
+                  variant="ghost"
+                  confirmLabel="Reset voice"
+                  helperText="Agents go back to the default voice."
+                  onConfirm={() => void handleVoiceProfileClear()}
+                  className="text-muted-foreground"
                 >
-                  <RefreshCw aria-hidden data-icon="inline-start" />
-                  {refreshingDomains ? 'Refreshing…' : 'Refresh'}
-                </Button>
+                  <RotateCcw aria-hidden data-icon="inline-start" /> Reset to default
+                </SpaConfirmButton>
               ) : null}
-          </div>
-        }
-      >
-          <p className="mb-4 font-sans text-sm text-muted-foreground">
-            {domainLocked
-              ? 'Serve your blog on your own domain (for example blog.example.com).'
-              : 'Serve your blog on your own domain (for example blog.example.com). Requires an active subscription.'}
-          </p>
-          {domainLocked ? (
-            <div className="flex max-w-3xl flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
-              <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Custom domains need an active subscription. Your existing setup keeps working.</p>
-              <Button asChild size="sm" variant="outline" className="ml-auto">
-                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>View plan</Link>
-              </Button>
-            </div>
-          ) : (
-            <form className="mb-4 flex max-w-3xl flex-wrap items-end gap-3" onSubmit={(e) => void handleAddDomain(e)}>
-              <Field className="flex-1">
-                <FieldLabel htmlFor="domain-hostname">Domain</FieldLabel>
-                <Input id="domain-hostname" name="hostname" placeholder="blog.example.com" autoComplete="off" required />
-              </Field>
-              <PendingSubmitButton className="w-fit" pending={formPending === 'domain'} pendingText="Adding…">
-                <Plus aria-hidden data-icon="inline-start" /> Add domain
-              </PendingSubmitButton>
-            </form>
-          )}
-          {customDomains.cnameTarget ? (
-            <p className="mb-4 font-sans text-xs leading-5 text-muted-foreground">
-              After adding, create a DNS-only CNAME record pointing your domain to{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{customDomains.cnameTarget}</code>. We verify and issue SSL automatically.
-            </p>
-          ) : null}
-          {customDomains.domains.length ? (
-            <div className="grid gap-0">
-              {customDomains.domains.map((domain) => (
-                <ListRow
-                  key={domain.id}
-                  title={<strong className="break-words font-display text-foreground">{domain.hostname}</strong>}
-                  meta={
-                    <div className="flex flex-wrap items-center gap-2">
-                      <DomainStatusBadge status={domain.status} />
-                      {domain.verificationErrors.length ? (
-                        <span className="font-sans text-xs text-muted-foreground">{domain.verificationErrors[0]}</span>
+            </SaveRow>
+          </form>
+        </TabsContent>
+
+        {isOwner ? (
+          <TabsContent value="domain" className="grid max-w-2xl gap-10">
+            <Section title="Your blog’s address">
+              {defaultAddress ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <code className="min-w-0 truncate font-mono text-[0.9375rem] text-foreground">
+                    {defaultAddress.replace(/^https?:\/\//, '')}
+                  </code>
+                  <CopyButton value={defaultAddress} label="Copy address" copiedLabel="Copied" iconOnly variant="ghost" className="size-8" />
+                  <Button asChild variant="ghost" size="sm">
+                    <a href={defaultAddress} target="_blank" rel="noopener">
+                      <ExternalLink aria-hidden data-icon="inline-start" /> Open
+                    </a>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Your address appears here once your blog is set up.</p>
+              )}
+            </Section>
+
+            <Section
+              title="Your own domain"
+              description="Serve the blog from a domain you own, like blog.example.com. HTTPS is set up for you."
+              action={
+                customDomains.domains.length ? (
+                  <Button type="button" variant="ghost" size="sm" disabled={refreshingDomains} onClick={() => void handleRefreshDomains()}>
+                    <RefreshCw aria-hidden data-icon="inline-start" className={refreshingDomains ? 'animate-spin' : undefined} />
+                    {refreshingDomains ? 'Checking…' : 'Check again'}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {domainLocked ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
+                  <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                  <p className="flex-1 text-sm text-muted-foreground">Custom domains are part of the paid plan.</p>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
+                      See plans
+                    </Link>
+                  </Button>
+                </div>
+              ) : customDomains.domains.length === 0 ? (
+                <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleAddDomain(event)}>
+                  <Field className="min-w-0 flex-1">
+                    <FieldLabel htmlFor="domain-hostname">Domain</FieldLabel>
+                    <Input id="domain-hostname" name="hostname" placeholder="blog.example.com" autoComplete="off" spellCheck={false} required />
+                  </Field>
+                  <PendingSubmitButton pending={formPending === 'domain'} pendingText="Adding…">
+                    <Plus aria-hidden data-icon="inline-start" /> Add domain
+                  </PendingSubmitButton>
+                </form>
+              ) : null}
+
+              {customDomains.domains.length ? (
+                <ul className="grid gap-6">
+                  {customDomains.domains.map((domain) => (
+                    <li key={domain.id} className="grid gap-3 rounded-xl border border-border p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <Globe2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                          <strong className="break-all font-medium text-foreground">{domain.hostname}</strong>
+                          <StatusBadge status={domain.status} />
+                        </div>
+                        <SpaConfirmButton
+                          size="sm"
+                          variant="ghost"
+                          confirmLabel="Remove domain"
+                          helperText="Your blog stops answering on this domain."
+                          disabled={removeDomainPending === domain.id}
+                          onConfirm={() => handleRemoveDomain(domain.id)}
+                          className="text-muted-foreground"
+                        >
+                          Remove
+                        </SpaConfirmButton>
+                      </div>
+                      <p className="text-sm leading-6 text-muted-foreground">{DOMAIN_STATUS_COPY[domain.status]}</p>
+                      {domain.status !== 'active' && customDomains.cnameTarget ? (
+                        <>
+                          <p className="text-sm text-foreground">Add this record at your DNS provider:</p>
+                          <DnsRecord hostname={domain.hostname} target={customDomains.cnameTarget} />
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            On Cloudflare, set the record to DNS only (grey cloud). For a root domain like example.com, use your provider’s CNAME flattening or ALIAS record.
+                          </p>
+                        </>
                       ) : null}
-                    </div>
-                  }
-                  actions={
-                    <SpaConfirmButton
-                      size="sm"
-                      confirmLabel="Confirm remove"
-                      helperText="Removing stops serving your blog on this domain."
-                      disabled={removeDomainPending === domain.id}
-                      onConfirm={() => handleRemoveDomain(domain.id)}
-                    >
-                      Remove
-                    </SpaConfirmButton>
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              description={domainLocked ? 'Domains you add appear here with live verification status.' : 'Add a domain above to serve your blog on your own URL.'}
-              icon={<Globe2 />}
-              title="No custom domains"
-            />
-          )}
-        </Panel>
-      ) : (
-        <EmptyState
-          compact
-          icon={<Globe2 />}
-          title="Owner access required"
-          description="Only the workspace owner can manage custom domains."
-        />
-      )}
-        </TabsContent>
-        <TabsContent value="billing" className="grid gap-4">
-      <Panel
-        title="Billing"
-        meta={
-          selfHosted ? (
-            <Badge variant="outline">self-hosted</Badge>
-          ) : polarAccess && !managedAccess ? (
-            <BillingStatusBadge status={billingStatus} />
-          ) : managedBinding ? (
-            <StatusBadge
-              status={managedAccess ? 'active' : managed?.status ?? 'unknown'}
-              label={managedAccess ? 'managed access' : managed?.status === 'revoked' ? 'managed revoked' : 'managed expired'}
-            />
-          ) : (
-            <BillingStatusBadge status={billingStatus} />
-          )
-        }
-      >
-        <div className="rounded-xl bg-muted/35 p-4 md:p-5">
-          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-            <div>
-              <p className="font-display text-sm font-medium text-foreground">
-                {selfHosted
-                  ? 'Billing is disabled for this self-hosted workspace'
-                  : polarAccess && !managedAccess
-                    ? `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`
-                  : managedBinding
-                    ? 'Paid hosted access is managed by AutoSEOPilot'
-                  : `${PRICING.planName}: ${PRICING.monthlyLabel} or ${PRICING.annualLabel}`}
-              </p>
-              <p className="mt-2 max-w-2xl font-sans text-sm leading-6 text-muted-foreground">
-                {selfHosted
-                  ? 'Publishing, media uploads, scoped agent access, activity history, and post versions run on your own Cloudflare resources without Polar checkout.'
-                  : polarAccess && !managedAccess
-                    ? `Your independent VibeCMS subscription keeps paid hosted features active. AutoSEOPilot sponsorship is currently unavailable. Media storage is capped at ${MEDIA.paidStorageLabel}.`
-                  : managedBinding
-                    ? managedAccess
-                      ? `Publishing, media uploads, API and MCP quotas, analytics, custom domains, and search indexing are enabled while sponsorship is active. Polar billing remains separate. Media storage is capped at ${MEDIA.paidStorageLabel}.`
-                      : 'Paid hosted features are unavailable until AutoSEOPilot restores sponsorship. Existing content and workspace data remain intact.'
-                  : `Drafting, agent tokens, and your first 5 published posts are free. Subscribe to publish more, upload media, and make posts search-indexable. Media storage is capped at ${MEDIA.paidStorageLabel}.`}
-              </p>
-            </div>
-            {selfHosted ? (
-              <Badge variant="outline" className="w-fit font-mono text-[11px] md:justify-self-end">
-                SELF_HOSTED=true
-              </Badge>
-            ) : isOwner ? (
-              <div className="flex flex-wrap gap-2 md:justify-end">
-                <Button asChild>
-                  <Link to="/dashboard/billing" search={emptyDashboardStatusSearch}>
-                    {billingStatus === 'active'
-                      ? 'Manage billing'
-                      : managedBinding
-                        ? 'Managed access'
-                        : 'Subscribe to publish'}
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <p className="font-sans text-sm text-muted-foreground">Only workspace owners can manage billing.</p>
-            )}
-          </div>
-        </div>
-      </Panel>
-      <Panel title="Plan includes" meta={PRICING.planName}>
-        <div className="grid gap-x-6 gap-y-1 font-sans text-sm text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
-          {ENTITLEMENTS.map((entitlement) => (
-            <span className="flex items-start gap-2 py-2 leading-5" key={entitlement}>
-              <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-primary" />
-              <span>{entitlement}</span>
-            </span>
-          ))}
-        </div>
-      </Panel>
-        </TabsContent>
-        <TabsContent value="data" className="grid gap-4">
-      {isOwner ? (
-        <Panel title="Your data" meta="Export">
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-muted/35 p-4 md:p-5">
-            <div className="flex min-w-0 items-start gap-3">
-              <Download aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
-              <p className="font-sans text-sm leading-6 text-muted-foreground">
-                Download every post (drafts, published, and archived) as JSON. Your content is yours to keep, with no lock-in.
-              </p>
-            </div>
-            <Button asChild variant="outline" className="shrink-0">
-              <a href="/api/export.json">Export posts</a>
-            </Button>
-          </div>
-        </Panel>
-      ) : (
-        <EmptyState
-          compact
-          icon={<Download />}
-          title="Owner access required"
-          description="Only the workspace owner can export workspace data."
-        />
-      )}
-        </TabsContent>
+                      {domain.verificationErrors.length && domain.status !== 'active' ? (
+                        <ul className="grid gap-1 text-sm text-destructive">
+                          {domain.verificationErrors.map((message) => (
+                            <li key={message}>{message}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Section>
+          </TabsContent>
+        ) : null}
+
+        <TabsContent value="billing">{activeTab === 'billing' ? <PlanAndBilling /> : null}</TabsContent>
+
+        {isOwner ? (
+          <TabsContent value="export" className="max-w-2xl">
+            <Section
+              title="Export posts"
+              description="Download every post (drafts, published, and archived) as one JSON file. Your writing is yours."
+            >
+              <Button asChild variant="outline" className="w-fit">
+                <a href="/api/export.json" download>
+                  <Download aria-hidden data-icon="inline-start" /> Download posts
+                </a>
+              </Button>
+            </Section>
+          </TabsContent>
+        ) : null}
       </Tabs>
     </>
   )
 }
+

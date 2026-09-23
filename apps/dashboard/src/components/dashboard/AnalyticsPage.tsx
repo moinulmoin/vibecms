@@ -1,11 +1,12 @@
 import { BarChart3, LockKeyhole } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
-import { Badge, Button } from '@vc/ui'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Button, cn } from '@vc/ui'
+import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, ListRow, PageHeader, PageSkeleton, Panel, StatusBadge } from '~/components/dashboard/blocks'
-import { loadAnalyticsPage } from '~/lib/api-client'
+import { EmptyState, ListRow, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
+import { analyticsQuery } from '~/lib/queries'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
@@ -31,7 +32,7 @@ const trafficChartConfig = {
 } satisfies ChartConfig
 function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <Panel title="Top posts" meta={<Badge variant="outline">Views</Badge>}>
+    <Panel title="Top posts" meta="Views">
       {data.topPosts.length === 0 ? (
         <EmptyState
           compact
@@ -68,16 +69,17 @@ function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'availa
 
 function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (value: AnalyticsRange) => void }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1" aria-label="Analytics date range">
+    <nav className="flex gap-0.5 overflow-x-auto rounded-lg border border-border p-0.5" aria-label="Date range">
       {RANGE_OPTIONS.map((option) => (
         <button
           key={option}
           type="button"
           aria-pressed={value === option}
           onClick={() => onChange(option)}
-          className={`rounded-md px-3 py-1.5 font-mono text-xs tabular-nums transition-colors ${
-            value === option ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            value === option ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+          )}
         >
           {option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}
         </button>
@@ -197,7 +199,7 @@ function RankedRow({
 
 function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <Panel title="Referrers" meta={<Badge variant="outline">External</Badge>}>
+    <Panel title="Referrers" meta="Views">
       {data.referrers.length === 0 ? (
         <EmptyState
           compact
@@ -224,13 +226,10 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
 
 function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <Panel
-      title="AI discovery"
-      meta={<StatusBadge status="active" label="Crawler activity" />}
-    >
+    <Panel title="AI crawlers">
       <div className="mb-5 max-w-3xl space-y-2">
-        <p className="text-base leading-7 text-muted-foreground">
-          Requests from published AI crawler identities {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
+        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          Requests from known AI crawlers {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
         </p>
         <p className="text-sm leading-5 text-muted-foreground">
           Identity is matched from Cloudflare request analytics using official user-agent tokens. User agents can be spoofed.
@@ -268,74 +267,67 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
 
 function LockedAnalytics() {
   return (
-    <Panel title="Analytics is included with vibecms Cloud">
-      <div className="max-w-2xl py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <LockKeyhole className="size-4" aria-hidden />
-          </span>
-          <p className="font-heading text-lg font-semibold tracking-[-0.02em] text-foreground">
-            See what readers and AI systems discover.
-          </p>
-        </div>
-        <p className="mt-4 text-base leading-7 text-muted-foreground">
-          Unlock lifetime page-view totals, one year of daily trends, older monthly history, top posts, referring domains, AI referrals, and named crawler activity.
+    <div className="flex max-w-xl flex-col items-start gap-4 py-6">
+      <span className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground">
+        <LockKeyhole className="size-4" aria-hidden />
+      </span>
+      <div className="space-y-2">
+        <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+          See who reads, and which AI tools find you
+        </h2>
+        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          Page views, top posts, where readers come from, and AI crawler visits. Included with the paid plan.
         </p>
-        <Button asChild className="mt-6">
-          <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-            View plan
-          </Link>
-        </Button>
       </div>
-    </Panel>
+      <Button asChild>
+        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
+          See plans
+        </Link>
+      </Button>
+    </div>
   )
 }
 
-export function AnalyticsPage() {
-  const [range, setRange] = useState<AnalyticsRange>(30)
-  const [data, setData] = useState<AnalyticsPageData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
+  const navigate = useNavigate()
+  const query = useQuery({ ...analyticsQuery(range), placeholderData: keepPreviousData })
+  const data = query.data
+  const setRange = (next: AnalyticsRange) =>
+    void navigate({ to: '/dashboard/analytics', search: { range: next === 30 ? undefined : next }, replace: true })
+  const headerAction = <RangeControl value={range} onChange={setRange} />
 
-  useEffect(() => {
-    const controller = new AbortController()
-    setData(null)
-    setError(null)
-    void loadAnalyticsPage(range, controller.signal)
-      .then(setData)
-      .catch((loadError: unknown) => {
-        if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-        setError('Could not load analytics.')
-      })
-    return () => controller.abort()
-  }, [range])
-
-  const headerAction = useMemo(() => <RangeControl value={range} onChange={setRange} />, [range])
-
-  if (error) return <LoadError message={error} />
-  if (!data) return <PageSkeleton variant="panels" />
+  if (query.isError && !data) {
+    return (
+      <>
+        <PageHeader title="Analytics" />
+        <LoadError message="Analytics didn’t load. Try again in a moment." onRetry={() => void query.refetch()} />
+      </>
+    )
+  }
+  if (!data) return <PageSkeleton variant="stats" />
 
   return (
     <>
       <PageHeader
-        title="Readers and AI discovery"
-        description="Privacy-friendly post analytics without cookies, IP storage, or visitor profiles."
+        title="Analytics"
+        description="Private by design: no cookies, no IP addresses, no visitor profiles."
         action={data.status === 'available' ? headerAction : undefined}
       />
 
       {data.status === 'locked' ? <LockedAnalytics /> : null}
       {data.status === 'unavailable' ? (
-        <Panel title="Analytics unavailable">
-          <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+        <div className="max-w-2xl py-4">
+          <p className="text-[0.9375rem] leading-7 text-muted-foreground">
             {data.reason === 'self_hosted'
               ? 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
               : data.reason === 'not_configured'
                 ? 'Analytics credentials have not been configured for this deployment.'
-                : 'Cloudflare analytics could not be queried. Try again in a few minutes.'}
+                : 'Analytics couldn’t be read right now. Try again in a few minutes.'}
           </p>
-        </Panel>
+        </div>
       ) : null}
       {data.status === 'available' ? (
-        <>
+        <div className={cn('grid gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}>
           <MetricStrip data={data} />
           <TrafficChart data={data} />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -343,10 +335,10 @@ export function AnalyticsPage() {
             <Referrers data={data} />
           </div>
           <AiCrawlerPanel data={data} />
-          <p className="font-sans text-sm leading-5 text-muted-foreground">
-            Lifetime totals · One year of daily detail · Older history retained monthly · Cookie-free · DNT and Global Privacy Control respected · No IP addresses or visitor identifiers stored
+          <p className="text-sm leading-6 text-muted-foreground">
+            Daily detail for a year, monthly after that. Do Not Track and Global Privacy Control are respected.
           </p>
-        </>
+        </div>
       ) : null}
     </>
   )

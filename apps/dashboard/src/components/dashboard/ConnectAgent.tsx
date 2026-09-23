@@ -1,7 +1,31 @@
-'use client'
-
-import { CopyButton } from '@vc/ui'
+import { CopyButton, cn } from '@vc/ui'
+import type { ReactNode } from 'react'
+import { Tabs, TabsContent } from '~/components/ui/tabs'
+import { PageTabs } from '~/components/dashboard/blocks'
 import type { AgentPreference } from '~/types/dashboard'
+
+export type AgentClient = 'claude_code' | 'codex' | 'cursor' | 'other'
+
+export const AGENT_CLIENTS: Array<{ id: AgentClient; label: string }> = [
+  { id: 'claude_code', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'other', label: 'Other' },
+]
+
+export function isAgentClient(value: unknown): value is AgentClient {
+  return value === 'claude_code' || value === 'codex' || value === 'cursor' || value === 'other'
+}
+
+export function clientFromPreference(preference: AgentPreference | null | undefined): AgentClient {
+  return preference && isAgentClient(preference) ? preference : preference === 'droid' ? 'other' : 'claude_code'
+}
+
+export const TOKEN_PLACEHOLDER = 'YOUR_KEY'
+
+/** What to paste into the agent once it is connected. Publishing still waits for a yes. */
+export const FIRST_POST_PROMPT =
+  'Use vibecms to write a short first post for my blog: a friendly hello that says what this blog will be about. Save it as a draft, show me the title and a short preview, and publish it only after I say yes.'
 
 export const READ_ONLY_CHECK_PROMPT =
   'Use the "vibecms" MCP server to verify this connection without changing any content. Call sites.get, posts.list, then posts.format_guide. Report the site name, its public URL when present, and whether the format guide loaded. Do not create, update, publish, archive, delete, restore, or upload anything.'
@@ -16,21 +40,91 @@ export const APPROVAL_FIRST_WRITING_PROMPT = `Use the "vibecms" MCP server to pr
 
 Do not call posts.publish in the same turn as drafting, and do not publish unless I explicitly approve in a later message. For posts.update and posts.versions.restore, always send expectedVersionNumber for the current tip; public output stays on publishedVersionNumber until publish. After I approve, call posts.publish with the draft postId and expectedVersionNumber set to the version I approved. If the version changed, stop, preview the latest version, and ask for approval again. When publishing succeeds, return the URL from the tool result.`
 
-function CodeBlock({ name, hint, code }: { name: string; hint: string; code: string }) {
+export const SKILLS_INSTALL_COMMAND = 'npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing'
+
+type ClientConfig = { hint: ReactNode; code: string; label: string }
+
+export function agentConfigs(mcpUrl: string, token?: string): Record<AgentClient, ClientConfig> {
+  const key = token ?? TOKEN_PLACEHOLDER
+  return {
+    claude_code: {
+      label: 'Terminal command',
+      hint: 'Run this once in your terminal. Then start Claude Code.',
+      code: `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${key}"`,
+    },
+    codex: {
+      label: '~/.codex/config.toml',
+      hint: (
+        <>
+          Add this to <code className="font-mono text-foreground">~/.codex/config.toml</code>, then restart Codex.
+        </>
+      ),
+      code: `[mcp_servers.vibecms]
+url = "${mcpUrl}"
+http_headers = { "Authorization" = "Bearer ${key}" }`,
+    },
+    cursor: {
+      label: '~/.cursor/mcp.json',
+      hint: (
+        <>
+          Add this to <code className="font-mono text-foreground">~/.cursor/mcp.json</code> (or a project’s{' '}
+          <code className="font-mono text-foreground">.cursor/mcp.json</code>).
+        </>
+      ),
+      code: `{
+  "mcpServers": {
+    "vibecms": {
+      "url": "${mcpUrl}",
+      "headers": { "Authorization": "Bearer ${key}" }
+    }
+  }
+}`,
+    },
+    other: {
+      label: 'MCP config',
+      hint: 'Any client that supports remote MCP over HTTP works with the same address and key.',
+      code: `{
+  "mcpServers": {
+    "vibecms": {
+      "type": "http",
+      "url": "${mcpUrl}",
+      "headers": { "Authorization": "Bearer ${key}" }
+    }
+  }
+}`,
+    },
+  }
+}
+
+/** One-click install link for Cursor. Only offered once a real key exists. */
+export function cursorInstallUrl(mcpUrl: string, token: string) {
+  const config = JSON.stringify({ url: mcpUrl, headers: { Authorization: `Bearer ${token}` } })
+  const encoded = typeof btoa === 'function' ? btoa(config) : Buffer.from(config).toString('base64')
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=vibecms&config=${encodeURIComponent(encoded)}`
+}
+
+export function CodeBlock({
+  label,
+  code,
+  copyLabel = 'Copy',
+  className,
+}: {
+  label: string
+  code: string
+  copyLabel?: string
+  className?: string
+}) {
   return (
-    <div className="grid min-w-0 gap-2">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-mono text-[11px] font-medium text-foreground">{name}</p>
-          <p className="mt-1 font-sans text-xs text-muted-foreground">{hint}</p>
-        </div>
-        <CopyButton value={code} label="Copy" copiedLabel="Copied" className="shrink-0" />
+    <div className={cn('min-w-0 overflow-hidden rounded-lg border border-border bg-muted/40', className)}>
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--hairline)] py-1.5 pl-3.5 pr-1.5">
+        <span className="truncate font-mono text-xs text-muted-foreground">{label}</span>
+        <CopyButton value={code} label={copyLabel} copiedLabel="Copied" className="h-8 shrink-0" />
       </div>
       <pre
         role="region"
-        className="max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-background/70 p-3 font-mono text-xs leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`${name} configuration`}
+        aria-label={label}
         tabIndex={0}
+        className="max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap [overflow-wrap:anywhere] p-3.5 font-mono text-[0.8125rem] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         {code}
       </pre>
@@ -38,191 +132,62 @@ function CodeBlock({ name, hint, code }: { name: string; hint: string; code: str
   )
 }
 
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="grid gap-3">
-      <div className="space-y-1">
-        <h3 className="font-display text-sm font-semibold text-foreground">{title}</h3>
-        <p className="font-sans text-xs leading-5 text-muted-foreground">{description}</p>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-export function ConnectAgent({
+/** Per-client setup tabs. The token is embedded when one was just created. */
+export function AgentSetup({
   mcpUrl,
   token,
-  tokenName,
-  connected = false,
-  promptOnly = false,
-  preferredAgent = null,
+  client,
+  onClientChange,
 }: {
   mcpUrl: string
   token?: string
-  tokenName?: string
-  /** Opens the writing guidance after authentication has been observed. */
-  connected?: boolean
-  /** When true, show only the protected check and approval-first writing prompts. */
-  promptOnly?: boolean
-  /** From onboarding's client choice; promotes that agent's config to the primary snippet. */
-  preferredAgent?: AgentPreference | null
+  client: AgentClient
+  onClientChange: (client: AgentClient) => void
 }) {
-  const tok = token ?? 'vc_YOUR_TOKEN'
-  const claudeCodeCmd = `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${tok}"`
-  const skillsInstall =
-    'npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing'
-  const codexToml = `# ~/.codex/config.toml
-[mcp_servers.vibecms]
-url = "${mcpUrl}"
-http_headers = { "Authorization" = "Bearer ${tok}" }`
-  const cursorJson = `// ~/.cursor/mcp.json
-{
-  "mcpServers": {
-    "vibecms": {
-      "url": "${mcpUrl}",
-      "headers": { "Authorization": "Bearer ${tok}" }
-    }
-  }
-}`
-  const genericJson = `{
-  "mcpServers": {
-    "vibecms": {
-      "type": "http",
-      "url": "${mcpUrl}",
-      "headers": { "Authorization": "Bearer ${tok}" }
-    }
-  }
-}`
-
-  type AgentConfig = { id: string; name: string; hint: string; code: string }
-  const claudeConfig: AgentConfig = { id: 'claude_code', name: 'Claude Code', hint: 'Run this once in your terminal.', code: claudeCodeCmd }
-  const codexConfig: AgentConfig = { id: 'codex', name: 'Codex CLI', hint: 'Add to ~/.codex/config.toml.', code: codexToml }
-  const cursorConfig: AgentConfig = { id: 'cursor', name: 'Cursor', hint: 'Add to ~/.cursor/mcp.json (or .cursor/mcp.json in a project).', code: cursorJson }
-  const droidConfig: AgentConfig = { id: 'droid', name: 'Droid', hint: 'Standard Streamable HTTP — same URL and Authorization header.', code: genericJson }
-  const genericConfig: AgentConfig = { id: 'generic', name: 'Any Streamable HTTP MCP client', hint: 'Use standard mcpServers JSON with the endpoint and Bearer token.', code: genericJson }
-
-  const byId: Record<AgentPreference, AgentConfig> = {
-    claude_code: claudeConfig,
-    codex: codexConfig,
-    cursor: cursorConfig,
-    droid: droidConfig,
-    other: genericConfig,
-  }
-  const primary = preferredAgent ? byId[preferredAgent] : claudeConfig
-  const alternates = [claudeConfig, codexConfig, cursorConfig, genericConfig].filter(
-    (config) => config.id !== primary.id && config.code !== primary.code,
-  )
-
+  const configs = agentConfigs(mcpUrl, token)
   return (
-    <div className="grid gap-5">
-      {!promptOnly && token ? (
-        <div className="grid min-w-0 gap-3 rounded-xl bg-muted/40 p-4">
-          <div className="space-y-1">
-            <p className="font-mono text-[11px] font-medium text-primary">
-              {tokenName ?? 'Agent token'}
-            </p>
-            <p className="font-sans text-xs leading-5 text-muted-foreground">
-              Copy this token now. For security it is shown only once - it is already baked into the snippets below.
-            </p>
-          </div>
-          <pre
-            role="region"
-            className="max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-background/80 p-4 font-mono text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="One-time API token"
-            tabIndex={0}
-          >
-            {token}
-          </pre>
-          <CopyButton value={token} label="Copy token" copiedLabel="Token copied" className="w-fit" />
-        </div>
-      ) : null}
-
-      {!promptOnly ? (
-        <>
-          <Section
-            title={preferredAgent ? `1. Add VibeCMS to ${primary.name}` : '1. Add VibeCMS to your agent'}
-            description={
-              preferredAgent
-                ? `Pre-configured from your client choice. VibeCMS uses the standard Streamable HTTP transport, so any compatible MCP client uses the same URL and Authorization header.`
-                : token
-                  ? 'Claude Code is the primary example. VibeCMS uses the standard Streamable HTTP transport. Any compatible MCP client uses the same URL and Authorization header.'
-                  : 'Use a token you saved previously, or create a new token above to get a ready-to-paste command.'
-            }
-          >
-            <div className="grid min-w-0 gap-3">
-              <CodeBlock
-                name={preferredAgent ? `${primary.name} · configured for you` : 'Claude Code · primary example'}
-                hint={primary.hint}
-                code={primary.code}
-              />
-              <details className="group rounded-xl bg-muted/35">
-                <summary className="cursor-pointer select-none px-3 py-2.5 font-mono text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-                  Other MCP clients
-                </summary>
-                <div className="grid min-w-0 gap-3 px-3 pb-3">
-                  {alternates.map((config) => (
-                    <CodeBlock key={config.id} name={config.name} hint={config.hint} code={config.code} />
-                  ))}
-                </div>
-              </details>
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
-                <code className="min-w-0 break-all rounded-xl bg-muted/40 px-3 py-2 font-mono text-sm text-foreground">
-                  {mcpUrl}
-                </code>
-                <CopyButton value={mcpUrl} label="Copy MCP URL" copiedLabel="Copied" className="shrink-0" />
-              </div>
-            </div>
-          </Section>
-
-          <Section
-            title="2. Install the VibeCMS skills"
-            description="The MCP server provides capabilities; these two client-independent skills provide the safe operating contract and editorial method."
-          >
-            <CodeBlock
-              name="vibecms-core + vibecms-writing"
-              hint="Install both once in your Agent Skills-compatible client."
-              code={skillsInstall}
-            />
-          </Section>
-        </>
-      ) : null}
-
-      <Section
-        title="3. Verify read-only access"
-        description="Run this protected check next. It confirms the connection without changing your site."
-      >
-        <CodeBlock
-          name="Read-only connection check"
-          hint="Safe to run before you are ready to draft."
-          code={READ_ONLY_CHECK_PROMPT}
-        />
-      </Section>
-
-      <details className="group rounded-xl bg-muted/35" open={connected || undefined}>
-        <summary className="cursor-pointer select-none px-3 py-2.5 font-display text-sm font-semibold text-foreground">
-          4. Draft, review, then approve
-        </summary>
-        <div className="grid min-w-0 gap-3 px-3 pb-3">
-          <p className="font-sans text-xs leading-5 text-muted-foreground">
-            This creates a draft and preview, but requires a separate explicit approval before publishing the exact
-            version you reviewed.
-          </p>
-          <CodeBlock
-            name="Approval-first writing flow"
-            hint="Publishing is deliberately deferred to a later approval message."
-            code={APPROVAL_FIRST_WRITING_PROMPT}
-          />
-        </div>
-      </details>
-    </div>
+    <Tabs value={client} onValueChange={(value) => isAgentClient(value) && onClientChange(value)} className="gap-4">
+      <PageTabs label="Agent" tabs={AGENT_CLIENTS.map((item) => ({ value: item.id, label: item.label }))} />
+      {AGENT_CLIENTS.map(({ id }) => {
+        const config = configs[id]
+        return (
+          <TabsContent key={id} value={id} className="grid min-w-0 gap-3">
+            <p className="text-sm leading-6 text-muted-foreground">{config.hint}</p>
+            <CodeBlock label={config.label} code={config.code} copyLabel={id === 'claude_code' ? 'Copy command' : 'Copy'} />
+            {id === 'cursor' && token ? (
+              <a
+                href={cursorInstallUrl(mcpUrl, token)}
+                className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Or add it to Cursor in one click
+              </a>
+            ) : null}
+            {id === 'other' ? (
+              <dl className="grid gap-2 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
+                <dt className="text-muted-foreground">Server address</dt>
+                <dd className="flex min-w-0 items-center gap-2">
+                  <code className="min-w-0 truncate font-mono text-[0.8125rem] text-foreground">{mcpUrl}</code>
+                  <CopyButton value={mcpUrl} label="Copy address" copiedLabel="Copied" iconOnly className="size-7 shrink-0" />
+                </dd>
+                <dt className="text-muted-foreground">Header</dt>
+                <dd className="min-w-0 truncate font-mono text-[0.8125rem] text-foreground">
+                  Authorization: Bearer {token ? `${token.slice(0, 10)}…` : TOKEN_PLACEHOLDER}
+                </dd>
+              </dl>
+            ) : null}
+            {!token ? (
+              <p className="text-sm text-muted-foreground">
+                Replace <code className="font-mono text-foreground">{TOKEN_PLACEHOLDER}</code> with a key you saved, or create a new one below.
+              </p>
+            ) : null}
+          </TabsContent>
+        )
+      })}
+    </Tabs>
   )
+}
+
+/** The prompt to paste once connected. */
+export function FirstPostPrompt() {
+  return <CodeBlock label="Paste into your agent" code={FIRST_POST_PROMPT} copyLabel="Copy prompt" />
 }

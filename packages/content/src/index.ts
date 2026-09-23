@@ -20,3 +20,4 @@ export type {
   RichContentFrameProps,
   ValidateRichContentOpts,
 } from "./types.js";
+export type { CodeHighlighter, HighlightedCode } from "./types.js";

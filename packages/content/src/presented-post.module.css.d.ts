@@ -1,23 +1,27 @@
-declare const classes: {
+declare const styles: {
+  readonly adjacent: string;
+  readonly adjacentLabel: string;
+  readonly adjacentLink: string;
+  readonly adjacentOlder: string;
+  readonly adjacentTitle: string;
   readonly article: string;
+  readonly articleBody: string;
+  readonly articleDeck: string;
   readonly articleHeader: string;
   readonly articleTitle: string;
-  readonly articleDeck: string;
-  readonly metaLine: string;
-  readonly tagRow: string;
-  readonly tagEntry: string;
-  readonly tagLink: string;
-  readonly tagSep: string;
-  readonly heroImage: string;
   readonly featureCover: string;
-  readonly articleBody: string;
-  readonly tocDetails: string;
-  readonly tocSummary: string;
-  readonly tocRail: string;
-  readonly tocRailLabel: string;
-  readonly tocList: string;
+  readonly heroImage: string;
+  readonly metaLine: string;
+  readonly tagLink: string;
+  readonly tagRow: string;
   readonly tocItemH2: string;
   readonly tocItemH3: string;
+  readonly tocList: string;
+  readonly tocPill: string;
+  readonly tocPillIcon: string;
+  readonly tocPillPanel: string;
+  readonly tocPillSummary: string;
+  readonly tocRail: string;
+  readonly tocRailLabel: string;
 };
-
-export default classes;
+export default styles;

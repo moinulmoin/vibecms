@@ -5,6 +5,14 @@
 @import "@vc/content/styles/presets";
 @source "../../../packages/ui/src";
 
+/* Dashboard reads a notch larger than the Tailwind defaults: calmer, easier to scan. */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5rem;
+}
+
 /* BlockNote slash menu: cap height inside the editor viewport. */
 .bn-container .bn-suggestion-menu {
   max-height: min(60vh, 22rem);

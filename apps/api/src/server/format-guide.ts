@@ -3,7 +3,7 @@ import { THEME_PRESETS, type PresetId } from "@vc/config";
 import { RENDERER_VERSION } from "@vc/content";
 
 /** Bumped when the v1 syntax vocabulary changes. */
-export const GUIDE_VERSION = "2";
+export const GUIDE_VERSION = "3";
 
 export { RENDERER_VERSION };
 
@@ -13,7 +13,7 @@ export { RENDERER_VERSION };
  */
 const PRESENTATION_NOTES =
   "Declare layout intent via the typed `presentation` field on posts.create or posts.update - NOT in front-matter or body text. " +
-  "Supported fields: `layout` (one of the preset's supportedLayouts) and `toc` (boolean, only when supportsToc is true). " +
+  "Supported fields: `layout` (`standard`, `essay` for longform with a lead paragraph, or `feature` for a full-width cover above the title) and `toc` (boolean; the page-level outline appears once a post has 3+ H2/H3 headings). " +
   "Do not combine `presentation.toc: true` with an inline `[[toc]]` marker in the body - choose one; " +
   "`presentation.toc` is preferred when the preset supports it and removes the need for a manual [[toc]] marker.";
 
@@ -33,6 +33,21 @@ const V1_EXAMPLES = `
 
 > [!CAUTION]
 > Destructive - cannot be undone.
+
+=== Callouts with a custom title (GOOD) ===
+:::tip[Start small]
+Give your first agent the draft scope only.
+:::
+
+:::warning
+Titles are optional; the default is the kind's name.
+:::
+// Kinds: note, tip, important, warning, caution (aliases: info, success, danger, error).
+
+=== Collapsible section (GOOD) ===
+:::details[Why not auto-publish?]
+Hidden until the reader expands it.
+:::
 
 === Callouts (BAD - non-standard type renders as a plain blockquote) ===
 > [!WARN]    <- typo; use [!WARNING]
@@ -74,6 +89,27 @@ const greet = (name: string) => \`Hello, \${name}!\`;
 pnpm install && pnpm dev
 \`\`\`
 
+=== Fenced code with a file title, highlighted lines, and line numbers (GOOD) ===
+\`\`\`ts title="src/publish.ts" {2} showLineNumbers
+export async function publish(id: string) {
+  const tip = await cms.posts.get(id)
+  return cms.posts.publish(id, { expectedVersionNumber: tip.versionNumber })
+}
+\`\`\`
+
+=== Diff and line markers (GOOD) ===
+\`\`\`diff
+- const scope = "publish"
++ const scope = "draft"
+\`\`\`
+
+\`\`\`ts
+const a = 1 // [!code --]
+const b = 2 // [!code ++]
+const c = 3 // [!code highlight]
+\`\`\`
+// Markers are stripped from the rendered and copied code.
+
 === Fenced code (BAD - missing language label gives weaker rendering) ===
 \`\`\`
 const x = 1;
@@ -93,6 +129,20 @@ const x = 1;
 [Link text](https://example.com)
 
 **Bold** and *italic* and ~~strikethrough~~
+
+- [x] Task lists
+- [ ] Unchecked task
+
+Footnotes add a reference.[^1]
+
+[^1]: And the note renders at the end of the post.
+
+=== Embeds (GOOD - a bare YouTube link on its own line becomes a video card) ===
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+=== Inline HTML (GitHub-safe tags only) ===
+Press <kbd>Cmd</kbd> + <kbd>K</kbd>. H<sub>2</sub>O and x<sup>2</sup> work.
+<!-- Scripts, iframes, styles, and unknown tags are removed and reported as warnings by posts.preview. -->
 `.trim();
 
 export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {

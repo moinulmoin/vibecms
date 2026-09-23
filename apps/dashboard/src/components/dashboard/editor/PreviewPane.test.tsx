@@ -13,11 +13,11 @@ describe('PreviewPane', () => {
     const root = createRoot(container)
     const metadata: PreviewMetadata = { title: 'First title', excerpt: 'Deck' }
     act(() => root.render(<PreviewPane source="Body" metadata={metadata} presetId="technical" site={site} publishedAt={1_700_000_000} updatedAt={1_700_000_000} />))
-    const preview = container.querySelector('[aria-label="Markdown preview"]') as HTMLElement
+    const preview = container.querySelector('[aria-label="Post preview"]') as HTMLElement
     expect(preview.getAttribute('role')).toBe('region')
     expect(preview.querySelector('main[data-vc-theme="technical"]')).toBeTruthy()
     expect(preview.querySelector('article h1')?.textContent).toBe('First title')
-    expect(preview.textContent).toContain('By QA Blog')
+    expect(preview.textContent).toContain('QA Blog')
     act(() => root.render(<PreviewPane source="Body" metadata={{ ...metadata, title: 'Updated title' }} presetId="technical" site={site} publishedAt={1_700_000_000} updatedAt={1_700_000_000} />))
     expect(preview.querySelector('article h1')?.textContent).toBe('Updated title')
     act(() => root.unmount())

@@ -77,7 +77,38 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
+const mutationListeners = new Set<() => void>()
+
+/**
+ * Called after every non-GET dashboard request settles (success or failure),
+ * so cached page data from other screens is marked stale.
+ */
+export function onDashboardMutation(listener: () => void) {
+  mutationListeners.add(listener)
+  return () => {
+    mutationListeners.delete(listener)
+  }
+}
+
+export function notifyDashboardMutation() {
+  for (const listener of mutationListeners) listener()
+}
+
 export async function dashboardFetch<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal },
+  schema?: z.ZodType<T>,
+): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (method === 'GET' || method === 'HEAD') return dashboardRequest(path, init, schema)
+  try {
+    return await dashboardRequest(path, init, schema)
+  } finally {
+    notifyDashboardMutation()
+  }
+}
+
+async function dashboardRequest<T>(
   path: string,
   init?: RequestInit & { signal?: AbortSignal },
   schema?: z.ZodType<T>,
@@ -159,7 +190,7 @@ export function loadAnalyticsPage(range: AnalyticsRange, signal?: AbortSignal) {
 }
 
 export function loadSetupPage(signal?: AbortSignal) {
-  return dashboardFetch<{ name: string; slug: string; description: string }>('/api/dashboard/setup', {
+  return dashboardFetch<{ name: string; slug: string; description: string; baseDomain?: string | null }>('/api/dashboard/setup', {
     method: 'GET',
     signal,
   })
@@ -279,9 +310,13 @@ export function loadMediaPage(signal?: AbortSignal) {
   return dashboardFetch<{ assets: Asset[]; mediaGate: { effective: boolean; selfHosted: boolean } }>('/api/dashboard/media', { method: 'GET', signal })
 }
 
-export function loadActivityPage(data: { offset?: number } = {}, signal?: AbortSignal) {
+export function loadActivityPage(
+  data: { offset?: number; actor?: 'human' | 'agent' } = {},
+  signal?: AbortSignal,
+) {
   const params = new URLSearchParams()
   if (data.offset !== undefined) params.set('offset', String(data.offset))
+  if (data.actor) params.set('actor', data.actor)
   const qs = params.toString()
   return dashboardFetch<ActivityPageLoad>(`/api/dashboard/activity${qs ? `?${qs}` : ''}`, {
     method: 'GET',
@@ -308,12 +343,13 @@ export function loadOnboardingStatus(options?: { keyId?: string | null; signal?:
 }
 
 export function loadPostsPage(
-  data: { status?: string; search?: string; offset?: number },
+  data: { status?: string; search?: string; sort?: string; offset?: number },
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams()
   if (data.status) params.set('status', data.status)
   if (data.search) params.set('search', data.search)
+  if (data.sort) params.set('sort', data.sort)
   if (data.offset !== undefined) params.set('offset', String(data.offset))
   const qs = params.toString()
   return dashboardFetch<PostsPageLoad>(

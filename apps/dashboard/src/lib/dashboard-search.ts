@@ -8,6 +8,7 @@ export type DashboardStatusSearch = {
 export type PostsListSearch = DashboardStatusSearch & {
   status: string | undefined
   search: string | undefined
+  sort?: string | undefined
 }
 
 export type SettingsSearch = DashboardStatusSearch & {
@@ -42,14 +43,29 @@ export function validatePostsSearch(search: Record<string, unknown>): PostsListS
   return {
     status: typeof search.status === 'string' ? search.status : undefined,
     search: typeof search.search === 'string' ? search.search : undefined,
+    sort: typeof search.sort === 'string' ? search.sort : undefined,
     ...validateDashboardSearch(search),
   }
 }
 
-const SETTINGS_TABS: Record<string, true> = { general: true, theme: true, voice: true, newsletter: true, domain: true, billing: true, data: true }
+export const SETTINGS_TABS = ['site', 'voice', 'domain', 'billing', 'export'] as const
+export type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+/** Legacy tab names from old links. `theme` and `newsletter` are redirected by the route. */
+const SETTINGS_TAB_ALIASES: Record<string, SettingsTab | 'theme' | 'newsletter'> = {
+  general: 'site',
+  data: 'export',
+  theme: 'theme',
+  newsletter: 'newsletter',
+}
 
 export function validateSettingsSearch(search: Record<string, unknown>): SettingsSearch {
-  const tab = typeof search.tab === 'string' && SETTINGS_TABS[search.tab] ? search.tab : undefined
+  const raw = typeof search.tab === 'string' ? search.tab : undefined
+  const resolved = raw ? (SETTINGS_TAB_ALIASES[raw] ?? raw) : undefined
+  const tab =
+    resolved === 'theme' || resolved === 'newsletter' || SETTINGS_TABS.some((value) => value === resolved)
+      ? resolved
+      : undefined
   return {
     ok: typeof search.ok === 'string' ? search.ok : undefined,
     error: typeof search.error === 'string' ? search.error : undefined,

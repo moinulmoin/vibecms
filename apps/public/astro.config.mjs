@@ -27,7 +27,7 @@ export default defineConfig({
         "base-uri 'self'",
         "form-action 'self'",
         "object-src 'none'",
-        "img-src 'self' data:",
+        "img-src 'self' data: https:",
         "font-src 'self'",
         "connect-src 'self'",
         "manifest-src 'self'",

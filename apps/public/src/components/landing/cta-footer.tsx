@@ -1,11 +1,12 @@
-import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { BRAND, LEGAL } from "@vc/config";
+import { ArrowRight } from "./icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
 
 const productLinks = [
   ["Features", "#features"],
   ["Agents", "#agents"],
   ["Pricing", "#pricing"],
+  ["FAQ", "#faq"],
 ] as const;
 
 const legalLinks = [
@@ -57,7 +58,7 @@ export function CtaFooter({
             <span className="text-brand-bright">Your call.</span>
           </h2>
           <p className="relative mx-auto mt-4 max-w-[460px] text-balance text-base leading-7 text-muted-foreground">
-            Scoped MCP, a full version trail, and your login never leaves your hands.
+            Free to start, no card. Your agent can publish its first post in minutes.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
             <a
@@ -74,7 +75,7 @@ export function CtaFooter({
               target="_blank"
             >
               View on GitHub
-              <ArrowRightIcon className="size-4" aria-hidden="true" />
+              <ArrowRight className="size-4" />
             </a>
           </div>
         </div>
@@ -101,14 +102,14 @@ export function CtaFooter({
                 </span>
               </a>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                The publishing control plane for AI agents.
+                CMS for AI agents.
               </p>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Product
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Product">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Product">
                 {productLinks.map(([label, href]) => (
                   <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
@@ -117,10 +118,10 @@ export function CtaFooter({
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Legal
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Legal">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Legal">
                 {legalLinks.map(([label, href]) => (
                   <a
                     className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
@@ -133,10 +134,10 @@ export function CtaFooter({
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Resources
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Resources">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Resources">
                 {deployLinks.map(([label, href]) => (
                   <a
                     className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
@@ -150,10 +151,10 @@ export function CtaFooter({
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Account
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Account">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Account">
                 {accountLinks.map(([label, href]) => (
                   <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
@@ -163,7 +164,7 @@ export function CtaFooter({
             </div>
           </div>
           <p
-            className="mt-10 text-pretty font-mono text-xs leading-5 tracking-[0.06em] text-muted-foreground"
+            className="mt-10 text-pretty font-mono text-xs leading-5 text-muted-foreground"
           >
             © {year} vibecms - a product of{" "}
             <a
@@ -176,13 +177,13 @@ export function CtaFooter({
             </a>
             .
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] leading-5 tracking-[0.04em] text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs leading-5 text-muted-foreground">
             <span className="w-full sm:w-auto">Also from the maker:</span>
             {makerLinks.map(([label, href], index) => (
               <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
                 {index > 0 ? <span aria-hidden="true">·</span> : null}
                 <a
-                  className="underline-offset-2 hover:text-muted-foreground"
+                  className="underline-offset-2 hover:text-foreground"
                   href={href}
                   rel="noopener noreferrer"
                   target="_blank"

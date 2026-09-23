@@ -22,7 +22,7 @@ export function StatCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+        <p className="text-sm text-muted-foreground">{label}</p>
         {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
       </div>
       <p className="mt-2.5 font-display text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground">{value}</p>

@@ -287,7 +287,7 @@ export async function updatePersonalizationForApp(
 export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = {
   enabled: true,
   heading: 'Get new posts by email',
-  subtext: "Email delivery is coming soon. Join now and we'll let you know when it launches.",
+  subtext: "Leave your email and you'll hear from us when new-post emails start.",
   buttonLabel: 'Notify me',
 }
 

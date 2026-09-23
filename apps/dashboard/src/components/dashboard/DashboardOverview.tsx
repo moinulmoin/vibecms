@@ -1,7 +1,9 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { Activity, FileText, Pencil, Plus, Rocket, Users } from 'lucide-react'
+import { Activity, Bot, FileText, Pencil, Plus, Rocket, Users } from 'lucide-react'
+import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { overviewQuery } from '~/lib/queries'
 import type { DashboardData } from '~/types/dashboard'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
@@ -24,10 +26,18 @@ export function narrowDashboardData(result: DashboardApiResponse): DashboardData
     if (!isDashboardPostStatus(post.status)) continue
     recentDrafts.push({ ...post, status: post.status })
   }
-  return { ...result, subscriberCount: result.subscriberCount ?? 0, recentPosts, recentDrafts }
+  const needsReview = result.needsReview
+    ? result.needsReview.flatMap((post) => (isDashboardPostStatus(post.status) ? [{ ...post, status: post.status }] : []))
+    : undefined
+  return { ...result, subscriberCount: result.subscriberCount ?? 0, recentPosts, recentDrafts, needsReview }
 }
 
-import { loadDashboardOverview } from '~/lib/api-client'
+export function ReviewBadge({ post }: { post: Parameters<typeof reviewLabel>[0] }) {
+  const label = reviewLabel(post)
+  if (!label) return <StatusBadge status={post.status} className="w-fit" />
+  return <StatusBadge status="pending" label={label} className="w-fit normal-case" />
+}
+
 import {
   Button,
   LoadError,
@@ -106,22 +116,9 @@ function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
 
 
 export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void loadDashboardOverview()
-      .then((result) => {
-        if (!cancelled) setData(narrowDashboardData(result))
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load dashboard data.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const query = useQuery(overviewQuery)
+  const data = query.data ? narrowDashboardData(query.data) : null
+  const error = query.isError && !query.data ? 'Could not load dashboard data.' : null
 
   if (error) {
     return <LoadError message={error} />
@@ -135,6 +132,14 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const billingBadgeLabel = overviewEntitlementBadge(data.billing)
   const showBillingBadge = data.apiUsage.enforced && billingBadgeLabel !== null
   const isLive = Boolean(data.publicUrl) && !data.publicUrlLocal
+  // Older API responses lack the review queue; fall back to agent-agnostic drafts.
+  const reviewQueue = data.needsReview ?? data.recentDrafts.map((post) => ({
+    ...post,
+    versionNumber: null,
+    publishedVersionNumber: null,
+    latestActorType: null,
+  }))
+  const reviewCount = data.needsReviewCount ?? reviewQueue.length
 
   return (
     <>
@@ -183,32 +188,35 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         )}
       </Panel>
 
-      {data.recentDrafts.length > 0 ? (
+      {reviewQueue.length > 0 ? (
         <Panel
           title="Needs review"
           meta={
             <Button asChild variant="link">
-              <Link to="/dashboard/posts" search={postsListSearch({ status: 'draft' })}>
-                View all drafts
+              <Link to="/dashboard/posts" search={postsListSearch({ status: 'review' })}>
+                {reviewCount > reviewQueue.length ? `View all ${reviewCount}` : 'View all'}
               </Link>
             </Button>
           }
         >
           <div className="grid gap-0">
-            {data.recentDrafts.map((post) => (
-              <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
-                <strong className="truncate font-display font-semibold text-foreground">
+            {reviewQueue.map((post) => (
+              <DataRow className="md:grid-cols-[1.5fr_.8fr_.6fr] md:items-center" key={post.id}>
+                <strong className="flex min-w-0 items-center gap-2 font-display font-semibold text-foreground">
+                  {isAgentActor(post.latestActorType) ? (
+                    <Bot aria-label="Written by an agent" className="size-4 shrink-0 text-muted-foreground" />
+                  ) : null}
                   {canEdit ? (
-                  <Link
-                    className="no-underline hover:underline"
-                    {...postEditorLink(post.id)}
-                    search={emptyPostEditorSearch}
-                  >
-                    {post.title}
-                  </Link>
-                  ) : post.title}
+                    <Link
+                      className="truncate no-underline hover:underline"
+                      {...postEditorLink(post.id)}
+                      search={emptyPostEditorSearch}
+                    >
+                      {post.title}
+                    </Link>
+                  ) : <span className="truncate">{post.title}</span>}
                 </strong>
-                <StatusBadge status={post.status} className="w-fit" />
+                <ReviewBadge post={post} />
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {formatDate(post.updatedAt)}
                 </span>
@@ -219,7 +227,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
       ) : null}
 
       {data.activationPost && (
-        <Panel title="Latest agent publish">
+        <Panel title="Latest agent post">
           <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -227,7 +235,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                   {data.activationPost.title}
                 </span>
                 <span className="font-sans text-sm text-muted-foreground">
-                  by {data.activationPost.actorName}
+                  written by your agent · published by {data.activationPost.actorName}
                 </span>
               </div>
               <p className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -365,7 +373,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
           search={postsListSearch({ status: 'draft' })}
           className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
-          <StatCard label="Drafts" value={data.counts.draft} detail="Ready for review" interactive />
+          <StatCard label="Drafts" value={data.counts.draft} detail={reviewCount > 0 ? `${reviewCount} waiting for review` : 'Nothing waiting'} interactive />
         </Link>
         {canEdit ? <Link
           to="/dashboard/media"

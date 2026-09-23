@@ -297,7 +297,9 @@ dashboardRoutes.get('/activity', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
   const offset = Number(c.req.query('offset') ?? '0')
-  return c.json(await loadActivityPage(auth.app, Number.isFinite(offset) ? offset : 0))
+  const actorParam = c.req.query('actor')
+  const actor = actorParam === 'human' || actorParam === 'agent' ? actorParam : undefined
+  return c.json(await loadActivityPage(auth.app, Number.isFinite(offset) ? offset : 0, actor))
 })
 
 dashboardRoutes.get('/analytics', async (c) => {
@@ -339,6 +341,7 @@ dashboardRoutes.get('/posts', async (c) => {
     await loadPostsPage(auth.app, {
       status: c.req.query('status'),
       search: c.req.query('search'),
+      sort: c.req.query('sort'),
       offset: Number(c.req.query('offset') ?? '0') || 0,
     }),
   )

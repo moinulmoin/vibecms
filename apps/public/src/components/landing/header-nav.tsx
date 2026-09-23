@@ -1,4 +1,4 @@
-import { HamburgerMenuIcon } from "@radix-ui/react-icons";
+import { Menu } from "./icons";
 import { GlassCard } from "./primitives";
 
 const navItems = [
@@ -49,7 +49,7 @@ export function MobileNav({ loginUrl }: { loginUrl: string }) {
         aria-label="Open section menu"
         className="flex min-h-[44px] cursor-pointer list-none select-none items-center gap-2 rounded-lg px-2 font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
       >
-        <HamburgerMenuIcon className="size-4" aria-hidden="true" />
+        <Menu className="size-4" />
         <span className="hidden min-[380px]:inline">Menu</span>
       </summary>
       <GlassCard className="absolute right-0 top-full z-[70] mt-1 w-44 p-1.5">

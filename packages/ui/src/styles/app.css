@@ -64,7 +64,7 @@
 
 :root {
   color-scheme: light;
-  --radius: 0.9375rem;
+  --radius: 0.625rem;
 
   /* monochrome neutrals (zero chroma) + green accent */
   --background: oklch(0.985 0 0);

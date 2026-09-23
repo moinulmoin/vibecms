@@ -1,85 +1,100 @@
-import { ENTITLEMENTS, LAUNCH_OFFER, FREE_TIER, MEDIA, PRICING } from "@vc/config";
-import { CheckIcon } from "@radix-ui/react-icons";
-import { GREEN_BG, GREEN_CTA, GlassCard, Pill, SectionShell } from "./primitives";
+import { BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import { Check } from "./icons";
+import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionShell } from "./primitives";
 
-const pricingChecklist = [
-  ...ENTITLEMENTS,
-  "Custom domain",
-  "4 designed themes",
-  "Typed REST API & CLI",
-  "Unlimited drafts",
-  `${MEDIA.paidStorageLabel} media on R2`,
-  "SEO & AI visibility built in",
-  "Managed hosting on Cloudflare",
+const INCLUDED = [
+  "Unlimited published posts",
+  "Your own domain",
+  "Indexed by search engines",
+  `${MEDIA.paidStorageLabel} of media on R2`,
+  "MCP, REST API, and CLI",
+  "Versions, restore, activity log",
+  "Analytics, including AI traffic",
+  "Newsletter signups",
+  "Four themes, your accent and fonts",
+  "JSON export, anytime",
 ] as const;
 
 export function HostingPricing({ loginUrl }: { loginUrl: string }) {
   return (
-    <section id="pricing">
+    <section id="pricing" aria-labelledby="pricing-title">
       <SectionShell>
         <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-14">
-          <div data-reveal>
-            <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,2.875rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+          <div data-reveal className="min-w-0">
+            <h2 id="pricing-title" className={H2}>
               One plan for one
               <br />
               serious blog.
             </h2>
-            <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
-              Jump in free, no card - set up your blog, connect your agents, and see
-              it publish. One plan unlocks unlimited publishing, your own domain, and
-              the full API.
+            <p className={`mt-4 max-w-md ${LEAD}`}>
+              Start free, no card. Connect your agent and publish up to{" "}
+              {FREE_TIER.publishedPosts} posts. Subscribe for everything else.
             </p>
-            <p className="mt-6 font-mono text-[13px] leading-6 text-muted-foreground">
-              Or self-host free - same scoped-MCP publishing, your own infrastructure.
+            <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
+              Less than a Claude subscription, and it runs the whole blog.
+            </p>
+            <p className="mt-8 text-sm leading-[1.6] text-muted-foreground">
+              Prefer your own Cloudflare account?{" "}
+              <a
+                className="text-foreground underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-current"
+                href={BRAND.repoUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Self-host it free
+              </a>
+              .
             </p>
           </div>
-          <GlassCard className="relative overflow-hidden p-8 sm:p-9" data-reveal data-d="1">
-            <div className="flex flex-wrap items-start justify-between gap-6">
+
+          <div className={`p-7 sm:p-9 ${PANEL}`} data-reveal data-d="1">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
               <div>
-                <Pill className="uppercase tracking-[0.1em]" pulse>
-                  {LAUNCH_OFFER.phaseLabel} · {LAUNCH_OFFER.slotsLabel}
-                </Pill>
-                <p className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-foreground">
-                  {PRICING.planName}
+                <p className="text-[15px] font-medium text-foreground">{PRICING.planName}</p>
+                <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
+                  <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
+                  Launch pricing
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">Launch offer · cancel anytime.</p>
               </div>
-              <div className="min-w-[11rem] text-left sm:text-right">
-                <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-foreground sm:text-4xl">
-                  ${LAUNCH_OFFER.monthlyUsd}
-                  <span className="text-lg font-medium text-muted-foreground">/month</span>
+              <div className="text-left sm:text-right">
+                <p className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
+                  <span className="sr-only">Now </span>${LAUNCH_OFFER.monthlyUsd}
+                  <span className="text-base font-medium text-muted-foreground">/month</span>
                 </p>
-                <p className="mt-1 font-display text-base font-semibold text-foreground">
-                  or ${LAUNCH_OFFER.annualUsd}/year
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Normally ${PRICING.monthlyUsd}/month or ${PRICING.annualUsd}/year.
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <s className="decoration-muted-foreground/60">
+                    <span className="sr-only">Normally </span>${PRICING.monthlyUsd}
+                  </s>{" "}
+                  · or ${LAUNCH_OFFER.annualUsd}/year{" "}
+                  <s className="decoration-muted-foreground/60">
+                    <span className="sr-only">instead of </span>${PRICING.annualUsd}
+                  </s>
                 </p>
               </div>
             </div>
-            <p className="mt-6 border-t border-[color:var(--hairline)] pt-4 font-mono text-[12px] leading-6 text-muted-foreground">
-              <span className="text-brand-bright">//</span> {LAUNCH_OFFER.applyNote}{" "}
-              {LAUNCH_OFFER.lockNote}
-            </p>
-            <a
-              className={`mt-7 h-12 w-full px-8 text-[15px] sm:w-auto ${GREEN_CTA}`}
-              href={loginUrl}
-              style={{ background: GREEN_BG }}
-            >
-              Claim the launch offer
-            </a>
-            <p className="mt-3 text-center text-[12.5px] leading-5 text-muted-foreground">
-              {FREE_TIER.marketingLine}
-            </p>
-            <ul className="mt-8 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              {pricingChecklist.map((item) => (
-                <li className="flex gap-3 text-sm leading-6 text-muted-foreground" key={item}>
-                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand-bright" aria-hidden />
+
+            <ul className="mt-8 grid gap-x-6 gap-y-3 border-t border-[color:var(--hairline)] pt-7 sm:grid-cols-2">
+              {INCLUDED.map((item) => (
+                <li className="flex gap-3 text-sm leading-6 text-secondary-foreground" key={item}>
+                  <Check className="mt-1 size-4 shrink-0 text-brand-bright" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
-          </GlassCard>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+              <a
+                className={`h-12 px-7 text-[15px] ${GREEN_CTA}`}
+                href={loginUrl}
+                style={{ background: GREEN_BG }}
+              >
+                Start free
+              </a>
+              <p className="text-[13px] leading-5 text-muted-foreground">
+                {LAUNCH_OFFER.applyNote} {LAUNCH_OFFER.lockNote}
+              </p>
+            </div>
+          </div>
         </div>
       </SectionShell>
     </section>

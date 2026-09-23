@@ -1,6 +1,8 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PublicBlogIndexView } from "../../components/PublicBlogPages";
+import { PublicBlogIndexView, publicPageCanonicalPath, resolvePublicPage } from "../../components/PublicBlogPages";
+import { siteThemeRootAttributes } from "@vc/content/presented-post";
+import { resolvePresetId } from "@vc/config";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
@@ -18,8 +20,14 @@ for (const [key, value] of Object.entries(publicListingResponseHeaders(blog.site
 const title = `Posts tagged ${tag} - ${blog.site.name}`;
 const description = blog.site.default_seo_description || blog.site.description || undefined;
 const origin = publicOrigin(Astro.url);
-const canonical = new URL(Astro.url.pathname, origin).href;
 const socialImage = resolveSocialImage(origin, null, blog.site);
+const page = resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
+const canonical = new URL(publicPageCanonicalPath(Astro.url.pathname, page), origin).href;
+const themeAttrs = siteThemeRootAttributes(resolvePresetId(blog.site.theme), {
+  accent: blog.site.theme_accent,
+  font: blog.site.theme_font,
+  mode: blog.site.theme_mode,
+});
 ---
 <Base
   title={title}
@@ -27,6 +35,9 @@ const socialImage = resolveSocialImage(origin, null, blog.site);
   canonical={canonical}
   socialImage={socialImage}
   robots={!blog.indexable ? "noindex,nofollow" : undefined}
+  themeAttrs={themeAttrs}
+  feedHref="/feed.xml"
+  feedTitle={blog.site.name}
 >
-  <PublicBlogIndexView data={blog} />
+  <PublicBlogIndexView data={blog} page={page} />
 </Base>

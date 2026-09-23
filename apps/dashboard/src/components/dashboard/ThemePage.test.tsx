@@ -19,6 +19,9 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('~/lib/api-client', () => ({
+  DashboardApiError: class DashboardApiError extends Error {
+    status = 500
+  },
   getPostVersionFn: vi.fn(),
   loadPostEditorPage: vi.fn(),
   loadPostsPage: vi.fn(),

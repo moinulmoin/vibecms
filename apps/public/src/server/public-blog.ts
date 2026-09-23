@@ -246,9 +246,14 @@ export async function cachePublicPostHtmlResponse(
   await putArticleResponseCache(requestUrl, "html", response, waitUntil);
 }
 
+export type AdjacentPostSummary = { title: string; slug: string };
+
 export type PublicPostLoaderData = {
   site: SiteRow;
   post: PostDetailRow;
+  /** Newer/older published neighbours for end-of-post navigation. */
+  newer?: AdjacentPostSummary | null;
+  older?: AdjacentPostSummary | null;
   basePath: string;
   canonicalUrl: string;
   origin: string;
@@ -265,12 +270,20 @@ export async function loadPublicPostForSite(
 ): Promise<PublicPostLoaderData | null> {
   const { slug: postSlug } = stripMarkdownSuffix(slug);
   if (!postSlug || RESERVED_ROOT_SLUGS.has(postSlug)) return null;
-  const post = await getPublishedPost(db, site.id, postSlug);
+  const [post, summaries] = await Promise.all([
+    getPublishedPost(db, site.id, postSlug),
+    listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+  ]);
   if (!post) return null;
   const origin = publicOrigin(requestUrl);
+  const index = summaries.findIndex((summary) => summary.id === post.id);
+  const neighbour = (summary: PostSummaryRow | undefined) =>
+    summary ? { title: summary.title, slug: summary.slug } : null;
   return {
     site,
     post,
+    newer: index > 0 ? neighbour(summaries[index - 1]) : null,
+    older: index >= 0 ? neighbour(summaries[index + 1]) : null,
     basePath: "",
     canonicalUrl: post.canonical_url || `/${post.slug}`,
     origin,

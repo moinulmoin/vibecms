@@ -62,13 +62,15 @@ function ScopeSwitch({ on, label }: { on: boolean; label: string }) {
           on ? "text-brand-bright" : "text-muted-foreground",
         ].join(" ")}
         data-scope-state
+        aria-hidden="true"
       >
         {on ? "Allowed" : "Blocked"}
       </span>
       <button
         type="button"
-        aria-pressed={on ? "true" : "false"}
-        aria-label={`${on ? "Revoke" : "Allow"} ${label}`}
+        role="switch"
+        aria-checked={on ? "true" : "false"}
+        aria-label={label}
         className={on ? switchOn : switchOff}
         data-scope-switch
         data-on={on ? "true" : "false"}

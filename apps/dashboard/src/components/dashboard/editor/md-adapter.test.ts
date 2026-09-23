@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { blocksToMarkdown, markdownAdapterResult, normalizeMarkdown, visualMarkdownSafety } from './md-adapter'
+import { blocksToMarkdown, createMarkdownEditor, markdownAdapterResult, markdownOutsideCode, normalizeMarkdown, visualMarkdownSafety } from './md-adapter'
 
 describe('markdown adapter', () => {
   it('round-trips callouts and toc markers as custom blocks', () => {
@@ -45,5 +45,70 @@ describe('markdown adapter', () => {
     const result = visualMarkdownSafety('vc-callout-marker-1\uE001')
     expect(result.safe).toBe(false)
     expect(result.reason).toBe('internal_marker')
+  })
+})
+
+describe('visual safety ignores code', () => {
+  it('allows braces and HTML inside fenced code and inline code', () => {
+    const source = 'Use `{name}` and `<div>` here.\n\n```ts\nconst a = { b: 1 }\nconst el = <div />\n```\n'
+    expect(markdownOutsideCode(source)).not.toMatch(/[{<]/)
+    const result = visualMarkdownSafety(source)
+    expect(result.reason).not.toBe('unsupported_syntax')
+  })
+
+  it('still flags HTML in prose', () => {
+    expect(visualMarkdownSafety('Hello <span>there</span>\n').reason).toBe('unsupported_syntax')
+  })
+})
+
+describe('media urls', () => {
+  it('keeps uploaded /media-assets images relative so image posts stay visually editable', () => {
+    const source = 'Intro.\n\n![A red bike](/media-assets/abc123)\n\nOutro.\n'
+    const result = visualMarkdownSafety(source)
+    expect(result.roundTripMarkdown).toBe(source)
+    expect(result.safe).toBe(true)
+  })
+
+  it('does not rewrite an absolute same-origin image the author wrote', () => {
+    const source = `![A](${window.location.origin}/media-assets/abc)\n`
+    expect(visualMarkdownSafety(source).roundTripMarkdown).toBe(source)
+  })
+})
+
+describe('visual edits stay visual', () => {
+  function exportState(blocks: unknown[]) {
+    const editor = createMarkdownEditor()
+    editor.replaceBlocks(editor.document, blocks as never)
+    const markdown = blocksToMarkdown(editor.document as never, editor)
+    return { markdown, safety: visualMarkdownSafety(markdown, editor) }
+  }
+
+  it('an empty paragraph mid-document (Enter between paragraphs) is not lossy', () => {
+    const { markdown, safety } = exportState([
+      { type: 'paragraph', content: 'First.' },
+      { type: 'paragraph', content: '' },
+      { type: 'paragraph', content: 'Second.' },
+    ])
+    expect(markdown).toBe('First.\n\nSecond.\n')
+    expect(safety.safe).toBe(true)
+  })
+
+  it('keeps blank lines inside code blocks', () => {
+    const { markdown } = exportState([{ type: 'codeBlock', props: { language: 'ts' }, content: 'a\n\n\nb' }])
+    expect(markdown).toBe('```ts\na\n\n\nb\n```\n')
+  })
+
+  it('keeps links and formatting added inside a callout', () => {
+    const { markdown, safety } = exportState([{
+      type: 'vcCallout',
+      props: { kind: 'NOTE' },
+      content: [
+        { type: 'text', text: 'Read ', styles: {} },
+        { type: 'link', href: 'https://example.com', content: [{ type: 'text', text: 'the docs', styles: {} }] },
+        { type: 'text', text: ' now', styles: { bold: true } },
+      ],
+    }])
+    expect(markdown).toBe('> [!NOTE]\n> Read [the docs](https://example.com) **now**\n')
+    expect(safety.roundTripMarkdown).toBe(markdown)
   })
 })

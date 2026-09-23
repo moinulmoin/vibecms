@@ -3,7 +3,8 @@ import LandingLayout from "../../layouts/LandingLayout.astro";
 import { AgentSurface } from "../../components/landing/agent-surface";
 import { AgentsDemo } from "../../components/landing/agents-demo";
 import { CtaFooter } from "../../components/landing/cta-footer";
-import { EssentialsBento } from "../../components/landing/essentials-bento";
+import { BlogFeatures } from "../../components/landing/blog-features";
+import { ControlSection } from "../../components/landing/control-section";
 import { FaqAccordion } from "../../components/landing/faq-accordion";
 import { HeaderHero } from "../../components/landing/header-hero";
 import { HostingPricing } from "../../components/landing/hosting-pricing";
@@ -36,7 +37,8 @@ const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;
       <HeaderHero loginUrl={loginUrl} />
       <AgentsDemo apiDocsUrl={apiDocsUrl} />
       <AgentSurface apiDocsUrl={apiDocsUrl} />
-      <EssentialsBento />
+      <ControlSection />
+      <BlogFeatures />
       <HostingPricing loginUrl={loginUrl} />
       <FaqAccordion />
       <CtaFooter loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />

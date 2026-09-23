@@ -1,6 +1,8 @@
 ---
 import Base from "../layouts/Base.astro";
-import { PublicBlogPostView } from "../components/PublicBlogPages";
+import { PublicBlogPostView, PublicNotFoundView } from "../components/PublicBlogPages";
+import { siteThemeRootAttributes } from "@vc/content/presented-post";
+import { resolvePresetId } from "@vc/config";
 import {
   handlePublicPostByHostGet,
   loadPublicPostForSite,
@@ -32,30 +34,45 @@ if (cacheSite.effective_entitlement.effective) {
 }
 
 const blog = await loadPublicPostForSite(db, Astro.request.url, cacheSite, postSlug, env);
-if (!blog) {
-  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
-}
-
-const markdownAlternateHref = new URL(`/${blog.post.slug}.md`, blog.origin).href;
-for (const [key, value] of Object.entries(
-  publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
-    markdownAlternateHref,
-  }),
-)) {
-  Astro.response.headers.set(key, value);
-}
-
-const head = buildPostHeadContent({
-  post: blog.post,
-  site: blog.site,
-  canonicalUrl: blog.canonicalUrl,
-  origin: blog.origin,
-  indexable: blog.indexable,
+const siteThemeAttrs = siteThemeRootAttributes(resolvePresetId(cacheSite.theme), {
+  accent: cacheSite.theme_accent,
+  font: cacheSite.theme_font,
+  mode: cacheSite.theme_mode,
 });
+if (!blog) {
+  Astro.response.status = 404;
+  Astro.response.headers.set("cache-control", "no-store");
+}
+
+if (blog) {
+  const markdownAlternateHref = new URL(`/${blog.post.slug}.md`, blog.origin).href;
+  for (const [key, value] of Object.entries(
+    publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
+      markdownAlternateHref,
+    }),
+  )) {
+    Astro.response.headers.set(key, value);
+  }
+}
+
+const head = blog
+  ? buildPostHeadContent({
+      post: blog.post,
+      site: blog.site,
+      canonicalUrl: blog.canonicalUrl,
+      origin: blog.origin,
+      indexable: blog.indexable,
+    })
+  : { meta: [], links: [], scripts: [] };
 const titleEntry = head.meta.find((entry) => "title" in entry);
 const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in entry);
 ---
-<Base>
+{!blog ? (
+<Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} feedHref="/feed.xml" feedTitle={cacheSite.name}>
+  <PublicNotFoundView site={cacheSite} />
+</Base>
+) : (
+<Base themeAttrs={siteThemeAttrs} feedHref="/feed.xml" feedTitle={blog.site.name}>
   <Fragment slot="head">
     {titleEntry && "title" in titleEntry ? <title>{String(titleEntry.title)}</title> : null}
     {metaEntries.map((entry) => {
@@ -73,3 +90,4 @@ const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in
   <PublicBlogPostView data={blog} />
   <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
 </Base>
+)}

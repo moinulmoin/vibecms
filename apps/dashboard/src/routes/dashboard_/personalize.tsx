@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { PersonalizePage } from '~/components/dashboard/PersonalizePage'
 import { emptyDashboardStatusSearch, validateDashboardSearch } from '~/lib/dashboard-search'
+import { connectQuery, queryClient, warm } from '~/lib/queries'
 
 export const Route = createFileRoute('/dashboard_/personalize')({
   ssr: false,
@@ -16,5 +17,6 @@ export const Route = createFileRoute('/dashboard_/personalize')({
     }
   },
   validateSearch: validateDashboardSearch,
+  loader: () => warm(queryClient.prefetchQuery(connectQuery), 400),
   component: PersonalizePage,
 })

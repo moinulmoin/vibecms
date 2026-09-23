@@ -22,10 +22,13 @@ vi.mock('@tanstack/react-router', () => ({
     return { status: 'idle' as const }
   },
   useNavigate: () => api.navigate,
-  useSearch: () => ({ tab: 'voice' }),
+  useSearch: () => ({ tab: undefined }),
 }))
 
 vi.mock('~/lib/api-client', () => ({
+  DashboardApiError: class DashboardApiError extends Error {
+    status = 500
+  },
   addCustomDomainMutation: vi.fn(),
   clearVoiceProfileMutation: vi.fn(),
   loadSettingsPage: api.loadSettingsPage,
@@ -46,9 +49,13 @@ vi.mock('~/components/dashboard/blocks', () => ({
   ListRow: () => null,
   PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
   PageSkeleton: () => <p>Loading</p>,
+  PageTabs: () => null,
   Panel: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
+  Section: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
   StatusBadge: () => null,
 }))
+
+vi.mock('~/components/dashboard/BillingPage', () => ({ PlanAndBilling: () => null }))
 
 vi.mock('~/components/ui/tabs', () => ({
   Tabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -96,6 +103,7 @@ vi.mock('~/components/dashboard/SpaConfirmButton', () => ({
 }))
 
 import { SettingsPage } from './SettingsPage'
+import { withQueryClient } from '~/test/query'
 
 function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPageData {
   return {
@@ -159,7 +167,7 @@ describe('SettingsPage', () => {
     document.body.appendChild(container)
     const root = createRoot(container)
 
-    await act(async () => root.render(<SettingsPage />))
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
     await settle()
 
     const checkbox = container.querySelector<HTMLInputElement>('#post-post-1')
@@ -190,7 +198,7 @@ describe('SettingsPage', () => {
     document.body.appendChild(container)
     const root = createRoot(container)
 
-    await act(async () => root.render(<SettingsPage />))
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
     await settle()
 
     const name = container.querySelector<HTMLInputElement>('#site-name')
@@ -232,7 +240,7 @@ describe('SettingsPage', () => {
     document.body.appendChild(container)
     const root = createRoot(container)
 
-    await act(async () => root.render(<SettingsPage />))
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
     await settle()
 
     const name = container.querySelector<HTMLInputElement>('#site-name')

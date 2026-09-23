@@ -1,5 +1,5 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
-import { ConflictError, type ActivityInput, type Actor, type Post, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
+import { changedPostFields, ConflictError, type ActivityInput, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
 import { activityEvents, apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
@@ -10,6 +10,23 @@ function now() {
 // Rapid same-actor post.updated events (autosave, agent drafting) within this
 // window coalesce into one activity row instead of one row per save.
 const POST_UPDATE_COALESCE_WINDOW_SECONDS = 600;
+
+// Same-actor autosaves fold into the tip version for this long, so history
+// holds meaningful checkpoints instead of one version per keystroke burst.
+const VERSION_COALESCE_WINDOW_SECONDS = 600;
+const NO_CHANGE_SUMMARY = "Saved without changes";
+
+function isEditSummary(summary: string | null) {
+  return summary === NO_CHANGE_SUMMARY || (summary?.startsWith("Edited ") ?? false);
+}
+
+function mergeEditFields(tipSummary: string | null, fields: string[]) {
+  const merged = tipSummary?.startsWith("Edited ")
+    ? tipSummary.slice("Edited ".length).split(", ").filter(Boolean)
+    : [];
+  for (const field of fields) if (!merged.includes(field)) merged.push(field);
+  return merged;
+}
 
 function normalizePostStatus(status: string): Post["status"] {
   return status === "published" || status === "archived" ? status : "draft";
@@ -218,6 +235,169 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       createdAt: timestamp,
     }).returning({ versionNumber: postVersions.versionNumber });
 
+  /**
+   * Autosave path: fold a same-actor edit into the tip version row (renumbered
+   * to tip + 1) instead of adding a row. Only when the tip is an edit by this exact actor, is
+   * younger than the window, is not the live version, and the caller still
+   * holds it. Returns null (caller cuts a normal version) when not eligible
+   * or when the tip moved between the read and the write.
+   */
+  const coalesceIntoTip = async (
+    before: Post,
+    patch: Partial<Post>,
+    actor: Actor,
+    history: PostMutationHistory,
+    expectedVersionNumber: number,
+  ): Promise<{ post: Post; versionNumber: number } | null> => {
+    if (patch.status !== undefined && patch.status !== before.status) return null;
+    if (before.currentVersionNumber !== expectedVersionNumber) return null;
+    if (before.publishedVersionNumber === expectedVersionNumber) return null;
+    const tip = await db
+      .prepare(
+        `SELECT id, created_by_type AS createdByType, created_by_id AS createdById,
+           created_at AS createdAt, change_summary AS changeSummary
+         FROM post_versions WHERE site_id = ? AND post_id = ? AND version_number = ?`,
+      )
+      .bind(before.siteId, before.id, expectedVersionNumber)
+      .first<{ id: string; createdByType: string; createdById: string; createdAt: number; changeSummary: string | null }>();
+    const timestamp = now();
+    if (
+      !tip ||
+      tip.createdByType !== actor.type ||
+      tip.createdById !== actor.id ||
+      tip.createdAt < timestamp - VERSION_COALESCE_WINDOW_SECONDS ||
+      !isEditSummary(tip.changeSummary)
+    ) {
+      return null;
+    }
+
+    const fields = mergeEditFields(tip.changeSummary, history.changedFields ?? []);
+    const changeSummary = fields.length ? `Edited ${fields.join(", ")}` : NO_CHANGE_SUMMARY;
+    // The folded row takes a new number, so anyone holding vN (an agent's
+    // approval, a stale tab) gets the normal stale-version conflict. Gaps are fine.
+    const nextVersionNumber = expectedVersionNumber + 1;
+    const after: Post = { ...before, ...patch, updatedAt: timestamp, currentVersionNumber: nextVersionNumber, publishedVersionNumber: before.publishedVersionNumber };
+    const activitySummary = await foldedActivitySummary(
+      after, actor, { ...history, activitySummary: history.activitySummaryFor ? history.activitySummaryFor(fields) : history.activitySummary }, fields, timestamp,
+    );
+
+    // Every statement is gated on "this row is still the tip and not live",
+    // and the renumbering write runs last. Gating the post/activity writes on
+    // the renumbered row instead would let a stale concurrent save from a
+    // second tab land its content after another save already folded the tip.
+    const tipGate = `(SELECT max(version_number) FROM post_versions WHERE site_id = ? AND post_id = ?) = ?
+      AND coalesce((SELECT published_version_id FROM posts WHERE site_id = ? AND id = ?), '') <> ?`;
+    const tipGateBinds = [before.siteId, before.id, expectedVersionNumber, before.siteId, before.id, tip.id];
+
+    let results: D1Result[];
+    try {
+      results = await db.batch([
+        db.prepare(
+          `UPDATE posts
+             SET title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?,
+               seo_title = ?, seo_description = ?, canonical_url = ?, tags_json = ?,
+               presentation_json = ?, updated_by_type = ?, updated_by_id = ?, updated_at = ?
+           WHERE site_id = ? AND id = ? AND ${tipGate}`,
+        ).bind(
+          after.title, after.slug, after.excerpt, after.contentMarkdown, after.coverAssetId,
+          after.seoTitle, after.seoDescription, after.canonicalUrl, JSON.stringify(after.tags),
+          after.presentation ? JSON.stringify(after.presentation) : null, actor.type, actor.id, timestamp,
+          before.siteId, before.id, ...tipGateBinds,
+        ),
+        ...activityStatements(before, after, actor, { ...history, activitySummary }, timestamp, { sql: tipGate, binds: tipGateBinds }),
+        db.prepare(
+          `UPDATE post_versions
+             SET version_number = ?, title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?,
+               seo_title = ?, seo_description = ?, canonical_url = ?, tags_json = ?,
+               presentation_json = ?, change_summary = ?
+           WHERE id = ? AND ${tipGate}`,
+        ).bind(
+          nextVersionNumber,
+          after.title, after.slug, after.excerpt, after.contentMarkdown, after.coverAssetId,
+          after.seoTitle, after.seoDescription, after.canonicalUrl, JSON.stringify(after.tags),
+          after.presentation ? JSON.stringify(after.presentation) : null, changeSummary,
+          tip.id, ...tipGateBinds,
+        ),
+      ]);
+    } catch (error) {
+      throw mapPostError(error);
+    }
+    const versionResult = results[results.length - 1]!;
+    if ((versionResult.meta.changes ?? 0) === 0) return null;
+    return { post: after, versionNumber: nextVersionNumber };
+  };
+
+  /**
+   * A post.updated event that folds into the actor's recent event spans every
+   * edit since that event opened, so its summary names the fields changed
+   * since the event's before-state, not just this save's fields.
+   */
+  const foldedActivitySummary = async (after: Post, actor: Actor, history: PostMutationHistory, fields: string[], timestamp: number) => {
+    if (history.activityAction !== "post.updated" || !history.activitySummaryFor) return history.activitySummary;
+    const recent = await db
+      .prepare(
+        `SELECT before_json AS beforeJson FROM activity_events
+          WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
+            AND actor_type = ? AND actor_id = ? AND created_at >= ?
+          ORDER BY created_at DESC LIMIT 1`,
+      )
+      .bind(after.siteId, after.id, actor.type, actor.id, timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS)
+      .first<{ beforeJson: string | null }>();
+    if (!recent?.beforeJson) return history.activitySummary;
+    let eventBefore: Partial<Post>;
+    try {
+      eventBefore = JSON.parse(recent.beforeJson) as Partial<Post>;
+    } catch {
+      return history.activitySummary;
+    }
+    const merged = changedPostFields(eventBefore, after);
+    for (const field of fields) if (!merged.includes(field)) merged.push(field);
+    return history.activitySummaryFor(merged);
+  };
+
+  // post.updated is high-frequency (autosave, agent drafting): bump the same
+  // actor's recent event instead of inserting a new row, so the ledger stays a
+  // trust log rather than a keystroke log. Lifecycle actions always insert.
+  // Every statement is gated so nothing lands unless the version write did.
+  const activityStatements = (
+    before: Post,
+    after: Post,
+    actor: Actor,
+    history: PostMutationHistory,
+    timestamp: number,
+    gate: { sql: string; binds: unknown[] },
+  ): D1PreparedStatement[] => {
+    const activityId = crypto.randomUUID();
+    const windowStart = timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS;
+    const insert = (extraWhere: string, extraBinds: unknown[]) =>
+      db.prepare(
+        `INSERT INTO activity_events (
+          id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+          entity_id, summary, before_json, after_json, created_at
+        )
+        SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
+        WHERE ${gate.sql}${extraWhere}`,
+      ).bind(
+        activityId, after.siteId, actor.type, actor.id, actor.name, history.activityAction, after.id,
+        history.activitySummary, JSON.stringify(before), JSON.stringify(after), timestamp,
+        ...gate.binds, ...extraBinds,
+      );
+    if (history.activityAction !== "post.updated") return [insert("", [])];
+    const recentSameActor = `SELECT id FROM activity_events
+       WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
+         AND actor_type = ? AND actor_id = ? AND created_at >= ?`;
+    const recentBinds = [after.siteId, after.id, actor.type, actor.id, windowStart];
+    return [
+      db.prepare(
+        `UPDATE activity_events
+            SET created_at = ?, summary = ?, actor_name = ?, after_json = ?
+          WHERE id = (${recentSameActor} ORDER BY created_at DESC LIMIT 1)
+            AND ${gate.sql}`,
+      ).bind(timestamp, history.activitySummary, actor.name, JSON.stringify(after), ...recentBinds, ...gate.binds),
+      insert(` AND NOT EXISTS (${recentSameActor})`, recentBinds),
+    ];
+  };
+
   const activityInsert = (input: ActivityInput, timestamp: number) =>
     client.insert(activityEvents).values({
       id: crypto.randomUUID(),
@@ -282,9 +462,12 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     async updatePostWithHistory(siteId, postId, patch, actor, history, expectedVersionNumber) {
       const before = await getPost(siteId, postId);
       if (!before) return null;
+      if (history.coalesceVersion) {
+        const coalesced = await coalesceIntoTip(before, patch, actor, history, expectedVersionNumber);
+        if (coalesced) return coalesced;
+      }
       const timestamp = now();
       const versionId = crypto.randomUUID();
-      const activityId = crypto.randomUUID();
       const nextVersionNumber = expectedVersionNumber + 1;
       const after: Post = {
         ...before,
@@ -294,6 +477,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         // Draft edits never move the public pointer.
         publishedVersionNumber: before.publishedVersionNumber,
       };
+      const activitySummary = await foldedActivitySummary(after, actor, history, history.changedFields ?? [], timestamp);
 
       // Claim the next version number only when the caller still holds the tip.
       // Post + activity writes are gated on that claim so a stale writer cannot
@@ -370,91 +554,10 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             postId,
             versionId,
           ),
-          // post.updated is high-frequency (autosave, agent drafting): bump the
-          // same actor's recent event instead of inserting a new row, so the
-          // ledger stays a trust log rather than a keystroke log. Distinct
-          // lifecycle actions (publish, archive, restore…) always insert.
-          ...(history.activityAction === "post.updated"
-            ? [
-                db.prepare(
-                  `UPDATE activity_events
-                      SET created_at = ?, summary = ?, actor_name = ?, after_json = ?
-                    WHERE id = (
-                      SELECT id FROM activity_events
-                       WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
-                         AND actor_type = ? AND actor_id = ? AND created_at >= ?
-                       ORDER BY created_at DESC LIMIT 1
-                    )
-                      AND EXISTS (SELECT 1 FROM post_versions WHERE id = ?)`,
-                ).bind(
-                  timestamp,
-                  history.activitySummary,
-                  actor.name,
-                  JSON.stringify(after),
-                  siteId,
-                  postId,
-                  actor.type,
-                  actor.id,
-                  timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS,
-                  versionId,
-                ),
-                db.prepare(
-                  `INSERT INTO activity_events (
-                    id, site_id, actor_type, actor_id, actor_name, action, entity_type,
-                    entity_id, summary, before_json, after_json, created_at
-                  )
-                  SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
-                  FROM post_versions
-                  WHERE id = ?
-                    AND NOT EXISTS (
-                      SELECT 1 FROM activity_events
-                       WHERE site_id = ? AND entity_id = ? AND action = 'post.updated'
-                         AND actor_type = ? AND actor_id = ? AND created_at >= ?
-                    )`,
-                ).bind(
-                  activityId,
-                  siteId,
-                  actor.type,
-                  actor.id,
-                  actor.name,
-                  history.activityAction,
-                  postId,
-                  history.activitySummary,
-                  JSON.stringify(before),
-                  JSON.stringify(after),
-                  timestamp,
-                  versionId,
-                  siteId,
-                  postId,
-                  actor.type,
-                  actor.id,
-                  timestamp - POST_UPDATE_COALESCE_WINDOW_SECONDS,
-                ),
-              ]
-            : [
-                db.prepare(
-                  `INSERT INTO activity_events (
-                    id, site_id, actor_type, actor_id, actor_name, action, entity_type,
-                    entity_id, summary, before_json, after_json, created_at
-                  )
-                  SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
-                  FROM post_versions
-                  WHERE id = ?`,
-                ).bind(
-                  activityId,
-                  siteId,
-                  actor.type,
-                  actor.id,
-                  actor.name,
-                  history.activityAction,
-                  postId,
-                  history.activitySummary,
-                  JSON.stringify(before),
-                  JSON.stringify(after),
-                  timestamp,
-                  versionId,
-                ),
-              ]),
+          ...activityStatements(before, after, actor, { ...history, activitySummary }, timestamp, {
+            sql: "EXISTS (SELECT 1 FROM post_versions WHERE id = ?)",
+            binds: [versionId],
+          }),
         ]);
       } catch (error) {
         throw mapPostError(error);

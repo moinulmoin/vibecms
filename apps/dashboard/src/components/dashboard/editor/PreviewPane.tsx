@@ -1,10 +1,14 @@
-'use client'
-
-import { readingTimeMinutes, renderRichContent, type RenderedImageAttributes } from '@vc/content'
-import { PresentedPostArticle, type SiteThemeInput } from '@vc/content/presented-post'
-import { PublicPageChrome } from '@vc/content/public-chrome'
+import {
+  readingTimeMinutes,
+  renderRichContent,
+  type CodeHighlighter,
+  type RenderedImageAttributes,
+} from '@vc/content'
+import { PresentedPostArticle, articleHasToc, type SiteThemeInput } from '@vc/content/presented-post'
+import { PublicPageChrome, type SubscribeSettings } from '@vc/content/public-chrome'
 import { resolvePresentation, type Presentation } from '@vc/config'
-import { useMemo } from 'react'
+import { Monitor, Moon, Smartphone, Sun, Tablet } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import type { EditorSiteInfo } from '~/types/dashboard'
 
 export type PreviewMetadata = {
@@ -26,6 +30,35 @@ export type PreviewPaneProps = {
   publishedAt?: number | null
   updatedAt?: number | null
   resolveImage?: (src: string) => RenderedImageAttributes | null
+  /** Per-site subscribe copy, so the preview matches the live end-of-post form. */
+  subscribeSettings?: SubscribeSettings | null
+  /** Hide the width / mode controls (e.g. compact embeds). */
+  hideToolbar?: boolean
+  /** Fill the parent height (split view) instead of capping to the viewport. */
+  fill?: boolean
+  /** Receives render warnings (missing alt text, unsupported HTML, ...). */
+  onWarnings?: (warnings: string[]) => void
+}
+
+type PreviewWidth = 'desktop' | 'tablet' | 'phone'
+type PreviewMode = 'light' | 'dark'
+
+const WIDTHS: Record<PreviewWidth, string> = { desktop: '100%', tablet: '768px', phone: '390px' }
+
+let highlighterPromise: Promise<CodeHighlighter> | null = null
+
+/** Loads the Shiki highlighter on demand so it stays out of the main bundle. */
+export function useCodeHighlighter(): CodeHighlighter | null {
+  const [highlighter, setHighlighter] = useState<CodeHighlighter | null>(null)
+  useEffect(() => {
+    let alive = true
+    highlighterPromise ??= import('@vc/content/highlight').then((m) => m.createCodeHighlighter())
+    highlighterPromise.then((h) => alive && setHighlighter(h)).catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
+  return highlighter
 }
 
 function responsiveImageSource(source: string): RenderedImageAttributes | null {
@@ -39,8 +72,37 @@ function responsiveImageSource(source: string): RenderedImageAttributes | null {
   }
 }
 
-function dateText(seconds: number | null | undefined) {
-  return seconds ? new Date(seconds * 1000).toLocaleDateString() : undefined
+function systemMode(): PreviewMode {
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark'
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
+  return 'light'
+}
+
+function ToolbarButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`inline-grid size-7 place-items-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
+        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
+  )
 }
 
 export function PreviewPane({
@@ -52,25 +114,65 @@ export function PreviewPane({
   publishedAt,
   updatedAt,
   resolveImage = responsiveImageSource,
+  subscribeSettings,
+  hideToolbar = false,
+  fill = false,
+  onWarnings,
 }: PreviewPaneProps) {
+  const highlighter = useCodeHighlighter()
+  const [width, setWidth] = useState<PreviewWidth>('desktop')
+  const siteMode = site?.themeMode === 'light' || site?.themeMode === 'dark' ? site.themeMode : null
+  const [mode, setMode] = useState<PreviewMode>(() => siteMode ?? systemMode())
+  useEffect(() => {
+    if (siteMode) setMode(siteMode)
+  }, [siteMode])
+
   const previewResult = useMemo(
-    () => renderRichContent(source, { presetId, pageTitle: metadata.title, resolveImage }),
-    [source, presetId, metadata.title, resolveImage],
+    () => renderRichContent(source, { presetId, pageTitle: metadata.title, resolveImage, highlighter }),
+    [source, presetId, metadata.title, resolveImage, highlighter],
   )
+  useEffect(() => {
+    onWarnings?.(previewResult.warnings)
+  }, [previewResult.warnings, onWarnings])
+
   const resolvedPresentation = resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved
-  const updated = publishedAt && updatedAt && updatedAt > publishedAt + 86400 ? dateText(updatedAt) : undefined
+  const theme: SiteThemeInput | undefined = site
+    ? { accent: site.themeAccent, font: site.themeFont, mode }
+    : { accent: null, font: null, mode }
+  const showUpdated = Boolean(publishedAt && updatedAt && updatedAt > publishedAt + 86400)
 
   return (
-    <div role="region" aria-label="Markdown preview" className="min-w-0 lg:sticky lg:top-20">
-      <p className="mb-3 flex items-center gap-2 font-mono text-[11px] text-muted-foreground" aria-live="polite">
-        <span className="relative flex size-1.5">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-bright/40 motion-reduce:animate-none" />
-          <span className="relative inline-flex size-1.5 rounded-full bg-brand-bright" />
-        </span>
-        Exact public page · live as you type
-      </p>
+    <div role="region" aria-label="Post preview" className={`flex min-w-0 flex-col ${fill ? 'h-full' : ''}`}>
+      {hideToolbar ? null : (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">Preview · matches your live blog</p>
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5" role="group" aria-label="Preview width">
+              <ToolbarButton active={width === 'desktop'} label="Desktop width" onClick={() => setWidth('desktop')}>
+                <Monitor className="size-3.5" />
+              </ToolbarButton>
+              <ToolbarButton active={width === 'tablet'} label="Tablet width" onClick={() => setWidth('tablet')}>
+                <Tablet className="size-3.5" />
+              </ToolbarButton>
+              <ToolbarButton active={width === 'phone'} label="Phone width" onClick={() => setWidth('phone')}>
+                <Smartphone className="size-3.5" />
+              </ToolbarButton>
+            </div>
+            <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+            <ToolbarButton
+              active={false}
+              label={mode === 'dark' ? 'Preview light mode' : 'Preview dark mode'}
+              onClick={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))}
+            >
+              {mode === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+            </ToolbarButton>
+          </div>
+        </div>
+      )}
       <div
-        className="overflow-y-auto rounded-xl border border-border lg:max-h-[calc(100dvh-10rem)]"
+        className={`min-h-0 overflow-y-auto rounded-xl border border-border bg-muted/40 ${
+          fill ? 'flex-1' : 'lg:max-h-[calc(100dvh-10rem)]'
+        }`}
         onClickCapture={(event) => {
           if ((event.target as HTMLElement).closest('a')) event.preventDefault()
         }}
@@ -78,41 +180,48 @@ export function PreviewPane({
           if ((event.target as HTMLElement).closest('a')) event.preventDefault()
         }}
       >
-        {source.trim() ? (
-          <PublicPageChrome
-            siteName={site?.name ?? 'Your blog'}
-            tagline={site?.description ?? null}
-            homeHref="#"
-            allPostsHref="#"
-            presetId={presetId}
-            theme={site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined}
-            article
-            subscribeVariant="end"
-          >
-            <PresentedPostArticle
-              renderResult={previewResult}
+        <div
+          className="mx-auto transition-[max-width] duration-200 motion-reduce:transition-none"
+          style={{ maxWidth: WIDTHS[width] }}
+        >
+          {source.trim() || metadata.title ? (
+            <PublicPageChrome
+              siteName={site?.name ?? 'Your blog'}
+              homeHref="#"
+              allPostsHref="#"
               presetId={presetId}
-              presentation={resolvedPresentation}
-              theme={site ? ({ accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } satisfies SiteThemeInput) : undefined}
-              title={metadata.title}
-              excerpt={metadata.excerpt}
-              byline={site?.name}
-              coverAssetSrc={metadata.coverAssetSrc}
-              coverAssetAlt={metadata.coverAssetAlt}
-              coverAssetWidth={metadata.coverAssetWidth}
-              coverAssetHeight={metadata.coverAssetHeight}
-              dateText={dateText(publishedAt)}
-              updatedDateText={updated}
-              readingMinutes={readingTimeMinutes(source)}
-              tags={metadata.tags}
-              basePath="#"
-            />
-          </PublicPageChrome>
-        ) : (
-          <div className="bg-muted/50 p-8">
-            <p className="font-mono text-xs text-muted-foreground">Nothing here yet — start writing and the page builds itself.</p>
-          </div>
-        )}
+              theme={theme}
+              article
+              embedded
+              wide={articleHasToc(resolvedPresentation, previewResult.outline)}
+              feedHref="#"
+              subscribeVariant="end"
+              subscribeSettings={subscribeSettings}
+            >
+              <PresentedPostArticle
+                renderResult={previewResult}
+                presetId={presetId}
+                presentation={resolvedPresentation}
+                theme={theme}
+                title={metadata.title}
+                excerpt={metadata.excerpt}
+                coverAssetSrc={metadata.coverAssetSrc}
+                coverAssetAlt={metadata.coverAssetAlt}
+                coverAssetWidth={metadata.coverAssetWidth}
+                coverAssetHeight={metadata.coverAssetHeight}
+                publishedAt={publishedAt ?? Math.floor(Date.now() / 1000)}
+                updatedAt={showUpdated ? updatedAt : null}
+                readingMinutes={readingTimeMinutes(source)}
+                tags={metadata.tags}
+                basePath="#"
+              />
+            </PublicPageChrome>
+          ) : (
+            <div className="p-8">
+              <p className="text-sm text-muted-foreground">Nothing here yet. Start writing and the page builds itself.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

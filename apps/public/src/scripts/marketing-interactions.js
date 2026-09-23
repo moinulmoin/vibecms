@@ -95,8 +95,8 @@ function applyScopeRow(row, on) {
   if (sw instanceof HTMLButtonElement) {
     sw.className = on ? SWITCH_ON : SWITCH_OFF;
     sw.dataset.on = on ? "true" : "false";
-    sw.setAttribute("aria-pressed", on ? "true" : "false");
-    sw.setAttribute("aria-label", `${on ? "Revoke" : "Allow"} ${label}`);
+    sw.setAttribute("aria-checked", on ? "true" : "false");
+    sw.setAttribute("aria-label", label);
   }
   if (knob instanceof HTMLElement) {
     knob.className = on ? KNOB_ON : KNOB_OFF;

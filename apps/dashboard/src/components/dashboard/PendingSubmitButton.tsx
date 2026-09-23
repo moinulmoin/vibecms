@@ -1,7 +1,5 @@
-'use client'
-
 import { Button, type ButtonProps } from '@vc/ui'
-import { ReloadIcon } from '@radix-ui/react-icons'
+import { LoaderCircle } from 'lucide-react'
 import * as React from 'react'
 
 export type PendingSubmitButtonProps = ButtonProps & {
@@ -21,7 +19,7 @@ export function PendingSubmitButton({
     <Button type="submit" aria-busy={pending || undefined} disabled={pending || disabled} {...props}>
       {pending ? (
         <>
-          <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           {pendingText ?? children}
         </>
       ) : (

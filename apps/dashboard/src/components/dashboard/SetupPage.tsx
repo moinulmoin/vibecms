@@ -1,210 +1,162 @@
-'use client'
-
-import { BRAND } from '@vc/config'
-import { Alert, Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from '@vc/ui'
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { FREE_TIER } from '@vc/config'
+import { Alert, Field, FieldLabel, Input, Skeleton } from '@vc/ui'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { Panel } from '~/components/dashboard/blocks'
-import { Skeleton } from "@vc/ui"
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { completeSetupMutation, loadSetupPage } from '~/lib/api-client'
-import { dashboardStatusSearch } from '~/lib/dashboard-search'
+import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
+import { completeSetupMutation } from '~/lib/api-client'
+import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import { refreshContext, setupQuery } from '~/lib/queries'
+
+const SLUG_MAX = 42
+
+/** Blog name → hosted address label. Lowercase letters, digits, single hyphens. */
+export function slugFromName(name: string) {
+  return name
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, SLUG_MAX)
+    .replace(/-+$/g, '')
+}
+
+const STEP = { current: 1, total: 2 }
 
 export function SetupPage() {
   const navigate = useNavigate()
-  const router = useRouter()
-  const [site, setSite] = useState<{ name: string; slug: string; description: string } | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  // Controlled values for the three prefillable fields
-  const [nameVal, setNameVal] = useState('')
-  const [slugVal, setSlugVal] = useState('')
-  const [descVal, setDescVal] = useState('')
-
-  // Touched tracking: once the user manually edits a field, URL changes must not overwrite it
-  const [nameTouched, setNameTouched] = useState(false)
+  const query = useQuery(setupQuery)
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
-  const [descTouched, setDescTouched] = useState(false)
+  const [editingSlug, setEditingSlug] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [seeded, setSeeded] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    void loadSetupPage()
-      .then((data) => {
-        if (!cancelled) {
-          setSite(data)
-          setNameVal(data.name)
-          setSlugVal(data.slug)
-          setDescVal(data.description)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load setup.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (!query.data || seeded) return
+    setSeeded(true)
+    // The server pre-fills a placeholder name; start blank unless the user already named it.
+    const prefilled = query.data.name && query.data.name !== 'My Blog' ? query.data.name : ''
+    setName(prefilled)
+    if (prefilled) setSlug(query.data.slug || slugFromName(prefilled))
+  }, [query.data, seeded])
 
-  function handleUrlPrefill(raw: string) {
-    if (!raw.trim()) return
-    let url: URL
-    try {
-      url = new URL(raw.includes('://') ? raw : 'https://' + raw)
-    } catch {
-      return // invalid input - silently ignore
-    }
-
-    // Strip a leading www. only
-    let hostname = url.hostname
-    if (hostname.startsWith('www.')) {
-      hostname = hostname.slice(4)
-    }
-
-    // Registrable domain label. Handle common multi-part public suffixes (co.uk, com.au, ...)
-    // so example.co.uk -> 'example', not 'co'. moin.com -> 'moin'; blog.acme.com -> 'acme'.
-    const parts = hostname.split('.')
-    const MULTI_PART_SUFFIXES = new Set(['co.uk', 'com.au', 'co.nz', 'co.jp', 'com.br', 'co.in', 'com.mx', 'org.uk', 'net.au'])
-    let labelIndex = parts.length - 2
-    if (parts.length >= 3 && MULTI_PART_SUFFIXES.has(`${parts[parts.length - 2]}.${parts[parts.length - 1]}`)) {
-      labelIndex = parts.length - 3
-    }
-    const label = labelIndex >= 0 ? parts[labelIndex] : parts[0]
-    if (!label) return
-
-    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 42)
-    if (!slug) return
-
-    const name = label.charAt(0).toUpperCase() + label.slice(1)
-    const description = `Notes and updates from ${name}.`
-
-    if (!nameTouched) setNameVal(name)
-    if (!slugTouched) setSlugVal(slug)
-    if (!descTouched) setDescVal(description)
-  }
+  const effectiveSlug = slugTouched ? slug : slugFromName(name)
+  const baseDomain = query.data?.baseDomain ?? null
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    const name = String(form.get('name') ?? '')
-    const slug = String(form.get('slug') ?? '')
-    const description = String(form.get('description') ?? '')
-    setSubmitError(null)
+    if (!name.trim()) return
+    setError(null)
     setSubmitting(true)
     try {
-      const result = await completeSetupMutation({ name, slug, description: description || undefined })
-      if (result.kind === 'ok') {
-        await router.invalidate()
-        await navigate({ to: '/dashboard/personalize', search: dashboardStatusSearch({ ok: result.code }) })
-      } else {
-        await navigate({ to: '/dashboard/setup', search: dashboardStatusSearch({ error: result.code }) })
+      const result = await completeSetupMutation({ name: name.trim(), slug: slugFromName(effectiveSlug) || slugFromName(name) })
+      if (result.kind !== 'ok') {
+        setError(resolveFormStatus({ error: result.code })?.message ?? 'That didn’t work. Try another name.')
+        return
       }
+      await refreshContext()
+      await navigate({ to: '/dashboard/personalize', search: emptyDashboardStatusSearch })
     } catch {
-      setSubmitError('Could not save your blog setup. Check your connection and try again.')
+      setError('We couldn’t save that. Check your connection and try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loadError) return <LoadError message={loadError} />
-  if (!site)
+  if (query.isError && !query.data) {
     return (
-      <OnboardingFrame step={1}>
-        <Skeleton className="h-[28rem] rounded-xl" />
+      <OnboardingFrame step={STEP} title="Name your blog">
+        <LoadError message="Setup didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
       </OnboardingFrame>
     )
+  }
 
   return (
-    <OnboardingFrame step={1}>
-      <div className="grid gap-4">
-        <Panel title="Create your hosted blog">
-          <p className="mb-5 font-sans text-sm leading-6 text-muted-foreground">
-            Only the essentials. Everything here can be changed later.
-          </p>
-          {submitError ? (
-            <Alert variant="error" className="mb-4">
-              {submitError}
-            </Alert>
-          ) : null}
-          <form className="grid gap-4" onSubmit={(e) => void handleSubmit(e)}>
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel htmlFor="website-url" className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Existing website URL{' '}
-                  <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                </FieldLabel>
-                <Input
-                  id="website-url"
-                  placeholder="https://example.com"
-                  onChange={(e) => handleUrlPrefill(e.target.value)}
-                  onBlur={(e) => handleUrlPrefill(e.target.value)}
-                />
-                <FieldDescription>
-                  Used only to prefill the fields below. vibecms will not scrape, import, or contact this site.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="name" className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Blog Name
-                </FieldLabel>
-                <Input
-                  id="name"
-                  name="name"
-                  required
-                  maxLength={80}
-                  value={nameVal}
-                  onChange={(e) => { setNameVal(e.target.value); setNameTouched(true) }}
-                  placeholder="Moin's Notes"
-                />
-                <FieldDescription>This appears in the dashboard and public blog header.</FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="slug" className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Hosted blog address
-                </FieldLabel>
-                <Input
-                  id="slug"
-                  name="slug"
-                  required
-                  maxLength={42}
-                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                  value={slugVal}
-                  onChange={(e) => { setSlugVal(e.target.value); setSlugTouched(true) }}
-                  placeholder="moins-notes"
-                />
-                <FieldDescription>
-                  This becomes your hosted subdomain. Use lowercase letters, numbers, and hyphens; you can add a custom domain later.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="description" className="font-mono text-[11px] font-medium text-muted-foreground">
-                  Description <span className="normal-case tracking-normal text-muted-foreground">optional</span>
-                </FieldLabel>
-                <Textarea
-                  id="description"
-                  name="description"
-                  maxLength={220}
-                  rows={4}
-                  value={descVal}
-                  onChange={(e) => { setDescVal(e.target.value); setDescTouched(true) }}
-                  placeholder={`A short blog about building products with AI agents on ${BRAND.name}.`}
-                />
-              </Field>
-            </FieldGroup>
-            <div className="flex flex-col gap-4 rounded-xl bg-muted/35 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-mono text-[11px] leading-5 text-muted-foreground">
-                Draft for free and publish your first 5 posts to try it live. Subscribe to publish more and upload media.
-              </p>
-              <PendingSubmitButton className="h-11 shrink-0 rounded-xl px-6" pending={submitting} pendingText="Saving…">
-                Choose agent client
-              </PendingSubmitButton>
+    <OnboardingFrame step={STEP} title="Name your blog" description="You can change it any time.">
+      {!query.data ? (
+        <div className="grid gap-4" aria-busy="true">
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-5 w-56" />
+          <Skeleton className="h-11 w-32 rounded-lg" />
+        </div>
+      ) : (
+        <form className="grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
+          {error ? <Alert variant="error">{error}</Alert> : null}
+          <Field>
+            <FieldLabel htmlFor="blog-name" className="sr-only">
+              Blog name
+            </FieldLabel>
+            <Input
+              id="blog-name"
+              name="name"
+              required
+              autoFocus
+              maxLength={80}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Field Notes"
+              className="h-12 text-lg"
+            />
+            <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              {editingSlug ? (
+                <label className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="sr-only">Blog address</span>
+                  <Input
+                    value={effectiveSlug}
+                    onChange={(event) => {
+                      setSlugTouched(true)
+                      setSlug(
+                        event.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9-]+/g, '-')
+                          .replace(/-{2,}/g, '-')
+                          .replace(/^-+/, '')
+                          .slice(0, SLUG_MAX),
+                      )
+                    }}
+                    onBlur={() => setEditingSlug(false)}
+                    autoFocus
+                    maxLength={SLUG_MAX}
+                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                    className="h-8 max-w-56 font-mono text-sm"
+                  />
+                  {baseDomain ? <span className="font-mono">.{baseDomain}</span> : null}
+                </label>
+              ) : (
+                <>
+                  <span className="min-w-0 truncate font-mono">
+                    <span className="text-foreground">{effectiveSlug || 'your-blog'}</span>
+                    {baseDomain ? `.${baseDomain}` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSlug(true)}
+                    className="rounded text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
             </div>
-          </form>
-        </Panel>
-      </div>
+          </Field>
+          <div className="flex flex-wrap items-center gap-4">
+            <PendingSubmitButton className="h-11 px-6" pending={submitting} pendingText="Creating…" disabled={!name.trim()}>
+              Continue
+            </PendingSubmitButton>
+            <p className="text-sm text-muted-foreground">
+              Free for your first {FREE_TIER.publishedPosts} posts. No card.
+            </p>
+          </div>
+        </form>
+      )}
     </OnboardingFrame>
   )
 }

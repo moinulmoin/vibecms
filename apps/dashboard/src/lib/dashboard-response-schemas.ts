@@ -129,6 +129,22 @@ export const dashboardDataSchema = z.object({
       publishedAt: z.number().nullable(),
     }),
   ),
+  needsReview: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        slug: z.string(),
+        status: z.string(),
+        updatedAt: z.number(),
+        publishedAt: z.number().nullable(),
+        versionNumber: z.number().nullable(),
+        publishedVersionNumber: z.number().nullable(),
+        latestActorType: z.string().nullable(),
+      }),
+    )
+    .optional(),
+  needsReviewCount: z.number().optional(),
   recentActivity: z.array(
     z.object({
       action: z.string(),

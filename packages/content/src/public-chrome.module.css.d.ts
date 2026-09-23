@@ -1,12 +1,20 @@
-declare const classes: {
-  readonly page: string;
-  readonly container: string;
-  readonly header: string;
-  readonly brandHeading: string;
+declare const styles: {
   readonly brand: string;
-  readonly tagline: string;
-  readonly mastheadNav: string;
-  readonly allPostsLink: string;
+  readonly brandHeading: string;
+  readonly content: string;
+  readonly footer: string;
+  readonly footerLink: string;
+  readonly iconLink: string;
+  readonly intro: string;
+  readonly mastNav: string;
+  readonly masthead: string;
+  readonly navLink: string;
+  readonly page: string;
+  readonly push: string;
+  readonly search: string;
+  readonly searchField: string;
+  readonly searchInput: string;
+  readonly shell: string;
+  readonly visuallyHidden: string;
 };
-
-export default classes;
+export default styles;

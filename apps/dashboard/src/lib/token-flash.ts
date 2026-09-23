@@ -43,3 +43,16 @@ export function consumeTokenFlash(): TokenFlash | null {
   }
   return null
 }
+/**
+ * Forget the one-time key reveal and activation key. Call whenever the signed-in
+ * user or site changes (sign-out, site switch, login page) so a plaintext key
+ * never outlives the session that created it.
+ */
+export function clearSessionSecrets() {
+  try {
+    clearTokenFlash()
+    clearActivationKeyId()
+  } catch {
+    // Storage unavailable: nothing persisted to clear.
+  }
+}

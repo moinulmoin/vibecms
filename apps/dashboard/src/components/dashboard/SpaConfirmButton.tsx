@@ -1,5 +1,3 @@
-'use client'
-
 import { Button, type ButtonProps } from '@vc/ui'
 import * as React from 'react'
 
@@ -71,7 +69,7 @@ export function SpaConfirmButton({
       <Button
         ref={ref}
         type="button"
-        variant={variant ?? (armed ? 'destructive' : 'outline')}
+        variant={armed ? 'destructive' : (variant ?? 'outline')}
         aria-busy={submitting || undefined}
         disabled={disabled || submitting}
         onClick={handleClick}

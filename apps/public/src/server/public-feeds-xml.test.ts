@@ -7,6 +7,10 @@ describe("public-feeds-xml", () => {
     expect(xmlEscape(`a & b <c>`)).toBe("a &amp; b &lt;c&gt;");
   });
 
+  it("drops characters XML 1.0 cannot represent", () => {
+    expect(xmlEscape("a\u0001b\u000Bc\tD\n\uFFFE\uD800x \u{1F600}")).toBe("abc\tD\nx \u{1F600}");
+  });
+
   it("builds sitemap with home and posts", () => {
     const posts: PostSummaryRow[] = [
       {

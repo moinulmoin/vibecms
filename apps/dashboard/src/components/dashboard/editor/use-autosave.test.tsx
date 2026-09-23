@@ -91,3 +91,32 @@ describe('useAutosave', () => {
     container.remove()
   })
 })
+
+describe('useAutosave flush', () => {
+  it('waits for the in-flight save and then saves the newest edits immediately', async () => {
+    const container = document.createElement('div')
+    const root = createRoot(container)
+    let release: (() => void) | undefined
+    const save = vi.fn((value: string) => value === 'two'
+      ? new Promise<{ versionNumber: number }>((resolve) => { release = () => resolve({ versionNumber: 2 }) })
+      : Promise.resolve({ versionNumber: 3 }))
+    let autosave: ReturnType<typeof useAutosave> | undefined
+    const render = (value: string) => act(() => root.render(
+      <Harness value={value} save={save} onStatus={() => {}} onAutosave={(next) => { autosave = next }} />,
+    ))
+    render('one')
+    render('two')
+    let flushed: Promise<boolean> | undefined
+    await act(async () => { flushed = autosave?.flush() })
+    render('three')
+    await act(async () => {
+      const second = autosave?.flush()
+      release?.()
+      await flushed
+      expect(await second).toBe(true)
+    })
+    expect(save.mock.calls.map(([value]) => value)).toEqual(['two', 'three'])
+    act(() => root.unmount())
+    container.remove()
+  })
+})

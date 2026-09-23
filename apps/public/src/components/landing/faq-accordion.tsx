@@ -1,68 +1,63 @@
-import { PlusIcon } from "@radix-ui/react-icons";
-import { GlassCard, SectionShell } from "./primitives";
+import { FREE_TIER, LAUNCH_OFFER, PRICING } from "@vc/config";
+import { Plus } from "./icons";
+import { H2, SectionShell } from "./primitives";
 
 const faqs = [
   {
-    question: "What is the launch offer?",
-    answer:
-      "Public early access pricing is $13/month or $99/year instead of the standard $19/$190. It applies automatically at checkout while the offer is displayed and stays locked for as long as your subscription remains active.",
+    question: "What do I get for free?",
+    answer: `A full blog, your agent connected, and up to ${FREE_TIER.publishedPosts} published posts. No card. Free posts stay out of search engines; subscribing unlocks indexing, your domain, media, and unlimited publishing.`,
   },
   {
-    question: "Is vibecms an AI writer?",
-    answer:
-      "No. It is the publishing control plane your trusted agents prepare content in. Bring your own agent or use the dashboard; either way, you review an exact version before it goes live.",
+    question: "What does the launch price mean?",
+    answer: `$${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays while your subscription is active.`,
   },
   {
-    question: "Who is this for?",
+    question: "Does vibecms write my posts?",
     answer:
-      "Solo writers and small teams who want one clean Markdown blog with real version history and optional agent help.",
+      "No. Your agent or you write. vibecms stores, versions, checks, and publishes. It never generates content.",
   },
   {
-    question: "Can I self-host it?",
+    question: "Which agents work with it?",
     answer:
-      "Yes. Deploy to your own Cloudflare Workers with D1 and R2, inspect the code, and keep the exact same scoped-MCP publishing model.",
+      "Any MCP client: Claude Code, Codex, Cursor, OpenCode, Amp, and others. Scripts can use the REST API or the CLI.",
   },
   {
-    question: "What is not included?",
+    question: "Can an agent publish without me?",
     answer:
-      "No multi-site dashboards and no bloated page builder. One blog, done well - with media, versions, public output, and scoped agent access.",
+      "Only if you give its token the publish scope. Draft tokens can write and preview but not publish, and every change is logged and reversible.",
+  },
+  {
+    question: "Can I leave?",
+    answer:
+      "Yes. Export every post as JSON anytime, or self-host the open-source version on your own Cloudflare account.",
   },
 ] as const;
 
 export function FaqAccordion() {
   return (
-    <section id="faq">
+    <section id="faq" aria-labelledby="faq-title">
       <SectionShell>
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-start">
+        <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:gap-14">
           <div data-reveal>
-            <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
-              Questions
-              <br />
-              about early access.
+            <h2 id="faq-title" className={H2}>
+              Questions.
             </h2>
           </div>
-          <div className="space-y-4" data-reveal data-d="1">
+          <div className="divide-y divide-[color:var(--hairline)] border-y border-[color:var(--hairline)]" data-reveal data-d="1">
             {faqs.map((item, index) => (
-              <div
+              <details
                 key={item.question}
-                data-reveal
-                data-d={String(Math.min(index + 2, 5))}
+                open={index === 0}
+                className="group [&_summary::-webkit-details-marker]:hidden"
               >
-                <GlassCard className="overflow-hidden p-0">
-                  <details open={index === 0} className="group [&_summary::-webkit-details-marker]:hidden">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-display text-lg font-medium tracking-[-0.01em] text-foreground marker:content-none">
-                      <span>{item.question}</span>
-                      <PlusIcon
-                        className="size-5 shrink-0 text-brand-bright transition-transform duration-200 group-open:rotate-45"
-                        aria-hidden
-                      />
-                    </summary>
-                    <p className="border-t border-[color:var(--hairline)] px-6 pb-5 pt-0 text-sm leading-7 text-muted-foreground">
-                      <span className="block pt-4">{item.answer}</span>
-                    </p>
-                  </details>
-                </GlassCard>
-              </div>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-md py-5 text-[17px] font-medium tracking-[-0.01em] text-foreground outline-none marker:content-none focus-visible:ring-2 focus-visible:ring-brand-bright/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                  <span>{item.question}</span>
+                  <Plus className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
+                </summary>
+                <p className="max-w-[60ch] pb-5 text-[15px] leading-7 text-muted-foreground">
+                  {item.answer}
+                </p>
+              </details>
             ))}
           </div>
         </div>

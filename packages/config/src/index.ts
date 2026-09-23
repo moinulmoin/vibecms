@@ -204,6 +204,7 @@ export const ACCENTS = [
   { id: "crimson", name: "Crimson", oklchLight: "oklch(50% 0.18 25)",   oklchDark: "oklch(77% 0.15 25)" },
   { id: "rust",    name: "Rust",    oklchLight: "oklch(50% 0.14 50)",   oklchDark: "oklch(80% 0.13 50)" },
   { id: "green",   name: "Green",   oklchLight: "oklch(45% 0.12 145)",  oklchDark: "oklch(80% 0.15 145)" },
+  { id: "graphite", name: "Graphite", oklchLight: "oklch(32% 0.012 260)", oklchDark: "oklch(90% 0.008 260)" },
 ] as const satisfies readonly AccentSwatch[];
 
 export type AccentId = (typeof ACCENTS)[number]["id"];
@@ -232,21 +233,33 @@ export interface FontPairing {
 export const FONTS = [
   {
     id: "geist-sans",
-    name: "Geist Sans",
+    name: "Geist",
     bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
     headingStack: "Geist, ui-sans-serif, system-ui, sans-serif",
   },
   {
     id: "serif",
-    name: "Editorial Serif",
-    bodyStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
-    headingStack: 'Georgia, "Times New Roman", ui-serif, serif',
+    name: "Newsreader",
+    bodyStack: 'Newsreader, "Iowan Old Style", Georgia, ui-serif, serif',
+    headingStack: 'Newsreader, "Iowan Old Style", Georgia, ui-serif, serif',
   },
   {
     id: "grotesk",
     name: "Space Grotesk",
     bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
     headingStack: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+  },
+  {
+    id: "humanist",
+    name: "Hanken Grotesk",
+    bodyStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
+    headingStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
+  },
+  {
+    id: "mono",
+    name: "Geist Mono",
+    bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
+    headingStack: '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
   },
 ] as const satisfies readonly FontPairing[];
 
@@ -422,16 +435,16 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Write clearly and directly. Prefer short sentences and concrete examples. " +
       "Use callouts sparingly - one per section at most. Let structure carry meaning.",
     layout: {
-      default: { layout: "standard", toc: false },
-      supportedLayouts: ["standard"],
-      supportsToc: false,
+      default: { layout: "standard", toc: true },
+      supportedLayouts: ["standard", "essay", "feature"],
+      supportsToc: true,
     },
   },
 
   editorial: {
     id: "editorial",
     name: "Editorial",
-    designIntent: "Serif headings, pull quotes, and a relaxed narrative rhythm.",
+    designIntent: "Larger, looser reading text and pull quotes for essays. Pairs well with Newsreader.",
     recommendedComponents: [
       "captioned-image",
       "blockquote",
@@ -465,8 +478,8 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Let prose carry the weight; avoid heavy structural markup. " +
       "For long essays, prefer setting presentation.toc=true for a page-level table of contents; use inline [[toc]] only as an intentional in-body marker.",
     layout: {
-      default: { layout: "essay", toc: false },
-      supportedLayouts: ["standard", "essay"],
+      default: { layout: "essay", toc: true },
+      supportedLayouts: ["standard", "essay", "feature"],
       supportsToc: true,
     },
   },
@@ -474,7 +487,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   technical: {
     id: "technical",
     name: "Technical",
-    designIntent: "Monospace emphasis, TOC, and tight density for docs.",
+    designIntent: "A wider column and tighter rhythm for code, tables, and tutorials.",
     recommendedComponents: [
       "table-of-contents",
       "fenced-code",
@@ -507,8 +520,8 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Tables work well for option references and comparisons. " +
       "Keep paragraphs short and factual; favour precision over decoration.",
     layout: {
-      default: { layout: "standard", toc: false },
-      supportedLayouts: ["standard"],
+      default: { layout: "standard", toc: true },
+      supportedLayouts: ["standard", "essay", "feature"],
       supportsToc: true,
     },
   },
@@ -516,7 +529,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   product: {
     id: "product",
     name: "Product",
-    designIntent: "Clean, confident, and conversion-aware for announcements.",
+    designIntent: "Big confident headings and a full-width cover for launches.",
     recommendedComponents: [
       "captioned-image",
       "callout",
@@ -551,8 +564,8 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Avoid deep code samples; this is a business voice.",
     layout: {
       default: { layout: "feature", toc: false },
-      supportedLayouts: ["standard", "feature"],
-      supportsToc: false,
+      supportedLayouts: ["standard", "essay", "feature"],
+      supportsToc: true,
     },
   },
 };

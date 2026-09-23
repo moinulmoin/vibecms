@@ -1,34 +1,28 @@
-'use client'
-
 import { MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import { Image, LockKeyhole, Pencil, Search, Trash2, Upload, X } from 'lucide-react'
-import { Card, CopyButton, Field, FieldDescription, FieldLabel, Input, Select, cn } from '@vc/ui'
+import { Image as ImageIcon, LockKeyhole, Search, Trash2, Upload, X } from 'lucide-react'
+import { CopyButton, Field, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
-import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Progress } from '~/components/ui/progress'
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '~/components/ui/sheet'
-import { loadMediaPage, updateMediaAltMutation } from '~/lib/api-client'
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '~/components/ui/sheet'
+import { useToast } from '~/components/Toaster'
+import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
+import { notifyDashboardMutation, updateMediaAltMutation } from '~/lib/api-client'
 import { parseMutationResultJson, type ParsedMutationResult } from '~/lib/mutation-result'
-import { dashboardStatusSearch } from '~/lib/dashboard-search'
+import { mediaQuery, queryKeys } from '~/lib/queries'
 
-function formatBytes(bytes: number) {
+type MediaData = { assets: Asset[]; mediaGate?: { effective: boolean; selfHosted: boolean } }
+
+export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   const kilobytes = bytes / 1024
-  if (kilobytes < 1024) return `${kilobytes.toFixed(1)} KB`
+  if (kilobytes < 1024) return `${kilobytes.toFixed(0)} KB`
   const megabytes = kilobytes / 1024
   if (megabytes < 1024) return `${megabytes.toFixed(1)} MB`
   return `${(megabytes / 1024).toFixed(1)} GB`
@@ -40,26 +34,17 @@ export function selectedFileFeedback(files: ArrayLike<{ name: string }> | null) 
   return `${files.length} images selected`
 }
 
-type MediaFilter = 'all' | 'has-alt' | 'missing-alt'
-
-type UploadStatus = 'pending' | 'uploading' | 'done' | 'error'
-
-type UploadEntry = {
-  key: string
-  name: string
-  progress: number // 0..1
-  status: UploadStatus
+function assetUrl(asset: Pick<Asset, 'id'>) {
+  return `/media-assets/${asset.id}`
 }
 
-function uploadFileWithProgress(
-  file: File,
-  altText: string,
-  onProgress: (progress: number) => void,
-): Promise<ParsedMutationResult> {
+type UploadEntry = { key: string; name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error' }
+
+function uploadFileWithProgress(file: File, onProgress: (progress: number) => void): Promise<ParsedMutationResult> {
   return new Promise<ParsedMutationResult>((resolve, reject) => {
     const form = new FormData()
     form.append('file', file)
-    form.append('altText', altText)
+    form.append('altText', '')
     const xhr = new XMLHttpRequest()
     xhr.open('POST', '/api/media/upload')
     xhr.withCredentials = true
@@ -82,181 +67,161 @@ function uploadFileWithProgress(
   })
 }
 
+async function deleteAsset(assetId: string): Promise<'ok' | 'error' | 'unauthorized'> {
+  const response = await fetch('/api/media/delete', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ assetId }),
+    credentials: 'include',
+  }).finally(notifyDashboardMutation)
+  if (response.status === 401) return 'unauthorized'
+  const result = parseMutationResultJson(await response.json())
+  return result.kind === 'ok' ? 'ok' : 'error'
+}
+
+function AltEditor({ asset, onSaved }: { asset: Asset; onSaved: (altText: string | null) => void }) {
+  const { toast } = useToast()
+  const [value, setValue] = useState(asset.altText ?? '')
+  const [pending, setPending] = useState(false)
+  useEffect(() => setValue(asset.altText ?? ''), [asset.id, asset.altText])
+  const dirty = value.trim() !== (asset.altText ?? '')
+
+  async function save() {
+    setPending(true)
+    try {
+      const result = await updateMediaAltMutation({ assetId: asset.id, altText: value })
+      if (result.kind !== 'ok') {
+        toast(resolveFormStatus({ error: result.code }) ?? { variant: 'error', title: 'Not saved', message: 'Try again.' })
+        return
+      }
+      onSaved(value.trim().slice(0, 180) || null)
+      toast({ variant: 'success', title: 'Alt text saved', message: 'Screen readers and search engines will use it.' })
+    } catch {
+      toast({ variant: 'error', title: 'Not saved', message: 'Check your connection and try again.' })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={`alt-${asset.id}`}>Alt text</FieldLabel>
+      <Textarea
+        id={`alt-${asset.id}`}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        maxLength={180}
+        rows={3}
+        placeholder="Describe the image for people who can’t see it"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm tabular-nums text-muted-foreground">{value.length}/180</span>
+        <Button type="button" size="sm" disabled={!dirty || pending} onClick={() => void save()}>
+          {pending ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </Field>
+  )
+}
 
 export function MediaPage() {
   const navigate = useNavigate()
-  const [assets, setAssets] = useState<Asset[] | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [mediaGate, setMediaGate] = useState<{ effective: boolean; selfHosted: boolean } | null>(null)
-  const [uploadPending, setUploadPending] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const query = useQuery(mediaQuery)
   const [dragActive, setDragActive] = useState(false)
-  const [editingAltId, setEditingAltId] = useState<string | null>(null)
-  const [altDraft, setAltDraft] = useState('')
-  const [altPending, setAltPending] = useState(false)
-  const [selectedFileMessage, setSelectedFileMessage] = useState<string | null>(null)
+  const [uploadQueue, setUploadQueue] = useState<UploadEntry[]>([])
+  const [uploading, setUploading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [liveAnnounce, setLiveAnnounce] = useState<string | null>(null)
   const [inspectorId, setInspectorId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filter, setFilter] = useState<MediaFilter>('all')
-  const [uploadQueue, setUploadQueue] = useState<UploadEntry[]>([])
+  const [missingAltOnly, setMissingAltOnly] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragDepth = useRef(0)
 
-  async function handleSaveAlt(assetId: string) {
-    setAltPending(true)
-    try {
-      const result = await updateMediaAltMutation({ assetId, altText: altDraft })
-      if (result.kind === 'ok') {
-        const next = altDraft.trim().slice(0, 180) || null
-        setAssets((prev) => prev?.map((asset) => (asset.id === assetId ? { ...asset, altText: next } : asset)) ?? null)
-        setEditingAltId(null)
-        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
-      } else {
-        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
-      }
-    } catch {
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: 'unknown' }) })
-    } finally {
-      setAltPending(false)
-    }
+  const data = query.data as MediaData | undefined
+  const assets = data?.assets ?? null
+
+  function setAssets(update: (prev: Asset[]) => Asset[]) {
+    queryClient.setQueryData(queryKeys.media, (prev: MediaData | undefined) =>
+      prev ? { ...prev, assets: update(prev.assets) } : prev,
+    )
   }
 
-  function openInspector(assetId: string) {
-    setEditingAltId(null)
-    setInspectorId(assetId)
-  }
+  async function uploadFiles(files: File[]) {
+    if (!files.length || uploading) return
+    setUploading(true)
+    setUploadQueue(files.map((file, index) => ({ key: `${index}:${file.name}`, name: file.name, progress: 0, status: 'pending' })))
+    const patch = (key: string, next: Partial<UploadEntry>) =>
+      setUploadQueue((prev) => prev.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)))
 
-  function toggleSelected(assetId: string, checked: boolean) {
-    setSelectedIds((prev) => (checked ? (prev.includes(assetId) ? prev : [...prev, assetId]) : prev.filter((id) => id !== assetId)))
-  }
-
-  function setQueueItem(key: string, patch: Partial<UploadEntry>) {
-    setUploadQueue((prev) => prev.map((entry) => (entry.key === key ? { ...entry, ...patch } : entry)))
-  }
-
-  function updateSelectedFiles(files: ArrayLike<{ name: string }> | null) {
-    setSelectedFileMessage(selectedFileFeedback(files))
-  }
-
-  function handleDrop(event: React.DragEvent) {
-    event.preventDefault()
-    setDragActive(false)
-    const files = event.dataTransfer?.files
-    if (files?.length && fileInputRef.current) {
-      fileInputRef.current.files = files
-      updateSelectedFiles(files)
-    }
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    void loadMediaPage()
-      .then((data) => {
-        if (!cancelled) {
-          setAssets(data.assets)
-          setMediaGate(data.mediaGate)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load media.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const files = fileInputRef.current?.files ? Array.from(fileInputRef.current.files) : []
-    if (!files.length) return
-    const altText = new FormData(event.currentTarget).get('altText')?.toString() ?? ''
-    setUploadPending(true)
-    setUploadQueue(files.map((file, index) => ({ key: String(index), name: file.name, progress: 0, status: 'pending' as const })))
-
-    let lastOkCode: string | undefined
-    let errorCode: string | null = null
     let failures = 0
+    let errorCode: string | null = null
     for (const [index, file] of files.entries()) {
-      const key = String(index)
-      setQueueItem(key, { status: 'uploading', progress: 0 })
+      const key = `${index}:${file.name}`
+      patch(key, { status: 'uploading' })
       try {
-        const result = await uploadFileWithProgress(file, altText, (progress) => setQueueItem(key, { progress }))
-        if (result.kind === 'ok') {
-          setQueueItem(key, { status: 'done', progress: 1 })
-          lastOkCode = result.code
-        } else {
-          setQueueItem(key, { status: 'error' })
-          errorCode = result.code
+        const result = await uploadFileWithProgress(file, (progress) => patch(key, { progress }))
+        if (result.kind === 'ok') patch(key, { status: 'done', progress: 1 })
+        else {
+          patch(key, { status: 'error' })
           failures += 1
+          errorCode = result.code
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'unknown'
-        if (message === 'unauthorized') {
-          setUploadPending(false)
+        if (err instanceof Error && err.message === 'unauthorized') {
+          setUploading(false)
           await navigate({ to: '/login' })
           return
         }
-        setQueueItem(key, { status: 'error' })
-        errorCode = errorCode ?? 'unknown'
+        patch(key, { status: 'error' })
         failures += 1
       }
     }
-
-    setUploadPending(false)
-    const succeeded = files.length - failures
-    setLiveAnnounce(
-      errorCode
-        ? `${succeeded} of ${files.length} images uploaded.`
-        : files.length === 1
-          ? '1 image uploaded.'
-          : `${files.length} images uploaded.`,
-    )
-    if (lastOkCode) {
-      const data = await loadMediaPage()
-      setAssets(data.assets)
-      setMediaGate(data.mediaGate)
-    }
+    setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
-    setSelectedFileMessage(null)
-    if (lastOkCode && !errorCode) {
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: lastOkCode }) })
-    } else if (errorCode) {
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: errorCode }) })
+    const succeeded = files.length - failures
+    setLiveAnnounce(failures ? `${succeeded} of ${files.length} images uploaded.` : `${files.length === 1 ? '1 image' : `${files.length} images`} uploaded.`)
+    if (succeeded) {
+      // Other screens list images too (Settings share image, editor pickers).
+      notifyDashboardMutation()
+      await queryClient.invalidateQueries({ queryKey: queryKeys.media })
+    }
+    if (failures) {
+      toast(
+        resolveFormStatus({ error: errorCode ?? 'unknown' }) ?? {
+          variant: 'error',
+          title: 'Upload failed',
+          message: 'Try again.',
+        },
+      )
+    } else {
+      window.setTimeout(() => setUploadQueue([]), 1500)
     }
   }
 
   async function handleDelete(assetId: string) {
-    setDeletingId(assetId)
     try {
-      const response = await fetch('/api/media/delete', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ assetId }),
-        credentials: 'include',
-      })
-      if (response.status === 401) {
+      const outcome = await deleteAsset(assetId)
+      if (outcome === 'unauthorized') {
         await navigate({ to: '/login' })
         return
       }
-      const result = parseMutationResultJson(await response.json())
-      if (result.kind === 'ok') {
-        setAssets((prev) => prev?.filter((a) => a.id !== assetId) ?? null)
-        setLiveAnnounce('Image deleted.')
-        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: result.code }) })
-      } else {
-        await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: result.code }) })
+      if (outcome === 'error') {
+        toast({ variant: 'error', title: 'Image not deleted', message: 'It may still be used in a post.' })
+        return
       }
+      setAssets((prev) => prev.filter((asset) => asset.id !== assetId))
+      setSelectedIds((prev) => prev.filter((id) => id !== assetId))
+      setLiveAnnounce('Image deleted.')
     } catch {
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: 'unknown' }) })
-    } finally {
-      setDeletingId(null)
+      toast({ variant: 'error', title: 'Image not deleted', message: 'Check your connection and try again.' })
     }
   }
 
-  // Optimistic bulk delete: tiles vanish immediately; each file is deleted
-  // sequentially with polite progress announcements; a partial failure rolls
+  // Optimistic bulk delete: tiles vanish immediately; a partial failure puts
   // back only the failed ones, in their original grid order.
   async function handleBulkDelete() {
     if (!assets || selectedIds.length === 0 || bulkDeleting) return
@@ -265,570 +230,388 @@ export function MediaPage() {
     const label = ids.length === 1 ? '1 image' : `${ids.length} images`
     setBulkDeleting(true)
     setSelectedIds([])
-    setAssets(snapshot.filter((asset) => !ids.includes(asset.id)))
-    let lastOkCode: string | undefined
+    setAssets(() => snapshot.filter((asset) => !ids.includes(asset.id)))
     const failed: string[] = []
     for (const [index, assetId] of ids.entries()) {
       setLiveAnnounce(`Deleting ${index + 1} of ${ids.length}…`)
       try {
-        const response = await fetch('/api/media/delete', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ assetId }),
-          credentials: 'include',
-        })
-        if (response.status === 401) {
+        const outcome = await deleteAsset(assetId)
+        if (outcome === 'unauthorized') {
           setBulkDeleting(false)
           await navigate({ to: '/login' })
           return
         }
-        const result = parseMutationResultJson(await response.json())
-        if (result.kind === 'ok') lastOkCode = result.code
-        else failed.push(assetId)
+        if (outcome === 'error') failed.push(assetId)
       } catch {
         failed.push(assetId)
       }
     }
     if (failed.length > 0) {
-      setAssets(snapshot.filter((asset) => !ids.includes(asset.id) || failed.includes(asset.id)))
+      setAssets(() => snapshot.filter((asset) => !ids.includes(asset.id) || failed.includes(asset.id)))
       setLiveAnnounce(
         failed.length === 1
           ? '1 image could not be deleted and was restored.'
           : `${failed.length} images could not be deleted and were restored.`,
       )
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ error: failed.length === ids.length ? 'delete_failed' : 'bulk_delete_partial' }) })
     } else {
       setLiveAnnounce(`${label} deleted.`)
-      await navigate({ to: '/dashboard/media', search: dashboardStatusSearch({ ok: lastOkCode === 'media_deleted' ? 'media_bulk_deleted' : (lastOkCode ?? 'unknown') }) })
     }
     setBulkDeleting(false)
   }
 
-  if (loadError) return <LoadError message={loadError} />
-  if (!assets) return <PageSkeleton variant="panels" />
+  const header = (
+    <PageHeader
+      title="Media"
+      description={`Images for covers and posts. ${MEDIA.formatsLabel}, up to ${MEDIA.maxImageLabel} each.`}
+    />
+  )
 
+  if (query.isError && !data) {
+    return (
+      <>
+        {header}
+        <LoadError message="Your images didn’t load." onRetry={() => void query.refetch()} />
+      </>
+    )
+  }
+  if (!assets) {
+    return (
+      <>
+        {header}
+        <PageSkeleton variant="panels" withHeader={false} />
+      </>
+    )
+  }
+
+  const canUpload = data?.mediaGate == null ? true : data.mediaGate.effective || data.mediaGate.selfHosted
   const usedBytes = assets.reduce((total, asset) => total + asset.sizeBytes, 0)
-  const usagePercent =
-    MEDIA.paidStorageBytes > 0 ? Math.min(100, Math.round((usedBytes / MEDIA.paidStorageBytes) * 100)) : 0
-  const storageNearLimit = usagePercent > 80
-
-  const trimmedQuery = searchQuery.trim().toLowerCase()
-  const filteredAssets = assets.filter((asset) => {
-    if (trimmedQuery && !asset.filename.toLowerCase().includes(trimmedQuery)) return false
-    if (filter === 'has-alt' && !asset.altText) return false
-    if (filter === 'missing-alt' && asset.altText) return false
-    return true
-  })
-
+  const usagePercent = MEDIA.paidStorageBytes > 0 ? Math.min(100, Math.round((usedBytes / MEDIA.paidStorageBytes) * 100)) : 0
+  const nearLimit = usagePercent > 80
+  const trimmed = searchQuery.trim().toLowerCase()
+  const filteredAssets = assets.filter(
+    (asset) => (!trimmed || asset.filename.toLowerCase().includes(trimmed)) && (!missingAltOnly || !asset.altText),
+  )
+  const missingAltCount = assets.filter((asset) => !asset.altText).length
   const inspectorAsset = assets.find((asset) => asset.id === inspectorId) ?? null
-
-  const canUpload = mediaGate == null ? true : mediaGate.effective || mediaGate.selfHosted
 
   return (
     <>
-      {/* Polite announcements for upload/delete progress (screen readers). */}
       <p className="sr-only" role="status">
         {liveAnnounce}
       </p>
       <PageHeader
-        title="Media library"
-        description={`Images only—${MEDIA.formatsLabel}. Use them for covers and inline media; video and generic files stay blocked.`}
-        action={canUpload ? (
-          <div className="grid w-full min-w-60 gap-2 border-t border-[color:var(--hairline)] pt-4 sm:w-72 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                Storage
-              </p>
-              <p
-                className={cn(
-                  'font-mono text-xs tabular-nums',
-                  storageNearLimit ? 'text-amber-400' : 'text-foreground',
-                )}
-              >
-                {formatBytes(usedBytes)} / {MEDIA.paidStorageLabel} · {usagePercent}%
-              </p>
-            </div>
-            <Progress
-              value={usagePercent}
-              className={cn(
-                'h-1.5 [&_[data-slot=progress-indicator]]:bg-brand-bright',
-                storageNearLimit && '[&_[data-slot=progress-indicator]]:bg-amber-400',
-              )}
-            />
-            {storageNearLimit ? (
-              <p className="font-sans text-sm leading-5 text-amber-400/80">
-                Almost full — delete unused images to make room.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        title="Media"
+        description={`Images for covers and posts. ${MEDIA.formatsLabel}, up to ${MEDIA.maxImageLabel} each.`}
+        action={
+          canUpload ? (
+            <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Upload aria-hidden data-icon="inline-start" /> Upload images
+            </Button>
+          ) : undefined
+        }
       />
 
-      <Card className="gap-0 p-5 sm:p-6">
-        <div className="grid gap-4 md:grid-cols-[1fr_18rem] md:items-start">
-          {canUpload ? (
-          <form
-            className="grid gap-4"
-            onSubmit={(e) => void handleUpload(e)}
-            onDragOver={(e) => {
-              e.preventDefault()
-              if (!dragActive) setDragActive(true)
-            }}
-            onDragLeave={(e) => {
-              if (e.currentTarget === e.target) setDragActive(false)
-            }}
-            onDrop={handleDrop}
-          >
-            <Field
-              className={`relative min-h-44 place-items-center overflow-hidden rounded-2xl border border-dashed p-6 text-center transition-colors ${
-                dragActive
-                  ? 'border-brand-bright/60 bg-muted'
-                  : 'border-border bg-muted/50 focus-within:bg-muted'
-              }`}
-            >
-              <Upload aria-hidden className="mb-3 size-8 text-primary/80" />
-              <p className="font-display text-base font-medium text-foreground">Drop images here</p>
-              <FieldDescription id="media-file-help" className="max-w-sm">
-                Add cover art or inline post images. Unsupported files stay blocked.
-              </FieldDescription>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 !w-fit justify-self-center px-5"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Choose images
-              </Button>
-              {selectedFileMessage ? (
-                <p className="mt-1 font-sans text-sm text-primary" role="status">
-                  {selectedFileMessage}
-                </p>
-              ) : null}
-              <Input
-                ref={fileInputRef}
-                id="media-file"
-                className="hidden"
-                type="file"
-                name="file"
-                accept={MEDIA.mimeTypes.join(',')}
-                multiple
-                aria-describedby="media-file-help"
-                onChange={(event) => updateSelectedFiles(event.currentTarget.files)}
-              />
-            </Field>
-            {uploadQueue.length ? (
-              <ul className="grid gap-2" aria-label="Upload progress">
-                {uploadQueue.map((entry) => (
-                  <li
-                    key={entry.key}
-                    className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-[color:var(--hairline)] py-2.5 last:border-b-0"
-                  >
-                    <span className="min-w-0 truncate font-mono text-xs text-foreground">{entry.name}</span>
-                    <span
-                      className={cn(
-                        'font-mono text-[11px] tabular-nums',
-                        entry.status === 'error'
-                          ? 'text-destructive'
-                          : entry.status === 'done'
-                            ? 'text-primary'
-                            : 'text-muted-foreground',
-                      )}
-                    >
-                      {entry.status === 'error'
-                        ? 'Failed'
-                        : entry.status === 'done'
-                          ? 'Uploaded'
-                          : entry.status === 'pending'
-                            ? 'Queued'
-                            : `${Math.round(entry.progress * 100)}%`}
-                    </span>
-                    {entry.status === 'uploading' ? (
-                      <Progress
-                        value={Math.round(entry.progress * 100)}
-                        className="col-span-2 mt-1 h-1 [&_[data-slot=progress-indicator]]:bg-brand-bright"
-                      />
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <Field>
-                <FieldLabel htmlFor="media-alt">Alt Text</FieldLabel>
-                <Input id="media-alt" name="altText" maxLength={180} placeholder="Describe the image for readers" />
-              </Field>
-              <PendingSubmitButton
-                pending={uploadPending}
-                pendingText="Uploading…"
-                disabled={!selectedFileMessage}
-              >
-                <Upload aria-hidden data-icon="inline-start" /> Upload {uploadQueue.length > 1 ? `${uploadQueue.length} images` : 'image'}
-              </PendingSubmitButton>
-            </div>
-          </form>
-          ) : (
-            <div className="grid content-start gap-3" data-testid="media-upload-locked">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <LockKeyhole className="size-4" aria-hidden />
-              </span>
-              <p className="font-heading text-lg font-semibold tracking-[-0.02em] text-foreground">
-                Media uploads need an active subscription
-              </p>
-              <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                Images already in your library keep working everywhere. Upgrade to upload new covers and inline images.
-              </p>
-              <Button asChild variant="outline" className="w-fit">
-                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>View plan</Link>
-              </Button>
-            </div>
+      {canUpload ? (
+        <div
+          onDragEnter={(event) => {
+            event.preventDefault()
+            dragDepth.current += 1
+            setDragActive(true)
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={() => {
+            dragDepth.current = Math.max(0, dragDepth.current - 1)
+            if (dragDepth.current === 0) setDragActive(false)
+          }}
+          onDrop={(event) => {
+            event.preventDefault()
+            dragDepth.current = 0
+            setDragActive(false)
+            void uploadFiles(Array.from(event.dataTransfer?.files ?? []))
+          }}
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3.5 text-sm transition-colors',
+            dragActive ? 'border-brand-bright/60 bg-muted/60' : 'border-border',
           )}
-
-          <div className="grid content-start gap-3 border-t border-[color:var(--hairline)] pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-            <p className="font-mono text-[11px] font-medium text-muted-foreground">Upload limits</p>
-            <dl className="grid gap-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-sans text-muted-foreground">Formats</dt>
-                <dd className="font-mono text-xs text-foreground">{MEDIA.formatsLabel}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <dt className="font-sans text-muted-foreground">Max size</dt>
-                <dd className="font-mono text-xs text-foreground">{MEDIA.maxImageLabel}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </Card>
-
-      <Panel
-        title="Library"
-        meta={`${filteredAssets.length} ${filteredAssets.length === 1 ? 'asset' : 'assets'}`}
-      >
-        <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="relative">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by filename"
-              aria-label="Search media by filename"
-              className="pl-9 pr-9"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <X className="size-4" aria-hidden />
-              </button>
-            ) : null}
-          </div>
-          <Select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as MediaFilter)}
-            aria-label="Filter media"
-            className="sm:w-48"
-          >
-            <option value="all">All images</option>
-            <option value="has-alt">Has alt text</option>
-            <option value="missing-alt">Missing alt text</option>
-          </Select>
-        </div>
-
-        {selectedIds.length > 0 ? (
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-brand-bright/25 bg-brand-bright/[0.04] px-3 py-2">
-            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-foreground">
-              <Checkbox
-                checked={filteredAssets.length > 0 && filteredAssets.every((asset) => selectedIds.includes(asset.id))}
-                onCheckedChange={(checked) =>
-                  setSelectedIds(checked === true ? filteredAssets.map((asset) => asset.id) : [])
-                }
-                aria-label={`Select all ${filteredAssets.length} filtered images`}
-              />
-              {selectedIds.length} selected
-            </label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setSelectedIds([])}
-            >
-              Clear
-            </Button>
-            <div className="ms-auto">
-              <SpaConfirmButton
-                size="sm"
-                variant="outline"
-                confirmLabel={`Confirm delete ${selectedIds.length}`}
-                pendingLabel={`Deleting ${selectedIds.length}…`}
-                helperText={`Permanently removes ${selectedIds.length === 1 ? 'this image' : `these ${selectedIds.length} images`} from storage.`}
-                disabled={bulkDeleting}
-                onConfirm={() => void handleBulkDelete()}
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-                Delete {selectedIds.length === 1 ? '1 image' : `${selectedIds.length} images`}
-              </SpaConfirmButton>
-            </div>
-          </div>
-        ) : null}
-
-        {assets.length === 0 ? (
-          <EmptyState
-            icon={<Image />}
-            title="No media yet"
-            description={canUpload ? 'Upload a cover image or inline post image to start building your blog library.' : 'Covers and inline images you upload appear here.'}
-            action={canUpload ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  fileInputRef.current?.focus()
-                  fileInputRef.current?.click()
-                }}
-              >
-                Upload image
-              </Button>
-            ) : null}
-          />
-        ) : filteredAssets.length === 0 ? (
-          <EmptyState
-            icon={<Search />}
-            title="No matching images"
-            description="Try a different filename or clear the filter."
-            action={
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setSearchQuery('')
-                  setFilter('all')
-                }}
-              >
-                Clear search & filters
-              </Button>
-            }
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {filteredAssets.map((asset) => {
-              const isSelected = selectedIds.includes(asset.id)
-              return (
-                <article
-                  key={asset.id}
-                  className={cn(
-                    'group grid min-w-0 gap-3 overflow-hidden rounded-xl p-2 transition-colors hover:bg-muted/35',
-                    isSelected && 'bg-brand-bright/[0.045] ring-1 ring-brand-bright/55',
-                  )}
+        >
+          <p className="text-muted-foreground">
+            {dragActive ? (
+              <span className="text-foreground">Drop to upload</span>
+            ) : (
+              <>
+                Drag images here, or{' '}
+                <button
+                  type="button"
+                  className="text-foreground underline underline-offset-4 hover:text-primary"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted">
-                    <button
-                      type="button"
-                      onClick={() => openInspector(asset.id)}
-                      aria-label={`View details for ${asset.filename}`}
-                      className="absolute inset-0 w-full rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                    >
-                      <img
-                        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                        width={640}
-                        height={480}
-                        src={`/media-assets/${asset.id}`}
-                        alt={asset.altText ?? asset.filename}
-                        loading="lazy"
-                      />
-                    </button>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={(checked) => toggleSelected(asset.id, checked === true)}
-                      aria-label={`Select ${asset.filename}`}
-                      className={cn(
-                        'absolute right-2 top-2 z-10 size-4 bg-background/90 focus-visible:ring-offset-1',
-                        isSelected ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100',
-                      )}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <button type="button" onClick={() => openInspector(asset.id)} className="block w-full min-w-0 text-left">
-                      <strong className="block truncate font-mono text-sm text-foreground">{asset.filename}</strong>
-                    </button>
-                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      {formatBytes(asset.sizeBytes)}
-                      {asset.width && asset.height ? ` · ${asset.width}×${asset.height}` : ''}
-                    </p>
-                  </div>
-                  <code className="block truncate rounded-lg bg-background/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
-                    /media-assets/{asset.id}
-                  </code>
-                  <div className="flex items-center justify-between gap-2 pt-0.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center font-mono text-[11px]',
-                        asset.altText ? 'text-muted-foreground' : 'text-amber-500/80',
-                      )}
-                    >
-                      {asset.altText ? 'Alt: set' : 'Alt: missing'}
-                    </span>
-                    <SpaConfirmButton
-                      size="sm"
-                      variant="ghost"
-                      confirmLabel={
-                        <span className="flex items-center gap-1.5">
-                          <Trash2 className="size-3.5" aria-hidden />
-                          Confirm delete
-                        </span>
-                      }
-                      helperText="Permanently removes the file from storage."
-                      disabled={deletingId === asset.id}
-                      onConfirm={() => void handleDelete(asset.id)}
-                      className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="size-3.5" aria-hidden />
-                      Delete
-                    </SpaConfirmButton>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        )}
-      </Panel>
+                  browse
+                </button>
+                .
+              </>
+            )}
+          </p>
+          <p className={cn('tabular-nums', nearLimit ? 'text-warning' : 'text-muted-foreground')}>
+            {formatBytes(usedBytes)} of {MEDIA.paidStorageLabel} used
+            {nearLimit ? ' · almost full' : ''}
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept={MEDIA.mimeTypes.join(',')}
+            multiple
+            aria-label="Choose images to upload"
+            onChange={(event) => void uploadFiles(Array.from(event.currentTarget.files ?? []))}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3.5" data-testid="media-upload-locked">
+          <LockKeyhole className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <p className="flex-1 text-sm text-muted-foreground">
+            Uploading new images is part of the paid plan. Images you already have keep working.
+          </p>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
+              See plans
+            </Link>
+          </Button>
+        </div>
+      )}
 
-      <Sheet
-        open={inspectorId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setInspectorId(null)
-            setEditingAltId(null)
+      {uploadQueue.length ? (
+        <ul className="grid gap-2" aria-label="Uploads">
+          {uploadQueue.map((entry) => (
+            <li key={entry.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+              <span className="truncate text-foreground">{entry.name}</span>
+              <span
+                className={cn(
+                  'tabular-nums',
+                  entry.status === 'error' ? 'text-destructive' : entry.status === 'done' ? 'text-primary' : 'text-muted-foreground',
+                )}
+              >
+                {entry.status === 'error'
+                  ? 'Failed'
+                  : entry.status === 'done'
+                    ? 'Uploaded'
+                    : entry.status === 'pending'
+                      ? 'Waiting'
+                      : `${Math.round(entry.progress * 100)}%`}
+              </span>
+              {entry.status === 'uploading' ? (
+                <Progress value={Math.round(entry.progress * 100)} className="col-span-2 h-1 [&_[data-slot=progress-indicator]]:bg-brand-bright" />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {assets.length === 0 ? (
+        <EmptyState
+          icon={<ImageIcon />}
+          title="No images yet"
+          description={canUpload ? 'Upload a cover or an image for a post. Agents can upload here too.' : 'Images you or your agents add show up here.'}
+          action={
+            canUpload ? (
+              <Button type="button" onClick={() => fileInputRef.current?.click()}>
+                <Upload aria-hidden data-icon="inline-start" /> Upload images
+              </Button>
+            ) : undefined
           }
-        }}
-      >
-        <SheetContent side="right" className="flex w-full flex-col gap-4 sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle className="truncate font-mono">{inspectorAsset?.filename ?? 'Image'}</SheetTitle>
-            <SheetDescription>Media asset details</SheetDescription>
-          </SheetHeader>
-          {inspectorAsset ? (
-            <>
-              <div className="overflow-hidden rounded-2xl bg-muted">
-                <img
-                  className="size-full object-contain"
-                  src={`/media-assets/${inspectorAsset.id}`}
-                  alt={inspectorAsset.altText ?? inspectorAsset.filename}
-                />
-              </div>
-              <dl className="grid gap-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="font-sans text-muted-foreground">Dimensions</dt>
-                  <dd className="font-mono text-xs text-foreground">
-                    {inspectorAsset.width && inspectorAsset.height
-                      ? `${inspectorAsset.width} × ${inspectorAsset.height}`
-                      : 'Unknown'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="font-sans text-muted-foreground">File size</dt>
-                  <dd className="font-mono text-xs text-foreground">{formatBytes(inspectorAsset.sizeBytes)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="font-sans text-muted-foreground">Type</dt>
-                  <dd className="font-mono text-xs text-foreground">{inspectorAsset.mimeType}</dd>
-                </div>
-              </dl>
-
-              <Field>
-                <div className="flex items-center gap-3">
-                  <FieldLabel htmlFor="inspector-asset-url">URL</FieldLabel>
-                  <CopyButton value={`/media-assets/${inspectorAsset.id}`} iconOnly className="h-7 w-7" />
-                </div>
-                <code
-                  id="inspector-asset-url"
-                  className="mt-1.5 block truncate rounded-lg bg-muted px-2 py-1.5 font-mono text-[11px] text-foreground"
+        />
+      ) : (
+        <div className="grid gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-72">
+              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search by file name"
+                aria-label="Search images by file name"
+                className="pl-9 pr-9"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
                 >
-                  /media-assets/{inspectorAsset.id}
-                </code>
-              </Field>
+                  <X className="size-4" aria-hidden />
+                </button>
+              ) : null}
+            </div>
+            <Select
+              value={missingAltOnly ? 'missing-alt' : 'all'}
+              onChange={(event) => setMissingAltOnly(event.target.value === 'missing-alt')}
+              aria-label="Filter images"
+              className="w-full sm:w-52"
+            >
+              <option value="all">All images</option>
+              <option value="missing-alt">Missing alt text ({missingAltCount})</option>
+            </Select>
+            <p className="text-sm tabular-nums text-muted-foreground sm:ml-auto">
+              {filteredAssets.length} {filteredAssets.length === 1 ? 'image' : 'images'}
+            </p>
+          </div>
 
-              {editingAltId === inspectorAsset.id ? (
-                <Field>
-                  <FieldLabel htmlFor={`inspector-alt-${inspectorAsset.id}`}>Alt Text</FieldLabel>
-                  <Input
-                    id={`inspector-alt-${inspectorAsset.id}`}
-                    value={altDraft}
-                    onChange={(event) => setAltDraft(event.target.value)}
-                    maxLength={180}
-                    placeholder="Describe the image for readers"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={altPending}
-                      onClick={() => void handleSaveAlt(inspectorAsset.id)}
-                    >
-                      {altPending ? 'Saving…' : 'Save'}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingAltId(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </Field>
-              ) : (
-                <Field>
-                  <FieldLabel>Alt Text</FieldLabel>
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="flex-1 font-sans text-sm leading-6 text-foreground">
-                      {inspectorAsset.altText || (
-                        <span className="text-muted-foreground">No alt text yet</span>
-                      )}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingAltId(inspectorAsset.id)
-                        setAltDraft(inspectorAsset.altText ?? '')
-                      }}
-                    >
-                      <Pencil className="size-3.5" aria-hidden />
-                      Edit
-                    </Button>
-                  </div>
-                </Field>
-              )}
-
-              <SheetFooter className="mt-auto">
+          {selectedIds.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={filteredAssets.length > 0 && filteredAssets.every((asset) => selectedIds.includes(asset.id))}
+                  onCheckedChange={(checked) => setSelectedIds(checked === true ? filteredAssets.map((asset) => asset.id) : [])}
+                  aria-label={`Select all ${filteredAssets.length} images`}
+                />
+                {selectedIds.length} selected
+              </label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                Clear
+              </Button>
+              <div className="ms-auto">
                 <SpaConfirmButton
                   size="sm"
                   variant="outline"
-                  confirmLabel={
-                    <span className="flex items-center gap-1.5">
-                    <Trash2 className="size-3.5" aria-hidden />
-                      Confirm delete
-                    </span>
-                  }
-                  helperText="Permanently removes the file from storage."
-                  disabled={deletingId === inspectorAsset.id}
-                  onConfirm={() => {
-                    setInspectorId(null)
-                    void handleDelete(inspectorAsset.id)
-                  }}
-                  className="w-full text-muted-foreground hover:text-destructive"
+                  confirmLabel={`Confirm delete ${selectedIds.length}`}
+                  pendingLabel="Deleting…"
+                  helperText="Deleted images can’t be recovered."
+                  disabled={bulkDeleting}
+                  onConfirm={() => void handleBulkDelete()}
                 >
-                  <Trash2 className="size-3.5" aria-hidden />
-                  Delete image
+                  <Trash2 aria-hidden data-icon="inline-start" />
+                  Delete {selectedIds.length === 1 ? '1 image' : `${selectedIds.length} images`}
                 </SpaConfirmButton>
-                <SheetClose asChild>
-                  <Button type="button" variant="ghost" className="w-full">
-                    Close
-                  </Button>
-                </SheetClose>
-              </SheetFooter>
-            </>
+              </div>
+            </div>
+          ) : null}
+
+          {filteredAssets.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Search />}
+              title="No matches."
+              description="Try another name or show all images."
+            />
+          ) : (
+            <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4" aria-label="Images">
+              {filteredAssets.map((asset) => {
+                const selected = selectedIds.includes(asset.id)
+                return (
+                  <li key={asset.id} className="group grid min-w-0 gap-2">
+                    <div
+                      className={cn(
+                        'relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-muted',
+                        selected && 'border-brand-bright/60 ring-1 ring-brand-bright/60',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setInspectorId(asset.id)}
+                        aria-label={`Open ${asset.filename}`}
+                        className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      >
+                        <img
+                          className="size-full object-cover"
+                          width={640}
+                          height={480}
+                          src={assetUrl(asset)}
+                          alt={asset.altText ?? ''}
+                          loading="lazy"
+                        />
+                      </button>
+                      <Checkbox
+                        checked={selected}
+                        onCheckedChange={(checked) =>
+                          setSelectedIds((prev) =>
+                            checked === true ? [...new Set([...prev, asset.id])] : prev.filter((id) => id !== asset.id),
+                          )
+                        }
+                        aria-label={`Select ${asset.filename}`}
+                        className={cn(
+                          'absolute left-2 top-2 z-10 bg-background/90',
+                          selected || selectedIds.length
+                            ? 'opacity-100'
+                            : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100',
+                        )}
+                      />
+                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                        <CopyButton
+                          value={assetUrl(asset)}
+                          label={`Copy link to ${asset.filename}`}
+                          copiedLabel="Link copied"
+                          iconOnly
+                          variant="secondary"
+                          className="size-8"
+                        />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <strong className="block truncate text-sm font-medium text-foreground">{asset.filename}</strong>
+                      <p className="text-sm text-muted-foreground">
+                        {formatBytes(asset.sizeBytes)}
+                        {asset.altText ? null : <span className="text-warning"> · No alt text</span>}
+                      </p>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <Sheet open={inspectorId !== null} onOpenChange={(open) => (!open ? setInspectorId(null) : undefined)}>
+        <SheetContent side="right" className="flex w-full flex-col gap-5 overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="truncate">{inspectorAsset?.filename ?? 'Image'}</SheetTitle>
+            <SheetDescription>
+              {inspectorAsset
+                ? `${inspectorAsset.width && inspectorAsset.height ? `${inspectorAsset.width} × ${inspectorAsset.height} · ` : ''}${formatBytes(inspectorAsset.sizeBytes)}`
+                : ''}
+            </SheetDescription>
+          </SheetHeader>
+          {inspectorAsset ? (
+            <div className="grid gap-5 px-4">
+              <div className="overflow-hidden rounded-lg border border-border bg-muted">
+                <img className="max-h-80 w-full object-contain" src={assetUrl(inspectorAsset)} alt={inspectorAsset.altText ?? ''} />
+              </div>
+              <AltEditor
+                asset={inspectorAsset}
+                onSaved={(altText) =>
+                  setAssets((prev) => prev.map((asset) => (asset.id === inspectorAsset.id ? { ...asset, altText } : asset)))
+                }
+              />
+              <div className="grid gap-2">
+                <p className="text-sm font-medium text-foreground">Use it</p>
+                <div className="flex flex-wrap gap-2">
+                  <CopyButton value={assetUrl(inspectorAsset)} label="Copy link" copiedLabel="Copied" />
+                  <CopyButton
+                    value={`![${inspectorAsset.altText ?? ''}](${assetUrl(inspectorAsset)})`}
+                    label="Copy Markdown"
+                    copiedLabel="Copied"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {inspectorAsset ? (
+            <SheetFooter className="mt-auto">
+              <SpaConfirmButton
+                variant="ghost"
+                confirmLabel="Delete image"
+                pendingLabel="Deleting…"
+                helperText="Deleted images can’t be recovered."
+                onConfirm={async () => {
+                  const id = inspectorAsset.id
+                  setInspectorId(null)
+                  await handleDelete(id)
+                }}
+                className="w-full text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 aria-hidden data-icon="inline-start" /> Delete image
+              </SpaConfirmButton>
+            </SheetFooter>
           ) : null}
         </SheetContent>
       </Sheet>

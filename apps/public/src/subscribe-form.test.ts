@@ -358,15 +358,16 @@ describe("public editorial article rendering", () => {
     expect(markup).not.toMatch(/<h2[^>]*>Structured Article<\/h2>/);
   });
 
-  it("renders the deck and byline before body content", () => {
+  it("renders the deck and dated meta line before body content, without a redundant site byline", () => {
     const deckIndex = markup.indexOf("A multi-section exploration of ideas worth sharing.");
-    const bylineIndex = markup.indexOf("By Site One");
+    const metaIndex = markup.indexOf("<time");
     const bodyStart = markup.indexOf("data-rich-content");
 
     expect(deckIndex).toBeGreaterThanOrEqual(0);
-    expect(bylineIndex).toBeGreaterThanOrEqual(0);
+    expect(metaIndex).toBeGreaterThanOrEqual(0);
     expect(deckIndex).toBeLessThan(bodyStart);
-    expect(bylineIndex).toBeLessThan(bodyStart);
+    expect(metaIndex).toBeLessThan(bodyStart);
+    expect(markup).not.toContain("By Site One");
   });
 
   it("renders the metadata line before the tag row", () => {
@@ -417,7 +418,7 @@ describe("article masthead navigation", () => {
 
   it("renders the All posts navigation inside the masthead", () => {
     // The article masthead carries an explicit All posts nav, not a brand-only header.
-    expect(markup).toContain('aria-label="Posts"');
+    expect(markup).toContain('aria-label="Site"');
     expect(markup).toContain(">All posts</a>");
   });
 

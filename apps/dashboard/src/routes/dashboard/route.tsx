@@ -1,6 +1,9 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { AppShell } from '~/components/dashboard/DashboardLayout'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import { contextQuery } from '~/lib/queries'
 
 export const Route = createFileRoute('/dashboard')({
   ssr: false,
@@ -16,7 +19,16 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function AppLayout() {
-  const { app, apps, siteDisplayName } = Route.useRouteContext()
+  const routeContext = Route.useRouteContext()
+  // Read through the cache so a rename or refresh shows up without navigating.
+  const { data } = useQuery({ ...contextQuery, initialData: routeContext })
+  const { app, apps, siteDisplayName } = data
+  const navigate = useNavigate()
+
+  // A background refresh found the session gone (signed out elsewhere): leave.
+  useEffect(() => {
+    if (!app) void navigate({ to: '/login', replace: true })
+  }, [app, navigate])
 
   return (
     <AppShell

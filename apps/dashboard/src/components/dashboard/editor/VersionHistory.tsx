@@ -1,44 +1,41 @@
-'use client'
-
-import type { Post, PostVersion, PostVersionSummary } from '@vc/core'
-import { Badge, Button, Skeleton } from '@vc/ui'
-import { Eye, History, RotateCcw } from 'lucide-react'
+import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
+import { Button, Skeleton } from '@vc/ui'
+import { ArrowLeft, Bot, History, RotateCcw, User } from 'lucide-react'
 import { useState } from 'react'
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemHeader, ItemTitle } from '~/components/ui/item'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { formatDateTime } from '~/components/dashboard/DashboardLayout'
-import { diffLines, type DiffLine } from '~/lib/diff'
+import { formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { getPostVersionFn, listPostVersionsFn } from '~/lib/api-client'
-
-function relativeTime(tsSeconds: number) {
-  const diffMs = Date.now() - tsSeconds * 1000
-  if (diffMs < 60_000) return 'just now'
-  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)}m ago`
-  if (diffMs < 86_400_000) return `${Math.floor(diffMs / 3_600_000)}h ago`
-  if (diffMs < 7 * 86_400_000) return `${Math.floor(diffMs / 86_400_000)}d ago`
-  return formatDateTime(tsSeconds)
-}
+import { isAgentActor } from '~/lib/post-review'
+import { BodyDiff, MetadataDiff, metadataChanges, snapshotFromVersion, type PostSnapshot } from './DiffView'
 
 export type VersionHistoryProps = {
   postId: string
   post: Pick<Post, 'status' | 'publishedVersionNumber'> | null
-  currentContent: string
-  latestVersion: PostVersionSummary | null
+  /** What is on screen now (the tip, plus any unsaved edits). */
+  current: PostSnapshot
+  currentVersionNumber: number | null
+  assets: Asset[]
   restorePending: number | null
   restoreBlocked: boolean
   onRestore: (versionNumber: number) => void
 }
 
-export function VersionHistory({ postId, post, currentContent, latestVersion, restorePending, restoreBlocked, onRestore, compact = false }: VersionHistoryProps & { compact?: boolean }) {
+export function ActorIcon({ type, className = 'size-3.5' }: { type: string | null | undefined; className?: string }) {
+  return isAgentActor(type)
+    ? <Bot aria-label="Agent" className={className} />
+    : <User aria-label="Person" className={className} />
+}
+
+export function VersionHistory({ postId, post, current, currentVersionNumber, assets, restorePending, restoreBlocked, onRestore }: VersionHistoryProps) {
   const [open, setOpen] = useState(false)
   const [versions, setVersions] = useState<PostVersionSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewing, setViewing] = useState<PostVersion | null>(null)
-  const [viewLoading, setViewLoading] = useState(false)
+  const [viewLoading, setViewLoading] = useState<number | null>(null)
   const [viewError, setViewError] = useState<string | null>(null)
-  const [showDiff, setShowDiff] = useState(false)
+  const liveVersion = post?.status === 'published' ? post.publishedVersionNumber : null
 
   async function loadVersions() {
     setLoading(true)
@@ -46,120 +43,136 @@ export function VersionHistory({ postId, post, currentContent, latestVersion, re
     try {
       setVersions(await listPostVersionsFn({ postId }))
     } catch {
-      setError('Could not load version history. Try again.')
+      setError('Could not load the history.')
     } finally {
       setLoading(false)
     }
   }
+
   async function openVersion(versionNumber: number) {
-    setViewing(null)
     setViewError(null)
-    setShowDiff(false)
-    setViewLoading(true)
+    setViewLoading(versionNumber)
     try {
       setViewing(await getPostVersionFn({ postId, versionNumber }))
     } catch {
-      setViewError('Could not load this version. Close the dialog and try again.')
+      setViewError('Could not load this version.')
     } finally {
-      setViewLoading(false)
+      setViewLoading(null)
     }
   }
-  async function reviewChanges() {
-    if (post?.publishedVersionNumber == null) return
-    setOpen(false)
-    await openVersion(post.publishedVersionNumber)
-    setShowDiff(true)
-  }
 
-  const isPinned = viewing != null && post?.publishedVersionNumber != null && viewing.versionNumber === post.publishedVersionNumber
+  const restoreHelp = restoreBlocked ? 'Wait for your changes to save first.' : 'Brings this version back as the newest draft. Nothing goes live.'
 
   return (
     <>
-      {compact ? (
-        <Button type="button" variant="outline" size="sm" onClick={() => { setOpen(true); void loadVersions() }}>
-          <History aria-hidden="true" className="size-4" /> History
-        </Button>
-      ) : (
-        <div className="grid gap-2">
-          <Button type="button" variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { setOpen(true); void loadVersions() }}>
-            <History aria-hidden="true" className="size-4" /> Version history
-          </Button>
-          {post?.publishedVersionNumber != null && latestVersion?.versionNumber !== post.publishedVersionNumber ? (
-            <Button type="button" variant="ghost" size="sm" className="w-full justify-start gap-2" onClick={() => void reviewChanges()}>
-              <Eye aria-hidden="true" className="size-4" /> Review changes
-            </Button>
-          ) : null}
-        </div>
-      )}
+      <Button type="button" variant="ghost" size="sm" onClick={() => { setOpen(true); setViewing(null); void loadVersions() }}>
+        <History aria-hidden="true" className="size-4" /> <span className="hidden lg:inline">History</span>
+        <span className="sr-only lg:hidden">Version history</span>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85dvh] flex-col sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Version history</DialogTitle>
-            <DialogDescription>Past saved versions of this post.</DialogDescription>
-          </DialogHeader>
-          {restoreBlocked ? (
-            <p role="status" className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Save your local changes before restoring a version.
-            </p>
-          ) : null}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="grid gap-3"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div>
-            ) : error ? <p className="text-sm text-destructive" role="alert">{error}</p> : versions.length === 0 ? <p className="text-sm text-muted-foreground">No versions saved yet.</p> : (
-              <ItemGroup>
-                {versions.map((version) => (
-                  <Item key={version.versionNumber} variant="outline">
-                    <ItemHeader>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-xs">v{version.versionNumber}</Badge>
-                        {latestVersion?.versionNumber === version.versionNumber ? <Badge className="gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary">Current</Badge> : null}
-                      </div>
-                    </ItemHeader>
-                    <ItemContent>
-                      <ItemTitle>{version.title}</ItemTitle>
-                      <ItemDescription>{version.actorName.trim() ? `${version.actorName} · ` : ''}{relativeTime(version.createdAt)}</ItemDescription>
-                      {version.changeSummary ? <p className="text-xs italic text-muted-foreground">{version.changeSummary}</p> : null}
-                    </ItemContent>
-                    <ItemActions className="pt-1">
-                      <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => void openVersion(version.versionNumber)} disabled={restorePending !== null}>
-                        <Eye aria-hidden="true" className="size-3.5" /> View
-                      </Button>
-                      <SpaConfirmButton
-                        size="sm"
-                        variant="outline"
-                        confirmLabel="Confirm restore"
-                        helperText={restoreBlocked ? 'Save your local changes before restoring a version.' : 'This replaces the current saved draft with this version.'}
-                        disabled={restorePending !== null || restoreBlocked}
-                        onConfirm={() => onRestore(version.versionNumber)}
-                      >
-                        <RotateCcw aria-hidden="true" className="size-3.5" /> Restore
-                      </SpaConfirmButton>
-                    </ItemActions>
-                  </Item>
-                ))}
-              </ItemGroup>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={viewing !== null || viewLoading || viewError !== null} onOpenChange={(nextOpen) => { if (!nextOpen) { setViewing(null); setViewError(null) } }}>
-        <DialogContent className="flex max-h-[85dvh] flex-col sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{viewLoading ? 'Loading…' : viewing ? `v${viewing.versionNumber} · ${viewing.title}` : 'Version'}</DialogTitle>
-            {viewing ? <DialogDescription>{viewing.actorName.trim() ? `Saved by ${viewing.actorName} on ${formatDateTime(viewing.createdAt)}` : `Saved ${formatDateTime(viewing.createdAt)}`}</DialogDescription> : null}
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {viewLoading ? <Skeleton className="h-48" /> : viewError ? <p className="py-4 text-sm text-destructive" role="alert">{viewError}</p> : viewing ? (
-              <div className="grid gap-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono text-[11px] text-muted-foreground">{showDiff ? (isPinned ? `Public v${viewing.versionNumber} → current tip` : 'Diff vs current') : 'Markdown'}</p>
-                  <Button type="button" variant={showDiff ? 'default' : 'outline'} size="sm" aria-pressed={showDiff} onClick={() => setShowDiff((value) => !value)}>Compare with current</Button>
-                </div>
-                {showDiff ? <div className="max-h-80 overflow-y-auto rounded-lg bg-muted/40 p-2 font-mono text-xs leading-relaxed">{diffLines(viewing.contentMarkdown, currentContent).map((line: DiffLine, index) => <div key={index} className={`flex gap-2 px-1 ${line.type === 'add' ? 'bg-brand-bright/10 text-primary' : line.type === 'del' ? 'bg-destructive/10 text-destructive' : 'text-muted-foreground'}`}><span className="w-4 shrink-0 select-none text-center">{line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '}</span><span className="whitespace-pre-wrap break-words">{line.text || '\u00a0'}</span></div>)}</div> : <pre className="max-h-80 overflow-y-auto rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words">{viewing.contentMarkdown}</pre>}
+        <DialogContent className="flex max-h-[88dvh] flex-col gap-4 sm:max-w-2xl">
+          {viewing ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Button type="button" variant="ghost" size="icon" className="-ml-2 size-8" aria-label="Back to history" onClick={() => setViewing(null)}>
+                    <ArrowLeft className="size-4" />
+                  </Button>
+                  v{viewing.versionNumber} compared with {currentVersionNumber ? `v${currentVersionNumber}` : 'now'}
+                </DialogTitle>
+                <DialogDescription>
+                  Saved by {viewing.actorName.trim() || 'someone'} · {formatDateTime(viewing.createdAt)}. Red is only in v{viewing.versionNumber}, green is only in the current version.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto pr-1">
+                <MetadataDiff changes={metadataChanges(snapshotFromVersion(viewing), current, assets)} />
+                <BodyDiff before={viewing.contentMarkdown} after={current.contentMarkdown} />
               </div>
-            ) : null}
-          </div>
-          <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Close</Button></DialogClose></DialogFooter>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-[color:var(--hairline)] pt-4">
+                {viewing.versionNumber !== currentVersionNumber ? (
+                  <SpaConfirmButton
+                    size="sm"
+                    variant="outline"
+                    confirmLabel={`Restore v${viewing.versionNumber}?`}
+                    helperText={restoreHelp}
+                    disabled={restorePending !== null || restoreBlocked}
+                    onConfirm={() => { onRestore(viewing.versionNumber); setOpen(false) }}
+                  >
+                    <RotateCcw aria-hidden="true" className="size-3.5" /> Restore v{viewing.versionNumber}
+                  </SpaConfirmButton>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>History</DialogTitle>
+                <DialogDescription>Every saved version of this post. Restoring never changes what is live.</DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="grid gap-3"><Skeleton className="h-14 rounded-lg" /><Skeleton className="h-14 rounded-lg" /><Skeleton className="h-14 rounded-lg" /></div>
+                ) : error ? (
+                  <p className="flex items-center gap-2 text-sm text-destructive" role="alert">
+                    {error}
+                    <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void loadVersions()}>Try again</Button>
+                  </p>
+                ) : versions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+                ) : (
+                  <ol className="grid">
+                    {versions.map((version) => {
+                      const isLive = liveVersion === version.versionNumber
+                      const isCurrent = currentVersionNumber === version.versionNumber
+                      return (
+                        <li key={version.versionNumber} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-3 border-b border-[color:var(--hairline)] py-3 last:border-b-0">
+                          <span className="pt-0.5 font-mono text-sm tabular-nums text-foreground">v{version.versionNumber}</span>
+                          <div className="min-w-0">
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                              <span className="inline-flex items-center gap-1.5 text-foreground">
+                                <ActorIcon type={version.actorType} />
+                                {version.actorName.trim() || (isAgentActor(version.actorType) ? 'Agent' : 'You')}
+                              </span>
+                              <time className="text-muted-foreground" dateTime={new Date(version.createdAt * 1000).toISOString()} title={formatDateTime(version.createdAt)}>
+                                {formatRelative(version.createdAt)}
+                              </time>
+                              {isLive ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+                                  <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden />Live
+                                </span>
+                              ) : null}
+                              {isCurrent && !isLive ? <span className="text-xs text-muted-foreground">Latest</span> : null}
+                            </p>
+                            {version.changeSummary ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{version.changeSummary}</p> : null}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!isCurrent ? (
+                              <Button type="button" variant="ghost" size="sm" disabled={viewLoading !== null} onClick={() => void openVersion(version.versionNumber)}>
+                                {viewLoading === version.versionNumber ? 'Loading…' : 'Compare'}
+                              </Button>
+                            ) : null}
+                            {!isCurrent ? (
+                              <SpaConfirmButton
+                                size="sm"
+                                variant="ghost"
+                                confirmLabel="Restore?"
+                                helperText={restoreHelp}
+                                disabled={restorePending !== null || restoreBlocked}
+                                onConfirm={() => { onRestore(version.versionNumber); setOpen(false) }}
+                              >
+                                {restorePending === version.versionNumber ? 'Restoring…' : 'Restore'}
+                              </SpaConfirmButton>
+                            ) : null}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                )}
+                {viewError ? <p className="mt-3 text-sm text-destructive" role="alert">{viewError}</p> : null}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </>

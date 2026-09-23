@@ -5,6 +5,8 @@ export type PageSkeletonVariant = 'stats' | 'list' | 'table' | 'detail' | 'panel
 
 type PageSkeletonProps = {
   variant?: PageSkeletonVariant
+  /** Set false when the real page header is already on screen. */
+  withHeader?: boolean
   className?: string
   children?: ReactNode
 }
@@ -24,7 +26,7 @@ function SkeletonHeader() {
 
 function SkeletonPanel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cn('grid gap-5 rounded-2xl border border-border bg-card p-5 sm:p-6', className)} aria-hidden="true">
+    <section className={cn('grid gap-5 rounded-xl border border-border bg-card p-5 sm:p-6', className)} aria-hidden="true">
       <div className="flex items-center justify-between gap-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-4 w-16" />
@@ -113,10 +115,10 @@ function SkeletonVariant({ variant }: { variant: PageSkeletonVariant }) {
   )
 }
 
-export function PageSkeleton({ variant = 'list', className, children }: PageSkeletonProps) {
+export function PageSkeleton({ variant = 'list', withHeader = true, className, children }: PageSkeletonProps) {
   return (
     <div className={cn('grid gap-6', className)} aria-busy="true" aria-label="Loading page">
-      <SkeletonHeader />
+      {withHeader ? <SkeletonHeader /> : null}
       {children ?? <SkeletonVariant variant={variant} />}
     </div>
   )

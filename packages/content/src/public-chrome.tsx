@@ -21,7 +21,7 @@ import subscribeStyles from "./subscribe-form.module.css";
    version. */
 export const SUBSCRIBE_HEADING = "Get new posts by email";
 export const SUBSCRIBE_SUBTEXT =
-  "Email delivery is coming soon. Join now and we'll let you know when it launches.";
+  "Leave your email and you'll hear from us when new-post emails start.";
 export const SUBSCRIBE_BUTTON = "Notify me";
 export const SUBSCRIBE_SUCCESS =
   "You're on the list. We'll email you when subscriptions launch.";
@@ -105,23 +105,51 @@ export interface PublicPageChromeProps {
   siteName: string;
   tagline?: string | null;
   homeHref: string;
-  /** When set, renders the article-page "All posts" masthead nav. */
+  /** When set, the masthead shows an "All posts" link (article pages). */
   allPostsHref?: string;
-  /** Index pages render the site name as the page's visible h1. */
+  /** Index pages render the site name as the page's visible h1 and the tagline as an intro. */
   homeHeading?: boolean;
   /** Raw site theme id; resolved through resolvePresetId. */
   presetId: string;
   /** Per-site accent/font/mode; omitted values fall back to preset defaults. */
   theme?: SiteThemeInput;
-  /** Article pages: wider container and the data-vc-article-page marker. */
+  /** Article pages mark the page for chrome rules. */
   article?: boolean;
-  /** Renders <meta name="robots" content="noindex,nofollow"> inside the shell. */
-  robotsNoindex?: boolean;
+  /** Widen the shell for an article with a ToC rail. */
+  wide?: boolean;
+  /** Masthead search (index pages). */
+  searchAction?: string;
+  searchQuery?: string;
+  /** RSS link in the masthead + footer. */
+  feedHref?: string;
   /** Subscribe placement; omit to render no subscribe block (preview passes "end" with no slug). */
   subscribeVariant?: "footer" | "end";
   subscribeSiteSlug?: string;
   subscribeSettings?: SubscribeSettings | null;
+  /** Year shown in the footer; defaults to the current UTC year. */
+  year?: number;
+  /** Rendered inside another surface (dashboard preview): no viewport min-height. */
+  embedded?: boolean;
   children: ReactNode;
+}
+
+function RssIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 11a9 9 0 0 1 9 9" />
+      <path d="M4 4a16 16 0 0 1 16 16" />
+      <circle cx="5" cy="19" r="1" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
 }
 
 export function PublicPageChrome({
@@ -133,16 +161,26 @@ export function PublicPageChrome({
   presetId,
   theme,
   article = false,
-  robotsNoindex = false,
+  wide = false,
+  searchAction,
+  searchQuery,
+  feedHref,
   subscribeVariant,
   subscribeSiteSlug,
   subscribeSettings,
+  year,
+  embedded = false,
   children,
 }: PublicPageChromeProps) {
   const themeAttrs = theme ? resolveSiteTheme(theme) : undefined;
   const subscribe = subscribeVariant ? (
     <SubscribeBlock siteSlug={subscribeSiteSlug} variant={subscribeVariant} settings={subscribeSettings} />
   ) : null;
+  const brand = (
+    <a href={homeHref} className={styles.brand}>
+      {siteName}
+    </a>
+  );
   return (
     <main
       className={styles.page}
@@ -152,32 +190,54 @@ export function PublicPageChrome({
         ? { "data-vc-mode": themeAttrs.mode }
         : {})}
       {...(article ? { "data-vc-article-page": "" } : {})}
+      {...(embedded ? { "data-embedded": "" } : {})}
     >
-      <div className={styles.container}>
-        {robotsNoindex ? <meta name="robots" content="noindex,nofollow" /> : null}
-        <header className={styles.header}>
-          {homeHeading ? (
-            <h1 className={styles.brandHeading}>
-              <a href={homeHref} className={styles.brand}>
-                {siteName}
-              </a>
-            </h1>
-          ) : (
-            <a href={homeHref} className={styles.brand}>
-              {siteName}
-            </a>
-          )}
-          {tagline ? <p className={styles.tagline}>{tagline}</p> : null}
-          {allPostsHref ? (
-            <nav className={styles.mastheadNav} aria-label="Posts">
-              <a href={allPostsHref} className={styles.allPostsLink}>
+      <div className={styles.shell} data-wide={wide ? "" : undefined}>
+        <header className={styles.masthead}>
+          {homeHeading ? <h1 className={styles.brandHeading}>{brand}</h1> : brand}
+          <nav className={styles.mastNav} aria-label="Site">
+            {searchAction ? (
+              <form method="get" action={searchAction} role="search" className={styles.search}>
+                <label className={styles.searchField}>
+                  <SearchIcon />
+                  <span className={styles.visuallyHidden}>Search posts</span>
+                  <input
+                    type="search"
+                    name="q"
+                    defaultValue={searchQuery}
+                    placeholder="Search"
+                    className={styles.searchInput}
+                    autoComplete="off"
+                  />
+                </label>
+              </form>
+            ) : null}
+            {allPostsHref ? (
+              <a href={allPostsHref} className={styles.navLink}>
                 All posts
               </a>
-            </nav>
-          ) : null}
+            ) : null}
+            {feedHref ? (
+              <a href={feedHref} className={styles.iconLink} aria-label="RSS feed" title="RSS feed">
+                <RssIcon />
+              </a>
+            ) : null}
+          </nav>
         </header>
-        {children}
-        {subscribe && subscribeVariant === "footer" ? <footer>{subscribe}</footer> : subscribe}
+        {homeHeading && tagline ? <p className={styles.intro}>{tagline}</p> : null}
+        <div className={styles.content}>{children}</div>
+        {subscribe}
+        <div className={styles.push} aria-hidden="true" />
+        <footer className={styles.footer}>
+          <span>
+            &copy; {year ?? new Date().getUTCFullYear()} {siteName}
+          </span>
+          {feedHref ? (
+            <a href={feedHref} className={styles.footerLink}>
+              RSS
+            </a>
+          ) : null}
+        </footer>
       </div>
     </main>
   );

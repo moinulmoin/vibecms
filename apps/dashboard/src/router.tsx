@@ -2,23 +2,17 @@ import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
-import type { AppRouterContext } from '~/types/dashboard'
-
-const emptyRouterContext: AppRouterContext = {
-  googleEnabled: false,
-  githubEnabled: false,
-  user: null,
-  app: null,
-  apps: [],
-  siteSetupComplete: false,
-  siteDisplayName: null,
-}
+import { signedOutContext } from '~/lib/queries'
 
 export function getRouter() {
   return createRouter({
     routeTree,
-    context: emptyRouterContext,
+    context: signedOutContext,
     defaultPreload: 'intent',
+    // Data lives in the TanStack Query cache; let loaders run on every preload
+    // and let the query cache decide whether anything actually refetches.
+    defaultPreloadStaleTime: 0,
+    defaultPendingMs: 400,
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,

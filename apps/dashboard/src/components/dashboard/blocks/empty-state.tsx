@@ -22,11 +22,11 @@ export function EmptyState({
   compact?: boolean
 }) {
   return (
-    <Empty className={compact ? 'gap-2 border-0 p-0 text-left sm:items-start' : undefined}>
+    <Empty className={compact ? 'gap-2 border-0 p-0 text-left sm:items-start' : 'flex-none py-16'}>
       <EmptyHeader className={compact ? 'max-w-none flex-row items-center gap-2' : undefined}>
         {icon ? <EmptyMedia variant="icon" className={compact ? 'mb-0 size-6 [&_svg:not([class*=size-])]:size-3' : undefined}>{icon}</EmptyMedia> : null}
         <EmptyContent className={compact ? 'w-auto max-w-none min-w-0 flex-row flex-wrap items-baseline gap-x-2 gap-y-0' : undefined}>
-          <EmptyTitle>{title}</EmptyTitle>
+          <EmptyTitle className={compact ? undefined : 'text-base font-semibold'}>{title}</EmptyTitle>
           <EmptyDescription>{description}</EmptyDescription>
         </EmptyContent>
       </EmptyHeader>

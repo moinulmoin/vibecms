@@ -1,5 +1,6 @@
 export { PageHeader } from './page-header'
-export { Panel } from './panel'
+export { Panel, Section } from './panel'
+export { PageTabs } from './page-tabs'
 export { StatCard, StatCardGrid } from './stat-card'
 export { StatusBadge } from './status-badge'
 export { EmptyState } from './empty-state'

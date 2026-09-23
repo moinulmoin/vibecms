@@ -367,9 +367,48 @@ describe("SubscriberRepository (Drizzle)", () => {
   });
 });
 
+describe("SubscriberRepository search", () => {
+  it("treats % and _ in the search term as literal characters", async () => {
+    const repo = createD1SubscriberRepository(env.DB);
+    for (const email of ["leaf_under@example.test", "leafxunder@example.test", "pct%sign@example.test"]) {
+      await repo.addPending({ siteId: "site-leaf-sub-a", email, sourceUrl: null, consentText: "c", consentVersion: "v1" });
+    }
+    const underscore = await repo.list({ siteId: "site-leaf-sub-a", search: "leaf_under", limit: 50, offset: 0 });
+    expect(underscore.map((row) => row.email)).toEqual(["leaf_under@example.test"]);
+    const percent = await repo.list({ siteId: "site-leaf-sub-a", search: "%", limit: 50, offset: 0 });
+    expect(percent.map((row) => row.email)).toEqual(["pct%sign@example.test"]);
+    const caseless = await repo.list({ siteId: "site-leaf-sub-a", search: "LEAF_UNDER", limit: 50, offset: 0 });
+    expect(caseless).toHaveLength(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // activity
 // ---------------------------------------------------------------------------
+
+describe("ActivityRepository paged projection", () => {
+  it("returns ids, entities, and reduced before/after fields, filtered by actor type", async () => {
+    const repo = createActivityRepository(env.DB);
+    await repo.create({
+      siteId: "site-leaf-act-a",
+      actor: ACTOR,
+      action: "post.updated",
+      entityType: "post",
+      entityId: "leaf-act-proj-1",
+      summary: "Updated a post",
+      before: { title: "Old", slug: "old", status: "draft", contentMarkdown: "abc" },
+      after: { title: "New", slug: "old", status: "draft", contentMarkdown: "abcdef" },
+    });
+    const rows = await repo.listBySitePaged("site-leaf-act-a", 50, 0, ["human"]);
+    const ours = rows.find((row) => row.entityId === "leaf-act-proj-1");
+    expect(ours?.id).toEqual(expect.any(String));
+    expect(ours?.entityType).toBe("post");
+    expect(ours?.before).toMatchObject({ title: "Old", slug: "old", bodyLength: 3 });
+    expect(ours?.after).toMatchObject({ title: "New", bodyLength: 6 });
+    const agentOnly = await repo.listBySitePaged("site-leaf-act-a", 50, 0, ["api_key"]);
+    expect(agentOnly.find((row) => row.entityId === "leaf-act-proj-1")).toBeUndefined();
+  });
+});
 
 describe("ActivityRepository (Drizzle)", () => {
   it("create inserts an activity event that listBySite returns", async () => {
