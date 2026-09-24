@@ -271,9 +271,28 @@ function collapseBlankLines(markdown: string) {
     }
     if (marker) fence = marker
     if (line.trim() === '' && (out.length === 0 || out[out.length - 1].trim() === '')) continue
-    out.push(line)
+    // Trailing spaces outside code carry no meaning in exported Markdown (hard
+    // breaks export as a backslash), so they never count as drift.
+    out.push(line.replace(/[ \t]+$/, ''))
   }
   return out.join('\n')
+}
+
+/** Trailing whitespace outside fenced code, which the visual editor never preserves. */
+function stripTrailingSpaceOutsideCode(markdown: string) {
+  let fence: string | null = null
+  return markdown
+    .split('\n')
+    .map((line) => {
+      const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
+      if (fence) {
+        if (marker && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null
+        return line
+      }
+      if (marker) fence = marker
+      return line.replace(/[ \t]+$/, '')
+    })
+    .join('\n')
 }
 
 export function blocksToMarkdown(blocks: EditorPartialBlock[], editor: AnyBlockNoteEditor = createMarkdownEditor()) {
@@ -301,7 +320,7 @@ export function markdownAdapterResult(markdown: string, editor?: AnyBlockNoteEdi
   return {
     blocks,
     roundTripMarkdown,
-    drifted: roundTripMarkdown !== markdown,
+    drifted: roundTripMarkdown !== markdown && roundTripMarkdown !== stripTrailingSpaceOutsideCode(markdown),
   }
 }
 

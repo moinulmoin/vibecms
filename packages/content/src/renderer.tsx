@@ -24,7 +24,9 @@ import type {
   ValidateRichContentOpts,
 } from "./types.js";
 
-export const RENDERER_VERSION = "3";
+import { MISSING_IMAGE_ALT_WARNING, RENDERER_VERSION } from "./constants.js";
+
+export { MISSING_IMAGE_ALT_WARNING, RENDERER_VERSION };
 
 export type {
   OutlineEntry,
@@ -1151,7 +1153,6 @@ export function renderRichContentToHtml(markdown: string, opts?: RenderOpts): st
   return renderRichContentResultToHtml(renderRichContent(markdown, opts), opts);
 }
 
-export const MISSING_IMAGE_ALT_WARNING = "Image is missing alt text";
 
 function hasUnlabeledCodeFence(markdown: string) {
   let openFence: { marker: "`" | "~"; length: number } | null = null;

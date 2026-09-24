@@ -18,7 +18,7 @@ export function SpaConfirmButton({
   confirmLabel,
   helperText,
   pendingLabel,
-  armedTimeoutMs = 5000,
+  armedTimeoutMs = 8000,
   confirmationKey,
   onConfirm,
   variant,

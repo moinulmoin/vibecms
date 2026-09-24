@@ -1,5 +1,5 @@
 import { AppError, NotFoundError } from '@vc/core'
-import { MISSING_IMAGE_ALT_WARNING, validateRichContent } from '@vc/content'
+import { MISSING_IMAGE_ALT_WARNING } from '@vc/content/constants'
 import { createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
 
@@ -16,6 +16,7 @@ export async function assertPostImagesPublishable(siteId: string, postId: string
     }
   }
 
+  const { validateRichContent } = await import('@vc/content')
   if (validateRichContent(post.contentMarkdown).includes(MISSING_IMAGE_ALT_WARNING)) {
     throw new AppError('IMAGE_ALT_REQUIRED', 'Add alt text to every inline image before publishing', 400)
   }

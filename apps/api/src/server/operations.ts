@@ -23,12 +23,7 @@ import { assertPostImagesPublishable } from "./publishing-images";
 import { getSitePublicBaseUrl } from "./site-public-url";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
-import {
-  RENDERER_VERSION,
-  renderRichContent,
-  renderRichContentResultToHtml,
-  validateRichContent,
-} from "@vc/content";
+import { RENDERER_VERSION } from "@vc/content/constants";
 
 export type OperationContext = {
   actor: Actor;
@@ -352,6 +347,8 @@ export async function previewPostOp(
     resolvedPresetId = resolvePresetId(theme);
   }
 
+  // Loaded on first preview so Worker startup doesn't pay for the Markdown pipeline.
+  const { renderRichContent, renderRichContentResultToHtml, validateRichContent } = await import("@vc/content");
   const renderResult = renderRichContent(input.contentMarkdown, {
     presetId: resolvedPresetId,
   });

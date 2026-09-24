@@ -15,14 +15,23 @@ Commands:
   login --token <tok> [--api-url <url>]    Save credentials to ~/.vibecms/config.json
   whoami                                    Verify the token (GET /site)
   site                                      Show the current site
+  activity [--limit <n>]                    Recent changes by you and your agents
   posts list [--status --search --limit --offset]
+  posts search <query> [--limit <n>]
   posts get <postId>
   posts get-by-slug <slug>
-  posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [--excerpt <e> --tags a,b]
-  posts update <postId> --expected-version <n> [--title --slug --content --content-file --excerpt --tags]
+  posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [post fields]
+  posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]
+  posts preview (--content <md> | --content-file <path>) [--preset <id> --layout <l> --toc <bool>]
+  posts format-guide [--preset <id>]         Markdown syntax this blog renders (callouts, code, TOC...)
+  posts versions <postId>                   List versions (who changed what)
+  posts version <postId> <versionNumber>    Show one version
   posts publish <postId> --expected-version <n>
   posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
+
+  Post fields: --excerpt <e> --tags a,b --cover <assetId|none> --layout standard|essay|feature
+               --toc true|false --seo-title <t> --seo-description <d> --canonical-url <url|none>
   assets list
   assets get <assetId>
   assets upload <file> [--alt <text>]
@@ -66,6 +75,13 @@ const OPTIONS = {
   tags: { type: "string" },
   alt: { type: "string" },
   "expected-version": { type: "string" },
+  cover: { type: "string" },
+  layout: { type: "string" },
+  toc: { type: "string" },
+  "seo-title": { type: "string" },
+  "seo-description": { type: "string" },
+  "canonical-url": { type: "string" },
+  preset: { type: "string" },
 } as const;
 
 type Values = { [K in keyof typeof OPTIONS]?: string | boolean };
@@ -167,6 +183,41 @@ async function mutate(
 }
 
 
+/** "none" clears a nullable field; undefined leaves it unchanged. */
+function nullable(v: string | undefined): string | null | undefined {
+  if (v === undefined) return undefined;
+  return v === "none" ? null : v;
+}
+
+function presentation(v: Values): { layout?: string; toc?: boolean } | undefined {
+  const layout = str(v.layout);
+  const tocRaw = str(v.toc);
+  if (layout !== undefined && !["standard", "essay", "feature"].includes(layout)) {
+    fail("--layout must be standard, essay, or feature", EXIT.USAGE);
+  }
+  if (tocRaw !== undefined && tocRaw !== "true" && tocRaw !== "false") fail("--toc must be true or false", EXIT.USAGE);
+  if (layout === undefined && tocRaw === undefined) return undefined;
+  return dropUndefined({ layout, toc: tocRaw === undefined ? undefined : tocRaw === "true" }) as { layout?: string; toc?: boolean };
+}
+
+function postFields(v: Values): Record<string, unknown> {
+  return {
+    excerpt: str(v.excerpt),
+    tags: splitTags(str(v.tags)),
+    coverAssetId: nullable(str(v.cover)),
+    canonicalUrl: nullable(str(v["canonical-url"])),
+    seoTitle: str(v["seo-title"]),
+    seoDescription: str(v["seo-description"]),
+    presentation: presentation(v),
+  };
+}
+
+function versionArg(raw: string | undefined): number {
+  const n = Number(need(raw, "<versionNumber>"));
+  if (!Number.isInteger(n) || n < 1) fail("<versionNumber> must be a positive integer", EXIT.USAGE);
+  return n;
+}
+
 function parseExpectedVersion(v: Values, required: boolean): number | undefined {
   const raw = str(v["expected-version"]);
   if (raw === undefined) {
@@ -193,6 +244,38 @@ async function postsCommand(
         }),
         fmt,
       );
+    case "search":
+      return emit(
+        await apiRequest(cfg, "GET", "/api/v1/posts", {
+          query: { search: need(rest.join(" ") || str(v.search), "<query>"), status: str(v.status), limit: str(v.limit) },
+        }),
+        fmt,
+      );
+    case "preview":
+      // Read-only render; never mutates, so it ignores --dry-run.
+      return emit(
+        await apiRequest(cfg, "POST", "/api/v1/posts/preview", {
+          body: dropUndefined({
+            contentMarkdown: await readContent(v, true),
+            presetId: str(v.preset),
+            presentation: presentation(v),
+          }),
+        }),
+        fmt,
+      );
+    case "format-guide":
+      return emit(await apiRequest(cfg, "GET", "/api/v1/posts/format-guide", { query: { presetId: str(v.preset) } }), fmt);
+    case "versions":
+      return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/versions`), fmt);
+    case "version":
+      return emit(
+        await apiRequest(
+          cfg,
+          "GET",
+          `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/versions/${versionArg(rest[1])}`,
+        ),
+        fmt,
+      );
     case "get":
       return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}`), fmt);
     case "get-by-slug":
@@ -206,8 +289,7 @@ async function postsCommand(
           title: need(str(v.title), "--title"),
           slug: need(str(v.slug), "--slug"),
           contentMarkdown: await readContent(v, true),
-          excerpt: str(v.excerpt),
-          tags: splitTags(str(v.tags)),
+          ...postFields(v),
         }),
         v,
         fmt,
@@ -223,8 +305,7 @@ async function postsCommand(
           title: str(v.title),
           slug: str(v.slug),
           contentMarkdown: await readContent(v, false),
-          excerpt: str(v.excerpt),
-          tags: splitTags(str(v.tags)),
+          ...postFields(v),
         }),
         v,
         fmt,

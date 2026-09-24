@@ -1,6 +1,6 @@
 import type { FormatGuideDto } from "@vc/api-contract";
 import { THEME_PRESETS, type PresetId } from "@vc/config";
-import { RENDERER_VERSION } from "@vc/content";
+import { RENDERER_VERSION } from "@vc/content/constants";
 
 /** Bumped when the v1 syntax vocabulary changes. */
 export const GUIDE_VERSION = "3";

@@ -35,10 +35,14 @@ describe('markdown adapter', () => {
     expect(result.reason).toBe('unsupported_syntax')
   })
 
-  it('requires literal byte fidelity instead of normalizing whitespace', () => {
-    const result = visualMarkdownSafety('Body with trailing spaces.  \n')
+  it('keeps meaningful whitespace: a two-space hard break is not normalized away', () => {
+    const result = visualMarkdownSafety('Line one  \nline two\n')
     expect(result.safe).toBe(false)
     expect(result.reason).toBe('lossy_round_trip')
+  })
+
+  it('ignores meaningless trailing spaces at the end of a block', () => {
+    expect(visualMarkdownSafety('Body with trailing spaces.  \n').safe).toBe(true)
   })
 
   it('rejects source text that collides with private adapter markers', () => {
@@ -110,5 +114,21 @@ describe('visual edits stay visual', () => {
     }])
     expect(markdown).toBe('> [!NOTE]\n> Read [the docs](https://example.com) **now**\n')
     expect(safety.roundTripMarkdown).toBe(markdown)
+  })
+})
+
+describe('trailing whitespace never ejects the writer from Visual mode', () => {
+  it('treats a heading or paragraph with a trailing space as round-trippable', () => {
+    const editor = createMarkdownEditor()
+    for (const md of ['## A section heading \n\nPara.\n', 'Hello \n\nWorld\n', '- item \n']) {
+      expect(visualMarkdownSafety(md, editor).safe).toBe(true)
+    }
+  })
+
+  it('keeps trailing spaces inside fenced code significant', () => {
+    const editor = createMarkdownEditor()
+    const md = '```ts\nconst a = 1;  \n```\n'
+    const result = visualMarkdownSafety(md, editor)
+    expect(result.roundTripMarkdown.includes('const a = 1;  ') || !result.safe).toBe(true)
   })
 })

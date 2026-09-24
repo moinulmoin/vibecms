@@ -741,7 +741,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     },
 
     async listPostVersions(siteId, postId) {
-      // actorName = COALESCE(user.name, api_keys.actor_name, created_by_id) resolved via left joins.
+      // actorName = COALESCE(non-blank user.name, user.email, api_keys.actor_name, created_by_id) resolved via left joins.
       const rows = await client
         .select({
           versionNumber: postVersions.versionNumber,
@@ -751,7 +751,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           changeSummary: postVersions.changeSummary,
           createdByType: postVersions.createdByType,
           createdAt: postVersions.createdAt,
-          actorName: sql<string>`coalesce(${user.name}, ${apiKeys.actorName}, ${postVersions.createdById})`,
+          actorName: sql<string>`coalesce(nullif(trim(${user.name}), ''), ${user.email}, ${apiKeys.actorName}, ${postVersions.createdById})`,
         })
         .from(postVersions)
         .leftJoin(user, eq(user.id, postVersions.createdById))
@@ -779,7 +779,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
           seoDescription: postVersions.seoDescription,
           tagsJson: postVersions.tagsJson,
           presentationJson: postVersions.presentationJson,
-          actorName: sql<string>`coalesce(${user.name}, ${apiKeys.actorName}, ${postVersions.createdById})`,
+          actorName: sql<string>`coalesce(nullif(trim(${user.name}), ''), ${user.email}, ${apiKeys.actorName}, ${postVersions.createdById})`,
         })
         .from(postVersions)
         .leftJoin(user, eq(user.id, postVersions.createdById))

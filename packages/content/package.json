@@ -17,7 +17,8 @@
       "default": "./src/styles/prose.module.css"
     },
     "./highlight": "./src/highlight.ts",
-    "./public-post-list": "./src/public-post-list.tsx"
+    "./public-post-list": "./src/public-post-list.tsx",
+    "./constants": "./src/constants.ts"
   },
   "scripts": {
     "typecheck": "tsc",
