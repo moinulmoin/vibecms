@@ -388,6 +388,11 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
         themeAccent: siteRow.themeAccent,
         themeFont: siteRow.themeFont,
         themeMode: siteRow.themeMode,
+        // Raw template knobs (null = template default) and the public byline.
+        themeRadius: siteRow.themeRadius,
+        themeWidth: siteRow.themeWidth,
+        bylineName: siteRow.bylineName,
+        showAgentCredit: siteRow.showAgentCredit,
         newsletterSettings: editorNewsletterSettings(siteRow.newsletterSettings),
       }
     : null

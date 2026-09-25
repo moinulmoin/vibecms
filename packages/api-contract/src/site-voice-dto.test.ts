@@ -60,3 +60,21 @@ describe('sites.get Voice Profile contract', () => {
     expect(JSON.stringify(voiceProfile)).not.toContain('private-user-id')
   })
 })
+
+describe('sites.get template + byline contract', () => {
+  it('reports the template id and falls back to the site name for the byline', () => {
+    expect(mapSiteRow(site, null)).toMatchObject({
+      template: 'minimal',
+      byline: { name: 'Voice Site', agentCredit: true },
+    })
+  })
+
+  it('uses the public byline name and the owner agent-credit choice', () => {
+    expect(
+      mapSiteRow({ ...site, theme: 'technical', bylineName: '  Ada  ', showAgentCredit: false }, null),
+    ).toMatchObject({
+      template: 'technical',
+      byline: { name: 'Ada', agentCredit: false },
+    })
+  })
+})

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPublicSidebar,
   markdownRequested,
   publicHtmlResponseHeaders,
   publicListingResponseHeaders,
@@ -19,7 +20,8 @@ import {
   siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
-import type { SiteRow } from "./public-blog-data";
+import type { PostSummaryRow, SiteRow } from "./public-blog-data";
+import { resolvePublicByline } from "../lib/byline";
 
 const site = {
   id: "site-1",
@@ -30,6 +32,10 @@ const site = {
   theme_accent: null,
   theme_font: null,
   theme_mode: "system",
+  theme_radius: null,
+  theme_width: null,
+  byline_name: null,
+  show_agent_credit: true,
   description: null,
   default_seo_title: null,
   default_seo_description: null,
@@ -217,5 +223,58 @@ describe("Accept: text/markdown after cached HTML", () => {
 
   it("changes the strong validator whenever rendered bytes change", async () => {
     expect(await contentEtag("<html>first</html>")).not.toBe(await contentEtag("<html>second</html>"));
+  });
+});
+
+describe("public byline", () => {
+  it("falls back to the site name, never anything account-shaped", () => {
+    expect(resolvePublicByline(site, { published_by_agent: false })).toEqual({ name: "Demo", agent: false });
+    expect(resolvePublicByline({ ...site, byline_name: "   " }, null)).toEqual({ name: "Demo", agent: false });
+    expect(resolvePublicByline({ ...site, byline_name: "  Ada Lovelace " }, null).name).toBe("Ada Lovelace");
+  });
+
+  it("credits the agent only for agent-written versions when the owner keeps credit on", () => {
+    expect(resolvePublicByline(site, { published_by_agent: true }).agent).toBe(true);
+    expect(resolvePublicByline({ ...site, show_agent_credit: false }, { published_by_agent: true }).agent).toBe(false);
+    expect(resolvePublicByline(site, { published_by_agent: false }).agent).toBe(false);
+  });
+});
+
+describe("public sidebar", () => {
+  const summary = (id: string, tags: string[]): PostSummaryRow => ({
+    id,
+    title: `Title ${id}`,
+    slug: `slug-${id}`,
+    excerpt: null,
+    cover_asset_id: null,
+    published_at: 1,
+    updated_at: 1,
+    seo_title: null,
+    seo_description: null,
+    canonical_url: null,
+    cover_asset_mime_type: null,
+    cover_asset_width: null,
+    cover_asset_height: null,
+    cover_asset_alt_text: null,
+    tags_json: JSON.stringify(tags),
+  });
+
+  it("lists up to six recent posts excluding the current one", () => {
+    const rows = Array.from({ length: 9 }, (_, i) => summary(String(i), []));
+    const sidebar = buildPublicSidebar(rows, "0");
+    expect(sidebar.recent.map((post) => post.slug)).toEqual(["slug-1", "slug-2", "slug-3", "slug-4", "slug-5", "slug-6"]);
+  });
+
+  it("counts tags most-used first, capped at sixteen, ignoring bad JSON", () => {
+    const rows = [
+      summary("a", ["ai", "cloudflare", "ai"]),
+      summary("b", ["ai"]),
+      summary("c", ["zeta"]),
+      { ...summary("d", []), tags_json: "not json" },
+      ...Array.from({ length: 20 }, (_, i) => summary(`t${i}`, [`tag-${String(i).padStart(2, "0")}`])),
+    ];
+    const { tags } = buildPublicSidebar(rows);
+    expect(tags[0]).toEqual({ name: "ai", count: 2 });
+    expect(tags).toHaveLength(16);
   });
 });

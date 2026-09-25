@@ -1,3 +1,4 @@
+@import "./vc-blocks.css";
 /* vc-rich-content.css — the blog theme contract (--vc-* tokens) + rich-content
    component styles. Shared by public SSR and the dashboard preview.
 
@@ -30,6 +31,13 @@
   --vc-card-fg:     var(--vc-fg);
   --vc-border:      light-dark(oklch(90.5% 0.004 95),  oklch(29% 0.006 260));
   --vc-hairline:    light-dark(oklch(93.5% 0.003 95),  oklch(23.5% 0.005 260));
+
+  /* Layered surfaces (cards, header cards, tiles, prev/next) */
+  --vc-surface:        light-dark(oklch(100% 0 0),        oklch(19.2% 0.005 260));
+  --vc-surface-hover:  light-dark(oklch(97.8% 0.003 95),  oklch(22% 0.006 260));
+  --vc-surface-border: light-dark(oklch(91.5% 0.004 95),  oklch(27% 0.006 260));
+  --vc-shadow:         light-dark(0 1px 2px oklch(0% 0 0 / 0.04), 0 1px 2px oklch(0% 0 0 / 0.3));
+  --vc-tint:           color-mix(in oklch, var(--vc-accent) 12%, var(--vc-bg));
 
   /* Accent (per-site) */
   --vc-accent:      light-dark(var(--vc-accent-light, oklch(45% 0.11 154)), var(--vc-accent-dark, oklch(81% 0.17 153)));
@@ -75,14 +83,14 @@
   /* Type + rhythm (presets.css re-voices these) */
   --vc-font-mono:       "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --vc-prose-size:      1.0625rem;
-  --vc-prose-measure:   40rem;
+  --vc-prose-measure:   var(--vc-user-measure, 40rem);
   --vc-prose-leading:   1.72;
   --vc-heading-scale:   1;
   --vc-heading-weight:  650;
   --vc-heading-tracking: -0.022em;
   --vc-prose-gap:       1.25em;
   --vc-section-gap:     2.75rem;
-  --vc-radius:          8px;
+  --vc-radius:          var(--vc-user-radius, 8px);
 }
 
 [data-vc-theme][data-vc-mode="light"],

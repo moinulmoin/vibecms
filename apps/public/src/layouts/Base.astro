@@ -5,25 +5,47 @@ import type { ResolvedSocialImage } from "../lib/seo-meta";
 import subscribeFormScriptUrl from "../scripts/subscribe-form.js?url";
 import codeCopyScriptUrl from "../scripts/code-copy.js?url";
 import readingScriptUrl from "../scripts/reading.js?url";
+import blocksScriptUrl from "../scripts/blocks.js?url";
+import mermaidScriptUrl from "@mermaid-js/tiny/dist/mermaid.tiny.js?url";
+import modeInitScriptUrl from "../scripts/mode-init.js?url";
+import geistUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2?url";
+import geistMonoUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2?url";
+import newsreaderUrl from "@vc/ui/assets/fonts/Newsreader-Variable.woff2?url";
+import spaceGroteskUrl from "@vc/ui/assets/fonts/SpaceGrotesk-Variable.woff2?url";
+import hankenUrl from "@vc/ui/assets/fonts/HankenGrotesk-Variable.woff2?url";
+
+/** Font files per pairing (body + heading), preloaded so text doesn't swap late. */
+const FONT_PRELOADS: Record<string, string[]> = {
+  "geist-sans": [geistUrl],
+  serif: [newsreaderUrl],
+  grotesk: [geistUrl, spaceGroteskUrl],
+  humanist: [hankenUrl],
+  mono: [geistUrl, geistMonoUrl],
+};
 interface Props {
   /** Site theme attributes for <html> (from siteThemeRootAttributes). */
   themeAttrs?: Record<string, string>;
   /** RSS feed URL advertised to feed readers. */
   feedHref?: string;
   feedTitle?: string;
+  /** Resolved font pairing id for preloading. */
+  fontId?: string;
   title?: string;
   description?: string;
   robots?: string;
   canonical?: string;
   socialImage?: ResolvedSocialImage;
 }
-const { title, description, robots, canonical, socialImage, themeAttrs, feedHref, feedTitle } = Astro.props;
+const { title, description, robots, canonical, socialImage, themeAttrs, feedHref, feedTitle, fontId } = Astro.props;
+const preloadFonts = themeAttrs ? FONT_PRELOADS[fontId ?? "geist-sans"] ?? [] : [];
 ---
 <!doctype html>
 <html lang="en" {...themeAttrs}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {themeAttrs ? <script is:inline src={modeInitScriptUrl}></script> : null}
+    {preloadFonts.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
     {title ? <title>{title}</title> : null}
     {description ? <meta name="description" content={description} /> : null}
     {robots ? <meta name="robots" content={robots} /> : null}
@@ -51,5 +73,6 @@ const { title, description, robots, canonical, socialImage, themeAttrs, feedHref
     <script is:inline src={subscribeFormScriptUrl} defer></script>
     <script is:inline src={codeCopyScriptUrl} defer></script>
     <script is:inline src={readingScriptUrl} defer></script>
+    <script is:inline src={blocksScriptUrl} data-mermaid-src={mermaidScriptUrl} defer></script>
   </body>
 </html>

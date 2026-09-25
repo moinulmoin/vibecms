@@ -34,6 +34,12 @@ export interface PublicSiteRow {
   themeAccent: string | null;
   themeFont: string | null;
   themeMode: string;
+  // Template shape knobs — nullable→template default (resolveRadius/resolveWidth).
+  themeRadius: string | null;
+  themeWidth: string | null;
+  // Public byline. Null name → site name at render; the account email is never read here.
+  bylineName: string | null;
+  showAgentCredit: boolean;
   description: string | null;
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
@@ -78,6 +84,8 @@ export interface PublicPostBodyRow extends PublicPostSummaryRow {
 export interface PublicPostDetailRow extends PublicPostBodyRow {
   presentationJson: string | null;
   presentation: Presentation | null;
+  /** The pinned published version was written by an agent (MCP/CLI/API key), not a human edit. */
+  publishedByAgent: boolean;
 }
 
 const coverAssetMimeType = sql<string | null>`(
@@ -150,6 +158,10 @@ const siteResolveColumns = {
   themeAccent: sites.themeAccent,
   themeFont: sites.themeFont,
   themeMode: sites.themeMode,
+  themeRadius: sites.themeRadius,
+  themeWidth: sites.themeWidth,
+  bylineName: sites.bylineName,
+  showAgentCredit: sites.showAgentCredit,
   description: sites.description,
   defaultSeoTitle: sites.defaultSeoTitle,
   defaultSeoDescription: sites.defaultSeoDescription,
@@ -242,7 +254,11 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
 
     async getPublishedPost(siteId: string, slug: string, now: number) {
       const rows = await client
-        .select({ ...bodyColumns, presentationJson: postVersions.presentationJson })
+        .select({
+          ...bodyColumns,
+          presentationJson: postVersions.presentationJson,
+          publishedVersionCreatedByType: postVersions.createdByType,
+        })
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(
@@ -254,8 +270,13 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .limit(1);
       const row = rows[0];
       if (!row) return null;
-      const { presentationJson, ...rest } = row;
-      return { ...rest, presentationJson, presentation: parsePresentation(presentationJson) };
+      const { presentationJson, publishedVersionCreatedByType, ...rest } = row;
+      return {
+        ...rest,
+        presentationJson,
+        presentation: parsePresentation(presentationJson),
+        publishedByAgent: publishedVersionCreatedByType === "agent" || publishedVersionCreatedByType === "api_key",
+      };
     },
 
     async listPublishedPostSummaries(siteId: string, now: number, limit: number) {

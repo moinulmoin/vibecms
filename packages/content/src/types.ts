@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import type { RenderWarningCode } from "./constants.js";
+
+export type { RenderWarningCode };
 
 export interface OutlineEntry {
   readonly depth: number;
@@ -10,12 +13,17 @@ export interface RenderResult {
   readonly node: ReactNode;
   readonly outline: OutlineEntry[];
   readonly warnings: string[];
+  /** Stable codes for `warnings`, index-aligned (see RENDER_WARNING). */
+  readonly warningCodes: RenderWarningCode[];
 }
 
 export interface RenderedImageAttributes {
   readonly src?: string;
   readonly srcSet?: string;
   readonly sizes?: string;
+  /** Intrinsic size; emitted as width/height so the page reserves space. */
+  readonly width?: number;
+  readonly height?: number;
 }
 
 /** One Shiki-highlighted line list; each line is a HAST `span.line`. */
@@ -27,6 +35,18 @@ export interface HighlightedCode {
 export interface CodeHighlighter {
   supports(lang: string): boolean;
   highlight(code: string, lang: string): HighlightedCode | null;
+  /** Math renderer shipped alongside the highlighter; used when `RenderOpts.math` is unset. */
+  readonly math?: MathRenderer | null;
+}
+
+/** Rendered math: HAST nodes (trusted, generated) or the parse error. */
+export type RenderedMath =
+  | { readonly nodes: readonly { type: string; [key: string]: unknown }[] }
+  | { readonly error: string };
+
+/** Injectable TeX renderer (see `@vc/content/math`). */
+export interface MathRenderer {
+  render(tex: string, displayMode: boolean): RenderedMath;
 }
 
 export interface RenderOpts {
@@ -36,6 +56,11 @@ export interface RenderOpts {
    * public pages pass the bundled Shiki highlighter, the dashboard lazy-loads it.
    */
   readonly highlighter?: CodeHighlighter | null;
+  /**
+   * TeX renderer for `$$...$$` / ```math. Defaults to `highlighter.math`;
+   * pass null to force the plain-source fallback.
+   */
+  readonly math?: MathRenderer | null;
   /**
    * "feed" drops interactive chrome (copy buttons, heading anchors) and makes
    * relative URLs absolute against `baseUrl`, for RSS `content:encoded`.

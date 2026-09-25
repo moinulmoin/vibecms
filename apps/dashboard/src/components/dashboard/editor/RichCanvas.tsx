@@ -161,7 +161,7 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
     }
   }
 
-  const theme = siteTheme ? resolveSiteTheme(siteTheme) : undefined
+  const theme = siteTheme ? resolveSiteTheme(siteTheme, presetId) : undefined
   return (
     <div
       ref={canvasRef}

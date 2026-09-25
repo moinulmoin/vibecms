@@ -49,6 +49,17 @@ export const siteDtoSchema = z.object({
   /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
   voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
+  /** Blog template (preset) id: minimal, editorial, technical (Notebook), or product (Magazine). */
+  template: z.string(),
+  /**
+   * Public byline. `name` is the owner's public name (or the site name) and is
+   * never an email. With `agentCredit`, agent-written posts read
+   * "Written with an agent · Reviewed by {name}".
+   */
+  byline: z.object({
+    name: z.string(),
+    agentCredit: z.boolean(),
+  }),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -143,6 +154,10 @@ export const formatGuideDtoSchema = z.object({
   recommendedComponents: z.array(z.string()),
   presetGuidance: z.string(),
   examples: z.string(),
+  /** Structured syntax vocabulary (guide v4+); `examples` stays the prose reference. */
+  syntax: z
+    .array(z.object({ id: z.string(), summary: z.string(), example: z.string() }))
+    .optional(),
   presentationOptions: z.object({
     supportedLayouts: z.array(z.enum(PRESENTATION_LAYOUTS)),
     default: z.object({ layout: z.enum(PRESENTATION_LAYOUTS), toc: z.boolean() }),

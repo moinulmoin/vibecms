@@ -49,6 +49,10 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
       themeAccent: 'teal',
       themeFont: 'geist-sans',
       themeMode: 'system',
+      themeRadius: 'md',
+      themeWidth: 'normal',
+      bylineName: '',
+      showAgentCredit: true,
       updatedAt: 10,
       newsletterSettings: {
         enabled: true,
@@ -125,7 +129,7 @@ describe('ThemePage', () => {
     await settle()
 
     const technical = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Technical'),
+      button.textContent?.includes('Notebook'),
     )
     expect(technical).toBeTruthy()
     await act(async () => technical?.dispatchEvent(new MouseEvent('click', { bubbles: true })))

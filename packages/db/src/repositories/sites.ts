@@ -18,6 +18,11 @@ export interface CurrentSite {
   slug: string;
   description: string | null;
   voiceSeedJson: string;
+  /** Preset / template id (resolve with resolvePresetId). */
+  theme: string | null;
+  /** Public byline name; null = the site name. */
+  bylineName: string | null;
+  showAgentCredit: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -60,6 +65,12 @@ export interface SiteSettings {
   themeAccent: string | null;
   themeFont: string | null;
   themeMode: string;
+  // Template shape knobs — nullable→template default on read.
+  themeRadius: string | null;
+  themeWidth: string | null;
+  // Public byline — null name falls back to the site name (never the email).
+  bylineName: string | null;
+  showAgentCredit: boolean;
   newsletterSettings: string | null;
   updatedAt: number;
 }
@@ -134,6 +145,12 @@ export interface UpdateSiteSettingsInput {
     themeAccent: string | null;
     themeFont: string | null;
     themeMode: string;
+    // Template knobs — null = the template's default.
+    themeRadius: string | null;
+    themeWidth: string | null;
+    // Public byline — null = the site name.
+    bylineName: string | null;
+    showAgentCredit: boolean;
   }>;
   activity: SiteActivityEntry;
 }
@@ -191,6 +208,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           slug: sites.slug,
           description: sites.description,
           voiceSeedJson: sites.voiceSeedJson,
+          theme: sites.theme,
+          bylineName: sites.bylineName,
+          showAgentCredit: sites.showAgentCredit,
           createdAt: sites.createdAt,
           updatedAt: sites.updatedAt,
         })
@@ -302,6 +322,10 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           themeAccent: sites.themeAccent,
           themeFont: sites.themeFont,
           themeMode: sites.themeMode,
+          themeRadius: sites.themeRadius,
+          themeWidth: sites.themeWidth,
+          bylineName: sites.bylineName,
+          showAgentCredit: sites.showAgentCredit,
           newsletterSettings: sites.newsletterSettings,
           updatedAt: sites.updatedAt,
         })
@@ -484,13 +508,21 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         ["themeAccent", "theme_accent"],
         ["themeFont", "theme_font"],
         ["themeMode", "theme_mode"],
+        ["themeRadius", "theme_radius"],
+        ["themeWidth", "theme_width"],
+        ["bylineName", "byline_name"],
+        ["showAgentCredit", "show_agent_credit"],
       ];
       const updates = settingsColumns.filter(([key]) => input.site[key] !== undefined);
       const updateSql = [
         ...updates.map(([, column]) => `${column} = ?`),
         "updated_at = ?",
       ].join(", ");
-      const updateValues = updates.map(([key]) => input.site[key] as string | null);
+      const updateValues = updates.map(([key]) => {
+        const value = input.site[key];
+        // D1 stores booleans as 0/1 (show_agent_credit).
+        return typeof value === "boolean" ? (value ? 1 : 0) : (value as string | null);
+      });
 
       const [, result] = await db.batch([
         db

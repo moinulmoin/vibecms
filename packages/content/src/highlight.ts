@@ -45,6 +45,7 @@ import vue from "@shikijs/langs/vue";
 import xml from "@shikijs/langs/xml";
 import yaml from "@shikijs/langs/yaml";
 import zig from "@shikijs/langs/zig";
+import { createMathRenderer } from "./math.js";
 import type { CodeHighlighter, HighlightedCode } from "./types.js";
 
 export const CODE_THEMES = { light: "vitesse-light", dark: "vitesse-dark" } as const;
@@ -73,6 +74,9 @@ export function createCodeHighlighter(): CodeHighlighter {
   const hl = core();
   const loaded = new Set(hl.getLoadedLanguages());
   return {
+    // Math ships with the highlighter so every surface that already lazy-loads
+    // colored code (public pages, dashboard previews) renders TeX too.
+    math: createMathRenderer(),
     supports(lang) {
       return loaded.has(lang);
     },

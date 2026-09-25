@@ -1,3 +1,4 @@
+import { resolvePresetId } from "@vc/config";
 import type { Asset, Post, PostSummary, PostVersion, PostVersionSummary } from "@vc/core";
 import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, PostVersionDto, PostVersionSummaryDto, SiteDto } from "./dto";
 
@@ -8,6 +9,9 @@ type SiteMapperRow = {
   slug: string;
   description: string | null;
   voiceSeedJson: string;
+  theme?: string | null;
+  bylineName?: string | null;
+  showAgentCredit?: boolean | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -85,6 +89,11 @@ export function mapSiteRow(
           createdAt: null,
           updatedAt: null,
         },
+    template: resolvePresetId(row.theme),
+    byline: {
+      name: row.bylineName?.trim() || row.name,
+      agentCredit: row.showAgentCredit ?? true,
+    },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

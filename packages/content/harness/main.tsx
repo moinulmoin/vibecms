@@ -7,44 +7,59 @@ import { renderRichContent } from "../src/renderer";
 import { createCodeHighlighter } from "../src/highlight";
 import { PresentedPostArticle, articleHasToc, siteThemeRootAttributes } from "../src/presented-post";
 import { PublicPageChrome } from "../src/public-chrome";
+import { PublicPostList } from "../src/public-post-list";
+import { THEME_PRESETS } from "@vc/config";
 import { SAMPLE_POST } from "./sample";
 
 const q = new URLSearchParams(location.search);
 const presetId = resolvePresetId(q.get("preset"));
-const theme = { accent: q.get("accent"), font: q.get("font"), mode: q.get("mode") ?? "light" };
+const theme = { accent: q.get("accent"), font: q.get("font"), mode: q.get("mode") ?? "light", radius: q.get("radius"), width: q.get("width") };
 for (const [k, v] of Object.entries(siteThemeRootAttributes(presetId, theme))) {
   document.documentElement.setAttribute(k, v);
 }
 document.documentElement.style.background = "var(--vc-bg)";
 
-const { resolved } = resolvePresentation(presetId, { layout: (q.get("layout") as never) ?? undefined, toc: true });
+const { resolved } = resolvePresentation(presetId, { layout: (q.get("layout") as never) ?? THEME_PRESETS[presetId].layout.default.layout, toc: true });
 const result = renderRichContent(SAMPLE_POST, { pageTitle: "Shipping a blog your agents can write", highlighter: createCodeHighlighter() });
 const view = q.get("view") ?? "post";
 
+const SIDEBAR = {
+  recent: [
+    { title: "Versions are the product", href: "#" },
+    { title: "Markdown, all the way down", href: "#" },
+    { title: "Designing for agents", href: "#" },
+  ],
+  tags: [
+    { name: "agents", href: "#", count: 4 },
+    { name: "mcp", href: "#", count: 3 },
+    { name: "writing", href: "#", count: 2 },
+    { name: "design", href: "#", count: 1 },
+  ],
+};
+
 function Index() {
+  const day = 86400;
+  const t0 = 1790208000;
   const posts = [
-    ["Shipping a blog your agents can write", "How we let coding agents draft and publish without ever handing over the keys.", "Sep 24, 2026"],
-    ["Versions are the product", "Every save is a snapshot you can diff and restore. Here's why that matters more than the editor.", "Sep 12, 2026"],
-    ["Markdown, all the way down", "Callouts, footnotes, highlighted code, and a feed that reads cleanly everywhere.", "Aug 30, 2026"],
-  ];
+    ["Shipping a blog your agents can write", "How we let coding agents draft and publish without ever handing over the keys.", t0, ["agents"]],
+    ["Versions are the product", "Every save is a snapshot you can diff and restore. Here's why that matters more than the editor.", t0 - 12 * day, ["versions"]],
+    ["Markdown, all the way down", "Callouts, footnotes, highlighted code, and a feed that reads cleanly everywhere.", t0 - 25 * day, ["markdown"]],
+    ["Designing for agents", "What changes when half your authors are software.", t0 - 40 * day, ["design"]],
+    ["A calm publishing loop", "Draft, review, publish. Nothing goes live by accident.", t0 - 47 * day, ["workflow"]],
+  ] as const;
   return (
-    <PublicPageChrome siteName="Field Notes" tagline="Notes on building calm software with agents." homeHref="/" homeHeading presetId={presetId} theme={theme} searchAction="/" feedHref="/feed.xml" subscribeVariant="footer">
-      <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {posts.map(([t, e, d]) => (
-          <li key={t} style={{ padding: "1.35rem 0", borderTop: "1px solid var(--vc-hairline)" }}>
-            <h2 style={{ margin: "0 0 .35rem", fontSize: "1.1875rem", fontFamily: "var(--vc-font-heading)", fontWeight: 650 }}>{t}</h2>
-            <p style={{ margin: "0 0 .5rem", color: "var(--vc-muted-fg)" }}>{e}</p>
-            <p style={{ margin: 0, color: "var(--vc-muted-fg)", fontSize: ".8125rem" }}>{d}</p>
-          </li>
-        ))}
-      </ol>
+    <PublicPageChrome siteName="Field Notes" tagline="Notes on building calm software with agents." homeHref="/" homeHeading presetId={presetId} theme={theme} searchAction="/" feedHref="/feed.xml" subscribeVariant="footer" modeToggle sidebar={SIDEBAR}>
+      <PublicPostList
+        variant={THEME_PRESETS[presetId].template.index}
+        posts={posts.map(([title, excerpt, at, tags], i) => ({ id: String(i), title, excerpt, publishedAt: at, tags: [...tags], href: "#" }))}
+      />
     </PublicPageChrome>
   );
 }
 
 function Post() {
   return (
-    <PublicPageChrome siteName="Field Notes" homeHref="/" allPostsHref="/" presetId={presetId} theme={theme} article wide={articleHasToc(resolved, result.outline)} feedHref="/feed.xml" subscribeVariant="end">
+    <PublicPageChrome siteName="Field Notes" tagline="Notes on building calm software with agents." homeHref="/" allPostsHref="/" presetId={presetId} theme={theme} article wide={articleHasToc(resolved, result.outline)} layout={resolved.layout} feedHref="/feed.xml" subscribeVariant="end" modeToggle sidebar={SIDEBAR}>
       <PresentedPostArticle
         renderResult={result}
         presetId={presetId}
@@ -56,8 +71,10 @@ function Post() {
         tags={["agents", "mcp", "writing"]}
         basePath=""
         theme={theme}
-        newer={{ title: "Versions are the product", href: "#" }}
-        older={{ title: "Markdown, all the way down", href: "#" }}
+        author={{ name: "Moinul", agent: q.get("agent") !== "0" }}
+        actions={{ markdownUrl: "https://example.com/post.md", shareUrl: "https://example.com/post" }}
+        newer={{ title: "Versions are the product", href: "#", publishedAt: 1790208000 - 86400 * 12 }}
+        older={{ title: "Markdown, all the way down", href: "#", publishedAt: 1790208000 - 86400 * 25 }}
       />
     </PublicPageChrome>
   );

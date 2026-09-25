@@ -252,6 +252,12 @@ export const settingsPageDataSchema = z.object({
     themeAccent: z.string(),
     themeFont: z.string(),
     themeMode: z.string(),
+    // Template knobs (resolved against the current template) and the public
+    // byline. Defaults keep older API payloads parseable during a deploy.
+    themeRadius: z.string().default('md'),
+    themeWidth: z.string().default('normal'),
+    bylineName: z.string().default(''),
+    showAgentCredit: z.boolean().default(true),
     updatedAt: z.number(),
     newsletterSettings: z.object({
       enabled: z.boolean(),

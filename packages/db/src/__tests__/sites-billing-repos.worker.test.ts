@@ -279,6 +279,10 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         themeAccent: null,
         themeFont: null,
         themeMode: "system",
+        themeRadius: "lg",
+        themeWidth: "wide",
+        bylineName: "Ada Lovelace",
+        showAgentCredit: false,
       },
       activity: {
         id: "act-sb-settings-saved",
@@ -298,6 +302,10 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
       defaultSeoDescription: "Settings SEO Description",
       theme: "editorial",
       slug: "site-sb-settings",
+      themeRadius: "lg",
+      themeWidth: "wide",
+      bylineName: "Ada Lovelace",
+      showAgentCredit: false,
       updatedAt: T2,
     });
 
@@ -368,6 +376,10 @@ describe("sites read getters — seeded values and null for unknown ids", () => 
       slug: "site-sb-getters",
       defaultSeoTitle: null,
       defaultSeoDescription: null,
+      themeRadius: null,
+      themeWidth: null,
+      bylineName: null,
+      showAgentCredit: true,
     });
     // Known member is the owner; an unknown user resolves to no membership.
     expect(await da.sites.getMembershipRole("ws-sb-getters", "user-sb-getters")).toBe("owner");

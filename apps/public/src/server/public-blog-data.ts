@@ -23,6 +23,13 @@ export type SiteRow = {
   theme_accent: string | null;
   theme_font: string | null;
   theme_mode: string;
+  /** Template knobs; null = the template's default (resolveRadius/resolveWidth). */
+  theme_radius: string | null;
+  theme_width: string | null;
+  /** Public author name; null falls back to the site name. Never the account email. */
+  byline_name: string | null;
+  /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
+  show_agent_credit: boolean;
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
@@ -66,6 +73,8 @@ export type PostBodyRow = PostSummaryRow & {
 export type PostDetailRow = PostBodyRow & {
   presentation_json: string | null;
   presentation: Presentation | null;
+  /** The pinned published version was written by an agent (agent / API key), not a human edit. */
+  published_by_agent: boolean;
 };
 function parseNewsletterSettings(raw: string | null): NewsletterSettings | null {
   if (!raw) return null;
@@ -101,6 +110,10 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     theme_accent: row.themeAccent,
     theme_font: row.themeFont,
     theme_mode: row.themeMode,
+    theme_radius: row.themeRadius ?? null,
+    theme_width: row.themeWidth ?? null,
+    byline_name: row.bylineName ?? null,
+    show_agent_credit: row.showAgentCredit ?? true,
     description: row.description,
     default_seo_title: row.defaultSeoTitle,
     default_seo_description: row.defaultSeoDescription,
@@ -150,6 +163,7 @@ function toPostDetailRow(row: PublicPostDetailRow): PostDetailRow {
     ...toPostBodyRow(row),
     presentation_json: row.presentationJson,
     presentation: row.presentation,
+    published_by_agent: row.publishedByAgent,
   };
 }
 

@@ -1,8 +1,8 @@
-/* presets.css — blog preset identities. Color comes from the shared token
-   block in vc-rich-content.css plus the per-site accent; presets only re-voice
-   type and rhythm, with matching chrome rules in presented-post.module.css
-   (title voice, meta line), prose.module.css (pull quote), and
-   public-blog.module.css (index density). Minimal is the reference voice. */
+/* presets.css — template voices. Each template (see TEMPLATES in
+   @vc/config) re-voices type and rhythm here; structure comes from the
+   data-vc-chrome / data-vc-index / data-vc-header attributes in the CSS
+   modules. Radius and measure read the owner's --vc-user-* override first
+   (resolveSiteTheme), then the template default. Minimal is the reference. */
 
 @layer base {
 
@@ -10,41 +10,41 @@
    headings, pull quotes. Pairs best with the Newsreader font. */
 [data-vc-theme="editorial"] {
   --vc-prose-size:       1.1875rem;
-  --vc-prose-measure:    38rem;
+  --vc-prose-measure:    var(--vc-user-measure, 36rem);
   --vc-prose-leading:    1.75;
   --vc-prose-gap:        1.35em;
   --vc-section-gap:      3.25rem;
   --vc-heading-scale:    1.06;
   --vc-heading-weight:   560;
   --vc-heading-tracking: -0.012em;
-  --vc-radius:           4px;
+  --vc-radius:           var(--vc-user-radius, 4px);
 }
 
 /* Technical — documentation: wider measure for code and tables, tighter
    rhythm, mono-accented metadata. */
 [data-vc-theme="technical"] {
   --vc-prose-size:       1rem;
-  --vc-prose-measure:    44rem;
+  --vc-prose-measure:    var(--vc-user-measure, 46rem);
   --vc-prose-leading:    1.66;
   --vc-prose-gap:        1.1em;
   --vc-section-gap:      2.5rem;
   --vc-heading-scale:    0.94;
   --vc-heading-weight:   640;
   --vc-heading-tracking: -0.018em;
-  --vc-radius:           6px;
+  --vc-radius:           var(--vc-user-radius, 4px);
 }
 
 /* Product — launch voice: biggest headings, confident deck, soft radius. */
 [data-vc-theme="product"] {
   --vc-prose-size:       1.0625rem;
-  --vc-prose-measure:    40rem;
+  --vc-prose-measure:    var(--vc-user-measure, 40rem);
   --vc-prose-leading:    1.7;
   --vc-prose-gap:        1.3em;
   --vc-section-gap:      3rem;
   --vc-heading-scale:    1.12;
   --vc-heading-weight:   720;
   --vc-heading-tracking: -0.032em;
-  --vc-radius:           12px;
+  --vc-radius:           var(--vc-user-radius, 14px);
 }
 
 } /* @layer base */

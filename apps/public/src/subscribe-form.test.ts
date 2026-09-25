@@ -209,6 +209,10 @@ const site = {
   theme_accent: null,
   theme_font: null,
   theme_mode: "light",
+  theme_radius: null,
+  theme_width: null,
+  byline_name: null,
+  show_agent_credit: true,
   description: null,
   default_seo_title: null,
   default_seo_description: null,
@@ -249,6 +253,7 @@ const post = {
   tags_json: "[]",
   presentation_json: null,
   presentation: null,
+  published_by_agent: false,
 };
 
 describe("subscribe form rendered-control contract", () => {
@@ -266,6 +271,8 @@ describe("subscribe form rendered-control contract", () => {
           origin: "https://site-1.basedui.dev",
           indexable: true,
           cacheTags: [],
+          sidebar: { recent: [], tags: [] },
+          byline: { name: "Site One", agent: false },
         } satisfies PublicPostLoaderData,
       }),
     );
@@ -298,6 +305,8 @@ describe("subscribe form rendered-control contract", () => {
           origin: "https://site-1.basedui.dev",
           indexable: true,
           cacheTags: [],
+          sidebar: { recent: [], tags: [] },
+          byline: { name: "Site One", agent: false },
         } satisfies PublicPostLoaderData,
       }),
     );
@@ -328,21 +337,21 @@ describe("public editorial article rendering", () => {
     presentation: { toc: true },
   };
 
+  const articleData = {
+    site: articleSite,
+    post: articlePost,
+    basePath: "",
+    canonicalUrl: "/structured-article",
+    origin: "https://site-1.basedui.dev",
+    indexable: true,
+    cacheTags: [],
+    sidebar: { recent: [], tags: [] },
+    byline: { name: "Site One", agent: false },
+  } satisfies PublicPostLoaderData;
+
   let markup: string;
   beforeAll(() => {
-    markup = renderToStaticMarkup(
-      createElement(PublicBlogPostView, {
-        data: {
-          site: articleSite,
-          post: articlePost,
-          basePath: "",
-          canonicalUrl: "/structured-article",
-          origin: "https://site-1.basedui.dev",
-          indexable: true,
-          cacheTags: [],
-        } satisfies PublicPostLoaderData,
-      }),
-    );
+    markup = renderToStaticMarkup(createElement(PublicBlogPostView, { data: articleData }));
   });
 
   it("renders the article-page marker on the page main", () => {
@@ -394,10 +403,22 @@ describe("public editorial article rendering", () => {
     expect(markup).toContain(">Third Section</a>");
   });
 
-  it("produces desktop navigation TOC rail markup", () => {
-    // The sticky sidebar nav is rendered alongside the body.
-    expect(markup).toContain('<nav');
-    expect(markup).toContain('aria-label="On this page"');
+  it("keeps essays (editorial's default layout) to the floating outline, with no side rail", () => {
+    expect(markup).toContain("On this page");
+    expect(markup).not.toContain('<nav aria-label="On this page"');
+  });
+
+  it("renders the side ToC rail for a standard-layout post", () => {
+    const standard = renderToStaticMarkup(
+      createElement(PublicBlogPostView, {
+        data: {
+          ...articleData,
+          post: { ...articleData.post, presentation: { toc: true, layout: "standard" } },
+        },
+      }),
+    );
+    expect(standard).toContain('aria-label="On this page"');
+    expect(standard).toContain("<nav");
   });
 });
 
@@ -412,6 +433,8 @@ describe("article masthead navigation", () => {
         origin: "https://site-1.basedui.dev",
         indexable: true,
         cacheTags: [],
+        sidebar: { recent: [], tags: [] },
+        byline: { name: "Site One", agent: false },
       } satisfies PublicPostLoaderData,
     }),
   );
@@ -442,6 +465,8 @@ describe("subscription callout copy and consent", () => {
         origin: "https://site-1.basedui.dev",
         indexable: true,
         cacheTags: [],
+        sidebar: { recent: [], tags: [] },
+        byline: { name: "Site One", agent: false },
       } satisfies PublicPostLoaderData,
     }),
   );

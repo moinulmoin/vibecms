@@ -1,6 +1,18 @@
 import type { Actor } from '@vc/core'
 import { listCustomDomains } from '@vc/core'
-import { resolveAccent, resolveFont, resolveMode, resolvePresetId } from '@vc/config'
+import {
+  BYLINE_NAME_MAX_LENGTH,
+  resolveAccent,
+  resolveFont,
+  resolveThemeAccent,
+  resolveThemeFont,
+  resolveMode,
+  resolvePresetId,
+  resolveRadius,
+  resolveWidth,
+  THEME_RADII,
+  THEME_WIDTHS,
+} from '@vc/config'
 import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS } from '@vc/db'
 import { isReservedSiteSlug, newsletterSettingsSchema, type NewsletterSettings } from '@vc/validators'
 import { env } from 'cloudflare:workers'
@@ -359,6 +371,12 @@ export type SiteSettingsPayload = {
   themeAccent?: string | null
   themeFont?: string | null
   themeMode?: string
+  // Template shape knobs; null resets to the template's default.
+  themeRadius?: string | null
+  themeWidth?: string | null
+  // Public byline. ''/null = use the site name. Never the account email.
+  bylineName?: string | null
+  showAgentCredit?: boolean
 }
 
 export async function getSiteSettings(app: AppUserContext) {
@@ -372,9 +390,15 @@ export async function getSiteSettings(app: AppUserContext) {
     defaultSocialAssetId: site?.defaultSocialAssetId ?? null,
     theme: resolvePresetId(site?.theme),
     slug: site?.slug ?? '',
-    themeAccent: resolveAccent(site?.themeAccent),
-    themeFont: resolveFont(site?.themeFont),
+    // Unset = the template's defaults, exactly as the public blog renders them.
+    themeAccent: resolveThemeAccent(site?.themeAccent, site?.theme),
+    themeFont: resolveThemeFont(site?.themeFont, site?.theme),
     themeMode: resolveMode(site?.themeMode),
+    // Resolved against the current template, so null reads as its default.
+    themeRadius: resolveRadius(site?.themeRadius, site?.theme),
+    themeWidth: resolveWidth(site?.themeWidth, site?.theme),
+    bylineName: site?.bylineName ?? '',
+    showAgentCredit: site?.showAgentCredit ?? true,
     newsletterSettings: parseNewsletterSettings(site?.newsletterSettings),
     updatedAt: site?.updatedAt ?? 0,
   }
@@ -454,6 +478,30 @@ export async function updateSiteSettingsForApp(
     site.themeFont = payload.themeFont === null ? null : resolveFont(payload.themeFont)
   }
   if (payload.themeMode !== undefined) site.themeMode = resolveMode(payload.themeMode)
+  if (payload.themeRadius !== undefined) {
+    if (payload.themeRadius !== null && !(THEME_RADII as readonly string[]).includes(payload.themeRadius)) {
+      return { kind: 'error', code: 'invalid_theme_radius' }
+    }
+    site.themeRadius = payload.themeRadius
+  }
+  if (payload.themeWidth !== undefined) {
+    if (payload.themeWidth !== null && !(THEME_WIDTHS as readonly string[]).includes(payload.themeWidth)) {
+      return { kind: 'error', code: 'invalid_theme_width' }
+    }
+    site.themeWidth = payload.themeWidth
+  }
+  if (payload.bylineName !== undefined) {
+    if (payload.bylineName !== null && typeof payload.bylineName !== 'string') {
+      return { kind: 'error', code: 'invalid_byline_name' }
+    }
+    const bylineName = payload.bylineName?.trim() ?? ''
+    if (bylineName.length > BYLINE_NAME_MAX_LENGTH) return { kind: 'error', code: 'invalid_byline_name' }
+    site.bylineName = bylineName || null
+  }
+  if (payload.showAgentCredit !== undefined) {
+    if (typeof payload.showAgentCredit !== 'boolean') return { kind: 'error', code: 'invalid_agent_credit' }
+    site.showAgentCredit = payload.showAgentCredit
+  }
 
   if (Object.keys(site).length === 0) return { kind: 'error', code: 'no_settings_changes' }
 

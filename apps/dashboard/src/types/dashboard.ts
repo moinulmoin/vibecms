@@ -255,6 +255,14 @@ export type SiteSettingsForm = {
   themeAccent: string
   themeFont: string
   themeMode: string
+  /** Resolved template radius (THEME_RADII). */
+  themeRadius: string
+  /** Resolved template reading width (THEME_WIDTHS). */
+  themeWidth: string
+  /** Public author name; '' means "use the site name". Never the email. */
+  bylineName: string
+  /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
+  showAgentCredit: boolean
   updatedAt: number
   newsletterSettings: NewsletterSettings
 }
@@ -310,6 +318,12 @@ export type EditorSiteInfo = {
   themeAccent: string | null
   themeFont: string | null
   themeMode: string
+  /** Template shape knobs (null = template default). */
+  themeRadius?: string | null
+  themeWidth?: string | null
+  /** Public author name (null = site name) and agent credit setting. */
+  bylineName?: string | null
+  showAgentCredit?: boolean
   /** Subscribe form copy/visibility, as the public end-of-post form uses it. */
   newsletterSettings?: { enabled: boolean; heading: string; subtext: string; buttonLabel: string } | null
 }

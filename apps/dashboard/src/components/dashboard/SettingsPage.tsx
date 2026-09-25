@@ -21,6 +21,7 @@ import { PageHeader, PageSkeleton, PageTabs, Section, StatusBadge } from '~/comp
 import { PlanAndBilling } from '~/components/dashboard/BillingPage'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { Checkbox } from '~/components/ui/checkbox'
+import { Switch } from '~/components/ui/switch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
@@ -69,6 +70,10 @@ type SiteSettingsForm = {
   themeAccent: AccentId
   themeFont: FontId
   themeMode: ThemeMode
+  themeRadius: string
+  themeWidth: string
+  bylineName: string
+  showAgentCredit: boolean
   updatedAt: number
   newsletterSettings: NewsletterSettings
 }
@@ -181,6 +186,7 @@ function siteDraftFromForm(form: HTMLFormElement) {
     defaultSeoTitle: String(fields.get('defaultSeoTitle') ?? ''),
     defaultSeoDescription: String(fields.get('defaultSeoDescription') ?? ''),
     defaultSocialAssetId: String(fields.get('defaultSocialAssetId') ?? ''),
+    bylineName: String(fields.get('bylineName') ?? '').trim(),
   }
 }
 
@@ -190,6 +196,7 @@ function isSiteDraftDirty(draft: ReturnType<typeof siteDraftFromForm>, baseline:
     || draft.defaultSeoTitle !== baseline.defaultSeoTitle
     || draft.defaultSeoDescription !== baseline.defaultSeoDescription
     || draft.defaultSocialAssetId !== (baseline.defaultSocialAssetId ?? '')
+    || draft.bylineName !== baseline.bylineName
 }
 
 /** Save row at the foot of a form: disabled and quiet until something changes. */
@@ -286,6 +293,9 @@ export function SettingsPage() {
   // Dirty-gated saves: the site form is uncontrolled (FormData on submit), so
   // dirtiness compares a snapshot of the live form against the loaded values.
   const [siteDirty, setSiteDirty] = useState(false)
+  // The agent-credit switch is controlled (Radix), so its dirtiness is tracked
+  // against the loaded value rather than read back from FormData.
+  const [agentCredit, setAgentCredit] = useState(true)
   const [siteFormRevision, setSiteFormRevision] = useState(0)
   const [voiceDirty, setVoiceDirty] = useState(false)
 
@@ -301,6 +311,7 @@ export function SettingsPage() {
     if (!data || seeded) return
     setSeeded(true)
     setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
+    setAgentCredit(data.site.showAgentCredit)
     seedVoice(data.voiceProfile)
   }, [data, seeded])
 
@@ -335,6 +346,7 @@ export function SettingsPage() {
 
   function discardSite() {
     setSelectedSocialAssetId(data?.site.defaultSocialAssetId ?? '')
+    setAgentCredit(data?.site.showAgentCredit ?? true)
     setSiteDirty(false)
     setSiteFormRevision((revision) => revision + 1)
   }
@@ -348,6 +360,7 @@ export function SettingsPage() {
       expectedUpdatedAt: data?.site.updatedAt ?? 0,
       ...submitted,
       defaultSocialAssetId: submitted.defaultSocialAssetId || null,
+      showAgentCredit: agentCredit,
     }
     setFormPending('site')
     try {
@@ -359,6 +372,7 @@ export function SettingsPage() {
           setSiteDirty(true)
         } else {
           setSelectedSocialAssetId(refreshed.site.defaultSocialAssetId ?? '')
+          setAgentCredit(refreshed.site.showAgentCredit)
           setSiteDirty(false)
           setSiteFormRevision((revision) => revision + 1)
         }
@@ -481,10 +495,11 @@ export function SettingsPage() {
   const requested = search.tab === 'theme' ? undefined : (search.tab as SettingsTab | undefined)
   const activeTab: SettingsTab = requested && tabs.some((tab) => tab === requested) ? requested : 'site'
   const defaultAddress = data.publicBaseUrl
+  const siteFormDirty = siteDirty || agentCredit !== site.showAgentCredit
 
   return (
     <>
-      <UnsavedNavigationGuard when={siteDirty || voiceDirty} />
+      <UnsavedNavigationGuard when={siteFormDirty || voiceDirty} />
       {header}
       <Tabs
         value={activeTab}
@@ -536,6 +551,36 @@ export function SettingsPage() {
               ) : null}
             </Section>
 
+            <Section title="Byline">
+              <Field>
+                <FieldLabel htmlFor="site-byline-name">Public name</FieldLabel>
+                <Input
+                  id="site-byline-name"
+                  name="bylineName"
+                  maxLength={80}
+                  autoComplete="name"
+                  placeholder={site.name}
+                  defaultValue={site.bylineName}
+                  aria-describedby="site-byline-name-help"
+                />
+                <FieldHint id="site-byline-name-help">Shown as the author on your posts. Your email is never shown.</FieldHint>
+              </Field>
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1">
+                  <FieldLabel htmlFor="site-agent-credit">Credit your agent</FieldLabel>
+                  <FieldHint id="site-agent-credit-help">
+                    Agent-written posts show “Written with an agent · Reviewed by {site.bylineName || site.name}”.
+                  </FieldHint>
+                </div>
+                <Switch
+                  id="site-agent-credit"
+                  checked={agentCredit}
+                  onCheckedChange={setAgentCredit}
+                  aria-describedby="site-agent-credit-help"
+                />
+              </div>
+            </Section>
+
             <Section title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
               <Field>
                 <FieldLabel htmlFor="default-seo-title">Title</FieldLabel>
@@ -584,7 +629,7 @@ export function SettingsPage() {
             </Section>
 
             <SaveRow
-              dirty={siteDirty}
+              dirty={siteFormDirty}
               pending={formPending === 'site'}
               disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
               onDiscard={discardSite}

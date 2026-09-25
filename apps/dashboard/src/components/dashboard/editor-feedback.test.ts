@@ -24,7 +24,7 @@ Nested detail text.
 `
 
   const renderResult = renderRichContent(ARTICLE_MD, { pageTitle: 'My Article' })
-  const presentation = { layout: 'essay' as const, toc: true }
+  const presentation = { layout: 'standard' as const, toc: true }
 
   function previewHtml(overrides: Record<string, unknown> = {}): string {
     return renderToStaticMarkup(

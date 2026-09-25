@@ -215,6 +215,24 @@
                         "updatedAt"
                       ]
                     },
+                    "template": {
+                      "type": "string"
+                    },
+                    "byline": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "agentCredit": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "agentCredit"
+                      ]
+                    },
                     "createdAt": {
                       "type": "number"
                     },
@@ -230,6 +248,8 @@
                     "url",
                     "voiceSeedUrls",
                     "voiceProfile",
+                    "template",
+                    "byline",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -765,8 +785,9 @@
                         "type": "string",
                         "enum": [
                           "standard",
+                          "essay",
                           "feature",
-                          "essay"
+                          "wide"
                         ]
                       },
                       "toc": {
@@ -878,8 +899,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -1227,8 +1249,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -1574,8 +1597,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -1898,8 +1922,9 @@
                         "type": "string",
                         "enum": [
                           "standard",
+                          "essay",
                           "feature",
-                          "essay"
+                          "wide"
                         ]
                       },
                       "toc": {
@@ -2009,8 +2034,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -2407,8 +2433,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -2816,8 +2843,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -4760,8 +4788,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -5123,8 +5152,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -5440,6 +5470,28 @@
                     "examples": {
                       "type": "string"
                     },
+                    "syntax": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "example": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "summary",
+                          "example"
+                        ]
+                      }
+                    },
                     "presentationOptions": {
                       "type": "object",
                       "properties": {
@@ -5449,8 +5501,9 @@
                             "type": "string",
                             "enum": [
                               "standard",
+                              "essay",
                               "feature",
-                              "essay"
+                              "wide"
                             ]
                           }
                         },
@@ -5461,8 +5514,9 @@
                               "type": "string",
                               "enum": [
                                 "standard",
+                                "essay",
                                 "feature",
-                                "essay"
+                                "wide"
                               ]
                             },
                             "toc": {
@@ -5693,8 +5747,9 @@
                         "type": "string",
                         "enum": [
                           "standard",
+                          "essay",
                           "feature",
-                          "essay"
+                          "wide"
                         ]
                       },
                       "toc": {
@@ -5764,8 +5819,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {
@@ -5781,8 +5837,9 @@
                           "type": "string",
                           "enum": [
                             "standard",
+                            "essay",
                             "feature",
-                            "essay"
+                            "wide"
                           ]
                         },
                         "toc": {

@@ -1,8 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PublicBlogIndexView, publicPageCanonicalPath, resolvePublicPage } from "../../components/PublicBlogPages";
-import { siteThemeRootAttributes } from "@vc/content/presented-post";
-import { resolvePresetId } from "@vc/config";
+import { PublicBlogIndexView, publicPageCanonicalPath, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
@@ -47,11 +45,7 @@ const description = blog.site.default_seo_description || blog.site.description |
 const socialImage = resolveSocialImage(origin, null, blog.site);
 const page = resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
 const canonical = new URL(publicPageCanonicalPath("/", page), origin).href;
-const themeAttrs = siteThemeRootAttributes(resolvePresetId(blog.site.theme), {
-  accent: blog.site.theme_accent,
-  font: blog.site.theme_font,
-  mode: blog.site.theme_mode,
-});
+const { themeAttrs, fontId } = siteDocumentProps(blog.site);
 ---
 <Base
   title={title}
@@ -59,7 +53,7 @@ const themeAttrs = siteThemeRootAttributes(resolvePresetId(blog.site.theme), {
   robots={!blog.indexable ? "noindex,nofollow" : undefined}
   canonical={canonical}
   socialImage={socialImage}
-  themeAttrs={themeAttrs}
+  themeAttrs={themeAttrs} fontId={fontId}
   feedHref="/feed.xml"
   feedTitle={blog.site.name}
 >

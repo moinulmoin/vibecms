@@ -11,9 +11,23 @@ html[data-vc-theme] {
   background: var(--vc-bg);
   color: var(--vc-fg);
   font-family: var(--vc-font-body);
-  scroll-padding-top: 1.5rem;
+  /* Also the ToC scroll-spy trigger line (scripts/reading.js). */
+  scroll-padding-top: 5rem;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
+}
+
+/* A reader's light/dark choice beats the owner's default everywhere. */
+html[data-vc-reader-mode="light"],
+html[data-vc-reader-mode="light"] [data-vc-theme],
+html[data-vc-reader-mode="light"] [data-rich-content] {
+  color-scheme: light !important;
+}
+
+html[data-vc-reader-mode="dark"],
+html[data-vc-reader-mode="dark"] [data-vc-theme],
+html[data-vc-reader-mode="dark"] [data-rich-content] {
+  color-scheme: dark !important;
 }
 
 html[data-vc-theme] body {

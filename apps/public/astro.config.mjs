@@ -44,6 +44,8 @@ export default defineConfig({
     plugins: [tailwindcss()],
     build: {
       cssMinify: false,
+      // Never inline scripts as data: URLs; the CSP only allows same-origin scripts.
+      assetsInlineLimit: (file) => (/\.[cm]?js$/.test(file) ? false : undefined),
     },
     resolve: {
       dedupe: ["react", "react-dom"],

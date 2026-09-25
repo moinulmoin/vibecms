@@ -3,6 +3,8 @@ export type PublicPageKind = "html" | "feed" | "media" | "api";
 export function classifyPublicPath(pathname: string): PublicPageKind {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path.startsWith("/media-assets/")) return "media";
+  // Generated share cards (PNG) behave like media.
+  if (path === "/og.png" || path.startsWith("/og/")) return "media";
   if (path === "/api/subscribe") return "api";
   if (
     path === "/feed.xml" ||
@@ -37,6 +39,20 @@ export function buildHtmlContentSecurityPolicy(): string {
   ].join("; ");
 }
 
+/**
+ * Keep Astro's script/style policy (it hashes its own inline code) and add the
+ * frame/navigation directives. Without an Astro policy, scripts are still
+ * limited to this origin: tenant pages render untrusted Markdown.
+ */
+export function mergeHtmlContentSecurityPolicy(astroPolicy: string | null): string {
+  const ours = buildHtmlContentSecurityPolicy();
+  const existing = (astroPolicy ?? "").trim().replace(/;\s*$/, "");
+  if (!existing) return `script-src 'self'; ${ours}`;
+  const names = new Set(existing.split(";").map((d) => d.trim().split(/\s+/)[0]?.toLowerCase()));
+  const extra = ours.split("; ").filter((d) => !names.has(d.split(" ")[0]!.toLowerCase()));
+  return extra.length ? `${existing}; ${extra.join("; ")}` : existing;
+}
+
 export function applyPublicSecurityHeaders(
   pathname: string,
   contentType: string | null,
@@ -56,6 +72,6 @@ export function applyPublicSecurityHeaders(
 
   const isHtml = (contentType ?? "").toLowerCase().includes("text/html");
   if (isHtml || kind === "html") {
-    headers.set("Content-Security-Policy", buildHtmlContentSecurityPolicy());
+    headers.set("Content-Security-Policy", mergeHtmlContentSecurityPolicy(headers.get("Content-Security-Policy")));
   }
 }

@@ -10,6 +10,7 @@ import { resolvePresentation, type Presentation } from '@vc/config'
 import { Monitor, Moon, Smartphone, Sun, Tablet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { EditorSiteInfo } from '~/types/dashboard'
+import { useBlockEnhancers } from './use-block-enhancers'
 
 export type PreviewMetadata = {
   title?: string
@@ -134,10 +135,11 @@ export function PreviewPane({
   useEffect(() => {
     onWarnings?.(previewResult.warnings)
   }, [previewResult.warnings, onWarnings])
+  const blocksRef = useBlockEnhancers(previewResult)
 
   const resolvedPresentation = resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved
   const theme: SiteThemeInput | undefined = site
-    ? { accent: site.themeAccent, font: site.themeFont, mode }
+    ? { accent: site.themeAccent, font: site.themeFont, mode, radius: site.themeRadius ?? null, width: site.themeWidth ?? null }
     : { accent: null, font: null, mode }
   const showUpdated = Boolean(publishedAt && updatedAt && updatedAt > publishedAt + 86400)
 
@@ -181,6 +183,7 @@ export function PreviewPane({
         }}
       >
         <div
+          ref={blocksRef}
           className="mx-auto transition-[max-width] duration-200 motion-reduce:transition-none"
           style={{ maxWidth: WIDTHS[width] }}
         >
@@ -194,6 +197,7 @@ export function PreviewPane({
               article
               embedded
               wide={articleHasToc(resolvedPresentation, previewResult.outline)}
+              layout={resolvedPresentation.layout}
               feedHref="#"
               subscribeVariant="end"
               subscribeSettings={subscribeSettings}
@@ -214,6 +218,7 @@ export function PreviewPane({
                 readingMinutes={readingTimeMinutes(source)}
                 tags={metadata.tags}
                 basePath="#"
+                author={{ name: site?.bylineName?.trim() || site?.name || 'You' }}
               />
             </PublicPageChrome>
           ) : (

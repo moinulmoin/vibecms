@@ -137,6 +137,10 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to every featured and inline image before publishing." },
   invalid_social_image: { variant: "error", title: "Social image not found", message: "Choose an image from your media library." },
   social_image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to the selected social image before saving." },
+  invalid_byline_name: { variant: "error", title: "Public name too long", message: "Use 80 characters or fewer for your public name." },
+  invalid_agent_credit: { variant: "error", title: "Setting not saved", message: "Turn agent credit on or off, then save again." },
+  invalid_theme_radius: { variant: "error", title: "Corner style not saved", message: "Pick one of the listed corner styles." },
+  invalid_theme_width: { variant: "error", title: "Reading width not saved", message: "Pick one of the listed reading widths." },
   alt_required_in_use: { variant: "error", title: "Alt text required", message: "This image is in use. Replace it or keep a useful description." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
@@ -348,7 +352,7 @@ export type ComponentEmphasis = "high" | "medium" | "low";
 // Presentation intent (bounded layout + toc; per-post, preset-interpreted)
 // ---------------------------------------------------------------------------
 
-export const PRESENTATION_LAYOUTS = ["standard", "feature", "essay"] as const;
+export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
 export type PresentationLayout = (typeof PRESENTATION_LAYOUTS)[number];
 
 export interface Presentation {
@@ -399,13 +403,84 @@ export interface ThemePreset {
   formatGuide: string;
   /** Structural layout capability for this preset. */
   layout: PresetLayoutCapability;
+  /** The template: whole-blog structure + a curated starting look. */
+  template: TemplateDef;
+}
+
+// ---------------------------------------------------------------------------
+// Templates: a preset IS a template. Structure (chrome, index, article header)
+// is fixed per template; the look starts from `defaults` and every value stays
+// owner-tunable (accent, font, radius, width, mode) on the Theme page.
+// ---------------------------------------------------------------------------
+
+export const TEMPLATE_CHROMES = ["masthead", "centered", "sidebar"] as const;
+export type TemplateChrome = (typeof TEMPLATE_CHROMES)[number];
+export const TEMPLATE_INDEXES = ["list", "grid", "compact"] as const;
+export type TemplateIndex = (typeof TEMPLATE_INDEXES)[number];
+export const TEMPLATE_HEADERS = ["plain", "centered", "card"] as const;
+export type TemplateHeader = (typeof TEMPLATE_HEADERS)[number];
+
+export const THEME_RADII = ["none", "sm", "md", "lg"] as const;
+export type ThemeRadius = (typeof THEME_RADII)[number];
+/** Radius token per knob (--vc-radius). */
+export const RADIUS_VALUES: Record<ThemeRadius, string> = { none: "0px", sm: "4px", md: "8px", lg: "14px" };
+
+export const THEME_WIDTHS = ["narrow", "normal", "wide"] as const;
+export type ThemeWidth = (typeof THEME_WIDTHS)[number];
+/** Reading measure per knob (--vc-prose-measure). */
+export const WIDTH_VALUES: Record<ThemeWidth, string> = { narrow: "36rem", normal: "40rem", wide: "46rem" };
+
+export interface TemplateDef {
+  /** Site chrome: top masthead, centered masthead, or a left sidebar. */
+  chrome: TemplateChrome;
+  /** Home / tag / search listing style. */
+  index: TemplateIndex;
+  /** Article header treatment. */
+  header: TemplateHeader;
+  /** Pricing tier; nothing is gated yet. */
+  tier: "free" | "pro";
+  /** The curated starting look. Owners can change any of it. */
+  defaults: {
+    accent: AccentId;
+    font: FontId;
+    radius: ThemeRadius;
+    width: ThemeWidth;
+    mode: ThemeMode;
+  };
+}
+
+export function resolveRadius(value: string | null | undefined, presetId?: string | null): ThemeRadius {
+  if (value != null && (THEME_RADII as readonly string[]).includes(value)) return value as ThemeRadius;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.radius;
+}
+
+export function resolveWidth(value: string | null | undefined, presetId?: string | null): ThemeWidth {
+  if (value != null && (THEME_WIDTHS as readonly string[]).includes(value)) return value as ThemeWidth;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.width;
+}
+
+/**
+ * The accent a site actually renders with: the owner's pick, or the template's
+ * curated default when unset. Every surface (public blog, share card,
+ * dashboard settings/editor) must use this so they never disagree.
+ */
+export function resolveThemeAccent(value: string | null | undefined, presetId?: string | null): AccentId {
+  if (value != null && (ACCENT_IDS as readonly string[]).includes(value)) return value as AccentId;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.accent;
+}
+
+/** The font pairing a site actually renders with (owner's pick, else the template default). */
+export function resolveThemeFont(value: string | null | undefined, presetId?: string | null): FontId {
+  if (value != null && (FONT_IDS as readonly string[]).includes(value)) return value as FontId;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.font;
 }
 
 export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   minimal: {
     id: "minimal",
     name: "Minimal",
-    designIntent: "Clean, airy, and neutral. Lets your words lead.",
+    designIntent: "A clean reading column and a quiet list of posts. Lets your words lead.",
+    template: { chrome: "masthead", index: "list", header: "plain", tier: "free", defaults: { accent: "teal", font: "geist-sans", radius: "md", width: "normal", mode: "system" } },
     recommendedComponents: [
       "list",
       "link",
@@ -436,7 +511,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Use callouts sparingly - one per section at most. Let structure carry meaning.",
     layout: {
       default: { layout: "standard", toc: true },
-      supportedLayouts: ["standard", "essay", "feature"],
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
@@ -444,7 +519,8 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   editorial: {
     id: "editorial",
     name: "Editorial",
-    designIntent: "Larger, looser reading text and pull quotes for essays. Pairs well with Newsreader.",
+    designIntent: "Centered serif headlines, generous type, and pull quotes for essays.",
+    template: { chrome: "centered", index: "list", header: "centered", tier: "free", defaults: { accent: "rust", font: "serif", radius: "sm", width: "narrow", mode: "system" } },
     recommendedComponents: [
       "captioned-image",
       "blockquote",
@@ -479,15 +555,16 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "For long essays, prefer setting presentation.toc=true for a page-level table of contents; use inline [[toc]] only as an intentional in-body marker.",
     layout: {
       default: { layout: "essay", toc: true },
-      supportedLayouts: ["standard", "essay", "feature"],
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
 
   technical: {
     id: "technical",
-    name: "Technical",
-    designIntent: "A wider column and tighter rhythm for code, tables, and tutorials.",
+    name: "Notebook",
+    designIntent: "A sidebar of tags and recent posts, a compact archive, and a wide column for code.",
+    template: { chrome: "sidebar", index: "compact", header: "plain", tier: "free", defaults: { accent: "blue", font: "mono", radius: "sm", width: "wide", mode: "system" } },
     recommendedComponents: [
       "table-of-contents",
       "fenced-code",
@@ -521,15 +598,16 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Keep paragraphs short and factual; favour precision over decoration.",
     layout: {
       default: { layout: "standard", toc: true },
-      supportedLayouts: ["standard", "essay", "feature"],
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
 
   product: {
     id: "product",
-    name: "Product",
-    designIntent: "Big confident headings and a full-width cover for launches.",
+    name: "Magazine",
+    designIntent: "A lead story and a grid of cards. Big confident headlines and full-width covers.",
+    template: { chrome: "masthead", index: "grid", header: "card", tier: "free", defaults: { accent: "crimson", font: "grotesk", radius: "lg", width: "normal", mode: "system" } },
     recommendedComponents: [
       "captioned-image",
       "callout",
@@ -564,7 +642,7 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Avoid deep code samples; this is a business voice.",
     layout: {
       default: { layout: "feature", toc: false },
-      supportedLayouts: ["standard", "essay", "feature"],
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
@@ -622,3 +700,10 @@ export function resolvePresentation(
     warnings,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Public byline
+// ---------------------------------------------------------------------------
+
+/** Max length of `sites.byline_name` (the public author name). */
+export const BYLINE_NAME_MAX_LENGTH = 80;

@@ -322,6 +322,40 @@ describe("public blog feed + detail projections", () => {
     expect(post).not.toBeNull();
     expect(post!.contentMarkdown).toContain("uniquemarker1");
     expect(post!.presentation).toBeNull();
+    // Seed versions are written by an API key, so the pinned version is agent-authored.
+    expect(post!.publishedByAgent).toBe(true);
+  });
+
+  it("publishedByAgent follows the pinned version's author, not the post row", async () => {
+    await exec("UPDATE post_versions SET created_by_type = 'human' WHERE id = ?", "pb-a-2-v1");
+    const human = await da.publicBlog.getPublishedPost("pb-site-a", "a-post-2", NOW);
+    expect(human!.publishedByAgent).toBe(false);
+    await exec("UPDATE post_versions SET created_by_type = 'api_key' WHERE id = ?", "pb-a-2-v1");
+  });
+
+  it("site resolution exposes template knobs and the public byline (never the email)", async () => {
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)",
+      "pb-dom-a",
+      "pb-site-a",
+      "pb-a.example.test",
+      T,
+      T,
+    );
+    const defaults = await da.publicBlog.resolveSiteByHost("pb-a.example.test");
+    expect(defaults).toMatchObject({ themeRadius: null, themeWidth: null, bylineName: null, showAgentCredit: true });
+
+    await exec(
+      "UPDATE sites SET theme_radius = 'lg', theme_width = 'wide', byline_name = 'Ada', show_agent_credit = 0 WHERE id = ?",
+      "pb-site-a",
+    );
+    const site = await da.publicBlog.resolveSiteByHost("pb-a.example.test");
+    expect(site).toMatchObject({ themeRadius: "lg", themeWidth: "wide", bylineName: "Ada", showAgentCredit: false });
+    expect(Object.keys(site!).some((key) => /email/i.test(key))).toBe(false);
+    await exec(
+      "UPDATE sites SET theme_radius = NULL, theme_width = NULL, byline_name = NULL, show_agent_credit = 1 WHERE id = ?",
+      "pb-site-a",
+    );
   });
 
   it("summary listings preserve canonical URL overrides", async () => {

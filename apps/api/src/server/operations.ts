@@ -348,9 +348,11 @@ export async function previewPostOp(
   }
 
   // Loaded on first preview so Worker startup doesn't pay for the Markdown pipeline.
-  const { renderRichContent, renderRichContentResultToHtml, validateRichContent } = await import("@vc/content");
+  const [{ renderRichContent, renderRichContentResultToHtml, validateRichContent }, { createMathRenderer }] =
+    await Promise.all([import("@vc/content"), import("@vc/content/math")]);
   const renderResult = renderRichContent(input.contentMarkdown, {
     presetId: resolvedPresetId,
+    math: createMathRenderer(),
   });
   const { outline, warnings: renderWarnings } = renderResult;
   const r = resolvePresentation(resolvedPresetId, input.presentation);

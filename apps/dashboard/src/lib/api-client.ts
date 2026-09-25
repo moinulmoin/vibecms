@@ -230,6 +230,14 @@ export function updateSiteSettingsMutation(data: {
   themeAccent?: string | null
   themeFont?: string | null
   themeMode?: string | null
+  /** THEME_RADII id; null resets to the template default. */
+  themeRadius?: string | null
+  /** THEME_WIDTHS id; null resets to the template default. */
+  themeWidth?: string | null
+  /** Public author name (max 80); ''/null falls back to the site name. */
+  bylineName?: string | null
+  /** Credit agent-written posts on the public blog. */
+  showAgentCredit?: boolean
 }) {
   return dashboardPost('/api/dashboard/settings', data, undefined, mutationResultSchema)
 }

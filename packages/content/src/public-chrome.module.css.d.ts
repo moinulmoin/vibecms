@@ -4,6 +4,7 @@ declare const styles: {
   readonly content: string;
   readonly footer: string;
   readonly footerLink: string;
+  readonly frame: string;
   readonly iconLink: string;
   readonly intro: string;
   readonly mastNav: string;
@@ -15,6 +16,17 @@ declare const styles: {
   readonly searchField: string;
   readonly searchInput: string;
   readonly shell: string;
+  readonly sidebar: string;
+  readonly sidebarBrand: string;
+  readonly sidebarCount: string;
+  readonly sidebarGroup: string;
+  readonly sidebarLabel: string;
+  readonly sidebarLink: string;
+  readonly sidebarList: string;
+  readonly sidebarNav: string;
+  readonly sidebarTag: string;
+  readonly sidebarTagline: string;
+  readonly sidebarTags: string;
   readonly visuallyHidden: string;
 };
 export default styles;

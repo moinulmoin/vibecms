@@ -77,6 +77,17 @@
   list-style-type: disc;
 }
 
+/* The inline [[toc]] list styles itself (vc-rich-content.css). */
+.prose nav[data-toc] ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.prose nav[data-toc] ul ul {
+  padding-left: 0.9rem;
+}
+
 .prose ol {
   list-style-type: decimal;
 }

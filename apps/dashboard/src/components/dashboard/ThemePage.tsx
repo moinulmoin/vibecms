@@ -6,6 +6,12 @@ import {
   resolvePresentation,
   THEME_MODES,
   THEME_PRESETS,
+  THEME_RADII,
+  THEME_WIDTHS,
+  resolveRadius,
+  resolveWidth,
+  type ThemeRadius,
+  type ThemeWidth,
   type AccentId,
   type FontId,
   type PresetId,
@@ -24,6 +30,7 @@ import { PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { useCodeHighlighter } from '~/components/dashboard/editor/PreviewPane'
+import { useBlockEnhancers } from '~/components/dashboard/editor/use-block-enhancers'
 import {
   getPostVersionFn,
   loadPostEditorPage,
@@ -127,6 +134,8 @@ type ThemeSiteBaseline = {
   themeAccent: AccentId
   themeFont: FontId
   themeMode: ThemeMode
+  themeRadius: ThemeRadius
+  themeWidth: ThemeWidth
   updatedAt: number
   publicBaseUrl: string | null
   newsletter: SubscribeSettings | null
@@ -142,6 +151,8 @@ function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSetting
     themeAccent: isAccentId(site.themeAccent) ? site.themeAccent : 'teal',
     themeFont: isFontId(site.themeFont) ? site.themeFont : 'geist-sans',
     themeMode: isThemeMode(site.themeMode) ? site.themeMode : 'system',
+    themeRadius: resolveRadius(site.themeRadius, site.theme),
+    themeWidth: resolveWidth(site.themeWidth, site.theme),
     updatedAt: site.updatedAt,
     publicBaseUrl: loaded.publicBaseUrl ?? null,
     newsletter: (site as { newsletterSettings?: SubscribeSettings | null }).newsletterSettings ?? null,
@@ -149,6 +160,34 @@ function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSetting
 }
 
 const MODE_LABEL: Record<ThemeMode, string> = { light: 'Light', dark: 'Dark', system: 'System' }
+const RADIUS_LABEL: Record<ThemeRadius, string> = { none: 'Square', sm: 'Soft', md: 'Round', lg: 'Rounder' }
+const WIDTH_LABEL: Record<ThemeWidth, string> = { narrow: 'Narrow', normal: 'Normal', wide: 'Wide' }
+
+/** A live, scaled-down render of a blog page (real components, inert). */
+function MiniRender({ width = 1180, children }: { width?: number; children: React.ReactNode }) {
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const [scale, setScale] = useState(0.25)
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const update = () => setScale(box.clientWidth / width)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [width])
+  return (
+    <div ref={boxRef} className="relative aspect-[16/11] w-full overflow-hidden" aria-hidden="true">
+      <div
+        className="pointer-events-none absolute left-0 top-0 origin-top-left [&>main]:!min-h-full"
+        style={{ width, height: (width * 11) / 16, transform: `scale(${scale})` }}
+        inert
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
 
 function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
@@ -207,8 +246,12 @@ export function ThemePage() {
   const [selectedAccent, setSelectedAccent] = useState<AccentId>('teal')
   const [selectedFont, setSelectedFont] = useState<FontId>('geist-sans')
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
-  const selectedRef = useRef({ theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode })
-  selectedRef.current = { theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode }
+  const [selectedRadius, setSelectedRadius] = useState<ThemeRadius>('md')
+  const [selectedWidth, setSelectedWidth] = useState<ThemeWidth>('normal')
+  // After picking a template, remember the previous look for one-click "keep my look".
+  const [previousLook, setPreviousLook] = useState<{ accent: AccentId; font: FontId; radius: ThemeRadius; width: ThemeWidth } | null>(null)
+  const selectedRef = useRef({ theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth })
+  selectedRef.current = { theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth }
 
   const [article, setArticle] = useState<PreviewArticle>(SAMPLE_ARTICLE)
   const [indexPosts, setIndexPosts] = useState<PublicPostListItem[] | null>(null)
@@ -231,6 +274,8 @@ export function ThemePage() {
         setSelectedAccent(baseline.themeAccent)
         setSelectedFont(baseline.themeFont)
         setSelectedMode(baseline.themeMode)
+        setSelectedRadius(baseline.themeRadius)
+        setSelectedWidth(baseline.themeWidth)
         if (baseline.themeMode !== 'system') setPreviewScheme(baseline.themeMode)
       })
       .catch(() => {
@@ -276,6 +321,7 @@ export function ThemePage() {
   }, [reloadKey])
 
   const renderResult = useMemo(() => renderArticle(article, highlighter), [article, highlighter])
+  const blocksRef = useBlockEnhancers(renderResult)
 
   if (loadError) {
     return (
@@ -299,7 +345,9 @@ export function ThemePage() {
     selectedTheme !== site.theme ||
     selectedAccent !== site.themeAccent ||
     selectedFont !== site.themeFont ||
-    selectedMode !== site.themeMode
+    selectedMode !== site.themeMode ||
+    selectedRadius !== site.themeRadius ||
+    selectedWidth !== site.themeWidth
 
   function discard() {
     if (!site) return
@@ -307,6 +355,9 @@ export function ThemePage() {
     setSelectedAccent(site.themeAccent)
     setSelectedFont(site.themeFont)
     setSelectedMode(site.themeMode)
+    setSelectedRadius(site.themeRadius)
+    setSelectedWidth(site.themeWidth)
+    setPreviousLook(null)
     setSaveError(null)
   }
 
@@ -324,6 +375,8 @@ export function ThemePage() {
         themeAccent: submitted.accent,
         themeFont: submitted.font,
         themeMode: submitted.mode,
+        themeRadius: submitted.radius,
+        themeWidth: submitted.width,
       })
       if (result.kind === 'ok') {
         settingsSaved = true
@@ -333,12 +386,17 @@ export function ThemePage() {
           selectedRef.current.theme === submitted.theme &&
           selectedRef.current.accent === submitted.accent &&
           selectedRef.current.font === submitted.font &&
-          selectedRef.current.mode === submitted.mode
+          selectedRef.current.mode === submitted.mode &&
+          selectedRef.current.radius === submitted.radius &&
+          selectedRef.current.width === submitted.width
         ) {
           setSelectedTheme(refreshed.theme)
           setSelectedAccent(refreshed.themeAccent)
           setSelectedFont(refreshed.themeFont)
           setSelectedMode(refreshed.themeMode)
+          setSelectedRadius(refreshed.themeRadius)
+          setSelectedWidth(refreshed.themeWidth)
+          setPreviousLook(null)
         }
         setJustSaved(true)
         window.setTimeout(() => setJustSaved(false), 2400)
@@ -361,7 +419,35 @@ export function ThemePage() {
   }
 
   const effectiveMode = selectedMode === 'system' ? previewScheme : selectedMode
-  const previewTheme = { accent: selectedAccent, font: selectedFont, mode: effectiveMode }
+  const previewTheme = { accent: selectedAccent, font: selectedFont, mode: effectiveMode, radius: selectedRadius, width: selectedWidth }
+  const selectedTemplate = THEME_PRESETS[selectedTheme].template
+  const listedPosts = indexPosts ?? SAMPLE_INDEX
+  const tagCounts = new Map<string, number>()
+  for (const post of listedPosts) for (const tag of post.tags ?? []) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+  const previewSidebar = {
+    recent: listedPosts.slice(0, 5).map((post) => ({ title: post.title, href: '#' })),
+    tags: [...tagCounts].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([name, count]) => ({ name, count, href: '#' })),
+  }
+
+  function pickTemplate(id: PresetId) {
+    if (id === selectedTheme) return
+    const look = THEME_PRESETS[id].template.defaults
+    setPreviousLook({ accent: selectedAccent, font: selectedFont, radius: selectedRadius, width: selectedWidth })
+    setSelectedTheme(id)
+    setSelectedAccent(look.accent)
+    setSelectedFont(look.font)
+    setSelectedRadius(look.radius)
+    setSelectedWidth(look.width)
+  }
+
+  function keepPreviousLook() {
+    if (!previousLook) return
+    setSelectedAccent(previousLook.accent)
+    setSelectedFont(previousLook.font)
+    setSelectedRadius(previousLook.radius)
+    setSelectedWidth(previousLook.width)
+    setPreviousLook(null)
+  }
   const presentation = resolvePresentation(selectedTheme, article.presentation).resolved
 
   return (
@@ -380,41 +466,75 @@ export function ThemePage() {
           ) : null
         }
       />
+      <section className="mt-6" aria-labelledby="templates-heading">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 id="templates-heading" className="text-sm font-medium text-foreground">Template</h2>
+          <span className="text-xs text-muted-foreground">A designed starting point. Change anything below.</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Template">
+          {PRESET_IDS.map((id) => {
+            const preset = THEME_PRESETS[id]
+            const look = preset.template.defaults
+            const isCurrent = selectedTheme === id
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={isCurrent}
+                aria-pressed={isCurrent}
+                onClick={() => pickTemplate(id)}
+                className={cn(
+                  'group overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                  isCurrent ? 'border-foreground/40 ring-1 ring-foreground/20' : 'border-border hover:border-foreground/25',
+                )}
+              >
+                <div className="border-b border-border bg-muted/40">
+                  <MiniRender>
+                    <PublicPageChrome
+                      siteName={site.name}
+                      tagline={site.description || null}
+                      homeHref="#"
+                      homeHeading
+                      presetId={id}
+                      theme={{ accent: look.accent, font: look.font, mode: effectiveMode, radius: look.radius, width: look.width }}
+                      embedded
+                      feedHref="#"
+                      sidebar={previewSidebar}
+                    >
+                      <PublicPostList variant={preset.template.index} posts={(indexPosts ?? SAMPLE_INDEX).slice(0, 5)} />
+                    </PublicPageChrome>
+                  </MiniRender>
+                </div>
+                <div className="flex items-start gap-2 px-3 py-2.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      {preset.name}
+                      {site.theme === id ? <span className="text-xs font-normal text-muted-foreground">Live</span> : null}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{preset.designIntent}</span>
+                  </span>
+                  {isCurrent ? <Check className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden /> : null}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       <form
         className="mt-6 grid gap-8 xl:grid-cols-[18.5rem_minmax(0,1fr)] xl:items-start"
         onSubmit={(e) => void handleThemeSave(e)}
       >
         <div className="flex flex-col gap-7 xl:sticky xl:top-6">
-          <section>
-            <SectionLabel>Style</SectionLabel>
-            <div className="grid gap-1.5">
-              {PRESET_IDS.map((id) => {
-                const preset = THEME_PRESETS[id]
-                const isCurrent = selectedTheme === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={isCurrent}
-                    onClick={() => setSelectedTheme(id)}
-                    className={cn(
-                      'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                      isCurrent ? 'border-foreground/25 bg-muted/60' : 'border-transparent hover:bg-muted/40',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        {preset.name}
-                        {site.theme === id ? <span className="text-xs font-normal text-muted-foreground">Live</span> : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{preset.designIntent}</span>
-                    </span>
-                    {isCurrent ? <Check className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden /> : null}
-                  </button>
-                )
-              })}
+          {previousLook ? (
+            <div className="-mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground" role="status">
+              Applied {THEME_PRESETS[selectedTheme].name}’s look.{' '}
+              <button type="button" className="font-medium text-foreground underline underline-offset-2" onClick={keepPreviousLook}>
+                Keep my colors and font
+              </button>
             </div>
-          </section>
+          ) : null}
 
           <section>
             <SectionLabel hint={ACCENTS.find((a) => a.id === selectedAccent)?.name}>Accent</SectionLabel>
@@ -478,6 +598,30 @@ export function ThemePage() {
                   </button>
                 )
               })}
+            </div>
+          </section>
+
+          <section>
+            <SectionLabel>Shape</SectionLabel>
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Corners</span>
+                <Segmented
+                  label="Corner radius"
+                  value={selectedRadius}
+                  onChange={setSelectedRadius}
+                  options={THEME_RADII.map((r) => ({ value: r, label: RADIUS_LABEL[r] }))}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Reading width</span>
+                <Segmented
+                  label="Reading width"
+                  value={selectedWidth}
+                  onChange={setSelectedWidth}
+                  options={THEME_WIDTHS.map((w) => ({ value: w, label: WIDTH_LABEL[w] }))}
+                />
+              </div>
             </div>
           </section>
 
@@ -562,6 +706,7 @@ export function ThemePage() {
             tabIndex={0}
           >
             <div
+              ref={blocksRef}
               className="mx-auto transition-[max-width] duration-200 motion-reduce:transition-none"
               style={{ maxWidth: previewWidth === 'phone' ? 390 : '100%' }}
               inert
@@ -579,8 +724,9 @@ export function ThemePage() {
                   feedHref="#"
                   subscribeVariant="footer"
                   subscribeSettings={site.newsletter}
+                  sidebar={previewSidebar}
                 >
-                  <PublicPostList posts={indexPosts ?? SAMPLE_INDEX} />
+                  <PublicPostList variant={selectedTemplate.index} posts={indexPosts ?? SAMPLE_INDEX} />
                 </PublicPageChrome>
               ) : (
                 <PublicPageChrome
@@ -592,9 +738,11 @@ export function ThemePage() {
                   article
                   embedded
                   wide={articleHasToc(presentation, renderResult.outline)}
+                  layout={presentation.layout}
                   feedHref="#"
                   subscribeVariant="end"
                   subscribeSettings={site.newsletter}
+                  sidebar={previewSidebar}
                 >
                   <PresentedPostArticle
                     renderResult={renderResult}
@@ -607,6 +755,7 @@ export function ThemePage() {
                     tags={article.tags}
                     basePath=""
                     theme={previewTheme}
+                    author={{ name: site.name, agent: true }}
                   />
                 </PublicPageChrome>
               )}

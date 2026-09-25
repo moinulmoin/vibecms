@@ -1,6 +1,6 @@
 /* Presented post — public SSR + dashboard preview share this layout.
    One left edge: header, cover, and prose start where the masthead starts.
-   The ToC rail joins on the right once the article's own inline size can
+   The ToC rail joins on the right (52rem: the narrowest reading width + rail) once the article's own inline size can
    hold both (container query, so the preview pane behaves like the page). */
 
 .article {
@@ -93,17 +93,166 @@
   color: var(--vc-fg);
 }
 
-/* ── Layouts ───────────────────────────────────────────────────────────── */
+/* ── Byline ────────────────────────────────────────────────────────────── */
 
-/* Essay: a lead paragraph and a roomier title. */
+.byline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--vc-tint);
+  color: var(--vc-accent);
+  font-family: var(--vc-font-heading);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.bylineText {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.authorLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  color: var(--vc-fg);
+  font-size: 0.9375rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.agentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid color-mix(in oklch, var(--vc-accent) 35%, var(--vc-border));
+  border-radius: 999px;
+  color: var(--vc-accent);
+  font-family: var(--vc-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.agentBadge::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* ── Article header treatments (template: data-vc-header) ─────────────── */
+
+.article[data-vc-header="centered"] .articleHeader {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.article[data-vc-header="centered"] .byline,
+.article[data-vc-header="centered"] .tagRow,
+.article[data-vc-header="centered"] .metaLine {
+  justify-content: center;
+}
+
+.article[data-vc-header="centered"] .bylineText {
+  justify-items: center;
+}
+
+.article[data-vc-header="centered"] .byline {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.article[data-vc-header="card"] .articleHeader {
+  max-width: none;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--vc-surface-border);
+  border-radius: calc(var(--vc-radius) + 6px);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--vc-tint), transparent 60%),
+    var(--vc-surface);
+  box-shadow: var(--vc-shadow);
+}
+
+.article[data-vc-header="card"] .articleTitle {
+  font-size: calc(clamp(2.25rem, 1.4rem + 3.2vw, 3.4rem) * var(--vc-heading-scale));
+  max-width: 22ch;
+}
+
+/* ── Layouts (per post: data-vc-layout) ───────────────────────────────── */
+
+/* Essay: centered, no side rail, a lead paragraph, a roomier title. */
+.article[data-vc-layout="essay"] .articleHeader {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.article[data-vc-layout="essay"] .byline,
+.article[data-vc-layout="essay"] .tagRow,
+.article[data-vc-layout="essay"] .metaLine {
+  justify-content: center;
+}
+
 .article[data-vc-layout="essay"] .articleTitle {
   font-size: calc(clamp(2.25rem, 1.4rem + 3.2vw, 3.25rem) * var(--vc-heading-scale));
 }
 
+.article[data-vc-layout="essay"] .articleBody > :global([data-rich-content]),
+.article[data-vc-layout="essay"] .heroImage,
+.article[data-vc-layout="essay"] .adjacent,
+.article[data-vc-layout="essay"] .actions {
+  margin-inline: auto;
+}
+
 .article[data-vc-layout="essay"] .articleBody :global([data-rich-content]) > p:first-child {
-  font-size: 1.14em;
-  line-height: 1.62;
+  font-size: 1.16em;
+  line-height: 1.6;
   color: var(--vc-fg);
+}
+
+/* Feature: a full-width cover (or an accent band) leads the page. */
+.featureMedia {
+  margin: 0 0 2.25rem;
+}
+
+.featureBand {
+  height: clamp(6rem, 18vw, 11rem);
+  margin: 0 0 2.25rem;
+  border-radius: calc(var(--vc-radius) + 6px);
+  background:
+    radial-gradient(90% 120% at 15% 0%, color-mix(in oklch, var(--vc-accent) 38%, transparent), transparent 70%),
+    radial-gradient(80% 120% at 100% 100%, color-mix(in oklch, var(--vc-accent) 22%, transparent), transparent 70%),
+    var(--vc-tint);
+}
+
+.article[data-vc-layout="feature"] .articleTitle {
+  font-size: calc(clamp(2.4rem, 1.4rem + 3.6vw, 3.6rem) * var(--vc-heading-scale));
+}
+
+/* Wide: a roomier column for code, tables, and diagrams. The body's
+   RichContentFrame re-declares --vc-prose-measure from --vc-user-measure, so
+   the override must travel through that variable to reach the prose. */
+.article[data-vc-layout="wide"] {
+  --vc-prose-measure: 52rem;
+}
+
+.article[data-vc-layout="wide"] .articleBody {
+  --vc-user-measure: 52rem;
 }
 
 /* Covers */
@@ -179,8 +328,8 @@
   color: var(--vc-fg);
 }
 
-.tocItemH2 > a[aria-current="true"],
-.tocItemH3 > a[aria-current="true"] {
+.tocItemH2 > a[aria-current],
+.tocItemH3 > a[aria-current] {
   color: var(--vc-fg);
   border-left-color: var(--vc-accent);
 }
@@ -268,17 +417,63 @@
 .adjacentLink {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--vc-border);
-  border-radius: var(--vc-radius);
+  gap: 0.25rem;
+  padding: 0.95rem 1.1rem;
+  border: 1px solid var(--vc-surface-border);
+  border-radius: calc(var(--vc-radius) + 2px);
+  background: var(--vc-surface);
+  box-shadow: var(--vc-shadow);
   color: var(--vc-fg);
   text-decoration: none;
-  transition: border-color 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .adjacentLink:hover {
-  border-color: color-mix(in oklch, var(--vc-fg) 30%, var(--vc-border));
+  background: var(--vc-surface-hover);
+  border-color: color-mix(in oklch, var(--vc-accent) 35%, var(--vc-surface-border));
+}
+
+/* ── Reader actions ────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: var(--vc-prose-measure);
+  margin-top: calc(var(--vc-section-gap) * 0.8);
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--vc-surface-border);
+  border-radius: calc(var(--vc-radius) + 2px);
+  background: var(--vc-surface);
+  color: var(--vc-muted-fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.actionButton:hover {
+  color: var(--vc-fg);
+  background: var(--vc-surface-hover);
+}
+
+.actionButton:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+}
+
+.actionButton[data-state="done"] {
+  color: var(--vc-accent);
+  border-color: color-mix(in oklch, var(--vc-accent) 40%, var(--vc-surface-border));
 }
 
 .adjacentOlder {
@@ -298,7 +493,7 @@
   text-wrap: balance;
 }
 
-@container (min-width: 54rem) {
+@container (min-width: 52rem) {
   .article[data-vc-has-toc] .articleBody {
     display: grid;
     grid-template-columns: minmax(0, var(--vc-prose-measure)) var(--vc-toc-width);
@@ -348,6 +543,7 @@
 @media print {
   .tocRail,
   .tocPill,
+  .actions,
   .adjacent {
     display: none !important;
   }

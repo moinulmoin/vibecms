@@ -118,6 +118,10 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
       themeAccent: 'teal',
       themeFont: 'geist-sans',
       themeMode: 'system',
+      themeRadius: 'md',
+      themeWidth: 'normal',
+      bylineName: '',
+      showAgentCredit: true,
       updatedAt: 10,
       newsletterSettings: {
         enabled: true,
@@ -184,6 +188,46 @@ describe('SettingsPage', () => {
       current: { pathname: '/dashboard/settings', search: { tab: 'voice' } },
       next: { pathname: '/dashboard', search: {} },
     })).toBe(true)
+
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('saves the public byline and agent credit with the site form', async () => {
+    api.loadSettingsPage.mockResolvedValue(settings())
+    api.updateSiteSettingsMutation.mockResolvedValue({ kind: 'ok', code: 'site_saved' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
+    await settle()
+
+    const byline = container.querySelector<HTMLInputElement>('#site-byline-name')
+    const credit = container.querySelector<HTMLButtonElement>('#site-agent-credit')
+    const siteForm = byline?.closest('form')
+    expect(byline?.placeholder).toBe('Agent Journal')
+    expect(container.textContent).toContain('Your email is never shown.')
+    expect(credit?.getAttribute('aria-checked')).toBe('true')
+    const saveButton = () => [...(siteForm?.querySelectorAll('button') ?? [])].find((button) => /Save/.test(button.textContent ?? ''))
+    expect(saveButton()?.disabled).toBe(true)
+
+    await act(async () => credit?.click())
+    expect(credit?.getAttribute('aria-checked')).toBe('false')
+    expect(saveButton()?.disabled).toBe(false)
+
+    await act(async () => {
+      if (!byline) return
+      byline.value = '  Ada  '
+      byline.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () => siteForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    await settle()
+
+    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({
+      bylineName: 'Ada',
+      showAgentCredit: false,
+    }))
 
     await act(async () => root.unmount())
     container.remove()

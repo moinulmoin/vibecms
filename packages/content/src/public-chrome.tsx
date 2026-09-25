@@ -11,7 +11,7 @@
  */
 import type { ReactNode } from "react";
 import { resolvePresetId } from "@vc/config";
-import { resolveSiteTheme, type SiteThemeInput } from "./presented-post.js";
+import { resolveSiteTheme, templateAttributes, type SiteThemeInput } from "./presented-post.js";
 import styles from "./public-chrome.module.css";
 import subscribeStyles from "./subscribe-form.module.css";
 
@@ -130,7 +130,27 @@ export interface PublicPageChromeProps {
   year?: number;
   /** Rendered inside another surface (dashboard preview): no viewport min-height. */
   embedded?: boolean;
+  /** The post's layout on article pages (shell width follows it). */
+  layout?: string;
+  /** Reader light/dark toggle in the masthead (public pages). */
+  modeToggle?: boolean;
+  /** Sidebar content for templates with sidebar chrome. */
+  sidebar?: SidebarData | null;
   children: ReactNode;
+}
+
+export interface SidebarData {
+  tags: { name: string; href: string; count?: number }[];
+  recent: { title: string; href: string }[];
+}
+
+function ContrastIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" />
+    </svg>
+  );
 }
 
 function RssIcon() {
@@ -170,9 +190,14 @@ export function PublicPageChrome({
   subscribeSettings,
   year,
   embedded = false,
+  layout,
+  modeToggle = false,
+  sidebar,
   children,
 }: PublicPageChromeProps) {
-  const themeAttrs = theme ? resolveSiteTheme(theme) : undefined;
+  const themeAttrs = theme ? resolveSiteTheme(theme, presetId) : undefined;
+  const template = templateAttributes(presetId);
+  const hasSidebar = template["data-vc-chrome"] === "sidebar";
   const subscribe = subscribeVariant ? (
     <SubscribeBlock siteSlug={subscribeSiteSlug} variant={subscribeVariant} settings={subscribeSettings} />
   ) : null;
@@ -184,6 +209,7 @@ export function PublicPageChrome({
   return (
     <main
       className={styles.page}
+      {...template}
       data-vc-theme={resolvePresetId(presetId)}
       style={themeAttrs?.style}
       {...(themeAttrs?.mode === "light" || themeAttrs?.mode === "dark"
@@ -192,7 +218,55 @@ export function PublicPageChrome({
       {...(article ? { "data-vc-article-page": "" } : {})}
       {...(embedded ? { "data-embedded": "" } : {})}
     >
-      <div className={styles.shell} data-wide={wide ? "" : undefined}>
+      <div className={styles.frame}>
+      {hasSidebar ? (
+        <aside className={styles.sidebar} aria-label="Blog">
+          <a href={homeHref} className={styles.sidebarBrand}>
+            {siteName}
+          </a>
+          {tagline ? <p className={styles.sidebarTagline}>{tagline}</p> : null}
+          <nav className={styles.sidebarNav} aria-label="Sections">
+            <a href={allPostsHref ?? homeHref} className={styles.sidebarLink}>
+              All posts
+            </a>
+            {feedHref ? (
+              <a href={feedHref} className={styles.sidebarLink}>
+                RSS
+              </a>
+            ) : null}
+          </nav>
+          {sidebar && sidebar.recent.length > 0 ? (
+            <div className={styles.sidebarGroup}>
+              <p className={styles.sidebarLabel}>Recent</p>
+              <ul className={styles.sidebarList}>
+                {sidebar.recent.slice(0, 6).map((post) => (
+                  <li key={post.href}>
+                    <a href={post.href} className={styles.sidebarLink}>
+                      {post.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {sidebar && sidebar.tags.length > 0 ? (
+            <div className={styles.sidebarGroup}>
+              <p className={styles.sidebarLabel}>Tags</p>
+              <ul className={styles.sidebarTags}>
+                {sidebar.tags.slice(0, 16).map((tag) => (
+                  <li key={tag.href}>
+                    <a href={tag.href} className={styles.sidebarTag}>
+                      {tag.name}
+                      {tag.count ? <span className={styles.sidebarCount}>{tag.count}</span> : null}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
+      <div className={styles.shell} data-wide={wide ? "" : undefined} data-layout={layout}>
         <header className={styles.masthead}>
           {homeHeading ? <h1 className={styles.brandHeading}>{brand}</h1> : brand}
           <nav className={styles.mastNav} aria-label="Site">
@@ -222,6 +296,11 @@ export function PublicPageChrome({
                 <RssIcon />
               </a>
             ) : null}
+            {modeToggle ? (
+              <button type="button" className={styles.iconLink} data-vc-mode-toggle="" aria-label="Switch light or dark mode" title="Light or dark">
+                <ContrastIcon />
+              </button>
+            ) : null}
           </nav>
         </header>
         {homeHeading && tagline ? <p className={styles.intro}>{tagline}</p> : null}
@@ -238,6 +317,7 @@ export function PublicPageChrome({
             </a>
           ) : null}
         </footer>
+      </div>
       </div>
     </main>
   );

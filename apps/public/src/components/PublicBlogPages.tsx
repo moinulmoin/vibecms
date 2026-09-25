@@ -3,10 +3,13 @@ import { createCodeHighlighter } from "@vc/content/highlight";
 import {
   PresentedPostArticle,
   articleHasToc,
+  siteThemeRootAttributes,
 } from "@vc/content/presented-post";
 import { PublicPageChrome } from "@vc/content/public-chrome";
 import { PublicPostList } from "@vc/content/public-post-list";
-import { resolvePresetId, resolvePresentation } from "@vc/config";
+import { resolvePresetId, resolvePresentation, resolveThemeFont, THEME_PRESETS } from "@vc/config";
+import type { SidebarData } from "@vc/content/public-chrome";
+import type { ArticleAuthor } from "@vc/content/presented-post";
 import type {
   PublicIndexLoaderData,
   PublicListingContext,
@@ -44,7 +47,34 @@ function parseTags(tagsJson: string): string[] {
 }
 
 function siteTheme(site: PublicIndexLoaderData["site"]) {
-  return { accent: site.theme_accent, font: site.theme_font, mode: site.theme_mode };
+  return {
+    accent: site.theme_accent,
+    font: site.theme_font,
+    mode: site.theme_mode,
+    radius: site.theme_radius,
+    width: site.theme_width,
+  };
+}
+
+/** <html> theme attributes + the font pairing to preload, for Base.astro. */
+export function siteDocumentProps(site: PublicIndexLoaderData["site"]) {
+  const presetId = resolvePresetId(site.theme);
+  return {
+    themeAttrs: siteThemeRootAttributes(presetId, siteTheme(site)),
+    fontId: resolveThemeFont(site.theme_font, presetId),
+  };
+}
+
+function templateOf(site: PublicIndexLoaderData["site"]) {
+  return THEME_PRESETS[resolvePresetId(site.theme)].template;
+}
+
+function sidebarData(basePath: string, source: PublicIndexLoaderData["sidebar"] | null | undefined): SidebarData | null {
+  if (!source) return null;
+  return {
+    recent: source.recent.map((post) => ({ title: post.title, href: `${basePath}/${post.slug}` })),
+    tags: source.tags.map((tag) => ({ name: tag.name, count: tag.count, href: `${basePath}/tag/${encodeURIComponent(tag.name)}` })),
+  };
 }
 
 /** The listing page actually shown for a raw `?page=` value (clamped to the last page). */
@@ -128,6 +158,8 @@ export function PublicBlogIndexView({
       searchQuery={searchQuery}
       feedHref={`${basePath}/feed.xml`}
       allPostsHref={listing.kind === "index" ? undefined : indexHref}
+      modeToggle
+      sidebar={sidebarData(basePath, data.sidebar)}
       subscribeVariant="footer"
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
@@ -150,6 +182,7 @@ export function PublicBlogIndexView({
       ) : null}
       {visible.length > 0 ? (
         <PublicPostList
+          variant={templateOf(site).index}
           posts={visible.map((post) => {
             const coverMedia = post.cover_asset_id ? buildResponsiveMediaUrls(post.cover_asset_id) : undefined;
             return {
@@ -204,6 +237,15 @@ export function PublicBlogIndexView({
   );
 }
 
+function adjacent(basePath: string, post: PublicPostLoaderData["newer"]) {
+  return post ? { title: post.title, href: `${basePath}/${post.slug}`, publishedAt: post.publishedAt ?? null } : null;
+}
+
+/** Public author line: the owner's public name, credited as reviewer of agent-written posts. */
+function postAuthor(data: PublicPostLoaderData): ArticleAuthor {
+  return data.byline;
+}
+
 export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
   const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
@@ -230,6 +272,9 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
       theme={theme}
       article
       wide={articleHasToc(resolved, renderResult.outline)}
+      layout={resolved.layout}
+      modeToggle
+      sidebar={sidebarData(basePath, data.sidebar)}
       feedHref={`${basePath}/feed.xml`}
       subscribeVariant="end"
       subscribeSiteSlug={site.slug}
@@ -259,8 +304,13 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
         tags={parseTags(post.tags_json)}
         basePath={basePath}
         theme={theme}
-        newer={data.newer ? { title: data.newer.title, href: `${basePath}/${data.newer.slug}` } : null}
-        older={data.older ? { title: data.older.title, href: `${basePath}/${data.older.slug}` } : null}
+        author={postAuthor(data)}
+        actions={{
+          markdownUrl: new URL(`${basePath}/${post.slug}.md`, data.origin).href,
+          shareUrl: new URL(data.canonicalUrl, data.origin).href,
+        }}
+        newer={adjacent(basePath, data.newer)}
+        older={adjacent(basePath, data.older)}
       />
     </PublicPageChrome>
   );
@@ -279,6 +329,7 @@ export function PublicNotFoundView({
       presetId={site.theme}
       theme={siteTheme(site)}
       feedHref="/feed.xml"
+      modeToggle
     >
       <div className={styles.notFound}>
         <p className={styles.listingEyebrow}>404</p>

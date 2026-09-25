@@ -44,6 +44,12 @@ export const sites = sqliteTable("sites", {
   themeAccent: text("theme_accent"),
   themeFont: text("theme_font"),
   themeMode: text("theme_mode").notNull().default("system"),
+  // Template shape knobs; NULL = the template's default (see @vc/config TEMPLATES).
+  themeRadius: text("theme_radius"),
+  themeWidth: text("theme_width"),
+  // Public byline. NULL name falls back to the site name (never the email).
+  bylineName: text("byline_name"),
+  showAgentCredit: integer("show_agent_credit", { mode: "boolean" }).notNull().default(true),
   // Personalized onboarding (Layer 3) — nullable so pre-personalization rows
   // simply read as "not answered yet". voice_seed_json holds up to 3 writing
   // sample URLs the owner shared so an agent can build the voice profile.

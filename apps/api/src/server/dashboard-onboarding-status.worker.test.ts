@@ -8,6 +8,7 @@ import type { D1Migration } from "cloudflare:test";
 import type { Actor } from "@vc/core";
 import {
   completeSiteSetupForApp,
+  getSiteSettings,
   updateSiteSettingsForApp,
   type AppUserContext,
 } from "@/server/onboarding";
@@ -152,6 +153,74 @@ describe("owner-only site configuration mutations", () => {
     await expect(clearVoiceProfileForApp(editorApp())).resolves.toEqual({
       kind: "error",
       code: "owner_required",
+    });
+  });
+});
+
+describe("site settings: public byline + template knobs", () => {
+  it("defaults to the site name, agent credit on, and the template's radius/width", async () => {
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      bylineName: "",
+      showAgentCredit: true,
+      themeRadius: "md",
+      themeWidth: "normal",
+    });
+  });
+
+  it("reports the template's accent/font for unset values, as the public blog renders them", async () => {
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, theme: "editorial", themeAccent: null, themeFont: null }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    const saved = await getSiteSettings(ownerApp());
+    expect(saved).toMatchObject({ theme: "editorial", themeAccent: "rust", themeFont: "serif" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: saved.updatedAt, theme: "minimal" }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+  });
+
+  it("rejects unknown radius/width ids and over-long public names", async () => {
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, themeRadius: "huge" }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_theme_radius" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, themeWidth: "full" }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_theme_width" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, bylineName: "x".repeat(81) }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_byline_name" });
+  });
+
+  it("saves the byline and knobs; blank name and null knobs reset to defaults", async () => {
+    let { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), {
+        expectedUpdatedAt: updatedAt,
+        bylineName: "  Ada Lovelace  ",
+        showAgentCredit: false,
+        themeRadius: "lg",
+        themeWidth: "wide",
+      }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    const saved = await getSiteSettings(ownerApp());
+    expect(saved).toMatchObject({ bylineName: "Ada Lovelace", showAgentCredit: false, themeRadius: "lg", themeWidth: "wide" });
+
+    updatedAt = saved.updatedAt;
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), {
+        expectedUpdatedAt: updatedAt,
+        bylineName: "   ",
+        showAgentCredit: true,
+        themeRadius: null,
+        themeWidth: null,
+      }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      bylineName: "",
+      showAgentCredit: true,
+      themeRadius: "md",
+      themeWidth: "normal",
     });
   });
 });

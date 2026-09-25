@@ -1,15 +1,24 @@
 declare const styles: {
+  readonly actionButton: string;
+  readonly actions: string;
   readonly adjacent: string;
   readonly adjacentLabel: string;
   readonly adjacentLink: string;
   readonly adjacentOlder: string;
   readonly adjacentTitle: string;
+  readonly agentBadge: string;
   readonly article: string;
   readonly articleBody: string;
   readonly articleDeck: string;
   readonly articleHeader: string;
   readonly articleTitle: string;
+  readonly authorLine: string;
+  readonly avatar: string;
+  readonly byline: string;
+  readonly bylineText: string;
+  readonly featureBand: string;
   readonly featureCover: string;
+  readonly featureMedia: string;
   readonly heroImage: string;
   readonly metaLine: string;
   readonly tagLink: string;
