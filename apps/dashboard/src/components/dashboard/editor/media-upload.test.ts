@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const library: Asset[] = []
 vi.mock('~/lib/api-client', () => ({
+  DashboardApiError: class DashboardApiError extends Error {},
+  dashboardMutationHeaders: () => ({ 'x-vc-expected-site': 'site-a' }),
+  dashboardMutationSignal: () => new AbortController().signal,
+  handleDashboardSiteChanged: vi.fn(),
   loadMediaPage: vi.fn(async () => ({ assets: [...library].reverse() })),
 }))
 
@@ -21,6 +25,7 @@ describe('uploadEditorMedia', () => {
     // The server stores each upload as soon as its request lands.
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
       const file = (init.body as FormData).get('file') as File
+      expect(new Headers(init.headers).get('x-vc-expected-site')).toBe('site-a')
       library.push(asset(file.name.replace('.png', '')))
       return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded' }))
     }))

@@ -25,6 +25,13 @@ export const MEDIA = {
   mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as const,
 } as const;
 
+/** Root paths routed by the public worker instead of serving blog posts. */
+export const RESERVED_POST_SLUGS = [
+  "dashboard", "api", "blog", "login", "mcp", "media-assets", "internal",
+  "feed.xml", "sitemap.xml", "robots.txt", "llms.txt", "llms-full.txt",
+  "docs-search.json", "docs", "__vc-health",
+] as const;
+
 export const API_USAGE_LIMITS = {
   paid: {
     calls: { minute: 120, day: 5_000, month: 25_000 },

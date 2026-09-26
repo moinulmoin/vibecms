@@ -34,7 +34,7 @@ interface Props {
   description?: string;
   robots?: string;
   canonical?: string;
-  socialImage?: ResolvedSocialImage;
+  socialImage?: ResolvedSocialImage | null;
 }
 const { title, description, robots, canonical, socialImage, themeAttrs, feedHref, feedTitle, fontId } = Astro.props;
 const preloadFonts = themeAttrs ? FONT_PRELOADS[fontId ?? "geist-sans"] ?? [] : [];

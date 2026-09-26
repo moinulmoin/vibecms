@@ -42,5 +42,6 @@ export function parsePublicRuntimeEnv(raw: Env): PublicRuntimeEnv {
     appUrl: raw.APP_URL,
     publicBlogDomain,
     selfHosted: String(raw.SELF_HOSTED) === "true",
+    generatedCards: Boolean(raw.OG),
   };
 }

@@ -84,6 +84,11 @@ export function resolvePublicPage(raw: string | null | undefined, totalPosts: nu
   return Math.min(Math.max(1, parsed), pageCount);
 }
 
+export function requestedPublicPage(raw: string | null | undefined): number {
+  const page = /^\d+$/.test(raw ?? "") ? Number(raw) : 1;
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
+}
+
 /** Canonical path for a listing page: page 1 is the bare path. */
 export function publicPageCanonicalPath(basePath: string, page: number): string {
   return pageHref(basePath, page);
@@ -140,9 +145,10 @@ export function PublicBlogIndexView({
   const listing: PublicListingContext = data.listing ?? DEFAULT_LISTING;
   const searchQuery = listing.kind === "search" ? listing.query : "";
   const indexHref = publicIndexHref(basePath);
-  const pageCount = Math.max(1, Math.ceil(posts.length / PUBLIC_INDEX_PAGE_SIZE));
-  const current = Math.min(Math.max(1, page), pageCount);
-  const visible = posts.slice((current - 1) * PUBLIC_INDEX_PAGE_SIZE, current * PUBLIC_INDEX_PAGE_SIZE);
+  const totalPosts = data.totalPosts ?? posts.length;
+  const pageCount = Math.max(1, Math.ceil(totalPosts / PUBLIC_INDEX_PAGE_SIZE));
+  const current = Math.min(Math.max(1, data.page ?? page), pageCount);
+  const visible = data.totalPosts === undefined ? posts.slice((current - 1) * PUBLIC_INDEX_PAGE_SIZE, current * PUBLIC_INDEX_PAGE_SIZE) : posts;
   const listingBase =
     listing.kind === "tag" ? `${basePath}/tag/${encodeURIComponent(listing.tag)}` : indexHref;
 
@@ -168,7 +174,7 @@ export function PublicBlogIndexView({
         <header className={styles.listingHeader}>
           <h1 className={styles.listingHeading}>Posts tagged {listing.tag}</h1>
           <p className={styles.listingCount}>
-            {posts.length} {posts.length === 1 ? "post" : "posts"}
+            {totalPosts} {totalPosts === 1 ? "post" : "posts"}
           </p>
         </header>
       ) : null}

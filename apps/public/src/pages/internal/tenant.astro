@@ -1,6 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PublicBlogIndexView, publicPageCanonicalPath, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
+import { PublicBlogIndexView, publicPageCanonicalPath, requestedPublicPage, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
@@ -22,7 +22,7 @@ const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
 // Host resolution still uses the preserved Host header after rewrite; origin
 // for SEO/canonical comes from the external `/` path (originPathname).
 const originUrl = new URL(Astro.originPathname + Astro.url.search, Astro.url);
-const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query);
+const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query, requestedPublicPage(Astro.url.searchParams.get("page")));
 
 if (!blog) {
   return new Response("Not found", {
@@ -42,8 +42,8 @@ for (const [key, value] of Object.entries(headers)) {
 const origin = publicOrigin(originUrl);
 const title = blog.site.default_seo_title || blog.site.name;
 const description = blog.site.default_seo_description || blog.site.description || undefined;
-const socialImage = resolveSocialImage(origin, null, blog.site);
-const page = resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
+const socialImage = resolveSocialImage(origin, null, blog.site, env.generatedCards);
+const page = blog.page ?? resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
 const canonical = new URL(publicPageCanonicalPath("/", page), origin).href;
 const { themeAttrs, fontId } = siteDocumentProps(blog.site);
 ---

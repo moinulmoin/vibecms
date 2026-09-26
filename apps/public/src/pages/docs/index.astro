@@ -1,0 +1,81 @@
+---
+import { render } from "astro:content";
+import type { MarkdownHeading } from "astro";
+import type { AstroComponentFactory } from "astro/runtime/server/index.js";
+import Base from "../../layouts/Base.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { DocsShell } from "../../components/docs/docs-shell";
+import { PublicBlogPostView, siteDocumentProps } from "../../components/PublicBlogPages";
+import { docsSource } from "../../lib/docs-source";
+import { buildPostHeadContent } from "../../lib/seo-meta";
+import { resolveSite } from "../../server/public-blog-data";
+import {
+  handlePublicPostByHostGet,
+  isMarketingHost,
+  loadPublicPostForSite,
+  matchCachedPublicPostHtml,
+  publicHtmlResponseHeaders,
+} from "../../server/public-blog";
+import { publicDb, publicRuntimeEnv } from "../../server/runtime";
+import pageViewScriptUrl from "../../scripts/page-view.js?url";
+
+const env = publicRuntimeEnv(Astro);
+const marketing = !env.selfHosted && isMarketingHost(Astro.request, env);
+let blog: Awaited<ReturnType<typeof loadPublicPostForSite>> = null;
+if (!marketing) {
+  const db = publicDb(Astro);
+  const early = await handlePublicPostByHostGet(db, Astro.request, "docs", env);
+  if (early) return early;
+  const site = await resolveSite(Astro.request, db, env);
+  if (!site) return new Response("Not found", { status: 404 });
+  if (site.effective_entitlement.effective) {
+    const cachedHtml = await matchCachedPublicPostHtml(Astro.request, site.id);
+    if (cachedHtml) return cachedHtml;
+  }
+  blog = await loadPublicPostForSite(db, Astro.request.url, site, "docs", env);
+  if (!blog) return new Response("Not found", { status: 404 });
+  for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
+    markdownAlternateHref: new URL("/docs.md", blog.origin).href,
+  }))) Astro.response.headers.set(key, value);
+}
+
+const page = marketing ? docsSource.getPage([]) : null;
+if (marketing && !page) return new Response("Documentation page not found", { status: 404 });
+const rendered: { Content: AstroComponentFactory; headings: MarkdownHeading[] } | null = page
+  ? await render(page.data._raw)
+  : null;
+const toc = rendered?.headings
+  .filter((heading) => heading.depth >= 2 && heading.depth <= 3)
+  .map((heading) => ({ title: heading.text, url: `#${heading.slug}`, depth: heading.depth })) ?? [];
+const head = blog ? buildPostHeadContent({
+  post: blog.post,
+  site: blog.site,
+  canonicalUrl: blog.canonicalUrl,
+  origin: blog.origin,
+  indexable: blog.indexable,
+  generatedCards: env.generatedCards,
+}) : null;
+const documentProps = blog ? siteDocumentProps(blog.site) : null;
+---
+{blog && head && documentProps ? (
+  <Base themeAttrs={documentProps.themeAttrs} fontId={documentProps.fontId} feedHref="/feed.xml" feedTitle={blog.site.name}>
+    <Fragment slot="head">
+      {head.meta.map((entry) => {
+        if ("title" in entry) return <title>{String(entry.title)}</title>;
+        if ("name" in entry && entry.name && entry.content) return <meta name={String(entry.name)} content={String(entry.content)} />;
+        if ("property" in entry && entry.property && entry.content) return <meta property={String(entry.property)} content={String(entry.content)} />;
+        return null;
+      })}
+      {head.links.map((link) => <link rel={String(link.rel)} href={String(link.href)} type={link.type ? String(link.type) : undefined} />)}
+      {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
+    </Fragment>
+    <PublicBlogPostView data={blog} />
+    <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
+  </Base>
+) : page && rendered ? (
+  <DocsLayout title={page.data.title ?? "Documentation"} description={page.data.description} canonical={new URL(page.url, Astro.url.origin).toString()}>
+    <DocsShell client:load tree={docsSource.pageTree} pathname={Astro.url.pathname} params={Astro.params} title={page.data.title ?? "Documentation"} description={page.data.description} toc={toc} appUrl={env.appUrl}>
+      <rendered.Content />
+    </DocsShell>
+  </DocsLayout>
+) : null}

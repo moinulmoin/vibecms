@@ -2,7 +2,7 @@ import {
   getPublishedPost,
   isPublicBlogIndexable,
   listPublishedPostSummaries,
-  listPublishedPostSummariesByTag,
+  listPublishedPostPage,
   searchPublishedPostSummaries,
   resolveSite,
   type PostDetailRow,
@@ -43,6 +43,11 @@ export const RESERVED_ROOT_SLUGS = new Set([
   "docs",
   "__vc-health",
 ]);
+
+/** These routes gained special handling after tenant posts with these slugs existed. */
+export function isReadableTenantPostSlug(slug: string | undefined): slug is string {
+  return !!slug && (!RESERVED_ROOT_SLUGS.has(slug) || slug === "docs" || slug === "internal");
+}
 
 function notFound() {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -206,7 +211,7 @@ export async function handlePublicPostByHostGet(
   env: PublicRuntimeEnv,
 ) {
   const { slug: stripped } = stripMarkdownSuffix(slug);
-  if (!stripped || RESERVED_ROOT_SLUGS.has(stripped)) return null;
+  if (!isReadableTenantPostSlug(stripped)) return null;
 
   const { markdown } = stripMarkdownSuffix(slug);
   if (!markdown && !markdownRequested(request)) return null;
@@ -322,7 +327,7 @@ export async function loadPublicPostForSite(
   env: PublicRuntimeEnv,
 ): Promise<PublicPostLoaderData | null> {
   const { slug: postSlug } = stripMarkdownSuffix(slug);
-  if (!postSlug || RESERVED_ROOT_SLUGS.has(postSlug)) return null;
+  if (!isReadableTenantPostSlug(postSlug)) return null;
   const [post, summaries] = await Promise.all([
     getPublishedPost(db, site.id, postSlug),
     listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
@@ -366,6 +371,8 @@ export type PublicListingContext =
 export type PublicIndexLoaderData = {
   site: SiteRow;
   posts: PostSummaryRow[];
+  totalPosts?: number;
+  page?: number;
   basePath: string;
   indexable: boolean;
   listing: PublicListingContext;
@@ -378,6 +385,7 @@ export async function loadPublicIndexByHost(
   request: Request,
   env: PublicRuntimeEnv,
   query?: string,
+  requestedPage = 1,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
@@ -395,14 +403,19 @@ export async function loadPublicIndexByHost(
       sidebar: buildPublicSidebar(all),
     };
   }
-  const posts = await listPublishedPostSummaries(db, site.id);
+  const [result, all] = await Promise.all([
+    listPublishedPostPage(db, site.id, requestedPage, 20),
+    listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+  ]);
   return {
     site,
-    posts,
+    posts: result.posts,
+    totalPosts: result.total,
+    page: result.page,
     basePath: "",
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "index" },
-    sidebar: buildPublicSidebar(posts),
+    sidebar: buildPublicSidebar(all),
   };
 }
 
@@ -411,18 +424,21 @@ export async function loadPublicTagByHost(
   request: Request,
   tag: string,
   env: PublicRuntimeEnv,
+  requestedPage = 1,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
   // Sidebar stays site-wide (all tags, newest posts), not just this tag's posts.
-  const [posts, all] = await Promise.all([
-    listPublishedPostSummariesByTag(db, site.id, tag),
+  const [result, all] = await Promise.all([
+    listPublishedPostPage(db, site.id, requestedPage, 20, tag),
     listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
   ]);
-  if (posts.length === 0) return null;
+  if (result.total === 0) return null;
   return {
     site,
-    posts,
+    posts: result.posts,
+    totalPosts: result.total,
+    page: result.page,
     basePath: "",
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "tag", tag },

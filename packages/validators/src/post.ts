@@ -1,26 +1,8 @@
 import { z } from "zod";
-import { PRESENTATION_LAYOUTS } from "@vc/config";
-
-const RESERVED_POST_SLUG_NAMES = [
-  "dashboard",
-  "api",
-  "blog",
-  "login",
-  "mcp",
-  "media-assets",
-  "internal",
-  "feed.xml",
-  "sitemap.xml",
-  "robots.txt",
-  "llms.txt",
-  "llms-full.txt",
-  "docs-search.json",
-  "docs",
-  "__vc-health",
-] as const;
+import { PRESENTATION_LAYOUTS, RESERVED_POST_SLUGS } from "@vc/config";
 
 export function isReservedPostSlug(value: string): boolean {
-  return RESERVED_POST_SLUG_NAMES.includes(value as (typeof RESERVED_POST_SLUG_NAMES)[number]);
+  return RESERVED_POST_SLUGS.includes(value as (typeof RESERVED_POST_SLUGS)[number]);
 }
 
 const slug = z

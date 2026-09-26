@@ -1,3 +1,4 @@
+import { pinDashboardSiteOnce, pinnedDashboardSiteId, repinDashboardSite } from '~/lib/site-pin'
 import type {
   AddCustomDomainResult,
   AnalyticsPageData,
@@ -78,6 +79,33 @@ async function readJsonBody(response: Response): Promise<unknown> {
 }
 
 const mutationListeners = new Set<() => void>()
+const siteChangedListeners = new Set<() => void>()
+const tenantMutations = new AbortController()
+
+/** Stop writes started by a page whose selected site is no longer current. */
+export function suspendDashboardMutations() {
+  tenantMutations.abort()
+}
+
+export function onDashboardSiteChanged(listener: () => void) {
+  siteChangedListeners.add(listener)
+  return () => { siteChangedListeners.delete(listener) }
+}
+
+export function dashboardMutationHeaders(): Record<string, string> {
+  const siteId = pinnedDashboardSiteId()
+  return siteId ? { 'x-vc-expected-site': siteId } : {}
+}
+
+export function handleDashboardSiteChanged(error: unknown) {
+  if (!(error instanceof DashboardApiError) || error.status !== 409 || error.code !== 'site_changed') return
+  suspendDashboardMutations()
+  for (const listener of siteChangedListeners) listener()
+}
+
+export function dashboardMutationSignal() {
+  return tenantMutations.signal
+}
 
 /**
  * Called after every non-GET dashboard request settles (success or failure),
@@ -102,7 +130,14 @@ export async function dashboardFetch<T>(
   const method = (init?.method ?? 'GET').toUpperCase()
   if (method === 'GET' || method === 'HEAD') return dashboardRequest(path, init, schema)
   try {
-    return await dashboardRequest(path, init, schema)
+    tenantMutations.signal.throwIfAborted()
+    return await dashboardRequest(path, {
+      ...init,
+      signal: init?.signal ? AbortSignal.any([init.signal, tenantMutations.signal]) : tenantMutations.signal,
+    }, schema)
+  } catch (error) {
+    handleDashboardSiteChanged(error)
+    throw error
   } finally {
     notifyDashboardMutation()
   }
@@ -114,6 +149,9 @@ async function dashboardRequest<T>(
   schema?: z.ZodType<T>,
 ): Promise<T> {
   const headers = new Headers(init?.headers)
+  if (init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase())) {
+    for (const [name, value] of Object.entries(dashboardMutationHeaders())) headers.set(name, value)
+  }
   if (init?.body !== undefined && !(init.body instanceof FormData) && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
   }
@@ -162,19 +200,25 @@ export async function dashboardPost<T>(
   )
 }
 
-export function loadAppRouterContext(signal?: AbortSignal) {
-  return dashboardFetch('/api/dashboard/context', { method: 'GET', signal }, appRouterContextSchema)
+export async function loadAppRouterContext(signal?: AbortSignal) {
+  const context = await dashboardFetch('/api/dashboard/context', { method: 'GET', signal }, appRouterContextSchema)
+  // Pin the first loaded site. A background refresh must not silently retarget
+  // writes from this tab after another tab changes the shared selection cookie.
+  pinDashboardSiteOnce(context.app?.siteId)
+  return context
 }
 
-export function selectDashboardApp(
+export async function selectDashboardApp(
   selection: { workspaceId: string; siteId: string },
   signal?: AbortSignal,
 ) {
-  return dashboardPost<{ ok: true }>(
+  const result = await dashboardPost<{ ok: true }>(
     '/api/dashboard/context/select',
     selection,
     signal,
   )
+  repinDashboardSite(selection.siteId)
+  return result
 }
 
 export function loadDashboardOverview(signal?: AbortSignal) {

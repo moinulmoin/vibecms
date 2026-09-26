@@ -4,27 +4,29 @@ vibecms runs without Polar when `SELF_HOSTED=true`. Hosted billing gates and wor
 
 ## Topology
 
-Self-hosting uses the same two-Worker boundary as vibecms Cloud:
+Self-hosting uses the same Worker layout as vibecms Cloud, with the OG Worker optional:
 
 1. **API + dashboard Worker**: Hono, Better Auth, REST, MCP, billing adapter, media writes, and the static TanStack Router SPA.
 2. **Public Worker**: Astro SSR for blog pages, feeds, search, Markdown negotiation, and newsletter form forwarding.
+3. **Optional OG Worker**: renders tenant share cards through a service binding. It has no public route.
 
-Both Workers bind the same D1 database as `DB` and R2 bucket as `ASSETS_BUCKET`. The public Worker calls the API Worker through the `API` service binding. Public blog routes are host-based; the removed `/blog/<site-slug>/*` path mode is not supported.
+The API and public Workers bind the same D1 database as `DB` and R2 bucket as `ASSETS_BUCKET`. The public Worker calls the API Worker through the `API` service binding. Public blog routes are host-based; the removed `/blog/<site-slug>/*` path mode is not supported.
 
-Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public.jsonc` configures the Astro public Worker.
+Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public.jsonc` configures the Astro public Worker. Root `wrangler.og.jsonc` configures the optional OG Worker.
 
 ## Required resources
 
-- Two Cloudflare Workers
+- Two Cloudflare Workers, plus an optional third OG Worker
 - One D1 database, bound to both Workers as `DB`
 - One R2 bucket, bound to both Workers as `ASSETS_BUCKET`
 - One service binding named `API` from public to API
+- Optional service binding named `OG` from public to the default `OgWorker` entrypoint. Remove this binding from `wrangler.public.jsonc` if you skip the OG Worker. Without it, generated `/og*.png` cards return 404; post covers and site default share images continue to work, and pages without either omit image metadata.
 - A native `send_email` binding named `EMAIL` on the API Worker for real OTP delivery
 - Images binding named `IMAGES` on the public Worker (already declared)
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 
-Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in both root Wrangler configs before deploying.
+Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in the root Wrangler configs before deploying.
 
 ## Variables and secrets
 
@@ -85,12 +87,13 @@ pnpm deploy
 
 `pnpm deploy` performs this order:
 
-1. Build dashboard assets and both Workers.
+1. Build dashboard assets and all configured Workers.
 2. Apply all D1 migrations through root `wrangler.jsonc`.
 3. Deploy the API/dashboard Worker.
-4. Deploy the Astro public Worker generated from `wrangler.public.jsonc`.
+4. Deploy the optional OG Worker from `wrangler.og.jsonc`.
+5. Deploy the Astro public Worker generated from `wrangler.public.jsonc`.
 
-The API Worker must deploy first because the public Worker service binding targets it.
+The API and OG Workers must deploy before public because its service bindings target them. If you skip OG, remove the OG build/deploy commands from the root scripts and the `OG` binding from `wrangler.public.jsonc`.
 
 After deploy, open `APP_URL`, create the first account, and complete blog setup. Self-hosted onboarding skips Polar and lands on `/dashboard`.
 
@@ -114,4 +117,4 @@ Create the scoped token under **Dashboard → Connect** and copy it once. The sa
 
 ## Deploy button readiness
 
-Before exposing a public Deploy to Cloudflare button, rehearse the two-Worker flow from a clean Cloudflare account and verify that D1/R2 provisioning, both host variables, secrets, the service binding, migrations, and deployment order are all handled correctly.
+Before exposing a public Deploy to Cloudflare button, rehearse the API/public flow and the optional OG Worker from a clean Cloudflare account. Verify D1/R2 provisioning, host variables, secrets, service bindings, migrations, and deployment order.

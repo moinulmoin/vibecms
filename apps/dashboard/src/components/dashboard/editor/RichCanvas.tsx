@@ -38,6 +38,7 @@ export type RichCanvasProps = {
   uploadFile?: (file: File) => Promise<string>
   onChange: (markdown: string) => void
   onUnsafeSyntax?: (unsafe: boolean) => void
+  onUnsafeMarkdownPaste: (markdown: string) => void
   className?: string
 }
 
@@ -70,7 +71,7 @@ function vcSlashItems(editor: AnyBlockNoteEditor): DefaultReactSuggestionItem[] 
  * BlockNote's editor surface. Markdown remains canonical: each content change
  * serializes the complete document, never an incremental patch.
  */
-export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile, onChange, onUnsafeSyntax, className }: RichCanvasProps) {
+export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile, onChange, onUnsafeSyntax, onUnsafeMarkdownPaste, className }: RichCanvasProps) {
   const [dropNotice, setDropNotice] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const sourceRef = useRef(source)
@@ -79,6 +80,8 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
   const initializedEditorRef = useRef<unknown>(null)
   const uploadFileRef = useRef(uploadFile)
   uploadFileRef.current = uploadFile
+  const unsafePasteRef = useRef(onUnsafeMarkdownPaste)
+  unsafePasteRef.current = onUnsafeMarkdownPaste
   const uploadedRef = useRef(new Map<string, UploadedImage>())
   // Stable identity: a changing upload callback must never recreate the editor
   // (a fresh editor starts empty and its first change would clobber the post).
@@ -103,6 +106,10 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
         const cursorBlock = target.getTextCursorPosition().block
         if (cursorBlock.type === 'codeBlock' || types.includes('blocknote/html') || types.includes('Files') || !text || !isMarkdownPaste(text)) {
           return defaultPasteHandler()
+        }
+        if (!visualMarkdownSafety(text, target as AnyBlockNoteEditor).safe) {
+          unsafePasteRef.current(text)
+          return true
         }
         target.insertBlocks(markdownToBlocks(text, target as AnyBlockNoteEditor) as never, cursorBlock, 'after')
         return true

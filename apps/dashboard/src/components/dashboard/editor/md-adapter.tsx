@@ -239,19 +239,33 @@ function prepareBlocksForExport(
     return { ...block, ...children }
   })
 }
-function canonicalizeMarkdown(markdown: string) {
+/** Map every line outside fenced code; fence contents pass through untouched. */
+function mapOutsideFences(markdown: string, map: (line: string) => string) {
+  let fence: string | null = null
   return markdown
     .split('\n')
     .map((line) => {
-      const list = /^(\s*)\* (?=(?:\[[ xX]\] )?\S)/.exec(line)
-      if (list) return `${list[1]}- ${line.slice(list[0].length)}`
-      if (line.trimStart().startsWith('|') && line.trimEnd().endsWith('|')) {
-        const cells = line.trim().slice(1, -1).split('|').map((cell) => cell.trim().replace(/^-+$/, '---'))
-        return `| ${cells.join(' | ')} |`
+      const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
+      if (fence) {
+        if (marker && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null
+        return line
       }
-      return line
+      if (marker) fence = marker
+      return map(line)
     })
     .join('\n')
+}
+
+function canonicalizeMarkdown(markdown: string) {
+  return mapOutsideFences(markdown, (line) => {
+    const list = /^(\s*)\* (?=(?:\[[ xX]\] )?\S)/.exec(line)
+    if (list) return `${list[1]}- ${line.slice(list[0].length)}`
+    if (line.trimStart().startsWith('|') && line.trimEnd().endsWith('|')) {
+      const cells = line.trim().slice(1, -1).split('|').map((cell) => cell.trim().replace(/^-+$/, '---'))
+      return `| ${cells.join(' | ')} |`
+    }
+    return line
+  })
 }
 
 /**
@@ -280,19 +294,7 @@ function collapseBlankLines(markdown: string) {
 
 /** Trailing whitespace outside fenced code, which the visual editor never preserves. */
 function stripTrailingSpaceOutsideCode(markdown: string) {
-  let fence: string | null = null
-  return markdown
-    .split('\n')
-    .map((line) => {
-      const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
-      if (fence) {
-        if (marker && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null
-        return line
-      }
-      if (marker) fence = marker
-      return line.replace(/[ \t]+$/, '')
-    })
-    .join('\n')
+  return mapOutsideFences(markdown, (line) => line.replace(/[ \t]+$/, ''))
 }
 
 export function blocksToMarkdown(blocks: EditorPartialBlock[], editor: AnyBlockNoteEditor = createMarkdownEditor()) {

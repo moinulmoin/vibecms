@@ -49,7 +49,7 @@ import {
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { setupAuthClient } from '~/lib/auth-client'
-import { selectDashboardApp } from '~/lib/api-client'
+import { selectDashboardApp, suspendDashboardMutations } from '~/lib/api-client'
 import { queryClient } from '~/lib/queries'
 import { clearSessionSecrets } from '~/lib/token-flash'
 import type { AppChoice } from '~/types/dashboard'
@@ -288,6 +288,17 @@ function SiteSwitcher({
     setPendingSiteId(choice.siteId)
     try {
       await selectDashboardApp({ workspaceId: choice.workspaceId, siteId: choice.siteId })
+      suspendDashboardMutations()
+      try {
+        localStorage.setItem('vc-dashboard-selection', JSON.stringify({
+          workspaceId: choice.workspaceId,
+          siteId: choice.siteId,
+          siteName: choice.siteName,
+          changedAt: Date.now(),
+        }))
+      } catch {
+        // Focus/visibility checks still detect the change if storage is unavailable.
+      }
       // The one-time key belongs to the site it was made for.
       clearSessionSecrets()
       queryClient.clear()

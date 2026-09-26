@@ -97,6 +97,11 @@ describe('visual edits stay visual', () => {
     expect(safety.safe).toBe(true)
   })
 
+  it('never rewrites list or table look-alikes inside code blocks', () => {
+    const { markdown } = exportState([{ type: 'codeBlock', props: { language: 'c' }, content: '* ptr = value;\n|   literal   |' }])
+    expect(markdown).toBe('```c\n* ptr = value;\n|   literal   |\n```\n')
+  })
+
   it('keeps blank lines inside code blocks', () => {
     const { markdown } = exportState([{ type: 'codeBlock', props: { language: 'ts' }, content: 'a\n\n\nb' }])
     expect(markdown).toBe('```ts\na\n\n\nb\n```\n')

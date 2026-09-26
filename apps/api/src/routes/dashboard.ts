@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
-import { requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
+import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
   addCustomDomainForApp,
   archivePostForApp,
@@ -81,6 +81,8 @@ dashboardRoutes.post('/context/select', async (c) => {
       401,
     )
   }
+  const changed = rejectChangedSite(c.req.raw, ctx)
+  if (changed) return changed
   const body = await c.req.json<{
     workspaceId?: unknown
     siteId?: unknown

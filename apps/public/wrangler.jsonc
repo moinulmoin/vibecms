@@ -40,7 +40,8 @@
     {
       "binding": "API",
       "service": "vibecms-api-dev"
-    }
+    },
+    { "binding": "OG", "service": "vibecms-og-dev", "entrypoint": "OgWorker" }
   ],
   "routes": [
     { "pattern": "basedui.dev", "custom_domain": true },
@@ -91,7 +92,8 @@
         {
           "binding": "API",
           "service": "vibecms-prod"
-        }
+        },
+        { "binding": "OG", "service": "vibecms-og-prod", "entrypoint": "OgWorker" }
       ],
       "routes": [
         { "pattern": "vibecms.dev", "custom_domain": true },

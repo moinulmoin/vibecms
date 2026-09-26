@@ -64,8 +64,8 @@ Hidden until the reader expands it.
 ## Setup
 ### Advanced options
 
-=== Table of contents (BAD - omitting both presentation.toc and [[toc]] produces no TOC) ===
-<!-- No [[toc]] marker and no presentation.toc: true -> no table of contents is generated. -->
+=== Table of contents (preset defaults) ===
+<!-- Omitting both controls uses the preset default; some presets show a page-level TOC with 3+ eligible headings. Set presentation.toc: false to suppress it. -->
 
 === Captioned image (GOOD - image line + emphasis line, no blank line between) ===
 ![A golden retriever on a sunny hillside](/assets/dog.jpg)

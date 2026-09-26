@@ -1,4 +1,5 @@
-import type { ActivityInput, Actor, Asset } from "@vc/core";
+import { ConflictError, type ActivityInput, type Actor, type Asset } from "@vc/core";
+import { assetUnusedSql } from "./assets";
 
 export type PendingMediaOpKind = "upload_cleanup" | "delete";
 
@@ -286,16 +287,23 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
     async deleteAssetWithPendingOp(input) {
       const now = input.now ?? Math.floor(Date.now() / 1000);
       const activity = input.activity;
-      await db.batch([
-        db
-          .prepare(`DELETE FROM assets WHERE id = ? AND site_id = ?`)
-          .bind(input.assetId, input.siteId),
+      const [opResult] = await db.batch([
+        db.prepare(`INSERT INTO pending_media_operations
+          (id, kind, site_id, storage_key, size_bytes, created_at, updated_at, claimed_at, attempts, last_error)
+          SELECT ?, 'delete', ?, ?, ?, ?, ?, NULL, 0, NULL FROM assets
+          WHERE assets.id = ? AND assets.site_id = ? AND ${assetUnusedSql}`)
+          .bind(input.opId, input.siteId, input.storageKey, input.sizeBytes, now, now,
+            input.assetId, input.siteId),
+        db.prepare(`DELETE FROM assets WHERE id = ? AND site_id = ?
+          AND EXISTS (SELECT 1 FROM pending_media_operations WHERE id = ? AND kind = 'delete')`)
+          .bind(input.assetId, input.siteId, input.opId),
         db
           .prepare(
             `INSERT INTO activity_events (
               id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
               summary, before_json, after_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM pending_media_operations WHERE id = ? AND kind = 'delete')`,
           )
           .bind(
             crypto.randomUUID(),
@@ -310,15 +318,10 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
             activity.before ? JSON.stringify(activity.before) : null,
             activity.after ? JSON.stringify(activity.after) : null,
             now,
+            input.opId,
           ),
-        db
-          .prepare(
-            `INSERT INTO pending_media_operations
-              (id, kind, site_id, storage_key, size_bytes, created_at, updated_at, claimed_at, attempts, last_error)
-             VALUES (?, 'delete', ?, ?, ?, ?, ?, NULL, 0, NULL)`,
-          )
-          .bind(input.opId, input.siteId, input.storageKey, input.sizeBytes, now, now),
       ]);
+      if (!opResult.meta.changes) throw new ConflictError("Asset is in use");
     },
 
     async listClaimableOps(input) {

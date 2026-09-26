@@ -23,6 +23,7 @@
     "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
+    "@vc/config": "workspace:*",
     "@types/node": "~25.6.2",
     "typescript": "6.0.3"
   }

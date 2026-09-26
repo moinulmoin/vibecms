@@ -50,14 +50,15 @@ vi.mock('~/lib/api-client', () => ({
 }))
 
 vi.mock('./RichCanvas', () => ({
-  RichCanvas: ({ source, onChange }: { source: string; onChange: (value: string) => void }) => (
+  RichCanvas: ({ source, onChange, onUnsafeMarkdownPaste }: { source: string; onChange: (value: string) => void; onUnsafeMarkdownPaste: (value: string) => void }) => (
     <>
       <textarea data-testid="rich-canvas-input" value={source} readOnly />
       <button type="button" data-testid="type-newer-markdown" onClick={() => onChange('newer local Markdown')}>Type newer Markdown</button>
+      <button type="button" data-testid="paste-unsafe-markdown" onClick={() => onUnsafeMarkdownPaste('# Title\n\n<details><summary>More</summary>Hidden</details>')}>Paste unsafe Markdown</button>
     </>
   ),
 }))
-vi.mock('./MarkdownSource', () => ({ MarkdownSource: () => null }))
+vi.mock('./MarkdownSource', () => ({ MarkdownSource: ({ value }: { value: string }) => <textarea data-testid="markdown-source" value={value} readOnly /> }))
 vi.mock('./PostMetadataRail', () => ({ PostMetadataRail: () => null }))
 vi.mock('./PreviewPane', () => ({ PreviewPane: () => null }))
 vi.mock('./VersionHistory', () => ({ VersionHistory: () => null }))
@@ -120,6 +121,22 @@ describe('PostEditorShell', () => {
   afterEach(() => {
     vi.clearAllMocks()
     document.body.innerHTML = ''
+  })
+
+  it('switches an unsafe paste to Markdown with the source intact', async () => {
+    api.loadPostEditorPage.mockResolvedValue(editorPage('Intro', 1))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await settle()
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="paste-unsafe-markdown"]')?.click())
+    await settle()
+    expect(container.querySelector<HTMLTextAreaElement>('[data-testid="markdown-source"]')?.value)
+      .toBe('Intro\n\n# Title\n\n<details><summary>More</summary>Hidden</details>')
+    expect(container.textContent).toContain('Pasted in Markdown mode')
+    await act(async () => root.unmount())
+    container.remove()
   })
 
   it('keeps Markdown typed while a manual save is in flight and saves it right after', async () => {

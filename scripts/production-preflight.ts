@@ -123,6 +123,7 @@ runGate("API production dry-run build", [
   "production",
   "--outdir=dist",
 ]);
+runGate("OG production build", ["pnpm", "--filter", "@vc/og", "exec", "wrangler", "deploy", "--dry-run", "--env", "production", "--outdir", "../../.wrangler/production-og"]);
 runGate("public production build", ["pnpm", "--filter", "@vc/public", "build"], {
   CLOUDFLARE_ENV: "production",
 });

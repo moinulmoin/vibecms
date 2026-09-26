@@ -1,6 +1,6 @@
 import type { Asset } from '@vc/core'
 import { MEDIA } from '@vc/config'
-import { loadMediaPage } from '~/lib/api-client'
+import { DashboardApiError, dashboardMutationHeaders, dashboardMutationSignal, handleDashboardSiteChanged, loadMediaPage } from '~/lib/api-client'
 import { parseMutationResultJson } from '~/lib/mutation-result'
 import { altFromFileName } from './image-alt'
 
@@ -33,7 +33,16 @@ async function uploadOne(
   form.append('file', file)
   const alt = (altText ?? altFromFileName(file.name)).trim()
   if (alt) form.append('altText', alt)
-  const response = await fetch('/api/media/upload', { method: 'POST', body: form, credentials: 'include' })
+  const response = await fetch('/api/media/upload', { method: 'POST', body: form, headers: dashboardMutationHeaders(), credentials: 'include', signal: dashboardMutationSignal() })
+  if (response.status === 409) {
+    const body = await response.json() as { error?: { code?: string } }
+    if (body.error?.code === 'site_changed') {
+      const error = new DashboardApiError(409, 'site_changed', 'Selected site changed')
+      handleDashboardSiteChanged(error)
+      throw error
+    }
+    throw new Error('The image could not be uploaded.')
+  }
   if (response.status === 401) {
     await onUnauthorized()
     throw new Error('Sign in to upload media.')

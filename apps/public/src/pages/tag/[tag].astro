@@ -1,6 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PublicBlogIndexView, publicPageCanonicalPath, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
+import { PublicBlogIndexView, publicPageCanonicalPath, requestedPublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
@@ -8,7 +8,7 @@ import { publicOrigin } from "../../server/public-url";
 
 const env = publicRuntimeEnv(Astro);
 const tag = Astro.params.tag ?? "";
-const blog = await loadPublicTagByHost(publicDb(Astro), Astro.request, tag, env);
+const blog = await loadPublicTagByHost(publicDb(Astro), Astro.request, tag, env, requestedPublicPage(Astro.url.searchParams.get("page")));
 if (!blog) {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
@@ -18,8 +18,8 @@ for (const [key, value] of Object.entries(publicListingResponseHeaders(blog.site
 const title = `Posts tagged ${tag} - ${blog.site.name}`;
 const description = blog.site.default_seo_description || blog.site.description || undefined;
 const origin = publicOrigin(Astro.url);
-const socialImage = resolveSocialImage(origin, null, blog.site);
-const page = resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
+const socialImage = resolveSocialImage(origin, null, blog.site, env.generatedCards);
+const page = blog.page ?? 1;
 const canonical = new URL(publicPageCanonicalPath(Astro.url.pathname, page), origin).href;
 const { themeAttrs, fontId } = siteDocumentProps(blog.site);
 ---

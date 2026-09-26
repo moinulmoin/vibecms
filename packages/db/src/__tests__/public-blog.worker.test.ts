@@ -195,6 +195,16 @@ function assertSummaryShape(row: PublicPostSummaryRow) {
 }
 
 describe("public blog summary projections", () => {
+  it("pages beyond the initial limit and clamps to the actual total", async () => {
+    const third = await da.publicBlog.listPublishedPostPage("pb-site-a", NOW, 2, 3);
+    expect(third).toMatchObject({ total: 5, page: 3 });
+    expect(third.posts.map((post) => post.id)).toEqual(["pb-a-5"]);
+    expect((await da.publicBlog.listPublishedPostPage("pb-site-a", NOW, 2, 99)).posts.map((post) => post.id)).toEqual(["pb-a-5"]);
+    const tagged = await da.publicBlog.listPublishedPostPage("pb-site-a", NOW, 2, 2, "odd");
+    expect(tagged).toMatchObject({ total: 3, page: 2 });
+    expect(tagged.posts.map((post) => post.id)).toEqual(["pb-a-5"]);
+    for (const post of third.posts) assertSummaryShape(post);
+  });
   it("list summaries omit Markdown bodies and respect limit + newest-first order", async () => {
     const rows = await da.publicBlog.listPublishedPostSummaries("pb-site-a", NOW, 3);
     expect(rows).toHaveLength(3);

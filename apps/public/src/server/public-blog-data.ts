@@ -229,6 +229,18 @@ export async function listPublishedPostSummaries(
   return rows.map(toPostSummaryRow);
 }
 
+export async function listPublishedPostPage(
+  db: D1Database,
+  siteId: string,
+  requestedPage: number,
+  pageSize: number,
+  tag?: string,
+): Promise<{ posts: PostSummaryRow[]; total: number; page: number }> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await createDataAccess(db).publicBlog.listPublishedPostPage(siteId, now, pageSize, requestedPage, tag);
+  return { ...result, posts: result.posts.map(toPostSummaryRow) };
+}
+
 export async function listPublishedPostsForFeed(
   db: D1Database,
   siteId: string,

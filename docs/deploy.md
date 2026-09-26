@@ -1,11 +1,12 @@
 # Deploy vibecms Cloud
 
-Hosted vibecms uses two Cloudflare Workers with separate failure domains:
+Hosted vibecms uses three Cloudflare Workers with separate failure domains:
 
 - `vibecms-api-*`: Hono APIs, Better Auth, MCP, billing/webhooks, media writes, and static dashboard SPA assets.
+- `vibecms-og-*`: internal share-card renderer (Takumi WASM and fonts), bound to public as `OG`.
 - `vibecms-public-*`: Astro SSR for public blogs, feeds, search, media reads, and newsletter form forwarding.
 
-Both Workers share D1/R2. The public Worker has a service binding named `API` targeting the API Worker.
+The API and public Workers share D1/R2. The public Worker has service bindings named `API` and `OG` targeting the API and OG Workers.
 
 ## Configuration ownership
 
@@ -13,6 +14,7 @@ Keep hosted configuration in source control:
 
 - `apps/api/wrangler.jsonc`
 - `apps/public/wrangler.jsonc`
+- `apps/og/wrangler.jsonc`
 
 Wrangler named environments do not inherit vars or most bindings. Production blocks therefore repeat D1, R2, routes, service/email/version bindings, and all production vars. Secrets remain in Cloudflare and are not committed.
 
@@ -42,7 +44,7 @@ pnpm public:audit
 pnpm openapi:check
 ```
 
-Preflight then builds production artifacts (dashboard, API production dry-run, public with `CLOUDFLARE_ENV=production`). A standalone `pnpm build` remains available for local verification and uses the development API dry-run env.
+Preflight then builds production artifacts (dashboard, API and OG production dry-runs, public with `CLOUDFLARE_ENV=production`). A standalone `pnpm build` remains available for local verification and uses the development API dry-run env.
 
 ## Development deploy
 
@@ -56,7 +58,8 @@ Order is fixed:
 2. Apply D1 migrations to the development database.
 3. Build dashboard assets.
 4. Deploy `vibecms-api-dev`.
-5. Build and deploy `vibecms-public-dev`.
+5. Deploy `vibecms-og-dev`.
+6. Build and deploy `vibecms-public-dev`.
 
 ## Production deploy
 
@@ -75,10 +78,10 @@ non-interactive GitHub workflow uses a deployment-capable
 
 Order is fixed and owned by `pnpm deploy:prod`:
 
-1. `production:preflight` — validate typecheck/lint/tests/public audit/OpenAPI, confirm required D1/R2/Images/Analytics/Email/custom-hostname resources and secret names, then build all production artifacts (dashboard, API dry-run, public with `CLOUDFLARE_ENV=production`) before any D1 mutation.
-2. `production:backup` — capture D1 time-travel bookmark/schema-export metadata and current Worker deployment version IDs (non-destructive).
+1. `production:preflight` — validate typecheck/lint/tests/public audit/OpenAPI, confirm required D1/R2/Images/Analytics/Email/custom-hostname resources and secret names, then build all production artifacts (dashboard, API and OG dry-runs, public with `CLOUDFLARE_ENV=production`) before any D1 mutation.
+2. `production:backup` — capture D1 time-travel bookmark/schema-export metadata and current API/public Worker deployment version IDs (non-destructive).
 3. Apply D1 migrations to production.
-4. Deploy already-built `vibecms-prod` (the existing API Worker), then already-built `vibecms-public-prod`.
+4. Deploy already-built `vibecms-prod` (API), then `vibecms-og-prod`, then already-built `vibecms-public-prod`.
 5. `production:smoke` — authenticated by default via `PRODUCTION_SMOKE_TOKEN`.
 
 First deploy only (no tenant token yet): set `ALLOW_BOOTSTRAP_SMOKE=1` and `PRODUCTION_BOOTSTRAP_SHA=$(git rev-parse HEAD)` instead of `PRODUCTION_SMOKE_TOKEN`. Preflight rejects bootstrap unless that full reviewed SHA matches the checkout. Immediately remove the SHA after the deploy, create a site + read token + one published post, and run `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Require the token on every later deploy.
@@ -120,4 +123,4 @@ pnpm production:rollback -- --worker api --to <version-id> --yes
 pnpm production:rollback -- --worker public --to <version-id> --yes
 ```
 
-`production:rollback` with no flags only prints backup metadata, current Worker deployments, and D1 time-travel info. Worker rollback does not undo D1 writes. D1 migrations are forward-only; time-travel restore is destructive and requires explicit confirmation flags (`--d1-restore --i-understand-d1-restore-is-destructive --yes`). Do not treat that as a safe schema rollback.
+`production:rollback` with no flags only prints backup metadata, current API/public Worker deployments, and D1 time-travel info. Worker rollback does not undo D1 writes. D1 migrations are forward-only; time-travel restore is destructive and requires explicit confirmation flags (`--d1-restore --i-understand-d1-restore-is-destructive --yes`). Do not treat that as a safe schema rollback.

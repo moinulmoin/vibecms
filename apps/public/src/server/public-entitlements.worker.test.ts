@@ -247,6 +247,7 @@ describe("public effective entitlement resolution", () => {
       canonicalUrl: blog!.canonicalUrl,
       origin: blog!.origin,
       indexable: blog!.indexable,
+      generatedCards: true,
     });
     expect(head.meta).toContainEqual({ name: "robots", content: "noindex,nofollow" });
 

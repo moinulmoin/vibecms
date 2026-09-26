@@ -13,7 +13,7 @@ import { Progress } from '~/components/ui/progress'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { useToast } from '~/components/Toaster'
 import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
-import { notifyDashboardMutation, updateMediaAltMutation } from '~/lib/api-client'
+import { DashboardApiError, dashboardMutationHeaders, dashboardMutationSignal, handleDashboardSiteChanged, notifyDashboardMutation, updateMediaAltMutation } from '~/lib/api-client'
 import { parseMutationResultJson, type ParsedMutationResult } from '~/lib/mutation-result'
 import { mediaQuery, queryKeys } from '~/lib/queries'
 
@@ -42,12 +42,21 @@ type UploadEntry = { key: string; name: string; progress: number; status: 'pendi
 
 function uploadFileWithProgress(file: File, onProgress: (progress: number) => void): Promise<ParsedMutationResult> {
   return new Promise<ParsedMutationResult>((resolve, reject) => {
+    const signal = dashboardMutationSignal()
+    if (signal.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'))
+      return
+    }
     const form = new FormData()
     form.append('file', file)
     form.append('altText', '')
     const xhr = new XMLHttpRequest()
     xhr.open('POST', '/api/media/upload')
     xhr.withCredentials = true
+    for (const [name, value] of Object.entries(dashboardMutationHeaders())) xhr.setRequestHeader(name, value)
+    const abort = () => xhr.abort()
+    signal.addEventListener('abort', abort, { once: true })
+    xhr.onloadend = () => signal.removeEventListener('abort', abort)
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total)
     }
@@ -56,6 +65,16 @@ function uploadFileWithProgress(file: File, onProgress: (progress: number) => vo
         reject(new Error('unauthorized'))
         return
       }
+      if (xhr.status === 409) {
+        try {
+          if ((JSON.parse(xhr.responseText) as { error?: { code?: string } }).error?.code === 'site_changed') {
+            const error = new DashboardApiError(409, 'site_changed', 'Selected site changed')
+            handleDashboardSiteChanged(error)
+            reject(error)
+            return
+          }
+        } catch { /* Use the existing response error below. */ }
+      }
       try {
         resolve(parseMutationResultJson(JSON.parse(xhr.responseText)))
       } catch {
@@ -63,6 +82,7 @@ function uploadFileWithProgress(file: File, onProgress: (progress: number) => vo
       }
     }
     xhr.onerror = () => reject(new Error('network'))
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
     xhr.send(form)
   })
 }
@@ -70,10 +90,20 @@ function uploadFileWithProgress(file: File, onProgress: (progress: number) => vo
 async function deleteAsset(assetId: string): Promise<'ok' | 'error' | 'unauthorized'> {
   const response = await fetch('/api/media/delete', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...dashboardMutationHeaders() },
     body: JSON.stringify({ assetId }),
     credentials: 'include',
+    signal: dashboardMutationSignal(),
   }).finally(notifyDashboardMutation)
+  if (response.status === 409) {
+    const body = await response.json() as { error?: { code?: string } }
+    if (body.error?.code === 'site_changed') {
+      const error = new DashboardApiError(409, 'site_changed', 'Selected site changed')
+      handleDashboardSiteChanged(error)
+      throw error
+    }
+    return 'error'
+  }
   if (response.status === 401) return 'unauthorized'
   const result = parseMutationResultJson(await response.json())
   return result.kind === 'ok' ? 'ok' : 'error'

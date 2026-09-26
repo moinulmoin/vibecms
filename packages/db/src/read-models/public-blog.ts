@@ -194,6 +194,7 @@ export interface PublicBlogReadModel {
   getPublishedPost(siteId: string, slug: string, now: number): Promise<PublicPostDetailRow | null>;
   listPublishedPostSummaries(siteId: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
   listPublishedPostSummariesByTag(siteId: string, tag: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
+  listPublishedPostPage(siteId: string, now: number, limit: number, requestedPage: number, tag?: string): Promise<{ posts: PublicPostSummaryRow[]; total: number; page: number }>;
   searchPublishedPostSummaries(
     siteId: string,
     query: string,
@@ -267,6 +268,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
             eq(postVersions.slug, slug),
           ),
         )
+        .orderBy(posts.id)
         .limit(1);
       const row = rows[0];
       if (!row) return null;
@@ -308,6 +310,30 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         )
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
+    },
+
+    async listPublishedPostPage(siteId: string, now: number, limit: number, requestedPage: number, tag?: string) {
+      const size = clampLimit(limit);
+      const where = tag === undefined
+        ? publishedWhere(siteId, now)
+        : and(publishedWhere(siteId, now), sql`exists (select 1 from json_each(${postVersions.tagsJson}) where value = ${tag})`);
+      const [{ total }] = await client
+        .select({ total: sql<number>`count(*)`.mapWith(Number) })
+        .from(posts)
+        .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
+        .where(where);
+      const pageCount = Math.max(1, Math.ceil(total / Math.max(size, 1)));
+      const page = Math.min(Math.max(1, Number.isSafeInteger(requestedPage) ? requestedPage : 1), pageCount);
+      if (!size || !total) return { posts: [], total, page };
+      const pagePosts = await client
+        .select(summaryColumns)
+        .from(posts)
+        .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
+        .where(where)
+        .orderBy(desc(posts.publishedAt), desc(posts.id))
+        .limit(size)
+        .offset((page - 1) * size);
+      return { posts: pagePosts, total, page };
     },
 
     async searchPublishedPostSummaries(

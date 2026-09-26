@@ -297,6 +297,8 @@ export function SettingsPage() {
   // against the loaded value rather than read back from FormData.
   const [agentCredit, setAgentCredit] = useState(true)
   const [siteFormRevision, setSiteFormRevision] = useState(0)
+  const [siteBaseline, setSiteBaseline] = useState<SiteSettingsForm | null>(null)
+  const [siteChangedElsewhere, setSiteChangedElsewhere] = useState(false)
   const [voiceDirty, setVoiceDirty] = useState(false)
 
   function seedVoice(profile: VoiceProfileSettings) {
@@ -310,10 +312,23 @@ export function SettingsPage() {
   useEffect(() => {
     if (!data || seeded) return
     setSeeded(true)
+    setSiteBaseline(data.site)
     setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
     setAgentCredit(data.site.showAgentCredit)
     seedVoice(data.voiceProfile)
   }, [data, seeded])
+
+  useEffect(() => {
+    if (!data || !siteBaseline || data.site.updatedAt === siteBaseline.updatedAt) return
+    if (siteDirty || agentCredit !== siteBaseline.showAgentCredit) {
+      setSiteChangedElsewhere(true)
+    } else {
+      setSiteBaseline(data.site)
+      setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
+      setAgentCredit(data.site.showAgentCredit)
+      setSiteFormRevision((revision) => revision + 1)
+    }
+  }, [data, siteBaseline, siteDirty, agentCredit])
 
   async function reload() {
     return narrowSettingsPageData(await queryClient.fetchQuery({ ...settingsQuery, staleTime: 0 }))
@@ -341,13 +356,16 @@ export function SettingsPage() {
   const selectedSocialAsset = data?.assets.find((asset) => asset.id === selectedSocialAssetId) ?? null
 
   function markSiteDirty(form: HTMLFormElement) {
-    setSiteDirty(data ? isSiteDraftDirty(siteDraftFromForm(form), data.site) : false)
+    setSiteDirty(siteBaseline ? isSiteDraftDirty(siteDraftFromForm(form), siteBaseline) : false)
   }
 
   function discardSite() {
-    setSelectedSocialAssetId(data?.site.defaultSocialAssetId ?? '')
-    setAgentCredit(data?.site.showAgentCredit ?? true)
+    const latest = data?.site ?? siteBaseline
+    if (latest) setSiteBaseline(latest)
+    setSelectedSocialAssetId(latest?.defaultSocialAssetId ?? '')
+    setAgentCredit(latest?.showAgentCredit ?? true)
     setSiteDirty(false)
+    setSiteChangedElsewhere(false)
     setSiteFormRevision((revision) => revision + 1)
   }
 
@@ -355,9 +373,9 @@ export function SettingsPage() {
     event.preventDefault()
     const formElement = event.currentTarget
     const submitted = siteDraftFromForm(formElement)
-    const nameChanged = submitted.name !== data?.site.name
+    const nameChanged = submitted.name !== siteBaseline?.name
     const payload = {
-      expectedUpdatedAt: data?.site.updatedAt ?? 0,
+      expectedUpdatedAt: siteBaseline?.updatedAt ?? 0,
       ...submitted,
       defaultSocialAssetId: submitted.defaultSocialAssetId || null,
       showAgentCredit: agentCredit,
@@ -367,6 +385,8 @@ export function SettingsPage() {
       const result = await updateSiteSettingsMutation(payload)
       if (result.kind === 'ok') {
         const refreshed = await reload()
+        setSiteBaseline(refreshed.site)
+        setSiteChangedElsewhere(false)
         const liveDraft = siteDraftFromForm(formElement)
         if (isSiteDraftDirty(liveDraft, { ...refreshed.site, ...submitted })) {
           setSiteDirty(true)
@@ -378,8 +398,9 @@ export function SettingsPage() {
         }
         if (nameChanged) void refreshContext()
       } else if (result.code === 'settings_conflict') {
-        const refreshed = await reload()
-        setSiteDirty(isSiteDraftDirty(siteDraftFromForm(formElement), refreshed.site))
+        await reload()
+        setSiteChangedElsewhere(true)
+        setSiteDirty(true)
       }
       feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
     } catch {
@@ -486,7 +507,8 @@ export function SettingsPage() {
   }
   if (!data) return <PageSkeleton variant="list" />
 
-  const { site, customDomains, isOwner } = data
+  const { customDomains, isOwner } = data
+  const site = siteBaseline ?? data.site
   // Free hosted plans see the lock; a missing field (stale payload) stays unlocked.
   const domainLocked = data.effectiveEntitlement?.effective === false
   const tabs = (['site', 'voice', 'domain', 'billing', 'export'] as const).filter(
@@ -520,6 +542,12 @@ export function SettingsPage() {
             onChange={(event) => markSiteDirty(event.currentTarget)}
             onSubmit={(event) => void handleSiteSave(event)}
           >
+            {siteChangedElsewhere ? (
+              <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-warning-foreground">
+                <span>Settings changed elsewhere, reload.</span>
+                <Button type="button" variant="outline" size="sm" onClick={discardSite}>Reload settings</Button>
+              </div>
+            ) : null}
             <Section title="Your blog">
               <Field>
                 <FieldLabel htmlFor="site-name">Name</FieldLabel>
@@ -940,4 +968,3 @@ export function SettingsPage() {
     </>
   )
 }
-

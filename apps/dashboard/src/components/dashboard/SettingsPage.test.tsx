@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { SettingsPageData } from '~/types/dashboard'
 
 const api = vi.hoisted(() => ({
@@ -104,6 +105,7 @@ vi.mock('~/components/dashboard/SpaConfirmButton', () => ({
 
 import { SettingsPage } from './SettingsPage'
 import { withQueryClient } from '~/test/query'
+import { queryKeys } from '~/lib/queries'
 
 function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPageData {
   return {
@@ -268,6 +270,37 @@ describe('SettingsPage', () => {
       next: { pathname: '/dashboard/settings', search: { error: 'settings_conflict' } },
     })).toBe(false)
 
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('keeps the draft conflict token after a background settings refetch', async () => {
+    api.loadSettingsPage
+      .mockResolvedValueOnce(settings())
+      .mockResolvedValueOnce(settings({ bylineName: 'Remote author', updatedAt: 11 }))
+    api.updateSiteSettingsMutation.mockResolvedValue({ kind: 'error', code: 'settings_conflict' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<QueryClientProvider client={client}><SettingsPage /></QueryClientProvider>))
+    await settle()
+    const byline = container.querySelector<HTMLInputElement>('#site-byline-name')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(byline, 'Local author')
+      byline.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { await client.refetchQueries({ queryKey: ['settings'] }) })
+    await settle()
+    expect(api.loadSettingsPage).toHaveBeenCalledTimes(2)
+    expect(client.getQueryData<{ site: { updatedAt: number } }>(queryKeys.settings)?.site.updatedAt).toBe(11)
+    expect(container.textContent).toContain('Settings changed elsewhere, reload')
+    expect(byline.value).toBe('Local author')
+    await act(async () => byline.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({
+      expectedUpdatedAt: 10,
+      bylineName: 'Local author',
+    }))
     await act(async () => root.unmount())
     container.remove()
   })

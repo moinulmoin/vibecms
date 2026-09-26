@@ -3,9 +3,10 @@ import { env } from "cloudflare:workers";
 import { canonicalHostRedirect } from "./server/canonical-host.server";
 import {
   ARTICLE_HTML_CACHE_HIT_HEADER,
-  RESERVED_ROOT_SLUGS,
   cachePublicPostHtmlResponse,
   markdownRequested,
+  isReadableTenantPostSlug,
+  isMarketingHost,
   stripMarkdownSuffix,
 } from "./server/public-blog";
 import { conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
@@ -51,7 +52,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.request.method === "GET" &&
       response.ok &&
       article?.slug &&
-      !RESERVED_ROOT_SLUGS.has(article.slug) &&
+      isReadableTenantPostSlug(article.slug) &&
+      (article.slug !== "docs" && article.slug !== "internal" || publicEnv.selfHosted || !isMarketingHost(context.request, publicEnv)) &&
       !article.markdown &&
       !markdownRequested(context.request) &&
       (headers.get("content-type") || "").includes("text/html"),

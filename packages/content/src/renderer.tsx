@@ -304,14 +304,9 @@ interface ImgPluginOpts {
   readonly warn: Warn;
 }
 
-function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
+function rehypeCaptionedImages(): (tree: UnistNode) => void {
   return (tree) => {
     const root = tree as unknown as HRoot;
-
-    function hasEmptyAlt(img: HElement): boolean {
-      const a = img.properties.alt;
-      return !a || (typeof a === "string" && !a.trim());
-    }
 
     function transform(children: HNode[]): void {
       for (const child of children) {
@@ -338,7 +333,6 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
 
         if (isImgOnly) {
           const imgEl = sig[0] as HElement;
-          if (hasEmptyAlt(imgEl)) opts.warn(RENDER_WARNING.IMAGE_MISSING_ALT, MISSING_IMAGE_ALT_WARNING);
           // `![alt](src "Caption")`: the title becomes a visible caption.
           const title = typeof imgEl.properties.title === "string" ? imgEl.properties.title.trim() : "";
           if (title) {
@@ -356,7 +350,6 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
         } else if (isImgWithCaption) {
           const imgEl = sig[0] as HElement;
           const captionEms = sig.slice(1) as HElement[];
-          if (hasEmptyAlt(imgEl)) opts.warn(RENDER_WARNING.IMAGE_MISSING_ALT, MISSING_IMAGE_ALT_WARNING);
 
           children[i] = {
             type: "element",
@@ -367,12 +360,6 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
               { type: "element", tagName: "figcaption", properties: {}, children: captionEms },
             ],
           } as HElement;
-        } else {
-          for (const child of curr.children) {
-            if (isEl(child) && isElTag(child, "img") && hasEmptyAlt(child)) {
-              opts.warn(RENDER_WARNING.IMAGE_MISSING_ALT, MISSING_IMAGE_ALT_WARNING);
-            }
-          }
         }
 
         i++;
@@ -380,6 +367,18 @@ function rehypeCaptionedImages(opts: ImgPluginOpts): (tree: UnistNode) => void {
     }
 
     transform(root.children);
+  };
+}
+
+function rehypeValidateImageAlt(opts: ImgPluginOpts): (tree: UnistNode) => void {
+  return (tree) => {
+    walkEl((tree as unknown as HRoot).children, (el) => {
+      if (el.tagName !== "img") return;
+      const alt = el.properties.alt;
+      if (typeof alt !== "string" || !alt.trim()) {
+        opts.warn(RENDER_WARNING.IMAGE_MISSING_ALT, MISSING_IMAGE_ALT_WARNING);
+      }
+    });
   };
 }
 const GH_MODE_FRAGMENT = /#gh-(dark|light)-mode-only$/;
@@ -702,12 +701,16 @@ function remarkVcDirectives(opts: { warn: Warn }) {
     }
 
     function packageInstall(node: MdNode): MdNode[] {
-      const lines = (node.value ?? "").split("\n").slice(0, 20);
+      const lines = (node.value ?? "").split("\n");
+      if (lines.length > 20 || lines.some((line) => line.length > 500)) {
+        opts.warn(RENDER_WARNING.PACKAGE_INSTALL_LIMIT, "Package install block exceeds 20 commands or 500 characters per command - shown as plain code");
+        return [{ ...node, lang: "text" }];
+      }
       return [
         blockNode(
           "code-tabs",
           PACKAGE_MANAGERS.map((pm) =>
-            blockNode("tab", [{ type: "code", lang: "bash", meta: null, value: lines.map((l) => installCommand(l.slice(0, 500), pm)).join("\n") }], pm),
+            blockNode("tab", [{ type: "code", lang: "bash", meta: null, value: lines.map((l) => installCommand(l, pm)).join("\n") }], pm),
           ),
         ),
       ];
@@ -961,6 +964,77 @@ const SMARTYPANTS_MAX_BLOCK = 20_000;
 function mdToText(node: MdNode): string {
   if (typeof node.value === "string") return node.value;
   return (node.children ?? []).map(mdToText).join("");
+}
+
+/** Heading text as rehype-slug saw it before typography: inline HTML tags are markup, not text. */
+function headingSourceText(node: MdNode): string {
+  if (node.type === "html") return "";
+  if (typeof node.value === "string") return node.value;
+  return (node.children ?? []).map(headingSourceText).join("");
+}
+
+/** Keep the pre-typography spelling available only until rehype-slug runs. */
+function remarkSaveHeadingText(saved: Map<string, string>, marker: string) {
+  let next = 0;
+  return (tree: MdNode) => {
+    const pending = [tree];
+    while (pending.length) {
+      const node = pending.pop()!;
+      if (node.type === "heading") {
+        const key = `${marker}-${next++}`;
+        saved.set(key, headingSourceText(node));
+        const data = (node.data ??= {});
+        data.hProperties = { ...(data.hProperties as object | undefined), dataVcHeadingSource: key };
+      }
+      if (node.children) for (let i = node.children.length - 1; i >= 0; i--) pending.push(node.children[i]!);
+    }
+  };
+}
+
+function rehypeOriginalHeadingSlugs(saved: Map<string, string>): (tree: UnistNode) => void {
+  return (tree) => {
+    const headings: Array<{ el: HElement; children: HNode[] }> = [];
+    walkEl((tree as unknown as HRoot).children, (el) => {
+      const key = el.properties.dataVcHeadingSource;
+      delete el.properties.dataVcHeadingSource;
+      if (typeof key !== "string" || !saved.has(key)) return;
+      headings.push({ el, children: el.children });
+      el.children = [{ type: "text", value: saved.get(key)! }];
+    });
+    // rehype-slug is invoked explicitly here while the original text is in place.
+    rehypeSlug({ prefix: "h-" })(tree as never);
+    for (const { el, children } of headings) el.children = children;
+  };
+}
+
+/** Deepest element nesting any post may render; beyond it the post degrades to plain code. */
+const MAX_TREE_DEPTH = 200;
+/** One formula's MathML nesting; deeper formulas show as source like other invalid math. */
+const MAX_MATH_DEPTH = 80;
+
+class NestingLimitError extends Error {}
+
+/**
+ * Measure the parsed tree iteratively (so the check itself can't overflow) and
+ * stop before later recursive visitors, sanitize, or React SSR walk it. Runs on
+ * the real HTML parse, so implicit closes, `<div/>`, and code are all exact.
+ */
+function treeDeeperThan(root: UnistNode, max: number): boolean {
+  const stack: Array<[UnistNode, number]> = [[root, 0]];
+  while (stack.length) {
+    const [node, depth] = stack.pop()!;
+    if (depth > max) return true;
+    const children = (node as { children?: UnistNode[] }).children;
+    if (children) for (const child of children) stack.push([child, depth + 1]);
+  }
+  return false;
+}
+
+function rehypeDepthGuard(): () => (tree: UnistNode) => void {
+  // A fresh attacher per call: unified dedupes a plugin used twice.
+  return () => (tree) => {
+    if (treeDeeperThan(tree, MAX_TREE_DEPTH)) throw new NestingLimitError("nesting limit");
+  };
 }
 
 function mdLength(node: MdNode): number {
@@ -1410,7 +1484,12 @@ function rehypeMath(opts: { math?: MathRenderer | null; target: "web" | "feed"; 
         opts.warn(RENDER_WARNING.MATH_INVALID, `Math could not be rendered (${out.error}) - shown as source`);
         return null;
       }
-      return out.nodes as unknown as HNode[];
+      const nodes = out.nodes as unknown as HNode[];
+      if (treeDeeperThan({ type: "root", children: nodes } as unknown as UnistNode, MAX_MATH_DEPTH)) {
+        opts.warn(RENDER_WARNING.MATH_INVALID, "Math is nested too deeply to render - shown as source");
+        return null;
+      }
+      return nodes;
     };
     const isMath = (el: HNode): boolean =>
       isElTag(el, "code") && ((el.properties.className as string[] | undefined) ?? []).includes("language-math");
@@ -1734,9 +1813,15 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
     warnings.push(message);
     warningCodes.push(code);
   };
+  const fallback = (): RenderResult => {
+    outline.length = 0;
+    warn(RENDER_WARNING.NESTING_LIMIT, "Content nesting exceeds the renderer limit - shown as plain code");
+    return { node: jsx("pre", { children: jsx("code", { children: markdown }) }), outline, warnings, warningCodes };
+  };
   const target = opts?.target ?? "web";
   const math = opts?.math !== undefined ? opts.math : (opts?.highlighter?.math ?? null);
   const autolinkText = new Map<MdNode, string>();
+  const headingText = new Map<string, string>();
   const customIds = new Set<string>();
   // Unguessable per render, so raw HTML can never forge a "generated" id.
   const idMarker = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -1749,17 +1834,19 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
     .use(remarkDirective)
     .use(remarkVcDirectives, { warn })
     .use(remarkHeadingMarkers, { warn, customIds })
+    .use(remarkSaveHeadingText, headingText, idMarker)
     .use(remarkSaveAutolinkText, { saved: autolinkText })
     .use(remarkSmartypantsBounded)
     .use(remarkRestoreAutolinkText, { saved: autolinkText })
     .use(remarkRawHtmlWarnings, { warn })
     .use(remarkCodeMeta)
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeDepthGuard())
     .use(rehypeMarkGeneratedIds, { marker: idMarker });
   // rehype-raw re-parses the whole tree (slow on very long posts); only posts
   // that could contain raw HTML need it. Without it no `raw` nodes survive
   // sanitize, so skipping is safe.
-  if (/<[A-Za-z!/?]/.test(markdown)) pipeline.use(rehypeRaw);
+  if (/<[A-Za-z!/?]/.test(markdown)) pipeline.use(rehypeRaw).use(rehypeDepthGuard());
   pipeline.use(rehypeStripRawIds, { marker: idMarker });
 
   if (opts?.pageTitle) {
@@ -1772,13 +1859,14 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
 
   pipeline
     .use(rehypeDowngradeH1)
-    .use(rehypeSlug, { prefix: "h-" })
+    .use(rehypeOriginalHeadingSlugs, headingText)
     .use(rehypeUniqueHeadingIds, { warn, customIds })
     .use(rehypeTocCollector, { outline, warn });
   if (target === "web") pipeline.use(rehypeHeadingAnchors);
   pipeline
     .use(rehypeExternalLinks)
-    .use(rehypeCaptionedImages, { warn })
+    .use(rehypeCaptionedImages)
+    .use(rehypeValidateImageAlt, { warn })
     .use(rehypeCallouts, { warn })
     .use(rehypeSanitize, sanitizeSchema as Parameters<typeof rehypeSanitize>[0])
     .use(rehypeMath, { math, target, warn })
@@ -1789,7 +1877,17 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
   if (target === "web") pipeline.use(rehypeEmbeds);
   if (target === "feed" && opts?.baseUrl) pipeline.use(rehypeAbsoluteUrls, { baseUrl: opts.baseUrl });
 
-  const file = pipeline.use(rehypeReact, { Fragment, jsx, jsxs }).processSync(markdown);
+  // Generated blocks (math, code, embeds) are injected after the early guards.
+  pipeline.use(rehypeDepthGuard());
+  let file;
+  try {
+    file = pipeline.use(rehypeReact, { Fragment, jsx, jsxs }).processSync(markdown);
+  } catch (error) {
+    // Anything deeper than the guard allows, or deep enough to overflow a
+    // recursive parser step before the guard runs, degrades instead of 500ing.
+    if (error instanceof NestingLimitError || (error instanceof RangeError && /stack|recursion/i.test(error.message))) return fallback();
+    throw error;
+  }
 
   const node = file.result as unknown as ReactNode;
   return { node, outline, warnings, warningCodes };

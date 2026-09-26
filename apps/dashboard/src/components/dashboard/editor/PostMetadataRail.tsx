@@ -5,6 +5,7 @@ import { ImageOff, ImagePlus, X } from 'lucide-react'
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Switch } from '~/components/ui/switch'
 import { loadPostsPage } from '~/lib/api-client'
+import { queryKeys } from '~/lib/queries'
 import { altFromFileName } from './image-alt'
 import { firstParagraph, parseTags } from './post-fields'
 
@@ -278,7 +279,7 @@ function LinkPreview({ title, description, url, cover }: { title: string; descri
 
 function useExistingTags() {
   const query = useQuery({
-    queryKey: ['posts', { tagSource: true }],
+    queryKey: queryKeys.posts({ tagSource: true }),
     queryFn: ({ signal }) => loadPostsPage({}, signal),
     staleTime: 5 * 60_000,
   })

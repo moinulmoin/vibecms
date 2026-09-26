@@ -5,6 +5,13 @@ import { isAppContextHost } from '@/server/canonical-host'
 import { getSiteSetup, resolveUserAppContext } from '@/server/onboarding'
 import type { AppRouterContext, SessionUser } from '@/server/auth-context-types'
 
+export function rejectChangedSite(request: Request, ctx: AppRouterContext): Response | undefined {
+  const expected = request.headers.get('x-vc-expected-site')
+  if (expected !== null && ctx.app && expected !== ctx.app.siteId) {
+    return Response.json({ error: { code: 'site_changed', message: 'Selected site changed' } }, { status: 409 })
+  }
+}
+
 export async function resolveAppSessionContext(request: Request): Promise<AppRouterContext> {
   const googleEnabled = googleSignInEnabled()
   const githubEnabled = githubSignInEnabled()
@@ -65,5 +72,7 @@ export async function requireAppFromRequest(request: Request) {
   if (!ctx.app) {
     return { error: Response.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }, { status: 401 }) }
   }
+  const changed = rejectChangedSite(request, ctx)
+  if (changed) return { error: changed }
   return { app: ctx.app, ctx }
 }

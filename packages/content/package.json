@@ -19,7 +19,8 @@
     "./highlight": "./src/highlight.ts",
     "./math": "./src/math.ts",
     "./public-post-list": "./src/public-post-list.tsx",
-    "./constants": "./src/constants.ts"
+    "./constants": "./src/constants.ts",
+    "./og-card": "./src/og-card.ts"
   },
   "scripts": {
     "typecheck": "tsc",

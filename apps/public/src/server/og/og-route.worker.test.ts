@@ -6,6 +6,7 @@ import type { APIContext } from "astro";
 import { parsePublicRuntimeEnv } from "../public-url";
 
 // In-memory stand-in for ASSETS_BUCKET (the test worker has no R2 binding).
+const rpcState = vi.hoisted(() => ({ present: true, render: vi.fn(async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer) }));
 const r2 = new Map<string, { bytes: ArrayBuffer; version: string | undefined }>();
 const fakeBucket = {
   async get(key: string) {
@@ -21,6 +22,7 @@ const fakeBucket = {
 vi.mock("../runtime", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../runtime")>()),
   publicAssetsBucket: () => fakeBucket,
+  ogBinding: () => rpcState.present ? { render: rpcState.render } : undefined,
 }));
 
 const { handleOgCardRequest } = await import("./og-route");
@@ -32,7 +34,7 @@ declare module "vitest" {
 }
 
 const ts = 1_700_000_000;
-const publicEnv = parsePublicRuntimeEnv(env);
+const publicEnv = { ...parsePublicRuntimeEnv(env), generatedCards: true };
 
 async function seedSite(id: string, host: string, name: string) {
   await env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
@@ -57,9 +59,9 @@ async function seedPost(siteId: string, slug: string, publishedAt: number, statu
   await env.DB.prepare("UPDATE posts SET published_version_id = ? WHERE id = ?").bind(versionId, postId).run();
 }
 
-function context(url: string): APIContext {
+function context(url: string, generatedCards = true): APIContext {
   const request = new Request(url, { headers: { host: new URL(url).host } });
-  return { request, locals: { publicEnv }, params: {} } as unknown as APIContext;
+  return { request, locals: { publicEnv: { ...publicEnv, generatedCards } }, params: {} } as unknown as APIContext;
 }
 
 beforeAll(async () => {
@@ -74,6 +76,33 @@ beforeAll(async () => {
 });
 
 describe("share card route", () => {
+  it("404s when the OG binding is absent", async () => {
+    rpcState.present = false;
+    try {
+      const res = await handleOgCardRequest(context("https://a.og.example.com/og.png"), undefined);
+      expect(res.status).toBe(404);
+      expect(res.headers.get("cache-control")).toBe("no-store");
+    } finally {
+      rpcState.present = true;
+    }
+  });
+
+  it("returns 503 no-store when the renderer throws", async () => {
+    rpcState.render.mockRejectedValueOnce(new Error("renderer down"));
+    const res = await handleOgCardRequest(context("https://a.og.example.com/og/only-a.png"), "only-a");
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("does not render again on a cached path", async () => {
+    const url = "https://a.og.example.com/og/only-a.png";
+    await handleOgCardRequest(context(url), "only-a");
+    const calls = rpcState.render.mock.calls.length;
+    const res = await handleOgCardRequest(context(url), "only-a");
+    expect(res.status).toBe(200);
+    expect(rpcState.render).toHaveBeenCalledTimes(calls);
+  });
+
   it("renders a published post's card and stores it under the site's own R2 key", async () => {
     const res = await handleOgCardRequest(context("https://a.og.example.com/og/shared.png"), "shared");
     expect(res.status).toBe(200);

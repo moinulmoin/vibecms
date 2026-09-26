@@ -5,18 +5,37 @@ import { describe, expect, it, vi } from 'vitest'
 import { RichCanvas } from './RichCanvas'
 
 describe('RichCanvas', () => {
+  it('keeps unsupported clipboard Markdown out of the visual parser', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    const onChange = vi.fn()
+    const onUnsafeMarkdownPaste = vi.fn()
+    await act(async () => root.render(<RichCanvas source="Intro" onChange={onChange} onUnsafeMarkdownPaste={onUnsafeMarkdownPaste} />))
+    const source = '# Title\n\n<details><summary>More</summary>Hidden</details>'
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: { types: ['text/plain'], getData: (type: string) => type === 'text/plain' ? source : '' },
+    })
+    await act(async () => container.querySelector('.ProseMirror')?.dispatchEvent(event))
+    expect(event.defaultPrevented).toBe(true)
+    expect(onUnsafeMarkdownPaste).toHaveBeenCalledWith(source)
+    expect(onChange).not.toHaveBeenCalled()
+    act(() => root.unmount())
+    container.remove()
+  })
   it('turns a Markdown paste into a canonical document change', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
     const onChange = vi.fn()
     await act(async () => {
-      root.render(<RichCanvas source="Intro" onChange={onChange} />)
+      root.render(<RichCanvas source="Intro" onChange={onChange} onUnsafeMarkdownPaste={vi.fn()} />)
     })
 
     const canvas = container.querySelector('[data-testid="rich-canvas"] .ProseMirror')
     expect(canvas).toBeTruthy()
-    const pasted = '## Added\n\n> [!TIP]\n> Keep exact Markdown.\n\n- [x] Checked'
+    const pasted = '## Added\n\n> [!TIP]\n> Keep exact Markdown.\n\n- [x] Checked\n'
     const event = new Event('paste', { bubbles: true, cancelable: true })
     Object.defineProperty(event, 'clipboardData', {
       value: { types: ['text/plain'], getData: (type: string) => (type === 'text/plain' ? pasted : '') },
@@ -43,11 +62,11 @@ describe('RichCanvas', () => {
     const root = createRoot(container)
     const onChange = vi.fn()
     await act(async () => {
-      root.render(<RichCanvas source="Intro" onChange={onChange} />)
+      root.render(<RichCanvas source="Intro" onChange={onChange} onUnsafeMarkdownPaste={vi.fn()} />)
     })
     const surface = container.querySelector('.ProseMirror')
     expect(surface).toBeTruthy()
-    const pasted = '## Added once\n\n- one\n- two'
+    const pasted = '## Added once\n\n- one\n- two\n'
     const event = new Event('paste', { bubbles: true, cancelable: true })
     Object.defineProperty(event, 'clipboardData', {
       value: { types: ['text/plain'], getData: (type: string) => (type === 'text/plain' ? pasted : '') },

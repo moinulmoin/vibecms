@@ -5,6 +5,10 @@ import { parseArgs } from "node:util";
 import { DEFAULT_API_URL, resolveConfig, saveConfigFile, type ResolvedConfig } from "./config.js";
 import { EXIT, exitCodeForStatus, fail, printData, type OutputFormat } from "./output.js";
 
+// Mirrors PRESENTATION_LAYOUTS in @vc/config (private, so the published CLI
+// cannot import it); index.test.mjs fails if the two drift.
+export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
+
 const VERSION = "0.1.0";
 
 const HELP = `vibecms - command-line client for the vibecms API (built for AI agents)
@@ -30,7 +34,7 @@ Commands:
   posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
 
-  Post fields: --excerpt <e> --tags a,b --cover <assetId|none> --layout standard|essay|feature
+  Post fields: --excerpt <e> --tags a,b --cover <assetId|none> --layout ${PRESENTATION_LAYOUTS.join("|")}
                --toc true|false --seo-title <t> --seo-description <d> --canonical-url <url|none>
   assets list
   assets get <assetId>
@@ -192,8 +196,8 @@ function nullable(v: string | undefined): string | null | undefined {
 function presentation(v: Values): { layout?: string; toc?: boolean } | undefined {
   const layout = str(v.layout);
   const tocRaw = str(v.toc);
-  if (layout !== undefined && !["standard", "essay", "feature"].includes(layout)) {
-    fail("--layout must be standard, essay, or feature", EXIT.USAGE);
+  if (layout !== undefined && !PRESENTATION_LAYOUTS.includes(layout as (typeof PRESENTATION_LAYOUTS)[number])) {
+    fail(`--layout must be ${PRESENTATION_LAYOUTS.join(", ")}`, EXIT.USAGE);
   }
   if (tocRaw !== undefined && tocRaw !== "true" && tocRaw !== "false") fail("--toc must be true or false", EXIT.USAGE);
   if (layout === undefined && tocRaw === undefined) return undefined;

@@ -12,6 +12,7 @@ import { useToast } from '~/components/Toaster'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, postsListSearch, type PostsListSearch } from '~/lib/dashboard-search'
 import { hasPendingChanges, isAgentActor, reviewLabel } from '~/lib/post-review'
+import { queryKeys } from '~/lib/queries'
 
 /**
  * Last-change actor label for the posts list. Single-human workspace: a human
@@ -73,7 +74,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
 
   const params = { status, search: searchQuery, sort }
   const query = useInfiniteQuery({
-    queryKey: ['posts', { ...params, list: true }],
+    queryKey: queryKeys.posts({ ...params, list: true }),
     queryFn: ({ pageParam, signal }) => loadPostsPage({ ...params, offset: pageParam || undefined }, signal),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) =>

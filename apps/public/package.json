@@ -19,7 +19,6 @@
     "@astrojs/react": "^6.0.2",
     "@mermaid-js/tiny": "^12.0.0",
     "@radix-ui/react-icons": "^1.3.2",
-    "@takumi-rs/wasm": "2.14.0",
     "@vc/config": "workspace:*",
     "@vc/content": "workspace:*",
     "@vc/db": "workspace:*",

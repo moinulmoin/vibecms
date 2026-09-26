@@ -18,6 +18,7 @@ import {
   loadSubscribersPage,
   listPostVersionsFn,
 } from '~/lib/api-client'
+import { pinnedDashboardSiteId } from '~/lib/site-pin'
 import { clearSessionSecrets } from '~/lib/token-flash'
 import type { AnalyticsRange, AppRouterContext } from '~/types/dashboard'
 
@@ -82,26 +83,40 @@ export function markDashboardDataStale(client: QueryClient) {
 /** App-wide cache. Route loaders prefetch into it; pages read with useQuery. */
 export const queryClient = createDashboardQueryClient()
 
+// Keyed by the site this tab pinned, not the live context: a switch in another
+// tab refreshes context, and re-keying would swap a mounted form for a skeleton.
+function tenantKey<T extends readonly unknown[]>(...parts: T) {
+  const siteId = pinnedDashboardSiteId() ?? queryClient.getQueryData<AppRouterContext>(['context'])?.app?.siteId ?? 'no-site'
+  return [...parts, siteId] as const
+}
+
+// Shared query option objects are imported before context loads. Resolve their
+// keys when a page uses them, after the selected site is known.
+function scopedOptions<T extends { queryKey: readonly unknown[] }>(options: T, key: () => readonly unknown[]): T {
+  Object.defineProperty(options, 'queryKey', { enumerable: true, get: key })
+  return options
+}
+
 export const queryKeys = {
   context: ['context'] as const,
-  overview: ['overview'] as const,
-  posts: (params: { status?: string; search?: string; offset?: number }) => ['posts', params] as const,
+  get overview() { return tenantKey('overview') },
+  posts: (params: { status?: string; search?: string; offset?: number; sort?: string; list?: boolean; tagSource?: boolean }) => tenantKey('posts', params),
   postsAll: ['posts'] as const,
-  postEditor: (postId: string | undefined) => ['post-editor', postId ?? 'new'] as const,
-  postVersions: (postId: string) => ['post-versions', postId] as const,
-  activity: (actor: 'all' | 'human' | 'agent') => ['activity', actor] as const,
+  postEditor: (postId: string | undefined) => tenantKey('post-editor', postId ?? 'new'),
+  postVersions: (postId: string) => tenantKey('post-versions', postId),
+  activity: (actor: 'all' | 'human' | 'agent') => tenantKey('activity', actor),
   activityAll: ['activity'] as const,
-  media: ['media'] as const,
-  connect: ['connect'] as const,
-  settings: ['settings'] as const,
-  billing: ['billing'] as const,
-  analytics: (range: AnalyticsRange) => ['analytics', range] as const,
-  subscribers: (params: { search?: string; status?: string; offset?: number }) => ['subscribers', params] as const,
+  get media() { return tenantKey('media') },
+  get connect() { return tenantKey('connect') },
+  get settings() { return tenantKey('settings') },
+  get billing() { return tenantKey('billing') },
+  analytics: (range: AnalyticsRange) => tenantKey('analytics', range),
+  subscribers: (params: { search?: string; status?: string; offset?: number }) => tenantKey('subscribers', params),
   subscribersAll: ['subscribers'] as const,
-  newsletter: ['newsletter'] as const,
-  personalization: ['personalization'] as const,
-  setup: ['setup'] as const,
-  onboardingStatus: (keyId: string | null) => ['onboarding-status', keyId] as const,
+  get newsletter() { return tenantKey('newsletter') },
+  get personalization() { return tenantKey('personalization') },
+  get setup() { return tenantKey('setup') },
+  onboardingStatus: (keyId: string | null) => tenantKey('onboarding-status', keyId),
 }
 
 /** Session + site context. Cached so navigation and hover preloads don't wait on it. */
@@ -120,10 +135,10 @@ export const contextQuery = queryOptions({
   staleTime: 60_000,
 })
 
-export const overviewQuery = queryOptions({
+export const overviewQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.overview,
   queryFn: ({ signal }) => loadDashboardOverview(signal),
-})
+}), () => queryKeys.overview)
 
 export function postsQuery(params: { status?: string; search?: string; offset?: number }) {
   return queryOptions({
@@ -158,25 +173,25 @@ export function activityQuery(actor: 'all' | 'human' | 'agent' = 'all') {
   })
 }
 
-export const mediaQuery = queryOptions({
+export const mediaQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.media,
   queryFn: ({ signal }) => loadMediaPage(signal),
-})
+}), () => queryKeys.media)
 
-export const connectQuery = queryOptions({
+export const connectQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.connect,
   queryFn: ({ signal }) => loadConnectPage(signal),
-})
+}), () => queryKeys.connect)
 
-export const settingsQuery = queryOptions({
+export const settingsQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.settings,
   queryFn: ({ signal }) => loadSettingsPage(signal),
-})
+}), () => queryKeys.settings)
 
-export const billingQuery = queryOptions({
+export const billingQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.billing,
   queryFn: ({ signal }) => loadBillingPage(signal),
-})
+}), () => queryKeys.billing)
 
 export function analyticsQuery(range: AnalyticsRange) {
   return queryOptions({
@@ -193,15 +208,15 @@ export function subscribersQuery(params: { search?: string; status?: string; off
   })
 }
 
-export const newsletterQuery = queryOptions({
+export const newsletterQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.newsletter,
   queryFn: ({ signal }) => loadNewsletterSettings(signal),
-})
+}), () => queryKeys.newsletter)
 
-export const personalizationQuery = queryOptions({
+export const personalizationQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.personalization,
   queryFn: ({ signal }) => loadPersonalization(signal),
-})
+}), () => queryKeys.personalization)
 
 export function onboardingStatusQuery(keyId: string | null) {
   return queryOptions({
@@ -211,11 +226,11 @@ export function onboardingStatusQuery(keyId: string | null) {
   })
 }
 
-export const setupQuery = queryOptions({
+export const setupQuery = scopedOptions(queryOptions({
   queryKey: queryKeys.setup,
   queryFn: ({ signal }) => loadSetupPage(signal),
   staleTime: Infinity,
-})
+}), () => queryKeys.setup)
 
 /**
  * Re-read session context after a change that affects it (setup, rename, site

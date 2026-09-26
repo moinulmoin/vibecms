@@ -5,6 +5,7 @@ import {
   publicHtmlResponseHeaders,
   publicListingResponseHeaders,
   RESERVED_ROOT_SLUGS,
+  isReadableTenantPostSlug,
   stripMarkdownSuffix,
 } from "./public-blog";
 import {
@@ -57,7 +58,7 @@ const site = {
   },
 } satisfies SiteRow;
 
-const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false };
+const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false, generatedCards: false };
 
 describe("markdown negotiation", () => {
   it("detects Accept: text/markdown", () => {
@@ -76,6 +77,12 @@ describe("markdown negotiation", () => {
     expect(RESERVED_ROOT_SLUGS.has("docs")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("docs-search.json")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("llms-full.txt")).toBe(true);
+  });
+
+  it("keeps existing docs and internal tenant posts readable", () => {
+    expect(isReadableTenantPostSlug("docs")).toBe(true);
+    expect(isReadableTenantPostSlug("internal")).toBe(true);
+    expect(isReadableTenantPostSlug("feed.xml")).toBe(false);
   });
 });
 

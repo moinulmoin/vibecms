@@ -185,6 +185,14 @@ beforeAll(async () => {
 })
 
 describe('REST by-slug HTTP isolation', () => {
+  it('ignores dashboard expected-site headers for API-key authentication', async () => {
+    await resetUsage()
+    const response = await request('/api/v1/site', HTTP_READ_TOKEN, {
+      headers: { 'x-vc-expected-site': HTTP_SITE_B_ID },
+    })
+    expect(response.status).toBe(200)
+    await resetUsage()
+  })
   it('returns the exact post, 404s missing and foreign slugs, and enforces posts:read', async () => {
     const found = await request('/api/v1/posts/by-slug/api-http-site-a-only', HTTP_READ_TOKEN)
     expect(found.status).toBe(200)

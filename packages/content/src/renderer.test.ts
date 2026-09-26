@@ -15,6 +15,8 @@ import {
   parseHeadingMarkers,
 } from "./renderer.js";
 import { createMathRenderer } from "./math.js";
+import { renderToStaticMarkup } from "react-dom/server";
+import type React from "react";
 import { createCodeHighlighter } from "./highlight.js";
 import { BLOCKS_SAMPLE } from "../harness/blocks-sample.js";
 import type { MathRenderer } from "./types.js";
@@ -534,6 +536,19 @@ describe("v4 blocks – math", () => {
     expect(feed).not.toContain("<math");
   });
 
+  it("shows pathologically nested TeX as source instead of overflowing SSR", () => {
+    const md = "$$\n" + "\\overline{".repeat(500) + "x" + "}".repeat(500) + "\n$$";
+    const r = renderRichContent(md, { math });
+    expect(r.warningCodes).toContain(RENDER_WARNING.MATH_INVALID);
+    expect(() => renderToStaticMarkup(r.node as React.ReactElement)).not.toThrow();
+  });
+
+  it("renders realistic nested formulas normally", () => {
+    const tex = "\\frac{1}{1+\\frac{1}{1+\\frac{1}{1+\\frac{1}{1+\\sqrt{\\sum_{i=1}^{n} x_i^{2^{k}}}}}}}";
+    const r = renderRichContent(`$$\n${tex}\n$$`, { math });
+    expect(r.warningCodes).toEqual([]);
+  });
+
   it("warns on invalid TeX and keeps the source", () => {
     const r = renderRichContent("$$\n\\frac{a\n$$", { math });
     expect(r.warningCodes).toEqual([RENDER_WARNING.MATH_INVALID]);
@@ -612,6 +627,20 @@ describe("v4 blocks – mermaid", () => {
 });
 
 describe("v4 blocks – heading ids and toc markers", () => {
+  it("keeps pre-typography heading anchors while smartening the visible text", () => {
+    const result = renderRichContent("## API -- usage\n\n## API -- usage\n\n## Custom -- usage {#fixed}");
+    expect(result.outline.map((entry) => entry.id)).toEqual(["h-api----usage", "h-api----usage-1", "h-fixed"]);
+    expect(renderRichContentToHtml("## API -- usage")).toContain("API — usage");
+  });
+
+  it("bounds raw HTML and deeply nested Markdown without throwing", () => {
+    const raw = "<div>".repeat(2000) + "Hi" + "</div>".repeat(2000);
+    expect(renderRichContent(raw).warningCodes).toContain(RENDER_WARNING.NESTING_LIMIT);
+    expect(renderRichContentToHtml(raw)).toContain("&lt;div&gt;");
+    const quotes = ">".repeat(5000) + " Hi";
+    expect(renderRichContent(quotes).warningCodes).toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+
   it("applies {#id} with the h- prefix and hides [!toc] headings from the outline", () => {
     const md = "## Setup {#setup}\n\n## Aside [!toc]\n\n### Both {#both} [!toc]\n\n### Other [!toc] {#other}";
     const r = renderRichContent(md);
@@ -772,6 +801,21 @@ describe("v4 blocks – steps and tabs", () => {
     expect(installCommand("npm i", "yarn")).toBe("yarn");
   });
 
+  it("shows the complete original package-install block when expansion would truncate commands", () => {
+    for (const commands of [Array.from({ length: 21 }, (_, i) => `npm i package-${i}`).join("\n"), `npm i ${"x".repeat(510)}`]) {
+      const markdown = `\`\`\`package-install\n${commands}\n\`\`\``;
+      const result = renderRichContent(markdown);
+      expect(result.warningCodes).toContain(RENDER_WARNING.PACKAGE_INSTALL_LIMIT);
+      const html = renderRichContentToHtml(markdown);
+      expect(html).toContain(commands.split("\n").at(-1)!);
+      expect(html).not.toContain("vc-code-tabs");
+    }
+  });
+
+  it("warns on a raw image missing alt outside a paragraph", () => {
+    expect(renderRichContent('<img src="/photo.jpg">').warningCodes).toContain(RENDER_WARNING.IMAGE_MISSING_ALT);
+  });
+
   it("raw HTML cannot forge generated blocks", () => {
     const html = renderRichContentToHtml('<div data-vc-block="tabs"><div data-vc-block="tab" data-vc-label="x">y</div></div>');
     expect(html).not.toContain("vc-tabs");
@@ -877,5 +921,59 @@ describe("v4 kitchen sink", () => {
     expect(r.outline.some((h) => h.text.includes("Hidden"))).toBe(false);
     const feed = renderRichContentToHtml(BLOCKS_SAMPLE, { target: "feed", baseUrl: "https://b.test/p" });
     expect(feed).not.toMatch(/vc-tabs|vc-steps|vc-table-scroll|data-vc-(?!theme)/);
+  });
+});
+
+describe("nesting guard ignores code", () => {
+  it("renders a post with many generics in code normally", () => {
+    const generics = Array.from({ length: 200 }, (_, i) => `\`Promise<User${i}>\``).join(" ");
+    const fenced = "```ts\n" + Array.from({ length: 200 }, () => "const a: Map<Key>").join("\n") + "\n```";
+    const result = renderRichContent(`# Types\n\n${generics}\n\n${fenced}\n`);
+    expect(result.warningCodes).not.toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+});
+
+describe("nesting guard false positives", () => {
+  it("does not treat implicitly closed paragraphs as nesting", () => {
+    const r = renderRichContent(Array.from({ length: 150 }, (_, i) => `<p>para ${i}`).join("\n"));
+    expect(r.warningCodes).not.toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+
+  it("ignores deep quote markers inside fenced code", () => {
+    const r = renderRichContent("```text\n" + ">".repeat(200) + "\n```\n");
+    expect(r.warningCodes).not.toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+
+  it("never falls back for HTML that is only code", () => {
+    const divs = "<div>".repeat(150);
+    for (const source of [
+      `    ${divs}\n`,
+      `> \`\`\`html\n> ${divs}\n> \`\`\`\n`,
+      `Inline \`${divs}\nstill code\` here.\n`,
+    ]) {
+      expect(renderRichContent(source).warningCodes).not.toContain(RENDER_WARNING.NESTING_LIMIT);
+    }
+  });
+
+  it("treats <div/> as an open tag, like browsers do", () => {
+    const r = renderRichContent("<div/>".repeat(1500) + "x");
+    expect(r.warningCodes).toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+
+  it("degrades very deep Markdown quotes instead of throwing", () => {
+    const r = renderRichContent(">".repeat(5000) + " deep");
+    expect(r.warningCodes).toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+
+  it("still falls back on genuinely deep HTML", () => {
+    const r = renderRichContent("<div>".repeat(2000) + "Hi" + "</div>".repeat(2000));
+    expect(r.warningCodes).toContain(RENDER_WARNING.NESTING_LIMIT);
+  });
+});
+
+describe("heading ids stay compatible", () => {
+  it("ignores inline HTML tags when slugging", () => {
+    const r = renderRichContent("## Hello <em>world</em>\n\ntext");
+    expect(r.outline[0]?.id).toBe("h-hello-world");
   });
 });

@@ -100,7 +100,8 @@ export function resolveSocialImage(
   origin: string,
   post: SeoPostInput | null,
   site: SeoSiteInput,
-): ResolvedSocialImage {
+  generatedCards: boolean,
+): ResolvedSocialImage | null {
   if (post?.cover_asset_id) {
     return {
       url: absoluteUrlPath(origin, `/media-assets/${post.cover_asset_id}`),
@@ -111,7 +112,7 @@ export function resolveSocialImage(
       source: 'post',
     };
   }
-  if (post?.slug && ogCardTextSupported(post.title)) return generatedCard(origin, post, site);
+  if (generatedCards && post?.slug && ogCardTextSupported(post.title)) return generatedCard(origin, post, site);
   if (site.default_social_asset_id) {
     return {
       url: absoluteUrlPath(origin, `/media-assets/${site.default_social_asset_id}`),
@@ -122,7 +123,7 @@ export function resolveSocialImage(
       source: 'site',
     };
   }
-  return generatedCard(origin, null, site);
+  return generatedCards ? generatedCard(origin, null, site) : null;
 }
 
 /** W3C date (`YYYY-MM-DD`); empty string for null/undefined/NaN. */
@@ -178,10 +179,11 @@ export function buildBlogPostingJsonLd(input: {
   site: SeoSiteInput;
   origin: string;
   canonicalUrl: string;
-  socialImage?: ResolvedSocialImage;
+  socialImage?: ResolvedSocialImage | null;
+  generatedCards?: boolean;
 }): Record<string, unknown> {
   const { post, site, origin, canonicalUrl } = input;
-  const socialImage = input.socialImage ?? resolveSocialImage(origin, post, site);
+  const socialImage = input.socialImage === undefined ? resolveSocialImage(origin, post, site, input.generatedCards ?? true) : input.socialImage;
 
   const obj: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -207,7 +209,7 @@ export function buildBlogPostingJsonLd(input: {
   const dateModified = formatIsoDate(post.updated_at);
   if (dateModified) obj.dateModified = dateModified;
 
-  obj.image = socialImage.url;
+  if (socialImage) obj.image = socialImage.url;
 
   return obj;
 }
@@ -219,6 +221,7 @@ export interface PostHeadInput {
   canonicalUrl: string;
   origin: string;
   indexable: boolean;
+  generatedCards: boolean;
 }
 
 /**
@@ -236,7 +239,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const effectiveCanonical = post.canonical_url || canonicalUrl;
   const absoluteCanonical = absoluteUrlPath(origin, effectiveCanonical);
-  const socialImage = resolveSocialImage(origin, post, site);
+  const socialImage = resolveSocialImage(origin, post, site, input.generatedCards);
 
   const meta: Array<Record<string, unknown>> = [{ title: seoTitle }];
   if (seoDescription) {
@@ -248,28 +251,31 @@ export function buildPostHeadContent(input: PostHeadInput): {
   }
   meta.push({ property: 'og:type', content: 'article' });
   meta.push({ property: 'og:url', content: absoluteCanonical });
-  meta.push({ property: 'og:image', content: socialImage.url });
-  meta.push({ property: 'og:image:type', content: socialImage.mimeType });
-  if (socialImage.width) meta.push({ property: 'og:image:width', content: String(socialImage.width) });
-  if (socialImage.height) meta.push({ property: 'og:image:height', content: String(socialImage.height) });
-  meta.push({ property: 'og:image:alt', content: socialImage.alt });
+  if (socialImage) {
+    meta.push({ property: 'og:image', content: socialImage.url });
+    meta.push({ property: 'og:image:type', content: socialImage.mimeType });
+    if (socialImage.width) meta.push({ property: 'og:image:width', content: String(socialImage.width) });
+    if (socialImage.height) meta.push({ property: 'og:image:height', content: String(socialImage.height) });
+    meta.push({ property: 'og:image:alt', content: socialImage.alt });
+  }
   meta.push({ property: 'og:site_name', content: site.name });
   const publishedIso = formatIsoDate(post.published_at);
   if (publishedIso) meta.push({ property: 'article:published_time', content: publishedIso });
   const modifiedIso = formatIsoDate(post.updated_at);
   if (modifiedIso) meta.push({ property: 'article:modified_time', content: modifiedIso });
-  meta.push({ name: 'twitter:card', content: 'summary_large_image' });
+  meta.push({ name: 'twitter:card', content: socialImage ? 'summary_large_image' : 'summary' });
   meta.push({ name: 'twitter:title', content: seoTitle });
   if (seoDescription) meta.push({ name: 'twitter:description', content: seoDescription });
-  meta.push({ name: 'twitter:image', content: socialImage.url });
-  meta.push({ name: 'twitter:image:alt', content: socialImage.alt });
+  if (socialImage) {
+    meta.push({ name: 'twitter:image', content: socialImage.url });
+    meta.push({ name: 'twitter:image:alt', content: socialImage.alt });
+  }
   if (!indexable) {
     meta.push({ name: 'robots', content: 'noindex,nofollow' });
   }
 
-  const markdownAlternate = absoluteCanonical.endsWith('.md')
-    ? absoluteCanonical
-    : `${absoluteCanonical.replace(/\/$/, '')}.md`;
+  const servingSlug = post.slug ?? new URL(canonicalUrl, origin).pathname.replace(/^\//, "");
+  const markdownAlternate = new URL(`/${servingSlug}.md`, origin).href;
   const links: Array<Record<string, unknown>> = [
     { rel: 'canonical', href: absoluteCanonical },
     { rel: 'alternate', type: 'text/markdown', href: markdownAlternate },

@@ -29,6 +29,10 @@ const FIXTURES = [
 ]
 
 vi.mock('~/lib/api-client', () => ({
+  DashboardApiError: class DashboardApiError extends Error {},
+  dashboardMutationHeaders: () => ({}),
+  dashboardMutationSignal: () => new AbortController().signal,
+  handleDashboardSiteChanged: vi.fn(),
   loadMediaPage: vi.fn(async () => ({ assets: FIXTURES })),
   updateMediaAltMutation: vi.fn(async () => ({ kind: 'ok', code: 'media_alt_saved' })),
   notifyDashboardMutation: vi.fn(),

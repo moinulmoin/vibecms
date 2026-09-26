@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vibecms-og-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-13",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    }
+  },
+  "rules": [
+    {
+      "type": "Data",
+      "globs": [
+        "**/*.woff2"
+      ],
+      "fallthrough": true
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "vibecms-og-prod"
+    }
+  }
+}

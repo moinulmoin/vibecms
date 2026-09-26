@@ -659,6 +659,12 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       })
     }
   }, [])
+  const pasteUnsafeMarkdown = useCallback((markdown: string) => {
+    setContent((current) => `${current}${current && !current.endsWith('\n') ? '\n\n' : ''}${markdown}`)
+    setUnsafeSyntax(true)
+    setSurface('markdown')
+    setSurfaceNotice('Pasted in Markdown mode to keep the original source exactly.')
+  }, [])
   const updateMetadata = useCallback((field: keyof EditorMetadata, value: string | boolean) => {
     if (field === 'slug') setSlugTouched(true)
     setMetadata((current) => ({ ...current, [field]: value }))
@@ -830,7 +836,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       </div>
       <Suspense fallback={<Skeleton className="h-[32rem] rounded-xl" />}>
         {surface === 'visual' ? (
-          <RichCanvas source={content} assets={assets} presetId={presetId} siteTheme={siteTheme} uploadFile={editorUpload} onChange={setContent} onUnsafeSyntax={unsafeChanged} />
+          <RichCanvas source={content} assets={assets} presetId={presetId} siteTheme={siteTheme} uploadFile={editorUpload} onChange={setContent} onUnsafeSyntax={unsafeChanged} onUnsafeMarkdownPaste={pasteUnsafeMarkdown} />
         ) : (
           <MarkdownSource value={content} onChange={setContent} uploadFile={editorUpload} />
         )}

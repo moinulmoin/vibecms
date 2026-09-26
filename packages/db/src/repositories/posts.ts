@@ -1,7 +1,7 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
-import { changedPostFields, ConflictError, type ActivityInput, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
+import { changedPostFields, ConflictError, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
-import { activityEvents, apiKeys, postVersions, posts, user, type PostRow } from "../schema";
+import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -176,64 +176,29 @@ function mapPostError(error: unknown): unknown {
 export function createD1PostRepository(db: D1Database): PostRepository {
   const client = createDbClient(db);
 
-  const versionMetaFor = async (siteId: string, postId: string, publishedVersionId: string | null) => {
-    const tip = await db
-      .prepare(
-        "SELECT max(version_number) AS versionNumber FROM post_versions WHERE site_id = ? AND post_id = ?",
-      )
-      .bind(siteId, postId)
-      .first<{ versionNumber: number | null }>();
-    let publishedVersionNumber: number | null = null;
-    if (publishedVersionId) {
-      const published = await db
-        .prepare(
-          "SELECT version_number AS versionNumber FROM post_versions WHERE id = ? AND site_id = ? AND post_id = ?",
-        )
-        .bind(publishedVersionId, siteId, postId)
-        .first<{ versionNumber: number }>();
-      publishedVersionNumber = published?.versionNumber ?? null;
-    }
-    return {
-      currentVersionNumber: tip?.versionNumber ?? 0,
-      publishedVersionNumber,
-    };
+  const postWithVersions = {
+    post: posts,
+    currentVersionNumber: sql<number>`coalesce((select max(pv.version_number) from post_versions pv where pv.site_id = posts.site_id and pv.post_id = posts.id), 0)`,
+    publishedVersionNumber: sql<number | null>`(select pv.version_number from post_versions pv where pv.id = posts.published_version_id and pv.site_id = posts.site_id and pv.post_id = posts.id)`,
   };
+
+  // Include mutable content and both version numbers in the same SQLite statement.
+  const readPost = async (condition: SQL) => {
+    const [row] = await client.select(postWithVersions).from(posts).where(condition).limit(1);
+    return row ? mapPost(row.post, row) : null;
+  };
+
+  const slugAvailable = `NOT EXISTS (
+    SELECT 1 FROM posts other
+    LEFT JOIN post_versions live ON live.id = other.published_version_id
+    WHERE other.site_id = ? AND other.id <> ?
+      AND (other.slug = ? OR (other.status = 'published' AND live.slug = ?))
+  )`;
+  const slugBinds = (siteId: string, postId: string, slug: string) => [siteId, postId, slug, slug];
 
   const getPost = async (siteId: string, postId: string) => {
-    const rows = await client
-      .select()
-      .from(posts)
-      .where(and(eq(posts.siteId, siteId), eq(posts.id, postId)))
-      .limit(1);
-    const row = rows[0];
-    if (!row) return null;
-    return mapPost(row, await versionMetaFor(siteId, postId, row.publishedVersionId));
+    return readPost(and(eq(posts.siteId, siteId), eq(posts.id, postId))!);
   };
-
-  // Version number = max(existing) + 1, computed inside the insert via a correlated subquery.
-  // Returns the inserted versionNumber via RETURNING for atomic version retrieval.
-  const postVersionInsert = (post: Post, actor: Actor, changeSummary: string, timestamp: number) =>
-    client.insert(postVersions).values({
-      id: crypto.randomUUID(),
-      postId: post.id,
-      siteId: post.siteId,
-      versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${post.id}), 0) + 1`,
-      title: post.title,
-      slug: post.slug,
-      excerpt: post.excerpt,
-      contentMarkdown: post.contentMarkdown,
-      coverAssetId: post.coverAssetId,
-      status: post.status,
-      seoTitle: post.seoTitle,
-      seoDescription: post.seoDescription,
-      canonicalUrl: post.canonicalUrl,
-      tagsJson: JSON.stringify(post.tags),
-      presentationJson: post.presentation ? JSON.stringify(post.presentation) : null,
-      createdByType: actor.type,
-      createdById: actor.id,
-      changeSummary,
-      createdAt: timestamp,
-    }).returning({ versionNumber: postVersions.versionNumber });
 
   /**
    * Autosave path: fold a same-actor edit into the tip version row (renumbered
@@ -286,8 +251,9 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     // the renumbered row instead would let a stale concurrent save from a
     // second tab land its content after another save already folded the tip.
     const tipGate = `(SELECT max(version_number) FROM post_versions WHERE site_id = ? AND post_id = ?) = ?
-      AND coalesce((SELECT published_version_id FROM posts WHERE site_id = ? AND id = ?), '') <> ?`;
-    const tipGateBinds = [before.siteId, before.id, expectedVersionNumber, before.siteId, before.id, tip.id];
+      AND coalesce((SELECT published_version_id FROM posts WHERE site_id = ? AND id = ?), '') <> ?
+      AND ${slugAvailable}`;
+    const tipGateBinds = [before.siteId, before.id, expectedVersionNumber, before.siteId, before.id, tip.id, ...slugBinds(before.siteId, before.id, after.slug)];
 
     let results: D1Result[];
     try {
@@ -324,7 +290,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     }
     const versionResult = results[results.length - 1]!;
     if ((versionResult.meta.changes ?? 0) === 0) return null;
-    return { post: after, versionNumber: nextVersionNumber };
+    return { post: (await getPost(before.siteId, before.id))!, versionNumber: nextVersionNumber };
   };
 
   /**
@@ -398,22 +364,6 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     ];
   };
 
-  const activityInsert = (input: ActivityInput, timestamp: number) =>
-    client.insert(activityEvents).values({
-      id: crypto.randomUUID(),
-      siteId: input.siteId,
-      actorType: input.actor.type,
-      actorId: input.actor.id,
-      actorName: input.actor.name,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      summary: input.summary,
-      beforeJson: input.before ? JSON.stringify(input.before) : null,
-      afterJson: input.after ? JSON.stringify(input.after) : null,
-      createdAt: timestamp,
-    });
-
   return {
     async createPostWithHistory(input, actor, history) {
       const timestamp = now();
@@ -426,33 +376,42 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       };
       // D1 batch is one transaction: post, version snapshot, and activity land together or not at all.
       try {
-        await client.batch([
-          client.insert(posts).values({
-            id: post.id,
-            siteId: post.siteId,
-            title: post.title,
-            slug: post.slug,
-            excerpt: post.excerpt,
-            contentMarkdown: post.contentMarkdown,
-            coverAssetId: post.coverAssetId,
-            status: post.status,
-            publishedAt: post.publishedAt,
-            seoTitle: post.seoTitle,
-            seoDescription: post.seoDescription,
-            canonicalUrl: post.canonicalUrl,
-            tagsJson: JSON.stringify(post.tags),
-            presentationJson: post.presentation ? JSON.stringify(post.presentation) : null,
-            publishedVersionId: null,
-            createdByType: actor.type,
-            createdById: actor.id,
-            updatedByType: actor.type,
-            updatedById: actor.id,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          }),
-          postVersionInsert(post, actor, history.changeSummary, timestamp),
-          activityInsert({ siteId: post.siteId, actor, action: history.activityAction, entityType: "post", entityId: post.id, summary: history.activitySummary, after: post }, timestamp),
+        const [insertResult] = await db.batch([
+          db.prepare(`INSERT INTO posts (
+            id, site_id, title, slug, excerpt, content_markdown, cover_asset_id,
+            status, published_at, seo_title, seo_description, canonical_url,
+            tags_json, presentation_json, published_version_id, created_by_type,
+            created_by_id, updated_by_type, updated_by_id, created_at, updated_at
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?
+          WHERE ${slugAvailable}`).bind(
+            post.id, post.siteId, post.title, post.slug, post.excerpt, post.contentMarkdown,
+            post.coverAssetId, post.status, post.publishedAt, post.seoTitle,
+            post.seoDescription, post.canonicalUrl, JSON.stringify(post.tags),
+            post.presentation ? JSON.stringify(post.presentation) : null,
+            actor.type, actor.id, actor.type, actor.id, timestamp, timestamp,
+            ...slugBinds(post.siteId, post.id, post.slug),
+          ),
+          db.prepare(`INSERT INTO post_versions (
+            id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
+            cover_asset_id, status, seo_title, seo_description, canonical_url, tags_json,
+            presentation_json, created_by_type, created_by_id, change_summary, created_at
+          ) SELECT ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM posts WHERE id = ? AND site_id = ?)`)
+            .bind(crypto.randomUUID(), post.id, post.siteId, post.title, post.slug, post.excerpt,
+              post.contentMarkdown, post.coverAssetId, post.status, post.seoTitle,
+              post.seoDescription, post.canonicalUrl, JSON.stringify(post.tags),
+              post.presentation ? JSON.stringify(post.presentation) : null, actor.type, actor.id,
+              history.changeSummary, timestamp, post.id, post.siteId),
+          db.prepare(`INSERT INTO activity_events (
+            id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+            entity_id, summary, before_json, after_json, created_at
+          ) SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, NULL, ?, ?
+          WHERE EXISTS (SELECT 1 FROM posts WHERE id = ? AND site_id = ?)`)
+            .bind(crypto.randomUUID(), post.siteId, actor.type, actor.id, actor.name,
+              history.activityAction, post.id, history.activitySummary, JSON.stringify(post),
+              timestamp, post.id, post.siteId),
         ]);
+        if (!insertResult.meta.changes) throw new ConflictError("A post with this slug already exists");
       } catch (error) {
         throw mapPostError(error);
       }
@@ -478,6 +437,12 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         publishedVersionNumber: before.publishedVersionNumber,
       };
       const activitySummary = await foldedActivitySummary(after, actor, history, history.changedFields ?? [], timestamp);
+      const changesLifecycle = patch.status !== undefined || patch.publishedAt !== undefined;
+      const lifecycleGate = changesLifecycle
+        ? `AND p.status = ? AND p.published_at IS ?
+           AND (SELECT version_number FROM post_versions WHERE id = p.published_version_id) IS ?`
+        : "";
+      const lifecycleBinds = changesLifecycle ? [before.status, before.publishedAt, before.publishedVersionNumber] : [];
 
       // Claim the next version number only when the caller still holds the tip.
       // Post + activity writes are gated on that claim so a stale writer cannot
@@ -493,7 +458,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
               created_by_id, change_summary, created_at
             )
             SELECT ?, p.id, p.site_id, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?,
+              ?, ?, ${patch.status === undefined ? "p.status" : "?"}, ?, ?,
               ?, ?, ?, ?,
               ?, ?, ?
             FROM posts AS p
@@ -502,7 +467,9 @@ export function createD1PostRepository(db: D1Database): PostRepository {
                 SELECT max(pv.version_number)
                 FROM post_versions AS pv
                 WHERE pv.post_id = p.id AND pv.site_id = p.site_id
-              ), 0) = ?`,
+              ), 0) = ?
+              ${lifecycleGate}
+              AND ${slugAvailable}`,
           ).bind(
             versionId,
             nextVersionNumber,
@@ -511,7 +478,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             after.excerpt,
             after.contentMarkdown,
             after.coverAssetId,
-            after.status,
+            ...(patch.status === undefined ? [] : [after.status]),
             after.seoTitle,
             after.seoDescription,
             after.canonicalUrl,
@@ -524,11 +491,13 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             siteId,
             postId,
             expectedVersionNumber,
+            ...lifecycleBinds,
+            ...slugBinds(siteId, postId, after.slug),
           ),
           db.prepare(
             `UPDATE posts
              SET title = ?, slug = ?, excerpt = ?, content_markdown = ?,
-               cover_asset_id = ?, status = ?, published_at = ?, seo_title = ?,
+               cover_asset_id = ?, ${changesLifecycle ? "status = ?, published_at = ?," : ""} seo_title = ?,
                seo_description = ?, canonical_url = ?, tags_json = ?,
                presentation_json = ?, updated_by_type = ?, updated_by_id = ?,
                updated_at = ?
@@ -540,8 +509,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             after.excerpt,
             after.contentMarkdown,
             after.coverAssetId,
-            after.status,
-            after.publishedAt,
+            ...(changesLifecycle ? [after.status, after.publishedAt] : []),
             after.seoTitle,
             after.seoDescription,
             after.canonicalUrl,
@@ -564,22 +532,18 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       }
 
       if ((versionResult.meta.changes ?? 0) === 0) {
+        const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
+          .bind(...slugBinds(siteId, postId, after.slug)).first<{ available: number }>();
+        if (!available?.available) throw new ConflictError("A post with this slug already exists");
         throw new ConflictError("Post changed concurrently; retry the save");
       }
-      return { post: after, versionNumber: nextVersionNumber };
+      return { post: (await getPost(siteId, postId))!, versionNumber: nextVersionNumber };
     },
 
     getPost,
 
     async findPostBySlug(siteId, slug) {
-      const rows = await client
-        .select()
-        .from(posts)
-        .where(and(eq(posts.siteId, siteId), eq(posts.slug, slug)))
-        .limit(1);
-      const row = rows[0];
-      if (!row) return null;
-      return mapPost(row, await versionMetaFor(siteId, row.id, row.publishedVersionId));
+      return readPost(and(eq(posts.siteId, siteId), eq(posts.slug, slug))!);
     },
 
     async listPosts(input) {
@@ -602,12 +566,12 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       const before = await getPost(siteId, postId);
       if (!before) return { post: null, capReached: false, versionConflict: false };
 
-      // Idempotent: already live on exactly the approved tip.
-      if (
-        before.status === "published" &&
-        before.publishedVersionNumber === expectedVersionNumber &&
-        before.currentVersionNumber === expectedVersionNumber
-      ) {
+      // Even an idempotent approval must not accept a legacy duplicate live URL.
+      if (before.status === "published" && before.publishedVersionNumber === expectedVersionNumber &&
+          before.currentVersionNumber === expectedVersionNumber) {
+        const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
+          .bind(...slugBinds(siteId, postId, before.slug)).first<{ available: number }>();
+        if (!available?.available) throw new ConflictError("A post with this slug already exists");
         return { post: before, capReached: false, versionConflict: false };
       }
 
@@ -653,6 +617,16 @@ export function createD1PostRepository(db: D1Database): PostRepository {
                  WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
                    AND pv.version_number = ?
                )
+               AND NOT EXISTS (
+                 SELECT 1 FROM posts AS other
+                 LEFT JOIN post_versions AS live ON live.id = other.published_version_id
+                 WHERE other.site_id = posts.site_id AND other.id <> posts.id
+                   AND (other.slug = (
+                     SELECT slug FROM post_versions WHERE post_id = posts.id AND version_number = ?
+                   ) OR (other.status = 'published' AND live.slug = (
+                     SELECT slug FROM post_versions WHERE post_id = posts.id AND version_number = ?
+                   )))
+               )
                AND (
                  status = 'published'
                  OR ? = 1
@@ -680,6 +654,8 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             actor.id,
             siteId,
             postId,
+            expectedVersionNumber,
+            expectedVersionNumber,
             expectedVersionNumber,
             expectedVersionNumber,
             options.billingActive ? 1 : 0,
@@ -730,6 +706,13 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       if (!current) return { post: null, capReached: false, versionConflict: false };
       if (current.currentVersionNumber !== expectedVersionNumber) {
         return { post: null, capReached: false, versionConflict: true };
+      }
+      const target = await db.prepare("SELECT slug FROM post_versions WHERE site_id = ? AND post_id = ? AND version_number = ?")
+        .bind(siteId, postId, expectedVersionNumber).first<{ slug: string }>();
+      if (target) {
+        const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
+          .bind(...slugBinds(siteId, postId, target.slug)).first<{ available: number }>();
+        if (!available?.available) throw new ConflictError("A post with this slug already exists");
       }
       if (
         current.status === "published" &&

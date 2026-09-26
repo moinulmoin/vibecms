@@ -26,12 +26,23 @@ const site: SeoSiteInput = {
 }
 
 describe('social image metadata', () => {
+  it('advertises the serving Markdown URL even with an external canonical URL', () => {
+    const head = buildPostHeadContent({
+      post: { ...post, slug: 'local-story', canonical_url: 'https://original.example/story?ref=1' },
+      site,
+      canonicalUrl: '/local-story',
+      origin: 'https://blog.example.com',
+      indexable: true,
+      generatedCards: true,
+    });
+    expect(head.links).toContainEqual({ rel: 'alternate', type: 'text/markdown', href: 'https://blog.example.com/local-story.md' });
+  });
   it('uses the post cover, then a generated card in the blog theme; never vibecms branding', () => {
-    expect(resolveSocialImage('https://blog.example.com', post, site)).toMatchObject({
+    expect(resolveSocialImage('https://blog.example.com', post, site, true)).toMatchObject({
       source: 'post',
       url: 'https://blog.example.com/media-assets/cover-1',
     })
-    const generated = resolveSocialImage('https://blog.example.com', { ...post, slug: 'a-useful-article', cover_asset_id: null }, site)
+    const generated = resolveSocialImage('https://blog.example.com', { ...post, slug: 'a-useful-article', cover_asset_id: null }, site, true)
     expect(generated).toMatchObject({
       source: 'generated',
       alt: 'A useful article',
@@ -39,23 +50,35 @@ describe('social image metadata', () => {
       width: 1200,
       height: 630,
     })
-    expect(generated.url).toMatch(/^https:\/\/blog\.example\.com\/og\/a-useful-article\.png\?v=[0-9a-f]{16}$/)
+    expect(generated!.url).toMatch(/^https:\/\/blog\.example\.com\/og\/a-useful-article\.png\?v=[0-9a-f]{16}$/)
   })
 
   it('index pages use the site default share image, then a generated home card', () => {
-    expect(resolveSocialImage('https://blog.example.com', null, site)).toMatchObject({
+    expect(resolveSocialImage('https://blog.example.com', null, site, true)).toMatchObject({
       source: 'site',
       url: 'https://blog.example.com/media-assets/site-social',
     })
-    const home = resolveSocialImage('https://blog.example.com', null, { name: 'Example Blog' })
+    const home = resolveSocialImage('https://blog.example.com', null, { name: 'Example Blog' }, true)
     expect(home).toMatchObject({ source: 'generated', alt: 'Example Blog', width: 1200, height: 630 })
-    expect(home.url).toMatch(/^https:\/\/blog\.example\.com\/og\.png\?v=[0-9a-f]{16}$/)
-    expect(home.url).not.toContain('/brand/')
+    expect(home!.url).toMatch(/^https:\/\/blog\.example\.com\/og\.png\?v=[0-9a-f]{16}$/)
+    expect(home!.url).not.toContain('/brand/')
+  })
+
+  it('omits generated cards when the OG binding is absent', () => {
+    const noCover = { ...post, slug: 'a-useful-article', cover_asset_id: null }
+    expect(resolveSocialImage('https://blog.example.com', post, site, false)?.source).toBe('post')
+    expect(resolveSocialImage('https://blog.example.com', noCover, site, false)?.source).toBe('site')
+    expect(resolveSocialImage('https://blog.example.com', null, site, false)?.source).toBe('site')
+    expect(resolveSocialImage('https://blog.example.com', noCover, { name: 'Example Blog' }, false)).toBeNull()
+    expect(resolveSocialImage('https://blog.example.com', null, { name: 'Example Blog' }, false)).toBeNull()
+    const head = buildPostHeadContent({ post: noCover, site: { name: 'Example Blog' }, origin: 'https://blog.example.com', canonicalUrl: '/a-useful-article', indexable: true, generatedCards: false })
+    expect(head.meta.some((entry) => entry.property === 'og:image' || entry.name === 'twitter:image')).toBe(false)
+    expect(JSON.parse(head.scripts[0]!.children)).not.toHaveProperty('image')
   })
 
   it('versions the card URL by everything the card shows', () => {
     const base = { ...post, slug: 'a-useful-article', cover_asset_id: null }
-    const url = (p: SeoPostInput, s: SeoSiteInput = site) => resolveSocialImage('https://blog.example.com', p, s).url
+    const url = (p: SeoPostInput, s: SeoSiteInput = site) => resolveSocialImage('https://blog.example.com', p, s, true)!.url
     expect(url(base)).toBe(url({ ...base }))
     expect(url({ ...base, title: 'Renamed' })).not.toBe(url(base))
     expect(url({ ...base, updated_at: 1_700_000_200 })).not.toBe(url(base))
@@ -66,7 +89,7 @@ describe('social image metadata', () => {
   })
 
   it('falls back to the index image when the card fonts cannot draw the title', () => {
-    expect(resolveSocialImage('https://blog.example.com', { ...post, slug: 'jp', title: '日本語のタイトル', cover_asset_id: null }, site)).toMatchObject({
+    expect(resolveSocialImage('https://blog.example.com', { ...post, slug: 'jp', title: '日本語のタイトル', cover_asset_id: null }, site, true)).toMatchObject({
       source: 'site',
     })
   })
@@ -78,6 +101,7 @@ describe('social image metadata', () => {
       canonicalUrl: '/a-useful-article',
       origin: 'https://blog.example.com',
       indexable: true,
+      generatedCards: true,
     })
     const meta = new Map(head.meta.map((entry) => [String(entry.property ?? entry.name ?? 'title'), entry.content ?? entry.title]))
 
@@ -101,6 +125,7 @@ describe('social image metadata', () => {
       canonicalUrl: '/a-useful-article',
       origin: 'https://blog.example.com',
       indexable: true,
+      generatedCards: true,
     })
     const jsonLd = JSON.parse(head.scripts[0]!.children) as { author: { '@type': string; name: string } }
     expect(jsonLd.author).toEqual({ '@type': 'Person', name: 'Ada Lovelace' })

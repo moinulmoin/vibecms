@@ -8,7 +8,7 @@
  *
  *   1. Workers Cache API  key `…/og/{slug}.png?v={version}&site={siteId}`
  *   2. R2 ASSETS_BUCKET   `og/{siteId}/{slug}.png` (+ customMetadata.version)
- *   3. render             lazy `import("./og-render")` (Takumi WASM)
+ *   3. render             OG service binding (Takumi WASM in the OG Worker)
  *
  * Responses carry the site (and article) Cache-Tag, so the existing publish /
  * settings tag purges also sweep old entries. A request whose `?v=` matches
@@ -18,7 +18,7 @@ import type { APIContext } from "astro";
 import { buildOgCardModel, ogCardVersion } from "../../lib/og-card";
 import { articleCacheTags, cachedArticleResponseBelongsToSite, siteCacheTag } from "../public-blog-cache";
 import { getPublishedPost, resolveSite } from "../public-blog-data";
-import { publicAssetsBucket, publicDb, publicRuntimeEnv } from "../runtime";
+import { ogBinding, publicAssetsBucket, publicDb, publicRuntimeEnv } from "../runtime";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const SHORT = "public, max-age=300, s-maxage=300";
@@ -55,6 +55,8 @@ function clientResponse(request: Request, body: BodyInit | null, headers: Header
 export async function handleOgCardRequest(context: APIContext, slug: string | undefined): Promise<Response> {
   if (slug !== undefined && !SLUG_RE.test(slug)) return notFound();
   const env = publicRuntimeEnv(context);
+  const og = ogBinding(context);
+  if (!env.generatedCards || !og) return notFound();
   const db = publicDb(context);
   const request = context.request;
   const site = await resolveSite(request, db, env);
@@ -95,8 +97,7 @@ export async function handleOgCardRequest(context: APIContext, slug: string | un
 
   if (!png) {
     try {
-      const { renderOgCardPng } = await import("./og-render");
-      png = await renderOgCardPng(buildOgCardModel(site, post, url.host));
+      png = await og.render(buildOgCardModel(site, post, url.host));
     } catch (error) {
       console.error("og card render failed", error);
       return new Response("Share image unavailable", {

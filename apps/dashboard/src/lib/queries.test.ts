@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DashboardApiError, dashboardFetch, onDashboardMutation } from '~/lib/api-client'
-import { createDashboardQueryClient, markDashboardDataStale, queryKeys, signedOutContext } from '~/lib/queries'
+import { DashboardApiError, dashboardFetch, onDashboardMutation, selectDashboardApp } from '~/lib/api-client'
+import { createDashboardQueryClient, markDashboardDataStale, queryClient, queryKeys, settingsQuery, signedOutContext } from '~/lib/queries'
 import { saveTokenFlash } from '~/lib/token-flash'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -15,6 +15,19 @@ afterEach(() => {
 })
 
 describe('cross-page cache freshness', () => {
+  it('uses a different tenant key for settings and posts after the selected site changes', () => {
+    const selected = (siteId: string) => ({
+      ...signedOutContext,
+      app: { user: { id: 'u', name: 'Owner', email: 'owner@example.test' }, siteId, workspaceId: 'w', actor: { type: 'human' as const, id: 'u', name: 'Owner', role: 'owner' as const } },
+    })
+    queryClient.setQueryData(queryKeys.context, selected('site-a'))
+    const settingsA = settingsQuery.queryKey
+    const postsA = queryKeys.posts({})
+    queryClient.setQueryData(queryKeys.context, selected('site-b'))
+    expect(settingsQuery.queryKey).not.toEqual(settingsA)
+    expect(queryKeys.posts({})).not.toEqual(postsA)
+    queryClient.clear()
+  })
   it('notifies mutation listeners after writes, never after reads', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ kind: 'ok', code: 'saved' })))
     const listener = vi.fn()
@@ -99,5 +112,22 @@ describe('expired session', () => {
       })
       .catch(() => undefined)
     expect(assign).not.toHaveBeenCalled()
+  })
+})
+
+describe('pinned tenant keys', () => {
+  it('keeps a mounted page on its own site after another tab switches the selection', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ ok: true })))
+    await selectDashboardApp({ workspaceId: 'w', siteId: 'site-a' })
+    const selected = (siteId: string) => ({
+      ...signedOutContext,
+      app: { user: { id: 'u', name: 'Owner', email: 'owner@example.test' }, siteId, workspaceId: 'w', actor: { type: 'human' as const, id: 'u', name: 'Owner', role: 'owner' as const } },
+    })
+    queryClient.setQueryData(queryKeys.context, selected('site-a'))
+    const before = settingsQuery.queryKey
+    queryClient.setQueryData(queryKeys.context, selected('site-b'))
+    expect(settingsQuery.queryKey).toEqual(before)
+    expect(settingsQuery.queryKey).toContain('site-a')
+    queryClient.clear()
   })
 })
