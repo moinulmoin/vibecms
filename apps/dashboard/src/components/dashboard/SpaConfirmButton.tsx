@@ -24,6 +24,8 @@ export function SpaConfirmButton({
   variant,
   disabled,
   onClick,
+  size,
+  className,
   ...props
 }: SpaConfirmButtonProps) {
   const [armed, setArmed] = React.useState(false)
@@ -63,6 +65,8 @@ export function SpaConfirmButton({
   }
 
   const label = submitting ? (pendingLabel ?? confirmLabel) : armed ? confirmLabel : children
+  // An icon-only trigger grows into a small text button while it asks to confirm.
+  const expanded = (armed || submitting) && size === 'icon'
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
@@ -73,6 +77,8 @@ export function SpaConfirmButton({
         aria-busy={submitting || undefined}
         disabled={disabled || submitting}
         onClick={handleClick}
+        size={expanded ? 'sm' : size}
+        className={expanded ? undefined : className}
         {...props}
       >
         {label}

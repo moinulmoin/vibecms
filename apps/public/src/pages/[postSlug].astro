@@ -63,11 +63,11 @@ const titleEntry = head.meta.find((entry) => "title" in entry);
 const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in entry);
 ---
 {!blog ? (
-<Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={cacheSite.name}>
+<Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={cacheSite.name} faviconAssetId={cacheSite.favicon_asset_id}>
   <PublicNotFoundView site={cacheSite} />
 </Base>
 ) : (
-<Base themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={blog.site.name}>
+<Base themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}>
   <Fragment slot="head">
     {titleEntry && "title" in titleEntry ? <title>{String(titleEntry.title)}</title> : null}
     {metaEntries.map((entry) => {

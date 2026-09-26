@@ -4,8 +4,9 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useNavigate } from '@tanstack/react-router'
 import { Field, FieldLabel, Input, Select, Skeleton, Textarea, cn } from '@vc/ui'
 import { SubscribeBlock } from '@vc/content/public-chrome'
+import { newsletterSettingsSchema } from '@vc/validators'
 import type { NewsletterSettings, SubscriberRow } from '~/types/dashboard'
-import { deleteSubscriberMutation, subscribersExportUrl, updateNewsletterSettingsMutation } from '~/lib/api-client'
+import { DashboardApiError, deleteSubscriberMutation, subscribersExportUrl, updateNewsletterSettingsMutation } from '~/lib/api-client'
 import { Button, LoadError, formatDate } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, PageTabs, StatusBadge } from '~/components/dashboard/blocks'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
@@ -95,6 +96,12 @@ function SubscriberList({ search }: { search: SubscribersSearch }) {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / SUBSCRIBERS_PAGE_SIZE))
   const hasFilters = Boolean(params.search || params.status)
+
+  useEffect(() => {
+    if (!data || query.isPlaceholderData || page <= totalPages) return
+    updateSearch({ page: totalPages })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, query.isPlaceholderData, page, totalPages])
 
   return (
     <div className="grid gap-5">
@@ -241,19 +248,30 @@ function SignupForm() {
 
   const saved = query.data
   const dirty = !sameSettings(draft, saved)
+  const validation = newsletterSettingsSchema.safeParse(draft)
+  const fieldErrors = validation.success ? {} : validation.error.flatten().fieldErrors
   const update = (patch: Partial<NewsletterSettings>) => setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!draft) return
+    const validated = newsletterSettingsSchema.safeParse(draft)
+    if (!validated.success) return
     setPending(true)
     try {
-      const result = await updateNewsletterSettingsMutation(draft)
-      if (result.kind !== 'ok') throw new Error(result.code)
-      queryClient.setQueryData(queryKeys.newsletter, draft)
+      const result = await updateNewsletterSettingsMutation(validated.data)
+      if (result.kind !== 'ok') {
+        toast({ variant: 'error', title: 'Not saved', message: result.code === 'validation_error'
+          ? 'Check the signup form fields and try again.'
+          : 'The signup form could not be saved. Try again.' })
+        return
+      }
+      queryClient.setQueryData(queryKeys.newsletter, validated.data)
       toast({ variant: 'success', title: 'Signup form saved', message: 'Your blog shows the new version now.' })
-    } catch {
-      toast({ variant: 'error', title: 'Not saved', message: 'Check your connection and try again.' })
+    } catch (error) {
+      toast({ variant: 'error', title: 'Not saved', message: error instanceof DashboardApiError && error.status === 400
+        ? 'Check the signup form fields and try again.'
+        : 'Check your connection and try again.' })
     } finally {
       setPending(false)
     }
@@ -278,7 +296,10 @@ function SignupForm() {
             onChange={(event) => update({ heading: event.currentTarget.value })}
             maxLength={80}
             required
+            aria-invalid={Boolean(fieldErrors.heading?.length)}
+            aria-describedby={fieldErrors.heading?.length ? 'newsletter-heading-error' : undefined}
           />
+          {fieldErrors.heading?.length ? <p id="newsletter-heading-error" role="alert" className="text-sm text-destructive">{fieldErrors.heading[0]}</p> : null}
         </Field>
         <Field>
           <FieldLabel htmlFor="newsletter-subtext">Description</FieldLabel>
@@ -288,7 +309,11 @@ function SignupForm() {
             onChange={(event) => update({ subtext: event.currentTarget.value })}
             maxLength={160}
             rows={3}
+            required
+            aria-invalid={Boolean(fieldErrors.subtext?.length)}
+            aria-describedby={fieldErrors.subtext?.length ? 'newsletter-subtext-error' : undefined}
           />
+          {fieldErrors.subtext?.length ? <p id="newsletter-subtext-error" role="alert" className="text-sm text-destructive">{fieldErrors.subtext[0]}</p> : null}
         </Field>
         <Field>
           <FieldLabel htmlFor="newsletter-button-label">Button</FieldLabel>
@@ -297,10 +322,14 @@ function SignupForm() {
             value={draft.buttonLabel}
             onChange={(event) => update({ buttonLabel: event.currentTarget.value })}
             maxLength={24}
+            required
+            aria-invalid={Boolean(fieldErrors.buttonLabel?.length)}
+            aria-describedby={fieldErrors.buttonLabel?.length ? 'newsletter-button-label-error' : undefined}
           />
+          {fieldErrors.buttonLabel?.length ? <p id="newsletter-button-label-error" role="alert" className="text-sm text-destructive">{fieldErrors.buttonLabel[0]}</p> : null}
         </Field>
         <div className="flex flex-wrap items-center gap-2">
-          <PendingSubmitButton pending={pending} pendingText="Saving…" disabled={!dirty}>
+          <PendingSubmitButton pending={pending} pendingText="Saving…" disabled={!dirty || !validation.success}>
             Save changes
           </PendingSubmitButton>
           {dirty ? (

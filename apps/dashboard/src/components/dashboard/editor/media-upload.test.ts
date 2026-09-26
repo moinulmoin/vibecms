@@ -27,7 +27,7 @@ describe('uploadEditorMedia', () => {
       const file = (init.body as FormData).get('file') as File
       expect(new Headers(init.headers).get('x-vc-expected-site')).toBe('site-a')
       library.push(asset(file.name.replace('.png', '')))
-      return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded' }))
+      return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded', asset: { ...asset(file.name.replace('.png', '')), url: `/media-assets/${file.name.replace('.png', '')}` } }))
     }))
     let known: Asset[] = []
     const onAssets = (next: Asset[]) => { known = next }
@@ -43,11 +43,20 @@ describe('uploadEditorMedia', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ kind: 'error', code: 'upload_too_large' })))
       .mockImplementationOnce(async () => {
         library.push(asset('c'))
-        return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded' }))
+        return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded', asset: { ...asset('c'), url: '/media-assets/c' } }))
       }))
     const failed = uploadEditorMedia(new File(['x'], 'x.png', { type: 'image/png' }), 'X', [], () => {}, async () => {})
     const ok = uploadEditorMedia(new File(['c'], 'c.png', { type: 'image/png' }), 'C', [], () => {}, async () => {})
     await expect(failed).rejects.toThrow(/or smaller/)
     expect((await ok)?.id).toBe('c')
+  })
+
+  it('uses the response id even when another upload appears first in the library', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      library.push(asset('mine'), asset('another-tab'))
+      return new Response(JSON.stringify({ kind: 'ok', code: 'media_uploaded', asset: { ...asset('mine'), url: '/media-assets/mine' } }))
+    }))
+    const uploaded = await uploadEditorMedia(new File(['x'], 'mine.png', { type: 'image/png' }), 'Mine', [], () => {}, async () => {})
+    expect(uploaded?.id).toBe('mine')
   })
 })

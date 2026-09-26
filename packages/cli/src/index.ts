@@ -19,7 +19,7 @@ Commands:
   login --token <tok> [--api-url <url>]    Save credentials to ~/.vibecms/config.json
   whoami                                    Verify the token (GET /site)
   site                                      Show the current site
-  activity [--limit <n>]                    Recent changes by you and your agents
+  activity [--limit <n> --offset <n>]       Changes by you and your agents
   posts list [--status --search --limit --offset]
   posts search <query> [--limit <n>]
   posts get <postId>
@@ -33,11 +33,13 @@ Commands:
   posts publish <postId> --expected-version <n>
   posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
+  posts unarchive <postId>
 
   Post fields: --excerpt <e> --tags a,b --cover <assetId|none> --layout ${PRESENTATION_LAYOUTS.join("|")}
                --toc true|false --seo-title <t> --seo-description <d> --canonical-url <url|none>
   assets list
   assets get <assetId>
+  assets update <assetId> --alt <text>
   assets upload <file> [--alt <text>]
   assets delete <assetId>
   schema [operationId]                      Print the API operations as JSON (for agent introspection)
@@ -345,6 +347,8 @@ async function postsCommand(
     }
     case "archive":
       return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/archive`, undefined, v, fmt);
+    case "unarchive":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/unarchive`, undefined, v, fmt);
     default:
       fail(`Unknown posts subcommand: ${action ?? "(none)"}. Run 'vibecms --help'.`, EXIT.USAGE);
   }
@@ -362,6 +366,8 @@ async function assetsCommand(
       return emit(await apiRequest(cfg, "GET", "/api/v1/assets"), fmt);
     case "get":
       return emit(await apiRequest(cfg, "GET", `/api/v1/assets/${encodeURIComponent(need(rest[0], "<assetId>"))}`), fmt);
+    case "update":
+      return mutate(cfg, "PATCH", `/api/v1/assets/${encodeURIComponent(need(rest[0], "<assetId>"))}`, { altText: need(str(v.alt), "--alt") }, v, fmt);
     case "upload": {
       const file = need(rest[0], "<file>");
       const mimeType = MIME[extname(file).toLowerCase()];
@@ -454,7 +460,7 @@ async function main(): Promise<void> {
     case "site":
       return emit(await apiRequest(cfg, "GET", "/api/v1/site"), fmt);
     case "activity":
-      return emit(await apiRequest(cfg, "GET", "/api/v1/activity", { query: { limit: str(v.limit) } }), fmt);
+      return emit(await apiRequest(cfg, "GET", "/api/v1/activity", { query: { limit: str(v.limit), offset: str(v.offset) } }), fmt);
     case "schema":
       return schemaCommand(action, fmt);
     case "posts":

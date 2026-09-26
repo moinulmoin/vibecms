@@ -62,6 +62,68 @@
                         "null"
                       ]
                     },
+                    "logoUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "faviconUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "navLinks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "label",
+                          "url"
+                        ]
+                      },
+                      "maxItems": 6
+                    },
+                    "socialLinks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "x",
+                              "github",
+                              "linkedin",
+                              "bluesky",
+                              "mastodon",
+                              "youtube",
+                              "instagram",
+                              "website",
+                              "email"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "url"
+                        ]
+                      },
+                      "maxItems": 8
+                    },
                     "voiceSeedUrls": {
                       "type": "array",
                       "items": {
@@ -246,6 +308,10 @@
                     "slug",
                     "description",
                     "url",
+                    "logoUrl",
+                    "faviconUrl",
+                    "navLinks",
+                    "socialLinks",
                     "voiceSeedUrls",
                     "voiceProfile",
                     "template",
@@ -464,6 +530,12 @@
                           "slug": {
                             "type": "string"
                           },
+                          "publishedSlug": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -513,6 +585,7 @@
                           "id",
                           "title",
                           "slug",
+                          "publishedSlug",
                           "url",
                           "excerpt",
                           "coverAssetId",
@@ -824,6 +897,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -926,6 +1005,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -1174,6 +1254,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -1276,6 +1362,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -1522,6 +1609,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -1624,6 +1717,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -1959,6 +2053,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -2061,6 +2161,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -2358,6 +2459,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -2460,6 +2567,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -2768,6 +2876,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -2870,6 +2984,362 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
+                    "url",
+                    "excerpt",
+                    "coverAssetId",
+                    "status",
+                    "publishedAt",
+                    "tags",
+                    "createdAt",
+                    "updatedAt",
+                    "contentMarkdown",
+                    "seoTitle",
+                    "seoDescription",
+                    "canonicalUrl",
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/posts/{postId}/unarchive": {
+      "post": {
+        "operationId": "unarchivePost",
+        "description": "Restore an archived post to draft. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "postId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restored draft post",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "excerpt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "coverAssetId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "archived"
+                      ]
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "number"
+                    },
+                    "contentMarkdown": {
+                      "type": "string"
+                    },
+                    "seoTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "seoDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canonicalUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "presentation": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "layout": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "essay",
+                            "feature",
+                            "wide"
+                          ]
+                        },
+                        "toc": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",
@@ -3854,6 +4324,328 @@
           }
         }
       },
+      "patch": {
+        "operationId": "updateAsset",
+        "description": "Update an image asset's alt text. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "assetId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "altText": {
+                    "type": "string",
+                    "maxLength": 180
+                  }
+                },
+                "required": [
+                  "altText"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated asset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "mimeType": {
+                      "type": "string"
+                    },
+                    "sizeBytes": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "altText": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "filename",
+                    "mimeType",
+                    "sizeBytes",
+                    "width",
+                    "height",
+                    "altText",
+                    "url",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteAsset",
         "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Requires scope: assets:delete. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
@@ -4160,7 +4952,7 @@
     "/api/v1/activity": {
       "get": {
         "operationId": "listActivity",
-        "description": "List recent activity for the current site. Requires scope: activity:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List activity for the current site with limit and offset pagination. Requires scope: activity:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
         "security": [
           {
             "bearerAuth": []
@@ -4176,6 +4968,20 @@
             },
             "required": false,
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
             "in": "query"
           }
         ],
@@ -5077,6 +5883,12 @@
                     "slug": {
                       "type": "string"
                     },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "url": {
                       "type": [
                         "string",
@@ -5179,6 +5991,7 @@
                     "id",
                     "title",
                     "slug",
+                    "publishedSlug",
                     "url",
                     "excerpt",
                     "coverAssetId",

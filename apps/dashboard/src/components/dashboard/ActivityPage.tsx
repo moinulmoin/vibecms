@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
   Activity,
@@ -20,10 +20,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@vc/ui'
 import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { EmptyState, PageHeader, PageSkeleton, PageTabs } from '~/components/dashboard/blocks'
+import { Tabs } from '~/components/ui/tabs'
+import { canManageDashboardContent } from '~/lib/dashboard-role'
+import { personLabel } from '~/lib/people'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
-import { activityQuery } from '~/lib/queries'
+import { activityQuery, contextQuery } from '~/lib/queries'
 import type { ActivityEvent } from '~/types/dashboard'
 
 export type ActivityActor = 'all' | 'human' | 'agent'
@@ -84,10 +86,11 @@ export function uniqueActivityEvents(pages: Array<{ events: ActivityEvent[] }>) 
   return events
 }
 
-function ActivityRow({ event }: { event: ActivityEvent }) {
+function ActivityRow({ event, canEdit, me }: { event: ActivityEvent; canEdit: boolean; me: { email?: string | null; name?: string | null } | undefined }) {
   const Icon = activityIcon(event.action)
   const agent = isAgent(event.actor_type)
-  const postId = event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' ? event.entity_id : null
+  // Viewers can't open the editor, so their rows stay plain text.
+  const postId = canEdit && event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' ? event.entity_id : null
   const summary = summaryFor(event)
 
   return (
@@ -118,7 +121,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
         </p>
         <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
           {agent ? <Bot aria-hidden className="size-3.5 shrink-0" /> : null}
-          <span className="truncate">{agent ? event.actor_name : event.actor_type === 'human' ? event.actor_name : 'vibecms'}</span>
+          <span className="truncate">{agent ? event.actor_name : event.actor_type === 'human' ? personLabel(event.actor_name, me) : 'vibecms'}</span>
           {agent ? <span className="sr-only">(agent)</span> : null}
         </p>
         {event.changes?.length ? (
@@ -147,31 +150,29 @@ export function ActivityPage({ actor = 'all' }: { actor?: ActivityActor }) {
   const query = useInfiniteQuery(activityQuery(actor))
   const events = query.data ? uniqueActivityEvents(query.data.pages) : []
 
-  const filter = (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      value={actor}
-      onValueChange={(value) => {
-        if (!value) return
-        void navigate({ to: '/dashboard/activity', search: value === 'human' || value === 'agent' ? { actor: value } : {} })
-      }}
-      aria-label="Show activity from"
-    >
-      <ToggleGroupItem value="all" className="px-3">Everyone</ToggleGroupItem>
-      <ToggleGroupItem value="human" className="px-3">People</ToggleGroupItem>
-      <ToggleGroupItem value="agent" className="px-3">Agents</ToggleGroupItem>
-    </ToggleGroup>
-  )
+  const context = useQuery(contextQuery).data
+  const me = context?.app?.user
+  const canEdit = canManageDashboardContent(context?.app?.actor.role)
 
   return (
     <>
-      <PageHeader
-        title="Activity"
-        description="What you and your agents changed on this blog."
-        action={filter}
-      />
+      <PageHeader title="Activity" description="What you and your agents changed on this blog." />
+      <Tabs
+        value={actor}
+        onValueChange={(value) => {
+          void navigate({ to: '/dashboard/activity', search: value === 'human' || value === 'agent' ? { actor: value } : {} })
+        }}
+        className="gap-0"
+      >
+        <PageTabs
+          label="Show activity from"
+          tabs={[
+            { value: 'all', label: 'Everyone' },
+            { value: 'human', label: 'People' },
+            { value: 'agent', label: 'Agents' },
+          ]}
+        />
+      </Tabs>
       {query.isError && !query.data ? (
         <LoadError message="Activity didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
       ) : !query.data ? (
@@ -190,7 +191,7 @@ export function ActivityPage({ actor = 'all' }: { actor?: ActivityActor }) {
         <div>
           <ol aria-label="Activity" className="grid">
             {events.map((event, index) => (
-              <ActivityRow key={activityKey(event, index)} event={event} />
+              <ActivityRow key={activityKey(event, index)} event={event} canEdit={canEdit} me={me} />
             ))}
           </ol>
           {query.hasNextPage || query.isFetchNextPageError ? (

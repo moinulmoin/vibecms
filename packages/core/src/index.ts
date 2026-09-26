@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./first-paragraph";
 export * from "./errors";
 export * from "./policies";
 export * from "./domains";

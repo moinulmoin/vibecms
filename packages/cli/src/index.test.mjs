@@ -25,3 +25,13 @@ test('CLI layout list matches @vc/config PRESENTATION_LAYOUTS', async () => {
   const configSrc = await readFile(fileURLToPath(new URL('../../config/src/index.ts', import.meta.url)), 'utf8')
   assert.deepEqual(list(cliSrc), list(configSrc))
 })
+
+test('agent parity commands build the expected requests', () => {
+  const run = (...args) => spawnSync(tsx, [cli, ...args, '--dry-run', '--api-url', 'https://example.com', '--token', 'vc_test'], { encoding: 'utf8' })
+  const unarchive = run('posts', 'unarchive', 'post-1')
+  assert.equal(unarchive.status, 0, unarchive.stderr)
+  assert.match(unarchive.stdout, /posts\/post-1\/unarchive/)
+  const update = run('assets', 'update', 'asset-1', '--alt', 'A tree')
+  assert.equal(update.status, 0, update.stderr)
+  assert.match(update.stdout, /"altText":\s*"A tree"/)
+})

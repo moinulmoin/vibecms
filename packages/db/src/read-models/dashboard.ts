@@ -20,6 +20,11 @@ export interface DashboardPostListRow {
   id: string;
   title: string;
   slug: string;
+  publishedSlug: string | null;
+  /** Title/excerpt/tags of the live version (null when never published). */
+  publishedTitle: string | null;
+  publishedExcerpt: string | null;
+  publishedTagsJson: string | null;
   excerpt: string | null;
   coverAssetId: string | null;
   status: Post["status"];
@@ -126,9 +131,18 @@ export interface DashboardReadModel {
 }
 
 // Dashboard aggregate read model extracted from cms-dashboard.getDashboardData's env.DB.batch. Takes a D1Database and builds its own Drizzle client; no env import. The eight read-only selects run in parallel (the plan permits this for the dashboard read-only aggregate); the returned data is identical to the original single batch.
-const tipVersionSql = sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`;
-const publishedVersionSql = sql<number | null>`(select ${postVersions.versionNumber} from ${postVersions} where ${postVersions.id} = ${posts.publishedVersionId})`;
-const latestActorTypeSql = sql<string | null>`(select ${postVersions.createdByType} from ${postVersions} where ${postVersions.postId} = ${posts.id} order by ${postVersions.versionNumber} desc limit 1)`;
+// Correlated subqueries must name the outer row explicitly: in a join-free
+// select Drizzle renders `${posts.id}` as a bare "id", which binds to
+// post_versions.id inside the subquery and silently matches nothing.
+const outerPostId = sql.raw(`"posts"."id"`);
+const outerPublishedVersionId = sql.raw(`"posts"."published_version_id"`);
+const tipVersionSql = sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${outerPostId}), 0)`;
+const publishedVersionSql = sql<number | null>`(select ${postVersions.versionNumber} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedSlugSql = sql<string | null>`(select ${postVersions.slug} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedTitleSql = sql<string | null>`(select ${postVersions.title} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedExcerptSql = sql<string | null>`(select coalesce(nullif(trim(${postVersions.excerpt}), ''), ${postVersions.fallbackExcerpt}) from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedTagsSql = sql<string | null>`(select ${postVersions.tagsJson} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const latestActorTypeSql = sql<string | null>`(select ${postVersions.createdByType} from ${postVersions} where ${postVersions.postId} = ${outerPostId} order by ${postVersions.versionNumber} desc limit 1)`;
 // Agent drafts awaiting a decision, or live posts whose private tip moved past the live pin.
 const needsReviewSql = sql`(
   (${posts.status} = 'draft' and ${latestActorTypeSql} in ('agent', 'api_key'))
@@ -308,6 +322,10 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           id: posts.id,
           title: posts.title,
           slug: posts.slug,
+          publishedSlug: publishedSlugSql,
+          publishedTitle: publishedTitleSql,
+          publishedExcerpt: publishedExcerptSql,
+          publishedTagsJson: publishedTagsSql,
           excerpt: posts.excerpt,
           coverAssetId: posts.coverAssetId,
           status: posts.status,

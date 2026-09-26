@@ -1,3 +1,4 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks } from "@vc/validators";
 import { resolvePresetId } from "@vc/config";
 import type { Asset, Post, PostSummary, PostVersion, PostVersionSummary } from "@vc/core";
 import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, PostVersionDto, PostVersionSummaryDto, SiteDto } from "./dto";
@@ -9,6 +10,10 @@ type SiteMapperRow = {
   slug: string;
   description: string | null;
   voiceSeedJson: string;
+  logoAssetId?: string | null;
+  faviconAssetId?: string | null;
+  navLinksJson?: string | null;
+  socialLinksJson?: string | null;
   theme?: string | null;
   bylineName?: string | null;
   showAgentCredit?: boolean | null;
@@ -65,6 +70,10 @@ export function mapSiteRow(
     slug: row.slug,
     description: row.description,
     url,
+    logoUrl: row.logoAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.logoAssetId)}` : null,
+    faviconUrl: row.faviconAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.faviconAssetId)}` : null,
+    navLinks: parseSiteLinks(row.navLinksJson, navLinksSchema),
+    socialLinks: parseSiteLinks(row.socialLinksJson, socialLinksSchema),
     voiceSeedUrls: parseVoiceSeedJson(row.voiceSeedJson),
     voiceProfile: voiceProfile
       ? {
@@ -101,12 +110,12 @@ export function mapSiteRow(
 
 export function mapPostSummary(post: PostSummary, url: string | null): PostSummaryDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, url };
 }
 
 export function mapPost(post: Post, url: string | null): PostDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, url };
 }
 
 export function mapAsset(asset: Asset, url: string): AssetDto {

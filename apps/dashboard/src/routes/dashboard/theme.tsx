@@ -1,5 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ThemePage } from '~/components/dashboard/ThemePage'
+import { canManageDashboardSettings } from '~/lib/dashboard-role'
+
+function ThemeRoutePage() {
+  const context = Route.useRouteContext()
+  return <ThemePage canEdit={canManageDashboardSettings(context.app?.actor.role)} />
+}
 
 export const Route = createFileRoute('/dashboard/theme')({
   beforeLoad: ({ context }) => {
@@ -10,5 +16,5 @@ export const Route = createFileRoute('/dashboard/theme')({
       throw redirect({ to: '/dashboard' })
     }
   },
-  component: ThemePage,
+  component: ThemeRoutePage,
 })

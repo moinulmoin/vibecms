@@ -27,6 +27,7 @@ export type Post = {
   siteId: string;
   title: string;
   slug: string;
+  publishedSlug?: string | null;
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;

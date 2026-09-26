@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { createDbClient } from "../client";
 import { subscribers } from "../schema";
+import type { Actor } from "@vc/core";
 
 export type AddPendingInput = {
   siteId: string;
@@ -108,12 +109,17 @@ export function createD1SubscriberRepository(db: D1Database) {
       };
     },
 
-    async deleteById(siteId: string, id: string): Promise<boolean> {
-      const result = await client
-        .delete(subscribers)
-        .where(and(eq(subscribers.siteId, siteId), eq(subscribers.id, id)))
-        .run();
-      return result.meta.changes === 1;
+    async deleteById(siteId: string, id: string, actor: Actor): Promise<boolean> {
+      const [activity] = await db.batch([
+        db.prepare(`INSERT INTO activity_events
+          (id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, created_at)
+          SELECT ?, site_id, ?, ?, ?, 'subscriber.deleted', 'subscriber', id,
+            'Deleted subscriber ' || substr(email, 1, 1) || '***' || substr(email, instr(email, '@')),
+            ? FROM subscribers WHERE site_id = ? AND id = ?`)
+          .bind(crypto.randomUUID(), actor.type, actor.id, actor.name, Math.floor(Date.now() / 1000), siteId, id),
+        db.prepare("DELETE FROM subscribers WHERE site_id = ? AND id = ?").bind(siteId, id),
+      ]);
+      return activity.meta.changes === 1;
     },
   };
 }

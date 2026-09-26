@@ -122,6 +122,20 @@ describe("post review regressions", () => {
     expect(await pending.getOp(`${id}-op`)).toBeNull();
   });
 
+  it("keeps the site's logo and favicon from being deleted", async () => {
+    const assets = createD1AssetRepository(env.DB);
+    for (const column of ["logo_asset_id", "favicon_asset_id"]) {
+      const id = `review-identity-${++sequence}`;
+      await env.DB.prepare(`INSERT INTO assets (id, site_id, r2_key, filename, mime_type, size_bytes,
+        created_by_type, created_by_id, created_at, updated_at) VALUES (?, ?, ?, 'mark.png', 'image/png', 1, 'human', ?, 1, 1)`)
+        .bind(id, siteId, `${siteId}/${id}`, actor.id).run();
+      await env.DB.prepare(`UPDATE sites SET ${column} = ? WHERE id = ?`).bind(id, siteId).run();
+      expect(await assets.isAssetReferencedAsSiteSocialImage(siteId, id)).toBe(true);
+      await expect(assets.deleteAsset(siteId, id)).rejects.toBeInstanceOf(ConflictError);
+      await env.DB.prepare(`UPDATE sites SET ${column} = NULL WHERE id = ?`).bind(siteId).run();
+    }
+  });
+
   it("keeps an inline image referenced by a saved version", async () => {
     const id = `review-inline-${++sequence}`;
     await env.DB.prepare(`INSERT INTO assets (id, site_id, r2_key, filename, mime_type, size_bytes,

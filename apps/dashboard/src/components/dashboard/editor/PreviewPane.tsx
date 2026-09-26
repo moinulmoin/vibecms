@@ -190,6 +190,9 @@ export function PreviewPane({
           {source.trim() || metadata.title ? (
             <PublicPageChrome
               siteName={site?.name ?? 'Your blog'}
+              logoUrl={site?.logoAssetId ? `/media-assets/${site.logoAssetId}` : null}
+              navLinks={site?.navLinks}
+              socialLinks={site?.socialLinks}
               homeHref="#"
               allPostsHref="#"
               presetId={presetId}

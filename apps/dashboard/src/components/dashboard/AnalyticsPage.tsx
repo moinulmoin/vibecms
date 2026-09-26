@@ -94,14 +94,13 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     {
       label: allTime ? 'Lifetime views' : 'Page views',
       value: compactNumber.format(data.views),
-      detail: allTime ? 'Since analytics collection began' : trendLabel(data.trendPercent),
+      detail: allTime
+        ? 'Daily for a year, monthly before that'
+        : data.previousViews === null || data.trendPercent === null
+          ? 'Nothing earlier to compare with'
+          : `${trendLabel(data.trendPercent)} (${compactNumber.format(data.previousViews)})`,
     },
-    {
-      label: allTime ? 'Detailed history' : 'Previous period',
-      value: allTime ? '1 year' : data.previousViews === null ? '—' : compactNumber.format(data.previousViews),
-      detail: allTime ? 'Older history is retained monthly' : `${data.rangeDays} days before this range`,
-    },
-    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Human visits sent by AI services' },
+    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Visits sent by AI assistants' },
     {
       label: 'AI crawler requests',
       value: data.aiCrawlers.status === 'available' ? compactNumber.format(data.aiCrawlers.requests) : '—',
@@ -111,7 +110,7 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     },
   ]
 
-  return <SharedMetricStrip metrics={metrics} />
+  return <SharedMetricStrip metrics={metrics} columns={3} />
 }
 
 function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
@@ -159,6 +158,7 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
               axisLine={false}
               tickMargin={8}
               width={40}
+              allowDecimals={false}
             />
             <ChartTooltip
               content={<ChartTooltipContent indicator="line" />}
@@ -327,7 +327,7 @@ export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
         </div>
       ) : null}
       {data.status === 'available' ? (
-        <div className={cn('grid gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}>
+        <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}>
           <MetricStrip data={data} />
           <TrafficChart data={data} />
           <div className="grid gap-6 xl:grid-cols-2">

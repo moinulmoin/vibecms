@@ -85,3 +85,20 @@ export function useAppTheme() {
 
   return { theme, setTheme }
 }
+
+function currentResolvedTheme(): ResolvedAppTheme {
+  if (typeof document === 'undefined') return 'dark'
+  return document.documentElement.classList.contains('light') ? 'light' : 'dark'
+}
+
+/** The dashboard's resolved light/dark, tracking the class the theme switch stamps on <html>. */
+export function useResolvedAppTheme(): ResolvedAppTheme {
+  const [resolved, setResolved] = useState<ResolvedAppTheme>(currentResolvedTheme)
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return
+    const observer = new MutationObserver(() => setResolved(currentResolvedTheme()))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  return resolved
+}

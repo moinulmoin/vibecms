@@ -89,13 +89,13 @@
 }
 
 .input:hover:not(:disabled) {
-  border-color: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 45%, var(--vc-border, oklch(91% 0.006 106)));
+  border-color: color-mix(in oklch, var(--vc-accent, oklch(46% 0.09 190)) 45%, var(--vc-border, oklch(91% 0.006 106)));
 }
 
 .input:focus-visible {
   outline: none;
-  border-color: var(--vc-accent, oklch(45% 0.11 154));
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)) 30%, transparent);
+  border-color: var(--vc-accent, oklch(46% 0.09 190));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent, oklch(46% 0.09 190)) 30%, transparent);
 }
 
 .input:disabled {
@@ -112,7 +112,7 @@
    @vc/ui primary-button dark gradient so only the flat vc accent shows. */
 .submitBtn {
   flex-shrink: 0;
-  background-color: var(--vc-accent, oklch(45% 0.11 154));
+  background-color: var(--vc-accent, oklch(46% 0.09 190));
   background-image: none;
   color: var(--vc-accent-fg, oklch(98.7% 0.004 106));
   border: 1px solid transparent;
@@ -125,12 +125,12 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-  background-color: color-mix(in oklch, var(--vc-accent, oklch(45% 0.11 154)), #000 12%);
+  background-color: color-mix(in oklch, var(--vc-accent, oklch(46% 0.09 190)), #000 12%);
   background-image: none;
 }
 
 .submitBtn:focus-visible {
-  outline: 2px solid var(--vc-accent, oklch(45% 0.11 154));
+  outline: 2px solid var(--vc-accent, oklch(46% 0.09 190));
   outline-offset: 2px;
   box-shadow: none;
 }

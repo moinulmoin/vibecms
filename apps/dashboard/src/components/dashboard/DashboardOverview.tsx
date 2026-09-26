@@ -1,9 +1,10 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { Activity, Bot, FileText, Pencil, Plus, Rocket, Users } from 'lucide-react'
+import { Activity, Bot, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { overviewQuery } from '~/lib/queries'
+import { contextQuery, overviewQuery } from '~/lib/queries'
+import { personLabel } from '~/lib/people'
 import type { DashboardData } from '~/types/dashboard'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
@@ -43,16 +44,13 @@ import {
   LoadError,
   formatDate,
   formatDateTime,
-  labelAction,
+  formatRelative,
 } from '~/components/dashboard/DashboardLayout'
-import { Badge, CopyButton } from '@vc/ui'
 import {
-  DataRow,
   EmptyState,
-  MetricStrip,
   PageHeader,
   PageSkeleton,
-  Panel,
+  Section,
   StatCard,
   StatCardGrid,
   StatusBadge,
@@ -86,37 +84,85 @@ export function overviewEntitlementBadge(
   return null
 }
 
-function ApiUsagePanel({ usage }: { usage: DashboardData['apiUsage'] }) {
-  if (!usage.enforced) {
-    return (
-      <Panel title="API and MCP usage" meta={<Badge variant="outline">Self-hosted</Badge>}>
-        <p className="text-sm text-muted-foreground">Usage limits are not enforced in self-hosted mode.</p>
-      </Panel>
-    )
-  }
-
+function UsageMeter({ label, status }: { label: string; status: DashboardData['apiUsage']['calls']['month'] }) {
+  const limit = Math.max(status.limit, 1)
+  const percent = Math.min(100, Math.round((status.used / limit) * 100))
+  const near = percent >= 80
   return (
-    <Panel title="API and MCP usage">
-      <MetricStrip
-        variant="inset"
-        metrics={[
-          {
-            label: 'Calls this month',
-            value: usage.calls.month.used.toLocaleString(),
-          },
-          {
-            label: 'Writes this month',
-            value: usage.writes.month.used.toLocaleString(),
-          },
-        ]}
-      />
-    </Panel>
+    <div className="grid gap-2">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="tabular-nums text-foreground">
+          {status.used.toLocaleString()}
+          <span className="text-muted-foreground"> / {status.limit.toLocaleString()}</span>
+        </span>
+      </div>
+      <div
+        role="meter"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={status.limit}
+        aria-valuenow={status.used}
+        className="h-1.5 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={near ? 'h-full rounded-full bg-[color:var(--warning)]' : 'h-full rounded-full bg-foreground/70'}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
   )
 }
 
+function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiUsage']; tokenCount: number; canEdit: boolean }) {
+  const keys = `${tokenCount} active ${tokenCount === 1 ? 'key' : 'keys'}`
+  return (
+    <Section
+      title="Agent usage"
+      description={
+        usage.enforced
+          ? `API and MCP requests this month. Resets ${formatDate(usage.calls.month.resetsAt)}.`
+          : 'API and MCP requests are not limited on a self-hosted install.'
+      }
+      action={canEdit ? (
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>{keys}</Link>
+        </Button>
+      ) : <span className="text-sm text-muted-foreground">{keys}</span>}
+    >
+      {usage.enforced ? (
+        <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
+          <UsageMeter label="Requests" status={usage.calls.month} />
+          <UsageMeter label="Writes" status={usage.writes.month} />
+        </div>
+      ) : null}
+    </Section>
+  )
+}
+
+function Stat({ label, value, detail, to, search }: {
+  label: string
+  value: string | number
+  detail: string
+  to?: '/dashboard/posts' | '/dashboard/subscribers' | '/dashboard/media'
+  search?: Record<string, unknown>
+}) {
+  const body = <StatCard label={label} value={value} detail={detail} interactive={Boolean(to)} />
+  if (!to) return body
+  return (
+    <Link
+      to={to}
+      search={search as never}
+      className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      {body}
+    </Link>
+  )
+}
 
 export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const query = useQuery(overviewQuery)
+  const me = useQuery(contextQuery).data?.app?.user
   const data = query.data ? narrowDashboardData(query.data) : null
   const error = query.isError && !query.data ? 'Could not load dashboard data.' : null
 
@@ -128,7 +174,6 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   }
 
   const siteName = data.site?.name ?? BRAND.name
-  const quotaLabel = MEDIA.paidStorageLabel
   const billingBadgeLabel = overviewEntitlementBadge(data.billing)
   const showBillingBadge = data.apiUsage.enforced && billingBadgeLabel !== null
   const isLive = Boolean(data.publicUrl) && !data.publicUrlLocal
@@ -140,12 +185,35 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
     latestActorType: null,
   }))
   const reviewCount = data.needsReviewCount ?? reviewQueue.length
+  const images = `${data.media.count} ${data.media.count === 1 ? 'image' : 'images'}`
 
   return (
     <>
       <PageHeader
         title={siteName}
-        description="Your publishing system: what is live, what changed, and where your agents can act."
+        description={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {data.publicUrl ? (
+              <a
+                className="min-w-0 [overflow-wrap:anywhere] font-mono text-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+                href={data.publicUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {data.publicUrl.replace(/^https?:\/\//, '')}
+              </a>
+            ) : (
+              <span>Your blog address appears once its domain is active.</span>
+            )}
+            <StatusBadge
+              status={isLive ? 'live' : data.publicUrl ? 'none' : 'pending'}
+              label={isLive ? 'Live' : data.publicUrl ? 'Local only' : 'Domain pending'}
+            />
+            {showBillingBadge && billingBadgeLabel ? (
+              <StatusBadge status={billingBadgeLabel.toLowerCase().replaceAll(' ', '_')} label={billingBadgeLabel} />
+            ) : null}
+          </span>
+        }
         action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
@@ -155,267 +223,169 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         ) : undefined}
       />
 
-      <Panel
-        title="Blog status"
-        meta={
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge
-              status={isLive ? 'live' : data.publicUrl ? 'none' : 'pending'}
-              label={isLive ? 'Live' : data.publicUrl ? 'Local only' : 'Default domain pending'}
-            />
-            {showBillingBadge && billingBadgeLabel ? (
-              <StatusBadge
-                status={billingBadgeLabel.toLowerCase().replaceAll(' ', '_')}
-                label={billingBadgeLabel}
-              />
-            ) : null}
-          </div>
-        }
-      >
-        {data.publicUrl ? (
-          <a
-            className="min-w-0 [overflow-wrap:anywhere] font-mono text-base font-medium text-primary underline-offset-4 hover:underline"
-            href={data.publicUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {data.publicUrl}
-          </a>
-        ) : (
-          <p className="max-w-xl font-sans text-base leading-7 text-muted-foreground">
-            Public blog URL appears once a deployable default domain is active.
-          </p>
-        )}
-      </Panel>
+      <StatCardGrid className="xl:grid-cols-4">
+        <Stat
+          label="Published"
+          value={data.counts.published}
+          detail={data.counts.archived ? `${data.counts.archived} archived` : 'Live on your blog'}
+          to="/dashboard/posts"
+          search={postsListSearch({ status: 'published' })}
+        />
+        <Stat
+          label="Needs review"
+          value={reviewCount}
+          detail={reviewCount ? 'Waiting on you' : 'Nothing waiting'}
+          to="/dashboard/posts"
+          search={postsListSearch({ status: 'review' })}
+        />
+        <Stat
+          label="Subscribers"
+          value={data.subscriberCount}
+          detail="Signed up on your blog"
+          to={canEdit ? '/dashboard/subscribers' : undefined}
+          search={{ q: undefined, status: undefined, page: 1 }}
+        />
+        <Stat
+          label="Media"
+          value={formatBytes(data.media.bytes)}
+          detail={`${images} of ${MEDIA.paidStorageLabel}`}
+          to={canEdit ? '/dashboard/media' : undefined}
+          search={emptyDashboardStatusSearch}
+        />
+      </StatCardGrid>
 
       {reviewQueue.length > 0 ? (
-        <Panel
+        <Section
           title="Needs review"
-          meta={
-            <Button asChild variant="link">
-              <Link to="/dashboard/posts" search={postsListSearch({ status: 'review' })}>
-                {reviewCount > reviewQueue.length ? `View all ${reviewCount}` : 'View all'}
-              </Link>
+          description="Agent drafts and live posts with unpublished changes."
+          action={reviewCount > reviewQueue.length ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/dashboard/posts" search={postsListSearch({ status: 'review' })}>View all {reviewCount}</Link>
             </Button>
-          }
+          ) : undefined}
         >
-          <div className="grid gap-0">
+          <ul className="grid">
             {reviewQueue.map((post) => (
-              <DataRow className="md:grid-cols-[1.5fr_.8fr_.6fr] md:items-center" key={post.id}>
-                <strong className="flex min-w-0 items-center gap-2 font-display font-semibold text-foreground">
+              <li
+                key={post.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]"
+              >
+                <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
                   {isAgentActor(post.latestActorType) ? (
                     <Bot aria-label="Written by an agent" className="size-4 shrink-0 text-muted-foreground" />
                   ) : null}
-                  {canEdit ? (
-                    <Link
-                      className="truncate no-underline hover:underline"
-                      {...postEditorLink(post.id)}
-                      search={emptyPostEditorSearch}
-                    >
-                      {post.title}
-                    </Link>
-                  ) : <span className="truncate">{post.title}</span>}
-                </strong>
-                <ReviewBadge post={post} />
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {formatDate(post.updatedAt)}
+                  <span className="truncate">{post.title}</span>
                 </span>
-              </DataRow>
+                <ReviewBadge post={post} />
+                <span className="hidden text-sm tabular-nums text-muted-foreground sm:block" title={formatDateTime(post.updatedAt)}>
+                  {formatRelative(post.updatedAt)}
+                </span>
+                {canEdit ? (
+                  <Button asChild variant="outline" size="sm" className="col-start-2 row-start-1 sm:col-start-auto sm:row-start-auto">
+                    <Link {...postEditorLink(post.id)} search={emptyPostEditorSearch}>Review</Link>
+                  </Button>
+                ) : <span />}
+              </li>
             ))}
-          </div>
-        </Panel>
+          </ul>
+        </Section>
       ) : null}
 
-      {data.activationPost && (
-        <Panel title="Latest agent post">
-          <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 space-y-1.5">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="font-display text-lg font-semibold tracking-[-0.015em] text-foreground">
-                  {data.activationPost.title}
-                </span>
-                <span className="font-sans text-sm text-muted-foreground">
-                  written by your agent · published by {data.activationPost.actorName}
-                </span>
-              </div>
-              <p className="font-mono text-xs tabular-nums text-muted-foreground">
-                {formatDateTime(data.activationPost.publishedAt)}
-              </p>
-            </div>
-            {data.activationPost.url ? (
-              <div className="flex shrink-0 items-center gap-2">
-                <a
-                  href={data.activationPost.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-sans text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Open article
-                </a>
-                <CopyButton
-                  value={data.activationPost.url}
-                  label="Copy link"
-                  copiedLabel="Copied"
-                  iconOnly
-                />
-              </div>
-            ) : (
-              <p className="font-sans text-sm text-muted-foreground">Public URL pending</p>
-            )}
-          </div>
-        </Panel>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Panel
-          title="Recent activity"
-          meta={
-            <Button asChild variant="link">
-              <Link to="/dashboard/activity">View all</Link>
-            </Button>
-          }
-        >
-          {data.recentActivity.length ? (
-            <div className="grid gap-0">
-              {data.recentActivity.map((event) => (
-                <DataRow className="md:grid-cols-[1.4fr_.9fr_.7fr]" key={`${event.action}-${event.created_at}`}>
-                  <strong className="min-w-0 break-words font-display font-semibold text-foreground line-clamp-2">{event.summary}</strong>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {labelAction(event.action)}
-                  </span>
-                  <span className="font-mono text-xs whitespace-nowrap tabular-nums text-muted-foreground">
-                    {formatDateTime(event.created_at)}
-                  </span>
-                </DataRow>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={<Activity />}
-              title="No activity yet"
-              description="Create a post, upload media, or issue an API token and this log fills in automatically."
-            />
-          )}
-        </Panel>
-
-        <Panel
+      <div className="grid items-start gap-10 xl:grid-cols-2 xl:gap-12">
+        <Section
           title="Recent posts"
-          meta={
-            <Button asChild variant="link">
-              <Link to="/dashboard/posts" search={emptyPostsListSearch}>
-                View all
-              </Link>
+          action={
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/dashboard/posts" search={emptyPostsListSearch}>All posts</Link>
             </Button>
           }
         >
           {data.recentPosts.length ? (
-            <div className="grid gap-0">
+            <ul className="grid">
               {data.recentPosts.map((post) => (
-                <DataRow className="md:grid-cols-[1.5fr_.6fr_.8fr]" key={post.id}>
-                  <strong className="truncate font-display font-semibold text-foreground">
-                    {canEdit ? (
+                <li
+                  key={post.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto_4.5rem] items-center gap-x-3 border-b border-[color:var(--hairline)] py-3 last:border-b-0"
+                >
+                  {canEdit ? (
                     <Link
-                      className="no-underline hover:underline"
+                      className="truncate font-medium text-foreground no-underline hover:underline"
                       {...postEditorLink(post.id)}
                       search={emptyPostEditorSearch}
                     >
                       {post.title}
                     </Link>
-                    ) : post.title}
-                  </strong>
+                  ) : <span className="truncate font-medium text-foreground">{post.title}</span>}
                   <StatusBadge status={post.status} className="w-fit" />
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {formatDate(post.updatedAt)}
+                  <span className="text-right text-sm tabular-nums text-muted-foreground" title={formatDateTime(post.updatedAt)}>
+                    {formatRelative(post.updatedAt)}
                   </span>
-                </DataRow>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <EmptyState
               icon={<FileText />}
               title="No posts yet"
               description={
                 canEdit
-                  ? data.tokenCount > 0
-                    ? 'Your agent access is ready. Open Connect to publish the first post through the approval-first flow, or start one manually.'
-                    : 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
-                  : 'No posts have been drafted or published for this site yet.'
+                  ? 'Connect an agent to draft your first post, or write one yourself.'
+                  : 'No posts have been drafted or published for this blog yet.'
               }
               action={canEdit ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button asChild>
                     <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      <Rocket aria-hidden data-icon="inline-start" /> Publish with agent
+                      <Rocket aria-hidden data-icon="inline-start" /> Connect an agent
                     </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                    <Pencil aria-hidden data-icon="inline-start" /> Write manually
+                      <Pencil aria-hidden data-icon="inline-start" /> Write a post
                     </Link>
                   </Button>
                 </div>
               ) : undefined}
             />
           )}
-        </Panel>
+        </Section>
+
+        <Section
+          title="Recent activity"
+          action={
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/dashboard/activity">All activity</Link>
+            </Button>
+          }
+        >
+          {data.recentActivity.length ? (
+            <ul className="grid">
+              {data.recentActivity.map((event) => (
+                <li
+                  key={`${event.action}-${event.created_at}`}
+                  className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-baseline gap-x-3 border-b border-[color:var(--hairline)] py-3 last:border-b-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-foreground">{event.summary}</span>
+                    <span className="block truncate text-sm text-muted-foreground">{personLabel(event.actor_name, me)}</span>
+                  </span>
+                  <span className="text-right text-sm tabular-nums text-muted-foreground" title={formatDateTime(event.created_at)}>
+                    {formatRelative(event.created_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              icon={<Activity />}
+              title="No activity yet"
+              description="Every change you or your agents make shows up here."
+            />
+          )}
+        </Section>
       </div>
 
-      <StatCardGrid>
-        <Link
-          to="/dashboard/posts"
-          search={postsListSearch({ status: 'published' })}
-          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
-          <StatCard label="Published" value={data.counts.published} detail={`${data.counts.archived} archived`} interactive />
-        </Link>
-        <Link
-          to="/dashboard/posts"
-          search={postsListSearch({ status: 'draft' })}
-          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
-          <StatCard label="Drafts" value={data.counts.draft} detail={reviewCount > 0 ? `${reviewCount} waiting for review` : 'Nothing waiting'} interactive />
-        </Link>
-        {canEdit ? <Link
-          to="/dashboard/media"
-          search={emptyDashboardStatusSearch}
-          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
-          <StatCard
-            label="Media used"
-            value={formatBytes(data.media.bytes)}
-            detail={`${data.media.count} images of ${quotaLabel}`}
-            interactive
-          />
-        </Link> : (
-          <StatCard label="Media used" value={formatBytes(data.media.bytes)} detail={`${data.media.count} images of ${quotaLabel}`} />
-        )}
-        {canEdit ? <Link
-          to="/dashboard/connect"
-          search={emptyDashboardStatusSearch}
-          className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
-          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" interactive />
-        </Link> : (
-          <StatCard label="Active tokens" value={data.tokenCount} detail="Scoped for agents" />
-        )}
-        {canEdit ? (
-          <Link
-            to="/dashboard/subscribers"
-            search={{ q: undefined, status: undefined, page: 1 }}
-            className="no-underline outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:col-span-2 xl:col-span-1"
-          >
-            <StatCard
-              label="Subscribers"
-              value={data.subscriberCount}
-              detail="Captured signups"
-              icon={Users}
-              interactive
-            />
-          </Link>
-        ) : null}
-      </StatCardGrid>
-
-      <ApiUsagePanel usage={data.apiUsage} />
+      <AgentUsage usage={data.apiUsage} tokenCount={data.tokenCount} canEdit={canEdit} />
     </>
   )
 }

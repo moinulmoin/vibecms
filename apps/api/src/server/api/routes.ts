@@ -2,10 +2,12 @@ import {
   activityDtoSchema,
   apiErrorEnvelopeSchema,
   archivePostRequestSchema,
+  unarchivePostRequestSchema,
   assetDtoSchema,
   createPostRequestSchema,
   formatGuideDtoSchema,
   getAssetRequestSchema,
+  updateAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
   getPostBySlugRequestSchema,
@@ -76,9 +78,11 @@ const createPostOpDef = operationsByToolName["posts.create"];
 const updatePostOpDef = operationsByToolName["posts.update"];
 const publishPostOpDef = operationsByToolName["posts.publish"];
 const archivePostOpDef = operationsByToolName["posts.archive"];
+const unarchivePostOpDef = operationsByToolName["posts.unarchive"];
 const uploadAssetOpDef = operationsByToolName["assets.upload"];
 const listAssetsOpDef = operationsByToolName["assets.list"];
 const getAssetOpDef = operationsByToolName["assets.get"];
+const updateAssetOpDef = operationsByToolName["assets.update"];
 const deleteAssetOpDef = operationsByToolName["assets.delete"];
 const listActivityOpDef = operationsByToolName["activity.list"];
 const listPostVersionsOpDef = operationsByToolName["posts.versions.list"];
@@ -104,6 +108,7 @@ const postVersionParamsSchema = z.object({
   versionNumber: z.coerce.number().int().min(1),
 });
 const assetIdParamsSchema = getAssetRequestSchema;
+const updateAssetBodySchema = updateAssetRequestSchema.omit({ assetId: true });
 
 export const getSiteRoute = createRoute({
   method: "get",
@@ -257,6 +262,19 @@ export const archivePostRoute = createRoute({
   },
 });
 
+export const unarchivePostRoute = createRoute({
+  method: "post",
+  path: "/posts/{postId}/unarchive",
+  operationId: unarchivePostOpDef.operationId,
+  description: unarchivePostOpDef.description,
+  security: bearerSecurity,
+  request: { params: unarchivePostRequestSchema },
+  responses: {
+    200: { description: "Restored draft post", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
 export const uploadAssetRoute = createRoute({
   method: "post",
   path: "/assets",
@@ -308,6 +326,22 @@ export const getAssetRoute = createRoute({
       content: { "application/json": { schema: assetDtoSchema } },
     },
     ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
+export const updateAssetRoute = createRoute({
+  method: "patch",
+  path: "/assets/{assetId}",
+  operationId: updateAssetOpDef.operationId,
+  description: updateAssetOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: assetIdParamsSchema,
+    body: { content: { "application/json": { schema: updateAssetBodySchema } }, required: true },
+  },
+  responses: {
+    200: { description: "Updated asset", content: { "application/json": { schema: assetDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
   },
 });
 
@@ -451,9 +485,11 @@ export const apiV1OperationRoutes = [
   updatePostRoute,
   publishPostRoute,
   archivePostRoute,
+  unarchivePostRoute,
   uploadAssetRoute,
   listAssetsRoute,
   getAssetRoute,
+  updateAssetRoute,
   deleteAssetRoute,
   listActivityRoute,
   listPostVersionsRoute,

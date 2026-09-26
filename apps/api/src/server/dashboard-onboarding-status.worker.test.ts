@@ -224,3 +224,31 @@ describe("site settings: public byline + template knobs", () => {
     });
   });
 });
+
+describe("site settings: identity and links", () => {
+  it("round-trips image ids and links, and rejects foreign or non-image assets", async () => {
+    const assetColumns = "id, site_id, r2_key, filename, mime_type, size_bytes, created_by_type, created_by_id, created_at, updated_at";
+    await env.DB.prepare(`INSERT INTO assets (${assetColumns}) VALUES (?, ?, ?, ?, ?, 1, 'human', 'owner-ob', ?, ?)`)
+      .bind("logo-ob", SITE_ID, "logo-ob", "logo.png", "image/png", T, T).run();
+    await env.DB.prepare(`INSERT INTO assets (${assetColumns}) VALUES (?, ?, ?, ?, ?, 1, 'human', 'owner-ob', ?, ?)`)
+      .bind("not-image-ob", SITE_ID, "not-image-ob", "readme.txt", "text/plain", T, T).run();
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, logoAssetId: "not-image-ob" }))
+      .resolves.toEqual({ kind: "error", code: "invalid_site_image" });
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, faviconAssetId: "foreign-id" }))
+      .resolves.toEqual({ kind: "error", code: "invalid_site_image" });
+    await expect(updateSiteSettingsForApp(ownerApp(), {
+      expectedUpdatedAt: updatedAt,
+      logoAssetId: "logo-ob", faviconAssetId: "logo-ob",
+      navLinks: [{ label: "About", url: "/about" }],
+      socialLinks: [{ kind: "email", url: "hello@example.com" }],
+    })).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      logoAssetId: "logo-ob", faviconAssetId: "logo-ob",
+      navLinks: [{ label: "About", url: "/about" }],
+      socialLinks: [{ kind: "email", url: "mailto:hello@example.com" }],
+    });
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, navLinks: [] }))
+      .resolves.toEqual({ kind: "error", code: "settings_conflict" });
+  });
+});

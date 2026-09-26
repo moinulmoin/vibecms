@@ -104,7 +104,7 @@ export async function updatePostForApp(
       slug: payload.slug,
       excerpt: payload.excerpt,
       contentMarkdown: payload.contentMarkdown,
-      coverAssetId: coverAssetId ?? undefined,
+      coverAssetId: payload.coverAssetId === undefined ? undefined : coverAssetId,
       canonicalUrl: payload.canonicalUrl,
       seoTitle: payload.seoTitle ?? undefined,
       seoDescription: payload.seoDescription ?? undefined,

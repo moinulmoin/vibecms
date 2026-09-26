@@ -6,6 +6,9 @@ import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { getPostVersionFn, listPostVersionsFn } from '~/lib/api-client'
 import { isAgentActor } from '~/lib/post-review'
+import { personLabel } from '~/lib/people'
+import { contextQuery } from '~/lib/queries'
+import { useQuery } from '@tanstack/react-query'
 import { BodyDiff, MetadataDiff, metadataChanges, snapshotFromVersion, type PostSnapshot } from './DiffView'
 import { ActorIcon } from './VersionHistory'
 
@@ -74,7 +77,10 @@ export function ReviewView({
     return () => { cancelled = true }
   }, [postId, post, tip, currentVersionNumber])
 
-  const author = tip?.actorName.trim() || (isAgentActor(tip?.actorType) ? 'Your agent' : 'You')
+  const me = useQuery(contextQuery).data?.app?.user
+  const author = isAgentActor(tip?.actorType)
+    ? tip?.actorName.trim() || 'Your agent'
+    : tip?.actorName.trim() ? personLabel(tip.actorName, me) : 'You'
   const isLiveBaseline = baseline?.kind === 'live'
   const changes = baseline ? metadataChanges(snapshotFromVersion(baseline.version), current, assets) : []
   const headline = isLiveBaseline
@@ -87,7 +93,7 @@ export function ReviewView({
     <section aria-label="Review changes" data-testid="review-view" className="grid gap-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 space-y-1">
-          <h2 className="flex items-center gap-2 font-display text-lg font-semibold tracking-[-0.015em] text-foreground">
+          <h2 className="flex min-w-0 items-center gap-2 [overflow-wrap:anywhere] font-display text-lg font-semibold tracking-[-0.015em] text-foreground">
             <span aria-hidden="true" className="inline-flex"><ActorIcon type={tip?.actorType} className="size-4 text-muted-foreground" /></span>
             {headline}
           </h2>
@@ -95,7 +101,7 @@ export function ReviewView({
             v{currentVersionNumber}
             {tip ? <> · <time title={formatDateTime(tip.createdAt)}>{formatRelative(tip.createdAt)}</time></> : null}
             {tip?.changeSummary ? <> · {tip.changeSummary}</> : null}
-            {baseline ? <> · compared with {isLiveBaseline ? `live v${baseline.version.versionNumber}` : `v${baseline.version.versionNumber} by ${baseline.version.actorName.trim() || 'you'}`}</> : null}
+            {baseline ? <> · compared with {isLiveBaseline ? `live v${baseline.version.versionNumber}` : `v${baseline.version.versionNumber} by ${baseline.version.actorName.trim() ? personLabel(baseline.version.actorName, me) : 'you'}`}</> : null}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

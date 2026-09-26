@@ -6,6 +6,7 @@ import {
   allowedImageMimeTypes,
   isReservedPostSlug,
   postStatus,
+  SEO_DESCRIPTION_MAX_LENGTH,
 } from "@vc/validators";
 
 const slug = z
@@ -18,7 +19,7 @@ const slug = z
 const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);
 const seoTitleField = z.string().trim().max(70);
-const seoDescriptionField = z.string().trim().max(180);
+const seoDescriptionField = z.string().trim().max(SEO_DESCRIPTION_MAX_LENGTH);
 const coverAssetIdRequestField = z.string().trim().max(120).nullable();
 const canonicalUrlRequestField = z.string().trim().max(2048).nullable();
 const contentField = z.string().max(500_000);
@@ -87,6 +88,7 @@ export const publishPostRequestSchema = z.object({
 export const archivePostRequestSchema = z.object({
   postId: z.string().min(1),
 }).strict();
+export const unarchivePostRequestSchema = z.object({ postId: z.string().min(1) }).strict();
 
 const imageMimeEnum = z.enum(allowedImageMimeTypes);
 
@@ -100,9 +102,11 @@ export const uploadAssetRequestSchema = z.object({
 export const listAssetsRequestSchema = z.object({}).strict();
 export const getAssetRequestSchema = z.object({ assetId: z.string().min(1) }).strict();
 export const deleteAssetRequestSchema = z.object({ assetId: z.string().min(1) }).strict();
+export const updateAssetRequestSchema = z.object({ assetId: z.string().min(1), altText: z.string().trim().max(180) }).strict();
 
 export const listActivityRequestSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
 }).strict();
 
 export const listPostVersionsRequestSchema = z.object({
@@ -138,6 +142,7 @@ export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
 export type UpdatePostRequest = z.infer<typeof updatePostRequestSchema>;
 export type PublishPostRequest = z.infer<typeof publishPostRequestSchema>;
 export type ArchivePostRequest = z.infer<typeof archivePostRequestSchema>;
+export type UnarchivePostRequest = z.infer<typeof unarchivePostRequestSchema>;
 export type UploadAssetRequest = z.infer<typeof uploadAssetRequestSchema>;
 export type ListActivityRequest = z.infer<typeof listActivityRequestSchema>;
 export type ListPostVersionsRequest = z.infer<typeof listPostVersionsRequestSchema>;
@@ -148,3 +153,4 @@ export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;
 export type ListAssetsRequest = z.infer<typeof listAssetsRequestSchema>;
 export type GetAssetRequest = z.infer<typeof getAssetRequestSchema>;
 export type DeleteAssetRequest = z.infer<typeof deleteAssetRequestSchema>;
+export type UpdateAssetRequest = z.infer<typeof updateAssetRequestSchema>;

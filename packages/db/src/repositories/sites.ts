@@ -18,6 +18,10 @@ export interface CurrentSite {
   slug: string;
   description: string | null;
   voiceSeedJson: string;
+  logoAssetId: string | null;
+  faviconAssetId: string | null;
+  navLinksJson: string | null;
+  socialLinksJson: string | null;
   /** Preset / template id (resolve with resolvePresetId). */
   theme: string | null;
   /** Public byline name; null = the site name. */
@@ -59,6 +63,10 @@ export interface SiteSettings {
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
   defaultSocialAssetId: string | null;
+  logoAssetId: string | null;
+  faviconAssetId: string | null;
+  navLinksJson: string | null;
+  socialLinksJson: string | null;
   theme: string | null;
   slug: string;
   // Theme customizer (Layer 2) — nullable→resolver-default on read.
@@ -140,6 +148,10 @@ export interface UpdateSiteSettingsInput {
     defaultSeoTitle: string;
     defaultSeoDescription: string | null;
     defaultSocialAssetId: string | null;
+    logoAssetId: string | null;
+    faviconAssetId: string | null;
+    navLinksJson: string | null;
+    socialLinksJson: string | null;
     theme: string;
     // Theme customizer (Layer 2) — null accent/font = use resolver default.
     themeAccent: string | null;
@@ -208,6 +220,10 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           slug: sites.slug,
           description: sites.description,
           voiceSeedJson: sites.voiceSeedJson,
+          logoAssetId: sites.logoAssetId,
+          faviconAssetId: sites.faviconAssetId,
+          navLinksJson: sites.navLinksJson,
+          socialLinksJson: sites.socialLinksJson,
           theme: sites.theme,
           bylineName: sites.bylineName,
           showAgentCredit: sites.showAgentCredit,
@@ -317,6 +333,10 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           defaultSeoTitle: sites.defaultSeoTitle,
           defaultSeoDescription: sites.defaultSeoDescription,
           defaultSocialAssetId: sites.defaultSocialAssetId,
+          logoAssetId: sites.logoAssetId,
+          faviconAssetId: sites.faviconAssetId,
+          navLinksJson: sites.navLinksJson,
+          socialLinksJson: sites.socialLinksJson,
           theme: sites.theme,
           slug: sites.slug,
           themeAccent: sites.themeAccent,
@@ -504,6 +524,10 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         ["defaultSeoTitle", "default_seo_title"],
         ["defaultSeoDescription", "default_seo_description"],
         ["defaultSocialAssetId", "default_social_asset_id"],
+        ["logoAssetId", "logo_asset_id"],
+        ["faviconAssetId", "favicon_asset_id"],
+        ["navLinksJson", "nav_links_json"],
+        ["socialLinksJson", "social_links_json"],
         ["theme", "theme"],
         ["themeAccent", "theme_accent"],
         ["themeFont", "theme_font"],

@@ -35,8 +35,9 @@ interface Props {
   robots?: string;
   canonical?: string;
   socialImage?: ResolvedSocialImage | null;
+  faviconAssetId?: string | null;
 }
-const { title, description, robots, canonical, socialImage, themeAttrs, feedHref, feedTitle, fontId } = Astro.props;
+const { title, description, robots, canonical, socialImage, faviconAssetId, themeAttrs, feedHref, feedTitle, fontId } = Astro.props;
 const preloadFonts = themeAttrs ? FONT_PRELOADS[fontId ?? "geist-sans"] ?? [] : [];
 ---
 <!doctype html>
@@ -50,7 +51,7 @@ const preloadFonts = themeAttrs ? FONT_PRELOADS[fontId ?? "geist-sans"] ?? [] : 
     {description ? <meta name="description" content={description} /> : null}
     {robots ? <meta name="robots" content={robots} /> : null}
     {canonical ? <link rel="canonical" href={canonical} /> : null}
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={faviconAssetId ? `/media-assets/${encodeURIComponent(faviconAssetId)}` : "/favicon.svg"} type={faviconAssetId ? undefined : "image/svg+xml"} />
     {feedHref ? <link rel="alternate" type="application/rss+xml" title={feedTitle ?? "RSS"} href={feedHref} /> : null}
     {title && socialImage ? <meta property="og:title" content={title} /> : null}
     {description && socialImage ? <meta property="og:description" content={description} /> : null}

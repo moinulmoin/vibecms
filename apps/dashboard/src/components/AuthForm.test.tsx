@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AuthForm } from './AuthForm'
+import { AuthForm, retryMessage } from './AuthForm'
 
 const authMocks = vi.hoisted(() => ({
   sendVerificationOtp: vi.fn(),
@@ -26,6 +26,10 @@ afterEach(() => {
 })
 
 describe('AuthForm network recovery', () => {
+  it('uses the server retry delay for rate-limit copy', () => {
+    expect(retryMessage({ status: 429, retryAfter: 3599 })).toContain('60 minutes')
+    expect(retryMessage({ status: 429, retryAfter: 61 })).toContain('2 minutes')
+  })
   it('restores the send-code action and shows feedback after a rejected request', async () => {
     authMocks.sendVerificationOtp.mockRejectedValueOnce(new Error('offline'))
     const container = document.createElement('div')

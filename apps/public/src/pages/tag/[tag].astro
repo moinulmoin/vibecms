@@ -31,7 +31,7 @@ const { themeAttrs, fontId } = siteDocumentProps(blog.site);
   robots={!blog.indexable ? "noindex,nofollow" : undefined}
   themeAttrs={themeAttrs} fontId={fontId}
   feedHref="/feed.xml"
-  feedTitle={blog.site.name}
+  feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}
 >
   <PublicBlogIndexView data={blog} page={page} />
 </Base>

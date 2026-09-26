@@ -73,6 +73,7 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     siteId: data.siteId,
     title: data.title,
     slug: data.slug,
+    publishedSlug: null,
     excerpt: data.excerpt ?? null,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId ?? null,

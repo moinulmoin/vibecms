@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   loadSettingsPage: vi.fn(),
   navigate: vi.fn(),
   updateSiteSettingsMutation: vi.fn(),
+  updateVoiceProfileMutation: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -35,7 +36,7 @@ vi.mock('~/lib/api-client', () => ({
   loadSettingsPage: api.loadSettingsPage,
   removeCustomDomainMutation: vi.fn(),
   updateSiteSettingsMutation: api.updateSiteSettingsMutation,
-  updateVoiceProfileMutation: vi.fn(),
+  updateVoiceProfileMutation: api.updateVoiceProfileMutation,
 }))
 
 vi.mock('~/components/dashboard/DashboardLayout', () => ({
@@ -115,6 +116,10 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
       defaultSeoTitle: 'Agent Journal',
       defaultSeoDescription: '',
       defaultSocialAssetId: null,
+      logoAssetId: null,
+      faviconAssetId: null,
+      navLinks: [],
+      socialLinks: [],
       theme: 'minimal',
       slug: 'agent-journal',
       themeAccent: 'teal',
@@ -137,7 +142,7 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
     customDomains: { domains: [], cnameTarget: null },
     billingStatus: 'none',
     selfHosted: false,
-    isOwner: false,
+    isOwner: true,
     mcpUrl: 'https://app.example.test/mcp',
     publicBaseUrl: 'https://agent-journal.example.test',
     voiceProfile: {
@@ -167,6 +172,31 @@ describe('SettingsPage', () => {
     document.body.innerHTML = ''
   })
 
+  it('adds and removes link rows; empty rows stay quiet until a save attempt', async () => {
+    api.loadSettingsPage.mockResolvedValue(settings())
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
+    await settle()
+    const button = (label: string) => [...container.querySelectorAll('button')].find((item) => item.textContent?.trim() === label)
+    await act(async () => button('Add link')?.click())
+    expect(container.querySelector('[aria-label="Navigation 1 label"]')).toBeTruthy()
+    expect(container.textContent).not.toContain('Enter a URL')
+    const form = container.querySelector('#site-name')?.closest('form')
+    await act(async () => form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(api.updateSiteSettingsMutation).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('Enter a URL')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove navigation 1"]')?.click())
+    expect(container.querySelector('[aria-label="Navigation 1 label"]')).toBeNull()
+    await act(async () => button('Add social link')?.click())
+    expect(container.querySelector('[aria-label="Social 1 URL"]')?.getAttribute('aria-invalid')).toBe('true')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove social 1"]')?.click())
+    expect(container.querySelector('[aria-label="Social 1 URL"]')).toBeNull()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
   it('enables saving when a representative voice post is selected', async () => {
     api.loadSettingsPage.mockResolvedValue(settings())
     const container = document.createElement('div')
@@ -191,6 +221,32 @@ describe('SettingsPage', () => {
       next: { pathname: '/dashboard', search: {} },
     })).toBe(true)
 
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('offers uploaded images for logo and favicon in the site save', async () => {
+    const loaded = settings()
+    loaded.assets = [{ id: 'image-1', siteId: 'site-1', r2Key: 'image-1', filename: 'mark.png', mimeType: 'image/png', sizeBytes: 42, width: 32, height: 32, altText: null, createdAt: 1, updatedAt: 1 }]
+    api.loadSettingsPage.mockResolvedValue(loaded)
+    api.updateSiteSettingsMutation.mockResolvedValue({ kind: 'ok', code: 'site_saved' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
+    await settle()
+    const logo = container.querySelector<HTMLSelectElement>('#logoAssetId')!
+    const favicon = container.querySelector<HTMLSelectElement>('#faviconAssetId')!
+    expect([...logo.options].map((option) => option.textContent)).toContain('mark.png')
+    await act(async () => {
+      logo.value = 'image-1'
+      logo.dispatchEvent(new Event('change', { bubbles: true }))
+      favicon.value = 'image-1'
+      favicon.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(container.querySelectorAll('img[src="/media-assets/image-1"]').length).toBe(2)
+    await act(async () => logo.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ logoAssetId: 'image-1', faviconAssetId: 'image-1' }))
     await act(async () => root.unmount())
     container.remove()
   })
@@ -341,6 +397,58 @@ describe('SettingsPage', () => {
     const save = [...(siteForm?.querySelectorAll('button') ?? [])].find((button) => button.textContent === 'Save changes')
     expect(save?.disabled).toBe(false)
 
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('preserves only voice fields edited after submitting while saving', async () => {
+    let resolveSave: ((result: { kind: 'ok'; code: string }) => void) | undefined
+    api.loadSettingsPage
+      .mockResolvedValueOnce(settings())
+      .mockResolvedValueOnce({ ...settings(), voiceProfile: { ...settings().voiceProfile, audience: 'Submitted audience', voiceSummary: 'Saved tone' } })
+    api.updateVoiceProfileMutation.mockReturnValue(new Promise((resolve) => { resolveSave = resolve }))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
+    await settle()
+
+    const audience = container.querySelector<HTMLTextAreaElement>('#voice-audience')!
+    const tone = container.querySelector<HTMLTextAreaElement>('#voice-summary')!
+    const voiceForm = audience.closest('form')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(audience, 'Submitted audience')
+      audience.dispatchEvent(new Event('input', { bubbles: true }))
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(tone, 'Saved tone')
+      tone.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { voiceForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await Promise.resolve() })
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(audience, 'Newer audience')
+      audience.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => resolveSave?.({ kind: 'ok', code: 'voice_saved' }))
+    await settle()
+
+    expect(audience.value).toBe('Newer audience')
+    expect(tone.value).toBe('Saved tone')
+    expect([...voiceForm.querySelectorAll('button')].some((button) => button.textContent === 'Save changes' && !button.disabled)).toBe(true)
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('makes editor settings read-only with no save controls', async () => {
+    api.loadSettingsPage.mockResolvedValue({ ...settings(), isOwner: false })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<SettingsPage canEdit={false} />)))
+    await settle()
+    expect(container.textContent).toContain('Only the owner can change these.')
+    expect(container.querySelector<HTMLInputElement>('#site-name')?.closest('fieldset')?.disabled).toBe(true)
+    expect(container.querySelector<HTMLTextAreaElement>('#voice-audience')?.closest('fieldset')?.disabled).toBe(true)
+    expect(container.textContent).not.toContain('Save changes')
+    expect(container.textContent).not.toContain('Saved')
     await act(async () => root.unmount())
     container.remove()
   })

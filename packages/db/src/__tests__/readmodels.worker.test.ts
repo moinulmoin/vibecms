@@ -723,3 +723,48 @@ describe("dashboard.listPostsForDashboard — actor join, version fold, list sem
     expect(searched.map((r) => r.id)).toEqual(["rm-ap-3"]);
   });
 });
+
+describe("dashboard.getDashboardAggregate — review queue", () => {
+  const site = "rm-site-review";
+  const version = (id: string, postId: string, n: number, by: string) =>
+    exec(
+      "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, postId, site, n, postId, postId, "# x", "draft", "[]", by, "rm-actor", T + n,
+    );
+  const post = (id: string, status: string, publishedVersionId: string | null) =>
+    exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, published_version_id, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, site, id, id, "# x", status, status === "published" ? T : null, publishedVersionId, "[]", "human", "rm-user", "human", "rm-user", T, T + 10,
+    );
+
+  beforeAll(async () => {
+    await exec(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      site, "rm-ws", "RM Review Site", site, T, T,
+    );
+    // An agent draft, and a live post (v1 pinned) with an unpublished v2.
+    await post("rv-agent-draft", "draft", null);
+    await version("rv-ad-1", "rv-agent-draft", 1, "api_key");
+    await post("rv-live", "published", null);
+    await version("rv-live-1", "rv-live", 1, "human");
+    await version("rv-live-2", "rv-live", 2, "human");
+    await exec("UPDATE posts SET published_version_id = ? WHERE id = ?", "rv-live-1", "rv-live");
+  });
+
+  it("includes agent drafts and live posts with pending changes, with real version numbers", async () => {
+    const agg = await da.dashboard.getDashboardAggregate(site);
+    const byId = Object.fromEntries(agg.needsReview.map((row) => [row.id, row]));
+    expect(agg.needsReviewCount).toBe(2);
+    expect(byId["rv-agent-draft"]).toMatchObject({ versionNumber: 1, latestActorType: "api_key" });
+    expect(byId["rv-live"]).toMatchObject({ versionNumber: 2, publishedVersionNumber: 1, latestActorType: "human" });
+  });
+
+  it("lists the live version's title, excerpt fallback, and tags next to the draft", async () => {
+    await exec("UPDATE post_versions SET title = ?, excerpt = NULL, fallback_excerpt = ?, tags_json = ? WHERE id = ?", "Live title", "First paragraph.", '["live"]', "rv-live-1");
+    await exec("UPDATE posts SET title = ? WHERE id = ?", "Draft title", "rv-live");
+    const rows = await da.dashboard.listPostsForDashboard(site, { limit: 10, offset: 0 });
+    const live = rows.find((row) => row.id === "rv-live")!;
+    expect(live).toMatchObject({ title: "Draft title", publishedTitle: "Live title", publishedExcerpt: "First paragraph.", publishedTagsJson: '["live"]' });
+    expect(rows.find((row) => row.id === "rv-agent-draft")).toMatchObject({ publishedTitle: null });
+  });
+});

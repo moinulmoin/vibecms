@@ -64,6 +64,7 @@
 
 .masthead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   min-height: 4.25rem;
@@ -92,6 +93,9 @@
 
 .mastNav {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
   align-items: center;
   gap: 0.35rem;
   margin-left: auto;
@@ -193,6 +197,7 @@
 
 .footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -353,6 +358,11 @@
 }
 
 @container vc-page (min-width: 60rem) {
+  /* The sidebar carries the site nav from here up. */
+  .page[data-vc-chrome="sidebar"] [data-sidebar-dup] {
+    display: none;
+  }
+
   .page[data-vc-chrome="sidebar"] .frame {
     display: grid;
     grid-template-columns: 15rem minmax(0, 1fr);
@@ -406,3 +416,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+.brand, .sidebarBrand { display: inline-flex; align-items: center; gap: 0.5em; }
+.logo { display: block; height: 1.5em; width: auto; max-width: 4em; object-fit: contain; }
+.socialLinks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }

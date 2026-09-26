@@ -44,7 +44,7 @@ export function Section({
   className?: string
 }) {
   return (
-    <section className={cn('grid gap-4', className)}>
+    <section className={cn('grid content-start gap-4', className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h2 className="font-display text-[1.0625rem] font-semibold tracking-[-0.015em] text-foreground">{title}</h2>

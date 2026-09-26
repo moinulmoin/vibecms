@@ -5,8 +5,10 @@ import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "@/server/api-keys";
 import {
   archivePostOp,
+  unarchivePostOp,
   createPostOp,
   deleteAssetOp,
+  updateAssetOp,
   getAssetOp,
   getFormatGuideOp,
   getPostOp,
@@ -28,9 +30,11 @@ import {
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import {
   archivePostRoute,
+  unarchivePostRoute,
   bearerAuthSecurityScheme,
   createPostRoute,
   deleteAssetRoute,
+  updateAssetRoute,
   getAssetRoute,
   getFormatGuideRoute,
   getPostRoute,
@@ -232,6 +236,11 @@ apiV1App.openapi(archivePostRoute, async (c) => {
   return c.json(post, 200);
 });
 
+apiV1App.openapi(unarchivePostRoute, async (c) => {
+  const { postId } = c.req.valid("param");
+  return c.json(await unarchivePostOp(c.get("ctx"), { postId }), 200);
+});
+
 apiV1App.openapi(uploadAssetRoute, async (c) => {
   const body = c.req.valid("json");
   const asset = await uploadAssetOp(c.get("ctx"), body);
@@ -254,6 +263,12 @@ apiV1App.openapi(deleteAssetRoute, async (c) => {
   const { assetId } = c.req.valid("param");
   const asset = await deleteAssetOp(c.get("ctx"), { assetId });
   return c.json(asset, 200);
+});
+
+apiV1App.openapi(updateAssetRoute, async (c) => {
+  const { assetId } = c.req.valid("param");
+  const { altText } = c.req.valid("json");
+  return c.json(await updateAssetOp(c.get("ctx"), { assetId, altText }), 200);
 });
 
 apiV1App.openapi(listActivityRoute, async (c) => {

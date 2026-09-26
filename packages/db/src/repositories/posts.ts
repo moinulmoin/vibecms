@@ -1,5 +1,5 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
-import { changedPostFields, ConflictError, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
+import { changedPostFields, ConflictError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
 import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
@@ -39,13 +39,14 @@ function actorTypeOf(t: string): Actor["type"] {
 // Drizzle returns camelCase fields (the schema maps snake_case columns); project to the core domain model.
 function mapPost(
   row: PostRow,
-  versions: { currentVersionNumber: number; publishedVersionNumber: number | null },
+  versions: { currentVersionNumber: number; publishedVersionNumber: number | null; publishedSlug: string | null },
 ): Post {
   return {
     id: row.id,
     siteId: row.siteId,
     title: row.title,
     slug: row.slug,
+    publishedSlug: versions.publishedSlug,
     excerpt: row.excerpt,
     contentMarkdown: row.contentMarkdown,
     coverAssetId: row.coverAssetId,
@@ -69,6 +70,7 @@ type PostSummaryProjection = {
   siteId: string;
   title: string;
   slug: string;
+  publishedSlug: string | null;
   excerpt: string | null;
   coverAssetId: string | null;
   status: string;
@@ -82,6 +84,7 @@ const postSummaryFields = {
   siteId: posts.siteId,
   title: posts.title,
   slug: posts.slug,
+  publishedSlug: sql<string | null>`(select pv.slug from post_versions pv where pv.id = ${posts.publishedVersionId} and pv.site_id = ${posts.siteId})`,
   excerpt: posts.excerpt,
   coverAssetId: posts.coverAssetId,
   status: posts.status,
@@ -96,6 +99,7 @@ function mapPostSummary(row: PostSummaryProjection): PostSummary {
     siteId: row.siteId,
     title: row.title,
     slug: row.slug,
+    publishedSlug: row.publishedSlug,
     excerpt: row.excerpt,
     coverAssetId: row.coverAssetId,
     status: normalizePostStatus(row.status),
@@ -180,6 +184,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
     post: posts,
     currentVersionNumber: sql<number>`coalesce((select max(pv.version_number) from post_versions pv where pv.site_id = posts.site_id and pv.post_id = posts.id), 0)`,
     publishedVersionNumber: sql<number | null>`(select pv.version_number from post_versions pv where pv.id = posts.published_version_id and pv.site_id = posts.site_id and pv.post_id = posts.id)`,
+    publishedSlug: sql<string | null>`(select pv.slug from post_versions pv where pv.id = posts.published_version_id and pv.site_id = posts.site_id and pv.post_id = posts.id)`,
   };
 
   // Include mutable content and both version numbers in the same SQLite statement.
@@ -273,13 +278,13 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         ...activityStatements(before, after, actor, { ...history, activitySummary }, timestamp, { sql: tipGate, binds: tipGateBinds }),
         db.prepare(
           `UPDATE post_versions
-             SET version_number = ?, title = ?, slug = ?, excerpt = ?, content_markdown = ?, cover_asset_id = ?,
+             SET version_number = ?, title = ?, slug = ?, excerpt = ?, fallback_excerpt = ?, content_markdown = ?, cover_asset_id = ?,
                seo_title = ?, seo_description = ?, canonical_url = ?, tags_json = ?,
                presentation_json = ?, change_summary = ?
            WHERE id = ? AND ${tipGate}`,
         ).bind(
           nextVersionNumber,
-          after.title, after.slug, after.excerpt, after.contentMarkdown, after.coverAssetId,
+          after.title, after.slug, after.excerpt, firstParagraph(after.contentMarkdown), after.contentMarkdown, after.coverAssetId,
           after.seoTitle, after.seoDescription, after.canonicalUrl, JSON.stringify(after.tags),
           after.presentation ? JSON.stringify(after.presentation) : null, changeSummary,
           tip.id, ...tipGateBinds,
@@ -392,13 +397,13 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             ...slugBinds(post.siteId, post.id, post.slug),
           ),
           db.prepare(`INSERT INTO post_versions (
-            id, post_id, site_id, version_number, title, slug, excerpt, content_markdown,
+            id, post_id, site_id, version_number, title, slug, excerpt, fallback_excerpt, content_markdown,
             cover_asset_id, status, seo_title, seo_description, canonical_url, tags_json,
             presentation_json, created_by_type, created_by_id, change_summary, created_at
-          ) SELECT ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ) SELECT ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           WHERE EXISTS (SELECT 1 FROM posts WHERE id = ? AND site_id = ?)`)
             .bind(crypto.randomUUID(), post.id, post.siteId, post.title, post.slug, post.excerpt,
-              post.contentMarkdown, post.coverAssetId, post.status, post.seoTitle,
+              firstParagraph(post.contentMarkdown), post.contentMarkdown, post.coverAssetId, post.status, post.seoTitle,
               post.seoDescription, post.canonicalUrl, JSON.stringify(post.tags),
               post.presentation ? JSON.stringify(post.presentation) : null, actor.type, actor.id,
               history.changeSummary, timestamp, post.id, post.siteId),
@@ -452,12 +457,12 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         [versionResult] = await db.batch([
           db.prepare(
             `INSERT INTO post_versions (
-              id, post_id, site_id, version_number, title, slug, excerpt,
+              id, post_id, site_id, version_number, title, slug, excerpt, fallback_excerpt,
               content_markdown, cover_asset_id, status, seo_title, seo_description,
               canonical_url, tags_json, presentation_json, created_by_type,
               created_by_id, change_summary, created_at
             )
-            SELECT ?, p.id, p.site_id, ?, ?, ?, ?,
+            SELECT ?, p.id, p.site_id, ?, ?, ?, ?, ?,
               ?, ?, ${patch.status === undefined ? "p.status" : "?"}, ?, ?,
               ?, ?, ?, ?,
               ?, ?, ?
@@ -476,6 +481,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             after.title,
             after.slug,
             after.excerpt,
+            firstParagraph(after.contentMarkdown),
             after.contentMarkdown,
             after.coverAssetId,
             ...(patch.status === undefined ? [] : [after.status]),
@@ -580,6 +586,7 @@ export function createD1PostRepository(db: D1Database): PostRepository {
       const after: Post = {
         ...before,
         status: "published",
+        publishedSlug: before.slug,
         publishedAt: before.status === "published" && before.publishedAt != null ? before.publishedAt : timestamp,
         updatedAt: timestamp,
         publishedVersionNumber: expectedVersionNumber,

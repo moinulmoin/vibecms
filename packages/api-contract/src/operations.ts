@@ -13,8 +13,10 @@ import {
 } from "./dto";
 import {
   archivePostRequestSchema,
+  unarchivePostRequestSchema,
   createPostRequestSchema,
   deleteAssetRequestSchema,
+  updateAssetRequestSchema,
   getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
@@ -181,6 +183,15 @@ export const operations = [
     annotations: { destructive: true },
   },
   {
+    toolName: "posts.unarchive",
+    operationId: "unarchivePost",
+    requiredScope: "posts:update",
+    description: opDescription("Restore an archived post to draft.", "posts:update", writeErrors),
+    requestSchema: unarchivePostRequestSchema,
+    responseSchema: postDtoSchema,
+    annotations: {},
+  },
+  {
     toolName: "assets.upload",
     operationId: "uploadAsset",
     requiredScope: "assets:write",
@@ -220,6 +231,15 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    toolName: "assets.update",
+    operationId: "updateAsset",
+    requiredScope: "assets:write",
+    description: opDescription("Update an image asset's alt text.", "assets:write", writeErrors),
+    requestSchema: updateAssetRequestSchema,
+    responseSchema: assetDtoSchema,
+    annotations: { idempotent: true },
+  },
+  {
     toolName: "assets.delete",
     operationId: "deleteAsset",
     requiredScope: "assets:delete",
@@ -237,7 +257,7 @@ export const operations = [
     operationId: "listActivity",
     requiredScope: "activity:read",
     description: opDescription(
-      "List recent activity for the current site.",
+      "List activity for the current site with limit and offset pagination.",
       "activity:read",
       readErrors,
     ),

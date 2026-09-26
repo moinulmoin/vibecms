@@ -1,3 +1,4 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink } from "@vc/validators";
 import type { Presentation } from "@vc/config";
 import {
   createDataAccess,
@@ -34,6 +35,10 @@ export type SiteRow = {
   default_seo_title: string | null;
   default_seo_description: string | null;
   default_social_asset_id: string | null;
+  logo_asset_id?: string | null;
+  favicon_asset_id?: string | null;
+  nav_links?: NavLink[];
+  social_links?: SocialLink[];
   default_social_asset_mime_type: string | null;
   default_social_asset_width: number | null;
   default_social_asset_height: number | null;
@@ -118,6 +123,10 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     default_seo_title: row.defaultSeoTitle,
     default_seo_description: row.defaultSeoDescription,
     default_social_asset_id: row.defaultSocialAssetId,
+    logo_asset_id: row.logoAssetId,
+    favicon_asset_id: row.faviconAssetId,
+    nav_links: parseSiteLinks(row.navLinksJson, navLinksSchema),
+    social_links: parseSiteLinks(row.socialLinksJson, socialLinksSchema),
     default_social_asset_mime_type: row.defaultSocialAssetMimeType,
     default_social_asset_width: row.defaultSocialAssetWidth,
     default_social_asset_height: row.defaultSocialAssetHeight,

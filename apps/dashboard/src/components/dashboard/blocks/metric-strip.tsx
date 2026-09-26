@@ -6,14 +6,18 @@ import { cn } from '@vc/ui'
 export function MetricStrip({
   metrics,
   variant = 'surface',
+  columns = 4,
 }: {
   metrics: { label: string; value: ReactNode; detail?: string }[]
   variant?: 'surface' | 'inset'
+  /** Columns at xl; match the number of metrics so no cell sits empty. */
+  columns?: 2 | 3 | 4
 }) {
   return (
     <div
       className={cn(
-        'grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4',
+        'grid overflow-hidden sm:grid-cols-2',
+        columns === 2 ? 'xl:grid-cols-2' : columns === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-4',
         variant === 'surface'
           ? 'rounded-xl border border-border bg-card'
           : 'rounded-xl bg-muted/30',

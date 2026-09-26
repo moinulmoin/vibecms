@@ -14,6 +14,7 @@ import {
   MediaQuotaExceededError,
 } from '@vc/db'
 import { allowedImageMimeTypes, createAssetInput } from '@vc/validators'
+import { mapAsset } from '@vc/api-contract'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 import { readImageDimensions, validateDeclaredImageMime } from '@/server/media-bytes'
@@ -150,10 +151,10 @@ export async function uploadAssetForApp(
   app: AppUserContext,
   file: File,
   altText?: string,
-): Promise<{ kind: 'ok' | 'error'; code: string }> {
+): Promise<{ kind: 'ok'; code: string; asset: ReturnType<typeof mapAsset> } | { kind: 'error'; code: string }> {
   try {
-    await uploadAsset(app, file, altText)
-    return { kind: 'ok', code: 'media_uploaded' }
+    const asset = await uploadAsset(app, file, altText)
+    return { kind: 'ok', code: 'media_uploaded', asset: mapAsset(asset, `/media-assets/${asset.id}`) }
   } catch (error) {
     if (error instanceof UploadError) return { kind: 'error', code: error.code }
     return { kind: 'error', code: 'unknown' }

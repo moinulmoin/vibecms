@@ -778,7 +778,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           : 'Editing…'
   const reviewAvailable = editorNeedsReview(post, currentVersionNumber, latestVersion)
   const publishActionVisible = Boolean(activePostId && shouldShowPublishAction(post, currentVersionNumber))
-  const liveUrl = publicBaseUrl && metadata.slug ? `${publicBaseUrl}/${metadata.slug}` : null
+  const liveUrl = publicBaseUrl && metadata.slug && (post?.publishedVersionNumber == null || post.publishedSlug) ? `${publicBaseUrl}/${post?.publishedVersionNumber == null ? metadata.slug : post.publishedSlug}` : null
   const effectiveView: EditorView = view === 'review' && !reviewAvailable ? 'edit' : view === 'split' && !isDesktop ? 'edit' : view
   const railOpen = effectiveView === 'split' ? railPrefs.split : railPrefs.normal
   const showRail = isDesktop ? railOpen && effectiveView !== 'review' : mobileSettings
@@ -811,19 +811,9 @@ export function PostEditorShell({ postId }: { postId?: string }) {
 
   const writing = (
     <div className={`${effectiveView === 'split' ? '' : 'mx-auto max-w-[46rem]'} grid gap-3`}>
-      <input
-        id="post-title"
-        name="title"
-        required
-        maxLength={160}
-        value={metadata.title}
-        onChange={(event) => updateTitle(event.currentTarget.value)}
-        placeholder="Title"
-        aria-label="Post title"
-        className="w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/45 focus:outline-none sm:text-[2.5rem] sm:leading-tight"
-      />
-      <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 text-sm text-muted-foreground" role="status">{surfaceNotice ?? ''}</p>
+      {/* Writing mode sits above the title, where a writer looks first; any
+          notice about switching modes reads next to it. */}
+      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
         <Segmented
           label="Editor"
           value={surface}
@@ -833,7 +823,22 @@ export function PostEditorShell({ postId }: { postId?: string }) {
             { value: 'markdown', label: 'Markdown' },
           ]}
         />
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground" role="status">{surfaceNotice ?? ''}</p>
       </div>
+      <input
+        id="post-title"
+        name="title"
+        required
+        maxLength={160}
+        value={metadata.title}
+        onChange={(event) => updateTitle(event.currentTarget.value)}
+        placeholder="Title"
+        aria-label="Post title"
+        className={`w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/45 focus:outline-none sm:text-[2.5rem] sm:leading-tight ${
+          // BlockNote indents blocks for its drag handles; line the title up with the body.
+          surface === 'visual' ? 'pl-[54px]' : ''
+        }`}
+      />
       <Suspense fallback={<Skeleton className="h-[32rem] rounded-xl" />}>
         {surface === 'visual' ? (
           <RichCanvas source={content} assets={assets} presetId={presetId} siteTheme={siteTheme} uploadFile={editorUpload} onChange={setContent} onUnsafeSyntax={unsafeChanged} onUnsafeMarkdownPaste={pasteUnsafeMarkdown} />

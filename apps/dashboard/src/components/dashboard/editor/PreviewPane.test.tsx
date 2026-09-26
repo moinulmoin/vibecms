@@ -7,6 +7,22 @@ import { PreviewPane, type PreviewMetadata } from './PreviewPane'
 const site = { name: 'QA Blog', description: 'A blog for agents.', slug: 'qa' , themeAccent: null, themeFont: null, themeMode: 'dark' }
 
 describe('PreviewPane', () => {
+  it('uses the live blog identity in the editor preview', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    act(() => root.render(<PreviewPane source="Body" metadata={{ title: 'Draft' }} presetId="technical" site={{
+      ...site, logoAssetId: 'logo-1', navLinks: [{ label: 'About', url: '/about' }],
+      socialLinks: [{ kind: 'mastodon', url: 'https://mastodon.social/@example' }],
+    }} />))
+    const preview = container.querySelector('[aria-label="Post preview"]')
+    expect(preview?.querySelector('img[src="/media-assets/logo-1"]')).toBeTruthy()
+    expect(preview?.querySelector('a[href="/about"]')?.textContent).toBe('About')
+    expect(preview?.querySelector('a[aria-label="Mastodon"]')?.getAttribute('rel')).toContain('me')
+    act(() => root.unmount())
+    container.remove()
+  })
+
   it('renders from React metadata and stamps the selected preset into the public page', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)

@@ -1,15 +1,16 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { ConflictError, type ActivityInput, type Actor, type Asset, type AssetRepository } from "@vc/core";
 import { assets, sites, type AssetRow } from "../schema";
 import { createDbClient } from "../client";
 import { createActivityRepository } from "./activity";
 
-// Keep every saved cover restorable, and protect inline Markdown images too.
+// Keep every saved cover restorable, and protect inline Markdown images plus
+// the site's share image, logo, and favicon.
 export const assetUnusedSql = `NOT EXISTS (SELECT 1 FROM posts WHERE posts.site_id = assets.site_id
     AND (posts.cover_asset_id = assets.id OR instr(posts.content_markdown, '/media-assets/' || assets.id) > 0))
   AND NOT EXISTS (SELECT 1 FROM post_versions WHERE post_versions.site_id = assets.site_id
     AND (post_versions.cover_asset_id = assets.id OR instr(post_versions.content_markdown, '/media-assets/' || assets.id) > 0))
-  AND NOT EXISTS (SELECT 1 FROM sites WHERE sites.id = assets.site_id AND sites.default_social_asset_id = assets.id)`;
+  AND NOT EXISTS (SELECT 1 FROM sites WHERE sites.id = assets.site_id AND assets.id IN (sites.default_social_asset_id, sites.logo_asset_id, sites.favicon_asset_id))`;
 
 function mapAsset(row: AssetRow): Asset {
   return {
@@ -127,7 +128,10 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
       const rows = await client
         .select({ id: sites.id })
         .from(sites)
-        .where(and(eq(sites.id, siteId), eq(sites.defaultSocialAssetId, assetId)))
+        .where(and(
+          eq(sites.id, siteId),
+          or(eq(sites.defaultSocialAssetId, assetId), eq(sites.logoAssetId, assetId), eq(sites.faviconAssetId, assetId)),
+        ))
         .limit(1);
       return rows.length > 0;
     },

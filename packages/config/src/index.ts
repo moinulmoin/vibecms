@@ -204,10 +204,11 @@ export interface AccentSwatch {
 /**
  * Curated accent swatches. Each entry's oklchLight/oklchDark is the AA-verified
  * accent/link text color for that mode. Ids are stable persistence keys.
- * Default accent (`teal`) equals the minimal base accent oklch(45% 0.11 154).
+ * Default accent (`teal`) matches the fallback in vc-rich-content.css.
  */
 export const ACCENTS = [
-  { id: "teal",    name: "Teal",    oklchLight: "oklch(45% 0.11 154)",  oklchDark: "oklch(81% 0.170 153)" },
+  // A true blue-green, clearly apart from Green (145).
+  { id: "teal",    name: "Teal",    oklchLight: "oklch(46% 0.09 190)",  oklchDark: "oklch(80% 0.12 190)" },
   { id: "blue",    name: "Blue",    oklchLight: "oklch(45% 0.17 245)",  oklchDark: "oklch(75% 0.15 245)" },
   { id: "indigo",  name: "Indigo",  oklchLight: "oklch(45% 0.18 275)",  oklchDark: "oklch(74% 0.15 275)" },
   { id: "violet",  name: "Violet",  oklchLight: "oklch(45% 0.17 300)",  oklchDark: "oklch(78% 0.14 300)" },

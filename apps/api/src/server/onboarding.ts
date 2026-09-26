@@ -14,7 +14,7 @@ import {
   THEME_WIDTHS,
 } from '@vc/config'
 import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS } from '@vc/db'
-import { isReservedSiteSlug, newsletterSettingsSchema, type NewsletterSettings } from '@vc/validators'
+import { isReservedSiteSlug, newsletterSettingsSchema, navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink, type NewsletterSettings } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
 import { defaultHostname } from './public-url'
@@ -365,6 +365,10 @@ export type SiteSettingsPayload = {
   defaultSeoTitle?: string
   defaultSeoDescription?: string | null
   defaultSocialAssetId?: string | null
+  logoAssetId?: string | null
+  faviconAssetId?: string | null
+  navLinks?: NavLink[]
+  socialLinks?: SocialLink[]
   theme?: string
   // Theme customizer (Layer 2) — optional until the Appearance UI ships them.
   // null/undefined accent|font = use resolver default; mode resolves to 'system'.
@@ -388,6 +392,10 @@ export async function getSiteSettings(app: AppUserContext) {
     defaultSeoTitle: site?.defaultSeoTitle ?? '',
     defaultSeoDescription: site?.defaultSeoDescription ?? '',
     defaultSocialAssetId: site?.defaultSocialAssetId ?? null,
+    logoAssetId: site?.logoAssetId ?? null,
+    faviconAssetId: site?.faviconAssetId ?? null,
+    navLinks: parseSiteLinks(site?.navLinksJson, navLinksSchema),
+    socialLinks: parseSiteLinks(site?.socialLinksJson, socialLinksSchema),
     theme: resolvePresetId(site?.theme),
     slug: site?.slug ?? '',
     // Unset = the template's defaults, exactly as the public blog renders them.
@@ -470,6 +478,22 @@ export async function updateSiteSettingsForApp(
   if (payload.defaultSocialAssetId !== undefined) {
     site.defaultSocialAssetId = payload.defaultSocialAssetId?.trim() || null
   }
+  for (const key of ['logoAssetId', 'faviconAssetId'] as const) {
+    if (payload[key] !== undefined) {
+      if (payload[key] !== null && typeof payload[key] !== 'string') return { kind: 'error', code: 'invalid_site_image' }
+      site[key] = payload[key]?.trim() || null
+    }
+  }
+  if (payload.navLinks !== undefined) {
+    const parsed = navLinksSchema.safeParse(payload.navLinks)
+    if (!parsed.success) return { kind: 'error', code: 'invalid_nav_links' }
+    site.navLinksJson = parsed.data.length ? JSON.stringify(parsed.data) : null
+  }
+  if (payload.socialLinks !== undefined) {
+    const parsed = socialLinksSchema.safeParse(payload.socialLinks)
+    if (!parsed.success) return { kind: 'error', code: 'invalid_social_links' }
+    site.socialLinksJson = parsed.data.length ? JSON.stringify(parsed.data) : null
+  }
   if (payload.theme !== undefined) site.theme = resolvePresetId(payload.theme)
   if (payload.themeAccent !== undefined) {
     site.themeAccent = payload.themeAccent === null ? null : resolveAccent(payload.themeAccent)
@@ -509,6 +533,13 @@ export async function updateSiteSettingsForApp(
     const asset = await db.assets.getAsset(app.siteId, site.defaultSocialAssetId)
     if (!asset) return { kind: 'error', code: 'invalid_social_image' }
     if (!asset.altText) return { kind: 'error', code: 'social_image_alt_required' }
+  }
+
+  for (const id of [site.logoAssetId, site.faviconAssetId]) {
+    if (id) {
+      const asset = await db.assets.getAsset(app.siteId, id)
+      if (!asset || !asset.mimeType.startsWith('image/')) return { kind: 'error', code: 'invalid_site_image' }
+    }
   }
 
   const timestamp = Math.max(now(), currentSite.updatedAt + 1)

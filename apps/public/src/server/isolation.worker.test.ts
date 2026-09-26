@@ -49,6 +49,15 @@ beforeAll(async () => {
   }
 });
 
+describe("public site identity", () => {
+  it("loads the favicon and links for tenant pages", async () => {
+    await env.DB.prepare("UPDATE sites SET favicon_asset_id = ?, logo_asset_id = ?, nav_links_json = ?, social_links_json = ? WHERE id = ?")
+      .bind("favicon-public", "logo-public", JSON.stringify([{ label: "About", url: "/about" }]), JSON.stringify([{ kind: "github", url: "https://github.com/example" }]), "site-public-isolation").run();
+    const site = await resolveSite(new Request("https://posts.public.example.com/", { headers: { host: "posts.public.example.com" } }), env.DB, runtimeEnv);
+    expect(site).toMatchObject({ favicon_asset_id: "favicon-public", logo_asset_id: "logo-public", nav_links: [{ label: "About", url: "/about" }], social_links: [{ kind: "github" }] });
+  });
+});
+
 describe("public domain resolution", () => {
   it("serves an active custom domain but not pending domains", async () => {
     const active = await resolveSite(new Request("https://posts.public.example.com/", { headers: { host: "posts.public.example.com" } }), env.DB, runtimeEnv);

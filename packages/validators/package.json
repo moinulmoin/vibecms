@@ -6,13 +6,15 @@
   "exports": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc",
-    "lint": "tsc"
+    "lint": "tsc",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vc/config": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10"
   }
 }

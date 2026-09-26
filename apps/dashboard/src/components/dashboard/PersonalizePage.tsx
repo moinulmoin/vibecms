@@ -6,7 +6,7 @@ import { ArrowRight, Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
-import { AgentSetup, FirstPostPrompt, clientFromPreference, type AgentClient } from '~/components/dashboard/ConnectAgent'
+import { AgentSetup, CodeBlock, clientFromPreference, type AgentClient } from '~/components/dashboard/ConnectAgent'
 import { createApiKeyMutation, savePersonalizationMutation } from '~/lib/api-client'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch } from '~/lib/dashboard-search'
 import { connectQuery, onboardingStatusQuery, queryKeys } from '~/lib/queries'
@@ -14,6 +14,7 @@ import { consumeTokenFlash, saveTokenFlash, type TokenFlash } from '~/lib/token-
 import type { OnboardingConnectStatus } from '~/types/dashboard'
 
 const STEP = { current: 2, total: 2 }
+const FIRST_DRAFT_PROMPT = 'Use vibecms to write a short first post for my blog: a friendly hello that says what this blog will be about. Save it as a draft, then show me the title and a short preview. I will publish it from the dashboard.'
 
 function Waiting({ label }: { label: string }) {
   return (
@@ -35,7 +36,7 @@ export function FirstPostStatus({ status }: { status: OnboardingConnectStatus | 
     return (
       <div className="grid gap-4">
         <p className="flex items-center gap-2.5 text-[0.9375rem] font-medium text-foreground">
-          <Check aria-hidden className="size-4 text-primary" /> Your first post is live.
+          <Check aria-hidden className="size-4 text-primary" /> Your latest post is live.
         </p>
         {first.post.url ? (
           <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2">
@@ -97,7 +98,7 @@ export function PersonalizePage() {
     setCreating(true)
     setKeyError(false)
     try {
-      const result = await createApiKeyMutation({ name: 'My agent', actorName: 'My agent', preset: 'publish' })
+      const result = await createApiKeyMutation({ name: 'My agent', actorName: 'My agent', preset: 'draft' })
       if (result.kind !== 'ok') {
         setKeyError(true)
         return
@@ -150,7 +151,7 @@ export function PersonalizePage() {
       title={live ? 'You’re all set' : 'Connect your agent'}
       description={
         live
-          ? 'Your agent can draft and publish here. You review and approve.'
+          ? 'Your agent can draft here. You choose whether to give it publishing access.'
           : 'Copy one command into your agent, then paste the prompt. Watch your first post arrive here.'
       }
     >
@@ -197,7 +198,8 @@ export function PersonalizePage() {
                 <h2 id="onboarding-try" className="text-base font-semibold text-foreground">
                   2. Ask for your first post
                 </h2>
-                <FirstPostPrompt />
+                <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
+                <p className="text-sm text-muted-foreground">This key can save drafts. Publish from Posts, or choose a publishing key in Connect.</p>
               </section>
             </>
           ) : null}
@@ -207,7 +209,7 @@ export function PersonalizePage() {
           </section>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {live ? (
+            {live && !connect.data.effectiveEntitlement.effective ? (
               <p className="max-w-sm text-sm leading-6 text-muted-foreground">
                 The free plan includes {FREE_TIER.publishedPosts} published posts. Unlimited publishing, images, and your own domain are{' '}
                 {LAUNCH_OFFER.monthlyLabel} during early access.

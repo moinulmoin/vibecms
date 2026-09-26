@@ -19,4 +19,10 @@ describe("agent scope contract", () => {
   it("requires the dedicated destructive scope for asset deletion", () => {
     expect(operationsByToolName["assets.delete"].requiredScope).toBe("assets:delete");
   });
+
+  it('exposes scoped unarchive, alt editing, and activity offsets', () => {
+    expect(operationsByToolName['posts.unarchive'].requiredScope).toBe('posts:update');
+    expect(operationsByToolName['assets.update'].requiredScope).toBe('assets:write');
+    expect(operationsByToolName['activity.list'].requestSchema.parse({ offset: 50 })).toMatchObject({ offset: 50 });
+  });
 });

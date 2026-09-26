@@ -118,6 +118,9 @@ export function PublicShell({
   const indexHref = publicIndexHref(basePath);
   return (
     <PublicPageChrome
+      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      navLinks={site.nav_links}
+      socialLinks={site.social_links}
       siteName={site.name}
       tagline={site.description}
       homeHref={indexHref}
@@ -154,6 +157,9 @@ export function PublicBlogIndexView({
 
   return (
     <PublicPageChrome
+      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      navLinks={site.nav_links}
+      socialLinks={site.social_links}
       siteName={site.name}
       tagline={site.description}
       homeHref={indexHref}
@@ -271,6 +277,9 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
 
   return (
     <PublicPageChrome
+      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      navLinks={site.nav_links}
+      socialLinks={site.social_links}
       siteName={site.name}
       homeHref={indexHref}
       allPostsHref={indexHref}
@@ -329,6 +338,9 @@ export function PublicNotFoundView({
 }) {
   return (
     <PublicPageChrome
+      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      navLinks={site.nav_links}
+      socialLinks={site.social_links}
       siteName={site.name}
       homeHref="/"
       allPostsHref="/"

@@ -270,6 +270,10 @@ export function updateSiteSettingsMutation(data: {
   defaultSeoTitle?: string
   defaultSeoDescription?: string | null
   defaultSocialAssetId?: string | null
+  logoAssetId?: string | null
+  faviconAssetId?: string | null
+  navLinks?: { label: string; url: string }[]
+  socialLinks?: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   theme?: string
   themeAccent?: string | null
   themeFont?: string | null

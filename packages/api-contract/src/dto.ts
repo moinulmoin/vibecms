@@ -46,6 +46,10 @@ export const siteDtoSchema = z.object({
   slug: z.string(),
   description: z.string().nullable(),
   url: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  faviconUrl: z.string().nullable(),
+  navLinks: z.array(z.object({ label: z.string().max(40), url: z.string() })).max(6),
+  socialLinks: z.array(z.object({ kind: z.enum(["x", "github", "linkedin", "bluesky", "mastodon", "youtube", "instagram", "website", "email"]), url: z.string() })).max(8),
   /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
   voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
@@ -68,6 +72,7 @@ export const postSummaryDtoSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  publishedSlug: z.string().nullable(),
   url: z.string().nullable(),
   excerpt: z.string().nullable(),
   coverAssetId: z.string().nullable(),

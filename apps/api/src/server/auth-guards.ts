@@ -22,7 +22,7 @@ export async function maybeRejectOtpSendRateLimit(request: Request): Promise<Res
   const decision = await checkOtpSendBudget(email)
   if (!decision.allowed) {
     return Response.json(
-      { error: 'RATE_LIMIT' },
+      { error: 'RATE_LIMIT', retryAfter: decision.retryAfter },
       { status: 429, headers: { 'retry-after': String(decision.retryAfter) } },
     )
   }

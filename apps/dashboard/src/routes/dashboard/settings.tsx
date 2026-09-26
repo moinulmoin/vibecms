@@ -2,6 +2,12 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { SettingsPage } from '~/components/dashboard/SettingsPage'
 import { validateSettingsSearch } from '~/lib/dashboard-search'
 import { queryClient, settingsQuery, warm } from '~/lib/queries'
+import { canManageDashboardSettings } from '~/lib/dashboard-role'
+
+function SettingsRoutePage() {
+  const context = Route.useRouteContext()
+  return <SettingsPage canEdit={canManageDashboardSettings(context.app?.actor.role)} />
+}
 
 export const Route = createFileRoute('/dashboard/settings')({
   beforeLoad: ({ context, search }) => {
@@ -17,5 +23,5 @@ export const Route = createFileRoute('/dashboard/settings')({
   },
   validateSearch: validateSettingsSearch,
   loader: () => warm(queryClient.prefetchQuery(settingsQuery)),
-  component: SettingsPage,
+  component: SettingsRoutePage,
 })

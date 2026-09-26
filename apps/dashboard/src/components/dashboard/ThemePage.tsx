@@ -127,7 +127,11 @@ function isPresetId(value: string): value is PresetId {
 }
 
 type ThemeSiteBaseline = {
+  isOwner: boolean
   name: string
+  logoAssetId: string | null
+  navLinks: { label: string; url: string }[]
+  socialLinks: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   description: string
   slug: string
   theme: PresetId
@@ -144,7 +148,11 @@ type ThemeSiteBaseline = {
 function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSettingsPage>>): ThemeSiteBaseline {
   const site = loaded.site
   return {
+    isOwner: loaded.isOwner,
     name: site.name,
+    logoAssetId: site.logoAssetId ?? null,
+    navLinks: site.navLinks ?? [],
+    socialLinks: site.socialLinks ?? [],
     description: site.description ?? '',
     slug: site.slug,
     theme: isPresetId(site.theme) ? site.theme : DEFAULT_PRESET_ID,
@@ -203,11 +211,13 @@ function Segmented<T extends string>({
   options,
   onChange,
   label,
+  disabled = false,
 }: {
   value: T
   options: { value: T; label: React.ReactNode; title?: string }[]
   onChange: (value: T) => void
   label: string
+  disabled?: boolean
 }) {
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-lg border border-border p-0.5">
@@ -218,6 +228,7 @@ function Segmented<T extends string>({
           role="radio"
           aria-checked={value === option.value}
           title={option.title}
+          disabled={disabled}
           onClick={() => onChange(option.value)}
           className={cn(
             'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring',
@@ -235,7 +246,7 @@ function renderArticle(article: PreviewArticle, highlighter: CodeHighlighter | n
   return renderRichContent(article.markdown, { pageTitle: article.title, highlighter })
 }
 
-export function ThemePage() {
+export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
   const [site, setSite] = useState<ThemeSiteBaseline | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -288,11 +299,12 @@ export function ThemePage() {
         setIndexPosts(
           list.posts.slice(0, 8).map((post) => ({
             id: post.id,
-            title: post.title,
+            // Readers see the live version, not a pending edit.
+            title: post.published?.title ?? post.title,
             href: '#',
-            excerpt: post.excerpt,
+            excerpt: post.published ? post.published.excerpt : post.excerpt,
             publishedAt: post.publishedAt,
-            tags: post.tags,
+            tags: post.published?.tags ?? post.tags,
           })),
         )
         return loadPostEditorPage({ postId: list.posts[0]?.id })
@@ -341,6 +353,7 @@ export function ThemePage() {
     )
   }
 
+  const editable = canEdit && site.isOwner
   const themeDirty =
     selectedTheme !== site.theme ||
     selectedAccent !== site.themeAccent ||
@@ -363,7 +376,7 @@ export function ThemePage() {
 
   async function handleThemeSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!site) return
+    if (!site || !editable) return
     setSaving(true)
     setSaveError(null)
     let settingsSaved = false
@@ -452,7 +465,7 @@ export function ThemePage() {
 
   return (
     <>
-      <UnsavedNavigationGuard when={themeDirty} />
+      <UnsavedNavigationGuard when={editable && themeDirty} />
       <PageHeader
         title="Theme"
         description="How your public blog looks to readers."
@@ -466,6 +479,7 @@ export function ThemePage() {
           ) : null
         }
       />
+      {!editable ? <p className="text-sm text-muted-foreground">Only the owner can change these.</p> : null}
       <section className="mt-6" aria-labelledby="templates-heading">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 id="templates-heading" className="text-sm font-medium text-foreground">Template</h2>
@@ -483,9 +497,12 @@ export function ThemePage() {
                 role="radio"
                 aria-checked={isCurrent}
                 aria-pressed={isCurrent}
+                disabled={!editable}
                 onClick={() => pickTemplate(id)}
                 className={cn(
-                  'group overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                  // A button centers its content vertically; pin it to the top so cards
+                  // with shorter descriptions line up with their neighbours.
+                  'group flex flex-col justify-start overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
                   isCurrent ? 'border-foreground/40 ring-1 ring-foreground/20' : 'border-border hover:border-foreground/25',
                 )}
               >
@@ -493,6 +510,9 @@ export function ThemePage() {
                   <MiniRender>
                     <PublicPageChrome
                       siteName={site.name}
+                  logoUrl={site.logoAssetId ? `/media-assets/${site.logoAssetId}` : null}
+                  navLinks={site.navLinks}
+                  socialLinks={site.socialLinks}
                       tagline={site.description || null}
                       homeHref="#"
                       homeHeading
@@ -527,7 +547,7 @@ export function ThemePage() {
         onSubmit={(e) => void handleThemeSave(e)}
       >
         <div className="flex flex-col gap-7 xl:sticky xl:top-6">
-          {previousLook ? (
+          {editable && previousLook ? (
             <div className="-mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground" role="status">
               Applied {THEME_PRESETS[selectedTheme].name}’s look.{' '}
               <button type="button" className="font-medium text-foreground underline underline-offset-2" onClick={keepPreviousLook}>
@@ -548,6 +568,7 @@ export function ThemePage() {
                     role="radio"
                     aria-checked={isCurrent}
                     aria-label={accent.name}
+                    disabled={!editable}
                     title={accent.name}
                     onClick={() => setSelectedAccent(accent.id)}
                     className={cn(
@@ -580,6 +601,7 @@ export function ThemePage() {
                     type="button"
                     role="radio"
                     aria-checked={isCurrent}
+                    disabled={!editable}
                     onClick={() => setSelectedFont(font.id)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
@@ -608,6 +630,7 @@ export function ThemePage() {
                 <span className="text-xs text-muted-foreground">Corners</span>
                 <Segmented
                   label="Corner radius"
+                  disabled={!editable}
                   value={selectedRadius}
                   onChange={setSelectedRadius}
                   options={THEME_RADII.map((r) => ({ value: r, label: RADIUS_LABEL[r] }))}
@@ -617,6 +640,7 @@ export function ThemePage() {
                 <span className="text-xs text-muted-foreground">Reading width</span>
                 <Segmented
                   label="Reading width"
+                  disabled={!editable}
                   value={selectedWidth}
                   onChange={setSelectedWidth}
                   options={THEME_WIDTHS.map((w) => ({ value: w, label: WIDTH_LABEL[w] }))}
@@ -629,6 +653,7 @@ export function ThemePage() {
             <SectionLabel>Color mode</SectionLabel>
             <Segmented
               label="Default color mode"
+              disabled={!editable}
               value={selectedMode}
               onChange={(mode) => {
                 setSelectedMode(mode)
@@ -643,7 +668,7 @@ export function ThemePage() {
             </p>
           </section>
 
-          <div className="flex flex-col gap-2 border-t border-[color:var(--hairline)] pt-5">
+          {editable ? <div className="flex flex-col gap-2 border-t border-[color:var(--hairline)] pt-5">
             {saveError ? (
               <p className="text-sm text-destructive" role="alert">
                 {saveError}
@@ -662,7 +687,7 @@ export function ThemePage() {
             <p className="text-xs text-muted-foreground" aria-live="polite">
               {themeDirty ? 'Unsaved changes. Readers still see your current theme.' : justSaved ? 'Your blog is updated.' : ''}
             </p>
-          </div>
+          </div> : null}
         </div>
 
         <div className="min-w-0 xl:sticky xl:top-6">
@@ -714,6 +739,9 @@ export function ThemePage() {
               {previewPage === 'home' ? (
                 <PublicPageChrome
                   siteName={site.name}
+                  logoUrl={site.logoAssetId ? `/media-assets/${site.logoAssetId}` : null}
+                  navLinks={site.navLinks}
+                  socialLinks={site.socialLinks}
                   tagline={site.description || null}
                   homeHref="#"
                   homeHeading
@@ -731,6 +759,9 @@ export function ThemePage() {
               ) : (
                 <PublicPageChrome
                   siteName={site.name}
+                  logoUrl={site.logoAssetId ? `/media-assets/${site.logoAssetId}` : null}
+                  navLinks={site.navLinks}
+                  socialLinks={site.socialLinks}
                   homeHref="#"
                   allPostsHref="#"
                   presetId={selectedTheme}
@@ -762,7 +793,9 @@ export function ThemePage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {article.source === 'published' ? 'Showing your latest published post.' : 'Showing a sample post until you publish one.'}
+            {previewPage === 'home' && indexPosts
+              ? 'Showing your published posts.'
+              : article.source === 'published' ? 'Showing your latest published post.' : 'Showing a sample post until you publish one.'}
           </p>
         </div>
       </form>

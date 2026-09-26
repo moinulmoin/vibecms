@@ -116,6 +116,7 @@ export function labelAction(action: string) {
 
 const extraPageTitles: Array<Pick<NavItem, 'label' | 'to'>> = [
   { label: 'Plan & billing', to: '/dashboard/billing' },
+  { label: 'New post', to: '/dashboard/posts/new' },
 ]
 
 /** Editor and theme customizer need the full width for side-by-side panes. */
@@ -128,6 +129,7 @@ export function isWideRoute(pathname: string) {
 }
 
 function pageTitle(current: string) {
+  if (/^\/dashboard\/posts\/[^/]+\/edit\/?$/.test(current)) return 'Edit post'
   const match = [...navItems, ...extraPageTitles]
     .sort((a, b) => b.to.length - a.to.length)
     .find((item) => current === item.to || (item.to !== '/dashboard' && current.startsWith(item.to)))

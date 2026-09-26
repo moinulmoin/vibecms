@@ -9,7 +9,6 @@ import { EmptyState, PageHeader, PageSkeleton, Section } from '~/components/dash
 import {
   AgentSetup,
   CodeBlock,
-  FirstPostPrompt,
   SKILLS_INSTALL_COMMAND,
   clientFromPreference,
   type AgentClient,
@@ -26,9 +25,11 @@ import type { ApiKeyListItem } from '~/types/dashboard'
 
 export type KeyAccess = 'draft' | 'publish' | 'full'
 
+const FIRST_DRAFT_PROMPT = 'Use vibecms to write a short first post for my blog. Save it as a draft and show me the title and a short preview. I will publish it from the dashboard.'
+
 export const KEY_ACCESS: Array<{ id: KeyAccess; label: string; description: string }> = [
-  { id: 'publish', label: 'Write and publish', description: 'Drafts, edits, image uploads, and publishing after you approve.' },
   { id: 'draft', label: 'Write drafts', description: 'Drafts, edits, and image uploads. You publish.' },
+  { id: 'publish', label: 'Write and publish', description: 'Drafts, edits, image uploads, and publishing without using the dashboard.' },
   { id: 'full', label: 'Full access', description: 'Everything above, plus archiving posts and deleting unused images.' },
 ]
 
@@ -132,7 +133,7 @@ export function NewKeyForm({
   defaultName?: string
 }) {
   const [name, setName] = useState(defaultName)
-  const [preset, setPreset] = useState<KeyAccess>('publish')
+  const [preset, setPreset] = useState<KeyAccess>('draft')
   return (
     <form
       className="grid gap-5 rounded-xl border border-border p-5"
@@ -255,7 +256,7 @@ export function ConnectPage() {
   const header = (
     <PageHeader
       title="Connect an agent"
-      description="Give an AI agent its own key so it can write on this blog. You approve before anything goes live."
+      description="Give an AI agent its own key so it can write on this blog. You decide what each agent can do."
     />
   )
 
@@ -288,8 +289,8 @@ export function ConnectPage() {
         <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} />
       </Section>
 
-      <Section title="Try it" description="Paste this into your agent. It will show you the draft and ask before publishing.">
-        <FirstPostPrompt />
+      <Section title="Try it" description="Paste this into your agent to create a draft. Publish from Posts, or choose a publishing key to delegate that step.">
+        <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
         <details className="group text-sm">
           <summary className="w-fit cursor-pointer text-muted-foreground transition-colors hover:text-foreground">
             Optional: install the vibecms writing skills

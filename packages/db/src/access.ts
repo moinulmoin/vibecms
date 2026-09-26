@@ -1,4 +1,4 @@
-import type { DomainRepository, PostRepository } from "@vc/core";
+import type { Actor, DomainRepository, PostRepository } from "@vc/core";
 import { createDbClient, type DbClient } from "./client";
 import { createActivityRepository, type ActivityRepository } from "./repositories/activity";
 import { createApiKeysRepository, type ApiKeysRepository } from "./repositories/api-keys";
@@ -32,7 +32,7 @@ export interface SubscriberRepository {
   addPending(input: AddPendingInput): Promise<{ created: boolean }>;
   list(input: SubscriberListInput): Promise<SubscriberListRow[]>;
   count(siteId: string, input?: SubscriberCountInput): Promise<{ total: number; pendingCount: number }>;
-  deleteById(siteId: string, id: string): Promise<boolean>;
+  deleteById(siteId: string, id: string, actor: Actor): Promise<boolean>;
 }
 
 export interface DataAccess {

@@ -24,4 +24,11 @@ describe("by-slug REST contract", () => {
     const document = buildOpenApiDocument();
     expect(Object.keys(document.paths ?? {}).some((path) => path.startsWith("/internal/"))).toBe(false);
   });
+
+  it('documents the agent parity mutations and activity offset', () => {
+    const paths = buildOpenApiDocument().paths as Record<string, Record<string, { operationId?: string; parameters?: Array<{ name?: string }> }>>
+    expect(paths['/api/v1/posts/{postId}/unarchive']?.post?.operationId).toBe('unarchivePost')
+    expect(paths['/api/v1/assets/{assetId}']?.patch?.operationId).toBe('updateAsset')
+    expect(paths['/api/v1/activity']?.get?.parameters).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'offset' })]))
+  })
 });

@@ -4,6 +4,7 @@ import '@blocknote/shadcn/style.css'
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { ListTree, MessageSquareQuote } from 'lucide-react'
 import type { Asset } from '@vc/core'
+import { useResolvedAppTheme } from '~/hooks/use-app-theme'
 import { resolveSiteTheme, type SiteThemeInput } from '@vc/content/presented-post'
 import {
   blocksToMarkdown,
@@ -168,6 +169,9 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
     }
   }
 
+  // The canvas borrows the blog's type and accent, but it sits on dashboard
+  // chrome, so its light/dark always follows the dashboard, not the blog.
+  const appMode = useResolvedAppTheme()
   const theme = siteTheme ? resolveSiteTheme(siteTheme, presetId) : undefined
   return (
     <div
@@ -175,12 +179,12 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
       className={className}
       data-rich-content
       data-vc-theme={presetId}
-      data-vc-mode={theme?.mode ?? 'dark'}
+      data-vc-mode={appMode}
       style={theme?.style}
       onDrop={handleDrop}
       data-testid="rich-canvas"
     >
-      <BlockNoteView editor={editor} slashMenu={false} theme={theme?.mode === 'light' ? 'light' : 'dark'} className="vc-rich-canvas">
+      <BlockNoteView editor={editor} slashMenu={false} theme={appMode} className="vc-rich-canvas">
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={async () => [...getDefaultReactSlashMenuItems(editor), ...vcSlashItems(editor)]}

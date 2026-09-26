@@ -23,7 +23,8 @@ const coverField = z.string().trim().max(120).nullable();
 const canonicalUrlField = z.string().trim().max(2048).nullable();
 const tagsField = z.array(z.string().trim().min(1).max(40)).max(20);
 const seoTitleField = z.string().trim().max(70);
-const seoDescriptionField = z.string().trim().max(180);
+export const SEO_DESCRIPTION_MAX_LENGTH = 180;
+const seoDescriptionField = z.string().trim().max(SEO_DESCRIPTION_MAX_LENGTH);
 
 
 // Bounded presentation intent: layout archetype + optional TOC flag.

@@ -13,6 +13,18 @@
   --text-sm--line-height: 1.5rem;
 }
 
+/* Reserve the scrollbar gutter so pages that scroll and pages that don't
+   share one left edge (the centered shell otherwise shifts ~8px). */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* The writing canvas sits on the dashboard surface: no BlockNote fill. */
+.vc-rich-canvas .bn-editor,
+.vc-rich-canvas.bn-container {
+  background: transparent;
+}
+
 /* BlockNote slash menu: cap height inside the editor viewport. */
 .bn-container .bn-suggestion-menu {
   max-height: min(60vh, 22rem);

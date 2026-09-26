@@ -10,13 +10,15 @@ export function PageTabs({
   label: string
 }) {
   return (
-    <div className="-mx-1 overflow-x-auto border-b border-[color:var(--hairline)] px-1 pb-[5px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <TabsList aria-label={label} variant="line" className="h-10 min-w-max gap-5 p-0">
+    // On narrow screens the row scrolls sideways; the fade on the trailing edge
+    // says there is more than fits.
+    <div className="-mx-1 overflow-x-auto border-b border-[color:var(--hairline)] px-1 pb-[5px] [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] [&::-webkit-scrollbar]:hidden">
+      <TabsList aria-label={label} variant="line" className="h-10 min-w-max gap-4 p-0 pr-6 sm:gap-5 sm:pr-0">
         {tabs.map((tab) => (
           <TabsTrigger
             key={tab.value}
             value={tab.value}
-            className="h-10 flex-none px-0 text-[0.9375rem] font-normal data-[state=active]:font-medium"
+            className="h-10 flex-none px-0 text-sm font-normal data-[state=active]:font-medium sm:text-[0.9375rem]"
           >
             {tab.label}
           </TabsTrigger>

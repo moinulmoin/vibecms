@@ -388,12 +388,12 @@ export function PostMetadataRail({
             id="post-seo-description"
             name="seoDescription"
             value={metadata.seoDescription}
-            maxLength={160}
+            maxLength={180}
             rows={3}
             placeholder={metadata.excerpt.trim() || derivedExcerpt || 'Same as the excerpt'}
             onChange={(event) => onChange('seoDescription', event.currentTarget.value)}
           />
-          {metadata.seoDescription.length > 120 ? <p className="text-right font-mono text-xs tabular-nums text-muted-foreground">{metadata.seoDescription.length}/160</p> : null}
+          {metadata.seoDescription.length > 140 ? <p className="text-right font-mono text-xs tabular-nums text-muted-foreground">{metadata.seoDescription.length}/180</p> : null}
         </Field>
         <Field>
           <FieldLabel htmlFor="post-canonical-url" className={labelClass}>Canonical URL</FieldLabel>

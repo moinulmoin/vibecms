@@ -15,6 +15,14 @@ const SOCIAL_LABELS: Record<SocialProvider, string> = {
 
 const RESEND_COOLDOWN_SECONDS = 30
 
+export function retryMessage(error: unknown): string {
+  const value = error as { retryAfter?: unknown; data?: { retryAfter?: unknown }; response?: Response }
+  const seconds = Number(value.retryAfter ?? value.data?.retryAfter ?? value.response?.headers.get('retry-after'))
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'Too many codes requested. Try again after the server’s rate limit resets.'
+  const minutes = Math.ceil(seconds / 60)
+  return `Too many codes requested. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`
+}
+
 export function AuthForm({ googleEnabled, githubEnabled }: { googleEnabled: boolean; githubEnabled: boolean }) {
   const authClient = setupAuthClient()
   const providers: SocialProvider[] = []
@@ -43,7 +51,7 @@ export function AuthForm({ googleEnabled, githubEnabled }: { googleEnabled: bool
       if (sendError) {
         setError(
           (sendError as { status?: number }).status === 429
-            ? 'Too many codes requested. Wait a minute, then try again.'
+            ? retryMessage(sendError)
             : (sendError.message ?? 'We couldn’t send a code. Check the address and try again.'),
         )
         return

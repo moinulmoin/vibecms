@@ -1,3 +1,4 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks } from '@vc/validators'
 import { publicBlogBaseDomain } from '@/server/public-url'
 import type { Post } from '@vc/core'
 import { listPostVersions, getPostVersion } from '@vc/core'
@@ -55,6 +56,9 @@ export interface DashboardPostSummary {
   id: string
   title: string
   slug: string
+  publishedSlug: string | null
+  /** What readers see: the live version's title, excerpt, and tags. */
+  published: { title: string; excerpt: string | null; tags: string[] } | null
   excerpt: string | null
   coverAssetId: string | null
   status: Post['status']
@@ -184,7 +188,7 @@ export async function loadSubscribersPage(
 }
 
 export async function deleteSubscriberForApp(app: AppUserContext, subscriberId: string) {
-  const deleted = await createDataAccess(env.DB).subscribers.deleteById(app.siteId, subscriberId)
+  const deleted = await createDataAccess(env.DB).subscribers.deleteById(app.siteId, subscriberId, app.actor)
   return deleted ? { kind: 'ok' as const, code: 'subscriber_deleted' } : { kind: 'error' as const, code: 'not_found' }
 }
 
@@ -337,6 +341,10 @@ export async function loadPostsPage(
     id: row.id,
     title: row.title,
     slug: row.slug,
+    publishedSlug: row.publishedSlug,
+    published: row.publishedTitle === null
+      ? null
+      : { title: row.publishedTitle, excerpt: row.publishedExcerpt, tags: row.publishedTagsJson ? (JSON.parse(row.publishedTagsJson) as string[]) : [] },
     excerpt: row.excerpt,
     coverAssetId: row.coverAssetId,
     status: row.status,
@@ -383,6 +391,9 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   const site = siteRow
     ? {
         name: siteRow.name,
+        logoAssetId: siteRow.logoAssetId,
+        navLinks: parseSiteLinks(siteRow.navLinksJson, navLinksSchema),
+        socialLinks: parseSiteLinks(siteRow.socialLinksJson, socialLinksSchema),
         description: siteRow.description,
         slug: siteRow.slug,
         themeAccent: siteRow.themeAccent,

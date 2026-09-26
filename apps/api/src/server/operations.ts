@@ -1,4 +1,4 @@
-import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
@@ -50,8 +50,8 @@ async function siteBaseUrl(siteId: string) {
   return row ? getSitePublicBaseUrl(siteId, row.slug) : null;
 }
 
-function postPublicUrl(base: string | null, post: { status: string; slug: string }) {
-  return base && post.status === "published" ? `${base}/${post.slug}` : null;
+function postPublicUrl(base: string | null, post: { status: string; slug: string; publishedSlug?: string | null }) {
+  return base && post.status === "published" ? `${base}/${post.publishedSlug ?? post.slug}` : null;
 }
 
 async function requireBillableSite(siteId: string) {
@@ -237,6 +237,11 @@ export async function archivePostOp(ctx: OperationContext, input: { postId: stri
   return mapPost(archived, null);
 }
 
+export async function unarchivePostOp(ctx: OperationContext, input: { postId: string }) {
+  const post = await unarchivePost(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId });
+  return mapPost(post, null);
+}
+
 export async function uploadAssetOp(
   ctx: OperationContext,
   input: { filename: string; mimeType: string; dataBase64: string; altText?: string },
@@ -260,16 +265,22 @@ export async function getAssetOp(ctx: OperationContext, input: { assetId: string
   return mapAsset(a, `/media-assets/${a.id}`);
 }
 
+export async function updateAssetOp(ctx: OperationContext, input: { assetId: string; altText: string }) {
+  const asset = await updateAssetAltText(assetRepository(), ctx.actor, ctx.siteId, input.assetId, input.altText);
+  return mapAsset(asset, `/media-assets/${asset.id}`);
+}
+
 export async function deleteAssetOp(ctx: OperationContext, input: { assetId: string }) {
   const a = await deleteAssetTracked(appUser(ctx), input.assetId);
   return mapAsset(a, `/media-assets/${a.id}`);
 }
 
-export async function listActivityOp(ctx: OperationContext, input: { limit?: number }) {
+export async function listActivityOp(ctx: OperationContext, input: { limit?: number; offset?: number }) {
   requireScope(ctx.actor, "activity:read");
   const rows = await createDataAccess(env.DB).activity.listBySite(
     ctx.siteId,
     Math.min(Math.max(input.limit ?? 20, 1), 50),
+    Math.max(input.offset ?? 0, 0),
   );
   return rows.map(mapActivityRow);
 }

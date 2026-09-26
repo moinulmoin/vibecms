@@ -101,7 +101,13 @@ export function SubscribeBlock({
   );
 }
 
+export type PublicNavLink = { label: string; url: string };
+export type PublicSocialLink = { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string };
+
 export interface PublicPageChromeProps {
+  logoUrl?: string | null;
+  navLinks?: PublicNavLink[];
+  socialLinks?: PublicSocialLink[];
   siteName: string;
   tagline?: string | null;
   homeHref: string;
@@ -172,8 +178,59 @@ function SearchIcon() {
   );
 }
 
+const SOCIAL_LABELS: Record<PublicSocialLink["kind"], string> = {
+  x: "X", github: "GitHub", linkedin: "LinkedIn", bluesky: "Bluesky",
+  mastodon: "Mastodon", youtube: "YouTube", instagram: "Instagram",
+  website: "Website", email: "Email",
+};
+
+// Stroke glyphs on a 24px grid. GitHub, LinkedIn, YouTube, Instagram, globe
+// and mail follow Lucide (ISC); X, Mastodon and Bluesky are drawn to match.
+const SOCIAL_ICON_PATHS: Record<PublicSocialLink["kind"], string[]> = {
+  x: ["M4 4l11.7 16H20L8.3 4Z", "M4 20l6.8-7.3", "M20 4l-6.8 7.3"],
+  github: [
+    "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4",
+    "M9 18c-4.51 2-5-2-7-2",
+  ],
+  linkedin: [
+    "M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6Z",
+    "M2 9h4v12H2Z",
+    "M2 4a2 2 0 1 0 4 0 2 2 0 1 0-4 0",
+  ],
+  bluesky: [
+    "M12 11C10.5 8 6.5 3.5 4 3.5c-1.4 0-2 .9-2 2.6 0 1.6.9 4.6 3.4 5.2-3 .6-3.7 2.5-2 4.3 3 3.1 5.3.1 8.6-3.9 3.3 4 5.6 7 8.6 3.9 1.7-1.8 1-3.7-2-4.3 2.5-.6 3.4-3.6 3.4-5.2 0-1.7-.6-2.6-2-2.6-2.5 0-6.5 4.5-8 7.5Z",
+  ],
+  mastodon: [
+    "M21 8.5c0-4.3-2.8-5.6-2.8-5.6C16.8 2.3 14.4 2 12 2h-.1c-2.4 0-4.8.3-6.1.9C5.8 2.9 3 4.2 3 8.5c0 2.6-.1 5.8 1 8.6 1.5 3.9 6.1 4.4 9.6 3.4.6-.2 1.3-.4 1.9-.7v-1.7s-1.5.5-3.3.4c-1.7-.1-3.5-.2-3.8-2.3a5 5 0 0 1 0-.6s1.8.4 4 .5c1.4.1 2.7-.1 4-.2 2.5-.3 4.7-1.8 5-3.2.5-2.2.5-5.4.5-5.4Z",
+    "M8 13V9.3C8 8 8.7 7.4 9.7 7.4c1.1 0 1.8.7 1.8 2V12",
+    "M12.5 12V9.4c0-1.3.7-2 1.8-2 1 0 1.7.6 1.7 1.9V13",
+  ],
+  youtube: [
+    "M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17",
+    "m10 15 5-3-5-3Z",
+  ],
+  instagram: [
+    "M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Z",
+    "M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z",
+    "M17.5 6.5h.01",
+  ],
+  website: ["M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0", "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20", "M2 12h20"],
+  email: ["M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"],
+};
+
+function SocialIcon({ kind }: { kind: PublicSocialLink["kind"] }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {SOCIAL_ICON_PATHS[kind].map((d) => <path key={d} d={d} />)}
+    </svg>
+  );
+}
+
 export function PublicPageChrome({
   siteName,
+  logoUrl,
+  navLinks = [],
+  socialLinks = [],
   tagline,
   homeHref,
   allPostsHref,
@@ -203,6 +260,7 @@ export function PublicPageChrome({
   ) : null;
   const brand = (
     <a href={homeHref} className={styles.brand}>
+      {logoUrl ? <img src={logoUrl} alt={siteName} className={styles.logo} /> : null}
       {siteName}
     </a>
   );
@@ -222,6 +280,7 @@ export function PublicPageChrome({
       {hasSidebar ? (
         <aside className={styles.sidebar} aria-label="Blog">
           <a href={homeHref} className={styles.sidebarBrand}>
+            {logoUrl ? <img src={logoUrl} alt={siteName} className={styles.logo} /> : null}
             {siteName}
           </a>
           {tagline ? <p className={styles.sidebarTagline}>{tagline}</p> : null}
@@ -229,6 +288,7 @@ export function PublicPageChrome({
             <a href={allPostsHref ?? homeHref} className={styles.sidebarLink}>
               All posts
             </a>
+            {navLinks.map((link, index) => <a key={`${index}-${link.url}`} href={link.url} rel={/^https?:/i.test(link.url) ? "noopener" : undefined} className={styles.sidebarLink}>{link.label}</a>)}
             {feedHref ? (
               <a href={feedHref} className={styles.sidebarLink}>
                 RSS
@@ -286,11 +346,24 @@ export function PublicPageChrome({
                 </label>
               </form>
             ) : null}
-            {allPostsHref ? (
-              <a href={allPostsHref} className={styles.navLink}>
+            {/* Notebook repeats these in its sidebar; the header copy only shows
+                while the sidebar is hidden on narrow pages. */}
+            {allPostsHref || navLinks.length > 0 ? (
+              <a href={allPostsHref ?? homeHref} className={styles.navLink} data-sidebar-dup={hasSidebar ? "" : undefined}>
                 All posts
               </a>
             ) : null}
+            {navLinks.map((link, index) => (
+              <a
+                key={`${index}-${link.url}`}
+                href={link.url}
+                rel={/^https?:/i.test(link.url) ? "noopener" : undefined}
+                className={styles.navLink}
+                data-sidebar-dup={hasSidebar ? "" : undefined}
+              >
+                {link.label}
+              </a>
+            ))}
             {feedHref ? (
               <a href={feedHref} className={styles.iconLink} aria-label="RSS feed" title="RSS feed">
                 <RssIcon />
@@ -311,6 +384,7 @@ export function PublicPageChrome({
           <span>
             &copy; {year ?? new Date().getUTCFullYear()} {siteName}
           </span>
+          {socialLinks.length ? <nav className={styles.socialLinks} aria-label="Social links">{socialLinks.map((link, index) => <a key={`${index}-${link.kind}`} href={link.url} className={styles.footerLink} aria-label={SOCIAL_LABELS[link.kind]} rel={link.kind === "mastodon" ? "me noopener" : /^https?:/i.test(link.url) ? "noopener" : undefined}><SocialIcon kind={link.kind} /></a>)}</nav> : null}
           {feedHref ? (
             <a href={feedHref} className={styles.footerLink}>
               RSS

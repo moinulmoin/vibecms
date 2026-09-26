@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Bot, ExternalLink, FileText, Inbox, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, X } from 'lucide-react'
 import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -12,7 +12,8 @@ import { useToast } from '~/components/Toaster'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, postsListSearch, type PostsListSearch } from '~/lib/dashboard-search'
 import { hasPendingChanges, isAgentActor, reviewLabel } from '~/lib/post-review'
-import { queryKeys } from '~/lib/queries'
+import { contextQuery, queryKeys } from '~/lib/queries'
+import { personLabel } from '~/lib/people'
 
 /**
  * Last-change actor label for the posts list. Single-human workspace: a human
@@ -64,6 +65,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const me = useQuery(contextQuery).data?.app?.user
   const status = normalizeStatus(search.status)
   const sort = normalizeSort(search.sort)
   const searchQuery = search.search?.trim() || undefined
@@ -162,7 +164,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     <>
       <PageHeader
         title="Posts"
-        description="Everything you and your agents write. Nothing goes live until you publish it."
+        description="Everything you and your agents write. Agents with publish keys can publish without the dashboard."
         action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><Plus aria-hidden data-icon="inline-start" /> New post</Link>
@@ -221,6 +223,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 error={rowError?.postId === post.id ? rowError : null}
                 onArchive={() => runRowMutation(post, 'archive')}
                 onRestore={() => void runRowMutation(post, 'restore')}
+                me={me}
               />
             ))}
           </ul>
@@ -285,7 +288,9 @@ function PostRow({
   error,
   onArchive,
   onRestore,
+  me,
 }: {
+  me?: { email?: string | null; name?: string | null }
   post: DashboardPostSummary
   canEdit: boolean
   publicBaseUrl: string | null
@@ -296,30 +301,24 @@ function PostRow({
 }) {
   const review = reviewLabel(post)
   const agentWrote = isAgentActor(post.latestActorType ?? post.updatedByType)
-  const liveUrl = post.status === 'published' && publicBaseUrl ? `${publicBaseUrl}/${post.slug}` : null
+  // The public URL follows the live version's slug, not an unpublished rename.
+  const liveSlug = post.publishedVersionNumber == null ? post.slug : post.publishedSlug ?? null
+  const liveUrl = post.status === 'published' && publicBaseUrl && liveSlug ? `${publicBaseUrl}/${liveSlug}` : null
   const editorLink = { to: '/dashboard/posts/$postId/edit' as const, params: { postId: post.id }, search: emptyPostEditorSearch }
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-[color:var(--hairline)] py-4 first:pt-2 last:border-b-0 md:grid-cols-[minmax(0,1fr)_11rem_9.5rem_auto]">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-[color:var(--hairline)] py-4 first:pt-2 last:border-b-0 md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_9.5rem]">
       <div className="col-span-2 min-w-0 md:col-span-1">
-        <div className="flex min-w-0 items-center gap-2">
-          {agentWrote ? (
-            <span title="Last written by an agent" className="shrink-0 text-muted-foreground">
-              <Bot aria-hidden className="size-4" />
-              <span className="sr-only">Agent</span>
-            </span>
-          ) : null}
-          {canEdit ? (
-            <Link
-              {...editorLink}
-              className="truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline hover:underline"
-            >
-              {post.title || 'Untitled'}
-            </Link>
-          ) : (
-            <strong className="truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{post.title || 'Untitled'}</strong>
-          )}
-        </div>
+        {canEdit ? (
+          <Link
+            {...editorLink}
+            className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline hover:underline"
+          >
+            {post.title || 'Untitled'}
+          </Link>
+        ) : (
+          <strong className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{post.title || 'Untitled'}</strong>
+        )}
         <p className="mt-1 truncate text-sm text-muted-foreground">
           <span className="font-mono text-xs">/{post.slug}</span>
           {post.excerpt ? <><span aria-hidden> · </span>{post.excerpt}</> : null}
@@ -335,12 +334,19 @@ function PostRow({
             <StatusBadge status="pending" label="Review" className="w-fit normal-case" />
           ) : null}
         </div>
-        <p className="truncate text-sm text-muted-foreground">
-          <time dateTime={new Date(post.updatedAt * 1000).toISOString()} title={formatDateTime(post.updatedAt)}>
+        <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <time className="shrink-0" dateTime={new Date(post.updatedAt * 1000).toISOString()} title={formatDateTime(post.updatedAt)}>
             {formatRelative(post.updatedAt)}
           </time>
-          <span aria-hidden> · </span>
-          <span title={post.updatedByName ?? undefined}>{actorDisplayName(post.updatedByType, post.updatedByName)}</span>
+          <span aria-hidden>·</span>
+          {agentWrote ? <Bot aria-hidden className="size-3.5 shrink-0" /> : null}
+          {(() => {
+            const name = agentWrote
+              ? actorDisplayName(post.updatedByType, post.updatedByName)
+              : personLabel(actorDisplayName(post.updatedByType, post.updatedByName), me)
+            return <span className="truncate" title={name}>{name}</span>
+          })()}
+          {agentWrote ? <span className="sr-only">(agent)</span> : null}
         </p>
       </div>
 
@@ -351,7 +357,7 @@ function PostRow({
           </Button>
         ) : null}
         {liveUrl ? (
-          <Button asChild size="icon" variant="ghost" className="size-8">
+          <Button asChild size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground">
             <a href={liveUrl} target="_blank" rel="noreferrer" title="View live" aria-label={`View “${post.title}” live`}>
               <ExternalLink aria-hidden />
             </a>
@@ -371,7 +377,9 @@ function PostRow({
         ) : null}
         {canEdit && post.status !== 'archived' ? (
           <SpaConfirmButton
-            size="sm"
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground hover:text-foreground"
             confirmLabel="Archive?"
             pendingLabel="Archiving…"
             title="Archive"

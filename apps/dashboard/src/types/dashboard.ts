@@ -245,6 +245,10 @@ export type VoiceProfileSettings = {
 }
 
 export type SiteSettingsForm = {
+  logoAssetId: string | null
+  faviconAssetId: string | null
+  navLinks: { label: string; url: string }[]
+  socialLinks: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   name: string
   description: string
   defaultSeoTitle: string
@@ -313,6 +317,9 @@ export type ActivityPageLoad = {
 
 export type EditorSiteInfo = {
   name: string
+  logoAssetId?: string | null
+  navLinks?: { label: string; url: string }[]
+  socialLinks?: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   description: string | null
   slug: string
   themeAccent: string | null
@@ -377,6 +384,10 @@ export type DashboardPostSummary = {
   versionNumber: number | null
   /** Version pinned live; lower than versionNumber = changes waiting for review. */
   publishedVersionNumber?: number | null
+  /** Slug of the live version; the draft slug may differ until it is published. */
+  publishedSlug?: string | null
+  /** The live version's title, excerpt, and tags (null when never published). */
+  published?: { title: string; excerpt: string | null; tags: string[] } | null
   /** Who wrote the tip version (human/agent/api_key/system). */
   latestActorType?: string | null
   /** Last-change actor: type (human/agent/api_key/system) + resolved name

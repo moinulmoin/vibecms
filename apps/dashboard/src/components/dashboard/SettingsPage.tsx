@@ -9,13 +9,13 @@ import {
   type PresetId,
   type ThemeMode,
 } from '@vc/config'
-import { Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
 import type { Asset, BillingStatus } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, VoiceProfileSettings } from '~/types/dashboard'
 import { Alert, CopyButton, Field, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { PageHeader, PageSkeleton, PageTabs, Section, StatusBadge } from '~/components/dashboard/blocks'
 import { PlanAndBilling } from '~/components/dashboard/BillingPage'
@@ -34,6 +34,7 @@ import {
 } from '~/lib/api-client'
 import type { z } from 'zod'
 import { settingsPageDataSchema } from '~/lib/dashboard-response-schemas'
+import { navLinksSchema, socialLinksSchema, socialKindSchema, type NavLink, type SocialLink } from '@vc/validators'
 import { emptyDashboardStatusSearch, type SettingsTab } from '~/lib/dashboard-search'
 import { refreshContext, settingsQuery } from '~/lib/queries'
 
@@ -65,6 +66,10 @@ type SiteSettingsForm = {
   defaultSeoTitle: string
   defaultSeoDescription: string
   defaultSocialAssetId: string | null
+  logoAssetId: string | null
+  faviconAssetId: string | null
+  navLinks: NavLink[]
+  socialLinks: SocialLink[]
   theme: PresetId
   slug: string
   themeAccent: AccentId
@@ -186,6 +191,8 @@ function siteDraftFromForm(form: HTMLFormElement) {
     defaultSeoTitle: String(fields.get('defaultSeoTitle') ?? ''),
     defaultSeoDescription: String(fields.get('defaultSeoDescription') ?? ''),
     defaultSocialAssetId: String(fields.get('defaultSocialAssetId') ?? ''),
+    logoAssetId: String(fields.get('logoAssetId') ?? ''),
+    faviconAssetId: String(fields.get('faviconAssetId') ?? ''),
     bylineName: String(fields.get('bylineName') ?? '').trim(),
   }
 }
@@ -196,6 +203,8 @@ function isSiteDraftDirty(draft: ReturnType<typeof siteDraftFromForm>, baseline:
     || draft.defaultSeoTitle !== baseline.defaultSeoTitle
     || draft.defaultSeoDescription !== baseline.defaultSeoDescription
     || draft.defaultSocialAssetId !== (baseline.defaultSocialAssetId ?? '')
+    || draft.logoAssetId !== (baseline.logoAssetId ?? '')
+    || draft.faviconAssetId !== (baseline.faviconAssetId ?? '')
     || draft.bylineName !== baseline.bylineName
 }
 
@@ -228,6 +237,11 @@ function SaveRow({
       {children}
     </div>
   )
+}
+
+const SOCIAL_KIND_LABELS: Record<SocialLink['kind'], string> = {
+  x: 'X', github: 'GitHub', linkedin: 'LinkedIn', bluesky: 'Bluesky', mastodon: 'Mastodon',
+  youtube: 'YouTube', instagram: 'Instagram', website: 'Website', email: 'Email',
 }
 
 function FieldHint({ id, children }: { id?: string; children: ReactNode }) {
@@ -274,7 +288,7 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   export: 'Export posts',
 }
 
-export function SettingsPage() {
+export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const search = useSearch({ from: '/dashboard/settings' })
@@ -284,6 +298,14 @@ export function SettingsPage() {
   const [refreshingDomains, setRefreshingDomains] = useState(false)
   const [formPending, setFormPending] = useState<'site' | 'domain' | 'voice' | null>(null)
   const [selectedSocialAssetId, setSelectedSocialAssetId] = useState('')
+  const [selectedLogoAssetId, setSelectedLogoAssetId] = useState('')
+  const [selectedFaviconAssetId, setSelectedFaviconAssetId] = useState('')
+  const [navLinks, setNavLinks] = useState<NavLink[]>([])
+  // Empty new rows stay quiet until the owner types in them or tries to save.
+  const [linksAttempted, setLinksAttempted] = useState(false)
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([])
+  const linksCurrent = useRef({ navLinks, socialLinks })
+  linksCurrent.current = { navLinks, socialLinks }
   const [voiceAudience, setVoiceAudience] = useState('')
   const [voiceSummary, setVoiceSummary] = useState('')
   const [voicePreferText, setVoicePreferText] = useState('')
@@ -300,8 +322,16 @@ export function SettingsPage() {
   const [siteBaseline, setSiteBaseline] = useState<SiteSettingsForm | null>(null)
   const [siteChangedElsewhere, setSiteChangedElsewhere] = useState(false)
   const [voiceDirty, setVoiceDirty] = useState(false)
+  const voiceCurrent = useRef({ audience: '', voiceSummary: '', preferText: '', avoidText: '', representativeIds: [] as string[] })
 
   function seedVoice(profile: VoiceProfileSettings) {
+    voiceCurrent.current = {
+      audience: profile.audience,
+      voiceSummary: profile.voiceSummary,
+      preferText: profile.preferRules.join('\n'),
+      avoidText: profile.avoidRules.join('\n'),
+      representativeIds: profile.representativePostIds,
+    }
     setVoiceAudience(profile.audience)
     setVoiceSummary(profile.voiceSummary)
     setVoicePreferText(profile.preferRules.join('\n'))
@@ -309,22 +339,59 @@ export function SettingsPage() {
     setVoiceRepresentativeIds(profile.representativePostIds)
   }
 
+  function mergeSavedVoice(profile: VoiceProfileSettings, submitted: typeof voiceCurrent.current) {
+    const current = voiceCurrent.current
+    const saved = {
+      audience: profile.audience,
+      voiceSummary: profile.voiceSummary,
+      preferText: profile.preferRules.join('\n'),
+      avoidText: profile.avoidRules.join('\n'),
+      representativeIds: profile.representativePostIds,
+    }
+    const merged = {
+      audience: current.audience === submitted.audience ? saved.audience : current.audience,
+      voiceSummary: current.voiceSummary === submitted.voiceSummary ? saved.voiceSummary : current.voiceSummary,
+      preferText: current.preferText === submitted.preferText ? saved.preferText : current.preferText,
+      avoidText: current.avoidText === submitted.avoidText ? saved.avoidText : current.avoidText,
+      representativeIds: current.representativeIds === submitted.representativeIds ? saved.representativeIds : current.representativeIds,
+    }
+    voiceCurrent.current = merged
+    setVoiceAudience(merged.audience)
+    setVoiceSummary(merged.voiceSummary)
+    setVoicePreferText(merged.preferText)
+    setVoiceAvoidText(merged.avoidText)
+    setVoiceRepresentativeIds(merged.representativeIds)
+    setVoiceDirty(merged.audience !== saved.audience || merged.voiceSummary !== saved.voiceSummary
+      || merged.preferText !== saved.preferText || merged.avoidText !== saved.avoidText
+      || merged.representativeIds !== saved.representativeIds)
+  }
+
   useEffect(() => {
     if (!data || seeded) return
     setSeeded(true)
     setSiteBaseline(data.site)
     setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
+    setSelectedLogoAssetId(data.site.logoAssetId ?? '')
+    setSelectedFaviconAssetId(data.site.faviconAssetId ?? '')
+    setNavLinks(data.site.navLinks)
+    setSocialLinks(data.site.socialLinks)
     setAgentCredit(data.site.showAgentCredit)
     seedVoice(data.voiceProfile)
   }, [data, seeded])
 
   useEffect(() => {
     if (!data || !siteBaseline || data.site.updatedAt === siteBaseline.updatedAt) return
-    if (siteDirty || agentCredit !== siteBaseline.showAgentCredit) {
+    if (siteDirty || agentCredit !== siteBaseline.showAgentCredit
+      || JSON.stringify(navLinks) !== JSON.stringify(siteBaseline.navLinks)
+      || JSON.stringify(socialLinks) !== JSON.stringify(siteBaseline.socialLinks)) {
       setSiteChangedElsewhere(true)
     } else {
       setSiteBaseline(data.site)
       setSelectedSocialAssetId(data.site.defaultSocialAssetId ?? '')
+      setSelectedLogoAssetId(data.site.logoAssetId ?? '')
+      setSelectedFaviconAssetId(data.site.faviconAssetId ?? '')
+      setNavLinks(data.site.navLinks)
+      setSocialLinks(data.site.socialLinks)
       setAgentCredit(data.site.showAgentCredit)
       setSiteFormRevision((revision) => revision + 1)
     }
@@ -363,6 +430,10 @@ export function SettingsPage() {
     const latest = data?.site ?? siteBaseline
     if (latest) setSiteBaseline(latest)
     setSelectedSocialAssetId(latest?.defaultSocialAssetId ?? '')
+    setSelectedLogoAssetId(latest?.logoAssetId ?? '')
+    setSelectedFaviconAssetId(latest?.faviconAssetId ?? '')
+    setNavLinks(latest?.navLinks ?? [])
+    setSocialLinks(latest?.socialLinks ?? [])
     setAgentCredit(latest?.showAgentCredit ?? true)
     setSiteDirty(false)
     setSiteChangedElsewhere(false)
@@ -374,10 +445,18 @@ export function SettingsPage() {
     const formElement = event.currentTarget
     const submitted = siteDraftFromForm(formElement)
     const nameChanged = submitted.name !== siteBaseline?.name
+    if (!navLinksSchema.safeParse(navLinks).success || !socialLinksSchema.safeParse(socialLinks).success) {
+      setLinksAttempted(true)
+      return
+    }
     const payload = {
       expectedUpdatedAt: siteBaseline?.updatedAt ?? 0,
       ...submitted,
       defaultSocialAssetId: submitted.defaultSocialAssetId || null,
+      logoAssetId: submitted.logoAssetId || null,
+      faviconAssetId: submitted.faviconAssetId || null,
+      navLinks,
+      socialLinks,
       showAgentCredit: agentCredit,
     }
     setFormPending('site')
@@ -388,10 +467,16 @@ export function SettingsPage() {
         setSiteBaseline(refreshed.site)
         setSiteChangedElsewhere(false)
         const liveDraft = siteDraftFromForm(formElement)
-        if (isSiteDraftDirty(liveDraft, { ...refreshed.site, ...submitted })) {
+        if (isSiteDraftDirty(liveDraft, { ...refreshed.site, ...submitted })
+          || JSON.stringify(linksCurrent.current.navLinks) !== JSON.stringify(navLinks)
+          || JSON.stringify(linksCurrent.current.socialLinks) !== JSON.stringify(socialLinks)) {
           setSiteDirty(true)
         } else {
           setSelectedSocialAssetId(refreshed.site.defaultSocialAssetId ?? '')
+          setSelectedLogoAssetId(refreshed.site.logoAssetId ?? '')
+          setSelectedFaviconAssetId(refreshed.site.faviconAssetId ?? '')
+          setNavLinks(refreshed.site.navLinks)
+          setSocialLinks(refreshed.site.socialLinks)
           setAgentCredit(refreshed.site.showAgentCredit)
           setSiteDirty(false)
           setSiteFormRevision((revision) => revision + 1)
@@ -456,19 +541,19 @@ export function SettingsPage() {
     event.preventDefault()
     if (!voiceValidation.isValid) return
 
+    const submitted = voiceCurrent.current
     setFormPending('voice')
     try {
       const result = await updateVoiceProfileMutation({
-        audience: voiceAudience || undefined,
-        voiceSummary: voiceSummary || undefined,
-        preferRules: voiceValidation.prefer.ruleCount ? parseVoiceRules(voicePreferText) : [],
-        avoidRules: voiceValidation.avoid.ruleCount ? parseVoiceRules(voiceAvoidText) : [],
-        representativePostIds: voiceRepresentativeIds,
+        audience: submitted.audience || undefined,
+        voiceSummary: submitted.voiceSummary || undefined,
+        preferRules: parseVoiceRules(submitted.preferText),
+        avoidRules: parseVoiceRules(submitted.avoidText),
+        representativePostIds: submitted.representativeIds,
       })
       if (result.kind === 'ok') {
         const refreshed = await reload()
-        seedVoice(refreshed.voiceProfile)
-        setVoiceDirty(false)
+        mergeSavedVoice(refreshed.voiceProfile, submitted)
       }
       feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
     } catch {
@@ -479,13 +564,13 @@ export function SettingsPage() {
   }
 
   async function handleVoiceProfileClear() {
+    const submitted = voiceCurrent.current
     setFormPending('voice')
     try {
       const result = await clearVoiceProfileMutation()
       if (result.kind === 'ok') {
         const refreshed = await reload()
-        seedVoice(refreshed.voiceProfile)
-        setVoiceDirty(false)
+        mergeSavedVoice(refreshed.voiceProfile, submitted)
       }
       feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
     } catch {
@@ -508,6 +593,7 @@ export function SettingsPage() {
   if (!data) return <PageSkeleton variant="list" />
 
   const { customDomains, isOwner } = data
+  const editable = isOwner && (canEdit ?? isOwner)
   const site = siteBaseline ?? data.site
   // Free hosted plans see the lock; a missing field (stale payload) stays unlocked.
   const domainLocked = data.effectiveEntitlement?.effective === false
@@ -518,11 +604,14 @@ export function SettingsPage() {
   const activeTab: SettingsTab = requested && tabs.some((tab) => tab === requested) ? requested : 'site'
   const defaultAddress = data.publicBaseUrl
   const siteFormDirty = siteDirty || agentCredit !== site.showAgentCredit
+    || JSON.stringify(navLinks) !== JSON.stringify(siteBaseline?.navLinks ?? [])
+    || JSON.stringify(socialLinks) !== JSON.stringify(siteBaseline?.socialLinks ?? [])
 
   return (
     <>
-      <UnsavedNavigationGuard when={siteFormDirty || voiceDirty} />
+      <UnsavedNavigationGuard when={editable && (siteFormDirty || voiceDirty)} />
       {header}
+      {!editable ? <p className="text-sm text-muted-foreground">Only the owner can change these.</p> : null}
       <Tabs
         value={activeTab}
         onValueChange={(value) =>
@@ -539,9 +628,10 @@ export function SettingsPage() {
           <form
             key={siteFormRevision}
             className="grid max-w-2xl gap-8"
-            onChange={(event) => markSiteDirty(event.currentTarget)}
-            onSubmit={(event) => void handleSiteSave(event)}
+            onChange={(event) => { if (editable) markSiteDirty(event.currentTarget) }}
+            onSubmit={(event) => { if (editable) void handleSiteSave(event); else event.preventDefault() }}
           >
+            <fieldset disabled={!editable} className="contents">
             {siteChangedElsewhere ? (
               <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-warning-foreground">
                 <span>Settings changed elsewhere, reload.</span>
@@ -558,6 +648,19 @@ export function SettingsPage() {
                 <Textarea id="site-description" name="description" maxLength={220} rows={3} defaultValue={site.description} />
                 <FieldHint>One or two sentences. Shown on your blog’s home page.</FieldHint>
               </Field>
+              {(['Logo', 'Favicon'] as const).map((label) => {
+                const id = label === 'Logo' ? 'logoAssetId' : 'faviconAssetId'
+                const value = label === 'Logo' ? selectedLogoAssetId : selectedFaviconAssetId
+                const selected = data.assets.find((asset) => asset.id === value)
+                return <Field key={id}>
+                  <FieldLabel htmlFor={id}>{label}</FieldLabel>
+                  <Select id={id} name={id} value={value} onChange={(event) => label === 'Logo' ? setSelectedLogoAssetId(event.target.value) : setSelectedFaviconAssetId(event.target.value)}>
+                    <option value="">No {label.toLowerCase()}</option>
+                    {data.assets.filter((asset) => asset.mimeType.startsWith('image/')).map((asset) => <option key={asset.id} value={asset.id}>{asset.filename}</option>)}
+                  </Select>
+                  {selected ? <img src={`/media-assets/${selected.id}`} alt="" className="h-12 w-20 object-contain" /> : null}
+                </Field>
+              })}
               {defaultAddress ? (
                 <div className="grid gap-1.5">
                   <p className="text-sm font-medium text-foreground">Address</p>
@@ -579,6 +682,38 @@ export function SettingsPage() {
               ) : null}
             </Section>
 
+            <Section title="Links" description="Add links to your blog navigation and footer.">
+              <Field>
+                <FieldLabel>Navigation links</FieldLabel>
+                <FieldHint>Shown after All posts. Up to 6 links.</FieldHint>
+                {navLinks.map((link, index) => {
+                  const result = navLinksSchema.element.safeParse(link)
+                  const labelError = result.success || !(linksAttempted || link.label.trim()) ? null : result.error.issues.find((issue) => issue.path[0] === 'label')?.message
+                  const urlError = result.success || !(linksAttempted || link.url.trim()) ? null : result.error.issues.find((issue) => issue.path[0] === 'url')?.message
+                  return <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto]">
+                    <div><Input aria-label={`Navigation ${index + 1} label`} placeholder="Label" value={link.label} maxLength={40} aria-invalid={!!labelError} aria-describedby={labelError ? `nav-label-error-${index}` : undefined} onChange={(event) => setNavLinks((rows) => rows.map((row, i) => i === index ? { ...row, label: event.target.value } : row))} />{labelError ? <p id={`nav-label-error-${index}`} className="text-sm text-destructive">{labelError}</p> : null}</div>
+                    <div><Input aria-label={`Navigation ${index + 1} URL`} placeholder="/about or https://…" value={link.url} aria-invalid={!!urlError} aria-describedby={urlError ? `nav-url-error-${index}` : undefined} onChange={(event) => setNavLinks((rows) => rows.map((row, i) => i === index ? { ...row, url: event.target.value } : row))} />{urlError ? <p id={`nav-url-error-${index}`} className="text-sm text-destructive">{urlError}</p> : null}</div>
+                    <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move navigation ${index + 1} up`} disabled={index === 0} onClick={() => setNavLinks((rows) => { const next = [...rows]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; return next })}><ArrowUp aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move navigation ${index + 1} down`} disabled={index === navLinks.length - 1} onClick={() => setNavLinks((rows) => { const next = [...rows]; [next[index], next[index + 1]] = [next[index + 1]!, next[index]!]; return next })}><ArrowDown aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Remove navigation ${index + 1}`} onClick={() => setNavLinks((rows) => rows.filter((_, i) => i !== index))}><X aria-hidden /></Button></div>
+                  </div>
+                })}
+                <Button type="button" variant="outline" size="sm" disabled={navLinks.length >= 6} className="w-fit" onClick={() => setNavLinks((rows) => [...rows, { label: '', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add link</Button>
+              </Field>
+              <Field>
+                <FieldLabel>Social links</FieldLabel>
+                <FieldHint>Shown as icon links in the footer. Up to 8 links.</FieldHint>
+                {socialLinks.map((link, index) => {
+                  const result = socialLinksSchema.element.safeParse(link)
+                  const urlError = result.success || !(linksAttempted || link.url.trim()) ? null : result.error.issues.find((issue) => issue.path[0] === 'url' || issue.path.length === 0)?.message
+                  return <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto]">
+                    <Select aria-label={`Social ${index + 1} kind`} value={link.kind} onChange={(event) => setSocialLinks((rows) => rows.map((row, i) => i === index ? { ...row, kind: socialKindSchema.parse(event.target.value) } : row))}>{socialKindSchema.options.map((kind) => <option key={kind} value={kind}>{SOCIAL_KIND_LABELS[kind]}</option>)}</Select>
+                    <div><Input aria-label={`Social ${index + 1} URL`} placeholder={link.kind === 'email' ? 'hello@example.com' : 'https://…'} value={link.url} aria-invalid={!!urlError} aria-describedby={urlError ? `social-url-error-${index}` : undefined} onChange={(event) => setSocialLinks((rows) => rows.map((row, i) => i === index ? { ...row, url: event.target.value } : row))} />{urlError ? <p id={`social-url-error-${index}`} className="text-sm text-destructive">{urlError}</p> : null}</div>
+                    <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move social ${index + 1} up`} disabled={index === 0} onClick={() => setSocialLinks((rows) => { const next = [...rows]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; return next })}><ArrowUp aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move social ${index + 1} down`} disabled={index === socialLinks.length - 1} onClick={() => setSocialLinks((rows) => { const next = [...rows]; [next[index], next[index + 1]] = [next[index + 1]!, next[index]!]; return next })}><ArrowDown aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Remove social ${index + 1}`} onClick={() => setSocialLinks((rows) => rows.filter((_, i) => i !== index))}><X aria-hidden /></Button></div>
+                  </div>
+                })}
+                <Button type="button" variant="outline" size="sm" disabled={socialLinks.length >= 8} className="w-fit" onClick={() => setSocialLinks((rows) => [...rows, { kind: 'website', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add social link</Button>
+              </Field>
+            </Section>
+
             <Section title="Byline">
               <Field>
                 <FieldLabel htmlFor="site-byline-name">Public name</FieldLabel>
@@ -597,7 +732,7 @@ export function SettingsPage() {
                 <div className="grid gap-1">
                   <FieldLabel htmlFor="site-agent-credit">Credit your agent</FieldLabel>
                   <FieldHint id="site-agent-credit-help">
-                    Agent-written posts show “Written with an agent · Reviewed by {site.bylineName || site.name}”.
+                    Agent-written posts show “Agent-written · Reviewed by {site.bylineName || site.name}”.
                   </FieldHint>
                 </div>
                 <Switch
@@ -612,11 +747,21 @@ export function SettingsPage() {
             <Section title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
               <Field>
                 <FieldLabel htmlFor="default-seo-title">Title</FieldLabel>
-                <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} />
+                <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} aria-describedby="default-seo-title-help" />
+                <FieldHint id="default-seo-title-help">Shown in search results and browser tabs for your home page. Usually your blog name.</FieldHint>
               </Field>
               <Field>
                 <FieldLabel htmlFor="default-seo-description">Description</FieldLabel>
-                <Textarea id="default-seo-description" name="defaultSeoDescription" maxLength={220} rows={3} defaultValue={site.defaultSeoDescription} />
+                <Textarea
+                  id="default-seo-description"
+                  name="defaultSeoDescription"
+                  maxLength={220}
+                  rows={3}
+                  defaultValue={site.defaultSeoDescription}
+                  placeholder={site.description || undefined}
+                  aria-describedby="default-seo-description-help"
+                />
+                <FieldHint id="default-seo-description-help">Leave empty to use your blog description.</FieldHint>
               </Field>
               <Field>
                 <FieldLabel htmlFor="default-social-image">Share image</FieldLabel>
@@ -627,7 +772,7 @@ export function SettingsPage() {
                   onChange={(event) => setSelectedSocialAssetId(event.currentTarget.value)}
                   aria-describedby="default-social-image-help"
                 >
-                  <option value="">None</option>
+                  <option value="">Generated from your theme</option>
                   {data.assets.map((asset) => (
                     <option key={asset.id} value={asset.id}>
                       {asset.filename}
@@ -636,7 +781,7 @@ export function SettingsPage() {
                   ))}
                 </Select>
                 <FieldHint id="default-social-image-help">
-                  Used when a post has no cover. 1200 × 630 works best.{' '}
+                  Used when a post has no cover. Without one, each post gets a card in your theme. 1200 × 630 works best.{' '}
                   <Link to="/dashboard/media" search={emptyDashboardStatusSearch} className="text-foreground underline underline-offset-4">
                     Manage images
                   </Link>
@@ -656,17 +801,19 @@ export function SettingsPage() {
               </Field>
             </Section>
 
-            <SaveRow
+            </fieldset>
+            {editable ? <SaveRow
               dirty={siteFormDirty}
               pending={formPending === 'site'}
               disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
               onDiscard={discardSite}
-            />
+            /> : null}
           </form>
         </TabsContent>
 
         <TabsContent value="voice">
-          <form className="grid max-w-2xl gap-8" onSubmit={(event) => void handleVoiceProfileSave(event)}>
+          <form className="grid max-w-2xl gap-8" onSubmit={(event) => { if (editable) void handleVoiceProfileSave(event); else event.preventDefault() }}>
+            <fieldset disabled={!editable} className="contents">
             <Section
               title="How your agents write"
               description={
@@ -682,6 +829,7 @@ export function SettingsPage() {
                   value={voiceAudience}
                   onChange={(e) => {
                     setVoiceDirty(true)
+                    voiceCurrent.current = { ...voiceCurrent.current, audience: e.target.value }
                     setVoiceAudience(e.target.value)
                   }}
                   maxLength={300}
@@ -696,6 +844,7 @@ export function SettingsPage() {
                   value={voiceSummary}
                   onChange={(e) => {
                     setVoiceDirty(true)
+                    voiceCurrent.current = { ...voiceCurrent.current, voiceSummary: e.target.value }
                     setVoiceSummary(e.target.value)
                   }}
                   maxLength={500}
@@ -714,6 +863,7 @@ export function SettingsPage() {
                     value={voicePreferText}
                     onChange={(e) => {
                       setVoiceDirty(true)
+                      voiceCurrent.current = { ...voiceCurrent.current, preferText: e.target.value }
                       setVoicePreferText(e.target.value)
                     }}
                     aria-describedby={voicePreferDescribedBy}
@@ -735,6 +885,7 @@ export function SettingsPage() {
                     value={voiceAvoidText}
                     onChange={(e) => {
                       setVoiceDirty(true)
+                      voiceCurrent.current = { ...voiceCurrent.current, avoidText: e.target.value }
                       setVoiceAvoidText(e.target.value)
                     }}
                     aria-describedby={voiceAvoidDescribedBy}
@@ -774,9 +925,11 @@ export function SettingsPage() {
                           onCheckedChange={(checked) => {
                             if (checked === 'indeterminate') return
                             setVoiceDirty(true)
-                            setVoiceRepresentativeIds(selectRepresentativePost(voiceRepresentativeIds, post.id, checked))
+                            const next = selectRepresentativePost(voiceRepresentativeIds, post.id, checked)
+                            voiceCurrent.current = { ...voiceCurrent.current, representativeIds: next }
+                            setVoiceRepresentativeIds(next)
                           }}
-                          disabled={!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT}
+                          disabled={!editable || (!voiceRepresentativeIds.includes(post.id) && voiceRepresentativeIds.length >= REPRESENTATIVE_POST_LIMIT)}
                           className="mt-1"
                         />
                         <label htmlFor={`post-${post.id}`} className="min-w-0 flex-1 cursor-pointer">
@@ -795,7 +948,9 @@ export function SettingsPage() {
                             onCheckedChange={(checked) => {
                               if (!checked) {
                                 setVoiceDirty(true)
-                                setVoiceRepresentativeIds(voiceRepresentativeIds.filter((id) => id !== staleId))
+                                const next = voiceRepresentativeIds.filter((id) => id !== staleId)
+                                voiceCurrent.current = { ...voiceCurrent.current, representativeIds: next }
+                                setVoiceRepresentativeIds(next)
                               }
                             }}
                             className="mt-1"
@@ -822,7 +977,8 @@ export function SettingsPage() {
               </Alert>
             ) : null}
 
-            <SaveRow
+            </fieldset>
+            {editable ? <SaveRow
               dirty={voiceDirty}
               pending={formPending === 'voice'}
               disabled={!voiceValidation.isValid}
@@ -843,7 +999,7 @@ export function SettingsPage() {
                   <RotateCcw aria-hidden data-icon="inline-start" /> Reset to default
                 </SpaConfirmButton>
               ) : null}
-            </SaveRow>
+            </SaveRow> : null}
           </form>
         </TabsContent>
 

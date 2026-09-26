@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import type { Presentation } from "@vc/config";
+import { firstParagraph } from "@vc/core";
 import { createDbClient } from "../client";
 import { assets, billingCustomers, domains, postVersions, posts, sites } from "../schema";
 
@@ -44,6 +45,10 @@ export interface PublicSiteRow {
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
   defaultSocialAssetId: string | null;
+  logoAssetId: string | null;
+  faviconAssetId: string | null;
+  navLinksJson: string | null;
+  socialLinksJson: string | null;
   defaultSocialAssetMimeType: string | null;
   defaultSocialAssetWidth: number | null;
   defaultSocialAssetHeight: number | null;
@@ -111,7 +116,7 @@ const summaryColumns = {
   id: posts.id,
   title: postVersions.title,
   slug: postVersions.slug,
-  excerpt: postVersions.excerpt,
+  excerpt: sql<string | null>`coalesce(nullif(trim(${postVersions.excerpt}), ''), nullif(${postVersions.fallbackExcerpt}, ''))`,
   coverAssetId: postVersions.coverAssetId,
   publishedAt: posts.publishedAt,
   updatedAt: postVersions.createdAt,
@@ -166,6 +171,10 @@ const siteResolveColumns = {
   defaultSeoTitle: sites.defaultSeoTitle,
   defaultSeoDescription: sites.defaultSeoDescription,
   defaultSocialAssetId: sites.defaultSocialAssetId,
+  logoAssetId: sites.logoAssetId,
+  faviconAssetId: sites.faviconAssetId,
+  navLinksJson: sites.navLinksJson,
+  socialLinksJson: sites.socialLinksJson,
   defaultSocialAssetMimeType: sql<string | null>`(
     select ${assets.mimeType} from ${assets}
     where ${assets.id} = ${sites.defaultSocialAssetId} and ${assets.siteId} = ${sites.id}
@@ -230,6 +239,33 @@ function searchMatchSql(pattern: string) {
 export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
   const client = createDbClient(db);
 
+  // Legacy published versions have NULL fallbacks after 0028. Resolve only
+  // displayed rows, and persist once so later requests keep summary queries lean.
+  async function fillMissingExcerpts<T extends PublicPostSummaryRow>(siteId: string, rows: T[]): Promise<T[]> {
+    for (const row of rows) {
+      if (row.excerpt !== null) continue;
+      const version = await client.select({
+        id: postVersions.id,
+        excerpt: postVersions.excerpt,
+        fallbackExcerpt: postVersions.fallbackExcerpt,
+        contentMarkdown: postVersions.contentMarkdown,
+      }).from(posts).innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
+        .where(and(eq(posts.id, row.id), eq(posts.siteId, siteId)))
+        .limit(1);
+      const pinned = version[0];
+      if (!pinned || pinned.excerpt?.trim()) continue;
+      if (pinned.fallbackExcerpt !== null) {
+        row.excerpt = pinned.fallbackExcerpt || null;
+        continue;
+      }
+      const fallback = firstParagraph(pinned.contentMarkdown);
+      await client.update(postVersions).set({ fallbackExcerpt: fallback })
+        .where(and(eq(postVersions.id, pinned.id), sql`${postVersions.fallbackExcerpt} is null`));
+      row.excerpt = fallback || null;
+    }
+    return rows;
+  }
+
   return {
     async resolveSiteByHost(host: string) {
       // domains INNER JOIN sites LEFT JOIN billing_customers; active domain + active site filters.
@@ -272,6 +308,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .limit(1);
       const row = rows[0];
       if (!row) return null;
+      await fillMissingExcerpts(siteId, [row]);
       const { presentationJson, publishedVersionCreatedByType, ...rest } = row;
       return {
         ...rest,
@@ -284,13 +321,14 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
     async listPublishedPostSummaries(siteId: string, now: number, limit: number) {
       const capped = clampLimit(limit);
       if (capped === 0) return [];
-      return client
+      const rows = await client
         .select(summaryColumns)
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(publishedWhere(siteId, now))
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
+      return fillMissingExcerpts(siteId, rows);
     },
 
     async listPublishedPostSummariesByTag(siteId: string, tag: string, now: number, limit: number) {
@@ -298,7 +336,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
       const capped = clampLimit(limit);
       if (capped === 0) return [];
       // json_each over pinned version tags; keep it as a typed sql fragment.
-      return client
+      const rows = await client
         .select(summaryColumns)
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
@@ -310,6 +348,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         )
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
+      return fillMissingExcerpts(siteId, rows);
     },
 
     async listPublishedPostPage(siteId: string, now: number, limit: number, requestedPage: number, tag?: string) {
@@ -333,7 +372,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .orderBy(desc(posts.publishedAt), desc(posts.id))
         .limit(size)
         .offset((page - 1) * size);
-      return { posts: pagePosts, total, page };
+      return { posts: await fillMissingExcerpts(siteId, pagePosts), total, page };
     },
 
     async searchPublishedPostSummaries(
@@ -369,7 +408,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .limit(candidateCap)
         .as("pb_search_candidates");
 
-      return client
+      const rows = await client
         .select(summaryColumns)
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
@@ -377,18 +416,20 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .where(and(publishedWhere(siteId, now), searchMatchSql(pattern)))
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
+      return fillMissingExcerpts(siteId, rows);
     },
 
     async listPublishedPostsForFeed(siteId: string, now: number, limit: number) {
       const capped = clampLimit(limit);
       if (capped === 0) return [];
-      return client
+      const rows = await client
         .select(bodyColumns)
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(publishedWhere(siteId, now))
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
+      return fillMissingExcerpts(siteId, rows);
     },
   };
 }

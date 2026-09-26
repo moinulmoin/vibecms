@@ -44,6 +44,10 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
       defaultSeoTitle: 'Agent Journal',
       defaultSeoDescription: '',
       defaultSocialAssetId: null,
+      logoAssetId: null,
+      faviconAssetId: null,
+      navLinks: [],
+      socialLinks: [],
       theme: 'minimal',
       slug: 'agent-journal',
       themeAccent: 'teal',
@@ -167,6 +171,65 @@ describe('ThemePage', () => {
       next: { pathname: '/dashboard', search: {} },
     })).toBe(false)
 
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('shows identity and links in the gallery and main preview', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue(settings({
+      logoAssetId: 'logo-1',
+      navLinks: [{ label: 'About', url: '/about' }],
+      socialLinks: [{ kind: 'github', url: 'https://github.com/example' }],
+    }))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    expect(container.querySelectorAll('img[src="/media-assets/logo-1"]').length).toBeGreaterThan(1)
+    const preview = container.querySelector('[aria-label="Theme preview"]')
+    expect(preview?.querySelector('a[href="/about"]')?.textContent).toBe('About')
+    expect(preview?.querySelector('a[aria-label="GitHub"]')).toBeTruthy()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('keeps theme controls read-only for editors', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue({ ...settings(), isOwner: false })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    expect(container.textContent).toContain('Only the owner can change these.')
+    expect(container.querySelector<HTMLButtonElement>('[role="radiogroup"][aria-label="Template"] button')?.disabled).toBe(true)
+    expect(container.querySelector<HTMLButtonElement>('[role="radiogroup"][aria-label="Accent color"] button')?.disabled).toBe(true)
+    expect(container.textContent).not.toContain('Save changes')
+    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(updateSiteSettingsMutation).not.toHaveBeenCalled()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('previews the live version of each post on Home, not pending edits', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue(settings())
+    vi.mocked(loadPostsPage).mockResolvedValue({
+      posts: [{
+        id: 'post-1', title: 'Working title', excerpt: 'Working excerpt', tags: ['draft'], publishedAt: 10,
+        published: { title: 'Live title', excerpt: 'Live excerpt', tags: ['live'] },
+      }],
+    } as never)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    const home = [...container.querySelectorAll<HTMLButtonElement>('[role="radiogroup"][aria-label="Preview page"] button')]
+      .find((button) => button.textContent === 'Home')
+    await act(async () => home?.click())
+    expect(container.textContent).toContain('Showing your published posts.')
+    expect(container.textContent).toContain('Live title')
+    expect(container.textContent).not.toContain('Working title')
     await act(async () => root.unmount())
     container.remove()
   })

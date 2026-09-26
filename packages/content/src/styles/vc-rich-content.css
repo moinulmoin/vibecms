@@ -40,12 +40,12 @@
   --vc-tint:           color-mix(in oklch, var(--vc-accent) 12%, var(--vc-bg));
 
   /* Accent (per-site) */
-  --vc-accent:      light-dark(var(--vc-accent-light, oklch(45% 0.11 154)), var(--vc-accent-dark, oklch(81% 0.17 153)));
+  --vc-accent:      light-dark(var(--vc-accent-light, oklch(46% 0.09 190)), var(--vc-accent-dark, oklch(80% 0.12 190)));
   --vc-accent-fg:   light-dark(oklch(99% 0.002 95), oklch(16% 0.02 158));
   --vc-link:        var(--vc-accent);
   --vc-link-hover:  light-dark(
-                      color-mix(in oklch, var(--vc-accent-light, oklch(45% 0.11 154)) 78%, black),
-                      color-mix(in oklch, var(--vc-accent-dark, oklch(81% 0.17 153)) 72%, white));
+                      color-mix(in oklch, var(--vc-accent-light, oklch(46% 0.09 190)) 78%, black),
+                      color-mix(in oklch, var(--vc-accent-dark, oklch(80% 0.12 190)) 72%, white));
   --vc-selection:   color-mix(in oklch, var(--vc-accent) 22%, transparent);
 
   /* Callouts: tinted surface + saturated title; body stays in --vc-fg. */

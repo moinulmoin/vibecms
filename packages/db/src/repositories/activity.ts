@@ -32,7 +32,7 @@ export type ActivityActorFilter = Array<ActivityEventRow["actorType"]>;
 // Shared activity-event repository so posts/assets/api-keys/sites don't duplicate activity SQL.
 export interface ActivityRepository {
   create(input: ActivityInput): Promise<void>;
-  listBySite(siteId: string, limit: number): Promise<ActivityEventRow[]>;
+  listBySite(siteId: string, limit: number, offset?: number): Promise<ActivityEventRow[]>;
   // Paged list (LIMIT/OFFSET) for the dashboard activity feed (cms.getActivity).
   listBySitePaged(
     siteId: string,
@@ -66,13 +66,14 @@ export function createActivityRepository(db: D1Database): ActivityRepository {
         })
         .run();
     },
-    async listBySite(siteId: string, limit: number): Promise<ActivityEventRow[]> {
+    async listBySite(siteId: string, limit: number, offset = 0): Promise<ActivityEventRow[]> {
       return client
         .select()
         .from(activityEvents)
         .where(eq(activityEvents.siteId, siteId))
-        .orderBy(desc(activityEvents.createdAt))
-        .limit(limit);
+        .orderBy(desc(activityEvents.createdAt), desc(activityEvents.id))
+        .limit(limit)
+        .offset(offset);
     },
     async listBySitePaged(
       siteId: string,

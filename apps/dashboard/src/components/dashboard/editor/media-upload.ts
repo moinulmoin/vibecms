@@ -4,9 +4,6 @@ import { DashboardApiError, dashboardMutationHeaders, dashboardMutationSignal, h
 import { parseMutationResultJson } from '~/lib/mutation-result'
 import { altFromFileName } from './image-alt'
 
-// The upload endpoint does not return the new asset's id, so each upload is
-// identified by diffing the library before/after. Uploads run one at a time so
-// two concurrent drops can never pick up each other's image.
 let queue: Promise<unknown> = Promise.resolve()
 
 export function uploadEditorMedia(
@@ -47,10 +44,12 @@ async function uploadOne(
     await onUnauthorized()
     throw new Error('Sign in to upload media.')
   }
-  const result = parseMutationResultJson(await response.json())
+  const body = await response.json()
+  const result = parseMutationResultJson(body)
   if (result.kind !== 'ok') throw new Error(result.code === 'upload_too_large' ? `Images must be ${MEDIA.maxImageLabel} or smaller.` : 'The image could not be uploaded.')
-  const prior = new Set(currentAssets.map((asset) => asset.id))
+  const uploaded = (body as { asset?: Asset & { url: string } }).asset
+  if (!uploaded?.id) throw new Error('The upload did not return an image.')
   const loaded = await loadMediaPage()
   onAssets(loaded.assets)
-  return loaded.assets.find((asset) => !prior.has(asset.id)) ?? loaded.assets[0]
+  return loaded.assets.find((asset) => asset.id === uploaded.id) ?? uploaded
 }

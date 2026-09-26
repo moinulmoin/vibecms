@@ -1,5 +1,7 @@
 declare const styles: {
   readonly brand: string;
+  readonly logo: string;
+  readonly socialLinks: string;
   readonly brandHeading: string;
   readonly content: string;
   readonly footer: string;
