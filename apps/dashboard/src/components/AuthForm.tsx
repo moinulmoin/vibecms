@@ -120,7 +120,7 @@ export function AuthForm({ googleEnabled, githubEnabled }: { googleEnabled: bool
         <header className="space-y-2">
           <h1 className="font-display text-2xl font-semibold tracking-[-0.03em] text-foreground">Check your email</h1>
           <p className="text-pretty text-[0.9375rem] leading-6 text-muted-foreground">
-            We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>.{' '}
+            We sent a 6-digit code to <span className="inline-block max-w-full break-all font-medium text-foreground">{email}</span>.{' '}
             <button
               type="button"
               className="text-foreground underline underline-offset-4 hover:text-primary"

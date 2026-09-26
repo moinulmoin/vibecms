@@ -1,10 +1,18 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { contextQuery, queryClient } from '~/lib/queries'
 import { BRAND, LEGAL } from '@vc/config'
 import { useEffect } from 'react'
 import { AuthForm } from '~/components/AuthForm'
 import { clearSessionSecrets } from '~/lib/token-flash'
 
 export const Route = createFileRoute('/login')({
+  // Already signed in: go to the dashboard instead of showing the sign-in form.
+  // Ask the server, not the cache: an expired session lands here with a stale
+  // cached context, and must see the form rather than bounce back.
+  beforeLoad: async () => {
+    const fresh = await queryClient.fetchQuery({ ...contextQuery, staleTime: 0 }).catch(() => null)
+    if (fresh?.app) throw redirect({ to: '/dashboard' })
+  },
   component: LoginPage,
 })
 

@@ -767,4 +767,19 @@ describe("dashboard.getDashboardAggregate — review queue", () => {
     expect(live).toMatchObject({ title: "Draft title", publishedTitle: "Live title", publishedExcerpt: "First paragraph.", publishedTagsJson: '["live"]' });
     expect(rows.find((row) => row.id === "rv-agent-draft")).toMatchObject({ publishedTitle: null });
   });
+
+  it("counts active keys an agent has used, separately from all active keys", async () => {
+    const key = (id: string, lastUsedAt: number | null, revokedAt: number | null) =>
+      exec(
+        "INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, last_used_at, revoked_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        id, site, id, `${id}_`, `hash-${id}`, "[]", id, "rm-user", lastUsedAt, revokedAt, T, T,
+      );
+    await key("rv-key-unused", null, null);
+    await key("rv-key-used", T + 5, null);
+    await key("rv-key-revoked-used", T + 5, T + 6);
+    const agg = await da.dashboard.getDashboardAggregate(site);
+    expect(agg.tokenCount).toBe(2);
+    expect(agg.usedTokenCount).toBe(1);
+  });
 });
+

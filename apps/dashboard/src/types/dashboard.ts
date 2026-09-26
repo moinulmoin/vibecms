@@ -73,6 +73,7 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  usedTokenCount?: number
   subscriberCount: number
   versionCount: number
   recentPosts: Array<{

@@ -138,8 +138,9 @@
   --muted-foreground: oklch(0.72 0.014 155);
   --accent: oklch(0.28 0.055 152);
   --accent-foreground: oklch(0.92 0.01 155);
-  --destructive: oklch(0.54 0.2 25);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* Lighter on dark so error text clears 4.5:1; buttons flip to dark ink. */
+  --destructive: oklch(0.68 0.19 25);
+  --destructive-foreground: oklch(0.18 0.03 25);
   --warning: oklch(0.79 0.12 75);
   --warning-foreground: oklch(0.18 0.03 75);
   --border: oklch(0.3 0.018 168);

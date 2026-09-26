@@ -373,6 +373,13 @@ export function AppShell({
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider>
+        {/* First tab stop, so keyboard users can jump past the sidebar. */}
+        <a
+          href="#dashboard-main"
+          className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50"
+        >
+          Skip to content
+        </a>
         <Sidebar collapsible="icon" role="complementary" aria-label="Dashboard sidebar">
           <SidebarHeader>
             <SidebarMenu>
@@ -398,12 +405,6 @@ export function AppShell({
         </Sidebar>
 
         <SidebarInset>
-          <a
-            href="#dashboard-main"
-            className="sr-only rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50"
-          >
-            Skip to content
-          </a>
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-[color:var(--hairline)] bg-background/90 px-4 backdrop-blur-xl sm:px-6">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation" />
             <span className="truncate text-sm text-muted-foreground">

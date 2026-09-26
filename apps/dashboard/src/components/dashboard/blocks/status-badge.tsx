@@ -21,6 +21,7 @@ const STATUS_TONES: Record<string, StatusTone> = {
   error: 'error',
   draft: 'draft',
   new: 'draft',
+  free_plan: 'draft',
   unpublished: 'draft',
   archived: 'muted',
   canceled: 'muted',
@@ -29,8 +30,10 @@ const STATUS_TONES: Record<string, StatusTone> = {
   unknown: 'muted',
 }
 
+/** Sentence case, like the rest of the UI ("Past due", not "Past Due"). Labels passed in are shown as written. */
 function statusLabel(status: string) {
-  return status.replaceAll('_', ' ')
+  const text = status.replaceAll('_', ' ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 export function StatusBadge({
@@ -50,7 +53,7 @@ export function StatusBadge({
     return (
       <Badge
         className={cn(
-          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 capitalize text-primary',
+          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary',
           className,
         )}
       >
@@ -64,7 +67,7 @@ export function StatusBadge({
     return (
       <Badge
         className={cn(
-          'border-warning/35 bg-warning/10 capitalize text-warning',
+          'border-warning/35 bg-warning/10 text-warning',
           className,
         )}
       >
@@ -76,7 +79,7 @@ export function StatusBadge({
   if (tone === 'error') {
     return (
       <Badge
-        className={cn('border-destructive/30 bg-destructive/10 capitalize text-destructive', className)}
+        className={cn('border-destructive/30 bg-destructive/10 text-destructive', className)}
       >
         {displayLabel}
       </Badge>
@@ -85,14 +88,14 @@ export function StatusBadge({
 
   if (tone === 'draft') {
     return (
-      <Badge className={cn('border-border bg-muted capitalize text-foreground', className)}>
+      <Badge className={cn('border-border bg-muted text-foreground', className)}>
         {displayLabel}
       </Badge>
     )
   }
 
   return (
-    <Badge variant="outline" className={cn('border-dashed capitalize text-muted-foreground', className)}>
+    <Badge variant="outline" className={cn('border-dashed text-muted-foreground', className)}>
       {displayLabel}
     </Badge>
   )

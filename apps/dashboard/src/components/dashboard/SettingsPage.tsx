@@ -696,7 +696,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                     <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move navigation ${index + 1} up`} disabled={index === 0} onClick={() => setNavLinks((rows) => { const next = [...rows]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; return next })}><ArrowUp aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move navigation ${index + 1} down`} disabled={index === navLinks.length - 1} onClick={() => setNavLinks((rows) => { const next = [...rows]; [next[index], next[index + 1]] = [next[index + 1]!, next[index]!]; return next })}><ArrowDown aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Remove navigation ${index + 1}`} onClick={() => setNavLinks((rows) => rows.filter((_, i) => i !== index))}><X aria-hidden /></Button></div>
                   </div>
                 })}
-                <Button type="button" variant="outline" size="sm" disabled={navLinks.length >= 6} className="w-fit" onClick={() => setNavLinks((rows) => [...rows, { label: '', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add link</Button>
+                <div><Button type="button" variant="outline" size="sm" disabled={navLinks.length >= 6} onClick={() => setNavLinks((rows) => [...rows, { label: '', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add link</Button></div>
               </Field>
               <Field>
                 <FieldLabel>Social links</FieldLabel>
@@ -710,7 +710,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                     <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move social ${index + 1} up`} disabled={index === 0} onClick={() => setSocialLinks((rows) => { const next = [...rows]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; return next })}><ArrowUp aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Move social ${index + 1} down`} disabled={index === socialLinks.length - 1} onClick={() => setSocialLinks((rows) => { const next = [...rows]; [next[index], next[index + 1]] = [next[index + 1]!, next[index]!]; return next })}><ArrowDown aria-hidden /></Button><Button type="button" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Remove social ${index + 1}`} onClick={() => setSocialLinks((rows) => rows.filter((_, i) => i !== index))}><X aria-hidden /></Button></div>
                   </div>
                 })}
-                <Button type="button" variant="outline" size="sm" disabled={socialLinks.length >= 8} className="w-fit" onClick={() => setSocialLinks((rows) => [...rows, { kind: 'website', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add social link</Button>
+                <div><Button type="button" variant="outline" size="sm" disabled={socialLinks.length >= 8} onClick={() => setSocialLinks((rows) => [...rows, { kind: 'website', url: '' }])}><Plus aria-hidden data-icon="inline-start" /> Add social link</Button></div>
               </Field>
             </Section>
 
@@ -834,7 +834,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                   }}
                   maxLength={300}
                   rows={2}
-                  placeholder="Engineers who run small SaaS products"
+                  placeholder="e.g. Engineers who run small SaaS products"
                 />
               </Field>
               <Field>
@@ -849,7 +849,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                   }}
                   maxLength={500}
                   rows={3}
-                  placeholder="Calm, specific, practical. Lead with the useful detail."
+                  placeholder="e.g. Calm, specific, practical. Lead with the useful detail."
                 />
               </Field>
             </Section>
@@ -869,7 +869,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                     aria-describedby={voicePreferDescribedBy}
                     aria-invalid={!voiceValidation.prefer.isValid}
                     rows={5}
-                    placeholder={'Use short sentences\nShow a real example'}
+                    placeholder={'e.g. Use short sentences\nShow a real example'}
                   />
                   <FieldHint id="voice-prefer-help">{voiceValidation.prefer.ruleCount} rules</FieldHint>
                   {voiceValidation.prefer.lineNumbers.length > 0 ? (
@@ -891,7 +891,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                     aria-describedby={voiceAvoidDescribedBy}
                     aria-invalid={!voiceValidation.avoid.isValid}
                     rows={5}
-                    placeholder={'No buzzwords\nNo exclamation marks'}
+                    placeholder={'e.g. No buzzwords\nNo exclamation marks'}
                   />
                   <FieldHint id="voice-avoid-help">{voiceValidation.avoid.ruleCount} rules</FieldHint>
                   {voiceValidation.avoid.lineNumbers.length > 0 ? (

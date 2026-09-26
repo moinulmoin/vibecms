@@ -309,7 +309,7 @@ export function PostMetadataRail({
 
   return (
     <aside aria-label="Post settings" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-7">
-      <section className="grid min-w-0 gap-4">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
         <SectionTitle>Post</SectionTitle>
         <Field>
           <FieldLabel htmlFor="post-slug" className={labelClass}>URL</FieldLabel>
@@ -347,12 +347,12 @@ export function PostMetadataRail({
         </Field>
       </section>
 
-      <section className="grid min-w-0 gap-4 border-t border-[color:var(--hairline)] pt-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 border-t border-[color:var(--hairline)] pt-6">
         <SectionTitle>Cover</SectionTitle>
         <CoverPicker assets={assets} value={metadata.coverAssetId} onChange={(value) => onChange('coverAssetId', value)} onUpload={onUploadCover} />
       </section>
 
-      <section className="grid min-w-0 gap-4 border-t border-[color:var(--hairline)] pt-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 border-t border-[color:var(--hairline)] pt-6">
         <SectionTitle>Layout</SectionTitle>
         {supportedLayouts.length > 1 ? (
           <Field>
@@ -370,7 +370,7 @@ export function PostMetadataRail({
         ) : null}
       </section>
 
-      <section className="grid min-w-0 gap-4 border-t border-[color:var(--hairline)] pt-6">
+      <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 border-t border-[color:var(--hairline)] pt-6">
         <SectionTitle>Search and sharing</SectionTitle>
         <LinkPreview
           title={metadata.seoTitle.trim() || metadata.title}

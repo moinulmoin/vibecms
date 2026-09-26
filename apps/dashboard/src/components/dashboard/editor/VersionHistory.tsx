@@ -7,6 +7,9 @@ import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { getPostVersionFn, listPostVersionsFn } from '~/lib/api-client'
 import { isAgentActor } from '~/lib/post-review'
+import { personLabel } from '~/lib/people'
+import { contextQuery } from '~/lib/queries'
+import { useQuery } from '@tanstack/react-query'
 import { BodyDiff, MetadataDiff, metadataChanges, snapshotFromVersion, type PostSnapshot } from './DiffView'
 
 export type VersionHistoryProps = {
@@ -28,6 +31,12 @@ export function ActorIcon({ type, className = 'size-3.5' }: { type: string | nul
 }
 
 export function VersionHistory({ postId, post, current, currentVersionNumber, assets, restorePending, restoreBlocked, onRestore }: VersionHistoryProps) {
+  const me = useQuery(contextQuery).data?.app?.user
+  const versionAuthor = (version: { actorName: string; actorType: string | null }) => {
+    const name = version.actorName.trim()
+    if (isAgentActor(version.actorType)) return name || 'Agent'
+    return name ? personLabel(name, me) : 'You'
+  }
   const [open, setOpen] = useState(false)
   const [versions, setVersions] = useState<PostVersionSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -81,7 +90,7 @@ export function VersionHistory({ postId, post, current, currentVersionNumber, as
                   v{viewing.versionNumber} compared with {currentVersionNumber ? `v${currentVersionNumber}` : 'now'}
                 </DialogTitle>
                 <DialogDescription>
-                  Saved by {viewing.actorName.trim() || 'someone'} · {formatDateTime(viewing.createdAt)}. Red is only in v{viewing.versionNumber}, green is only in the current version.
+                  Saved by {versionAuthor(viewing)} · {formatDateTime(viewing.createdAt)}. Red is only in v{viewing.versionNumber}, green is only in the current version.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto pr-1">
@@ -131,7 +140,7 @@ export function VersionHistory({ postId, post, current, currentVersionNumber, as
                             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                               <span className="inline-flex items-center gap-1.5 text-foreground">
                                 <ActorIcon type={version.actorType} />
-                                {version.actorName.trim() || (isAgentActor(version.actorType) ? 'Agent' : 'You')}
+                                {versionAuthor(version)}
                               </span>
                               <time className="text-muted-foreground" dateTime={new Date(version.createdAt * 1000).toISOString()} title={formatDateTime(version.createdAt)}>
                                 {formatRelative(version.createdAt)}

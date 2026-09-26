@@ -24,6 +24,7 @@ import { EmptyState, PageHeader, PageSkeleton, PageTabs } from '~/components/das
 import { Tabs } from '~/components/ui/tabs'
 import { canManageDashboardContent } from '~/lib/dashboard-role'
 import { personLabel } from '~/lib/people'
+import { activitySummary } from '~/lib/activity-copy'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import { activityQuery, contextQuery } from '~/lib/queries'
 import type { ActivityEvent } from '~/types/dashboard'
@@ -48,14 +49,6 @@ const ACTION_ICONS: Array<[prefix: string, Icon: LucideIcon]> = [
 
 export function activityIcon(action: string): LucideIcon {
   return ACTION_ICONS.find(([prefix]) => action.startsWith(prefix))?.[1] ?? Activity
-}
-
-const SUMMARY_OVERRIDES: Record<string, string> = {
-  'api_key.revoked': 'Deleted an agent token',
-}
-
-function summaryFor(event: ActivityEvent) {
-  return SUMMARY_OVERRIDES[event.action] ?? event.summary.replace(/^Created API key /, 'Created agent key ')
 }
 
 function isAgent(actorType: string) {
@@ -91,7 +84,7 @@ function ActivityRow({ event, canEdit, me }: { event: ActivityEvent; canEdit: bo
   const agent = isAgent(event.actor_type)
   // Viewers can't open the editor, so their rows stay plain text.
   const postId = canEdit && event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' ? event.entity_id : null
-  const summary = summaryFor(event)
+  const summary = activitySummary(event.action, event.summary)
 
   return (
     <li className="group relative flex items-start gap-3.5 border-b border-[color:var(--hairline)] py-4 last:border-b-0">

@@ -125,7 +125,7 @@ export function PlanAndBilling() {
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
             {managed ? 'Sponsored plan' : active ? 'Paid plan' : 'Free plan'}
             {billing.status !== 'none' && !managed ? <StatusBadge status={billing.status} /> : null}
-            {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'active' : 'ended'} /> : null}
+            {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'Active' : 'Ended'} /> : null}
           </p>
           <p className="text-[0.9375rem] leading-7 text-muted-foreground">
             {managed

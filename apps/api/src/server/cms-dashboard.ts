@@ -34,6 +34,8 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  /** Active keys an agent has used at least once. */
+  usedTokenCount: number
   subscriberCount: number
   versionCount: number
   recentPosts: Array<{
@@ -127,6 +129,7 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     counts: agg.counts,
     media: agg.media,
     tokenCount: agg.tokenCount,
+    usedTokenCount: agg.usedTokenCount,
     subscriberCount: agg.subscriberCount,
     versionCount: agg.versionCount,
     recentPosts: agg.recentPosts,

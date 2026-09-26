@@ -25,6 +25,13 @@ html {
   background: transparent;
 }
 
+/* Drag handles need hover, so touch screens don't get the 54px gutter. */
+@media (max-width: 639px) {
+  .vc-rich-canvas .bn-editor {
+    padding-inline: 0;
+  }
+}
+
 /* BlockNote slash menu: cap height inside the editor viewport. */
 .bn-container .bn-suggestion-menu {
   max-height: min(60vh, 22rem);

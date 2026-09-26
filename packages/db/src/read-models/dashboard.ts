@@ -103,6 +103,7 @@ export interface DashboardAggregate {
   counts: { published: number; draft: number; archived: number };
   media: { bytes: number; count: number };
   tokenCount: number;
+  usedTokenCount: number;
   subscriberCount: number;
   versionCount: number;
   recentPosts: DashboardRecentPost[];
@@ -204,7 +205,12 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
             .from(assets)
             .where(eq(assets.siteId, siteId)),
           client
-            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .select({
+              count: sql<number>`count(*)`.mapWith(Number),
+              // Keys an agent has actually used: "connected" without relying on
+              // usage counters (not recorded self-hosted, reset monthly).
+              used: sql<number>`count(${apiKeys.lastUsedAt})`.mapWith(Number),
+            })
             .from(apiKeys)
             .where(and(eq(apiKeys.siteId, siteId), isNull(apiKeys.revokedAt))),
           client
@@ -263,6 +269,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         counts,
         media: { bytes: media.bytes, count: media.count },
         tokenCount: tokenRows[0]?.count ?? 0,
+        usedTokenCount: tokenRows[0]?.used ?? 0,
         subscriberCount: subscriberRows[0]?.count ?? 0,
         versionCount: versionRows[0]?.count ?? 0,
         recentPosts: recentPostRows.map((post) => ({

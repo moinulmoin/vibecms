@@ -1,10 +1,11 @@
 import { BRAND, MEDIA } from '@vc/config'
-import { Activity, Bot, FileText, Pencil, Plus, Rocket } from 'lucide-react'
+import { Activity, Bot, Check, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { contextQuery, overviewQuery } from '~/lib/queries'
 import { personLabel } from '~/lib/people'
+import { activitySummary, isSystemActor } from '~/lib/activity-copy'
 import type { DashboardData } from '~/types/dashboard'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
@@ -160,6 +161,79 @@ function Stat({ label, value, detail, to, search }: {
   )
 }
 
+type SetupStep = { title: string; detail: string; done: boolean; optional?: boolean; action?: { label: string; to: '/dashboard/connect' | '/dashboard/posts/new' | '/dashboard/posts' | '/dashboard/theme'; search?: Record<string, unknown> } }
+
+/** First-run guide: shown until something is live, with real progress, not a static checklist. */
+function GetStarted({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
+  // Site-specific evidence: a key for this blog has been used.
+  const agentConnected = (data.usedTokenCount ?? 0) > 0
+  const hasDraft = data.counts.draft + data.counts.published > 0
+  const steps: SetupStep[] = [
+    {
+      title: 'Connect your agent',
+      detail: agentConnected
+        ? 'Your agent has reached vibecms.'
+        : data.tokenCount > 0
+          ? 'Your key is ready. Paste the command into your agent.'
+          : 'Give your agent a key so it can write here.',
+      done: agentConnected,
+      action: agentConnected ? undefined : { label: 'Open Connect', to: '/dashboard/connect', search: emptyDashboardStatusSearch },
+    },
+    {
+      title: 'Get a first draft',
+      detail: hasDraft ? 'A draft is waiting.' : 'Ask your agent for a post, or write one yourself.',
+      done: hasDraft,
+      action: hasDraft ? undefined : { label: 'Write a post', to: '/dashboard/posts/new', search: emptyPostEditorSearch },
+    },
+    {
+      title: 'Publish it',
+      detail: 'Review the draft, then publish. Nothing goes live until then.',
+      done: data.counts.published > 0,
+      action: hasDraft ? { label: 'Review drafts', to: '/dashboard/posts', search: postsListSearch({ status: 'draft' }) } : undefined,
+    },
+    {
+      title: 'Make it yours',
+      detail: 'Optional: pick a template, accent, and font. Change them any time.',
+      done: false,
+      optional: true,
+      action: { label: 'Open Theme', to: '/dashboard/theme' },
+    },
+  ]
+  return (
+    <Section title="Get started" description="Three steps to a live blog your agents can write for.">
+      <ol className="grid">
+        {steps.map((step, index) => (
+          <li
+            key={step.title}
+            className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0"
+          >
+            <span
+              aria-hidden
+              className={step.done
+                ? 'flex size-6 items-center justify-center rounded-full bg-brand-bright/15 text-primary'
+                : 'flex size-6 items-center justify-center rounded-full border border-border font-mono text-xs text-muted-foreground'}
+            >
+              {step.done ? <Check className="size-3.5" /> : step.optional ? '·' : index + 1}
+            </span>
+            <span className="min-w-0">
+              <span className={step.done ? 'block text-muted-foreground line-through decoration-muted-foreground/40' : 'block font-medium text-foreground'}>
+                {step.title}
+                <span className="sr-only">{step.done ? ' (done)' : ''}</span>
+              </span>
+              <span className="block text-sm text-muted-foreground">{step.detail}</span>
+            </span>
+            {step.action && canEdit ? (
+              <Button asChild variant="outline" size="sm">
+                <Link to={step.action.to} search={step.action.search as never}>{step.action.label}</Link>
+              </Button>
+            ) : <span />}
+          </li>
+        ))}
+      </ol>
+    </Section>
+  )
+}
+
 export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const query = useQuery(overviewQuery)
   const me = useQuery(contextQuery).data?.app?.user
@@ -186,6 +260,12 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   }))
   const reviewCount = data.needsReviewCount ?? reviewQueue.length
   const images = `${data.media.count} ${data.media.count === 1 ? 'image' : 'images'}`
+  // Until something is live, guide the owner instead of showing a wall of zeros.
+  const firstRun = data.counts.published === 0
+  // A wall of zeros says nothing; show the numbers once any of them moves.
+  const nothingYet = firstRun && data.counts.draft === 0 && data.counts.archived === 0 && data.subscriberCount === 0 && data.media.count === 0
+  // The guide already covers "no posts yet"; don't repeat it in an empty list.
+  const showRecentPosts = !(firstRun && data.recentPosts.length === 0)
 
   return (
     <>
@@ -223,7 +303,9 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         ) : undefined}
       />
 
-      <StatCardGrid className="xl:grid-cols-4">
+      {firstRun ? <GetStarted data={data} canEdit={canEdit} /> : null}
+
+      {nothingYet ? null : <StatCardGrid className="xl:grid-cols-4">
         <Stat
           label="Published"
           value={data.counts.published}
@@ -252,7 +334,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
           to={canEdit ? '/dashboard/media' : undefined}
           search={emptyDashboardStatusSearch}
         />
-      </StatCardGrid>
+      </StatCardGrid>}
 
       {reviewQueue.length > 0 ? (
         <Section
@@ -291,8 +373,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         </Section>
       ) : null}
 
-      <div className="grid items-start gap-10 xl:grid-cols-2 xl:gap-12">
-        <Section
+      <div className={showRecentPosts ? 'grid items-start gap-10 xl:grid-cols-2 xl:gap-12' : 'grid items-start'}>
+        {showRecentPosts ? <Section
           title="Recent posts"
           action={
             <Button asChild variant="ghost" size="sm">
@@ -348,7 +430,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
               ) : undefined}
             />
           )}
-        </Section>
+        </Section> : null}
 
         <Section
           title="Recent activity"
@@ -366,8 +448,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                   className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-baseline gap-x-3 border-b border-[color:var(--hairline)] py-3 last:border-b-0"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-foreground">{event.summary}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{personLabel(event.actor_name, me)}</span>
+                    <span className="block truncate text-foreground">{activitySummary(event.action, event.summary)}</span>
+                    <span className="block truncate text-sm text-muted-foreground">{isSystemActor(null, event.actor_name) ? 'vibecms' : personLabel(event.actor_name, me)}</span>
                   </span>
                   <span className="text-right text-sm tabular-nums text-muted-foreground" title={formatDateTime(event.created_at)}>
                     {formatRelative(event.created_at)}

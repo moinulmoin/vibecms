@@ -440,7 +440,7 @@ export function MediaPage() {
         <EmptyState
           icon={<ImageIcon />}
           title="No images yet"
-          description={canUpload ? 'Upload a cover or an image for a post. Agents can upload here too.' : 'Images you or your agents add show up here.'}
+          description={canUpload ? 'Upload a cover or an image for a post. Agents can upload here too.' : 'Covers and images from your posts appear here.'}
           action={
             canUpload ? (
               <Button type="button" onClick={() => fileInputRef.current?.click()}>

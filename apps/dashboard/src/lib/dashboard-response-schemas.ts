@@ -107,6 +107,7 @@ export const dashboardDataSchema = z.object({
   }),
   media: z.object({ bytes: z.number(), count: z.number() }),
   tokenCount: z.number(),
+  usedTokenCount: z.number().optional(),
   subscriberCount: z.number().optional(),
   versionCount: z.number(),
   recentPosts: z.array(

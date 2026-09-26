@@ -26,7 +26,7 @@ describe('StatusBadge vocabulary', () => {
   it('uses warning tokens for billing and provisioning states', () => {
     const { container, unmount } = renderStatus('past_due')
     expect(container.firstElementChild?.className).toContain('text-warning')
-    expect(container.textContent).toContain('past due')
+    expect(container.textContent).toContain('Past due')
     expect(container.querySelector('[class*="bg-brand-bright"]')).toBeNull()
     unmount()
   })

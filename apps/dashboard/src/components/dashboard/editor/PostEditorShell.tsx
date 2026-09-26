@@ -19,6 +19,9 @@ import {
 } from '~/lib/api-client'
 import { emptyPostsListSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { hasPendingChanges, isAgentActor } from '~/lib/post-review'
+import { personLabel } from '~/lib/people'
+import { contextQuery, queryClient } from '~/lib/queries'
+import type { AppRouterContext } from '~/types/dashboard'
 import type { EditorSiteInfo, PostEditorPageLoad } from '~/types/dashboard'
 import type { PostSnapshot } from './DiffView'
 import { PostActionError, postErrorMessage } from './editor-errors'
@@ -202,6 +205,8 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 
 export function PostEditorShell({ postId }: { postId?: string }) {
   const navigate = useNavigate()
+  // Read, don't subscribe: the name only matters inside the conflict notice.
+  const me = queryClient.getQueryData<AppRouterContext>(contextQuery.queryKey)?.app?.user
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [savedPostId, setSavedPostId] = useState<string | undefined>(postId)
   const [post, setPost] = useState<Post | null>(null)
@@ -836,7 +841,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         aria-label="Post title"
         className={`w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/45 focus:outline-none sm:text-[2.5rem] sm:leading-tight ${
           // BlockNote indents blocks for its drag handles; line the title up with the body.
-          surface === 'visual' ? 'pl-[54px]' : ''
+          surface === 'visual' ? 'sm:pl-[54px]' : ''
         }`}
       />
       <Suspense fallback={<Skeleton className="h-[32rem] rounded-xl" />}>
@@ -979,7 +984,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         <section role="alert" className="rounded-lg border border-warning/35 bg-warning/10 p-4">
           <p className="font-medium text-foreground">A newer version was saved elsewhere</p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Your writing is kept here and autosave is paused. The post is now on {conflict.latest.currentVersionNumber ? `v${conflict.latest.currentVersionNumber}` : 'a newer version'}{conflict.latest.latestVersion?.actorName ? `, saved by ${conflict.latest.latestVersion.actorName}` : ''}. Choose which one continues.
+            Your writing is kept here and autosave is paused. The post is now on {conflict.latest.currentVersionNumber ? `v${conflict.latest.currentVersionNumber}` : 'a newer version'}{conflict.latest.latestVersion?.actorName ? `, saved by ${isAgentActor(conflict.latest.latestVersion.actorType) ? conflict.latest.latestVersion.actorName : personLabel(conflict.latest.latestVersion.actorName, me)}` : ''}. Choose which one continues.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={reapplyLocalAfterConflict}>Keep mine</Button>
