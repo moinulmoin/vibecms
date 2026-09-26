@@ -1,6 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
-import { PublicBlogPostView, PublicNotFoundView, siteDocumentProps } from "../components/PublicBlogPages";
+import { PublicBlogPostView, loadPostHighlighter, PublicNotFoundView, siteDocumentProps } from "../components/PublicBlogPages";
 import {
   handlePublicPostByHostGet,
   loadPublicPostForSite,
@@ -61,6 +61,7 @@ const head = blog
   : { meta: [], links: [], scripts: [] };
 const titleEntry = head.meta.find((entry) => "title" in entry);
 const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in entry);
+const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown) : null;
 ---
 {!blog ? (
 <Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={cacheSite.name} faviconAssetId={cacheSite.favicon_asset_id}>
@@ -82,7 +83,7 @@ const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in
     {head.links.map((link) => <link rel={String(link.rel)} href={String(link.href)} type={link.type ? String(link.type) : undefined} />)}
     {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
   </Fragment>
-  <PublicBlogPostView data={blog} />
+  <PublicBlogPostView data={blog} highlighter={highlighter} />
   <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
 </Base>
 )}

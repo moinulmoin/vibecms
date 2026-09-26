@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { Presentation } from "@vc/config";
 import { firstParagraph } from "@vc/core";
 import { createDbClient } from "../client";
@@ -117,6 +117,9 @@ const summaryColumns = {
   title: postVersions.title,
   slug: postVersions.slug,
   excerpt: sql<string | null>`coalesce(nullif(trim(${postVersions.excerpt}), ''), nullif(${postVersions.fallbackExcerpt}, ''))`,
+  // 1 only for a legacy version with no excerpt whose fallback was never
+  // computed; '' means "computed, no prose", so it is never recomputed.
+  excerptPending: sql<number>`(nullif(trim(${postVersions.excerpt}), '') is null and ${postVersions.fallbackExcerpt} is null)`.mapWith(Number),
   coverAssetId: postVersions.coverAssetId,
   publishedAt: posts.publishedAt,
   updatedAt: postVersions.createdAt,
@@ -239,30 +242,31 @@ function searchMatchSql(pattern: string) {
 export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
   const client = createDbClient(db);
 
-  // Legacy published versions have NULL fallbacks after 0028. Resolve only
-  // displayed rows, and persist once so later requests keep summary queries lean.
-  async function fillMissingExcerpts<T extends PublicPostSummaryRow>(siteId: string, rows: T[]): Promise<T[]> {
-    for (const row of rows) {
-      if (row.excerpt !== null) continue;
-      const version = await client.select({
-        id: postVersions.id,
-        excerpt: postVersions.excerpt,
-        fallbackExcerpt: postVersions.fallbackExcerpt,
+  // Legacy published versions have NULL fallbacks after 0028. The summary
+  // query flags them (excerptPending); fill only those, with chunked reads and
+  // one batched write, so each version is computed exactly once and a normal
+  // request costs nothing extra.
+  async function fillMissingExcerpts<T extends PublicPostSummaryRow & { excerptPending?: number }>(siteId: string, rows: T[]): Promise<T[]> {
+    const pending = rows.filter((row) => row.excerptPending);
+    for (const row of rows) delete row.excerptPending;
+    if (pending.length === 0) return rows;
+    const byPost = new Map(pending.map((row) => [row.id, row]));
+    const updates: D1PreparedStatement[] = [];
+    const ids = [...byPost.keys()];
+    for (let i = 0; i < ids.length; i += 50) {
+      const versions = await client.select({
+        postId: posts.id,
+        versionId: postVersions.id,
         contentMarkdown: postVersions.contentMarkdown,
       }).from(posts).innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
-        .where(and(eq(posts.id, row.id), eq(posts.siteId, siteId)))
-        .limit(1);
-      const pinned = version[0];
-      if (!pinned || pinned.excerpt?.trim()) continue;
-      if (pinned.fallbackExcerpt !== null) {
-        row.excerpt = pinned.fallbackExcerpt || null;
-        continue;
+        .where(and(eq(posts.siteId, siteId), inArray(posts.id, ids.slice(i, i + 50))));
+      for (const version of versions) {
+        const fallback = firstParagraph(version.contentMarkdown);
+        byPost.get(version.postId)!.excerpt = fallback || null;
+        updates.push(db.prepare("UPDATE post_versions SET fallback_excerpt = ? WHERE id = ? AND fallback_excerpt IS NULL").bind(fallback, version.versionId));
       }
-      const fallback = firstParagraph(pinned.contentMarkdown);
-      await client.update(postVersions).set({ fallbackExcerpt: fallback })
-        .where(and(eq(postVersions.id, pinned.id), sql`${postVersions.fallbackExcerpt} is null`));
-      row.excerpt = fallback || null;
     }
+    if (updates.length) await db.batch(updates);
     return rows;
   }
 

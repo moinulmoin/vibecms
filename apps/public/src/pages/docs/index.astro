@@ -5,7 +5,7 @@ import type { AstroComponentFactory } from "astro/runtime/server/index.js";
 import Base from "../../layouts/Base.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { DocsShell } from "../../components/docs/docs-shell";
-import { PublicBlogPostView, siteDocumentProps } from "../../components/PublicBlogPages";
+import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from "../../components/PublicBlogPages";
 import { docsSource } from "../../lib/docs-source";
 import { buildPostHeadContent } from "../../lib/seo-meta";
 import { resolveSite } from "../../server/public-blog-data";
@@ -56,6 +56,7 @@ const head = blog ? buildPostHeadContent({
   generatedCards: env.generatedCards,
 }) : null;
 const documentProps = blog ? siteDocumentProps(blog.site) : null;
+const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown) : null;
 ---
 {blog && head && documentProps ? (
   <Base themeAttrs={documentProps.themeAttrs} fontId={documentProps.fontId} feedHref="/feed.xml" feedTitle={blog.site.name}>
@@ -69,7 +70,7 @@ const documentProps = blog ? siteDocumentProps(blog.site) : null;
       {head.links.map((link) => <link rel={String(link.rel)} href={String(link.href)} type={link.type ? String(link.type) : undefined} />)}
       {head.scripts.map((script) => <script is:inline type={script.type} set:html={script.children} />)}
     </Fragment>
-    <PublicBlogPostView data={blog} />
+    <PublicBlogPostView data={blog} highlighter={highlighter} />
     <script is:inline src={pageViewScriptUrl} data-post-slug={blog.post.slug} defer></script>
   </Base>
 ) : page && rendered ? (

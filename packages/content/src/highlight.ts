@@ -50,19 +50,44 @@ import type { CodeHighlighter, HighlightedCode } from "./types.js";
 
 export const CODE_THEMES = { light: "vitesse-light", dark: "vitesse-dark" } as const;
 
+const GRAMMARS = [
+  astro, c, css, diff, docker, elixir, go, graphql, html, http, ini, java,
+  javascript, json, jsonc, jsx, kotlin, lua, markdown, nginx, prisma, python,
+  ruby, rust, shellscript, sql, svelte, toml, tsx, typescript, vue, xml, yaml, zig,
+];
+
+// Every name and alias a fence can use, mapped to the grammar that serves it.
+// Grammars compile only when a post first uses them: building all of them up
+// front cost ~160ms locally (far more on a cold Worker) even for posts with no code.
+const GRAMMAR_BY_LANG = new Map<string, (typeof GRAMMARS)[number]>();
+for (const grammar of GRAMMARS) {
+  for (const registration of grammar) {
+    GRAMMAR_BY_LANG.set(registration.name, grammar);
+    for (const alias of registration.aliases ?? []) GRAMMAR_BY_LANG.set(alias, grammar);
+  }
+}
+
 let shared: HighlighterCore | null = null;
 
 function core(): HighlighterCore {
   shared ??= createHighlighterCoreSync({
     themes: [vitesseLight, vitesseDark],
-    langs: [
-      astro, c, css, diff, docker, elixir, go, graphql, html, http, ini, java,
-      javascript, json, jsonc, jsx, kotlin, lua, markdown, nginx, prisma, python,
-      ruby, rust, shellscript, sql, svelte, toml, tsx, typescript, vue, xml, yaml, zig,
-    ],
+    langs: [],
     engine: createJavaScriptRegexEngine({ forgiving: true }),
   });
   return shared;
+}
+
+const loadedGrammars = new Set<(typeof GRAMMARS)[number]>();
+
+function ensureLanguage(hl: HighlighterCore, lang: string): boolean {
+  const grammar = GRAMMAR_BY_LANG.get(lang);
+  if (!grammar) return false;
+  if (!loadedGrammars.has(grammar)) {
+    hl.loadLanguageSync(grammar);
+    loadedGrammars.add(grammar);
+  }
+  return true;
 }
 
 /**
@@ -72,16 +97,15 @@ function core(): HighlighterCore {
  */
 export function createCodeHighlighter(): CodeHighlighter {
   const hl = core();
-  const loaded = new Set(hl.getLoadedLanguages());
   return {
     // Math ships with the highlighter so every surface that already lazy-loads
     // colored code (public pages, dashboard previews) renders TeX too.
     math: createMathRenderer(),
     supports(lang) {
-      return loaded.has(lang);
+      return GRAMMAR_BY_LANG.has(lang);
     },
     highlight(code, lang): HighlightedCode | null {
-      if (!loaded.has(lang)) return null;
+      if (!ensureLanguage(hl, lang)) return null;
       const root = hl.codeToHast(code, {
         lang,
         themes: CODE_THEMES,

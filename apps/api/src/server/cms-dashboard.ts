@@ -79,12 +79,13 @@ export type DashboardData = {
 
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {
   const db = createDataAccess(env.DB)
-  const agg = await db.dashboard.getDashboardAggregate(app.siteId)
-
-  const [billingStatus, entitlement, apiUsage] = await Promise.all([
+  // Independent reads run together: one D1 round-trip window, not four.
+  const [agg, billingStatus, entitlement, apiUsage, proof] = await Promise.all([
+    db.dashboard.getDashboardAggregate(app.siteId),
     getBillingStatus(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
     getApiUsageSummary({ workspaceId: app.workspaceId, siteId: app.siteId }),
+    db.dashboard.getActivationPost(app.siteId),
   ])
 
   // One-time repair of a stale local default hostname to the configured slug zone; mirrors site-public-url.ts.
@@ -102,7 +103,6 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
   const publicBaseUrl = agg.site ? publicUrlForHostname(hostname) : null
   // activationPost surfaces the durable live agent proof on Overview; the URL is
   // derived from the same live proof and the active public base URL (never fabricated).
-  const proof = await db.dashboard.getActivationPost(app.siteId)
   const activationPost = toActivationPost(proof, publicBaseUrl)
 
   return {

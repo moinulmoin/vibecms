@@ -1,5 +1,4 @@
 import { renderRichContent, type CodeHighlighter } from "@vc/content";
-import { createCodeHighlighter } from "@vc/content/highlight";
 import {
   PresentedPostArticle,
   articleHasToc,
@@ -25,11 +24,16 @@ import styles from "./public-blog.module.css";
 
 const DEFAULT_LISTING: PublicListingContext = { kind: "index" };
 export const PUBLIC_INDEX_PAGE_SIZE = 20;
-let highlighter: CodeHighlighter | null = null;
-/** Built on the first post render, not at Worker startup (index pages never need it). */
-function codeHighlighter(): CodeHighlighter {
-  highlighter ??= createCodeHighlighter();
-  return highlighter;
+let highlighterPromise: Promise<CodeHighlighter> | null = null;
+// Fences, `::: install` blocks, and `$` math are the only things that need
+// Shiki/KaTeX. Everything else renders without loading them at all.
+const NEEDS_HIGHLIGHTER = /(?:^|\n) {0,3}(?:```|~~~|:::)|\$/;
+
+/** Loads the code/math highlighter only for posts that use it (imported on demand, once per isolate). */
+export function loadPostHighlighter(markdown: string): Promise<CodeHighlighter | null> {
+  if (!NEEDS_HIGHLIGHTER.test(markdown)) return Promise.resolve(null);
+  highlighterPromise ??= import("@vc/content/highlight").then((m) => m.createCodeHighlighter());
+  return highlighterPromise;
 }
 
 function publicIndexHref(basePath: string) {
@@ -258,7 +262,7 @@ function postAuthor(data: PublicPostLoaderData): ArticleAuthor {
   return data.byline;
 }
 
-export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
+export function PublicBlogPostView({ data, highlighter = null }: { data: PublicPostLoaderData; highlighter?: CodeHighlighter | null }) {
   const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
   const presetId = resolvePresetId(site.theme);
@@ -268,7 +272,7 @@ export function PublicBlogPostView({ data }: { data: PublicPostLoaderData }) {
     presetId,
     pageTitle: post.title,
     resolveImage: resolveResponsiveMediaSource,
-    highlighter: codeHighlighter(),
+    highlighter,
   });
   const coverMedia = post.cover_asset_id
     ? buildResponsiveMediaUrls(post.cover_asset_id)

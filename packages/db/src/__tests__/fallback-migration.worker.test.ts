@@ -40,3 +40,28 @@ it('leaves legacy SQL excerpts empty, clears old garbled values, then persists t
   expect((await stored())?.fallback_excerpt).toBe('Read the guide.')
   expect((await readModel.listPublishedPostSummaries('fallback-site', 3, 10))[0]?.excerpt).toBe('Read the guide.')
 })
+
+it('computes a no-prose fallback once and never flags it again', async () => {
+  await env.DB.prepare(`INSERT INTO posts
+    (id, site_id, title, slug, content_markdown, status, published_at,
+     created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at)
+    VALUES ('code-post', 'fallback-site', 'Code only', 'code-only', 'x', 'published', 2,
+      'human', 'fallback-user', 'human', 'fallback-user', 1, 3)`).run()
+  await env.DB.prepare(`INSERT INTO post_versions
+    (id, post_id, site_id, version_number, title, slug, content_markdown, status,
+     created_by_type, created_by_id, created_at)
+    VALUES ('code-version', 'code-post', 'fallback-site', 1, 'Code only', 'code-only',
+      '## Only code' || char(10) || char(10) || '~~~ts' || char(10) || 'run()' || char(10) || '~~~',
+      'draft', 'human', 'fallback-user', 1)`).run()
+  await env.DB.prepare("UPDATE posts SET published_version_id = 'code-version' WHERE id = 'code-post'").run()
+  const readModel = createPublicBlogReadModel(env.DB)
+  const first = await readModel.listPublishedPostSummaries('fallback-site', 3, 10)
+  expect(first.find((row) => row.id === 'code-post')?.excerpt).toBeNull()
+  const stored = await env.DB.prepare("SELECT fallback_excerpt FROM post_versions WHERE id = 'code-version'").first<{ fallback_excerpt: string | null }>()
+  expect(stored?.fallback_excerpt).toBe('')
+  const pending = await env.DB.prepare(
+    "SELECT (nullif(trim(excerpt), '') is null and fallback_excerpt is null) AS p FROM post_versions WHERE id = 'code-version'",
+  ).first<{ p: number }>()
+  expect(pending?.p).toBe(0)
+  expect(first.every((row) => !('excerptPending' in row))).toBe(true)
+})
