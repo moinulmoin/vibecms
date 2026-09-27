@@ -20,7 +20,7 @@ Last updated: 2026-09-03
 
 ### Content / posts
 - Markdown-native posts; status model `draft | published | archived`.
-- Create / update (true patch) / publish / archive; publish is atomic + idempotent.
+- Create / update (true patch) / publish / archive; publish is atomic + idempotent. Agents archive; people can permanently delete archived posts in the dashboard, including their versions and history.
 - Fields: title, slug, excerpt, contentMarkdown (<=500 KB), coverAssetId, seoTitle, seoDescription, tags (<=20), presentation (layout/TOC).
 - Per-site unique slugs; slug conflict surfaced as `slug_conflict`.
 

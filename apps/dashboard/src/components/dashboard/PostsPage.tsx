@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Bot, ExternalLink, FileText, Inbox, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, X } from 'lucide-react'
+import { Archive, Bot, ExternalLink, FileText, Inbox, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/types/dashboard'
-import { archivePostMutation, loadPostsPage, unarchivePostMutation } from '~/lib/api-client'
+import { archivePostMutation, deleteArchivedPostMutation, loadPostsPage, unarchivePostMutation } from '~/lib/api-client'
 import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, PageTabs, StatusBadge } from '~/components/dashboard/blocks'
 import { Tabs } from '~/components/ui/tabs'
@@ -117,7 +117,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     })
   }
 
-  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore') {
+  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore' | 'delete') {
     const key = `${post.id}:${action}`
     setRowPending(key)
     setRowError(null)
@@ -125,12 +125,16 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     try {
       const result = action === 'archive'
         ? await archivePostMutation({ postId: post.id })
-        : await unarchivePostMutation({ postId: post.id })
+        : action === 'restore'
+          ? await unarchivePostMutation({ postId: post.id })
+          : await deleteArchivedPostMutation({ postId: post.id })
       if (result.kind === 'error') throw new Error(result.code)
       toast(
         action === 'archive'
           ? { variant: 'success', title: 'Post archived', message: `“${post.title}” is hidden from your blog. History is kept.` }
-          : { variant: 'success', title: 'Restored to draft', message: `“${post.title}” is a draft again.` },
+          : action === 'restore'
+            ? { variant: 'success', title: 'Restored to draft', message: `“${post.title}” is a draft again.` }
+            : { variant: 'success', title: 'Post deleted', message: `“${post.title}” was permanently deleted.` },
       )
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['posts'] }),
@@ -223,6 +227,8 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 error={rowError?.postId === post.id ? rowError : null}
                 onArchive={() => runRowMutation(post, 'archive')}
                 onRestore={() => void runRowMutation(post, 'restore')}
+                onDelete={() => runRowMutation(post, 'delete')}
+                showDelete={status === 'archived'}
                 me={me}
               />
             ))}
@@ -288,6 +294,8 @@ function PostRow({
   error,
   onArchive,
   onRestore,
+  onDelete,
+  showDelete,
   me,
 }: {
   me?: { email?: string | null; name?: string | null }
@@ -298,6 +306,8 @@ function PostRow({
   error: { message: string; retry: () => void } | null
   onArchive: () => Promise<void>
   onRestore: () => void
+  onDelete: () => Promise<void>
+  showDelete: boolean
 }) {
   const review = reviewLabel(post)
   const agentWrote = isAgentActor(post.latestActorType ?? post.updatedByType)
@@ -374,6 +384,22 @@ function PostRow({
             <RotateCcw aria-hidden data-icon="inline-start" />
             {pendingKey === `${post.id}:restore` ? 'Restoring…' : 'Restore'}
           </Button>
+        ) : null}
+        {canEdit && showDelete && post.status === 'archived' ? (
+          <SpaConfirmButton
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground hover:text-destructive"
+            confirmationKey={post.id}
+            confirmLabel={`Delete “${post.title}” forever?`}
+            pendingLabel="Deleting…"
+            helperText="Versions and history go too. This can't be undone."
+            disabled={Boolean(pendingKey)}
+            onConfirm={onDelete}
+          >
+            <Trash2 aria-hidden />
+            <span className="sr-only">Delete “{post.title}” forever</span>
+          </SpaConfirmButton>
         ) : null}
         {canEdit && post.status !== 'archived' ? (
           <SpaConfirmButton

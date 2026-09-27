@@ -138,6 +138,16 @@ export const postVersions = sqliteTable("post_versions", {
   createdAt: integer("created_at").notNull(),
 }, (table) => [uniqueIndex("idx_post_versions_post_number").on(table.postId, table.versionNumber)]);
 
+export const postSlugRedirects = sqliteTable("post_slug_redirects", {
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  fromSlug: text("from_slug").notNull(),
+  postId: text("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_post_slug_redirects_site_slug").on(table.siteId, table.fromSlug),
+  index("idx_post_slug_redirects_post_id").on(table.postId),
+]);
+
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),

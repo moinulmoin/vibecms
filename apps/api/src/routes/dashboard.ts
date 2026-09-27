@@ -11,6 +11,7 @@ import {
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   createPostForApp,
+  deleteArchivedPostForApp,
   deleteSubscriberForApp,
   exportSubscribersCsv,
   getNewsletterSettingsForApp,
@@ -399,6 +400,20 @@ dashboardRoutes.post('/posts/unarchive', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ postId: string }>()
   return c.json(await unarchivePostForApp(auth.app, body.postId))
+})
+
+dashboardRoutes.post('/posts/delete', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId?: string }>()
+  if (!body.postId) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'postId required' } }, 400)
+  try {
+    return c.json(await deleteArchivedPostForApp(auth.app, body.postId))
+  } catch (error) {
+    return jsonAppError(error)
+  }
 })
 
 dashboardRoutes.get('/posts/versions', async (c) => {

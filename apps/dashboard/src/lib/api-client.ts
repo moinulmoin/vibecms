@@ -465,6 +465,10 @@ export function unarchivePostMutation(data: { postId: string }) {
   return dashboardPost<MutationResult>('/api/dashboard/posts/unarchive', data)
 }
 
+export function deleteArchivedPostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/delete', data)
+}
+
 export function listPostVersionsFn(data: { postId: string }, signal?: AbortSignal) {
   const params = new URLSearchParams({ postId: data.postId })
   return dashboardFetch<PostVersionSummary[]>(`/api/dashboard/posts/versions?${params}`, {

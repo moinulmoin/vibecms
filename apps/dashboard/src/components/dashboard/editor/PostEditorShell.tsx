@@ -12,12 +12,13 @@ import { useMediaQuery } from '~/hooks/use-media-query'
 import {
   archivePostMutation,
   createPostMutation,
+  deleteArchivedPostMutation,
   loadPostEditorPage,
   publishPostMutation,
   restorePostVersionFn,
   updatePostMutation,
 } from '~/lib/api-client'
-import { emptyPostsListSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
+import { emptyPostsListSearch, postsListSearch, statusSearchFromMutation } from '~/lib/dashboard-search'
 import { hasPendingChanges, isAgentActor } from '~/lib/post-review'
 import { personLabel } from '~/lib/people'
 import { contextQuery, queryClient } from '~/lib/queries'
@@ -215,6 +216,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [presetId, setPresetId] = useState('minimal')
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
   const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
+  const [redirectSlugs, setRedirectSlugs] = useState<string[]>([])
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
   const [content, setContent] = useState('')
   const [metadata, setMetadata] = useState<EditorMetadata>(() => metadataFromPost(null, 'standard', false))
@@ -243,6 +245,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [publishPending, setPublishPending] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [archivePending, setArchivePending] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
   const [restorePending, setRestorePending] = useState<number | null>(null)
   const [discardPending, setDiscardPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -306,6 +309,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     setPresetId(nextPreset)
     setPublicBaseUrl(result.publicBaseUrl)
     setLatestVersion(result.latestVersion)
+    setRedirectSlugs(result.redirectSlugs ?? [])
     setVersion(result.currentVersionNumber)
     setMissing(result.missing)
     return nextPreset
@@ -558,6 +562,21 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       await captureConflict(error)
     } finally {
       setArchivePending(false)
+    }
+  }
+
+  async function handleDelete() {
+    const postIdNow = activePostIdRef.current
+    if (!postIdNow || post?.status !== 'archived') return
+    setActionError(null)
+    setDeletePending(true)
+    try {
+      await deleteArchivedPostMutation({ postId: postIdNow })
+      await navigate({ to: '/dashboard/posts', search: postsListSearch({ status: 'archived' }) })
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete this post.')
+    } finally {
+      setDeletePending(false)
     }
   }
 
@@ -1021,6 +1040,27 @@ export function PostEditorShell({ postId }: { postId?: string }) {
               onChange={updateMetadata}
               onUploadCover={coverUpload}
             />
+            {post?.status === 'published' && redirectSlugs.length > 0 ? (
+              <p className="mt-5 text-xs text-muted-foreground">Old links redirect here: {redirectSlugs.map((slug) => `/${slug}`).join(', ')}</p>
+            ) : null}
+            {post?.status === 'archived' ? (
+              <div className="mt-7 border-t border-[color:var(--hairline)] pt-5">
+                <SpaConfirmButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-3 text-muted-foreground"
+                  confirmationKey={post.id}
+                  confirmLabel={`Delete “${post.title}” forever?`}
+                  pendingLabel="Deleting…"
+                  helperText="Versions and history go too. This can't be undone."
+                  disabled={deletePending}
+                  onConfirm={handleDelete}
+                >
+                  Delete post forever
+                </SpaConfirmButton>
+              </div>
+            ) : null}
             {post && post.status !== 'archived' ? (
               <div className="mt-7 border-t border-[color:var(--hairline)] pt-5">
                 <SpaConfirmButton

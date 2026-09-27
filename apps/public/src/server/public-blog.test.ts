@@ -4,6 +4,7 @@ import {
   markdownRequested,
   publicHtmlResponseHeaders,
   publicListingResponseHeaders,
+  publicPostRedirect,
   RESERVED_ROOT_SLUGS,
   isReadableTenantPostSlug,
   stripMarkdownSuffix,
@@ -61,6 +62,21 @@ const site = {
 const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false, generatedCards: false };
 
 describe("markdown negotiation", () => {
+  it("redirects old HTML and .md links with a site cache tag, but not archived targets", async () => {
+    let live = true;
+    const db = {
+      prepare: () => ({ bind: () => ({ first: async () => live ? { slug: "new" } : null }) }),
+    } as unknown as D1Database;
+    for (const suffix of ["", ".md"]) {
+      const request = new Request(`https://demo.example.com/old${suffix}`);
+      const response = await publicPostRedirect(db, site, "old", request, env);
+      expect(response?.status).toBe(301);
+      expect(response?.headers.get("location")).toBe(`https://demo.example.com/new${suffix}`);
+      expect(response?.headers.get("cache-tag")).toBe("vc-site:site-1");
+    }
+    live = false;
+    expect(await publicPostRedirect(db, site, "old", new Request("https://demo.example.com/old"), env)).toBeNull();
+  });
   it("detects Accept: text/markdown", () => {
     const req = new Request("https://demo.example.com/post", { headers: { accept: "text/markdown" } });
     expect(markdownRequested(req)).toBe(true);

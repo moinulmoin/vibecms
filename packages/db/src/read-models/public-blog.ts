@@ -24,6 +24,18 @@ export const PUBLIC_BLOG_LIMITS = {
   searchCandidates: 500,
 } as const;
 
+/** Resolve only redirects whose target still has a live pinned version. */
+export async function getPublishedSlugRedirect(db: D1Database, siteId: string, fromSlug: string): Promise<string | null> {
+  const row = await db.prepare(`SELECT live.slug AS slug
+    FROM post_slug_redirects AS redirect
+    JOIN posts AS post ON post.id = redirect.post_id AND post.site_id = redirect.site_id
+    JOIN post_versions AS live ON live.id = post.published_version_id AND live.post_id = post.id
+    WHERE redirect.site_id = ? AND redirect.from_slug = ? AND post.status = 'published'
+      AND post.published_at <= ? AND live.slug <> redirect.from_slug`)
+    .bind(siteId, fromSlug, Math.floor(Date.now() / 1000)).first<{ slug: string }>();
+  return row?.slug ?? null;
+}
+
 // Public site read model: site fields + LEFT-joined billing status/period + correlated published count.
 export interface PublicSiteRow {
   id: string;

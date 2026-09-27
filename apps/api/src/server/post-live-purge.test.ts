@@ -10,8 +10,16 @@ vi.mock("@/server/purge-scheduler", () => ({
 }));
 
 import { scheduleArticlePurge } from "@/server/purge-scheduler";
+import { deleteArchivedPostForApp } from "./post-mutations";
+import type { AppUserContext } from "./onboarding";
 
 describe("uniqueArticlePurgeSlugs", () => {
+  it("refuses permanent deletion for a viewer and an agent", async () => {
+    const app = { siteId: "site", actor: { type: "human", role: "viewer", id: "viewer", name: "Viewer" } } as AppUserContext;
+    await expect(deleteArchivedPostForApp(app, "post")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const agent = { siteId: "site", actor: { type: "api_key", id: "key", name: "Agent", scopes: ["posts:archive"] } } as AppUserContext;
+    await expect(deleteArchivedPostForApp(agent, "post")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
   it("dedupes equal old/new live slugs", () => {
     expect(uniqueArticlePurgeSlugs("same", "same")).toEqual(["same"]);
   });

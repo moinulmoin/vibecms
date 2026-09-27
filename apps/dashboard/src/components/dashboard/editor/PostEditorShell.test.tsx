@@ -9,6 +9,7 @@ import type { PostEditorPageLoad } from '~/types/dashboard'
 const api = vi.hoisted(() => ({
   archivePostMutation: vi.fn(),
   createPostMutation: vi.fn(),
+  deleteArchivedPostMutation: vi.fn(),
   loadPostEditorPage: vi.fn(),
   publishPostMutation: vi.fn(),
   restorePostVersionFn: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock('@vc/content', () => ({
 vi.mock('~/lib/api-client', () => ({
   archivePostMutation: api.archivePostMutation,
   createPostMutation: api.createPostMutation,
+  deleteArchivedPostMutation: api.deleteArchivedPostMutation,
   loadPostEditorPage: api.loadPostEditorPage,
   publishPostMutation: api.publishPostMutation,
   restorePostVersionFn: api.restorePostVersionFn,
@@ -121,6 +123,27 @@ describe('PostEditorShell', () => {
   afterEach(() => {
     vi.clearAllMocks()
     document.body.innerHTML = ''
+  })
+
+  it('offers permanent deletion only for an archived post and calls the dashboard API after two clicks', async () => {
+    const page = editorPage('Archive', 2)
+    page.post = { ...page.post!, status: 'archived' }
+    api.loadPostEditorPage.mockResolvedValueOnce(page)
+    api.deleteArchivedPostMutation.mockResolvedValueOnce({ kind: 'ok', code: 'post_deleted' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await settle()
+    const settings = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Settings'))
+    await act(async () => settings?.click())
+    const action = () => [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Delete post forever') || button.textContent?.includes('Delete “Exact Markdown” forever?'))
+    expect(action()).toBeDefined()
+    await act(async () => action()?.click())
+    expect(api.deleteArchivedPostMutation).not.toHaveBeenCalled()
+    await act(async () => action()?.click())
+    expect(api.deleteArchivedPostMutation).toHaveBeenCalledWith({ postId: 'post-1' })
+    await act(async () => root.unmount())
   })
 
   it('switches an unsafe paste to Markdown with the source intact', async () => {

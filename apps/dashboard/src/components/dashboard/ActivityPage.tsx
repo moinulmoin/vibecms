@@ -16,6 +16,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@vc/ui'
@@ -37,6 +38,7 @@ const ACTION_ICONS: Array<[prefix: string, Icon: LucideIcon]> = [
   ['post.published', Globe],
   ['post.archived', Archive],
   ['post.unarchived', ArchiveRestore],
+  ['post.deleted', Trash2],
   ['post.restored', History],
   ['asset.uploaded', ImagePlus],
   ['asset.deleted', ImageMinus],
@@ -83,7 +85,7 @@ function ActivityRow({ event, canEdit, me }: { event: ActivityEvent; canEdit: bo
   const Icon = activityIcon(event.action)
   const agent = isAgent(event.actor_type)
   // Viewers can't open the editor, so their rows stay plain text.
-  const postId = canEdit && event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' ? event.entity_id : null
+  const postId = canEdit && event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' && event.action !== 'post.deleted' ? event.entity_id : null
   const summary = activitySummary(event.action, event.summary)
 
   return (

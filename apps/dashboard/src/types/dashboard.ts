@@ -348,6 +348,7 @@ export type PostEditorPageLoad = {
   currentVersionNumber: number | null
   /** Latest saved version (newest first), for the review strip's actor/time line. */
   latestVersion: PostVersionSummary | null
+  redirectSlugs?: string[]
 }
 
 export type PostsPageLoad = {

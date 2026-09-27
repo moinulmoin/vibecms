@@ -41,6 +41,7 @@ import type { AppUserContext } from '@/server/onboarding'
 import {
   archivePostForApp,
   createPostForApp,
+  deleteArchivedPostForApp,
   publishPostForApp,
   restorePostVersionForApp,
   updatePostForApp,
@@ -424,6 +425,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   const repo = postRepository()
   const post = await repo.getPost(app.siteId, postId)
   const versions = post ? await listPostVersions(repo, app.actor, { siteId: app.siteId, postId }) : []
+  const redirectSlugs = post?.status === 'published' ? await repo.listPostRedirects(app.siteId, postId) : []
   return {
     mode: 'edit' as const,
     post: post as Post | null,
@@ -434,6 +436,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
     publicBaseUrl,
     currentVersionNumber: post?.currentVersionNumber ?? null,
     latestVersion: versions[0] ?? null,
+    redirectSlugs,
   }
 }
 
@@ -547,6 +550,7 @@ export {
   updatePostForApp,
   publishPostForApp,
   archivePostForApp,
+  deleteArchivedPostForApp,
   restorePostVersionForApp,
   unarchivePostForApp,
   createCheckoutSessionForApp,

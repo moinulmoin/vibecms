@@ -164,6 +164,19 @@ export async function unarchivePostForApp(app: AppUserContext, postId: string): 
   }
 }
 
+/** Human dashboard action only; deliberately absent from agent commands. */
+export async function deleteArchivedPostForApp(app: AppUserContext, postId: string) {
+  if (app.actor.type !== 'human' || (app.actor.role !== 'owner' && app.actor.role !== 'editor')) {
+    throw new ForbiddenError('Only owners and editors can permanently delete posts')
+  }
+  const repo = repository()
+  const deleted = await repo.deleteArchivedPost(app.siteId, postId, app.actor)
+  if (!deleted) throw new NotFoundError('Post not found')
+  const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
+  if (siteSlug) scheduleLiveArticlePurges(app.siteId, siteSlug, deleted.publishedSlug, deleted.slug)
+  return { kind: 'ok' as const, code: 'post_deleted', postId }
+}
+
 export async function restorePostVersionForApp(
   app: AppUserContext,
   postId: string,

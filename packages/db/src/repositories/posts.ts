@@ -177,7 +177,12 @@ function mapPostError(error: unknown): unknown {
   return error;
 }
 
-export function createD1PostRepository(db: D1Database): PostRepository {
+export interface D1PostRepository extends PostRepository {
+  deleteArchivedPost(siteId: string, postId: string, actor: Actor): Promise<Post | null>;
+  listPostRedirects(siteId: string, postId: string): Promise<string[]>;
+}
+
+export function createD1PostRepository(db: D1Database): D1PostRepository {
   const client = createDbClient(db);
 
   const postWithVersions = {
@@ -669,6 +674,14 @@ export function createD1PostRepository(db: D1Database): PostRepository {
             options.freeLimit,
             expectedVersionNumber,
           ),
+          db.prepare(`INSERT INTO post_slug_redirects (site_id, from_slug, post_id, created_at)
+            SELECT ?, ?, ?, ? WHERE changes() = 1 AND ? IS NOT NULL AND ? <> ?
+            ON CONFLICT(site_id, from_slug) DO UPDATE SET post_id = excluded.post_id, created_at = excluded.created_at`)
+            .bind(siteId, before.publishedSlug, postId, timestamp, before.status === "published" ? before.publishedSlug : null, before.publishedSlug, before.slug),
+          db.prepare(`DELETE FROM post_slug_redirects WHERE site_id = ? AND from_slug = ?
+            AND EXISTS (SELECT 1 FROM posts WHERE site_id = ? AND id = ? AND status = 'published'
+              AND published_version_id = (SELECT id FROM post_versions WHERE site_id = ? AND post_id = ? AND version_number = ?))`)
+            .bind(siteId, before.slug, siteId, postId, siteId, postId, expectedVersionNumber),
           db.prepare(
             `INSERT INTO activity_events (
               id, site_id, actor_type, actor_id, actor_name, action, entity_type,
@@ -728,6 +741,43 @@ export function createD1PostRepository(db: D1Database): PostRepository {
         return { post: current, capReached: false, versionConflict: false };
       }
       return { post: null, capReached: true, versionConflict: false };
+    },
+
+    async deleteArchivedPost(siteId: string, postId: string, actor: Actor) {
+      const before = await getPost(siteId, postId);
+      if (!before) return null;
+      if (before.status !== "archived") throw new ConflictError("Only archived posts can be permanently deleted");
+      const timestamp = now();
+      const [, event, deleted] = await db.batch([
+        // Forever means the writing is gone, not the record of who did what:
+        // keep the post's history, drop the content snapshots it carried.
+        db.prepare(`UPDATE activity_events SET before_json = NULL, after_json = NULL
+          WHERE site_id = ? AND entity_type = 'post' AND entity_id = ?
+          AND EXISTS (SELECT 1 FROM posts WHERE site_id = ? AND id = ? AND status = 'archived')`)
+          .bind(siteId, postId, siteId, postId),
+        db.prepare(`INSERT INTO activity_events (
+          id, site_id, actor_type, actor_id, actor_name, action, entity_type,
+          entity_id, summary, before_json, after_json, created_at
+        ) SELECT ?, ?, ?, ?, ?, 'post.deleted', 'post', ?, ?, NULL, NULL, ?
+          FROM posts WHERE site_id = ? AND id = ? AND status = 'archived'`)
+          .bind(crypto.randomUUID(), siteId, actor.type, actor.id, actor.name, postId,
+            `Deleted ${before.title}`, timestamp, siteId, postId),
+        db.prepare("DELETE FROM posts WHERE site_id = ? AND id = ? AND status = 'archived'")
+          .bind(siteId, postId),
+      ]);
+      if (!deleted.meta.changes) {
+        if (event.meta.changes) throw new Error("Post deletion did not follow activity event");
+        const current = await getPost(siteId, postId);
+        if (current) throw new ConflictError("Only archived posts can be permanently deleted");
+        return null;
+      }
+      return before;
+    },
+
+    async listPostRedirects(siteId: string, postId: string): Promise<string[]> {
+      const result = await db.prepare("SELECT from_slug FROM post_slug_redirects WHERE site_id = ? AND post_id = ? ORDER BY created_at, from_slug")
+        .bind(siteId, postId).all<{ from_slug: string }>();
+      return result.results.map((row) => row.from_slug);
     },
 
     async listPostVersions(siteId, postId) {

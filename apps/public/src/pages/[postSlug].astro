@@ -6,6 +6,7 @@ import {
   loadPublicPostForSite,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
+  publicPostRedirect,
 } from "../server/public-blog";
 import { buildPostHeadContent } from "../lib/seo-meta";
 import { resolveSite } from "../server/public-blog-data";
@@ -34,6 +35,10 @@ if (cacheSite.effective_entitlement.effective) {
 const blog = await loadPublicPostForSite(db, Astro.request.url, cacheSite, postSlug, env);
 const { themeAttrs: siteThemeAttrs, fontId } = siteDocumentProps(cacheSite);
 if (!blog) {
+  if (postSlug) {
+    const redirect = await publicPostRedirect(db, cacheSite, postSlug, Astro.request, env);
+    if (redirect) return redirect;
+  }
   Astro.response.status = 404;
   Astro.response.headers.set("cache-control", "no-store");
 }

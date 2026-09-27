@@ -1,3 +1,4 @@
+import { getPublishedSlugRedirect } from "@vc/db";
 import {
   getPublishedPost,
   isPublicBlogIndexable,
@@ -20,6 +21,7 @@ import {
   matchArticleResponseCache,
   publicCacheControlForEntitlement,
   putArticleResponseCache,
+  siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 import { resolvePublicByline, type PublicByline } from "../lib/byline";
@@ -51,6 +53,22 @@ export function isReadableTenantPostSlug(slug: string | undefined): slug is stri
 
 function notFound() {
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+
+export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv): Promise<Response | null> {
+  const target = await getPublishedSlugRedirect(db, site.id, slug);
+  if (!target) return null;
+  const url = new URL(request.url);
+  const markdown = url.pathname.endsWith(".md");
+  url.pathname = `/${target}${markdown ? ".md" : ""}`;
+  url.search = "";
+  return new Response(null, {
+    status: 301,
+    headers: {
+      location: url.href,
+      ...publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]),
+    },
+  });
 }
 
 export function markdownRequested(request: Request) {
@@ -147,7 +165,7 @@ async function publicPostMarkdownResponse(
   env: PublicRuntimeEnv,
 ) {
   const post = await getPublishedPost(db, site.id, slug);
-  if (!post) return notFound();
+  if (!post) return await publicPostRedirect(db, site, slug, request, env) ?? notFound();
   const origin = publicOrigin(request.url);
   const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, origin).href;
   const markdownHref = new URL(`${basePath}/${slug}.md`, origin).href;

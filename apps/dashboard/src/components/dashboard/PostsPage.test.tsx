@@ -1,0 +1,70 @@
+// @vitest-environment happy-dom
+import { act, type ReactNode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { DashboardPostSummary } from '~/types/dashboard'
+
+const mock = vi.hoisted(() => ({
+  deletePost: vi.fn(async () => ({ kind: 'ok', code: 'post_deleted' })),
+  navigate: vi.fn(),
+  invalidate: vi.fn(async () => undefined),
+  status: 'archived',
+  posts: [] as DashboardPostSummary[],
+}))
+
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
+  useInfiniteQuery: () => ({ data: { pages: [{ posts: mock.posts, publicBaseUrl: null, hasMore: false }] }, isPlaceholderData: false }),
+  useQuery: () => ({ data: { app: { user: { name: 'Owner' } } } }),
+  useQueryClient: () => ({ invalidateQueries: mock.invalidate }),
+}))
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
+  useNavigate: () => mock.navigate,
+}))
+vi.mock('~/lib/api-client', () => ({
+  archivePostMutation: vi.fn(),
+  deleteArchivedPostMutation: mock.deletePost,
+  loadPostsPage: vi.fn(),
+  unarchivePostMutation: vi.fn(),
+}))
+vi.mock('~/components/Toaster', () => ({ useToast: () => ({ toast: vi.fn() }) }))
+
+import { PostsPage } from './PostsPage'
+import { postsListSearch } from '~/lib/dashboard-search'
+
+function post(status: DashboardPostSummary['status']): DashboardPostSummary {
+  return {
+    id: 'post-1', title: 'A title', slug: 'a-title', publishedSlug: null, published: null,
+    excerpt: null, coverAssetId: null, status, publishedAt: null, tags: [],
+    createdAt: 1, updatedAt: 1, versionNumber: 1, publishedVersionNumber: null,
+    latestActorType: 'human', updatedByType: 'human', updatedByName: 'Owner',
+  }
+}
+
+describe('PostsPage permanent delete', () => {
+  afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
+
+  it('shows the action only on an archived row in the Archived tab and calls the dashboard API after confirmation', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    const deleteButton = () => Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
+      .find((button) => button.textContent?.includes('Delete “A title”'))
+    mock.posts = [post('published')]
+    await act(async () => root.render(<PostsPage search={postsListSearch({ status: 'archived' })} canEdit />))
+    expect(deleteButton()).toBeUndefined()
+    mock.posts = [post('archived')]
+    await act(async () => root.render(<PostsPage search={postsListSearch({ status: 'archived' })} canEdit />))
+    const button = deleteButton()
+    expect(button).toBeDefined()
+    await act(async () => button?.click())
+    expect(container.textContent).toContain('Delete “A title” forever?')
+    expect(mock.deletePost).not.toHaveBeenCalled()
+    await act(async () => deleteButton()?.click())
+    expect(mock.deletePost).toHaveBeenCalledWith({ postId: 'post-1' })
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    expect(deleteButton()).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+})
