@@ -5,8 +5,8 @@ declare module 'vitest' { interface ProvidedContext { migrations: D1Migration[] 
 import { beforeAll, describe, expect, inject, it } from 'vitest';
 import { env } from 'cloudflare:workers';
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test';
-import { createD1PostRepository, schedulePost } from '@vc/db';
-import { ConflictError, publishScheduledPost, type Actor } from '@vc/core';
+import { claimDueSchedules, createD1PostRepository, schedulePost } from '@vc/db';
+import { archivePost, ConflictError, publishScheduledPost, unarchivePost, type Actor } from '@vc/core';
 import { processDueSchedules } from './post-scheduler';
 
 const SITE = 'scheduler-regression-site';
@@ -37,6 +37,37 @@ async function status(postId: string) {
 }
 
 describe('minute scheduled publishing with a fake clock', () => {
+  it('does not publish an old schedule after archive and restore', async () => {
+    const item = await post();
+    const clock = 1_800_003_000;
+    await schedulePost(env.DB, SITE, item.id, 1, clock, actor, clock - 10);
+    await archivePost(repo, actor, { siteId: SITE, postId: item.id });
+    await unarchivePost(repo, actor, { siteId: SITE, postId: item.id });
+    let calls = 0;
+    expect(await processDueSchedules(env.DB, clock, async () => { calls++; }))
+      .toEqual({ published: 0, failed: 0, retrying: 0 });
+    expect(calls).toBe(0);
+    expect(await status(item.id)).toBeNull();
+    const event = await env.DB.prepare("SELECT summary FROM activity_events WHERE entity_id = ? AND action = 'post.archived'")
+      .bind(item.id).first<{ summary: string }>();
+    expect(event?.summary).toContain('cancelled any pending schedule');
+  });
+
+  it('invalidates a claimed lease before a restored post can be published', async () => {
+    const item = await post();
+    const clock = 1_800_004_000;
+    await schedulePost(env.DB, SITE, item.id, 1, clock, actor, clock - 10);
+    const [claimed] = await claimDueSchedules(env.DB, clock);
+    expect(claimed?.postId).toBe(item.id);
+    await archivePost(repo, actor, { siteId: SITE, postId: item.id });
+    await unarchivePost(repo, actor, { siteId: SITE, postId: item.id });
+    await expect(publishScheduledPost(repo, { type: 'system', id: 'system', name: 'System' }, {
+      siteId: SITE, postId: item.id, versionNumber: claimed!.versionNumber,
+      billingStatus: 'active', scheduledBy: actor.name, leaseToken: claimed!.leaseToken!,
+    })).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await repo.getPost(SITE, item.id))?.status).toBe('draft');
+    expect(await status(item.id)).toBeNull();
+  });
   it('ignores not-due work and processes a due version once', async () => {
     const item = await post();
     const clock = 1_800_000_000;
@@ -70,8 +101,8 @@ describe('minute scheduled publishing with a fake clock', () => {
         siteId: SITE, postId: item.id, versionNumber: schedule.versionNumber,
         billingStatus: 'active', scheduledBy: actor.name, leaseToken: schedule.leaseToken!,
       });
-    })).toEqual({ published: 0, failed: 1, retrying: 0 });
-    expect(await status(item.id)).toMatchObject({ status: 'failed', error: 'Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.' });
+    })).toEqual({ published: 0, failed: 0, retrying: 0 });
+    expect(await status(item.id)).toBeNull();
     expect((await repo.getPost(SITE, item.id))?.status).toBe('archived');
   });
 

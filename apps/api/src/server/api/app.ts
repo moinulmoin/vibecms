@@ -263,7 +263,8 @@ apiV1App.openapi(rotatePostPreviewRoute, async (c) => {
 
 apiV1App.openapi(archivePostRoute, async (c) => {
   const { postId } = c.req.valid("param");
-  const post = await archivePostOp(c.get("ctx"), { postId });
+  const { expectedVersionNumber } = c.req.valid("json") ?? {};
+  const post = await archivePostOp(c.get("ctx"), { postId, expectedVersionNumber });
   return c.json(post, 200);
 });
 

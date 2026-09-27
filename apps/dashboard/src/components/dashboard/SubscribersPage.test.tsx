@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { withQueryClient } from '~/test/query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryKeys } from '~/lib/queries'
 
 const mocks = vi.hoisted(() => ({
   loadSubscribersPage: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock('@tanstack/react-router', () => ({
   useBlocker: () => ({ status: 'idle' }),
 }))
 vi.mock('~/lib/api-client', () => ({
-  DashboardApiError: class DashboardApiError extends Error { status = 400 },
+  DashboardApiError: class DashboardApiError extends Error { constructor(public status = 400) { super('Request failed') } },
   loadSubscribersPage: mocks.loadSubscribersPage,
   loadNewsletterSettings: mocks.loadNewsletterSettings,
   deleteSubscriberMutation: mocks.deleteSubscriberMutation,
@@ -54,12 +55,31 @@ async function render(search: { q: undefined; status: undefined; page: number; t
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  await act(async () => root.render(withQueryClient(<SubscribersPage search={search} canExport={canExport} />)))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  await act(async () => root.render(<QueryClientProvider client={client}><SubscribersPage search={search} canExport={canExport} /></QueryClientProvider>))
   await settle()
-  return { container, cleanup: async () => { await act(async () => root.unmount()); container.remove() } }
+  return { container, client, cleanup: async () => { await act(async () => root.unmount()); container.remove() } }
 }
 
 describe('SubscribersPage', () => {
+  it('sends the loaded signup revision and explains a conflict', async () => {
+    mocks.loadSubscribersPage.mockResolvedValue({ rows: [], total: 0, pendingCount: 0 })
+    mocks.loadNewsletterSettings.mockResolvedValue({ enabled: true, heading: 'Updates', subtext: 'Occasional notes', buttonLabel: 'Subscribe', updatedAt: 42 })
+    mocks.updateNewsletterSettingsMutation.mockRejectedValue(new DashboardApiError(409, 'CONFLICT', 'Conflict'))
+    const page = await render({ q: undefined, status: undefined, page: 1, tab: 'form' }, true)
+    await act(async () => page.client.setQueryData(queryKeys.newsletter,
+      { enabled: true, heading: 'Remote update', subtext: 'Occasional notes', buttonLabel: 'Subscribe', updatedAt: 99 }))
+    const heading = page.container.querySelector<HTMLInputElement>('#newsletter-heading')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(heading, 'New updates')
+      heading.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => heading.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    await settle()
+    expect(mocks.updateNewsletterSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ expectedUpdatedAt: 42 }))
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ message: 'This changed since you opened it. Reload to see the latest.' }))
+    await page.cleanup()
+  })
   afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
 
   it('returns to the last valid page after deleting its only row', async () => {

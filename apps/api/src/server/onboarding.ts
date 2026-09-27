@@ -329,6 +329,11 @@ export async function getNewsletterSettingsForApp(app: AppUserContext): Promise<
   return parseNewsletterSettings(raw)
 }
 
+export async function getNewsletterSettingsWithRevisionForApp(app: AppUserContext) {
+  const site = await createDataAccess(env.DB).sites.getSiteSettings(app.siteId)
+  return { ...parseNewsletterSettings(site?.newsletterSettings), updatedAt: site?.updatedAt ?? 0 }
+}
+
 export async function updateNewsletterSettingsForApp(
   app: AppUserContext,
   payload: unknown,
@@ -385,7 +390,8 @@ export async function updateNewsletterSettingsForApp(
       domainRows.map((domain) => domain.hostname).filter(Boolean),
     )
   }
-  return { kind: 'ok', code: 'newsletter_saved' }
+  return { kind: 'ok', code: 'newsletter_saved',
+    ...(options ? { updatedAt: Math.max(timestamp, options.expectedUpdatedAt + 1) } : {}) }
 }
 
 export type SiteSettingsPayload = {

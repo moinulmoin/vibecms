@@ -192,7 +192,7 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
     changeSummary: "Archived post",
     activityAction: "post.archived",
-    activitySummary: `Archived ${before.title}`,
+    activitySummary: `Archived ${before.title}; cancelled any pending schedule`,
   }, before.currentVersionNumber);
   if (!after) throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
   return after.post;

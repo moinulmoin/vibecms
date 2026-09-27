@@ -552,6 +552,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             postId,
             versionId,
           ),
+          ...(patch.status === "archived" ? [db.prepare(`DELETE FROM post_schedules
+            WHERE site_id = ? AND post_id = ? AND status IN ('pending', 'failed', 'processing')
+              AND EXISTS (SELECT 1 FROM post_versions WHERE id = ?)`)
+            .bind(siteId, postId, versionId)] : []),
           ...activityStatements(before, after, actor, { ...history, activitySummary }, timestamp, {
             sql: "EXISTS (SELECT 1 FROM post_versions WHERE id = ?)",
             binds: [versionId],

@@ -333,14 +333,15 @@ export const archivePostRoute = createRoute({
   description: archivePostOpDef.description,
   security: bearerSecurity,
   request: {
-    params: archivePostRequestSchema,
+    params: archivePostRequestSchema.pick({ postId: true }),
+    body: { required: false, content: { "application/json": { schema: archivePostRequestSchema.partial() } } },
   },
   responses: {
     200: {
       description: "Archived post",
       content: { "application/json": { schema: postDtoSchema } },
     },
-    ...routeErrors(400, 401, 403, 404, 429, 500),
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
   },
 });
 

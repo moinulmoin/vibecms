@@ -1,5 +1,5 @@
 import { Download, Search, Trash2, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Field, FieldLabel, Input, Select, Skeleton, Textarea, cn } from '@vc/ui'
@@ -226,10 +226,15 @@ function SignupForm() {
   const { toast } = useToast()
   const query = useQuery(newsletterQuery)
   const [draft, setDraft] = useState<NewsletterSettings | null>(null)
+  const draftRevision = useRef<number | null>(null)
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (query.data && !draft) setDraft(query.data)
+    if (query.data && !draft) {
+      draftRevision.current = query.data.updatedAt
+      setDraft({ enabled: query.data.enabled, heading: query.data.heading,
+        subtext: query.data.subtext, buttonLabel: query.data.buttonLabel })
+    }
   }, [query.data, draft])
 
   if (query.isError && !query.data) {
@@ -259,17 +264,20 @@ function SignupForm() {
     if (!validated.success) return
     setPending(true)
     try {
-      const result = await updateNewsletterSettingsMutation(validated.data)
+      const result = await updateNewsletterSettingsMutation({ ...validated.data, expectedUpdatedAt: draftRevision.current ?? 0 })
       if (result.kind !== 'ok') {
         toast({ variant: 'error', title: 'Not saved', message: result.code === 'validation_error'
           ? 'Check the signup form fields and try again.'
           : 'The signup form could not be saved. Try again.' })
         return
       }
-      queryClient.setQueryData(queryKeys.newsletter, validated.data)
+      queryClient.setQueryData(queryKeys.newsletter, { ...validated.data, updatedAt: result.updatedAt })
+      draftRevision.current = result.updatedAt ?? null
       toast({ variant: 'success', title: 'Signup form saved', message: 'Your blog shows the new version now.' })
     } catch (error) {
-      toast({ variant: 'error', title: 'Not saved', message: error instanceof DashboardApiError && error.status === 400
+      toast({ variant: 'error', title: 'Not saved', message: error instanceof DashboardApiError && error.status === 409
+        ? 'This changed since you opened it. Reload to see the latest.'
+        : error instanceof DashboardApiError && error.status === 400
         ? 'Check the signup form fields and try again.'
         : 'Check your connection and try again.' })
     } finally {

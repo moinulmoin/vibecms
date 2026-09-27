@@ -5,6 +5,8 @@ import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { beforeAll, describe, expect, inject, it } from 'vitest'
 import { AGENT_TOKEN_PRESETS, type Actor } from '@vc/core'
+import { createPost, updatePost } from '@vc/core'
+import { createD1PostRepository } from '@vc/db'
 import { app } from '@/index'
 import { createApiKeyForApp, hashApiToken } from './api-keys'
 import { handleMcpRequest } from './mcp'
@@ -67,6 +69,27 @@ beforeAll(async () => {
 })
 
 describe('Manage key', () => {
+  it('returns CONFLICT for the identical stale archive approval through REST and MCP', async () => {
+    const repo = createD1PostRepository(env.DB)
+    const post = await createPost(repo, actor, { siteId, title: 'Archive approval', slug: 'archive-rest-mcp-stale', contentMarkdown: 'First' })
+    await updatePost(repo, actor, { siteId, postId: post.id, expectedVersionNumber: post.currentVersionNumber, title: 'Changed' })
+    const payload = { postId: post.id, expectedVersionNumber: post.currentVersionNumber }
+    const rest = await request(tokens.manage, 'POST', `/posts/${post.id}/archive`, payload)
+    expect(rest.status).toBe(409)
+    expect((await rest.json() as { error: { code: string } }).error.code).toBe('CONFLICT')
+    await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(workspaceId).run()
+    const mcp = await handleMcpRequest(new Request('https://app.vibecms.dev/mcp', {
+      method: 'POST', headers: { authorization: `Bearer ${tokens.manage}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 17, method: 'tools/call', params: {
+        name: 'posts.archive', arguments: payload,
+      } }),
+    }))
+    expect(await mcp.json()).toMatchObject({ result: { isError: true, structuredContent: { code: 'CONFLICT' } } })
+    expect((await repo.getPost(siteId, post.id))?.status).toBe('draft')
+    const legacy = await request(tokens.manage, 'POST', `/posts/${post.id}/archive`)
+    expect(legacy.status).toBe(200)
+    expect((await repo.getPost(siteId, post.id))?.status).toBe('archived')
+  })
   it('issues the Manage preset without changing scopes on existing keys', async () => {
     const before = await env.DB.prepare("SELECT id, scopes_json AS scopes FROM api_keys WHERE site_id = ? AND id IN ('manage-test-key-draft', 'manage-test-key-publish') ORDER BY id")
       .bind(siteId).all<{ id: string; scopes: string }>()

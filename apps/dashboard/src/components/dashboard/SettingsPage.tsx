@@ -30,6 +30,7 @@ import {
   removeCustomDomainMutation,
   updateSiteSettingsMutation,
   updateVoiceProfileMutation,
+  DashboardApiError,
   clearVoiceProfileMutation,
 } from '~/lib/api-client'
 import type { z } from 'zod'
@@ -322,9 +323,12 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const [siteBaseline, setSiteBaseline] = useState<SiteSettingsForm | null>(null)
   const [siteChangedElsewhere, setSiteChangedElsewhere] = useState(false)
   const [voiceDirty, setVoiceDirty] = useState(false)
+  const [voiceConflict, setVoiceConflict] = useState(false)
+  const voiceRevision = useRef(0)
   const voiceCurrent = useRef({ audience: '', voiceSummary: '', preferText: '', avoidText: '', representativeIds: [] as string[] })
 
   function seedVoice(profile: VoiceProfileSettings) {
+    voiceRevision.current = profile.updatedAt ?? 0
     voiceCurrent.current = {
       audience: profile.audience,
       voiceSummary: profile.voiceSummary,
@@ -340,6 +344,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   }
 
   function mergeSavedVoice(profile: VoiceProfileSettings, submitted: typeof voiceCurrent.current) {
+    voiceRevision.current = profile.updatedAt ?? 0
     const current = voiceCurrent.current
     const saved = {
       audience: profile.audience,
@@ -545,6 +550,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     setFormPending('voice')
     try {
       const result = await updateVoiceProfileMutation({
+        expectedUpdatedAt: voiceRevision.current,
         audience: submitted.audience || undefined,
         voiceSummary: submitted.voiceSummary || undefined,
         preferRules: parseVoiceRules(submitted.preferText),
@@ -552,12 +558,14 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
         representativePostIds: submitted.representativeIds,
       })
       if (result.kind === 'ok') {
+        setVoiceConflict(false)
         const refreshed = await reload()
         mergeSavedVoice(refreshed.voiceProfile, submitted)
       }
       feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
-    } catch {
-      feedback({ error: 'unknown' })
+    } catch (error) {
+      if (error instanceof DashboardApiError && error.status === 409) setVoiceConflict(true)
+      else feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
@@ -567,14 +575,16 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     const submitted = voiceCurrent.current
     setFormPending('voice')
     try {
-      const result = await clearVoiceProfileMutation()
+      const result = await clearVoiceProfileMutation(voiceRevision.current)
       if (result.kind === 'ok') {
+        setVoiceConflict(false)
         const refreshed = await reload()
         mergeSavedVoice(refreshed.voiceProfile, submitted)
       }
       feedback(result.kind === 'ok' ? { ok: result.code } : { error: result.code })
-    } catch {
-      feedback({ error: 'unknown' })
+    } catch (error) {
+      if (error instanceof DashboardApiError && error.status === 409) setVoiceConflict(true)
+      else feedback({ error: 'unknown' })
     } finally {
       setFormPending(null)
     }
@@ -814,6 +824,13 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
         <TabsContent value="voice">
           <form className="grid max-w-2xl gap-8" onSubmit={(event) => { if (editable) void handleVoiceProfileSave(event); else event.preventDefault() }}>
             <fieldset disabled={!editable} className="contents">
+            {voiceConflict ? <div role="alert" className="flex items-center gap-3 text-sm text-warning-foreground">
+              <span>This changed since you opened it. Reload to see the latest.</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => {
+                void reload().then((fresh) => { seedVoice(fresh.voiceProfile); setVoiceDirty(false); setVoiceConflict(false) })
+                  .catch(() => feedback({ error: 'unknown' }))
+              }}>Reload</Button>
+            </div> : null}
             <Section
               title="How your agents write"
               description={

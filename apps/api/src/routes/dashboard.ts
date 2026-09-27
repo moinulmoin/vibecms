@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { ConflictError } from '@vc/core'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
 import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
@@ -14,7 +15,6 @@ import {
   deleteArchivedPostForApp,
   deleteSubscriberForApp,
   exportSubscribersCsv,
-  getNewsletterSettingsForApp,
   getPostVersionForDashboard,
   listPostVersionsForDashboard,
   loadActivityPage,
@@ -45,7 +45,7 @@ import {
 } from '@/server/dashboard-api'
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
-import { loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
+import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -176,7 +176,7 @@ dashboardRoutes.get('/newsletter-settings', async (c) => {
   if (!canManageSubscribers(auth)) {
     return c.json({ error: { code: 'FORBIDDEN', message: 'Editor access required' } }, 403)
   }
-  return c.json(await getNewsletterSettingsForApp(auth.app))
+  return c.json(await getNewsletterSettingsWithRevisionForApp(auth.app))
 })
 
 dashboardRoutes.put('/newsletter-settings', async (c) => {
@@ -184,7 +184,10 @@ dashboardRoutes.put('/newsletter-settings', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const result = await updateNewsletterSettingsForApp(auth.app, await c.req.json())
+  const { expectedUpdatedAt, ...settings } = await c.req.json<Record<string, unknown>>()
+  if (!Number.isInteger(expectedUpdatedAt) || (expectedUpdatedAt as number) < 1) return c.json({ kind: 'error', code: 'invalid_settings_version' }, 400)
+  const result = await updateNewsletterSettingsForApp(auth.app, settings, { expectedUpdatedAt: expectedUpdatedAt as number })
+  if (result.code === 'settings_conflict') throw new ConflictError('This changed since you opened it. Reload to see the latest.')
   return c.json(result)
 })
 
@@ -234,9 +237,10 @@ dashboardRoutes.post('/voice-profile', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const parsed = voiceProfileSettingsInputSchema.safeParse(await c.req.json())
+  const { expectedUpdatedAt, ...payload } = await c.req.json<Record<string, unknown>>()
+  const parsed = voiceProfileSettingsInputSchema.safeParse(payload)
   if (!parsed.success) return c.json({ kind: 'error', code: 'validation_error' }, 400)
-  return c.json(await updateVoiceProfileForApp(auth.app, parsed.data))
+  return c.json(await updateVoiceProfileForApp(auth.app, parsed.data, { expectedUpdatedAt: expectedUpdatedAt as number }))
 })
 
 dashboardRoutes.post('/voice-profile/clear', async (c) => {
@@ -244,7 +248,8 @@ dashboardRoutes.post('/voice-profile/clear', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  return c.json(await clearVoiceProfileForApp(auth.app))
+  const body = await c.req.json<{ expectedUpdatedAt: number }>()
+  return c.json(await clearVoiceProfileForApp(auth.app, body))
 })
 
 dashboardRoutes.post('/api-keys', async (c) => {

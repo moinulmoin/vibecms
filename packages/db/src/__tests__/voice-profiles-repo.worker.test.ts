@@ -11,6 +11,7 @@ import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import {
   createVoiceProfilesRepository,
+  VoiceProfileConflictError,
 } from "@vc/db";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 
@@ -63,6 +64,7 @@ describe("VoiceProfilesRepository", () => {
 
     await repository.save({
       siteId: SITE_ID,
+      expectedUpdatedAt: 0,
       audience: "Independent technical founders",
       voiceSummary: "Direct, evidence-led, and calm.",
       guidelines: [
@@ -102,6 +104,7 @@ describe("VoiceProfilesRepository", () => {
 
     await repository.save({
       siteId: SITE_ID,
+      expectedUpdatedAt: (await repository.getBySite(SITE_ID))?.updatedAt ?? 0,
       audience: null,
       voiceSummary: null,
       guidelines: [],
@@ -121,11 +124,33 @@ describe("VoiceProfilesRepository", () => {
     await expect(
       repository.clear({
         siteId: SITE_ID,
+        expectedUpdatedAt: (await repository.getBySite(SITE_ID))?.updatedAt ?? 0,
         editor: { type: "human", id: "voice-user", name: "Voice Owner" },
         timestamp: T0 + 30,
         activityId: "voice-activity-clear",
       }),
     ).resolves.toBe(true);
     await expect(repository.getBySite(SITE_ID)).resolves.toBeNull();
+  });
+
+  it("increments same-second revisions and rejects stale saves and clears without activity", async () => {
+    const repository = createVoiceProfilesRepository(env.DB);
+    const editor = { type: "human" as const, id: "voice-user", name: "Voice Owner" };
+    const base = { siteId: OTHER_SITE_ID, audience: "First", voiceSummary: null, guidelines: [],
+      representativePostIds: [], editor, timestamp: T0 + 40 };
+    await repository.save({ ...base, expectedUpdatedAt: 0, activityId: crypto.randomUUID() });
+    const first = (await repository.getBySite(OTHER_SITE_ID))!;
+    await repository.save({ ...base, audience: "Second", expectedUpdatedAt: first.updatedAt, activityId: crypto.randomUUID() });
+    const second = (await repository.getBySite(OTHER_SITE_ID))!;
+    expect(second.updatedAt).toBe(first.updatedAt + 1);
+    const activityBefore = await env.DB.prepare("SELECT count(*) AS total FROM activity_events WHERE site_id = ?")
+      .bind(OTHER_SITE_ID).first<{ total: number }>();
+    await expect(repository.save({ ...base, audience: "Stale", expectedUpdatedAt: first.updatedAt,
+      activityId: crypto.randomUUID() })).rejects.toBeInstanceOf(VoiceProfileConflictError);
+    await expect(repository.clear({ siteId: OTHER_SITE_ID, expectedUpdatedAt: first.updatedAt,
+      editor, timestamp: T0 + 40, activityId: crypto.randomUUID() })).rejects.toBeInstanceOf(VoiceProfileConflictError);
+    expect((await repository.getBySite(OTHER_SITE_ID))?.audience).toBe("Second");
+    expect((await env.DB.prepare("SELECT count(*) AS total FROM activity_events WHERE site_id = ?")
+      .bind(OTHER_SITE_ID).first<{ total: number }>())?.total).toBe(activityBefore?.total);
   });
 });

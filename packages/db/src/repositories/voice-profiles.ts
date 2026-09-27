@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { createDbClient } from "../client";
-import { activityEvents, posts, siteVoiceProfiles, type SiteVoiceProfileRow } from "../schema";
+import { posts, siteVoiceProfiles, type SiteVoiceProfileRow } from "../schema";
 
 export const VOICE_PROFILE_MAX_GUIDELINES = 12;
 export const VOICE_PROFILE_MAX_REPRESENTATIVE_POSTS = 3;
@@ -50,8 +50,8 @@ export type SaveSiteVoiceProfileInput = {
   editor: VoiceProfileEditor;
   timestamp: number;
   activityId: string;
-  /** Agent writes supply the revision; dashboard writes remain backward compatible. Zero means no profile. */
-  expectedUpdatedAt?: number;
+  /** Zero means no profile. */
+  expectedUpdatedAt: number;
 };
 
 export class VoiceProfileConflictError extends Error {
@@ -63,6 +63,7 @@ export class VoiceProfileConflictError extends Error {
 
 export type ClearSiteVoiceProfileInput = {
   siteId: string;
+  expectedUpdatedAt: number;
   editor: VoiceProfileEditor;
   timestamp: number;
   activityId: string;
@@ -259,105 +260,56 @@ export function createVoiceProfilesRepository(db: D1Database): VoiceProfilesRepo
       }
 
       const after = profileSnapshot(input);
-      if (input.expectedUpdatedAt !== undefined) {
-        // One batch: the activity row is written only if the revision matches,
-        // and the profile write only if that activity row exists. A stale
-        // revision changes nothing; a success always leaves its activity.
-        const values = [input.audience, input.voiceSummary, JSON.stringify(input.guidelines),
-          JSON.stringify(input.representativePostIds), input.editor.type, input.editor.id,
-          input.editor.name];
-        const revisionMatches = input.expectedUpdatedAt === 0
-          ? "NOT EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ?)"
-          : "EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?)";
-        const revisionArgs = input.expectedUpdatedAt === 0 ? [input.siteId] : [input.siteId, input.expectedUpdatedAt];
-        const activity = db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name,
-            action, entity_type, entity_id, summary, before_json, after_json, created_at)
-            SELECT ?, ?, ?, ?, ?, 'site.voice.updated', 'site', ?, 'Updated the voice profile', ?, ?, ?
-            WHERE ${revisionMatches}`)
-          .bind(input.activityId, input.siteId, input.editor.type, input.editor.id, input.editor.name,
-            input.siteId, before ? JSON.stringify(profileSnapshot(before)) : null, JSON.stringify(after),
-            input.timestamp, ...revisionArgs);
-        const write = input.expectedUpdatedAt === 0
-          ? db.prepare(`INSERT INTO site_voice_profiles (site_id, audience, voice_summary, guidelines_json,
-              representative_post_ids_json, updated_by_type, updated_by_id, updated_by_name, created_at, updated_at)
-              SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-              WHERE EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
-              ON CONFLICT(site_id) DO NOTHING`)
-              .bind(input.siteId, ...values, input.timestamp, input.timestamp, input.activityId)
-          : db.prepare(`UPDATE site_voice_profiles SET audience = ?, voice_summary = ?, guidelines_json = ?,
-              representative_post_ids_json = ?, updated_by_type = ?, updated_by_id = ?, updated_by_name = ?,
-              updated_at = max(?, updated_at + 1)
-              WHERE site_id = ? AND updated_at = ? AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
-              .bind(...values, input.timestamp, input.siteId, input.expectedUpdatedAt, input.activityId);
-        const [, result] = await db.batch([activity, write]);
-        if ((result!.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
-        return;
-      }
-      await client.batch([
-        client
-          .insert(siteVoiceProfiles)
-          .values({
-            siteId: input.siteId,
-            audience: input.audience,
-            voiceSummary: input.voiceSummary,
-            guidelinesJson: JSON.stringify(input.guidelines),
-            representativePostIdsJson: JSON.stringify(input.representativePostIds),
-            updatedByType: input.editor.type,
-            updatedById: input.editor.id,
-            updatedByName: input.editor.name,
-            createdAt: before?.createdAt ?? input.timestamp,
-            updatedAt: input.timestamp,
-          })
-          .onConflictDoUpdate({
-            target: siteVoiceProfiles.siteId,
-            set: {
-              audience: input.audience,
-              voiceSummary: input.voiceSummary,
-              guidelinesJson: JSON.stringify(input.guidelines),
-              representativePostIdsJson: JSON.stringify(input.representativePostIds),
-              updatedByType: input.editor.type,
-              updatedById: input.editor.id,
-              updatedByName: input.editor.name,
-              updatedAt: input.timestamp,
-            },
-          }),
-        client.insert(activityEvents).values({
-          id: input.activityId,
-          siteId: input.siteId,
-          actorType: input.editor.type,
-          actorId: input.editor.id,
-          actorName: input.editor.name,
-          action: "site.voice.updated",
-          entityType: "site",
-          entityId: input.siteId,
-          summary: "Updated the voice profile",
-          beforeJson: before ? JSON.stringify(profileSnapshot(before)) : null,
-          afterJson: JSON.stringify(after),
-          createdAt: input.timestamp,
-        }),
-      ]);
+      // One batch: the activity row is written only if the revision matches,
+      // and the profile write only if that activity row exists. A stale
+      // revision changes nothing; a success always leaves its activity.
+      const values = [input.audience, input.voiceSummary, JSON.stringify(input.guidelines),
+        JSON.stringify(input.representativePostIds), input.editor.type, input.editor.id,
+        input.editor.name];
+      const revisionMatches = input.expectedUpdatedAt === 0
+        ? "NOT EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ?)"
+        : "EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?)";
+      const revisionArgs = input.expectedUpdatedAt === 0 ? [input.siteId] : [input.siteId, input.expectedUpdatedAt];
+      const activity = db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name,
+          action, entity_type, entity_id, summary, before_json, after_json, created_at)
+          SELECT ?, ?, ?, ?, ?, 'site.voice.updated', 'site', ?, 'Updated the voice profile', ?, ?, ?
+          WHERE ${revisionMatches}`)
+        .bind(input.activityId, input.siteId, input.editor.type, input.editor.id, input.editor.name,
+          input.siteId, before ? JSON.stringify(profileSnapshot(before)) : null, JSON.stringify(after),
+          input.timestamp, ...revisionArgs);
+      const write = input.expectedUpdatedAt === 0
+        ? db.prepare(`INSERT INTO site_voice_profiles (site_id, audience, voice_summary, guidelines_json,
+            representative_post_ids_json, updated_by_type, updated_by_id, updated_by_name, created_at, updated_at)
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            WHERE EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+            ON CONFLICT(site_id) DO NOTHING`)
+            .bind(input.siteId, ...values, input.timestamp, input.timestamp, input.activityId)
+        : db.prepare(`UPDATE site_voice_profiles SET audience = ?, voice_summary = ?, guidelines_json = ?,
+            representative_post_ids_json = ?, updated_by_type = ?, updated_by_id = ?, updated_by_name = ?,
+            updated_at = max(?, updated_at + 1)
+            WHERE site_id = ? AND updated_at = ? AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
+            .bind(...values, input.timestamp, input.siteId, input.expectedUpdatedAt, input.activityId);
+      const [, result] = await db.batch([activity, write]);
+      if ((result!.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
+      return;
     },
 
     async clear(input) {
       const before = await getStored(input.siteId);
-      if (!before) return false;
-      await client.batch([
-        client.delete(siteVoiceProfiles).where(eq(siteVoiceProfiles.siteId, input.siteId)),
-        client.insert(activityEvents).values({
-          id: input.activityId,
-          siteId: input.siteId,
-          actorType: input.editor.type,
-          actorId: input.editor.id,
-          actorName: input.editor.name,
-          action: "site.voice.cleared",
-          entityType: "site",
-          entityId: input.siteId,
-          summary: "Cleared voice profile",
-          beforeJson: JSON.stringify(profileSnapshot(before)),
-          afterJson: null,
-          createdAt: input.timestamp,
-        }),
+      if (input.expectedUpdatedAt === 0 && !before) return false;
+      const [activity, deleted] = await db.batch([
+        db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name,
+          action, entity_type, entity_id, summary, before_json, after_json, created_at)
+          SELECT ?, ?, ?, ?, ?, 'site.voice.cleared', 'site', ?, 'Cleared voice profile', ?, NULL, ?
+          WHERE EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?)`)
+          .bind(input.activityId, input.siteId, input.editor.type, input.editor.id, input.editor.name,
+            input.siteId, before ? JSON.stringify(profileSnapshot(before)) : null, input.timestamp,
+            input.siteId, input.expectedUpdatedAt),
+        db.prepare(`DELETE FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?
+          AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
+          .bind(input.siteId, input.expectedUpdatedAt, input.activityId),
       ]);
+      if ((activity.meta.changes ?? 0) !== 1 || (deleted.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
       return true;
     },
   };

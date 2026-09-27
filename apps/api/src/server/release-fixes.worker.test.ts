@@ -11,6 +11,9 @@ import { handleExport } from './export'
 import { deleteSubscriberForApp } from './dashboard-api'
 import { maybeRejectOtpSendRateLimit } from './auth-guards'
 import { listActivityOp, unarchivePostOp, updateAssetOp, type OperationContext } from './operations'
+import { updateSignupFormOp } from './operations'
+import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsForApp } from './onboarding'
+import { clearVoiceProfileForApp, getVoiceProfileSettings, updateVoiceProfileForApp } from './voice-profile'
 import type { AppUserContext } from './onboarding'
 
 declare module 'vitest' { interface ProvidedContext { migrations: D1Migration[] } }
@@ -34,6 +37,23 @@ async function draft(slug: string, coverAssetId: string | null = null) {
 }
 
 describe('release regression paths', () => {
+  it('rejects stale dashboard voice save, clear, and signup writes', async () => {
+    const voiceRevision = (await getVoiceProfileSettings(app)).updatedAt ?? 0
+    const voicePayload = { audience: 'Readers', voiceSummary: 'Plain', preferRules: [], avoidRules: [], representativePostIds: [] }
+    expect((await updateVoiceProfileForApp(app, voicePayload, { expectedUpdatedAt: voiceRevision })).kind).toBe('ok')
+    await expect(updateVoiceProfileForApp(app, { ...voicePayload, audience: 'Stale' },
+      { expectedUpdatedAt: voiceRevision })).rejects.toMatchObject({ code: 'CONFLICT' })
+    await expect(clearVoiceProfileForApp(app, { expectedUpdatedAt: voiceRevision }))
+      .rejects.toMatchObject({ code: 'CONFLICT' })
+    expect((await getVoiceProfileSettings(app)).audience).toBe('Readers')
+    const siteRevision = (await getSiteSettings(app)).updatedAt
+    await updateSignupFormOp(ctx, { expectedUpdatedAt: siteRevision, heading: 'Current heading' })
+    const stale = await updateNewsletterSettingsForApp(app,
+      { ...(await getNewsletterSettingsForApp(app)), heading: 'Stale heading' },
+      { expectedUpdatedAt: siteRevision })
+    expect(stale).toEqual({ kind: 'error', code: 'settings_conflict' })
+    expect((await getNewsletterSettingsForApp(app)).heading).toBe('Current heading')
+  })
   it('rejects archive when the approved saved tip changed', async () => {
     const post = await draft('archive-approval-binding')
     const updated = await updatePost(repo, actor, { siteId, postId: post.id,

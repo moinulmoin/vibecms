@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   navigate: vi.fn(),
   updateSiteSettingsMutation: vi.fn(),
   updateVoiceProfileMutation: vi.fn(),
+  clearVoiceProfileMutation: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -29,10 +30,10 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('~/lib/api-client', () => ({
   DashboardApiError: class DashboardApiError extends Error {
-    status = 500
+    constructor(public status = 500) { super('Request failed') }
   },
   addCustomDomainMutation: vi.fn(),
-  clearVoiceProfileMutation: vi.fn(),
+  clearVoiceProfileMutation: api.clearVoiceProfileMutation,
   loadSettingsPage: api.loadSettingsPage,
   removeCustomDomainMutation: vi.fn(),
   updateSiteSettingsMutation: api.updateSiteSettingsMutation,
@@ -101,10 +102,12 @@ vi.mock('~/components/dashboard/PendingSubmitButton', () => ({
 }))
 
 vi.mock('~/components/dashboard/SpaConfirmButton', () => ({
-  SpaConfirmButton: ({ children }: { children?: ReactNode }) => <button type="button">{children}</button>,
+  SpaConfirmButton: ({ children, onConfirm }: { children?: ReactNode; onConfirm: () => void }) =>
+    <button type="button" onClick={onConfirm}>{children}</button>,
 }))
 
 import { SettingsPage } from './SettingsPage'
+import { DashboardApiError } from '~/lib/api-client'
 import { withQueryClient } from '~/test/query'
 import { queryKeys } from '~/lib/queries'
 
@@ -167,6 +170,46 @@ async function settle() {
 }
 
 describe('SettingsPage', () => {
+  it('sends the loaded voice revision when clearing', async () => {
+    api.loadSettingsPage.mockResolvedValue({ ...settings(), voiceProfile: { ...settings().voiceProfile, configured: true, updatedAt: 43 } })
+    api.clearVoiceProfileMutation.mockRejectedValue(new DashboardApiError(409, 'CONFLICT', 'Conflict'))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<SettingsPage />)))
+    await settle()
+    const clear = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Reset to default'))
+    await act(async () => clear?.click())
+    await settle()
+    expect(api.clearVoiceProfileMutation).toHaveBeenCalledWith(43)
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('This changed since you opened it. Reload to see the latest.')
+    await act(async () => root.unmount())
+    container.remove()
+  })
+  it('sends the loaded voice revision and shows a stale-write conflict', async () => {
+    const loaded = { ...settings(), voiceProfile: { ...settings().voiceProfile, updatedAt: 42 } }
+    api.loadSettingsPage.mockResolvedValue(loaded)
+    api.updateVoiceProfileMutation.mockRejectedValue(new DashboardApiError(409, 'CONFLICT', 'Conflict'))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    await act(async () => root.render(<QueryClientProvider client={client}><SettingsPage /></QueryClientProvider>))
+    await settle()
+    await act(async () => client.setQueryData(queryKeys.settings,
+      { ...loaded, voiceProfile: { ...loaded.voiceProfile, updatedAt: 99 } }))
+    const audience = container.querySelector<HTMLTextAreaElement>('#voice-audience')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(audience, 'Changed')
+      audience.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => audience.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    await settle()
+    expect(api.updateVoiceProfileMutation).toHaveBeenCalledWith(expect.objectContaining({ expectedUpdatedAt: 42 }))
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('This changed since you opened it. Reload to see the latest.')
+    await act(async () => root.unmount())
+    container.remove()
+  })
   afterEach(() => {
     vi.clearAllMocks()
     document.body.innerHTML = ''

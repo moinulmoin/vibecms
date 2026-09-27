@@ -42,4 +42,14 @@ describe("by-slug REST contract", () => {
     expect(operationsByToolName['posts.unschedule'].requiredScope).toBe('posts:publish');
     expect(operationsByToolName['posts.preview.rotate'].requiredScope).toBe('posts:update');
   });
+  it('documents the optional archive approval and conflict response', () => {
+    const operation = buildOpenApiDocument().paths?.['/api/v1/posts/{postId}/archive']?.post as
+      | { requestBody?: { required?: boolean; content?: Record<string, { schema?: unknown }> }; responses?: Record<string, unknown> }
+      | undefined;
+    expect(operation?.requestBody?.required).toBe(false);
+    expect(operation?.requestBody?.content?.['application/json']?.schema).toBeDefined();
+    expect(operation?.responses?.['409']).toBeDefined();
+    expect((operation as { parameters?: Array<{ name: string; in: string }> })?.parameters)
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'expectedVersionNumber', in: 'path' })]));
+  });
 });

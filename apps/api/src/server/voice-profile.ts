@@ -64,6 +64,7 @@ export async function updateVoiceProfileForApp(
   options?: { expectedUpdatedAt: number },
 ): Promise<VoiceProfileMutationResult> {
   if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
+  if (!Number.isInteger(options?.expectedUpdatedAt) || options!.expectedUpdatedAt < 0) throw new ConflictError('Voice profile revision is required')
   const parsed = voiceProfileSettingsInputSchema.safeParse(rawPayload)
   if (!parsed.success) return { kind: 'error', code: 'voice_profile_invalid' }
 
@@ -85,7 +86,7 @@ export async function updateVoiceProfileForApp(
       editor: editorFor(app),
       timestamp: Math.floor(Date.now() / 1000),
       activityId: crypto.randomUUID(),
-      expectedUpdatedAt: options?.expectedUpdatedAt,
+      expectedUpdatedAt: options!.expectedUpdatedAt,
     })
     return { kind: 'ok', code: 'voice_profile_saved' }
   } catch (error) {
@@ -94,13 +95,20 @@ export async function updateVoiceProfileForApp(
   }
 }
 
-export async function clearVoiceProfileForApp(app: AppUserContext): Promise<VoiceProfileMutationResult> {
+export async function clearVoiceProfileForApp(app: AppUserContext, options?: { expectedUpdatedAt: number }): Promise<VoiceProfileMutationResult> {
   if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
-  await createDataAccess(env.DB).voiceProfiles.clear({
-    siteId: app.siteId,
-    editor: editorFor(app),
-    timestamp: Math.floor(Date.now() / 1000),
-    activityId: crypto.randomUUID(),
-  })
+  if (!Number.isInteger(options?.expectedUpdatedAt) || options!.expectedUpdatedAt < 0) throw new ConflictError('Voice profile revision is required')
+  try {
+    await createDataAccess(env.DB).voiceProfiles.clear({
+      siteId: app.siteId,
+      expectedUpdatedAt: options!.expectedUpdatedAt,
+      editor: editorFor(app),
+      timestamp: Math.floor(Date.now() / 1000),
+      activityId: crypto.randomUUID(),
+    })
+  } catch (error) {
+    if (error instanceof VoiceProfileConflictError) throw new ConflictError(error.message)
+    throw error
+  }
   return { kind: 'ok', code: 'voice_profile_cleared' }
 }

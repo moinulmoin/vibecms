@@ -146,9 +146,10 @@ describe('scheduled exact-version publishing', () => {
   it('does not revive a post archived after it was scheduled', async () => {
     const post = await create();
     await schedulePost(env.DB, SITE, post.id, 1, 1_900_000_000, actor, 1_800_000_000);
+    const leaseToken = (await claimDueSchedules(env.DB, 1_900_000_000)).find((schedule) => schedule.postId === post.id)!.leaseToken!;
     await repo.updatePostWithHistory(SITE, post.id, { status: 'archived' }, actor,
       { changeSummary: 'Archived', activityAction: 'post.archived', activitySummary: 'Archived' }, 1);
-    const leaseToken = (await claimDueSchedules(env.DB, 1_900_000_000)).find((schedule) => schedule.postId === post.id)!.leaseToken!;
+    expect((await claimDueSchedules(env.DB, 1_900_000_000)).some((schedule) => schedule.postId === post.id)).toBe(false);
     await expect(publishScheduledPost(repo, scheduler, {
       siteId: SITE, postId: post.id, versionNumber: 1, billingStatus: 'active', scheduledBy: actor.name, leaseToken,
     })).rejects.toThrow('Post is archived; publication was not performed.');

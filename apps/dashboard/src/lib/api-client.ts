@@ -24,7 +24,7 @@ import type {
   VoiceProfileSettingsInput,
 } from '~/types/dashboard'
 import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
-import type { z } from 'zod'
+import { z } from 'zod'
 import {
   appRouterContextSchema,
   analyticsPageDataSchema,
@@ -291,18 +291,17 @@ export function updateSiteSettingsMutation(data: {
 }
 
 export function loadNewsletterSettings(signal?: AbortSignal) {
-  return dashboardFetch<NewsletterSettings>(
+  return dashboardFetch<NewsletterSettings & { updatedAt: number }>(
     '/api/dashboard/newsletter-settings',
     { method: 'GET', signal },
-    newsletterSettingsSchema,
+    newsletterSettingsSchema.extend({ updatedAt: z.number() }),
   )
 }
 
-export function updateNewsletterSettingsMutation(data: NewsletterSettings) {
-  return dashboardFetch<MutationResult>(
+export function updateNewsletterSettingsMutation(data: NewsletterSettings & { expectedUpdatedAt: number }) {
+  return dashboardFetch<MutationResult & { updatedAt?: number }>(
     '/api/dashboard/newsletter-settings',
     { method: 'PUT', body: JSON.stringify(data) },
-    mutationResultSchema,
   )
 }
 
@@ -334,12 +333,12 @@ export function subscribersExportUrl() {
   return '/api/dashboard/subscribers/export.csv'
 }
 
-export function updateVoiceProfileMutation(data: VoiceProfileSettingsInput) {
+export function updateVoiceProfileMutation(data: VoiceProfileSettingsInput & { expectedUpdatedAt: number }) {
   return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile', data)
 }
 
-export function clearVoiceProfileMutation() {
-  return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile/clear', {})
+export function clearVoiceProfileMutation(expectedUpdatedAt: number) {
+  return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile/clear', { expectedUpdatedAt })
 }
 
 export function createApiKeyMutation(data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'manage' }) {
