@@ -1,8 +1,8 @@
 // Production deploy. Order matters for the first cutover to the versioned
 // model (migration 0018): the old API keeps serving until the new one deploys.
 //
-//   write freeze ack → preflight → backup → builds (checked) → migrations
-//   → OG → public → [first cutover only: pin live versions] → API
+//   preflight → backup → builds (checked) → migrations
+//   → [first cutover only: confirm write freeze] → OG → public → [first cutover only: pin live versions] → API
 //   → verify every published post is pinned (fail closed) → smoke
 //
 // The pin runs only when 0018 was still pending when this run started, i.e.
@@ -74,7 +74,6 @@ if (process.argv.includes("--verify-pins")) {
 // retarget other steps.
 delete process.env.CLOUDFLARE_ENV;
 
-node("Confirm content write freeze", "scripts/assert-write-freeze.mjs");
 run("Production preflight", ["production:preflight"]);
 run("Backup production D1", ["production:backup"]);
 run("Build dashboard", ["--filter", "@vc/dashboard", "build"]);
@@ -86,6 +85,9 @@ node("Check public build targets production", "scripts/assert-public-build-targe
 const pending = run("List pending production migrations", ["-s", ...API, "d1", "migrations", "list", "DB", ...REMOTE_PROD], { capture: true });
 const firstCutover = /0018_post_published_version/.test(pending);
 console.log(firstCutover ? "First cutover to versioned posts: will pin live versions before the API deploys." : "Versioned model already live: no pin step.");
+// The one-time upgrade runs the new schema under the old API for ~2 minutes;
+// only then must nobody publish or edit. Routine deploys don't ask.
+if (firstCutover) node("Confirm nobody edits for the next ~2 minutes", "scripts/assert-write-freeze.mjs");
 
 run("Apply production migrations", [...API, "d1", "migrations", "apply", "DB", ...REMOTE_PROD]);
 // Wrangler exits 0 when its confirmation prompt is declined; never deploy

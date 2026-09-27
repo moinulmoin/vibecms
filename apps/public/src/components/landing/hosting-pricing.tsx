@@ -72,11 +72,12 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   <span data-for-period="monthly">
-                    normally{" "}
+                    <span className="font-medium text-brand-bright">{LAUNCH_OFFER.monthlyPercentOff}% off</span> · normally{" "}
                     <s className="decoration-muted-foreground/60">${PRICING.monthlyUsd}</s>
                   </span>
                   <span data-for-period="yearly">
-                    normally <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · ${(LAUNCH_OFFER.annualUsd / 12).toFixed(2)}/month
+                    <span className="font-medium text-brand-bright">{LAUNCH_OFFER.annualPercentOff}% off</span> · normally{" "}
+                    <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · ${(LAUNCH_OFFER.annualUsd / 12).toFixed(2)}/month
                   </span>
                 </p>
               </div>

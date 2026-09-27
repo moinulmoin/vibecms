@@ -10,7 +10,7 @@ const faqs = [
   },
   {
     question: "What is launch pricing?",
-    answer: `While launch pricing runs, new subscribers pay $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
+    answer: `While launch pricing runs, new subscribers get ${LAUNCH_OFFER.monthlyPercentOff}% off monthly or ${LAUNCH_OFFER.annualPercentOff}% off yearly: $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
   },
   {
     question: "Does vibecms write my posts?",

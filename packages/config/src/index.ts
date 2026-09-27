@@ -79,9 +79,12 @@ export const LAUNCH_OFFER = {
   phaseLabel: "Launch pricing",
   slotsLabel: "Launch price",
   monthlyUsd: 9,
-  annualUsd: 79,
+  annualUsd: 75,
   monthlyLabel: "$9/month",
-  annualLabel: "$79/year",
+  annualLabel: "$75/year",
+  /** Shown as "40% off" / "50% off"; Polar discounts are these percentages. */
+  monthlyPercentOff: 40,
+  annualPercentOff: 50,
   lockNote: "Locked while you stay subscribed.",
   applyNote: "Launch pricing applies automatically at checkout.",
 } as const;

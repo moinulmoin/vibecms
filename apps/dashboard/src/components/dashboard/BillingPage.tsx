@@ -150,10 +150,10 @@ export function PlanAndBilling() {
         ) : managed?.effective ? null : (
           <div className="flex flex-wrap gap-2">
             <PendingSubmitButton type="button" pending={pending === 'monthly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('monthly')}>
-              Upgrade · {LAUNCH_OFFER.monthlyLabel}
+              Upgrade · {LAUNCH_OFFER.monthlyLabel} ({LAUNCH_OFFER.monthlyPercentOff}% off)
             </PendingSubmitButton>
             <PendingSubmitButton type="button" variant="outline" pending={pending === 'yearly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('yearly')}>
-              Yearly · {LAUNCH_OFFER.annualLabel}
+              Yearly · {LAUNCH_OFFER.annualLabel} ({LAUNCH_OFFER.annualPercentOff}% off)
             </PendingSubmitButton>
             <p className="basis-full text-xs text-muted-foreground">
               Launch price (normally {PRICING.monthlyLabel}). {LAUNCH_OFFER.lockNote}

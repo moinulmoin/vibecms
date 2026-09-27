@@ -123,7 +123,7 @@ function mockPolar(overrides: Record<string, Record<string, unknown>> = {}, serv
           id: monthly ? "monthly-discount" : "yearly-discount",
           type: "fixed",
           duration: "forever",
-          amounts: { usd: monthly ? 600 : 7100 },
+          amounts: { usd: monthly ? 600 : 7500 },
           products: [{ id: monthly ? "monthly" : "yearly" }],
         };
     return json({ ...data, ...overrides[path] });
@@ -140,7 +140,7 @@ test("Polar pricing fails on wrong interval, amount, duration, and effective lau
     ["/v1/products/monthly", { recurring_interval: "year" }, /monthly Polar product.*interval/],
     ["/v1/products/monthly", { prices: [{ amount_type: "fixed", price_currency: "usd", price_amount: 900 }] }, /1500 cents/],
     ["/v1/discounts/monthly-discount", { duration: "once" }, /duration forever/],
-    ["/v1/discounts/yearly-discount", { amounts: { usd: 7000 } }, /7900 cents after discount/],
+    ["/v1/discounts/yearly-discount", { amounts: { usd: 7000 } }, /7500 cents after discount/],
   ] as const) {
     mockPolar({ [path]: override });
     await assert.rejects(checkPricing(env), expected);
@@ -157,7 +157,10 @@ test("production pricing rejects shell-only discounts while sandbox pricing acce
   await checkPricing(env);
 });
 
-test("Polar percentage discount rounds the discount before subtracting", async () => {
-  mockPolar({ "/v1/discounts/yearly-discount": { type: "percentage", basis_points: 4733, amounts: undefined } });
+test("Polar percentage discounts (40% monthly, 50% yearly) yield the launch prices", async () => {
+  mockPolar({
+    "/v1/discounts/monthly-discount": { type: "percentage", basis_points: 4000, amounts: undefined },
+    "/v1/discounts/yearly-discount": { type: "percentage", basis_points: 5000, amounts: undefined },
+  });
   await checkPricing(env);
 });

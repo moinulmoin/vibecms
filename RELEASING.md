@@ -11,9 +11,9 @@ public content (migration 0018 onward), so the first deploy is a cutover.
 ### 1. Launch pricing in Polar (production)
 
 1. Keep the products at the list price: monthly **$15**, yearly **$150**.
-2. Create two discounts, duration **forever**, each limited to its product:
-   - monthly: **$6 off** → $9/month
-   - yearly: **$71 off** → $79/year
+2. Create two **percentage** discounts, duration **forever**, each limited to its product:
+   - monthly: **40% off** → $9/month
+   - yearly: **50% off** → $75/year
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
    `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`.
 4. Check now (standalone mode reads your shell, so export all four ids):
@@ -37,7 +37,8 @@ change, the acknowledgement stops matching.
 The old API can't be paused from the new code. For the ~2 minutes between the
 migrations and the new API deploy (and across any failed attempts until the
 cutover completes), **no one may publish or edit on production**: pause agents that use production keys and don't use the
-dashboard. The deploy only starts with `CONFIRM_WRITE_FREEZE=1`.
+dashboard. For this one-time upgrade the deploy asks you to confirm with
+`CONFIRM_WRITE_FREEZE=1`; routine deploys afterwards don't ask.
 
 ### 4. Deploy
 
@@ -59,7 +60,7 @@ that was live, then run `pnpm deploy:prod -- --verify-pins` and
 ### 5. After
 
 Reopen writes, then check a published post, a private preview link, a
-scheduled post, and a checkout on both plans (the first charge should be $9 / $79).
+scheduled post, and a checkout on both plans (the first charge should be $9 / $75).
 
 ## Known limits
 

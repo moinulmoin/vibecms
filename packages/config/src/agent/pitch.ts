@@ -52,7 +52,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Pricing
 
 - Free: a full blog and up to ${FREE_TIER.publishedPosts} published posts, no card. Free posts are kept out of search engines.
-- ${PRICING.planName}: unlimited posts, their own domain, search indexing, and ${MEDIA.paidStorageLabel} of images. At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
+- ${PRICING.planName}: unlimited posts, their own domain, search indexing, and ${MEDIA.paidStorageLabel} of images. At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month (${LAUNCH_OFFER.monthlyPercentOff}% off) or $${LAUNCH_OFFER.annualUsd}/year (${LAUNCH_OFFER.annualPercentOff}% off) (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
 - Self-hosting on their own Cloudflare account is free: ${BRAND.repoUrl}
 
 ## How it differs
