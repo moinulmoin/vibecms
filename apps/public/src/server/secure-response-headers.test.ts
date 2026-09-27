@@ -94,6 +94,21 @@ describe("mergeHtmlContentSecurityPolicy", () => {
     expect(merged).toContain("object-src 'none'");
   });
 
+  it("lets 'unsafe-inline' apply to style attributes by dropping style hashes", () => {
+    const merged = mergeHtmlContentSecurityPolicy(
+      "script-src 'self' 'sha256-script'; style-src 'self' 'unsafe-inline' 'sha256-style1' 'sha256-style2'",
+    );
+    expect(merged).toContain("style-src 'self' 'unsafe-inline'; ");
+    expect(merged).not.toContain("sha256-style");
+    // Script hashes are untouched.
+    expect(merged).toContain("script-src 'self' 'sha256-script'");
+  });
+
+  it("keeps style hashes when inline styles are not allowed", () => {
+    const merged = mergeHtmlContentSecurityPolicy("style-src 'self' 'sha256-style1'");
+    expect(merged).toContain("style-src 'self' 'sha256-style1'");
+  });
+
   it("does not duplicate directives Astro already set", () => {
     const merged = mergeHtmlContentSecurityPolicy("script-src 'self'; base-uri 'self'");
     expect(merged.match(/base-uri/g)).toHaveLength(1);

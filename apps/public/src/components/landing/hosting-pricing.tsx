@@ -21,7 +21,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
   return (
     <section id="pricing" aria-labelledby="pricing-title">
       <SectionShell className="isolate">
-        <SectionLight x="70%" y="50%" size={820} strength={0.7} />
+        <SectionLight x="70%" y="50%" alpha={0.15} />
         <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-14">
           <div data-reveal className="min-w-0">
             <h2 id="pricing-title" className={H2}>

@@ -123,29 +123,30 @@ export function SectionShell({ className, children }: Classable) {
 
 /**
  * A soft pool of ambient light anchored to a section (scrolls with it), so the
- * page has depth past the hero. Diffuse brand tint only - never a green panel.
+ * page has depth past the hero. Sized well beyond the panel it sits behind so
+ * the light reads as a halo around it. Diffuse brand tint only, never a panel.
  */
 export function SectionLight({
   x = "50%",
   y = "50%",
-  size = 640,
-  strength = 0.22,
+  size = 1100,
+  alpha = 0.12,
 }: {
   x?: string;
   y?: string;
   size?: number;
-  strength?: number;
+  /** Brand-green alpha at the center of the pool. */
+  alpha?: number;
 }) {
   return (
     <div
-      className="pointer-events-none absolute -z-10 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[30px]"
+      className="pointer-events-none absolute -z-10 -translate-x-1/2 -translate-y-1/2"
       style={{
         left: x,
         top: y,
         width: size,
-        height: size * 0.72,
-        opacity: strength,
-        background: "radial-gradient(ellipse at center, var(--glow-primary), transparent 68%)",
+        height: size * 0.75,
+        background: `radial-gradient(closest-side, oklch(0.8107 0.1705 152.72 / ${alpha}), oklch(0.8107 0.1705 152.72 / ${alpha * 0.4}) 45%, transparent)`,
       }}
       aria-hidden="true"
     />

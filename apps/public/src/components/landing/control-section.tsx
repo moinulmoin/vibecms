@@ -86,7 +86,7 @@ export function ControlSection() {
   return (
     <section id="control" aria-labelledby="control-title">
       <SectionShell className="isolate grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
-        <SectionLight x="28%" y="55%" size={680} strength={0.5} />
+        <SectionLight x="30%" y="52%" alpha={0.11} />
         <div data-reveal className="min-w-0 lg:order-2">
           <h2 id="control-title" className={H2}>
             Nothing goes live

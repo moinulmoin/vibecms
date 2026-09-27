@@ -5,7 +5,7 @@ export function AgentsDemo({ apiDocsUrl }: { apiDocsUrl: string }) {
   return (
     <section id="agents" aria-labelledby="agents-title">
       <SectionShell className="isolate grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
-        <SectionLight x="72%" y="50%" size={760} strength={0.65} />
+        <SectionLight x="72%" y="50%" alpha={0.14} />
         <div data-reveal className="min-w-0">
           <h2 id="agents-title" className={H2}>
             A key for each agent.

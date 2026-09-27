@@ -40,13 +40,32 @@ export function buildHtmlContentSecurityPolicy(): string {
 }
 
 /**
+ * Astro hashes its own inline <style> blocks into style-src. Any hash or nonce
+ * makes browsers ignore 'unsafe-inline', which silently blocks every style=""
+ * attribute: blog themes (accent, fonts, width) and landing gradients. When the
+ * config allows inline styles, drop the hashes so it actually applies.
+ * Scripts are untouched.
+ */
+function allowInlineStyles(policy: string): string {
+  return policy
+    .split(";")
+    .map((directive) => {
+      const tokens = directive.trim().split(/\s+/);
+      if (tokens[0]?.toLowerCase() !== "style-src" || !tokens.includes("'unsafe-inline'")) return directive.trim();
+      return tokens.filter((t) => !/^'(sha(256|384|512)-|nonce-)/i.test(t)).join(" ");
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
+/**
  * Keep Astro's script/style policy (it hashes its own inline code) and add the
  * frame/navigation directives. Without an Astro policy, scripts are still
  * limited to this origin: tenant pages render untrusted Markdown.
  */
 export function mergeHtmlContentSecurityPolicy(astroPolicy: string | null): string {
   const ours = buildHtmlContentSecurityPolicy();
-  const existing = (astroPolicy ?? "").trim().replace(/;\s*$/, "");
+  const existing = allowInlineStyles((astroPolicy ?? "").trim().replace(/;\s*$/, ""));
   if (!existing) return `script-src 'self'; ${ours}`;
   const names = new Set(existing.split(";").map((d) => d.trim().split(/\s+/)[0]?.toLowerCase()));
   const extra = ours.split("; ").filter((d) => !names.has(d.split(" ")[0]!.toLowerCase()));
