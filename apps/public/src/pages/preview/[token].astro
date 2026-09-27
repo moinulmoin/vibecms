@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from '../../components/PublicBlogPages';
-import { loadPrivatePreview, previewNotFound, previewResponseHeaders } from '../../server/preview';
+import { loadPrivatePreview, previewResponseHeaders } from '../../server/preview';
 import { publicDb, publicRuntimeEnv } from '../../server/runtime';
 
 for (const [name, value] of Object.entries(previewResponseHeaders)) Astro.response.headers.set(name, value);
