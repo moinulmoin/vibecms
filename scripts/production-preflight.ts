@@ -1,25 +1,38 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { LAUNCH_OFFER, PRICING } from "../packages/config/src/index.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+let accountId: string;
+let apiToken: string;
+let productionApiConfig: string;
+let productionPublicConfig: string;
+
+async function main(): Promise<void> {
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   printHelp();
-  process.exit(0);
+  return;
 }
 
 const apiConfigPath = join(root, "apps/api/wrangler.jsonc");
 const publicConfigPath = join(root, "apps/public/wrangler.jsonc");
 const apiConfig = readFileSync(apiConfigPath, "utf8");
 const publicConfig = readFileSync(publicConfigPath, "utf8");
-const productionApiConfig = apiConfig.slice(apiConfig.indexOf('"production"'));
-const productionPublicConfig = publicConfig.slice(publicConfig.indexOf('"production"'));
+productionApiConfig = apiConfig.slice(apiConfig.indexOf('"production"'));
+productionPublicConfig = publicConfig.slice(publicConfig.indexOf('"production"'));
 
-const accountId = requireEnvironment("CLOUDFLARE_ACCOUNT_ID");
-const apiToken =
+if (args.includes("--pricing")) {
+  await checkPricing(process.env);
+  console.log("Polar pricing preflight passed");
+  return;
+}
+
+accountId = requireEnvironment("CLOUDFLARE_ACCOUNT_ID");
+apiToken =
   process.env.CLOUDFLARE_PREFLIGHT_API_TOKEN?.trim()
   || requireEnvironment("CLOUDFLARE_API_TOKEN");
 
@@ -92,15 +105,29 @@ const zoneId = "ba566759d1d48dfe268050968fe631af";
 const analyticsDataset = "vibecms_page_views_prod";
 
 await assertD1Exists(d1Name, d1Id, missing);
+await checkLegacyData(accountId, d1Id, apiToken, missing);
 await assertR2Exists(r2Name, missing);
 await assertAnalyticsDatasetConfigured(analyticsDataset, missing);
 await assertImagesBindingConfigured(missing);
 await assertEmailSendingConfigured(missing);
 await assertCustomHostnameFallback(zoneId, missing);
 await assertSecrets(missing);
+const polarVars = extractPolarVars(productionApiConfig);
+if (polarVars.POLAR_SERVER !== "production") {
+  missing.push(`Production Worker POLAR_SERVER must be production; got ${polarVars.POLAR_SERVER ?? "missing"}`);
+}
+try {
+  await checkPricing({
+    ...process.env,
+    ...polarVars,
+    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
+  });
+} catch (error) {
+  missing.push(`Polar pricing: ${error instanceof Error ? error.message : String(error)}`);
+}
 
 if (missing.length > 0) {
-  throw new Error(`Production preflight found missing resources/secrets:\n- ${missing.join("\n- ")}`);
+  throw new Error(`Production preflight found blocking issues:\n- ${missing.join("\n- ")}`);
 }
 
 runGate("typecheck", ["pnpm", "typecheck"]);
@@ -152,17 +179,24 @@ writeFileSync(
 );
 
 console.log("Production preflight passed (gates + resources/secrets + production artifacts built)");
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  await main();
+}
 
 function printHelp(): void {
   console.log(`production:preflight — production gates, resource/secret checks, and artifact builds
 
 Usage:
   pnpm production:preflight
+  pnpm preflight:pricing
   pnpm production:preflight -- --help
 
 Runs before any D1 mutation:
   - typecheck, lint, tests, public:audit, openapi:check
   - validates D1/R2/Images/Analytics/Email/custom-hostname resources and required secret names
+  - checks legacy D1 rows affected by pending migrations and Polar checkout pricing
   - builds dashboard, API production dry-run, and public production artifacts
 
 Required environment:
@@ -175,7 +209,172 @@ Required environment:
 Notes:
   - Failures stop before migrations.
   - Astro sessions are disabled; no SESSION KV is required.
+  - preflight:pricing requires POLAR_ACCESS_TOKEN, POLAR_SERVER, both POLAR_*_PRODUCT_ID
+    and both POLAR_LAUNCH_DISCOUNT_*_ID values in the environment.
 `);
+}
+
+function extractPolarVars(source: string): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const name of [
+    "POLAR_SERVER",
+    "POLAR_MONTHLY_PRODUCT_ID",
+    "POLAR_YEARLY_PRODUCT_ID",
+    "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID",
+    "POLAR_LAUNCH_DISCOUNT_YEARLY_ID",
+  ]) {
+    const match = source.match(new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`));
+    if (match?.[1]) vars[name] = match[1];
+  }
+  return vars;
+}
+
+type D1Row = Record<string, unknown>;
+
+function d1Count(rows: D1Row[]): number {
+  const count = rows[0]?.count;
+  if (!Number.isInteger(count) || (count as number) < 0) {
+    throw new Error(`D1 count query returned an invalid count: ${String(count)}`);
+  }
+  return count as number;
+}
+
+export async function checkLegacyData(
+  account: string,
+  database: string,
+  token: string,
+  failures: string[],
+): Promise<void> {
+  async function query(sql: string): Promise<D1Row[]> {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${database}/query`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ sql }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const body = await response.json() as {
+      success?: boolean;
+      errors?: Array<{ message?: string }>;
+      result?: Array<{ results?: D1Row[]; success?: boolean; error?: string }>;
+    };
+    if (!response.ok || !body.success || body.result?.[0]?.success === false || !body.result?.[0]?.results) {
+      throw new Error(body.errors?.map((error) => error.message).join(", ")
+        || body.result?.[0]?.error || `HTTP ${response.status}`);
+    }
+    return body.result[0].results;
+  }
+
+  try {
+    const tables = new Set((await query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('user', 'posts', 'post_versions')"))
+      .map((row) => String(row.name)));
+    for (const table of ["user", "posts", "post_versions"]) {
+      if (!tables.has(table)) throw new Error(`Expected pre-migration table ${table} is missing`);
+    }
+    const postColumns = new Set((await query("SELECT name FROM pragma_table_info('posts')"))
+      .map((row) => String(row.name)));
+
+    const collisions = await query(
+      "SELECT lower(trim(email)) AS email, count(*) AS count, group_concat(id) AS ids FROM user GROUP BY lower(trim(email)) HAVING count(*) > 1 ORDER BY email LIMIT 5",
+    );
+    const collisionCount = d1Count(await query(
+      "SELECT count(*) AS count FROM (SELECT 1 FROM user GROUP BY lower(trim(email)) HAVING count(*) > 1)",
+    ));
+    if (collisionCount) {
+      failures.push(`0021 email canonicalization would fail: ${collisionCount} collision group(s); examples ${collisions.map((row) => `${row.email} [${row.ids}]`).join("; ")}. Resolve duplicate accounts/emails explicitly before migration.`);
+    }
+
+    const scheduled = await query("SELECT id FROM posts WHERE status = 'scheduled' LIMIT 5");
+    const scheduledCount = d1Count(await query("SELECT count(*) AS count FROM posts WHERE status = 'scheduled'"));
+    if (scheduledCount) {
+      console.warn(`0021 will convert ${scheduledCount} scheduled post(s) to drafts; example ids: ${scheduled.map((row) => row.id).join(", ")}. Recreate legitimate schedules in post_schedules after 0030, with the intended publish time and version, before reopening publishing.`);
+    }
+
+    const missingVersion = `status = 'published' AND (NOT EXISTS (SELECT 1 FROM post_versions WHERE post_versions.post_id = posts.id)${postColumns.has("published_version_id") ? " OR published_version_id IS NULL" : ""})`;
+    const unversioned = await query(`SELECT id FROM posts WHERE ${missingVersion} LIMIT 5`);
+    const unversionedCount = d1Count(await query(`SELECT count(*) AS count FROM posts WHERE ${missingVersion}`));
+    if (unversionedCount) {
+      console.warn(`0021 may convert ${unversionedCount} published post(s) to drafts or leave them without a live version; example ids: ${unversioned.map((row) => row.id).join(", ")}. Create post_versions snapshots and set published_version_id for these posts before applying 0021; verify their public content afterward.`);
+    }
+  } catch (error) {
+    failures.push(`Unable to run read-only D1 migration checks: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+type PolarEnv = Record<string, string | undefined>;
+type PolarPrice = { amount_type?: string; price_currency?: string; price_amount?: number; is_archived?: boolean };
+type PolarProduct = {
+  id?: string; is_recurring?: boolean; is_archived?: boolean;
+  recurring_interval?: string; recurring_interval_count?: number | null; prices?: PolarPrice[];
+};
+type PolarDiscount = {
+  id?: string; type?: string; duration?: string; amount?: number; currency?: string;
+  amounts?: Record<string, number>; basis_points?: number; products?: Array<{ id?: string }>;
+  starts_at?: string | null; ends_at?: string | null;
+  max_redemptions?: number | null; redemptions_count?: number;
+};
+
+export async function checkPricing(env: PolarEnv): Promise<void> {
+  const token = env.POLAR_ACCESS_TOKEN?.trim();
+  if (!token) throw new Error("Polar pricing preflight requires POLAR_ACCESS_TOKEN");
+  const server = env.POLAR_SERVER?.trim();
+  if (server !== "sandbox" && server !== "production") {
+    throw new Error("Polar pricing preflight requires POLAR_SERVER=sandbox or production");
+  }
+  const base = server === "sandbox" ? "https://sandbox-api.polar.sh" : "https://api.polar.sh";
+  async function get<T>(path: string): Promise<T> {
+    const response = await fetch(`${base}/v1/${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error(`Polar ${path}: HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
+    return await response.json() as T;
+  }
+
+  for (const plan of [
+    { label: "monthly", interval: "month", list: PRICING.monthlyUsd * 100, launch: LAUNCH_OFFER.monthlyUsd * 100, productKey: "POLAR_MONTHLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID" },
+    { label: "yearly", interval: "year", list: PRICING.annualUsd * 100, launch: LAUNCH_OFFER.annualUsd * 100, productKey: "POLAR_YEARLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_YEARLY_ID" },
+  ]) {
+    const productId = env[plan.productKey]?.trim();
+    const discountId = env[plan.discountKey]?.trim();
+    if (!productId) throw new Error(`${plan.productKey} is required to verify the ${plan.label} checkout`);
+    const product = await get<PolarProduct>(`products/${encodeURIComponent(productId)}`);
+    if (product.id !== productId || !product.is_recurring || product.is_archived
+      || product.recurring_interval !== plan.interval || product.recurring_interval_count !== 1) {
+      throw new Error(`${plan.label} Polar product ${productId}: expected active recurring ${plan.interval} interval count 1; got ${JSON.stringify({ interval: product.recurring_interval, count: product.recurring_interval_count, archived: product.is_archived })}`);
+    }
+    const prices = product.prices?.filter((price) => !price.is_archived) ?? [];
+    if (prices.length !== 1 || prices[0]?.amount_type !== "fixed"
+      || prices[0].price_currency?.toLowerCase() !== "usd" || prices[0].price_amount !== plan.list) {
+      throw new Error(`${plan.label} Polar product ${productId}: expected one active fixed USD price of ${plan.list} cents; got ${JSON.stringify(prices)}`);
+    }
+    if (!discountId) throw new Error(`${plan.discountKey} is required while the site advertises the ${plan.launch}-cent launch price`);
+    const discount = await get<PolarDiscount>(`discounts/${encodeURIComponent(discountId)}`);
+    if (discount.id !== discountId || discount.duration !== "forever") {
+      throw new Error(`${plan.label} Polar discount ${discountId}: expected duration forever; got ${discount.duration ?? "missing"}`);
+    }
+    if (discount.products?.length && !discount.products.some((entry) => entry.id === productId)) {
+      throw new Error(`${plan.label} Polar discount ${discountId} does not apply to product ${productId}`);
+    }
+    const now = Date.now();
+    if ((discount.starts_at && Date.parse(discount.starts_at) > now)
+      || (discount.ends_at && Date.parse(discount.ends_at) <= now)
+      || (discount.max_redemptions != null && (discount.redemptions_count ?? 0) >= discount.max_redemptions)) {
+      throw new Error(`${plan.label} Polar discount ${discountId} is not currently redeemable`);
+    }
+    let effective: number | undefined;
+    if (discount.type === "fixed") {
+      const amount = discount.amounts?.usd ?? (discount.currency?.toLowerCase() === "usd" ? discount.amount : undefined);
+      if (Number.isInteger(amount) && amount! >= 0) effective = Math.max(0, plan.list - amount!);
+    } else if (discount.type === "percentage" && Number.isInteger(discount.basis_points)) {
+      effective = Math.round(plan.list * (10_000 - discount.basis_points!) / 10_000);
+    }
+    if (effective !== plan.launch) {
+      throw new Error(`${plan.label} Polar discount ${discountId}: expected ${plan.launch} cents after discount from ${plan.list} cents; got ${effective ?? "unsupported type/currency"} (type ${discount.type ?? "missing"})`);
+    }
+  }
 }
 
 function requireEnvironment(name: string): string {
@@ -226,7 +425,7 @@ async function runJson(command: string[]): Promise<unknown> {
   if (result.status !== 0) {
     throw new Error(`Command failed (${command.join(" ")}): ${result.stderr || result.stdout}`);
   }
-  const stdout = result.stdout.trim();
+  const stdout = String(result.stdout).trim();
   if (!stdout) return null;
   try {
     return JSON.parse(stdout);

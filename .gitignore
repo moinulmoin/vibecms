@@ -41,3 +41,6 @@ apps/public/.astro/preview.json
 /artifacts/
 /.claude/
 /security-findings.json
+
+# pnpm's local package store
+.pnpm-store/
