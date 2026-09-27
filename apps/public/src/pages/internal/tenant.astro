@@ -2,8 +2,8 @@
 import Base from "../../layouts/Base.astro";
 import { PublicBlogIndexView, publicPageCanonicalPath, requestedPublicPage, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
-import { tenantHomeLinks } from "../../lib/agent-discovery";
-import { tenantBlogJsonLd } from "../../lib/agent-pages";
+import { markdownNotFound, tenantHomeLinks } from "../../lib/agent-discovery";
+import { listingMarkdown, tenantBlogJsonLd } from "../../lib/agent-pages";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicOrigin } from "../../server/public-url";

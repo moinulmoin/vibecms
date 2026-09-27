@@ -5,6 +5,8 @@ import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 import { publicOrigin } from "../../server/public-url";
+import { listingMarkdown } from "../../lib/agent-pages";
+import { markdownNotFound } from "../../lib/agent-discovery";
 
 const env = publicRuntimeEnv(Astro);
 const tag = Astro.params.tag ?? "";

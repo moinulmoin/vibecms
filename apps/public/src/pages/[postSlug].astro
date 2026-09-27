@@ -13,6 +13,7 @@ import { buildPostHeadContent } from "../lib/seo-meta";
 import { resolveSite } from "../server/public-blog-data";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
 import pageViewScriptUrl from "../scripts/page-view.js?url";
+import { markdownNotFound } from "../lib/agent-discovery";
 
 const env = publicRuntimeEnv(Astro);
 if (Astro.params.postSlug === "about" && !env.selfHosted && isMarketingHost(Astro.request, env)) {
