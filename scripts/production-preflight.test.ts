@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
+import { createHash } from "node:crypto";
 import { checkLegacyData, checkPricing, productionPolarEnv } from "./production-preflight.ts";
 
 const originalFetch = globalThis.fetch;
@@ -19,11 +20,14 @@ function json(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
-test("D1 preflight blocks legacy conversion until current counts are acknowledged", async () => {
+test("D1 preflight binds legacy acknowledgements to the full sorted ID sets", async () => {
   delete process.env.ACK_LEGACY_SCHEDULED_POSTS;
   delete process.env.ACK_LEGACY_UNVERSIONED_POSTS;
   const sql: string[] = [];
   const warnings: string[] = [];
+  let scheduledIds = ["p2", "p1"];
+  let unversionedIds = ["p3"];
+  const hash = (ids: string[]) => createHash("sha256").update(JSON.stringify([...ids].sort())).digest("hex").slice(0, 12);
   console.warn = (message) => warnings.push(String(message));
   globalThis.fetch = async (_url, init) => {
     assert.equal(init?.method, "POST");
@@ -35,28 +39,38 @@ test("D1 preflight blocks legacy conversion until current counts are acknowledge
     else if (statement.includes("pragma_table_info")) results = [{ name: "id" }, { name: "status" }];
     else if (statement.includes("SELECT lower(trim(email))")) results = [{ email: "owner@example.com", count: 2, ids: "u1,u2" }];
     else if (statement.includes("count(*) AS count FROM (SELECT 1 FROM user")) results = [{ count: 1 }];
-    else if (statement.includes("status = 'scheduled'")) results = statement.includes("count(*)") ? [{ count: 2 }] : [{ id: "p1" }, { id: "p2" }];
-    else if (statement.includes("status = 'published'")) results = statement.includes("count(*)") ? [{ count: 1 }] : [{ id: "p3" }];
+    else if (statement.includes("status = 'scheduled'")) results = statement.includes("count(*)") ? [{ count: scheduledIds.length }] : scheduledIds.map((id) => ({ id }));
+    else if (statement.includes("status = 'published'")) results = statement.includes("count(*)") ? [{ count: unversionedIds.length }] : unversionedIds.map((id) => ({ id }));
     else throw new Error(`Unexpected SQL ${statement}`);
     return json({ success: true, result: [{ success: true, results }] });
   };
   const failures: string[] = [];
   await checkLegacyData("account", "database", "token", failures);
   assert.match(failures[0]!, /1 collision group.*owner@example.com \[u1,u2\]/);
-  assert.match(failures[1]!, /2 scheduled post.*p1, p2.*Recreate legitimate schedules.*ACK_LEGACY_SCHEDULED_POSTS=2/);
-  assert.match(failures[2]!, /1 published post.*p3.*Create post_versions snapshots.*ACK_LEGACY_UNVERSIONED_POSTS=1/);
-  process.env.ACK_LEGACY_SCHEDULED_POSTS = "1";
-  process.env.ACK_LEGACY_UNVERSIONED_POSTS = "1";
-  const staleFailures: string[] = [];
-  await checkLegacyData("account", "database", "token", staleFailures);
-  assert.match(staleFailures[1]!, /ACK_LEGACY_SCHEDULED_POSTS=2/);
+  assert.match(failures[1]!, new RegExp(`2 scheduled post.*p1, p2.*${hash(scheduledIds)}.*ACK_LEGACY_SCHEDULED_POSTS=${hash(scheduledIds)}`));
+  assert.match(failures[2]!, new RegExp(`1 published post.*p3.*${hash(unversionedIds)}.*ACK_LEGACY_UNVERSIONED_POSTS=${hash(unversionedIds)}`));
   process.env.ACK_LEGACY_SCHEDULED_POSTS = "2";
+  process.env.ACK_LEGACY_UNVERSIONED_POSTS = "1";
+  const countOnlyFailures: string[] = [];
+  await checkLegacyData("account", "database", "token", countOnlyFailures);
+  assert.equal(countOnlyFailures.length, 3);
+  process.env.ACK_LEGACY_SCHEDULED_POSTS = hash(scheduledIds);
+  process.env.ACK_LEGACY_UNVERSIONED_POSTS = hash(unversionedIds);
+  const staleFailures: string[] = [];
+  scheduledIds = ["p2", "p4"];
+  await checkLegacyData("account", "database", "token", staleFailures);
+  assert.match(staleFailures[1]!, new RegExp(`ACK_LEGACY_SCHEDULED_POSTS=${hash(scheduledIds)}`));
+  scheduledIds = ["p2", "p1"];
+  unversionedIds = ["p5"];
+  const changedPublishedFailures: string[] = [];
+  await checkLegacyData("account", "database", "token", changedPublishedFailures);
+  assert.match(changedPublishedFailures[1]!, new RegExp(`ACK_LEGACY_UNVERSIONED_POSTS=${hash(unversionedIds)}`));
+  unversionedIds = ["p3"];
   const acknowledgedFailures: string[] = [];
   await checkLegacyData("account", "database", "token", acknowledgedFailures);
   assert.equal(acknowledgedFailures.length, 1);
-  assert.match(warnings[0]!, /1 published post/);
-  assert.match(warnings[1]!, /2 scheduled post/);
-  assert.match(warnings[2]!, /1 published post/);
+  assert.ok(warnings.some((warning) => /1 published post/.test(warning)));
+  assert.ok(warnings.some((warning) => /2 scheduled post/.test(warning)));
   assert.equal(sql.some((statement) => statement.includes("published_version_id")), false);
 });
 

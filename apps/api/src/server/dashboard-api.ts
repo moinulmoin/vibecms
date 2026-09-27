@@ -305,7 +305,7 @@ export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageD
     apiKeys,
     personalization: {
       agentPreference: personalization.agentPreference,
-      voiceSeedPending: personalization.voiceSeed.length > 0 && !voiceProfile,
+      voiceSeedPending: personalization.voiceSeed.length > 0 && !voiceProfile?.configured,
     },
     effectiveEntitlement: {
       effective: entitlement.effective,

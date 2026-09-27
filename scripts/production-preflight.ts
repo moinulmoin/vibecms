@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { LAUNCH_OFFER, PRICING } from "../packages/config/src/index.ts";
@@ -241,6 +242,15 @@ function d1Count(rows: D1Row[]): number {
   return count as number;
 }
 
+function legacyIdSet(rows: D1Row[]): { ids: string[]; hash: string } {
+  const ids = rows.map((row) => row.id);
+  if (ids.some((id) => typeof id !== "string" || !id) || new Set(ids).size !== ids.length) {
+    throw new Error("D1 legacy ID query returned invalid or duplicate IDs");
+  }
+  const sorted = (ids as string[]).sort();
+  return { ids: sorted, hash: createHash("sha256").update(JSON.stringify(sorted)).digest("hex").slice(0, 12) };
+}
+
 export async function checkLegacyData(
   account: string,
   database: string,
@@ -288,20 +298,20 @@ export async function checkLegacyData(
       failures.push(`0021 email canonicalization would fail: ${collisionCount} collision group(s); examples ${collisions.map((row) => `${row.email} [${row.ids}]`).join("; ")}. Resolve duplicate accounts/emails explicitly before migration.`);
     }
 
-    const scheduled = await query("SELECT id FROM posts WHERE status = 'scheduled' LIMIT 5");
-    const scheduledCount = d1Count(await query("SELECT count(*) AS count FROM posts WHERE status = 'scheduled'"));
+    const scheduled = legacyIdSet(await query("SELECT id FROM posts WHERE status = 'scheduled' ORDER BY id"));
+    const scheduledCount = scheduled.ids.length;
     if (scheduledCount) {
-      const message = `0021 will convert ${scheduledCount} scheduled post(s) to drafts; example ids: ${scheduled.map((row) => row.id).join(", ")}. Recreate legitimate schedules in post_schedules after 0030, with the intended publish time and version, before reopening publishing.`;
-      if (process.env.ACK_LEGACY_SCHEDULED_POSTS !== String(scheduledCount)) failures.push(`${message} Set ACK_LEGACY_SCHEDULED_POSTS=${scheduledCount} only after explicitly accepting this conversion.`);
+      const message = `0021 will convert ${scheduledCount} scheduled post(s) to drafts; ids: ${scheduled.ids.join(", ")}; id-set hash: ${scheduled.hash}. Recreate legitimate schedules in post_schedules after 0030, with the intended publish time and version, before reopening publishing.`;
+      if (process.env.ACK_LEGACY_SCHEDULED_POSTS !== scheduled.hash) failures.push(`${message} Set ACK_LEGACY_SCHEDULED_POSTS=${scheduled.hash} only after explicitly accepting this conversion.`);
       else console.warn(message);
     }
 
     const missingVersion = `status = 'published' AND (NOT EXISTS (SELECT 1 FROM post_versions WHERE post_versions.post_id = posts.id)${postColumns.has("published_version_id") ? " OR published_version_id IS NULL" : ""})`;
-    const unversioned = await query(`SELECT id FROM posts WHERE ${missingVersion} LIMIT 5`);
-    const unversionedCount = d1Count(await query(`SELECT count(*) AS count FROM posts WHERE ${missingVersion}`));
+    const unversioned = legacyIdSet(await query(`SELECT id FROM posts WHERE ${missingVersion} ORDER BY id`));
+    const unversionedCount = unversioned.ids.length;
     if (unversionedCount) {
-      const message = `0021 may convert ${unversionedCount} published post(s) to drafts or leave them without a live version; example ids: ${unversioned.map((row) => row.id).join(", ")}. Create post_versions snapshots and set published_version_id for these posts before applying 0021; verify their public content afterward.`;
-      if (process.env.ACK_LEGACY_UNVERSIONED_POSTS !== String(unversionedCount)) failures.push(`${message} Set ACK_LEGACY_UNVERSIONED_POSTS=${unversionedCount} only after explicitly accepting this conversion.`);
+      const message = `0021 may convert ${unversionedCount} published post(s) to drafts or leave them without a live version; ids: ${unversioned.ids.join(", ")}; id-set hash: ${unversioned.hash}. Create post_versions snapshots and set published_version_id for these posts before applying 0021; verify their public content afterward.`;
+      if (process.env.ACK_LEGACY_UNVERSIONED_POSTS !== unversioned.hash) failures.push(`${message} Set ACK_LEGACY_UNVERSIONED_POSTS=${unversioned.hash} only after explicitly accepting this conversion.`);
       else console.warn(message);
     }
   } catch (error) {

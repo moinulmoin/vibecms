@@ -182,6 +182,7 @@ describe('redactPathSecrets', () => {
   it('keeps preview tokens out of request logs', () => {
     expect(redactPathSecrets('/preview/0123abcd')).toBe('/preview/[redacted]')
     expect(redactPathSecrets('/api/v1/posts')).toBe('/api/v1/posts')
+    expect(redactErrorText('fetch https://blog.example/preview/0123abcd failed')).toBe('fetch https://blog.example/preview/[redacted] failed')
   })
 })
 

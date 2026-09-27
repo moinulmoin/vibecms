@@ -12,7 +12,7 @@ import {
   updateSiteSettingsForApp,
   type AppUserContext,
 } from "@/server/onboarding";
-import { loadOnboardingStatus } from "@/server/dashboard-api";
+import { loadConnectPage, loadOnboardingStatus } from "@/server/dashboard-api";
 import { clearVoiceProfileForApp, updateVoiceProfileForApp } from "@/server/voice-profile";
 
 declare module "vitest" {
@@ -154,6 +154,24 @@ describe("owner-only site configuration mutations", () => {
       kind: "error",
       code: "owner_required",
     });
+  });
+});
+
+describe("connect page voice seed", () => {
+  it("becomes pending again when a configured voice profile is cleared", async () => {
+    await env.DB.prepare("UPDATE sites SET voice_seed_json = ? WHERE id = ?")
+      .bind(JSON.stringify(["https://example.com/writing"]), SITE_ID).run();
+    const app = ownerApp();
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(true);
+    expect(await updateVoiceProfileForApp(app, {
+      audience: "Readers", preferRules: [], avoidRules: [], representativePostIds: [],
+    }, { expectedUpdatedAt: 0 })).toEqual({ kind: "ok", code: "voice_profile_saved" });
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(false);
+    const profile = await env.DB.prepare("SELECT updated_at FROM site_voice_profiles WHERE site_id = ?")
+      .bind(SITE_ID).first<{ updated_at: number }>();
+    expect(await clearVoiceProfileForApp(app, { expectedUpdatedAt: profile!.updated_at }))
+      .toEqual({ kind: "ok", code: "voice_profile_cleared" });
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(true);
   });
 });
 

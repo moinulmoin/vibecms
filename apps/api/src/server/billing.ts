@@ -2,6 +2,7 @@ import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
 import { createDataAccess } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
+import { LAUNCH_OFFER, PRICING } from '@vc/config'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
 import { env } from 'cloudflare:workers'
 import { applyPolarWebhookAtomically, polarEventId } from '@/server/polar-webhook-receipts'
@@ -79,17 +80,21 @@ export type PolarOpenCheckout = {
   expiresAt?: Date | string | null
   productId?: string | null
   discountId?: string | null
+  currency?: string | null
+  netAmount?: number | null
 }
 
-/** Reuse only an open checkout for the exact product and discount. */
+/** Reuse only an open checkout for the exact offer and pre-tax first-period price. */
 export function pickReusableOpenCheckoutUrl(
   items: PolarOpenCheckout[],
   productId: string,
-  discountId?: string,
+  discountId: string | undefined,
+  expectedNetAmount: number,
   nowMs: number = Date.now(),
 ): string | null {
   for (const item of items) {
     if (item.productId !== productId || (item.discountId ?? null) !== (discountId ?? null)) continue
+    if (item.currency?.toLowerCase() !== 'usd' || item.netAmount !== expectedNetAmount) continue
     if (item.status != null && item.status !== 'open') continue
     if (!item.url) continue
     if (item.expiresAt != null) {
@@ -120,7 +125,7 @@ export type CreatePolarCheckout = (
     customerMetadata: { workspaceId: string }
   },
   options?: { headers?: HeadersInit },
-) => Promise<{ url?: string | null; productId?: string | null; discountId?: string | null }>
+) => Promise<PolarOpenCheckout>
 
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
@@ -150,6 +155,9 @@ export async function createCheckoutSessionForApp(
   const discountId = (interval === 'yearly'
     ? launchDiscounts.POLAR_LAUNCH_DISCOUNT_YEARLY_ID
     : launchDiscounts.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID)?.trim() || undefined
+  const expectedNetAmount = interval === 'yearly'
+    ? (discountId ? LAUNCH_OFFER.annualUsd : PRICING.annualUsd) * 100
+    : (discountId ? LAUNCH_OFFER.monthlyUsd : PRICING.monthlyUsd) * 100
   if (!productId) {
     return {
       kind: 'error',
@@ -183,7 +191,7 @@ export async function createCheckoutSessionForApp(
         externalCustomerId: app.workspaceId,
         productId,
       })
-      const existingUrl = pickReusableOpenCheckoutUrl(openItems, productId, discountId)
+      const existingUrl = pickReusableOpenCheckoutUrl(openItems, productId, discountId, expectedNetAmount)
       if (existingUrl) return { kind: 'ok', url: existingUrl }
     } catch (error) {
       console.error('polar open checkout list failed', error)
@@ -205,9 +213,11 @@ export async function createCheckoutSessionForApp(
       },
       { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval, productId, discountId) } },
     )
-    if (session.productId !== productId || (session.discountId ?? null) !== (discountId ?? null)) {
+    if (session.productId !== productId || (session.discountId ?? null) !== (discountId ?? null)
+      || session.currency?.toLowerCase() !== 'usd' || session.netAmount !== expectedNetAmount) {
       console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: discountId ?? null,
-        returnedProductId: session.productId, returnedDiscountId: session.discountId })
+        returnedProductId: session.productId, returnedDiscountId: session.discountId,
+        currency: session.currency, netAmount: session.netAmount, expectedNetAmount })
       return { kind: 'error', code: 'checkout_failed' }
     }
     if (!session.url) return { kind: 'error', code: 'checkout_failed' }

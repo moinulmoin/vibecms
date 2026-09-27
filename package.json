@@ -59,16 +59,14 @@
     "dev:sync-pepper": "tsx scripts/dev-token.ts --sync-pepper",
     "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/api exec wrangler deploy --config ../../wrangler.jsonc && pnpm --filter @vc/og exec wrangler deploy --config ../../wrangler.og.jsonc && pnpm --filter @vc/public exec wrangler deploy --config dist/server/wrangler.json",
     "deploy:dev": "pnpm dev:sync-pepper && pnpm db:migrate:dev && pnpm --filter @vc/dashboard build && pnpm --filter @vc/api deploy && pnpm --filter @vc/og deploy && pnpm --filter @vc/public build && node scripts/assert-public-build-target.mjs vibecms-public-dev vibecms_dev && pnpm --filter @vc/public exec wrangler deploy --config dist/server/wrangler.json",
-    "deploy:prod": "node scripts/assert-write-freeze.mjs && pnpm production:preflight && pnpm production:backup && pnpm --filter @vc/dashboard build && CLOUDFLARE_ENV=production pnpm --filter @vc/public build && node scripts/assert-public-build-target.mjs vibecms-public-prod vibecms_prod && pnpm --filter @vc/api exec wrangler d1 migrations apply DB --remote --env production && pnpm --filter @vc/og exec wrangler deploy --env production && pnpm --filter @vc/public exec wrangler deploy --config dist/server/wrangler.json && pnpm production:pin && pnpm --filter @vc/api exec wrangler deploy --env production && pnpm production:verify-pins && pnpm production:smoke",
+    "deploy:prod": "node scripts/deploy-prod.mjs",
     "public:audit": "bash scripts/public-release-audit.sh",
     "openapi:gen": "tsx scripts/gen-openapi.ts",
     "openapi:check": "pnpm openapi:gen && git diff --exit-code apps/api/openapi.json",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
-    "gen:agent-skills": "node scripts/gen-agent-skills.mjs",
-    "production:pin": "pnpm --filter @vc/api exec wrangler d1 execute DB --remote --env production --file ../../scripts/prod-pin-before-api-cutover.sql",
-    "production:verify-pins": "pnpm -s --filter @vc/api exec wrangler d1 execute DB --remote --env production --json --command \"SELECT id, slug FROM posts WHERE status = 'published' AND published_version_id IS NULL\" | node scripts/assert-pins-after-cutover.mjs"
+    "gen:agent-skills": "node scripts/gen-agent-skills.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
