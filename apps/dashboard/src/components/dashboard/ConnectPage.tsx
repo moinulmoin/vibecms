@@ -25,7 +25,8 @@ import type { ApiKeyListItem } from '~/types/dashboard'
 
 export type KeyAccess = 'draft' | 'publish' | 'manage'
 
-const FIRST_DRAFT_PROMPT = 'Use vibecms to write a short first post for my blog. Save it as a draft and show me the title and a short preview. I will publish it from the dashboard.'
+export const FIRST_DRAFT_PROMPT = "Use vibecms to write a short first post for my blog. Save it as a draft and send me the private preview link. Don't publish until I say so."
+export const FIRST_DRAFT_DESCRIPTION = 'Paste this into your agent. It sends you a private preview to approve. Publish from Posts, or give the agent a publishing key when you want it to publish.'
 
 export const KEY_ACCESS: Array<{ id: KeyAccess; label: string; description: string }> = [
   { id: 'draft', label: 'Write drafts', description: 'Drafts, edits, and image uploads. You publish.' },
@@ -290,7 +291,7 @@ export function ConnectPage() {
         <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} />
       </Section>
 
-      <Section title="Try it" description="Paste this into your agent to create a draft. Publish from Posts, or choose a publishing key to delegate that step.">
+      <Section title="Try it" description={FIRST_DRAFT_DESCRIPTION}>
         <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
         <details className="group text-sm">
           <summary className="w-fit cursor-pointer text-muted-foreground transition-colors hover:text-foreground">

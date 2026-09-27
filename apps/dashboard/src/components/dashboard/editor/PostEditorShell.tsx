@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useMediaQuery } from '~/hooks/use-media-query'
 import {
   archivePostMutation,
+  unarchivePostMutation,
   createPostMutation,
   deleteArchivedPostMutation,
   loadPostEditorPage,
@@ -249,6 +250,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [publishPending, setPublishPending] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [archivePending, setArchivePending] = useState(false)
+  const [unarchivePending, setUnarchivePending] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [restorePending, setRestorePending] = useState<number | null>(null)
   const [discardPending, setDiscardPending] = useState(false)
@@ -295,6 +297,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     && !conflict
     && !publishPending
     && !archivePending
+    && !unarchivePending
     && !discardPending
     && restorePending == null
     && (activePostId ? currentVersionNumber != null : metadata.title.trim().length > 0),
@@ -614,6 +617,25 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       await captureConflict(error)
     } finally {
       setArchivePending(false)
+    }
+  }
+
+  async function handleUnarchive() {
+    const postIdNow = activePostIdRef.current
+    if (!postIdNow || post?.status !== 'archived') return
+    setActionError(null)
+    const saved = await saveNow()
+    if (!saved) return
+    setUnarchivePending(true)
+    try {
+      const result = await unarchivePostMutation({ postId: postIdNow })
+      if (result.kind !== 'ok') throw new PostActionError(result.code, 'restore')
+      applyLoadedPage(await loadPostEditorPage({ postId: postIdNow }))
+      setActionSuccess('Restored to draft. The private preview link works again.')
+    } catch (error) {
+      setActionError(friendlyError(error))
+    } finally {
+      setUnarchivePending(false)
     }
   }
 
@@ -993,7 +1015,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           {autosave.status === 'error' ? <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={autosave.retry}>Retry</Button> : null}
         </span>
         <div className="ms-auto flex flex-wrap items-center gap-1.5">
-          {previewUrl && activePostId ? <>
+          {previewUrl && activePostId && post?.status !== 'archived' ? <>
             <Button type="button" variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(previewUrl)}>Copy preview link</Button>
             <Button asChild variant="ghost" size="sm"><a href={previewUrl} target="_blank" rel="noreferrer">Open preview</a></Button>
           </> : null}
@@ -1059,6 +1081,17 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           ) : null}
         </div>
       </header>
+      {post?.status === 'archived' ? (
+        <section aria-label="Archived post" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+          <div>
+            <p className="font-medium text-foreground">Archived post</p>
+            <p className="text-sm text-muted-foreground">Restoring brings it back as a draft, and its private preview link works again.</p>
+          </div>
+          <Button type="button" disabled={unarchivePending || savePending || deletePending} onClick={() => void handleUnarchive()}>
+            {unarchivePending ? 'Restoring…' : 'Restore'}
+          </Button>
+        </section>
+      ) : null}
 
       {conflict ? (
         <section role="alert" className="rounded-lg border border-warning/35 bg-warning/10 p-4">

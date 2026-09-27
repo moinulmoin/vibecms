@@ -8,6 +8,7 @@ import type { PostEditorPageLoad } from '~/types/dashboard'
 
 const api = vi.hoisted(() => ({
   archivePostMutation: vi.fn(),
+  unarchivePostMutation: vi.fn(),
   createPostMutation: vi.fn(),
   deleteArchivedPostMutation: vi.fn(),
   loadPostEditorPage: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock('@vc/content', () => ({
 
 vi.mock('~/lib/api-client', () => ({
   archivePostMutation: api.archivePostMutation,
+  unarchivePostMutation: api.unarchivePostMutation,
   createPostMutation: api.createPostMutation,
   deleteArchivedPostMutation: api.deleteArchivedPostMutation,
   loadPostEditorPage: api.loadPostEditorPage,
@@ -163,6 +165,30 @@ describe('PostEditorShell', () => {
     expect(api.deleteArchivedPostMutation).not.toHaveBeenCalled()
     await act(async () => action()?.click())
     expect(api.deleteArchivedPostMutation).toHaveBeenCalledWith({ postId: 'post-1' })
+    await act(async () => root.unmount())
+  })
+
+  it('hides unavailable preview links and restores an archived post to draft', async () => {
+    const archived = editorPage('Archived body', 2)
+    archived.post = { ...archived.post!, status: 'archived' }
+    archived.previewUrl = 'https://blog.example/preview/expired'
+    api.loadPostEditorPage.mockResolvedValueOnce(archived)
+    api.loadPostEditorPage.mockResolvedValueOnce({ ...archived, post: { ...archived.post, status: 'draft' } })
+    api.unarchivePostMutation.mockResolvedValueOnce({ kind: 'ok', code: 'post_unarchived' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await settle()
+    expect(container.textContent).toContain('Restoring brings it back as a draft')
+    expect(container.textContent).not.toContain('Copy preview link')
+    expect(container.textContent).not.toContain('Open preview')
+    const restore = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Restore')
+    expect(restore).toBeDefined()
+    await act(async () => restore?.click())
+    await settle()
+    expect(api.unarchivePostMutation).toHaveBeenCalledWith({ postId: 'post-1' })
+    expect(container.textContent).toContain('Copy preview link')
     await act(async () => root.unmount())
   })
 

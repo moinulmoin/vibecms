@@ -357,7 +357,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                   {isAgentActor(post.latestActorType) ? (
                     <Bot aria-label="Written by an agent" className="size-4 shrink-0 text-muted-foreground" />
                   ) : null}
-                  <span className="truncate">{post.title}</span>
+                  <span className="min-w-0 break-words">{post.title}</span>
                 </span>
                 <ReviewBadge post={post} />
                 <span className="hidden text-sm tabular-nums text-muted-foreground sm:block" title={formatDateTime(post.updatedAt)}>
@@ -392,13 +392,13 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                 >
                   {canEdit ? (
                     <Link
-                      className="truncate font-medium text-foreground no-underline hover:underline"
+                      className="min-w-0 break-words font-medium text-foreground no-underline hover:underline"
                       {...postEditorLink(post.id)}
                       search={emptyPostEditorSearch}
                     >
                       {post.title}
                     </Link>
-                  ) : <span className="truncate font-medium text-foreground">{post.title}</span>}
+                  ) : <span className="min-w-0 break-words font-medium text-foreground">{post.title}</span>}
                   <StatusBadge status={post.status} className="w-fit" />
                   {post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <span className="text-xs text-warning">{scheduledLabel(post.scheduledPublish.publishAt)}</span> : null}
                   {post.scheduledPublish?.status === 'failed' ? <span className="text-xs text-destructive" title={post.scheduledPublish.error ?? undefined}>Schedule failed</span> : null}
@@ -451,7 +451,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                   className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-baseline gap-x-3 border-b border-[color:var(--hairline)] py-3 last:border-b-0"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-foreground">{activitySummary(event.action, event.summary)}</span>
+                    <span className="block break-words text-foreground">{activitySummary(event.action, event.summary)}</span>
                     <span className="block truncate text-sm text-muted-foreground">{isSystemActor(null, event.actor_name) ? 'vibecms' : personLabel(event.actor_name, me)}</span>
                   </span>
                   <span className="text-right text-sm tabular-nums text-muted-foreground" title={formatDateTime(event.created_at)}>

@@ -2,10 +2,17 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { KEY_ACCESS, NewKeyForm, accessLabel } from './ConnectPage'
+import { FIRST_DRAFT_DESCRIPTION, FIRST_DRAFT_PROMPT, KEY_ACCESS, NewKeyForm, accessLabel } from './ConnectPage'
 
 describe('new agent keys', () => {
   afterEach(() => { document.body.innerHTML = '' })
+
+  it('asks the agent for a private preview and explicit publishing approval', () => {
+    expect(FIRST_DRAFT_PROMPT).toBe("Use vibecms to write a short first post for my blog. Save it as a draft and send me the private preview link. Don't publish until I say so.")
+    expect(FIRST_DRAFT_DESCRIPTION).toContain('private preview to approve')
+    expect(FIRST_DRAFT_DESCRIPTION).toContain('Publish from Posts')
+    expect(FIRST_DRAFT_DESCRIPTION).toContain('publishing key')
+  })
 
   it('defaults to drafting and makes publishing without the dashboard explicit', async () => {
     const onCreate = vi.fn()

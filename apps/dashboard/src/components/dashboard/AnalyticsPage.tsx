@@ -16,6 +16,12 @@ const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
 const dateLabel = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
+export function analyticsUnavailableMessage(reason: Extract<AnalyticsPageData, { status: 'unavailable' }>['reason']) {
+  if (reason === 'self_hosted') return 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
+  if (reason === 'not_configured') return 'Analytics isn’t available for this blog yet. Try again later.'
+  return 'Analytics couldn’t be read right now. Try again in a few minutes.'
+}
+
 function formatDate(value: string) {
   return dateLabel.format(new Date(`${value}T00:00:00Z`))
 }
@@ -30,7 +36,7 @@ const trafficChartConfig = {
   views: { label: 'Views', color: 'var(--chart-1)' },
   aiCrawlerRequests: { label: 'AI crawlers', color: 'var(--chart-2)' },
 } satisfies ChartConfig
-function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+export function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
     <Panel title="Top posts" meta="Views">
       {data.topPosts.length === 0 ? (
@@ -52,7 +58,7 @@ function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'availa
                   to="/dashboard/posts/$postId/edit"
                   params={{ postId: post.postId }}
                   search={emptyPostEditorSearch}
-                  className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                  className="block break-words text-sm font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   {post.title}
                 </Link>
@@ -318,11 +324,7 @@ export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
       {data.status === 'unavailable' ? (
         <div className="max-w-2xl py-4">
           <p className="text-[0.9375rem] leading-7 text-muted-foreground">
-            {data.reason === 'self_hosted'
-              ? 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
-              : data.reason === 'not_configured'
-                ? 'Analytics credentials have not been configured for this deployment.'
-                : 'Analytics couldn’t be read right now. Try again in a few minutes.'}
+            {analyticsUnavailableMessage(data.reason)}
           </p>
         </div>
       ) : null}

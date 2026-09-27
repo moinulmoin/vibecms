@@ -47,6 +47,23 @@ function post(status: DashboardPostSummary['status']): DashboardPostSummary {
 describe('PostsPage permanent delete', () => {
   afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
 
+  it('keeps the last-change actor icon in agreement with its name after scheduled publishing', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    mock.posts = [{ ...post('published'), title: 'Scheduled from the CLI', latestActorType: 'api_key', updatedByType: 'system', updatedByName: null }]
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    const byline = container.querySelector('time')?.parentElement
+    expect(byline?.textContent).toContain('vibecms')
+    expect(byline?.querySelector('svg')).toBeNull()
+    mock.posts = [{ ...post('published'), title: 'Scheduled from the CLI', latestActorType: 'api_key', updatedByType: 'human', updatedByName: null }]
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    const humanByline = container.querySelector('time')?.parentElement
+    expect(humanByline?.textContent).toContain('you')
+    expect(humanByline?.querySelector('svg')).toBeNull()
+    await act(async () => root.unmount())
+  })
+
   it('shows the action only on an archived row in the Archived tab and calls the dashboard API after confirmation', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)

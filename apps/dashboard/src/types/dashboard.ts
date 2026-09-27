@@ -308,6 +308,9 @@ export type ActivityEvent = {
   entity_id?: string
   /** Short before → after lines (title, URL, status, body size). */
   changes?: string[]
+  /** Optional snapshots on newer site events; older rows only have a summary. */
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
 }
 
 export type ActivityActorFilter = 'human' | 'agent'

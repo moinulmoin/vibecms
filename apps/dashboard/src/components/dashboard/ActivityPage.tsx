@@ -81,12 +81,48 @@ export function uniqueActivityEvents(pages: Array<{ events: ActivityEvent[] }>) 
   return events
 }
 
+const SITE_FIELD_LABELS: Array<[string, string]> = [
+  ['accent', 'Accent'], ['themeAccent', 'Accent'],
+  ['font', 'Font'], ['themeFont', 'Font'],
+  ['template', 'Template'], ['theme', 'Template'],
+  ['radius', 'Corners'], ['themeRadius', 'Corners'],
+  ['width', 'Reading width'], ['themeWidth', 'Reading width'],
+  ['mode', 'Color mode'], ['themeMode', 'Color mode'],
+  ['name', 'Name'], ['description', 'Description'],
+  ['enabled', 'Signup form'],
+  ['heading', 'Signup heading'], ['signupHeading', 'Signup heading'],
+  ['subtext', 'Signup description'],
+  ['subheading', 'Signup description'], ['signupDescription', 'Signup description'],
+  ['buttonLabel', 'Signup button'],
+  ['buttonText', 'Signup button'], ['signupButtonText', 'Signup button'],
+  ['audience', 'Audience'], ['voiceSummary', 'Voice summary'], ['voiceTone', 'Voice tone'],
+]
+
+function displayChangeValue(value: unknown) {
+  if (value == null || value === '') return 'empty'
+  if (typeof value === 'boolean') return value ? 'On' : 'Off'
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : null
+}
+
+/** Render supported site snapshot fields; API-provided post diff lines stay intact. */
+export function activityChanges(event: ActivityEvent): string[] {
+  if (!event.action.startsWith('site.') || !event.before || !event.after) return event.changes ?? []
+  const lines = SITE_FIELD_LABELS.flatMap(([field, label]) => {
+    if (!(field in event.before!) || !(field in event.after!)) return []
+    const before = displayChangeValue(event.before![field])
+    const after = displayChangeValue(event.after![field])
+    return before !== null && after !== null && before !== after ? [`${label}: ${before} → ${after}`] : []
+  })
+  return lines.length ? lines : event.changes ?? []
+}
+
 function ActivityRow({ event, canEdit, me }: { event: ActivityEvent; canEdit: boolean; me: { email?: string | null; name?: string | null } | undefined }) {
   const Icon = activityIcon(event.action)
   const agent = isAgent(event.actor_type)
   // Viewers can't open the editor, so their rows stay plain text.
   const postId = canEdit && event.entity_type === 'post' && event.entity_id && event.action !== 'post.archived' && event.action !== 'post.deleted' ? event.entity_id : null
   const summary = activitySummary(event.action, event.summary)
+  const changes = activityChanges(event)
 
   return (
     <li className="group relative flex items-start gap-3.5 border-b border-[color:var(--hairline)] py-4 last:border-b-0">
@@ -119,10 +155,10 @@ function ActivityRow({ event, canEdit, me }: { event: ActivityEvent; canEdit: bo
           <span className="truncate">{agent ? event.actor_name : event.actor_type === 'human' ? personLabel(event.actor_name, me) : 'vibecms'}</span>
           {agent ? <span className="sr-only">(agent)</span> : null}
         </p>
-        {event.changes?.length ? (
+        {changes.length ? (
           <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
-            {event.changes.map((change) => (
-              <li key={change} className="truncate font-mono text-[0.8125rem]">
+            {changes.map((change) => (
+              <li key={change} className="break-words font-mono text-[0.8125rem]">
                 {change}
               </li>
             ))}

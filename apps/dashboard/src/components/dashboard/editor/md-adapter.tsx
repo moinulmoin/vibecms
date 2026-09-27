@@ -322,7 +322,11 @@ export function markdownAdapterResult(markdown: string, editor?: AnyBlockNoteEdi
   return {
     blocks,
     roundTripMarkdown,
-    drifted: roundTripMarkdown !== markdown && roundTripMarkdown !== stripTrailingSpaceOutsideCode(markdown),
+    // The exporter always ends a document with a newline. A source without
+    // that final newline is still the same Markdown; preserve all interior
+    // whitespace (including hard breaks and fenced-code contents).
+    drifted: roundTripMarkdown.replace(/\n+$/, '') !== markdown.replace(/\n+$/, '')
+      && roundTripMarkdown.replace(/\n+$/, '') !== stripTrailingSpaceOutsideCode(markdown).replace(/\n+$/, ''),
   }
 }
 

@@ -19,11 +19,12 @@ import { personLabel } from '~/lib/people'
 /**
  * Last-change actor label for the posts list. Single-human workspace: a human
  * change with an empty profile name is the owner ("you"); unnamed token/agent
- * changes read as "agent".
+ * changes read as "agent", and background jobs read as "vibecms".
  */
 export function actorDisplayName(updatedByType: string | null, updatedByName: string | null): string {
   const name = updatedByName?.trim()
   if (name) return name
+  if (updatedByType === 'system') return 'vibecms'
   return updatedByType === 'api_key' || updatedByType === 'agent' ? 'agent' : 'you'
 }
 
@@ -318,7 +319,9 @@ function PostRow({
   showDelete: boolean
 }) {
   const review = reviewLabel(post)
-  const agentWrote = isAgentActor(post.latestActorType ?? post.updatedByType)
+  // The byline describes the last change, while latestActorType describes the
+  // tip version. A scheduled publish can have different actors for those two.
+  const agentWrote = isAgentActor(post.updatedByType)
   // The public URL follows the live version's slug, not an unpublished rename.
   const liveSlug = post.publishedVersionNumber == null ? post.slug : post.publishedSlug ?? null
   const liveUrl = post.status === 'published' && publicBaseUrl && liveSlug ? `${publicBaseUrl}/${liveSlug}` : null

@@ -3,6 +3,7 @@ import {
   FONTS,
   MEDIA,
   STARTER_LOOKS,
+  THEME_PRESETS,
   getAccent,
   getFont,
   type PresetId,
@@ -60,12 +61,10 @@ const GROUPS: { title: string; items: Feature[] }[] = [
   },
 ];
 
-const THEMES = [
-  ["minimal", "Minimal"],
-  ["editorial", "Editorial"],
-  ["technical", "Technical"],
-  ["product", "Product"],
-] as const satisfies readonly (readonly [PresetId, string])[];
+// Same names the dashboard shows (Minimal, Editorial, Notebook, Magazine).
+const THEMES = (["minimal", "editorial", "technical", "product"] as const satisfies readonly PresetId[]).map(
+  (id) => [id, THEME_PRESETS[id].name] as const,
+);
 
 const DEFAULT_PREVIEW: PresetId = "technical";
 

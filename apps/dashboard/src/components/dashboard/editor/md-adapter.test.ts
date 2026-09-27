@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 import { blocksToMarkdown, createMarkdownEditor, markdownAdapterResult, markdownOutsideCode, normalizeMarkdown, visualMarkdownSafety } from './md-adapter'
 
 describe('markdown adapter', () => {
+  it('keeps ordinary Markdown in Visual mode after harmless source normalization', () => {
+    const samples = [
+      "Testing the vibecms command-line client today. It's surprisingly quick to script against: list posts, draft one, preview it, and check the activity log, all from a terminal. This draft is just a smoke test and will be archived shortly.",
+      '# A heading\n\nA paragraph.',
+      '- One\n- Two',
+      'Read [the guide](https://example.com/guide).',
+      '```ts\nconst answer = 42\n```',
+    ]
+    for (const source of samples) {
+      expect(visualMarkdownSafety(source).safe, source).toBe(true)
+    }
+  })
+
   it('round-trips callouts and toc markers as custom blocks', () => {
     const source = '> [!TIP]\n> Keep the source canonical.\n> \n> It is safe.\n\n[[toc]]\n\nBody.\n'
     const result = markdownAdapterResult(source)
