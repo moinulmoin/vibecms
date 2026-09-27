@@ -2,7 +2,6 @@
 import LandingLayout from "../../layouts/LandingLayout.astro";
 import { AgentSurface } from "../../components/landing/agent-surface";
 import { AgentsDemo } from "../../components/landing/agents-demo";
-import { AskAi } from "../../components/landing/ask-ai";
 import { CtaFooter } from "../../components/landing/cta-footer";
 import { BlogFeatures } from "../../components/landing/blog-features";
 import { ControlSection } from "../../components/landing/control-section";
@@ -40,13 +39,12 @@ const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;
     <Glow className="pointer-events-none fixed -top-[32%] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
     <div class="relative z-[1]">
       <HeaderHero loginUrl={loginUrl} />
+      <ControlSection />
       <AgentsDemo apiDocsUrl={apiDocsUrl} />
       <AgentSurface apiDocsUrl={apiDocsUrl} />
-      <ControlSection />
       <BlogFeatures />
       <HostingPricing loginUrl={loginUrl} />
       <FaqAccordion />
-      <AskAi />
       <CtaFooter loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
     </div>
   </main>

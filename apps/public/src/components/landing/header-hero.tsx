@@ -61,9 +61,10 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
           <h1 className="mx-auto max-w-[15ch] text-balance font-display text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-foreground">
             CMS for <span className="text-brand-bright">AI agents.</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-[480px] text-balance text-lg leading-[1.6] text-muted-foreground">
-            Your coding agent drafts and publishes over scoped MCP. You keep your
-            login, every version, and the final say.
+          <p className="mx-auto mt-5 max-w-[520px] text-balance text-lg leading-[1.6] text-muted-foreground">
+            Tell your agent what to write. It drafts, sends you a private
+            preview, and publishes when you say so. You keep every version and
+            the final say.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a

@@ -13,3 +13,30 @@
 @source "../layouts/DocsLayout.astro";
 @source "../pages/docs";
 @source "../scripts/marketing-interactions.js";
+
+/* Hero conversation: turns after the current step wait off-stage. SSR renders
+   the final step, so no-JS and reduced motion show the whole exchange. */
+[data-hero-demo][data-step="1"] [data-hero-turn]:not([data-hero-turn="1"]),
+[data-hero-demo][data-step="2"] [data-hero-turn="3"],
+[data-hero-demo][data-step="2"] [data-hero-turn="4"],
+[data-hero-demo][data-step="3"] [data-hero-turn="4"] {
+  opacity: 0;
+  transform: translateY(6px);
+}
+[data-hero-demo][data-step="1"] [data-hero-post] {
+  opacity: 0.4;
+}
+
+/* Key levels: show the selected level's note and scopes; dim what it can't do. */
+[data-key-demo]:not([data-level="draft"]) [data-for="draft"],
+[data-key-demo]:not([data-level="publish"]) [data-for="publish"],
+[data-key-demo]:not([data-level="manage"]) [data-for="manage"],
+[data-key-demo] [data-cap-off] {
+  display: none;
+}
+[data-key-demo][data-level="draft"] :is([data-cap="publish"], [data-cap="manage"]),
+[data-key-demo][data-level="publish"] [data-cap="manage"] {
+  opacity: 0.45;
+  & [data-cap-on] { display: none; }
+  & [data-cap-off] { display: block; }
+}

@@ -50,7 +50,7 @@ function VersionMock() {
   return (
     <div className={PANEL} aria-hidden="true">
       <div className="flex items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-5 py-3.5">
-        <span className="truncate text-sm font-medium text-foreground">Shipping with MCP</span>
+        <span className="truncate text-sm font-medium text-foreground">Launch week recap</span>
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">history</span>
       </div>
       <ol className="divide-y divide-[color:var(--hairline)]">

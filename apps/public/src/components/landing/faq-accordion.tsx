@@ -1,4 +1,5 @@
 import { FREE_TIER, LAUNCH_OFFER, PRICING } from "@vc/config";
+import { AskAi } from "./ask-ai";
 import { Plus } from "./icons";
 import { H2, SectionShell } from "./primitives";
 
@@ -43,10 +44,13 @@ export function FaqAccordion() {
     <section id="faq" aria-labelledby="faq-title">
       <SectionShell>
         <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:gap-14">
-          <div data-reveal>
+          <div data-reveal className="lg:sticky lg:top-28">
             <h2 id="faq-title" className={H2}>
               Questions.
             </h2>
+            <div className="mt-8">
+              <AskAi />
+            </div>
           </div>
           <div className="divide-y divide-[color:var(--hairline)] border-y border-[color:var(--hairline)]" data-reveal data-d="1">
             {faqs.map((item, index) => (

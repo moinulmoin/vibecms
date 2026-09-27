@@ -9,7 +9,9 @@ import { CtaFooter } from "./cta-footer";
 import { FaqAccordion } from "./faq-accordion";
 import { HeaderHero } from "./header-hero";
 import { HostingPricing } from "./hosting-pricing";
-import { formatScopeToken, INITIAL_SCOPES } from "./scope-toggle-demo";
+import { AGENT_TOKEN_PRESETS } from "../../../../../packages/core/src/types";
+import { HERO_TURNS } from "./hero-demo";
+import { KEY_LEVELS } from "./key-levels";
 
 const loginUrl = "https://app.example.com/login";
 const apiDocsUrl = "https://app.example.com/api/v1/docs";
@@ -22,17 +24,18 @@ describe("landing URL props", () => {
     expect(html).toContain("Sign in");
     expect(html).toContain("data-landing-nav");
     expect(html).toContain("data-hero-demo");
-    expect(html).toContain("drafts and publishes over scoped MCP")
+    expect(html).toContain("sends you a private")
     expect(html).toContain("the final say")
-    expect(html).toContain("draft &quot;Shipping with MCP&quot;")
-    expect(html).not.toContain("publish &quot;Shipping with MCP&quot;")
+    // The full conversation is server-rendered, so it reads without JS.
+    for (const turn of HERO_TURNS) expect(html).toContain(`data-hero-turn="${turn.step}"`);
+    expect(html).toContain("Publish it Tuesday at 9.")
   });
 
   it("wires API docs through AgentsDemo and static AgentSurface", () => {
     const agents = renderToStaticMarkup(createElement(AgentsDemo, { apiDocsUrl }));
     expect(agents).toContain(`href="${apiDocsUrl}"`);
-    expect(agents).toContain("data-scope-demo");
-    expect(agents).toContain(formatScopeToken(INITIAL_SCOPES));
+    expect(agents).toContain("data-key-demo");
+    expect(agents).toContain("always yours");
 
     const surface = renderToStaticMarkup(createElement(AgentSurface, { apiDocsUrl }));
     expect(surface).toContain(`href="${apiDocsUrl}"`);
@@ -64,12 +67,20 @@ describe("landing URL props", () => {
   it("opens each AI provider with the prompt prefilled and points it at llms.txt", () => {
     expect(ASK_AI_PROMPT).toContain("https://vibecms.dev/llms.txt");
     const links = askAiLinks();
+    for (const { logo } of links) expect(logo).toMatch(/^\/brand\/ai\/[a-z]+\.svg$/);
     expect(links.map((l) => l.name)).toEqual(["ChatGPT", "Claude", "Perplexity", "Google AI Mode", "Grok"]);
     for (const { href } of links) {
       expect(new URL(href).searchParams.get("q")).toBe(ASK_AI_PROMPT);
     }
     const html = renderToStaticMarkup(createElement(AskAi));
+    expect(html).toContain("data-copy-prompt");
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it("shows the same scopes for each key level as the real key presets", () => {
+    for (const level of KEY_LEVELS) {
+      expect([...level.scopes].sort()).toEqual([...AGENT_TOKEN_PRESETS[level.id]].sort());
+    }
   });
 });

@@ -30,66 +30,33 @@ type Feature = {
   body: string;
 };
 
-const FEATURES: Feature[] = [
+const GROUPS: { title: string; items: Feature[] }[] = [
   {
-    Icon: Globe,
-    title: "Your own domain",
-    body: "Point blog.yours.com at it. Certificates are handled for you.",
+    title: "For your readers",
+    items: [
+      { Icon: Globe, title: "Your own domain", body: "Point blog.yours.com at it. Certificates are handled for you." },
+      { Icon: Zap, title: "Fast by default", body: "Rendered on Cloudflare's edge, cached close to readers." },
+      { Icon: Code, title: "Code and math", body: "Highlighting and formulas, loaded only on posts that use them." },
+      { Icon: Search, title: "Tags and search", body: "Readers browse by tag or search every post." },
+    ],
   },
   {
-    Icon: Bot,
-    title: "Readable by agents",
-    body: "llms.txt, a Markdown version of every page, and discovery files agents look for.",
+    title: "For search and AI",
+    items: [
+      { Icon: Rss, title: "RSS, sitemap, SEO", body: "Feeds, sitemap, canonical URLs, structured data, and social cards." },
+      { Icon: Bot, title: "Readable by agents", body: "llms.txt, a Markdown version of every page, and discovery files agents look for." },
+      { Icon: ChartColumn, title: "Analytics, AI included", body: "Views and referrers, plus AI crawler hits and visits from AI search." },
+      { Icon: Link, title: "Old links keep working", body: "Rename a post and its old URL redirects to the new one." },
+    ],
   },
   {
-    Icon: Rss,
-    title: "RSS, sitemap, SEO",
-    body: "Feeds, sitemap, canonical URLs, structured data, and social cards.",
-  },
-  {
-    Icon: ChartColumn,
-    title: "Analytics, AI included",
-    body: "Views and referrers, plus AI crawler hits and visits from AI search.",
-  },
-  {
-    Icon: Link,
-    title: "Old links keep working",
-    body: "Rename a post and its old URL redirects to the new one.",
-  },
-  {
-    Icon: Code,
-    title: "Code and math",
-    body: "Highlighting and formulas, loaded only on posts that use them.",
-  },
-  {
-    Icon: Zap,
-    title: "Fast by default",
-    body: "Rendered on Cloudflare's edge, cached close to readers.",
-  },
-  {
-    Icon: ImageIcon,
-    title: "Media on R2",
-    body: `Images up to ${MEDIA.maxImageLabel}, ${MEDIA.paidStorageLabel} of storage, resized and served from the edge.`,
-  },
-  {
-    Icon: PenLine,
-    title: "Voice profile",
-    body: "Describe how you write. Agents read it before they draft.",
-  },
-  {
-    Icon: Mail,
-    title: "Newsletter signups",
-    body: "A subscribe form on your blog. Export the list as CSV.",
-  },
-  {
-    Icon: Search,
-    title: "Tags and search",
-    body: "Readers browse by tag or search every post.",
-  },
-  {
-    Icon: Download,
-    title: "Export anytime",
-    body: "Every post as JSON, whenever you want it. No lock-in.",
+    title: "Yours to keep",
+    items: [
+      { Icon: PenLine, title: "Voice profile", body: "Describe how you write. Agents read it before they draft." },
+      { Icon: ImageIcon, title: "Media on R2", body: `Images up to ${MEDIA.maxImageLabel}, ${MEDIA.paidStorageLabel} of storage, resized at the edge.` },
+      { Icon: Mail, title: "Newsletter signups", body: "A subscribe form on your blog. Export the list as CSV." },
+      { Icon: Download, title: "Export anytime", body: "Every post as JSON, whenever you want it. No lock-in." },
+    ],
   },
 ];
 
@@ -238,20 +205,24 @@ export function BlogFeatures() {
           </div>
         </div>
 
-        <ul
-          className="mt-16 grid gap-x-10 gap-y-8 sm:grid-cols-2 md:mt-24 lg:grid-cols-3"
-          data-reveal
-        >
-          {FEATURES.map(({ Icon, title, body }) => (
-            <li key={title} className="border-t border-[color:var(--hairline)] pt-5">
-              <div className="flex items-center gap-2.5">
-                <Icon className="size-[18px] shrink-0 text-muted-foreground" />
-                <h3 className="text-[15px] font-medium text-foreground">{title}</h3>
-              </div>
-              <p className="mt-1.5 text-sm leading-[1.55] text-muted-foreground">{body}</p>
-            </li>
+        <div className="mt-16 grid gap-x-10 gap-y-12 md:mt-24 md:grid-cols-3" data-reveal>
+          {GROUPS.map((group) => (
+            <div key={group.title} className="min-w-0">
+              <h3 className="font-mono text-xs text-muted-foreground">{group.title}</h3>
+              <ul className="mt-5 grid gap-6">
+                {group.items.map(({ Icon, title, body }) => (
+                  <li key={title} className="flex gap-3.5">
+                    <Icon className="mt-0.5 size-[18px] shrink-0 text-foreground/70" />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-foreground">{title}</p>
+                      <p className="mt-1 text-sm leading-[1.55] text-muted-foreground">{body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </SectionShell>
     </section>
   );
