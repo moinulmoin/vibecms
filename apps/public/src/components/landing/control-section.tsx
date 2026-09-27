@@ -46,14 +46,31 @@ const ROWS: Row[] = [
   { v: 4, who: "you", agent: false, note: "Restored version 2" },
 ];
 
+const RESTORE_BUTTON =
+  "shrink-0 rounded-md px-2 py-1 font-mono text-[11px] text-muted-foreground ring-1 ring-transparent transition-colors duration-200 hover:text-foreground hover:ring-[color:var(--hairline)] focus-visible:text-foreground";
+
+/** Version history; "restore" adds a new version on top (marketing-interactions.js). */
 function VersionMock() {
+  const next = ROWS[0]!.v + 1;
   return (
-    <div className={PANEL} aria-hidden="true">
+    <div className={PANEL} data-history-demo>
       <div className="flex items-center justify-between gap-3 border-b border-[color:var(--hairline)] px-5 py-3.5">
         <span className="truncate text-sm font-medium text-foreground">Launch week recap</span>
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">history</span>
       </div>
-      <ol className="divide-y divide-[color:var(--hairline)]">
+      <ol className="divide-y divide-[color:var(--hairline)]" aria-label="Version history">
+        <li hidden data-history-new className="flex items-center gap-3 px-5 py-3.5 [background:var(--surface-glass)]">
+          <span className="w-7 shrink-0 font-mono text-xs text-foreground">v{next}</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-foreground" data-history-new-note>
+              Restored version 5
+            </p>
+            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">human · you · just now</p>
+          </div>
+          <span className="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] text-foreground ring-1 ring-[color:var(--hairline)]">
+            draft
+          </span>
+        </li>
         {ROWS.map((row) => (
           <li key={row.v} className="flex items-center gap-3 px-5 py-3.5">
             <span className="w-7 shrink-0 font-mono text-xs text-muted-foreground">v{row.v}</span>
@@ -65,7 +82,7 @@ function VersionMock() {
             </div>
             {row.state === "live" ? (
               <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-brand-bright">
-                <span className="size-1.5 rounded-full bg-brand-bright" />
+                <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
                 live
               </span>
             ) : row.state === "scheduled" ? (
@@ -73,11 +90,19 @@ function VersionMock() {
                 <span className="hidden sm:inline">scheduled · </span>Tue 09:00
               </span>
             ) : (
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">restore</span>
+              <button
+                type="button"
+                className={RESTORE_BUTTON}
+                data-history-restore={row.v}
+                aria-label={`Restore version ${row.v}`}
+              >
+                restore
+              </button>
             )}
           </li>
         ))}
       </ol>
+      <p className="sr-only" aria-live="polite" data-history-status />
     </div>
   );
 }

@@ -50,7 +50,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
             </p>
           </div>
 
-          <div className={`p-7 sm:p-9 ${PANEL}`} data-reveal data-d="1">
+          <div className={`p-7 sm:p-9 ${PANEL}`} data-reveal data-d="1" data-pricing data-period="monthly">
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
               <div>
                 <p className="text-[15px] font-medium text-foreground">{PRICING.planName}</p>
@@ -61,19 +61,43 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               </div>
               <div className="text-left sm:text-right">
                 <p className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
-                  <span className="sr-only">Now </span>${LAUNCH_OFFER.monthlyUsd}
-                  <span className="text-base font-medium text-muted-foreground">/month</span>
+                  <span data-for-period="monthly">
+                    <span className="sr-only">Now </span>${LAUNCH_OFFER.monthlyUsd}
+                    <span className="text-base font-medium text-muted-foreground">/month</span>
+                  </span>
+                  <span data-for-period="yearly">
+                    <span className="sr-only">Now </span>${LAUNCH_OFFER.annualUsd}
+                    <span className="text-base font-medium text-muted-foreground">/year</span>
+                  </span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  <s className="decoration-muted-foreground/60">
-                    <span className="sr-only">Normally </span>${PRICING.monthlyUsd}
-                  </s>{" "}
-                  · or ${LAUNCH_OFFER.annualUsd}/year{" "}
-                  <s className="decoration-muted-foreground/60">
-                    <span className="sr-only">instead of </span>${PRICING.annualUsd}
-                  </s>
+                  <span data-for-period="monthly">
+                    normally{" "}
+                    <s className="decoration-muted-foreground/60">${PRICING.monthlyUsd}</s>
+                  </span>
+                  <span data-for-period="yearly">
+                    normally <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · 2 months free
+                  </span>
                 </p>
               </div>
+            </div>
+
+            <div
+              className="mt-6 inline-grid grid-cols-2 gap-1 rounded-xl bg-foreground/[0.04] p-1 ring-1 ring-[color:var(--hairline)]"
+              role="group"
+              aria-label="Billing period"
+            >
+              {(["monthly", "yearly"] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  data-period-pick={period}
+                  aria-pressed={period === "monthly" ? "true" : "false"}
+                  className="min-h-[34px] rounded-[9px] px-4 text-[13px] font-medium capitalize text-muted-foreground transition-colors duration-200 hover:text-foreground aria-pressed:bg-foreground/[0.09] aria-pressed:text-foreground"
+                >
+                  {period}
+                </button>
+              ))}
             </div>
 
             <ul className="mt-8 grid gap-x-6 gap-y-3 border-t border-[color:var(--hairline)] pt-7 sm:grid-cols-2">

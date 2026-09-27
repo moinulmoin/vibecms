@@ -73,7 +73,7 @@ describe("landing URL props", () => {
       expect(new URL(href).searchParams.get("q")).toBe(ASK_AI_PROMPT);
     }
     const html = renderToStaticMarkup(createElement(AskAi));
-    expect(html).toContain("data-copy-prompt");
+    expect(html).toContain("data-copy=");
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
   });

@@ -67,6 +67,8 @@ const THEMES = [
   ["product", "Product"],
 ] as const satisfies readonly (readonly [PresetId, string])[];
 
+const DEFAULT_PREVIEW: PresetId = "technical";
+
 const THEME_TITLES: Record<PresetId, string> = {
   minimal: "Clear notes",
   editorial: "Field Notes",
@@ -91,12 +93,19 @@ function presetStyle(id: PresetId): CSSProperties {
 
 function ThemeSwatch({ id, name }: { id: PresetId; name: string }) {
   return (
-    <figure className="m-0">
+    <button
+      type="button"
+      data-theme-pick={id}
+      data-theme-vars={JSON.stringify(presetStyle(id))}
+      aria-pressed={id === DEFAULT_PREVIEW ? "true" : "false"}
+      aria-label={`Preview the ${name} theme`}
+      className="group m-0 cursor-pointer rounded-[12px] p-0 text-left"
+    >
       <div
         data-vc-theme={id}
         data-vc-mode="dark"
         style={presetStyle(id)}
-        className="rounded-[var(--vc-radius)] border border-vc-border bg-vc-bg p-3"
+        className="rounded-[var(--vc-radius)] border border-vc-border bg-vc-bg p-3 transition-[transform,box-shadow] duration-200 ease-out group-hover:-translate-y-0.5 group-aria-pressed:shadow-[0_0_0_1.5px_var(--brand-bright)] motion-reduce:group-hover:translate-y-0"
         aria-hidden="true"
       >
         <div className="h-1.5 w-7 rounded-full bg-vc-accent" />
@@ -115,10 +124,10 @@ function ThemeSwatch({ id, name }: { id: PresetId; name: string }) {
         <div className="mt-1.5 h-1 w-4/5 rounded-full bg-vc-fg/25" />
         <div className="mt-1 h-1 w-2/3 rounded-full bg-vc-fg/25" />
       </div>
-      <figcaption className="mt-2 text-center font-mono text-[11px] text-muted-foreground">
+      <span className="mt-2 block text-center font-mono text-[11px] text-muted-foreground transition-colors group-hover:text-foreground group-aria-pressed:text-foreground">
         {name}
-      </figcaption>
-    </figure>
+      </span>
+    </button>
   );
 }
 
@@ -126,9 +135,10 @@ function ThemeSwatch({ id, name }: { id: PresetId; name: string }) {
 function PostMock() {
   return (
     <div
-      data-vc-theme="technical"
+      data-vc-theme={DEFAULT_PREVIEW}
       data-vc-mode="dark"
-      style={presetStyle("technical")}
+      data-theme-target
+      style={presetStyle(DEFAULT_PREVIEW)}
       className="overflow-hidden rounded-2xl bg-vc-bg text-left text-vc-fg ring-1 ring-[color:var(--hairline)]"
       aria-hidden="true"
     >
@@ -199,6 +209,7 @@ export function BlogFeatures() {
             </div>
             <p className="mt-4 text-sm leading-[1.6] text-muted-foreground">
               Four themes, {ACCENTS.length} accents, {FONTS.length} font pairings.
+              <span className="text-foreground/80"> Pick one to preview it.</span>
             </p>
           </div>
           <div data-reveal data-d="1" className="min-w-0">
@@ -212,8 +223,8 @@ export function BlogFeatures() {
               <h3 className="font-mono text-xs text-muted-foreground">{group.title}</h3>
               <ul className="mt-5 grid gap-6">
                 {group.items.map(({ Icon, title, body }) => (
-                  <li key={title} className="flex gap-3.5">
-                    <Icon className="mt-0.5 size-[18px] shrink-0 text-foreground/70" />
+                  <li key={title} className="group flex gap-3.5">
+                    <Icon className="mt-0.5 size-[18px] shrink-0 text-foreground/70 transition-[color,transform] duration-200 group-hover:-translate-y-px group-hover:text-foreground motion-reduce:group-hover:translate-y-0" />
                     <div className="min-w-0">
                       <p className="text-[15px] font-medium text-foreground">{title}</p>
                       <p className="mt-1 text-sm leading-[1.55] text-muted-foreground">{body}</p>

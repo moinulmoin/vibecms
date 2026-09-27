@@ -21,6 +21,8 @@ export const HERO_TURNS: Turn[] = [
 // Final state for SSR; the script replays the steps from 1.
 const LAST_STEP = 5;
 
+export const HERO_STEPS = ["Ask", "Preview", "Approve", "Schedule", "Live"] as const;
+
 const panel =
   "rounded-2xl ring-1 ring-[color:var(--hairline)] shadow-[inset_0_1px_0_var(--hairline),0_30px_60px_-42px_oklch(0_0_0/0.9)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]";
 
@@ -67,12 +69,12 @@ function Bubble({ turn }: { turn: Turn }) {
 export function HeroDemo() {
   return (
     <div
-      className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-[minmax(0,1.05fr)_auto_minmax(0,0.95fr)] md:gap-1"
       data-hero-demo
       data-step={LAST_STEP}
       data-preview-url={HERO_POST.previewUrl}
       data-live-url={HERO_POST.liveUrl}
     >
+    <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-[minmax(0,1.05fr)_auto_minmax(0,0.95fr)] md:gap-1">
       {/* The conversation with the agent */}
       <div className={`relative min-w-0 overflow-hidden ${panel}`}>
         <div className="flex items-center gap-2.5 border-b border-[color:var(--hairline)] px-4 py-2.5">
@@ -141,6 +143,21 @@ export function HeroDemo() {
           </div>
         </div>
       </div>
+    </div>
+    <nav aria-label="Demo steps" className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
+      {HERO_STEPS.map((label, i) => (
+        <button
+          key={label}
+          type="button"
+          data-hero-goto={i + 1}
+          aria-current={i + 1 === LAST_STEP ? "step" : undefined}
+          className="group inline-flex min-h-[36px] items-center gap-2 rounded-full px-3 font-mono text-[11px] text-muted-foreground transition-colors duration-200 hover:text-foreground aria-[current=step]:text-foreground aria-[current=step]:[background:var(--surface-glass-strong)] aria-[current=step]:ring-1 aria-[current=step]:ring-[color:var(--hairline)]"
+        >
+          <span className="size-1.5 rounded-full bg-muted-foreground/50 transition-colors duration-200 group-aria-[current=step]:bg-brand-bright" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </nav>
     </div>
   );
 }

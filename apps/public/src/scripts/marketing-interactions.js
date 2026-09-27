@@ -89,41 +89,81 @@ function setHeroStep(root, step) {
   if (node instanceof HTMLElement) node.style.boxShadow = live ? NODE_GLOW : "";
 }
 
+// How long each step stays on screen before the next one.
+const HERO_DURATIONS = { 1: 1800, 2: 2100, 3: 1600, 4: 2100, 5: 3900 };
+
 function initHeroDemo() {
   const root = document.querySelector("[data-hero-demo]");
   if (!(root instanceof HTMLElement)) return;
 
   const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-  /** @type {Set<ReturnType<typeof setTimeout>>} */
-  const timers = new Set();
-  const clear = () => {
-    for (const id of timers) clearTimeout(id);
-    timers.clear();
-  };
-  const at = (ms, fn) => {
-    const id = setTimeout(() => {
-      timers.delete(id);
-      fn();
-    }, ms);
-    timers.add(id);
-  };
+  const pills = [...root.querySelectorAll("[data-hero-goto]")];
+  let timer = 0;
 
-  const run = () => {
-    clear();
-    if (mq.matches) {
-      setHeroStep(root, 5);
-      return;
+  const go = (step, autoplay = !mq.matches) => {
+    clearTimeout(timer);
+    setHeroStep(root, step);
+    for (const pill of pills) {
+      if (Number(pill.getAttribute("data-hero-goto")) === step) pill.setAttribute("aria-current", "step");
+      else pill.removeAttribute("aria-current");
     }
-    setHeroStep(root, 1);
-    at(1800, () => setHeroStep(root, 2));
-    at(3900, () => setHeroStep(root, 3));
-    at(5500, () => setHeroStep(root, 4));
-    at(7600, () => setHeroStep(root, 5));
-    at(11500, run);
+    if (autoplay) timer = setTimeout(() => go(step === 5 ? 1 : step + 1), HERO_DURATIONS[step]);
   };
 
-  run();
-  mq.addEventListener("change", run);
+  for (const pill of pills) {
+    pill.addEventListener("click", () => go(Number(pill.getAttribute("data-hero-goto"))));
+  }
+  go(mq.matches ? 5 : 1);
+  mq.addEventListener("change", () => go(mq.matches ? 5 : 1));
+}
+
+function initHistoryDemo() {
+  const root = document.querySelector("[data-history-demo]");
+  if (!(root instanceof HTMLElement)) return;
+  const row = root.querySelector("[data-history-new]");
+  const note = root.querySelector("[data-history-new-note]");
+  const status = root.querySelector("[data-history-status]");
+  if (!(row instanceof HTMLElement) || !note) return;
+  for (const button of root.querySelectorAll("[data-history-restore]")) {
+    button.addEventListener("click", () => {
+      const v = button.getAttribute("data-history-restore");
+      note.textContent = `Restored version ${v}`;
+      row.hidden = false;
+      // Replay the entrance on every restore.
+      row.classList.remove("vc-history-in");
+      void row.offsetWidth;
+      row.classList.add("vc-history-in");
+      if (status) status.textContent = `Restored version ${v} as a new version.`;
+    });
+  }
+}
+
+function initThemePicker() {
+  const target = document.querySelector("[data-theme-target]");
+  const picks = [...document.querySelectorAll("[data-theme-pick]")];
+  if (!(target instanceof HTMLElement) || picks.length === 0) return;
+  for (const pick of picks) {
+    pick.addEventListener("click", () => {
+      target.dataset.vcTheme = pick.getAttribute("data-theme-pick") || "technical";
+      try {
+        const vars = JSON.parse(pick.getAttribute("data-theme-vars") || "{}");
+        for (const [name, value] of Object.entries(vars)) target.style.setProperty(name, String(value));
+      } catch {}
+      for (const other of picks) other.setAttribute("aria-pressed", other === pick ? "true" : "false");
+    });
+  }
+}
+
+function initPricingPeriod() {
+  const root = document.querySelector("[data-pricing]");
+  if (!(root instanceof HTMLElement)) return;
+  const buttons = [...root.querySelectorAll("[data-period-pick]")];
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      root.dataset.period = button.getAttribute("data-period-pick") || "monthly";
+      for (const other of buttons) other.setAttribute("aria-pressed", other === button ? "true" : "false");
+    });
+  }
 }
 
 function initKeyLevels() {
@@ -138,21 +178,57 @@ function initKeyLevels() {
   }
 }
 
-function initCopyPrompt() {
-  for (const button of document.querySelectorAll("[data-copy-prompt]")) {
+function initCopyButtons() {
+  for (const button of document.querySelectorAll("[data-copy]")) {
     const label = button.querySelector("[data-copy-label]");
+    const original = label?.textContent || "";
+    let reset = 0;
     button.addEventListener("click", async () => {
+      clearTimeout(reset);
       try {
-        await navigator.clipboard.writeText(button.getAttribute("data-copy-prompt") || "");
+        await navigator.clipboard.writeText(button.getAttribute("data-copy") || "");
         if (label) label.textContent = "Copied";
       } catch {
         if (label) label.textContent = "Copy failed";
       }
-      setTimeout(() => {
-        if (label) label.textContent = "Copy prompt";
+      reset = setTimeout(() => {
+        if (label) label.textContent = original;
       }, 1800);
     });
   }
+}
+
+function initConnectTabs() {
+  const root = document.querySelector("[data-connect-tabs]");
+  if (!(root instanceof HTMLElement)) return;
+  const tabs = [...root.querySelectorAll("[data-connect-tab]")];
+  const copy = root.querySelector("[data-connect-copy]");
+  const select = (tab) => {
+    const id = tab.getAttribute("data-connect-tab");
+    for (const other of tabs) {
+      const on = other === tab;
+      other.setAttribute("aria-selected", on ? "true" : "false");
+      other.tabIndex = on ? 0 : -1;
+    }
+    for (const panel of root.querySelectorAll("[data-connect-panel]")) {
+      const on = panel.getAttribute("data-connect-panel") === id;
+      panel.hidden = !on;
+      if (on && copy) copy.setAttribute("data-copy", panel.getAttribute("data-copy-text") || "");
+    }
+  };
+  tabs.forEach((tab, i) => {
+    tab.tabIndex = i === 0 ? 0 : -1;
+    tab.addEventListener("click", () => select(tab));
+    // Arrow keys move between tabs, as in any tablist.
+    tab.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  });
 }
 
 // Transparent over the hero; a light backing appears once content scrolls under it.
@@ -197,5 +273,9 @@ initNav();
 initHeader();
 initMobileNav();
 initKeyLevels();
-initCopyPrompt();
+initHistoryDemo();
+initThemePicker();
+initPricingPeriod();
+initCopyButtons();
+initConnectTabs();
 initHeroDemo();

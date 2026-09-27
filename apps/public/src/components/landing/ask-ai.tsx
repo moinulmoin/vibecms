@@ -17,7 +17,7 @@ export function askAiLinks(prompt = ASK_AI_PROMPT) {
 }
 
 const CHIP =
-  "inline-flex min-h-[40px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)] transition-colors duration-200 hover:text-foreground hover:ring-foreground/25";
+  "inline-flex min-h-[40px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)] transition-[color,transform,box-shadow] duration-200 hover:-translate-y-px hover:text-foreground hover:ring-foreground/25 motion-reduce:hover:translate-y-0";
 
 /** "Ask your AI about us": sits under the FAQ heading. */
 export function AskAi() {
@@ -39,7 +39,7 @@ export function AskAi() {
           </li>
         ))}
         <li>
-          <button type="button" className={`${CHIP} cursor-pointer`} data-copy-prompt={ASK_AI_PROMPT}>
+          <button type="button" className={`${CHIP} cursor-pointer`} data-copy={ASK_AI_PROMPT}>
             <span data-copy-label>Copy prompt</span>
           </button>
         </li>
