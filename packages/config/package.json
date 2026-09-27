@@ -13,7 +13,7 @@
     "lint": "tsc"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260801.1",
+    "@cloudflare/workers-types": "5.20260820.1",
     "typescript": "6.0.3"
   }
 }

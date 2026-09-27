@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { agentPitch } from "./agent-discovery";
 import { agentSkillsIndex, apiCatalog, authMarkdown, marketingHomeLinks, marketingLlmsTxt, marketingMarkdown, markdownErrorForRequest, markdownNotFound, marketingTrustRedirect, varyAgentRepresentation, mcpServerCard, skillArtifacts, tenantHomeLinks } from "./agent-discovery";
 import { listingMarkdown, marketingJsonLd, tenantBlogJsonLd } from "./agent-pages";
@@ -135,10 +135,22 @@ describe('public response negotiation', () => {
 });
 
 describe('robots content signals', () => {
+  // Cold-importing the worker modules can take >5s when every package's suite
+  // runs at once; load them in a hook with room, so the test times only logic.
+  let mods: {
+    env: typeof import('cloudflare:workers')['env'];
+    handleRobots: typeof import('../server/public-feeds')['handleRobots'];
+    parsePublicRuntimeEnv: typeof import('../server/public-url')['parsePublicRuntimeEnv'];
+  };
+  beforeAll(async () => {
+    const [{ env }, { handleRobots }, { parsePublicRuntimeEnv }] = await Promise.all([
+      import('cloudflare:workers'), import('../server/public-feeds'), import('../server/public-url'),
+    ]);
+    mods = { env, handleRobots, parsePublicRuntimeEnv };
+  }, 60_000);
+
   it('allows search, AI input and training on the marketing host', async () => {
-    const { env } = await import('cloudflare:workers');
-    const { handleRobots } = await import('../server/public-feeds');
-    const { parsePublicRuntimeEnv } = await import('../server/public-url');
+    const { env, handleRobots, parsePublicRuntimeEnv } = mods;
     const response = await handleRobots(env.DB, new Request(`${origin}/robots.txt`, { headers: { host: 'basedui.dev' } }), parsePublicRuntimeEnv(env));
     expect(response.headers.get('content-type')).toContain('text/plain');
     expect(await response.text()).toContain('Content-Signal: search=yes, ai-input=yes, ai-train=yes');
