@@ -26,6 +26,7 @@ const saved = {
   POLAR_ACCESS_TOKEN: mutableEnv.POLAR_ACCESS_TOKEN,
   POLAR_MONTHLY_PRODUCT_ID: mutableEnv.POLAR_MONTHLY_PRODUCT_ID,
   APP_URL: mutableEnv.APP_URL,
+  POLAR_LAUNCH_DISCOUNT_MONTHLY_ID: mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID,
 }
 
 beforeAll(async () => {
@@ -37,6 +38,7 @@ afterEach(() => {
   mutableEnv.SELF_HOSTED = saved.SELF_HOSTED
   mutableEnv.POLAR_ACCESS_TOKEN = saved.POLAR_ACCESS_TOKEN
   mutableEnv.POLAR_MONTHLY_PRODUCT_ID = saved.POLAR_MONTHLY_PRODUCT_ID
+  mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = saved.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID
   mutableEnv.APP_URL = saved.APP_URL
   vi.restoreAllMocks()
 })
@@ -292,3 +294,28 @@ describe('createPortalSessionForApp — intact for active workspaces', () => {
     expect(result).toEqual({ kind: 'error', code: 'polar_unconfigured' })
   })
 })
+
+describe('createCheckoutSessionForApp — launch discount', () => {
+  it('applies the launch discount when configured and charges list price when not', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-billing-launch'
+    await seedWorkspace(workspaceId)
+    const createCheckout = vi.fn(async (_body: Record<string, unknown>, _options?: unknown) => ({ url: 'https://polar.example/checkout' }))
+    const listOpenCheckouts = vi.fn(async () => [])
+
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts })
+    expect(createCheckout).toHaveBeenLastCalledWith(
+      expect.objectContaining({ products: ['prod_monthly'], discountId: 'disc_launch_monthly' }),
+      expect.anything(),
+    )
+
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = ''
+    await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts })
+    expect(createCheckout.mock.calls.at(-1)?.[0]).not.toHaveProperty('discountId')
+  })
+})
+

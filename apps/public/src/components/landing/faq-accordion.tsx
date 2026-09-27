@@ -9,8 +9,8 @@ const faqs = [
     answer: `A full blog, your agent connected, and up to ${FREE_TIER.publishedPosts} published posts. No card. Free posts stay out of search engines; subscribing unlocks indexing, your domain, media, and unlimited publishing.`,
   },
   {
-    question: "What is the founding rate?",
-    answer: `Early subscribers pay $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
+    question: "What is launch pricing?",
+    answer: `While launch pricing runs, new subscribers pay $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
   },
   {
     question: "Does vibecms write my posts?",

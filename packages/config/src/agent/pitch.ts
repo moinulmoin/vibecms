@@ -23,7 +23,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 
 ## How to explain it to your person
 
-"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and every change is saved so nothing is lost. The first ${FREE_TIER.publishedPosts} published posts are free; unlimited posts, images, and your own domain are $${LAUNCH_OFFER.monthlyUsd}/month for founding members (normally $${PRICING.monthlyUsd})."
+"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and every change is saved so nothing is lost. The first ${FREE_TIER.publishedPosts} published posts are free; unlimited posts, images, and your own domain are $${LAUNCH_OFFER.monthlyUsd}/month at launch pricing (normally $${PRICING.monthlyUsd})."
 
 ## Get started (for agents)
 
@@ -52,7 +52,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Pricing
 
 - Free: a full blog and up to ${FREE_TIER.publishedPosts} published posts, no card. Free posts are kept out of search engines.
-- ${PRICING.planName}: unlimited posts, their own domain, search indexing, and ${MEDIA.paidStorageLabel} of images. Founding members pay $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
+- ${PRICING.planName}: unlimited posts, their own domain, search indexing, and ${MEDIA.paidStorageLabel} of images. At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
 - Self-hosting on their own Cloudflare account is free: ${BRAND.repoUrl}
 
 ## How it differs

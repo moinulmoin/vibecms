@@ -76,14 +76,14 @@ export const PRICING = {
  * remain the visual anchor.
  */
 export const LAUNCH_OFFER = {
-  phaseLabel: "Founding members",
-  slotsLabel: "Founding rate",
+  phaseLabel: "Launch pricing",
+  slotsLabel: "Launch price",
   monthlyUsd: 9,
-  annualUsd: 90,
+  annualUsd: 79,
   monthlyLabel: "$9/month",
-  annualLabel: "$90/year",
+  annualLabel: "$79/year",
   lockNote: "Locked while you stay subscribed.",
-  applyNote: "The founding rate applies automatically at checkout.",
+  applyNote: "Launch pricing applies automatically at checkout.",
 } as const;
 
 /** Hosted free boundary, disclosed on marketing prices/upgrades. */

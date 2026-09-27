@@ -76,7 +76,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                     <s className="decoration-muted-foreground/60">${PRICING.monthlyUsd}</s>
                   </span>
                   <span data-for-period="yearly">
-                    normally <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · 2 months free
+                    normally <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · ${(LAUNCH_OFFER.annualUsd / 12).toFixed(2)}/month
                   </span>
                 </p>
               </div>

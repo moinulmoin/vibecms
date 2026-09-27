@@ -156,7 +156,7 @@ export function PlanAndBilling() {
               Yearly · {LAUNCH_OFFER.annualLabel}
             </PendingSubmitButton>
             <p className="basis-full text-xs text-muted-foreground">
-              Founding rate (normally {PRICING.monthlyLabel}). {LAUNCH_OFFER.lockNote}
+              Launch price (normally {PRICING.monthlyLabel}). {LAUNCH_OFFER.lockNote}
             </p>
           </div>
         )}

@@ -137,6 +137,13 @@ export async function createCheckoutSessionForApp(
   }
 
   const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : env.POLAR_MONTHLY_PRODUCT_ID
+  // Products carry the list price ($15 / $150). While launch pricing runs,
+  // a Polar discount (duration: forever, so it stays while subscribed) brings
+  // new checkouts to the launch price. Unset = list price.
+  const launchDiscounts = env as unknown as { POLAR_LAUNCH_DISCOUNT_MONTHLY_ID?: string; POLAR_LAUNCH_DISCOUNT_YEARLY_ID?: string }
+  const discountId = (interval === 'yearly'
+    ? launchDiscounts.POLAR_LAUNCH_DISCOUNT_YEARLY_ID
+    : launchDiscounts.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID)?.trim() || undefined
   if (!productId) {
     return {
       kind: 'error',
@@ -181,6 +188,7 @@ export async function createCheckoutSessionForApp(
     const session = await createCheckout(
       {
         products: [productId],
+        ...(discountId ? { discountId } : {}),
         successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
         returnUrl: `${env.APP_URL}/dashboard/billing?error=unknown`,
         externalCustomerId: app.workspaceId,
