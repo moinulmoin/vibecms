@@ -1,8 +1,6 @@
+import { AGENT_TOOL_COUNT } from "@vc/config";
 import { ArrowRight } from "./icons";
 import { H2, LEAD, PANEL, SectionShell } from "./primitives";
-
-// Mirrors packages/api-contract operations (19 MCP tools).
-const MCP_TOOL_COUNT = 19;
 
 type Surface = {
   tag: string;
@@ -16,8 +14,8 @@ function surfaces(apiDocsUrl: string): Surface[] {
   return [
     {
       tag: "MCP",
-      title: `${MCP_TOOL_COUNT} tools over one endpoint`,
-      body: "Draft, preview, publish, restore, upload. Each tool sits behind a scope.",
+      title: `${AGENT_TOOL_COUNT} tools over one endpoint`,
+      body: "Draft, preview, schedule, publish, restore, upload, and run the site. Each tool sits behind a scope.",
     },
     {
       tag: "REST",
@@ -37,9 +35,10 @@ function surfaces(apiDocsUrl: string): Surface[] {
 const TOOLS = [
   "posts.create",
   "posts.preview",
+  "posts.schedule",
   "posts.publish",
   "posts.versions.restore",
-  "assets.upload",
+  "sites.theme.update",
 ] as const;
 
 export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
@@ -70,13 +69,13 @@ export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
             </div>
             <div className="mt-3 text-foreground">
               <span className="text-brand-bright">●</span> connected{" "}
-              <span className="text-muted-foreground">· {MCP_TOOL_COUNT} tools</span>
+              <span className="text-muted-foreground">· {AGENT_TOOL_COUNT} tools</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
               {TOOLS.map((t) => (
                 <span key={t}>{t}</span>
               ))}
-              <span>+{MCP_TOOL_COUNT - TOOLS.length} more</span>
+              <span>+{AGENT_TOOL_COUNT - TOOLS.length} more</span>
             </div>
           </div>
         </div>

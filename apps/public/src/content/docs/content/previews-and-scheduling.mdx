@@ -1,0 +1,35 @@
+---
+title: Previews and scheduling
+description: Share a private preview and schedule one approved saved version.
+---
+
+## Private preview links
+
+Post responses include `previewUrl` when a public site URL is available. Your agent can get it from `posts.create`, `posts.get`, `posts.update`, or other post responses. The link points to `/preview/<token>` on your blog. Anyone with the link can read the latest saved version without signing in, so share it only with reviewers you trust.
+
+The preview shows the current saved tip, even when an older version is live. It sends `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow`. Archiving makes the link return 404; restoring the post makes the same link work again. Use `posts.preview.rotate` (`posts:update`) to issue a new link and invalidate the old one immediately. A preview link is for review, not publication approval by itself.
+
+`posts.preview` is different: it renders Markdown for an agent and returns an outline and warnings. It does not create a private browser link for unsaved content.
+
+## Schedule an approved version
+
+`posts.schedule` requires `posts:publish`. Ask the person to approve the exact saved version and UTC time. Send `postId`, `versionNumber` (a positive integer), and `publishAt` (a future UTC epoch second):
+
+```json
+{"postId":"post_...","versionNumber":4,"publishAt":1790000000}
+```
+
+The scheduler runs every minute, so publication should usually follow the target time within about a minute. Later edits do not change the scheduled version. You can reschedule by calling `posts.schedule` again with another saved version or future time. `posts.unschedule` cancels a pending or failed schedule. Once a schedule is processing, scheduling returns HTTP `409` with `CONFLICT` and “Schedule is already publishing”; unscheduling returns HTTP `409` with `CONFLICT` and “Already publishing”.
+
+You cannot schedule an archived post. If the post is archived before the worker publishes it, publication fails and the schedule records an error. A scheduled version can publish even if a newer draft tip exists. The resulting activity entry reads `Published scheduled v4 of <title> · Scheduled by <name>` for version 4.
+
+## CLI
+
+The CLI accepts an ISO-8601 UTC time ending in `Z` and converts it to epoch seconds:
+
+```sh
+vibecms posts get post_... --json
+vibecms posts schedule post_... --expected-version 4 --at 2026-10-01T09:00:00Z
+vibecms posts unschedule post_...
+vibecms posts rotate-preview post_...
+```

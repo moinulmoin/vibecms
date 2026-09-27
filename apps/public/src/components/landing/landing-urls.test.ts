@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AgentSurface } from "./agent-surface";
 import { AgentsDemo } from "./agents-demo";
+import { ASK_AI_PROMPT, AskAi, askAiLinks } from "./ask-ai";
 import { CtaFooter } from "./cta-footer";
 import { FaqAccordion } from "./faq-accordion";
 import { HeaderHero } from "./header-hero";
@@ -58,5 +59,17 @@ describe("landing URL props", () => {
     expect(html).toContain(`href="${loginUrl}"`);
     expect(html).toContain(`href="${apiDocsUrl}"`);
     expect(html).toContain("API docs");
+  });
+
+  it("opens each AI provider with the prompt prefilled and points it at llms.txt", () => {
+    expect(ASK_AI_PROMPT).toContain("https://vibecms.dev/llms.txt");
+    const links = askAiLinks();
+    expect(links.map((l) => l.name)).toEqual(["ChatGPT", "Claude", "Perplexity", "Google AI Mode", "Grok"]);
+    for (const { href } of links) {
+      expect(new URL(href).searchParams.get("q")).toBe(ASK_AI_PROMPT);
+    }
+    const html = renderToStaticMarkup(createElement(AskAi));
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 });

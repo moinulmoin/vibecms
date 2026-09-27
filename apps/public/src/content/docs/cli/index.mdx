@@ -1,43 +1,90 @@
 ---
 title: Command-line client
-description: Use the preview CLI for shell automation, dry runs, structured output, and schema introspection.
+description: Use the vibecms CLI for site management, posts, assets, and structured output.
 ---
 
-`@vibecms/cli` exists in the repository and is currently a preview package. Do not depend on a public registry release until a published version is announced.
-
-From a repository checkout:
+`@vibecms/cli` exists in the repository as a preview package. From a checkout:
 
 ```sh
 pnpm --filter @vibecms/cli build
 node packages/cli/dist/index.js --help
 ```
 
-## Authenticate
+Use `vibecms` below when the built CLI is on your path.
+
+## Connect
 
 ```sh
-vibecms login --token vc_...
-```
-
-The CLI saves its configuration at `~/.vibecms/config.json` with restricted file permissions. Flags override environment variables, which override the config file.
-
-```txt
-VIBECMS_API_URL
-VIBECMS_TOKEN
-```
-
-## Common commands
-
-```sh
+vibecms login --token vc_... [--api-url https://app.vibecms.dev]
 vibecms whoami
-vibecms posts list --json
+vibecms site
+vibecms activity --limit 20 --offset 0
+```
+
+`login` saves `~/.vibecms/config.json` with restricted permissions. Configuration precedence is flag, environment variable (`VIBECMS_API_URL`, `VIBECMS_TOKEN`), config file, then default.
+
+## Manage the site
+
+```sh
+vibecms sites update --expected-updated-at 123 --data '{"name":"Field Notes"}'
+vibecms sites theme get
+vibecms sites theme update --expected-updated-at 123 --data '{"mode":"dark"}'
+vibecms sites theme revert --expected-updated-at 124
+vibecms sites voice update --data-file voice.json
+vibecms sites signup-form update --expected-updated-at 125 --data '{"enabled":true}'
+vibecms tags list
+vibecms analytics get --range 30
+```
+
+Use `--data <json>` or `--data-file <path>` for JSON object requests. Site, theme, and signup form updates require `--expected-updated-at` from the current settings. `analytics get` accepts `7`, `30`, `90`, `365`, or `all`.
+
+## Posts
+
+```sh
+vibecms posts list --status draft --search notes --limit 20 --offset 0
+vibecms posts search notes --limit 20
 vibecms posts get post_...
-vibecms posts create --title "Title" --slug "title" --content-file post.md
-vibecms posts update post_... --expected-version 3 --content-file post.md
-vibecms posts publish post_... --expected-version 4
-vibecms assets upload cover.png --alt "A useful description"
+vibecms posts get-by-slug example-post
+vibecms posts format-guide --preset minimal
+vibecms posts preview post_...
+vibecms posts preview --content-file post.md --preset minimal --layout essay --toc true
+vibecms posts create --title 'Example' --slug example --content-file post.md
+vibecms posts update post_... --expected-version 2 --content-file post.md
+vibecms posts versions post_...
+vibecms posts version post_... 2
+vibecms posts restore post_... 1 --expected-version 2
+vibecms posts publish post_... --expected-version 3
+vibecms posts schedule post_... --expected-version 3 --at 2026-10-01T09:00:00Z
+vibecms posts unschedule post_...
+vibecms posts rotate-preview post_...
+vibecms posts archive post_...
+vibecms posts unarchive post_...
+```
+
+For `create`, use `--content <markdown>` or `--content-file <path>`. `update` accepts those flags when changing the body. Optional post fields are `--excerpt`, `--tags a,b`, `--cover <assetId|none>`, `--layout standard|essay|feature|wide`, `--toc true|false`, `--seo-title`, `--seo-description`, and `--canonical-url <url|none>`. `create` requires `--title` and `--slug`; `update` can also change them. `--expected-version` binds an update, restore, publish, or schedule to a saved version. Schedule `--at` must be an ISO-8601 UTC time ending in `Z`.
+
+## Assets and schemas
+
+```sh
+vibecms assets list
+vibecms assets get asset_...
+vibecms assets upload image.png --alt 'A description'
+vibecms assets update asset_... --alt 'A better description'
+vibecms assets delete asset_...
+vibecms schema
 vibecms schema publishPost
 ```
 
-Use `--dry-run` on mutations to print the request without sending it. Use `--json` or `--ndjson` for machine-readable output.
+Uploads accept PNG, JPEG, WebP, and GIF. `schema` prints operation metadata as JSON.
 
-The CLI provides stable exit classes for usage, authentication, missing resources, conflicts, and rate limits.
+## Global flags and exit codes
+
+| Flag | Effect |
+| --- | --- |
+| `--api-url <url>`, `--token <tok>` | Override saved connection settings. |
+| `--json` | Print compact JSON. |
+| `--ndjson` | Print newline-delimited JSON for list output. |
+| `--dry-run` | Print the request without sending it for supported reads and mutations. |
+| `-h`, `--help`, `--version` | Show help or version. |
+
+Exit codes are `0` success, `1` other error, `2` usage, `3` authentication or permission, `4` not found, `5` conflict, and `6` rate limit.

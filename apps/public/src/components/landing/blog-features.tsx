@@ -11,13 +11,16 @@ import type { ComponentType, CSSProperties, SVGProps } from "react";
 import {
   Bot,
   ChartColumn,
+  Code,
   Download,
   Globe,
   ImageIcon,
+  Link,
   Mail,
   PenLine,
   Rss,
   Search,
+  Zap,
 } from "./icons";
 import { H2, LEAD, SectionShell } from "./primitives";
 
@@ -36,12 +39,12 @@ const FEATURES: Feature[] = [
   {
     Icon: Bot,
     title: "Readable by agents",
-    body: "llms.txt, llms-full.txt, and a clean .md version of every post.",
+    body: "llms.txt, a Markdown version of every page, and discovery files agents look for.",
   },
   {
     Icon: Rss,
     title: "RSS, sitemap, SEO",
-    body: "Feeds, sitemap, canonical URLs, and social cards out of the box.",
+    body: "Feeds, sitemap, canonical URLs, structured data, and social cards.",
   },
   {
     Icon: ChartColumn,
@@ -49,9 +52,19 @@ const FEATURES: Feature[] = [
     body: "Views and referrers, plus AI crawler hits and visits from AI search.",
   },
   {
-    Icon: Mail,
-    title: "Newsletter signups",
-    body: "A subscribe form on your blog. Export the list as CSV.",
+    Icon: Link,
+    title: "Old links keep working",
+    body: "Rename a post and its old URL redirects to the new one.",
+  },
+  {
+    Icon: Code,
+    title: "Code and math",
+    body: "Highlighting and formulas, loaded only on posts that use them.",
+  },
+  {
+    Icon: Zap,
+    title: "Fast by default",
+    body: "Rendered on Cloudflare's edge, cached close to readers.",
   },
   {
     Icon: ImageIcon,
@@ -62,6 +75,11 @@ const FEATURES: Feature[] = [
     Icon: PenLine,
     title: "Voice profile",
     body: "Describe how you write. Agents read it before they draft.",
+  },
+  {
+    Icon: Mail,
+    title: "Newsletter signups",
+    body: "A subscribe form on your blog. Export the list as CSV.",
   },
   {
     Icon: Search,

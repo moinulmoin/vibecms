@@ -8,8 +8,8 @@ const faqs = [
     answer: `A full blog, your agent connected, and up to ${FREE_TIER.publishedPosts} published posts. No card. Free posts stay out of search engines; subscribing unlocks indexing, your domain, media, and unlimited publishing.`,
   },
   {
-    question: "What does the launch price mean?",
-    answer: `$${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays while your subscription is active.`,
+    question: "What is the founding rate?",
+    answer: `Early subscribers pay $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
   },
   {
     question: "Does vibecms write my posts?",
@@ -24,7 +24,12 @@ const faqs = [
   {
     question: "Can an agent publish without me?",
     answer:
-      "Only if you give its token the publish scope. Draft tokens can write and preview but not publish, and every change is logged and reversible.",
+      "Only if its key allows it. Draft keys can write and send you a preview but not publish. Every change is logged and reversible.",
+  },
+  {
+    question: "Can my agent run the rest of the blog?",
+    answer:
+      "Yes, with a Manage key: settings, links, theme, voice, the signup form, and analytics. Billing, keys, and deleting the blog stay with you.",
   },
   {
     question: "Can I leave?",

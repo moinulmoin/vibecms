@@ -2,6 +2,7 @@
 import LandingLayout from "../../layouts/LandingLayout.astro";
 import { AgentSurface } from "../../components/landing/agent-surface";
 import { AgentsDemo } from "../../components/landing/agents-demo";
+import { AskAi } from "../../components/landing/ask-ai";
 import { CtaFooter } from "../../components/landing/cta-footer";
 import { BlogFeatures } from "../../components/landing/blog-features";
 import { ControlSection } from "../../components/landing/control-section";
@@ -45,6 +46,7 @@ const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;
       <BlogFeatures />
       <HostingPricing loginUrl={loginUrl} />
       <FaqAccordion />
+      <AskAi />
       <CtaFooter loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
     </div>
   </main>

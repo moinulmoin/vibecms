@@ -212,7 +212,7 @@ export function PersonalizePage() {
             {live && !connect.data.effectiveEntitlement.effective ? (
               <p className="max-w-sm text-sm leading-6 text-muted-foreground">
                 The free plan includes {FREE_TIER.publishedPosts} published posts. Unlimited publishing, images, and your own domain are{' '}
-                {LAUNCH_OFFER.monthlyLabel} during early access.
+                {LAUNCH_OFFER.monthlyLabel} for founding members.
               </p>
             ) : (
               <span />

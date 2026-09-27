@@ -1,9 +1,17 @@
 ---
 title: Connect an agent
-description: Create a scoped token, configure an MCP client, and verify protected access.
+description: Create a scoped key, configure MCP, and verify access.
 ---
 
-Open **Dashboard > Connect**, choose the capabilities the agent needs, create the token, and copy it immediately. VibeCMS reveals each token once.
+Open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once.
+
+| Level | What your agent can do |
+| --- | --- |
+| **Write drafts** | Read the site and posts, create and edit drafts, upload images, and read activity. You publish. |
+| **Write and publish** | Everything in Write drafts, plus publish and schedule posts. |
+| **Manage** | Everything in Write and publish, plus change site settings, theme, voice, and signup form; read tags and analytics; and archive posts. |
+
+[See the exact scope strings and tools](/docs/agent-workflows/scopes-and-tools). Choose the smallest level that fits the work. Billing, key management, permanent post deletion, and blog or account deletion remain human actions.
 
 ## Claude Code
 
@@ -22,9 +30,7 @@ Self-hosters should replace `https://app.vibecms.dev` with their API and dashboa
     "vibecms": {
       "type": "http",
       "url": "https://app.vibecms.dev/mcp",
-      "headers": {
-        "Authorization": "Bearer vc_..."
-      }
+      "headers": { "Authorization": "Bearer vc_..." }
     }
   }
 }
@@ -32,19 +38,17 @@ Self-hosters should replace `https://app.vibecms.dev` with their API and dashboa
 
 ## Install the agent skills
 
-The repository includes separate operational and editorial skills:
-
 ```sh
 npx skills add moinulmoin/vibecms \
   --skill vibecms-core \
   --skill vibecms-writing
 ```
 
-`vibecms-core` defines safe operation order, version binding, approval, and recovery. `vibecms-writing` defines the editorial workflow without granting publication authority.
+`vibecms-core` covers operation order, version binding, approval, and recovery. `vibecms-writing` covers editorial work. Neither skill changes the key's permissions.
 
 ## Verify the credential
 
-Tool discovery does not prove that the credential can access a site. Call a protected read such as `sites.get`.
+Tool discovery does not prove that the key can access your site. Call `sites.get`:
 
 ```sh
 curl https://app.vibecms.dev/mcp \
@@ -53,11 +57,6 @@ curl https://app.vibecms.dev/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sites.get","arguments":{}}}'
 ```
 
-A valid token returns the current site. A missing or invalid token returns `401`; a valid token without the required scope returns `FORBIDDEN`.
+A valid key returns the current site. A missing or invalid key returns `401`; a valid key without `sites:read` returns `FORBIDDEN`.
 
-## Token safety
-
-- Grant only the scopes needed for the workflow.
-- Do not place tokens in source control, prompts intended for publication, screenshots, or issue descriptions.
-- Delete a token from **Dashboard > Connect** when it is no longer needed.
-- Create a new token instead of attempting to recover a lost reveal-once value.
+Keep the key out of source control, published prompts, screenshots, and issues. Delete an unused or exposed key under **Dashboard > Connect** and create a new one.

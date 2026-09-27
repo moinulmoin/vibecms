@@ -8,6 +8,9 @@ export const BRAND = {
   marketingUrl: "https://vibecms.dev",
 } as const;
 
+/** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
+export const AGENT_TOOL_COUNT = 32;
+
 /** Legal/support routes served on the marketing origin (apps/public, `/legal/*`). */
 export const LEGAL = {
   privacy: "/legal/privacy",
@@ -59,10 +62,10 @@ export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
   planName: "vibecms Cloud",
-  monthlyUsd: 19,
-  annualUsd: 190,
-  monthlyLabel: "$19/month",
-  annualLabel: "$190/year",
+  monthlyUsd: 15,
+  annualUsd: 150,
+  monthlyLabel: "$15/month",
+  annualLabel: "$150/year",
 } as const;
 
 /**
@@ -73,14 +76,14 @@ export const PRICING = {
  * remain the visual anchor.
  */
 export const LAUNCH_OFFER = {
-  phaseLabel: "Public early access",
-  slotsLabel: "Early access rate",
-  monthlyUsd: 13,
-  annualUsd: 99,
-  monthlyLabel: "$13/month",
-  annualLabel: "$99/year",
+  phaseLabel: "Founding members",
+  slotsLabel: "Founding rate",
+  monthlyUsd: 9,
+  annualUsd: 90,
+  monthlyLabel: "$9/month",
+  annualLabel: "$90/year",
   lockNote: "Locked while you stay subscribed.",
-  applyNote: "Launch pricing applies automatically at checkout.",
+  applyNote: "The founding rate applies automatically at checkout.",
 } as const;
 
 /** Hosted free boundary, disclosed on marketing prices/upgrades. */

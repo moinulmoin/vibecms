@@ -8,7 +8,9 @@ const INCLUDED = [
   "Indexed by search engines",
   `${MEDIA.paidStorageLabel} of media on R2`,
   "MCP, REST API, and CLI",
+  "Private previews and scheduling",
   "Versions, restore, activity log",
+  "A key per agent, with its own access",
   "Analytics, including AI traffic",
   "Newsletter signups",
   "Four themes, your accent and fonts",
@@ -53,7 +55,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 <p className="text-[15px] font-medium text-foreground">{PRICING.planName}</p>
                 <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
                   <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
-                  Launch pricing
+                  {LAUNCH_OFFER.phaseLabel}
                 </p>
               </div>
               <div className="text-left sm:text-right">
