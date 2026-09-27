@@ -115,6 +115,8 @@ export interface SiteActivityEntry {
   actorName: string;
   action: string;
   summary: string;
+  beforeJson?: string | null;
+  afterJson?: string | null;
 }
 
 // Five-statement idempotent onboarding batch; caller supplies every id/name/hostname/timestamp.
@@ -557,9 +559,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           .prepare(
             `INSERT INTO activity_events (
               id, site_id, actor_type, actor_id, actor_name, action,
-              entity_type, entity_id, summary, created_at
+              entity_type, entity_id, summary, before_json, after_json, created_at
             )
-            SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?
+            SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?, ?, ?
             FROM sites
             WHERE id = ? AND updated_at = ?`,
           )
@@ -572,6 +574,8 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             input.activity.action,
             input.siteId,
             input.activity.summary,
+            input.activity.beforeJson ?? null,
+            input.activity.afterJson ?? null,
             input.timestamp,
             input.siteId,
             input.expectedUpdatedAt,
@@ -615,11 +619,12 @@ export function createSitesRepository(db: D1Database): SitesRepository {
       const expectedSql = input.expectedUpdatedAt === undefined ? '' : ' AND updated_at = ?';
       const [, result] = await db.batch([
         db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action,
-          entity_type, entity_id, summary, created_at)
-          SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ? FROM sites
+          entity_type, entity_id, summary, before_json, after_json, created_at)
+          SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?, ?, ? FROM sites
           WHERE id = ?${expectedSql}`)
           .bind(input.activity.id, input.siteId, input.activity.actorType, input.activity.actorId,
             input.activity.actorName, input.activity.action, input.siteId, input.activity.summary,
+            input.activity.beforeJson ?? null, input.activity.afterJson ?? null,
             input.timestamp, input.siteId,
             ...(input.expectedUpdatedAt === undefined ? [] : [input.expectedUpdatedAt])),
         db.prepare(`UPDATE sites SET newsletter_settings = ${valueSql}, updated_at = max(?, updated_at + 1)

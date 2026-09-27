@@ -15,7 +15,7 @@ const PRESENTATION_NOTES =
   "After saving, send your person the previewUrl. Ask the person before posts.schedule, naming the exact saved version and publish time. " +
   "Agents archive posts; people can permanently delete archived posts in the dashboard. " +
   "Declare layout intent via the typed `presentation` field on posts.create or posts.update - NOT in front-matter or body text. " +
-  "Supported fields: `layout` (`standard`, `essay` for longform with a lead paragraph, or `feature` for a full-width cover above the title) and `toc` (boolean; the page-level outline appears once a post has 3+ H2/H3 headings). " +
+  "Supported fields: `layout` (`standard`, `essay` for longform with a lead paragraph, `wide`, or `feature` for a full-width cover above the title); the active preset's `supportedLayouts` determines availability. Omitted layout uses `presentationOptions.default.layout` (editorial defaults to `essay`); omitted toc uses `presentationOptions.default.toc`. `toc` is boolean; the page-level outline appears once a post has 3+ H2/H3 headings. " +
   "Do not combine `presentation.toc: true` with an inline `[[toc]]` marker in the body - choose one; " +
   "`presentation.toc` is preferred when the preset supports it and removes the need for a manual [[toc]] marker.";
 
@@ -256,7 +256,7 @@ export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
     rendererVersion: RENDERER_VERSION,
     recommendedComponents: preset.recommendedComponents,
     presetGuidance: preset.formatGuide,
-    examples: `${V1_EXAMPLES}\n\n=== Managing the site ===\nSettings and theme changes are live immediately. Describe the change to your person first. After a theme change, give them the blog URL and offer to revert the theme if they do not like it.`,
+    examples: `${V1_EXAMPLES}\n\n=== Managing the site ===\nThese changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval. After a theme change, give them the blog URL and offer to revert the theme if they do not like it.`,
     syntax: SYNTAX,
     presentationOptions: {
       supportedLayouts: [...layoutCap.supportedLayouts],

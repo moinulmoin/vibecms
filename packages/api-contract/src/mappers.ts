@@ -86,6 +86,7 @@ export function mapSiteRow(
           updatedByName: voiceProfile.updatedBy.name,
           createdAt: voiceProfile.createdAt,
           updatedAt: voiceProfile.updatedAt,
+          revision: voiceProfile.updatedAt,
         }
       : {
           configured: false,
@@ -97,6 +98,7 @@ export function mapSiteRow(
           updatedByName: null,
           createdAt: null,
           updatedAt: null,
+          revision: 0,
         },
     template: resolvePresetId(row.theme),
     byline: {

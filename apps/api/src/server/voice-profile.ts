@@ -1,8 +1,8 @@
-import { createDataAccess } from '@vc/db'
+import { createDataAccess, VoiceProfileConflictError } from '@vc/db'
 import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
-import { can } from '@vc/core'
+import { can, ConflictError } from '@vc/core'
 
 export type VoiceProfileMutationResult =
   | { kind: 'ok'; code: 'voice_profile_saved' | 'voice_profile_cleared' }
@@ -61,6 +61,7 @@ export async function getVoiceProfileSettings(app: AppUserContext): Promise<Voic
 export async function updateVoiceProfileForApp(
   app: AppUserContext,
   rawPayload: VoiceProfileSettingsInput,
+  options?: { expectedUpdatedAt: number },
 ): Promise<VoiceProfileMutationResult> {
   if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
   const parsed = voiceProfileSettingsInputSchema.safeParse(rawPayload)
@@ -84,9 +85,11 @@ export async function updateVoiceProfileForApp(
       editor: editorFor(app),
       timestamp: Math.floor(Date.now() / 1000),
       activityId: crypto.randomUUID(),
+      expectedUpdatedAt: options?.expectedUpdatedAt,
     })
     return { kind: 'ok', code: 'voice_profile_saved' }
   } catch (error) {
+    if (error instanceof VoiceProfileConflictError) throw new ConflictError(error.message)
     throw error
   }
 }

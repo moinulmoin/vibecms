@@ -140,7 +140,7 @@ The suggestion must:
 - describe one reusable prefer/avoid rule;
 - cite the post and immutable version that produced the evidence when available;
 - be separate from draft or publication approval;
-- remain unapplied until the user explicitly asks to save it through the dashboard-supported Voice Profile workflow.
+- remain unapplied until the user explicitly asks to save it through the dashboard Voice Profile workflow or an explicitly approved `sites.voice.update` with Manage access.
 
 Never treat publication, a generated draft, or one correction as automatic learning consent.
 
@@ -157,6 +157,8 @@ Maintain a compact ledger for externally sourced claims:
 Do not expose private tool traces or hidden reasoning. The ledger exists to make factual provenance reviewable.
 
 ## Separation from `vibecms-core`
+
+These changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval.
 
 This skill does not:
 

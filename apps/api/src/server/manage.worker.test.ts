@@ -9,7 +9,7 @@ import { app } from '@/index'
 import { createApiKeyForApp, hashApiToken } from './api-keys'
 import { handleMcpRequest } from './mcp'
 import { getSiteSettings, updateSiteSettingsForApp, type AppUserContext } from './onboarding'
-import { getThemeOp, listTagsOp, updateSiteOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, getAnalyticsOp, type OperationContext } from './operations'
+import { getSiteOp, getThemeOp, listTagsOp, updateSiteOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, getAnalyticsOp, schedulePostOp, type OperationContext } from './operations'
 
 declare module 'vitest' { interface ProvidedContext { migrations: D1Migration[] } }
 
@@ -88,7 +88,7 @@ describe('Manage key', () => {
       ['GET', '/site/theme'],
       ['PATCH', '/site/theme', { expectedUpdatedAt: updatedAt, accent: 'blue' }],
       ['POST', '/site/theme/revert', { expectedUpdatedAt: updatedAt }],
-      ['PUT', '/site/voice', { audience: 'Readers', tone: 'Clear', doRules: [], dontRules: [], representativePostIds: [] }],
+      ['PUT', '/site/voice', { expectedUpdatedAt: 0, audience: 'Readers', tone: 'Clear', doRules: [], dontRules: [], representativePostIds: [] }],
       ['PATCH', '/site/signup-form', { expectedUpdatedAt: updatedAt, heading: 'Join' }],
       ['GET', '/tags'],
       ['GET', '/analytics?range=7'],
@@ -110,6 +110,10 @@ describe('Manage key', () => {
     const attribution = await env.DB.prepare("SELECT actor_name AS actorName FROM activity_events WHERE site_id = ? AND action = 'site.updated' ORDER BY created_at DESC LIMIT 1")
       .bind(siteId).first<{ actorName: string }>()
     expect(attribution?.actorName).toBe('Site Agent')
+    const siteEvent = await env.DB.prepare("SELECT before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND action = 'site.updated' ORDER BY created_at DESC LIMIT 1")
+      .bind(siteId).first<{ beforeJson: string; afterJson: string }>()
+    expect(JSON.parse(siteEvent!.afterJson)).toEqual({ description: 'A new description' })
+    expect(JSON.parse(siteEvent!.beforeJson)).toHaveProperty('description')
     const stale = await request(tokens.manage, 'PATCH', '/site', { expectedUpdatedAt: updatedAt, name: 'Stale' })
     expect(stale.status).toBe(409)
     expect((await stale.json() as { error: { code: string } }).error.code).toBe('CONFLICT')
@@ -118,13 +122,22 @@ describe('Manage key', () => {
     updatedAt = (await themeGet.json() as { updatedAt: number }).updatedAt
     const themeUpdate = await request(tokens.manage, 'PATCH', '/site/theme', { expectedUpdatedAt: updatedAt, accent: 'blue' })
     expect(themeUpdate.status).toBe(200)
+    const themeEvent = await env.DB.prepare("SELECT summary, before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND summary = 'Changed the theme' ORDER BY created_at DESC LIMIT 1")
+      .bind(siteId).first<{ summary: string; beforeJson: string; afterJson: string }>()
+    expect(themeEvent?.summary).toBe('Changed the theme')
+    expect(JSON.parse(themeEvent!.afterJson)).toHaveProperty('themeAccent')
     updatedAt = (await themeUpdate.json() as { updatedAt: number }).updatedAt
     const themeRevert = await request(tokens.manage, 'POST', '/site/theme/revert', { expectedUpdatedAt: updatedAt })
     expect(themeRevert.status).toBe(200)
-    const voice = await request(tokens.manage, 'PUT', '/site/voice', { audience: 'Readers', tone: 'Clear', doRules: [], dontRules: [], representativePostIds: [] })
+    const voiceRevision = (await getSiteOp(ctx))!.voiceProfile.revision
+    const voice = await request(tokens.manage, 'PUT', '/site/voice', { expectedUpdatedAt: voiceRevision, audience: 'Readers', tone: 'Clear', doRules: [], dontRules: [], representativePostIds: [] })
     expect(voice.status).toBe(200)
     const signup = await request(tokens.manage, 'PATCH', '/site/signup-form', { expectedUpdatedAt: (await getSiteSettings(owner)).updatedAt, heading: 'Join us' })
     expect(signup.status).toBe(200)
+    const signupEvent = await env.DB.prepare("SELECT before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND summary = 'Updated the signup form' ORDER BY created_at DESC LIMIT 1")
+      .bind(siteId).first<{ beforeJson: string; afterJson: string }>()
+    expect(JSON.parse(signupEvent!.afterJson)).toEqual({ heading: 'Join us' })
+    expect(JSON.parse(signupEvent!.beforeJson)).toHaveProperty('heading')
     const tags = await request(tokens.manage, 'GET', '/tags')
     expect(tags.status).toBe(200)
     expect(await tags.json()).toEqual([])
@@ -144,11 +157,16 @@ describe('Manage key', () => {
     }))
     await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(workspaceId).run()
     const denied = await call(tokens.publish)
-    expect(denied.status).toBe(403)
+    expect(denied.status).toBe(200)
+    const deniedJson = await denied.json() as { result: { isError: boolean; structuredContent: { code: string }; content: Array<{ text: string }> } }
+    expect(deniedJson).toMatchObject({ result: { isError: true, structuredContent: { code: 'FORBIDDEN' } } })
+    expect(JSON.parse(deniedJson.result.content[0]!.text)).toMatchObject({ code: 'FORBIDDEN' })
     await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(workspaceId).run()
     const allowed = await call(tokens.manage)
     expect(allowed.status).toBe(200)
-    expect(await allowed.json()).toMatchObject({ result: { structuredContent: { template: expect.any(String) } } })
+    const allowedJson = await allowed.json() as { result: Record<string, unknown> }
+    expect(allowedJson).toMatchObject({ result: { structuredContent: { template: expect.any(String) } } })
+    expect(allowedJson.result).not.toHaveProperty('outputSchema')
   })
 
   it('uses dashboard site validation and patch semantics, returns 409 on stale writes, and attributes activity', async () => {
@@ -214,19 +232,57 @@ describe('Manage key', () => {
         .bind(`manage-test-post-${id}`, siteId, id, `manage-${id}`, status, actor.id, actor.id, tags, t, t).run()
     }
     expect(await listTagsOp(ctx)).toEqual([{ name: 'AI', postCount: 2 }, { name: 'CMS', postCount: 1 }])
-    const voice = await updateVoiceOp(ctx, { audience: 'Readers', tone: 'Plain language', doRules: ['Use examples'], dontRules: [], representativePostIds: [] })
+    const voiceRevision = (await getSiteOp(ctx))!.voiceProfile.revision
+    const voice = await updateVoiceOp(ctx, { expectedUpdatedAt: voiceRevision, audience: 'Readers', tone: 'Plain language', doRules: ['Use examples'], dontRules: [], representativePostIds: [] })
     expect(voice).toMatchObject({ audience: 'Readers', voiceSummary: 'Plain language', updatedByName: 'Site Agent' })
     const signup = await updateSignupFormOp(ctx, { expectedUpdatedAt: (await getSiteSettings(owner)).updatedAt, description: 'One useful note each month' })
     expect(signup).toMatchObject({ description: 'One useful note each month', enabled: true })
-    const rows = await env.DB.prepare("SELECT actor_name AS actorName FROM activity_events WHERE site_id = ? AND summary IN ('Updated voice profile', 'Updated newsletter settings')")
+    const rows = await env.DB.prepare("SELECT actor_name AS actorName FROM activity_events WHERE site_id = ? AND summary IN ('Updated the voice profile', 'Updated the signup form')")
       .bind(siteId).all<{ actorName: string }>()
     expect(rows.results.length).toBeGreaterThanOrEqual(2)
     expect(rows.results.every((row) => row.actorName === 'Site Agent')).toBe(true)
+  })
+
+  it('binds voice writes to the profile revision and exposes signup form state', async () => {
+    const site = await getSiteOp(ctx)
+    expect(site?.signupForm).toMatchObject({ enabled: true, heading: expect.any(String), description: expect.any(String), button: expect.any(String) })
+    const revision = site!.voiceProfile.revision
+    const write = { expectedUpdatedAt: revision, audience: 'Careful readers', tone: 'Direct',
+      doRules: ['Use evidence'], dontRules: [], representativePostIds: [] }
+    await updateVoiceOp(ctx, write)
+    await expect(updateVoiceOp(ctx, { ...write, audience: 'Stale agent' })).rejects.toMatchObject({ code: 'CONFLICT' })
+    const after = await getSiteOp(ctx)
+    expect(after?.voiceProfile.audience).toBe('Careful readers')
+    expect(after!.voiceProfile.revision).toBeGreaterThan(revision)
+    const event = await env.DB.prepare("SELECT summary, before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND action = 'site.voice.updated' AND after_json LIKE '%Careful readers%' LIMIT 1")
+      .bind(siteId).first<{ summary: string; beforeJson: string; afterJson: string }>()
+    expect(event?.summary).toBe('Updated the voice profile')
+    expect(JSON.parse(event!.afterJson)).toMatchObject({ audience: 'Careful readers' })
+  })
+
+  it('redacts email and token shaped text in site activity details', async () => {
+    const current = await getSiteOp(ctx)
+    const secret = 'vc_abcdefghijklmnop'
+    await updateSiteOp(ctx, { expectedUpdatedAt: current!.updatedAt,
+      description: `Contact alice@example.com with ${secret}` })
+    const row = await env.DB.prepare("SELECT after_json AS afterJson FROM activity_events WHERE site_id = ? AND summary = 'Updated site settings' AND after_json LIKE '%redacted%' ORDER BY created_at DESC LIMIT 1")
+      .bind(siteId).first<{ afterJson: string }>()
+    expect(row?.afterJson).toContain('[redacted email]')
+    expect(row?.afterJson).toContain('[redacted secret]')
+    expect(row?.afterJson).not.toContain('alice@example.com')
+    expect(row?.afterJson).not.toContain(secret)
   })
 
   it('returns a clear paid-plan code on free sites and analytics data on entitled sites', async () => {
     await expect(getAnalyticsOp(ctx, { range: '7' })).rejects.toMatchObject({ code: 'ANALYTICS_PAID_PLAN', status: 402 })
     const paid = await getAnalyticsOp({ ...ctx, siteId: paidSiteId, workspaceId: paidWorkspaceId }, { range: '30' })
     expect(paid).toMatchObject({ status: 'unavailable', reason: 'not_configured' })
+  })
+
+  it('gives actionable recovery for past schedules and unavailable theme reverts', async () => {
+    await expect(schedulePostOp(ctx, { postId: 'unused', versionNumber: 1, publishAt: 1 }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringContaining('Confirm a new UTC time with the owner') })
+    await expect(revertThemeOp(ctx, { expectedUpdatedAt: (await getSiteSettings(owner)).updatedAt + 1 }))
+      .rejects.toMatchObject({ code: 'CONFLICT', message: expect.stringContaining('only retry when canRevert is true') })
   })
 })

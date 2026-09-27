@@ -303,6 +303,17 @@ export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = {
   buttonLabel: 'Notify me',
 }
 
+function redactActivityValue(value: unknown): unknown {
+  if (typeof value === 'string') return value
+    .replace(/[^\s"<>]+@[^\s"<>]+/g, '[redacted email]')
+    .replace(/\b(?:vc_[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{12,})\b/g, '[redacted secret]')
+  if (Array.isArray(value)) return value.map(redactActivityValue)
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, redactActivityValue(child)]),
+  )
+  return value
+}
+
 function parseNewsletterSettings(raw: string | null | undefined): NewsletterSettings {
   if (!raw) return DEFAULT_NEWSLETTER_SETTINGS
   try {
@@ -332,6 +343,15 @@ export async function updateNewsletterSettingsForApp(
   const timestamp = now()
   const db = createDataAccess(env.DB)
   const currentSite = await db.sites.getSiteSettings(app.siteId)
+  const beforeForm = parseNewsletterSettings(currentSite?.newsletterSettings)
+  const formPatch = parsed.data as Partial<NewsletterSettings>
+  const formBefore: Record<string, unknown> = {}
+  const formAfter: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(formPatch)) {
+    const field = key as keyof NewsletterSettings
+    formBefore[key] = redactActivityValue(beforeForm[field])
+    formAfter[key] = redactActivityValue(value)
+  }
   const updated = await db.sites.updateNewsletterSettings({
     timestamp,
     siteId: app.siteId,
@@ -345,7 +365,9 @@ export async function updateNewsletterSettingsForApp(
       actorId: app.actor.id,
       actorName: app.actor.name,
       action: 'site.updated',
-      summary: 'Updated newsletter settings',
+      summary: 'Updated the signup form',
+      beforeJson: JSON.stringify(formBefore),
+      afterJson: JSON.stringify(formAfter),
     },
   })
   if (!updated) return { kind: 'error', code: 'settings_conflict' }
@@ -552,6 +574,13 @@ export async function updateSiteSettingsForApp(
   }
 
   const timestamp = Math.max(now(), currentSite.updatedAt + 1)
+  const beforeFields: Record<string, unknown> = {}
+  const afterFields: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(site)) {
+    beforeFields[key] = redactActivityValue(currentSite[key as keyof typeof currentSite])
+    afterFields[key] = redactActivityValue(value)
+  }
+  const themeChange = Object.keys(site).some((key) => key === 'theme' || key.startsWith('theme'))
   const updated = await db.sites.updateSiteSettings({
     timestamp,
     siteId: app.siteId,
@@ -564,7 +593,9 @@ export async function updateSiteSettingsForApp(
       actorId: app.actor.id,
       actorName: app.actor.name,
       action: 'site.updated',
-      summary: 'Updated site settings',
+      summary: themeChange ? 'Changed the theme' : 'Updated site settings',
+      beforeJson: JSON.stringify(beforeFields),
+      afterJson: JSON.stringify(afterFields),
     },
   })
   if (!updated) return { kind: 'error', code: 'settings_conflict' }

@@ -671,7 +671,7 @@ describe("createPost — slug conflict", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(ConflictError);
-    expect((caught as Error).message).toBe("A post with this slug already exists");
+    expect((caught as Error).message).toBe("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
   });
 
   it("allows the same slug on a different site (uniqueness is per-site, not global)", async () => {

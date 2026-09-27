@@ -24,7 +24,7 @@
     "/api/v1/site": {
       "get": {
         "operationId": "getSite",
-        "description": "Get the current site for this token. Requires scope: sites:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Get the current site for this token, including its voice profile revision and signup form settings. Requires scope: sites:read.",
         "security": [
           {
             "bearerAuth": []
@@ -263,6 +263,10 @@
                             "number",
                             "null"
                           ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 0
                         }
                       },
                       "required": [
@@ -274,7 +278,31 @@
                         "warnings",
                         "updatedByName",
                         "createdAt",
-                        "updatedAt"
+                        "updatedAt",
+                        "revision"
+                      ]
+                    },
+                    "signupForm": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "heading": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "button": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "heading",
+                        "description",
+                        "button"
                       ]
                     },
                     "template": {
@@ -314,6 +342,7 @@
                     "socialLinks",
                     "voiceSeedUrls",
                     "voiceProfile",
+                    "signupForm",
                     "template",
                     "byline",
                     "createdAt",
@@ -451,7 +480,7 @@
       },
       "patch": {
         "operationId": "updateSite",
-        "description": "Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {\"expectedUpdatedAt\": 123, \"name\": \"Field Notes\"}. Changes are live immediately. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {\"expectedUpdatedAt\": 123, \"name\": \"Field Notes\"}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -813,6 +842,10 @@
                             "number",
                             "null"
                           ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 0
                         }
                       },
                       "required": [
@@ -824,7 +857,31 @@
                         "warnings",
                         "updatedByName",
                         "createdAt",
-                        "updatedAt"
+                        "updatedAt",
+                        "revision"
+                      ]
+                    },
+                    "signupForm": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "heading": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "button": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "heading",
+                        "description",
+                        "button"
                       ]
                     },
                     "template": {
@@ -1233,7 +1290,7 @@
     "/api/v1/site/theme": {
       "get": {
         "operationId": "getSiteTheme",
-        "description": "Read the current blog template and look, plus allowed values with human names. Use its updatedAt for a theme update. Example: {}. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Read the current blog template and look, plus allowed values with human names. Use its updatedAt for a theme update. Example: {}. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -1543,7 +1600,7 @@
       },
       "patch": {
         "operationId": "updateSiteTheme",
-        "description": "Change any part of the blog look. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -1564,9 +1621,15 @@
                     "type": "string",
                     "enum": [
                       "minimal",
+                      "Minimal",
                       "editorial",
+                      "Editorial",
                       "technical",
-                      "product"
+                      "Notebook",
+                      "notebook",
+                      "product",
+                      "Magazine",
+                      "magazine"
                     ]
                   },
                   "keepLook": {
@@ -1590,10 +1653,20 @@
                     "type": "string",
                     "enum": [
                       "geist-sans",
+                      "Geist",
+                      "geist",
                       "serif",
+                      "Newsreader",
+                      "newsreader",
                       "grotesk",
+                      "Space Grotesk",
+                      "space grotesk",
                       "humanist",
-                      "mono"
+                      "Hanken Grotesk",
+                      "hanken grotesk",
+                      "mono",
+                      "Geist Mono",
+                      "geist mono"
                     ]
                   },
                   "radius": {
@@ -2029,7 +2102,7 @@
     "/api/v1/site/theme/revert": {
       "post": {
         "operationId": "revertSiteTheme",
-        "description": "Undo the last theme change and restore the exact previous look. Example: {\"expectedUpdatedAt\": 124}. Read the current theme first; stale values return CONFLICT. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {\"expectedUpdatedAt\": 124}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -2454,7 +2527,7 @@
     "/api/v1/site/voice": {
       "put": {
         "operationId": "updateSiteVoice",
-        "description": "Save the writing voice: audience, tone, do and don't rules, and up to three published representative posts. Example: {\"audience\":\"Developers\",\"tone\":\"Clear\",\"doRules\":[\"Use examples\"],\"dontRules\":[],\"representativePostIds\":[]}. Uses dashboard voice limits. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {\"expectedUpdatedAt\":0,\"audience\":\"Developers\",\"tone\":\"Clear\",\"doRules\":[\"Use examples\"],\"dontRules\":[],\"representativePostIds\":[]}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -2467,6 +2540,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "expectedUpdatedAt": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
                   "audience": {
                     "type": "string",
                     "maxLength": 300
@@ -2504,6 +2584,7 @@
                   }
                 },
                 "required": [
+                  "expectedUpdatedAt",
                   "doRules",
                   "dontRules",
                   "representativePostIds"
@@ -2770,7 +2851,7 @@
     "/api/v1/site/signup-form": {
       "patch": {
         "operationId": "updateSignupForm",
-        "description": "Update only the sent email signup form fields. Example: {\"enabled\":true,\"heading\":\"Get new posts\"}. Existing fields stay unchanged; changes are live immediately. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. Example: {\"expectedUpdatedAt\":123,\"enabled\":true,\"heading\":\"Get new posts\"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -2783,6 +2864,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "expectedUpdatedAt": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
                   "enabled": {
                     "type": "boolean"
                   },
@@ -2802,6 +2887,9 @@
                     "maxLength": 24
                   }
                 },
+                "required": [
+                  "expectedUpdatedAt"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2999,7 +3087,7 @@
     "/api/v1/tags": {
       "get": {
         "operationId": "listTags",
-        "description": "List tags currently used by non-archived posts and their post counts. Reuse these spellings when tagging a post. Example: {}. Requires scope: site:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List tags currently used by non-archived posts and their post counts. Reuse these spellings when tagging a post. Example: {}. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -3162,7 +3250,7 @@
     "/api/v1/analytics": {
       "get": {
         "operationId": "getAnalytics",
-        "description": "Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {\"range\":\"30\"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN. Requires scope: analytics:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {\"range\":\"30\"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN. Requires scope: analytics:read.",
         "security": [
           {
             "bearerAuth": []
@@ -3599,7 +3687,7 @@
     "/api/v1/posts": {
       "get": {
         "operationId": "listPosts",
-        "description": "List bounded post summaries for the current site. Use posts.get for full Markdown. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List bounded post summaries for the current site. Use posts.get for full Markdown. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -3966,7 +4054,7 @@
       },
       "post": {
         "operationId": "createPost",
-        "description": "Create a draft post from a Markdown body. Returns the new post id; make it live with posts.publish. Requires scope: posts:create. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Create a draft post from a Markdown body. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed. Requires scope: posts:create.",
         "security": [
           {
             "bearerAuth": []
@@ -3988,7 +4076,8 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120,
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    "description": "Post slugs cannot use reserved site routes: dashboard, api, blog, login, mcp, media-assets, internal, feed.xml, sitemap.xml, robots.txt, llms.txt, llms-full.txt, docs-search.json, docs, __vc-health."
                   },
                   "excerpt": {
                     "type": "string",
@@ -4444,7 +4533,7 @@
     "/api/v1/posts/by-slug/{slug}": {
       "get": {
         "operationId": "getPostBySlug",
-        "description": "Get one post by its exact slug, including full Markdown. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Get one post by its exact slug, including full Markdown. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -4456,9 +4545,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 120,
-              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "Post slugs cannot use reserved site routes: dashboard, api, blog, login, mcp, media-assets, internal, feed.xml, sitemap.xml, robots.txt, llms.txt, llms-full.txt, docs-search.json, docs, __vc-health."
             },
             "required": true,
+            "description": "Post slugs cannot use reserved site routes: dashboard, api, blog, login, mcp, media-assets, internal, feed.xml, sitemap.xml, robots.txt, llms.txt, llms-full.txt, docs-search.json, docs, __vc-health.",
             "name": "slug",
             "in": "path"
           }
@@ -4845,7 +4936,7 @@
     "/api/v1/posts/{postId}": {
       "get": {
         "operationId": "getPost",
-        "description": "Get one post by id, including full Markdown. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Get one post by id, including full Markdown, currentVersionNumber, and previewUrl. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -5242,7 +5333,7 @@
       },
       "patch": {
         "operationId": "updatePost",
-        "description": "Update a post. Provide postId, expectedVersionNumber (current tip), and only the fields to change; contentMarkdown is the full Markdown body. Stale expectedVersionNumber returns CONFLICT. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Update a post. Provide postId, expectedVersionNumber (current tip), and only the fields to change; contentMarkdown is the full Markdown body. Stale expectedVersionNumber returns CONFLICT. Requires scope: posts:update.",
         "security": [
           {
             "bearerAuth": []
@@ -5279,7 +5370,8 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120,
-                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                    "description": "Post slugs cannot use reserved site routes: dashboard, api, blog, login, mcp, media-assets, internal, feed.xml, sitemap.xml, robots.txt, llms.txt, llms-full.txt, docs-search.json, docs, __vc-health."
                   },
                   "excerpt": {
                     "type": "string",
@@ -5763,7 +5855,7 @@
     "/api/v1/posts/{postId}/publish": {
       "post": {
         "operationId": "publishPost",
-        "description": "Publish exactly the approved draft version. Pass the latest versionNumber as expectedVersionNumber; a newer edit returns CONFLICT without publishing. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Publish exactly the approved draft version. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -6244,7 +6336,7 @@
     "/api/v1/posts/{postId}/schedule": {
       "post": {
         "operationId": "schedulePost",
-        "description": "Schedule an approved saved version at a future UTC epoch second. Ask the person for explicit approval of that exact version and time first. Later edits do not alter the approved version. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -6273,8 +6365,16 @@
                     "minimum": 1
                   },
                   "publishAt": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d(?::\\d\\d(?:\\.\\d+)?)?(?:Z|[+-]\\d\\d:\\d\\d)$"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -6699,7 +6799,7 @@
     "/api/v1/posts/{postId}/unschedule": {
       "post": {
         "operationId": "unschedulePost",
-        "description": "Cancel a pending or failed scheduled publication. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Cancel a pending or failed scheduled publication. Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -7129,7 +7229,7 @@
     "/api/v1/posts/{postId}/preview/rotate": {
       "post": {
         "operationId": "rotatePostPreview",
-        "description": "Rotate a private preview link, immediately revoking the old URL. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Rotate a private preview link, immediately revoking the old URL. Requires scope: posts:update.",
         "security": [
           {
             "bearerAuth": []
@@ -7559,7 +7659,7 @@
     "/api/v1/posts/{postId}/archive": {
       "post": {
         "operationId": "archivePost",
-        "description": "Archive a post. Requires scope: posts:archive. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Take a post off the blog (or shelve a draft); returns the archived post. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:archive.",
         "security": [
           {
             "bearerAuth": []
@@ -7573,6 +7673,15 @@
             },
             "required": true,
             "name": "postId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "expectedVersionNumber",
             "in": "path"
           }
         ],
@@ -7958,7 +8067,7 @@
     "/api/v1/posts/{postId}/unarchive": {
       "post": {
         "operationId": "unarchivePost",
-        "description": "Restore an archived post to draft. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Restore an archived post to draft. Requires scope: posts:update.",
         "security": [
           {
             "bearerAuth": []
@@ -8357,7 +8466,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "uploadAsset",
-        "description": "Upload an image from base64 data. Decoded image must be 10 MB or smaller. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required. Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.",
+        "description": "Upload an image from base64 data. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -8657,7 +8766,7 @@
       },
       "get": {
         "operationId": "listAssets",
-        "description": "List image assets for the current site, newest first. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List image assets for the current site, newest first. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -8860,7 +8969,7 @@
     "/api/v1/assets/{assetId}": {
       "get": {
         "operationId": "getAsset",
-        "description": "Get one image asset's metadata + public URL by id. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Get one image asset's metadata + public URL by id. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -9131,7 +9240,7 @@
       },
       "patch": {
         "operationId": "updateAsset",
-        "description": "Update an image asset's alt text. Requires scope: assets:write. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Update an image asset's alt text. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -9453,7 +9562,7 @@
       },
       "delete": {
         "operationId": "deleteAsset",
-        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Requires scope: assets:delete. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first (see server instructions). Requires scope: assets:delete.",
         "security": [
           {
             "bearerAuth": []
@@ -9757,7 +9866,7 @@
     "/api/v1/activity": {
       "get": {
         "operationId": "listActivity",
-        "description": "List activity for the current site with limit and offset pagination. Requires scope: activity:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List activity for the current site with limit and offset pagination. Requires scope: activity:read.",
         "security": [
           {
             "bearerAuth": []
@@ -10005,7 +10114,7 @@
     "/api/v1/posts/{postId}/versions": {
       "get": {
         "operationId": "listPostVersions",
-        "description": "List version history for a post, newest first. Each summary includes versionNumber, actorType, actorName, changeSummary, and status. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "List version history for a post, newest first. Each summary includes versionNumber, actorType, actorName, changeSummary, and status. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -10278,7 +10387,7 @@
     "/api/v1/posts/{postId}/versions/{versionNumber}": {
       "get": {
         "operationId": "getPostVersion",
-        "description": "Get a specific version of a post by versionNumber, including full Markdown content. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Get a specific version of a post by versionNumber, including full Markdown content. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -10625,7 +10734,7 @@
     "/api/v1/posts/{postId}/versions/{versionNumber}/restore": {
       "post": {
         "operationId": "restorePostVersion",
-        "description": "Restore a post to a previous version. Provide expectedVersionNumber for the current tip; stale tips return CONFLICT. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "description": "Restore a post to a previous version. Provide expectedVersionNumber for the current tip; stale tips return CONFLICT. Content-only restore (never re-publishes). Creates a new version entry and a post.restored activity. Returns the updated post. Requires scope: posts:update.",
         "security": [
           {
             "bearerAuth": []
@@ -11084,7 +11193,7 @@
     "/api/v1/posts/format-guide": {
       "get": {
         "operationId": "getFormatGuide",
-        "description": "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -11380,7 +11489,7 @@
     "/api/v1/posts/preview": {
       "post": {
         "operationId": "previewPost",
-        "description": "Render markdown to HTML with the same renderer as the public blog; returns outline + warnings; call to self-check before publishing. Requires scope: posts:read. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded.",
+        "description": "Render markdown to HTML with the same renderer as the public blog; returns outline + warnings. Send either postId for the current saved tip or contentMarkdown for unsaved input, never both. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -11390,42 +11499,82 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "contentMarkdown": {
-                    "type": "string",
-                    "maxLength": 500000
-                  },
-                  "postId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "presetId": {
-                    "type": "string"
-                  },
-                  "presentation": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
+                "anyOf": [
+                  {
+                    "type": "object",
                     "properties": {
-                      "layout": {
+                      "postId": {
                         "type": "string",
-                        "enum": [
-                          "standard",
-                          "essay",
-                          "feature",
-                          "wide"
-                        ]
+                        "minLength": 1
                       },
-                      "toc": {
-                        "type": "boolean"
+                      "presetId": {
+                        "type": "string"
+                      },
+                      "presentation": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "layout": {
+                            "type": "string",
+                            "enum": [
+                              "standard",
+                              "essay",
+                              "feature",
+                              "wide"
+                            ]
+                          },
+                          "toc": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
+                    "required": [
+                      "postId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "contentMarkdown": {
+                        "type": "string",
+                        "maxLength": 500000
+                      },
+                      "presetId": {
+                        "type": "string"
+                      },
+                      "presentation": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "layout": {
+                            "type": "string",
+                            "enum": [
+                              "standard",
+                              "essay",
+                              "feature",
+                              "wide"
+                            ]
+                          },
+                          "toc": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "contentMarkdown"
+                    ],
                     "additionalProperties": false
                   }
-                },
-                "additionalProperties": false
+                ]
               }
             }
           }

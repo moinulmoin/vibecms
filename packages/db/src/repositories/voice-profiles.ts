@@ -50,7 +50,16 @@ export type SaveSiteVoiceProfileInput = {
   editor: VoiceProfileEditor;
   timestamp: number;
   activityId: string;
+  /** Agent writes supply the revision; dashboard writes remain backward compatible. Zero means no profile. */
+  expectedUpdatedAt?: number;
 };
+
+export class VoiceProfileConflictError extends Error {
+  constructor() {
+    super("Voice profile changed since your read. Call sites.get and retry with voiceProfile.revision as expectedUpdatedAt.");
+    this.name = "VoiceProfileConflictError";
+  }
+}
 
 export type ClearSiteVoiceProfileInput = {
   siteId: string;
@@ -146,10 +155,13 @@ function profileSnapshot(profile: {
   guidelines: VoiceGuideline[];
   representativePostIds: string[];
 }) {
+  const redact = (text: string) => text
+    .replace(/[^\s"<>]+@[^\s"<>]+/g, "[redacted email]")
+    .replace(/\b(?:vc_[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{12,})\b/g, "[redacted secret]");
   return {
-    audience: profile.audience,
-    voiceSummary: profile.voiceSummary,
-    guidelines: profile.guidelines,
+    audience: profile.audience === null ? null : redact(profile.audience),
+    voiceSummary: profile.voiceSummary === null ? null : redact(profile.voiceSummary),
+    guidelines: profile.guidelines.map((rule) => ({ ...rule, text: redact(rule.text) })),
     representativePostIds: profile.representativePostIds,
   };
 }
@@ -247,6 +259,40 @@ export function createVoiceProfilesRepository(db: D1Database): VoiceProfilesRepo
       }
 
       const after = profileSnapshot(input);
+      if (input.expectedUpdatedAt !== undefined) {
+        // One batch: the activity row is written only if the revision matches,
+        // and the profile write only if that activity row exists. A stale
+        // revision changes nothing; a success always leaves its activity.
+        const values = [input.audience, input.voiceSummary, JSON.stringify(input.guidelines),
+          JSON.stringify(input.representativePostIds), input.editor.type, input.editor.id,
+          input.editor.name];
+        const revisionMatches = input.expectedUpdatedAt === 0
+          ? "NOT EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ?)"
+          : "EXISTS (SELECT 1 FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?)";
+        const revisionArgs = input.expectedUpdatedAt === 0 ? [input.siteId] : [input.siteId, input.expectedUpdatedAt];
+        const activity = db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name,
+            action, entity_type, entity_id, summary, before_json, after_json, created_at)
+            SELECT ?, ?, ?, ?, ?, 'site.voice.updated', 'site', ?, 'Updated the voice profile', ?, ?, ?
+            WHERE ${revisionMatches}`)
+          .bind(input.activityId, input.siteId, input.editor.type, input.editor.id, input.editor.name,
+            input.siteId, before ? JSON.stringify(profileSnapshot(before)) : null, JSON.stringify(after),
+            input.timestamp, ...revisionArgs);
+        const write = input.expectedUpdatedAt === 0
+          ? db.prepare(`INSERT INTO site_voice_profiles (site_id, audience, voice_summary, guidelines_json,
+              representative_post_ids_json, updated_by_type, updated_by_id, updated_by_name, created_at, updated_at)
+              SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              WHERE EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+              ON CONFLICT(site_id) DO NOTHING`)
+              .bind(input.siteId, ...values, input.timestamp, input.timestamp, input.activityId)
+          : db.prepare(`UPDATE site_voice_profiles SET audience = ?, voice_summary = ?, guidelines_json = ?,
+              representative_post_ids_json = ?, updated_by_type = ?, updated_by_id = ?, updated_by_name = ?,
+              updated_at = max(?, updated_at + 1)
+              WHERE site_id = ? AND updated_at = ? AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
+              .bind(...values, input.timestamp, input.siteId, input.expectedUpdatedAt, input.activityId);
+        const [, result] = await db.batch([activity, write]);
+        if ((result!.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
+        return;
+      }
       await client.batch([
         client
           .insert(siteVoiceProfiles)
@@ -284,7 +330,7 @@ export function createVoiceProfilesRepository(db: D1Database): VoiceProfilesRepo
           action: "site.voice.updated",
           entityType: "site",
           entityId: input.siteId,
-          summary: "Updated voice profile",
+          summary: "Updated the voice profile",
           beforeJson: before ? JSON.stringify(profileSnapshot(before)) : null,
           afterJson: JSON.stringify(after),
           createdAt: input.timestamp,

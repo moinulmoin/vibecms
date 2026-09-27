@@ -38,6 +38,7 @@ export const siteVoiceProfileDtoSchema = z.object({
   updatedByName: z.string().nullable(),
   createdAt: z.number().nullable(),
   updatedAt: z.number().nullable(),
+  revision: z.number().int().nonnegative(),
 });
 
 export const siteDtoSchema = z.object({
@@ -53,6 +54,7 @@ export const siteDtoSchema = z.object({
   /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
   voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
+  signupForm: z.object({ enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string() }).optional(),
   /** Blog template (preset) id: minimal, editorial, technical (Notebook), or product (Magazine). */
   template: z.string(),
   /**
@@ -99,6 +101,9 @@ export const voiceSettingsDtoSchema = z.object({
 export const signupFormDtoSchema = z.object({
   enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(),
 });
+export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema });
+/** sites.signup_form.update echoes the new site revision for follow-up edits. */
+export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
 export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
 export const analyticsDtoSchema = z.object({
   status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),

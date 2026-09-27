@@ -151,7 +151,7 @@ describe('scheduled exact-version publishing', () => {
     const leaseToken = (await claimDueSchedules(env.DB, 1_900_000_000)).find((schedule) => schedule.postId === post.id)!.leaseToken!;
     await expect(publishScheduledPost(repo, scheduler, {
       siteId: SITE, postId: post.id, versionNumber: 1, billingStatus: 'active', scheduledBy: actor.name, leaseToken,
-    })).rejects.toThrow('Post was archived');
+    })).rejects.toThrow('Post is archived; publication was not performed.');
   });
 
   it('fences a worker after its lease expires and another worker reclaims', async () => {
@@ -194,7 +194,7 @@ describe('scheduled exact-version publishing', () => {
     }));
     await expect(publishScheduledPost(racing, scheduler, {
       siteId: SITE, postId: post.id, versionNumber: 1, billingStatus: 'active', scheduledBy: actor.name, leaseToken,
-    })).rejects.toThrow('Post was archived');
+    })).rejects.toThrow('Post is archived; publication was not performed.');
     expect((await repo.getPost(SITE, post.id))?.status).toBe('archived');
   });
 });

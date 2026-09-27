@@ -1,3 +1,4 @@
+import { ACCENTS, FONTS, THEME_PRESETS } from '@vc/config'
 import { listPosts, type Post } from '@vc/core'
 import { createD1PostRepository, createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
@@ -46,6 +47,63 @@ export function describeActivityChanges(before: Snapshot | null, after: Snapshot
   return changes
 }
 
+// Human labels for site settings recorded in site.* activity snapshots.
+const SITE_FIELD_LABELS: Record<string, string> = {
+  name: 'Name', description: 'Description', bylineName: 'Byline', showAgentCredit: 'Credit your agent',
+  defaultSeoTitle: 'Search title', defaultSeoDescription: 'Search description',
+  theme: 'Template', template: 'Template', themeAccent: 'Accent', accent: 'Accent',
+  themeFont: 'Font', font: 'Font', themeRadius: 'Corners', radius: 'Corners',
+  themeWidth: 'Reading width', width: 'Reading width', themeMode: 'Color mode', mode: 'Color mode',
+  enabled: 'Signup form', heading: 'Signup heading', subtext: 'Signup description', buttonLabel: 'Signup button',
+  audience: 'Audience', voiceSummary: 'Voice summary',
+}
+
+function parseSnapshot(raw: string | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null
+  try {
+    const value = JSON.parse(raw)
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+// Show the names the owner sees in the dashboard, not internal ids.
+const DISPLAY_NAMES: Record<string, Record<string, string>> = {
+  Template: Object.fromEntries(Object.values(THEME_PRESETS).map((p) => [p.id, p.name])),
+  Font: Object.fromEntries(FONTS.map((f) => [f.id, f.name])),
+  Accent: Object.fromEntries(ACCENTS.map((a) => [a.id, a.name])),
+}
+const THEME_LABELS = new Set(['Accent', 'Font', 'Corners', 'Reading width', 'Color mode'])
+
+function siteValue(label: string, value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return THEME_LABELS.has(label) ? 'template default' : 'empty'
+  if (typeof value === 'boolean') return value ? 'on' : 'off'
+  if (typeof value === 'string') return quote(DISPLAY_NAMES[label]?.[value] ?? value)
+  if (typeof value === 'number') return String(value)
+  return null
+}
+
+/** "Accent “rust” → “violet”" lines for site settings, theme, signup form, and voice events. */
+export function describeSiteChanges(beforeRaw: string | null | undefined, afterRaw: string | null | undefined): string[] {
+  const before = parseSnapshot(beforeRaw)
+  const after = parseSnapshot(afterRaw)
+  if (!before || !after) return []
+  const changes: string[] = []
+  for (const [key, label] of Object.entries(SITE_FIELD_LABELS)) {
+    if (!(key in after)) continue
+    const from = siteValue(label, before[key])
+    const to = siteValue(label, after[key])
+    if (from !== null && to !== null && from !== to) changes.push(`${label} ${from} → ${to}`)
+  }
+  for (const key of ['navLinksJson', 'navLinks', 'socialLinksJson', 'socialLinks', 'guidelines']) {
+    if (key in after && JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+      changes.push(key.startsWith('nav') ? 'Navigation links changed' : key.startsWith('social') ? 'Social links changed' : 'Voice rules changed')
+    }
+  }
+  return changes
+}
+
 function repository() {
   return createD1PostRepository(env.DB)
 }
@@ -84,6 +142,8 @@ export async function getActivity(
     created_at: r.createdAt,
     entity_type: r.entityType,
     entity_id: r.entityId,
-    changes: describeActivityChanges(r.before, r.after),
+    changes: r.action.startsWith('site.')
+      ? describeSiteChanges(r.siteBefore, r.siteAfter)
+      : describeActivityChanges(r.before, r.after),
   }))
 }

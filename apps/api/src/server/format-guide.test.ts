@@ -33,6 +33,13 @@ describe("format guide v4", () => {
     expect(guide.examples).not.toContain("produces no TOC");
   });
 
+  it('documents wide layout and the active preset default', () => {
+    const editorial = formatGuideForPreset('editorial');
+    expect(editorial.presentationOptions.supportedLayouts).toContain('wide');
+    expect(editorial.presentationOptions.default.layout).toBe('essay');
+    expect(editorial.presentationOptions.notes).toContain('presentationOptions.default.layout');
+  });
+
   it("rejects every public root route as a post slug on create and rename", () => {
     for (const slug of RESERVED_POST_SLUGS) {
       // Some root paths contain dots and are rejected by the slug shape as well.
@@ -41,6 +48,6 @@ describe("format guide v4", () => {
     }
     const reserved = createPostRequestSchema.safeParse({ title: "Post", slug: "docs", contentMarkdown: "Body" });
     expect(reserved.success).toBe(false);
-    if (!reserved.success) expect(reserved.error.issues[0]?.message).toBe("That slug is reserved.");
+    if (!reserved.success) expect(reserved.error.issues[0]?.message).toContain("That slug is reserved for a site route.");
   });
 });

@@ -18,9 +18,6 @@ import { dispatchOperation } from "./mcp-dispatch";
 import type { OperationContext } from "./operations";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
-type ToolContent = { type: "text"; text: string };
-
-
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -45,7 +42,6 @@ const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...INITIALIZE_PROT
 const DEFAULT_INITIALIZE_PROTOCOL_VERSION = INITIALIZE_PROTOCOL_VERSIONS[0];
 const SERVER_INFO = { name: "vibecms", version: "0.1.0" } as const;
 const DISCOVERY_TTL_MS = 300_000;
-const recoverableToolErrorCodes = new Set(["VALIDATION_ERROR", "CONFLICT", "NOT_FOUND"]);
 
 function negotiateInitializeProtocolVersion(params: unknown): string {
   const requested = stringParam(asObject(params), "protocolVersion");
@@ -196,14 +192,13 @@ function validateJsonRpcRequest(value: unknown): { ok: true; body: JsonRpcReques
   };
 }
 
-function structuredToolResult(dto: unknown, outputSchema: Record<string, unknown>) {
+function structuredToolResult(dto: unknown) {
   return {
     // Compact JSON: agents read this text into their context, so the
     // pretty-print indentation was pure token overhead. structuredContent
     // carries the machine-readable object for hosts that prefer it.
     content: [{ type: "text" as const, text: JSON.stringify(dto) }],
     structuredContent: dto,
-    outputSchema,
   };
 }
 
@@ -229,15 +224,22 @@ function rateLimitMessage(error: unknown): string {
   return `Rate limit exceeded on ${status.metric} (${status.period}). Retry after ${seconds}s.`
 }
 
-function toolError(message: string): { content: ToolContent[]; isError: true } {
-  return { content: [{ type: "text", text: message }], isError: true };
+function rateLimitRetryAfterSeconds(error: RateLimitError): number | undefined {
+  const status = (error as RateLimitError & { usageStatus?: { resetsAt: number } }).usageStatus;
+  return status ? Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000)) : undefined;
+}
+
+function toolError(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {
+  const error = { code, message, ...(details === undefined ? {} : { details }),
+    ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) };
+  return { content: [{ type: "text" as const, text: JSON.stringify(error) }], structuredContent: error, isError: true as const };
 }
 
 async function callTool(name: McpToolName, actor: Actor, siteId: string, workspaceId: string, tokenId: string, rawArguments: unknown) {
   const op = operationsByToolName[name];
   const dto = await dispatchOperation(name, { actor, siteId, workspaceId, tokenId } satisfies OperationContext, rawArguments);
-  const { schema, wrap } = outputSchemaFor(op.responseSchema);
-  return structuredToolResult(wrap ? { result: dto } : dto, schema);
+  const { wrap } = outputSchemaFor(op.responseSchema);
+  return structuredToolResult(wrap ? { result: dto } : dto);
 }
 
 function listedTools(actor?: Actor) {
@@ -254,7 +256,9 @@ function listedTools(actor?: Actor) {
           name: op.toolName,
           description: op.description,
           inputSchema: zodToInputJsonSchema(op.requestSchema),
-          outputSchema: outputSchemaFor(op.responseSchema).schema,
+          // No outputSchema: it was two thirds of tools/list (~48k chars) and
+          // every agent paid for it up front. Results still carry
+          // structuredContent plus JSON text; typed clients use OpenAPI.
           annotations,
           _meta: {
             "vibecms.com/requiredScope": op.requiredScope,
@@ -422,14 +426,15 @@ export async function handleMcpRequest(request: Request) {
     );
   } catch (error) {
     const validationMessage = zodValidationMessage(error);
-    if (validationMessage) return result(body.id, toolError(validationMessage), modern);
+    if (validationMessage) return result(body.id, toolError('VALIDATION_ERROR', validationMessage), modern);
     if (error instanceof UploadError) {
-      return result(body.id, toolError(FORM_STATUS[error.code]?.message ?? "Upload failed."), modern);
+      return result(body.id, toolError(error.code, FORM_STATUS[error.code]?.message ?? "Upload failed."), modern);
     }
-    if (error instanceof AppError) {
-      if (recoverableToolErrorCodes.has(error.code)) return result(body.id, toolError(error.message), modern);
-      return appRpcError(body.id, error);
-    }
+    if (error instanceof AppError) return result(body.id, toolError(error.code,
+      error instanceof RateLimitError ? rateLimitMessage(error) : error.message,
+      (error as AppError & { details?: unknown }).details,
+      error instanceof RateLimitError ? rateLimitRetryAfterSeconds(error)
+        : (error as AppError & { retryAfterSeconds?: number }).retryAfterSeconds), modern);
     return rpcError(body.id, -32000, "Tool failed", 500);
   }
 }

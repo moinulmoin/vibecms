@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PRESENTATION_LAYOUTS } from "@vc/config";
+import { PRESENTATION_LAYOUTS, RESERVED_POST_SLUGS } from "@vc/config";
 import {
   DEFAULT_POST_LIST_LIMIT,
   MAX_POST_LIST_LIMIT,
@@ -13,14 +13,15 @@ import {
   newsletterSettingsSchema,
   VOICE_PROFILE_MAX_GUIDELINES,
 } from "@vc/validators";
-import { ACCENT_IDS, BYLINE_NAME_MAX_LENGTH, FONT_IDS, PRESET_IDS, THEME_MODES, THEME_RADII, THEME_WIDTHS } from "@vc/config";
+import { ACCENT_IDS, BYLINE_NAME_MAX_LENGTH, FONTS, PRESET_IDS, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS } from "@vc/config";
 
 const slug = z
   .string()
   .min(1)
   .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase words separated by hyphens")
-  .refine((value) => !isReservedPostSlug(value), { message: "That slug is reserved." });
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters/digits separated by single hyphens, for example release-notes-2.")
+  .refine((value) => !isReservedPostSlug(value), { message: `That slug is reserved for a site route. Choose another slug. Reserved values: ${RESERVED_POST_SLUGS.join(', ')}.` })
+  .describe(`Post slugs cannot use reserved site routes: ${RESERVED_POST_SLUGS.join(', ')}.`);
 
 const titleField = z.string().trim().min(1).max(160);
 const excerptField = z.string().trim().max(500);
@@ -53,18 +54,31 @@ export const updateSiteRequestSchema = z.object({
 }).strict();
 
 export const getThemeRequestSchema = z.object({}).strict();
+// Agents act on the owner's words ("Magazine", "Newsreader"), so choices accept
+// the display name as well as the id; normalizeThemeChoice maps names to ids.
+const TEMPLATE_CHOICES = PRESET_IDS.map((id) => ({ id: id as string, name: THEME_PRESETS[id].name }));
+const FONT_CHOICES = FONTS.map((font) => ({ id: font.id as string, name: font.name }));
+const choiceValues = (choices: { id: string; name: string }[]) =>
+  [...new Set(choices.flatMap((c) => [c.id, c.name, c.name.toLowerCase()]))] as [string, ...string[]];
+export function normalizeThemeChoice(kind: "template" | "font", value: string | undefined) {
+  if (value === undefined) return undefined;
+  const choices = kind === "template" ? TEMPLATE_CHOICES : FONT_CHOICES;
+  return choices.find((c) => c.id === value || c.name.toLowerCase() === value.toLowerCase())?.id ?? value;
+}
+
 export const updateThemeRequestSchema = z.object({
   expectedUpdatedAt: z.coerce.number().int().positive(),
-  template: z.enum(PRESET_IDS as [string, ...string[]]).optional(),
+  template: z.enum(choiceValues(TEMPLATE_CHOICES)).optional(),
   keepLook: z.boolean().optional(),
   accent: z.enum(ACCENT_IDS as [string, ...string[]]).optional(),
-  font: z.enum(FONT_IDS as [string, ...string[]]).optional(),
+  font: z.enum(choiceValues(FONT_CHOICES)).optional(),
   radius: z.enum(THEME_RADII).optional(),
   width: z.enum(THEME_WIDTHS).optional(),
   mode: z.enum(THEME_MODES).optional(),
 }).strict();
 export const revertThemeRequestSchema = z.object({ expectedUpdatedAt: z.coerce.number().int().positive() }).strict();
 export const updateVoiceRequestSchema = z.object({
+  expectedUpdatedAt: z.coerce.number().int().nonnegative(),
   audience: voiceProfileSettingsInputSchema.shape.audience,
   tone: voiceProfileSettingsInputSchema.shape.voiceSummary,
   doRules: voiceProfileSettingsInputSchema.shape.preferRules,
@@ -141,13 +155,23 @@ export const publishPostRequestSchema = z.object({
 export const schedulePostRequestSchema = z.object({
   postId: z.string().min(1),
   versionNumber: z.coerce.number().int().min(1),
-  publishAt: z.coerce.number().int().positive(),
+  publishAt: z.union([z.coerce.number().int().positive(), z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?(?:Z|[+-]\d\d:\d\d)$/, 'Use Unix seconds or an ISO-8601 time ending in Z or an explicit offset.')])
+    .transform((value, ctx) => {
+      if (typeof value === 'number') return value;
+      const millis = Date.parse(value);
+      if (!Number.isFinite(millis)) {
+        ctx.addIssue({ code: 'custom', message: 'Use a valid ISO-8601 UTC time ending in Z or an explicit offset.' });
+        return z.NEVER;
+      }
+      return Math.floor(millis / 1000);
+    }),
 }).strict();
 export const unschedulePostRequestSchema = z.object({ postId: z.string().min(1) }).strict();
 export const rotatePostPreviewRequestSchema = z.object({ postId: z.string().min(1) }).strict();
 
 export const archivePostRequestSchema = z.object({
   postId: z.string().min(1),
+  expectedVersionNumber: z.coerce.number().int().min(1).optional(),
 }).strict();
 export const unarchivePostRequestSchema = z.object({ postId: z.string().min(1) }).strict();
 
@@ -183,13 +207,14 @@ export const restorePostVersionRequestSchema = z.object({
   versionNumber: z.coerce.number().int().min(1),
   expectedVersionNumber: z.coerce.number().int().min(1),
 }).strict();
-export const previewPostRequestSchema = z.object({
-  contentMarkdown: contentField.optional(),
-  postId: z.string().min(1).optional(),
+const previewOptions = {
   presetId: z.string().optional(),
   presentation: presentationField.optional(),
-}).strict().refine((input) => input.postId || input.contentMarkdown !== undefined,
-  { message: 'postId or contentMarkdown is required' });
+};
+export const previewPostRequestSchema = z.union([
+  z.object({ postId: z.string().min(1), ...previewOptions }).strict(),
+  z.object({ contentMarkdown: contentField, ...previewOptions }).strict(),
+]);
 
 export const getFormatGuideRequestSchema = z.object({
   presetId: z.string().optional(),

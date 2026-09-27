@@ -71,7 +71,7 @@ describe('minute scheduled publishing with a fake clock', () => {
         billingStatus: 'active', scheduledBy: actor.name, leaseToken: schedule.leaseToken!,
       });
     })).toEqual({ published: 0, failed: 1, retrying: 0 });
-    expect(await status(item.id)).toMatchObject({ status: 'failed', error: 'Post was archived' });
+    expect(await status(item.id)).toMatchObject({ status: 'failed', error: 'Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.' });
     expect((await repo.getPost(SITE, item.id))?.status).toBe('archived');
   });
 

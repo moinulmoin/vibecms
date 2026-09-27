@@ -2,6 +2,7 @@ import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, ge
 import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
+import { normalizeThemeChoice } from "@vc/api-contract";
 import {
   mapActivityRow,
   mapAsset,
@@ -103,12 +104,15 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
 
 export async function getSiteOp(ctx: OperationContext) {
   requireScope(ctx.actor, "sites:read");
-  const [row, voiceProfile] = await Promise.all([
+  const [row, voiceProfile, form] = await Promise.all([
     createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId),
     getVoiceProfileForSite(ctx.siteId),
+    getNewsletterSettingsForApp(appUser(ctx)),
   ]);
   const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
-  return mapSiteRow(row, url, voiceProfile);
+  const site = mapSiteRow(row, url, voiceProfile);
+  return site && { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
+    description: form.subtext, button: form.buttonLabel } };
 }
 
 function mutationResult(result: { kind: 'ok' | 'error'; code: string }) {
@@ -164,7 +168,10 @@ export async function updateThemeOp(ctx: OperationContext, input: UpdateThemeReq
   requireScope(ctx.actor, 'site:write');
   const current = await createDataAccess(env.DB).sites.getSiteSettings(ctx.siteId);
   if (!current) throw new NotFoundError('Site not found');
-  if (current.updatedAt !== input.expectedUpdatedAt) throw new ConflictError('Site settings changed');
+  if (current.updatedAt !== input.expectedUpdatedAt) {
+    throw new ConflictError('Site settings changed since your read. Call sites.theme.get and retry with its updatedAt.');
+  }
+  input = { ...input, template: normalizeThemeChoice('template', input.template), font: normalizeThemeChoice('font', input.font) };
   const change: SiteSettingsPayload = { expectedUpdatedAt: input.expectedUpdatedAt };
   if (input.template !== undefined) {
     change.theme = input.template;
@@ -190,7 +197,7 @@ export async function updateThemeOp(ctx: OperationContext, input: UpdateThemeReq
 export async function revertThemeOp(ctx: OperationContext, input: { expectedUpdatedAt: number }) {
   requireScope(ctx.actor, 'site:write');
   const saved = await previousLook(ctx.siteId);
-  if (!saved || saved.savedAt !== input.expectedUpdatedAt) throw new ConflictError('No current theme change to revert');
+  if (!saved || saved.savedAt !== input.expectedUpdatedAt) throw new ConflictError('No revert is available for this revision. Call sites.theme.get; only retry when canRevert is true, using its updatedAt.');
   const look = JSON.parse(saved.lookJson) as ThemeLook;
   mutationResult(await updateSiteSettingsForApp(appUser(ctx), { ...look, expectedUpdatedAt: input.expectedUpdatedAt }));
   await env.DB.prepare('DELETE FROM site_theme_previous_look WHERE site_id = ? AND saved_at = ?')
@@ -201,7 +208,8 @@ export async function revertThemeOp(ctx: OperationContext, input: { expectedUpda
 export async function updateVoiceOp(ctx: OperationContext, input: UpdateVoiceRequest) {
   requireScope(ctx.actor, 'site:write');
   mutationResult(await updateVoiceProfileForApp(appUser(ctx), { audience: input.audience, voiceSummary: input.tone,
-    preferRules: input.doRules, avoidRules: input.dontRules, representativePostIds: input.representativePostIds }));
+    preferRules: input.doRules, avoidRules: input.dontRules, representativePostIds: input.representativePostIds },
+    { expectedUpdatedAt: input.expectedUpdatedAt }));
   return getVoiceProfileSettings(appUser(ctx));
 }
 
@@ -214,7 +222,10 @@ export async function updateSignupFormOp(ctx: OperationContext, input: { expecte
     ...(input.button === undefined ? {} : { buttonLabel: input.button }),
   }, { expectedUpdatedAt: input.expectedUpdatedAt }));
   const updated = await getNewsletterSettingsForApp(appUser(ctx));
-  return { enabled: updated.enabled, heading: updated.heading, description: updated.subtext, button: updated.buttonLabel };
+  // Echo the new revision so a follow-up edit doesn't need another sites.get.
+  const site = await createDataAccess(env.DB).sites.getSiteSettings(ctx.siteId);
+  return { enabled: updated.enabled, heading: updated.heading, description: updated.subtext, button: updated.buttonLabel,
+    updatedAt: site?.updatedAt ?? input.expectedUpdatedAt };
 }
 
 export async function listTagsOp(ctx: OperationContext) {
@@ -360,10 +371,10 @@ export async function publishPostOp(
 export async function schedulePostOp(ctx: OperationContext, input: { postId: string; versionNumber: number; publishAt: number }) {
   requireScope(ctx.actor, 'posts:publish');
   const now = Math.floor(Date.now() / 1000);
-  if (!Number.isInteger(input.publishAt) || input.publishAt <= now) throw new ValidationError('publishAt must be in the future');
+  if (!Number.isInteger(input.publishAt) || input.publishAt <= now) throw new ValidationError('publishAt must be a future Unix timestamp in seconds. Confirm a new UTC time with the owner before rescheduling.');
   const post = await repository().getPost(ctx.siteId, input.postId);
   if (!post) throw new NotFoundError('Post not found');
-  if (post.status === 'archived') throw new ValidationError('Archived posts cannot be scheduled');
+  if (post.status === 'archived') throw new ValidationError('Post is archived. If the owner intends to restore it, call posts.unarchive, inspect the draft, then obtain approval for a saved version and future time.');
   if (post.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Schedule is already publishing', 409);
   const saved = await schedulePost(env.DB, ctx.siteId, input.postId, input.versionNumber, input.publishAt, ctx.actor, now);
   if (!saved) {
@@ -402,11 +413,12 @@ export async function rotatePostPreviewOp(ctx: OperationContext, input: { postId
   return mapPost(post, postPublicUrl(base, post), previewUrl);
 }
 
-export async function archivePostOp(ctx: OperationContext, input: { postId: string }) {
+export async function archivePostOp(ctx: OperationContext, input: { postId: string; expectedVersionNumber?: number }) {
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
   const archived = await archivePost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
+    expectedVersionNumber: input.expectedVersionNumber,
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, archived.slug);
@@ -526,6 +538,7 @@ export async function previewPostOp(
   input: { contentMarkdown?: string; postId?: string; presetId?: string; presentation?: Presentation | null },
 ) {
   requireScope(ctx.actor, "posts:read");
+  if (input.postId !== undefined && input.contentMarkdown !== undefined) throw new ValidationError('Send either postId or contentMarkdown, not both.');
   const saved = input.postId ? await getPost(repository(), ctx.actor, ctx.siteId, input.postId) : null;
   const contentMarkdown = saved?.contentMarkdown ?? input.contentMarkdown;
   if (contentMarkdown === undefined) throw new ValidationError('postId or contentMarkdown is required');

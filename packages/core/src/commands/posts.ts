@@ -169,7 +169,7 @@ export async function publishScheduledPost(
   requireScope(actor, "posts:publish");
   const post = await repo.getPost(input.siteId, input.postId);
   if (!post) throw new NotFoundError("Post not found");
-  if (post.status === "archived") throw new ConflictError("Post was archived");
+  if (post.status === "archived") throw new ConflictError("Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.");
   const version = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
   if (!version) throw new NotFoundError("Scheduled post version not found");
   const result = await repo.publishPostWithHistory(input.siteId, input.postId, input.versionNumber, actor, {
@@ -182,17 +182,19 @@ export async function publishScheduledPost(
   return result.post;
 }
 
-export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; expectedVersionNumber?: number }) {
   requireScope(actor, "posts:archive");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  // Archive is not client-versioned; pin against the tip observed in this command.
+  if (input.expectedVersionNumber !== undefined && input.expectedVersionNumber !== before.currentVersionNumber) {
+    throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
+  }
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
     changeSummary: "Archived post",
     activityAction: "post.archived",
     activitySummary: `Archived ${before.title}`,
   }, before.currentVersionNumber);
-  if (!after) throw new NotFoundError("Post not found");
+  if (!after) throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
   return after.post;
 }
 

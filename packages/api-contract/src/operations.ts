@@ -9,8 +9,9 @@ import {
   postVersionDtoSchema,
   postVersionSummaryDtoSchema,
   previewPostDtoSchema,
-  siteDtoSchema,
-  updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  siteWithSignupFormDtoSchema,
+  updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
+  signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
@@ -61,8 +62,8 @@ export type OperationDefinition = {
 
 const scopeSuffix = (scope: Scope) => ` Requires scope: ${scope}.`;
 
-function opDescription(body: string, scope: Scope, errors: string) {
-  return `${body}${scopeSuffix(scope)} ${errors}`.trim();
+function opDescription(body: string, scope: Scope, _errors: string) {
+  return `${body}${scopeSuffix(scope)}`.trim();
 }
 
 const readErrors =
@@ -76,17 +77,17 @@ export const operations = [
     operationId: "getSite",
     requiredScope: "sites:read",
     description: opDescription(
-      "Get the current site for this token.",
+      "Get the current site for this token, including its voice profile revision and signup form settings.",
       "sites:read",
       readErrors,
     ),
     requestSchema: getSiteRequestSchema,
-    responseSchema: siteDtoSchema.nullable(),
+    responseSchema: siteWithSignupFormDtoSchema.nullable(),
     annotations: { readOnly: true },
   },
   {
     toolName: 'sites.update', operationId: 'updateSite', requiredScope: 'site:write',
-    description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Changes are live immediately.', 'site:write', writeErrors),
+    description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateSiteRequestSchema, responseSchema: updatedSiteDtoSchema, annotations: { idempotent: true },
   },
   {
@@ -96,23 +97,23 @@ export const operations = [
   },
   {
     toolName: 'sites.theme.update', operationId: 'updateSiteTheme', requiredScope: 'site:write',
-    description: opDescription('Change any part of the blog look. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately.', 'site:write', writeErrors),
+    description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
   },
   {
     toolName: 'sites.theme.revert', operationId: 'revertSiteTheme', requiredScope: 'site:write',
-    description: opDescription('Undo the last theme change and restore the exact previous look. Example: {"expectedUpdatedAt": 124}. Read the current theme first; stale values return CONFLICT.', 'site:write', writeErrors),
+    description: opDescription('Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {"expectedUpdatedAt": 124}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: revertThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
   },
   {
     toolName: 'sites.voice.update', operationId: 'updateSiteVoice', requiredScope: 'site:write',
-    description: opDescription('Save the writing voice: audience, tone, do and don\'t rules, and up to three published representative posts. Example: {"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Uses dashboard voice limits.', 'site:write', writeErrors),
+    description: opDescription('Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {"expectedUpdatedAt":0,"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateVoiceRequestSchema, responseSchema: voiceSettingsDtoSchema, annotations: {},
   },
   {
     toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
-    description: opDescription('Update only the sent email signup form fields. Example: {"enabled":true,"heading":"Get new posts"}. Existing fields stay unchanged; changes are live immediately.', 'site:write', writeErrors),
-    requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormDtoSchema, annotations: {},
+    description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: {},
   },
   {
     toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',
@@ -155,7 +156,7 @@ export const operations = [
     operationId: "getPost",
     requiredScope: "posts:read",
     description: opDescription(
-      "Get one post by id, including full Markdown.",
+      "Get one post by id, including full Markdown, currentVersionNumber, and previewUrl. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.",
       "posts:read",
       readErrors,
     ),
@@ -181,7 +182,7 @@ export const operations = [
     operationId: "createPost",
     requiredScope: "posts:create",
     description: opDescription(
-      "Create a draft post from a Markdown body. Returns the new post id; make it live with posts.publish.",
+      "Create a draft post from a Markdown body. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.",
       "posts:create",
       writeErrors,
     ),
@@ -207,7 +208,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Publish exactly the approved draft version. Pass the latest versionNumber as expectedVersionNumber; a newer edit returns CONFLICT without publishing.",
+      "Publish exactly the approved draft version. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Live change: needs explicit owner approval first (see server instructions).",
       "posts:publish",
       writeErrors,
     ),
@@ -220,7 +221,7 @@ export const operations = [
     operationId: "schedulePost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Schedule an approved saved version at a future UTC epoch second. Ask the person for explicit approval of that exact version and time first. Later edits do not alter the approved version.",
+      "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first (see server instructions).",
       "posts:publish", writeErrors,
     ),
     requestSchema: schedulePostRequestSchema,
@@ -250,7 +251,7 @@ export const operations = [
     operationId: "archivePost",
     requiredScope: "posts:archive",
     description: opDescription(
-      "Archive a post.",
+      "Take a post off the blog (or shelve a draft); returns the archived post. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions).",
       "posts:archive",
       writeErrors,
     ),
@@ -272,7 +273,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Decoded image must be 10 MB or smaller. Returns asset metadata and a public URL for Markdown.",
+      "Upload an image from base64 data. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
@@ -320,7 +321,7 @@ export const operations = [
     operationId: "deleteAsset",
     requiredScope: "assets:delete",
     description: opDescription(
-      "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image.",
+      "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first (see server instructions).",
       "assets:delete",
       writeErrors,
     ),
@@ -398,7 +399,7 @@ export const operations = [
     operationId: "previewPost",
     requiredScope: "posts:read",
     description: opDescription(
-      "Render markdown to HTML with the same renderer as the public blog; returns outline + warnings; call to self-check before publishing.",
+      "Render markdown to HTML with the same renderer as the public blog; returns outline + warnings. Send either postId for the current saved tip or contentMarkdown for unsaved input, never both. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.",
       "posts:read",
       readErrors,
     ),

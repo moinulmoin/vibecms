@@ -33,6 +33,7 @@ describe('sites.get Voice Profile contract', () => {
       updatedByName: null,
       createdAt: null,
       updatedAt: null,
+      revision: 0,
     })
   })
 

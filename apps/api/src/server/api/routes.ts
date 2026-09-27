@@ -26,7 +26,7 @@ import {
   unschedulePostRequestSchema,
   rotatePostPreviewRequestSchema,
   restorePostVersionRequestSchema,
-  siteDtoSchema,
+  siteWithSignupFormDtoSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
   updateSiteRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
@@ -129,7 +129,7 @@ export const getSiteRoute = createRoute({
   responses: {
     200: {
       description: "Current site",
-      content: { "application/json": { schema: siteDtoSchema.nullable() } },
+      content: { "application/json": { schema: siteWithSignupFormDtoSchema.nullable() } },
     },
     ...routeErrors(401, 403, 429, 500),
   },

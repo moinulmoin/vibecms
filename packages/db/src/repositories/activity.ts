@@ -16,6 +16,9 @@ export interface ActivityListEntry {
   createdAt: number;
   before: ActivitySnapshotFields | null;
   after: ActivitySnapshotFields | null;
+  /** Full before/after JSON, only for site.* events (small settings snapshots, never post bodies). */
+  siteBefore?: string | null;
+  siteAfter?: string | null;
 }
 
 export interface ActivitySnapshotFields {
@@ -111,6 +114,8 @@ export function createActivityRepository(db: D1Database): ActivityRepository {
           afterAlt: field(activityEvents.afterJson, "$.altText"),
           afterName: field(activityEvents.afterJson, "$.name"),
           afterBody: bodyLength(activityEvents.afterJson),
+          siteBefore: sql<string | null>`CASE WHEN ${activityEvents.action} LIKE 'site.%' THEN ${activityEvents.beforeJson} END`,
+          siteAfter: sql<string | null>`CASE WHEN ${activityEvents.action} LIKE 'site.%' THEN ${activityEvents.afterJson} END`,
         })
         .from(activityEvents)
         .where(and(...conditions))
@@ -126,6 +131,8 @@ export function createActivityRepository(db: D1Database): ActivityRepository {
         entityType: row.entityType,
         entityId: row.entityId,
         createdAt: row.createdAt,
+        siteBefore: row.siteBefore,
+        siteAfter: row.siteAfter,
         before: row.hasBefore
           ? {
               title: row.beforeTitle,

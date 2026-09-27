@@ -180,10 +180,10 @@ function mapPostError(error: unknown): unknown {
   }
   const text = chain.join("\n");
   if (text.includes("idx_posts_site_slug_unique") || text.includes("posts.site_id, posts.slug")) {
-    return new ConflictError("A post with this slug already exists");
+    return new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
   }
   if (text.includes("idx_post_versions_post_number") || text.includes("post_versions.post_id, post_versions.version_number")) {
-    return new ConflictError("Post changed concurrently; retry the save");
+    return new ConflictError("Post changed since your read. Call posts.get, reconcile your changes with current content, then retry with currentVersionNumber as expectedVersionNumber.");
   }
   return error;
 }
@@ -440,7 +440,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
               history.activityAction, post.id, history.activitySummary, JSON.stringify(post),
               timestamp, post.id, post.siteId),
         ]);
-        if (!insertResult.meta.changes) throw new ConflictError("A post with this slug already exists");
+        if (!insertResult.meta.changes) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
       } catch (error) {
         throw mapPostError(error);
       }
@@ -564,8 +564,8 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       if ((versionResult.meta.changes ?? 0) === 0) {
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
           .bind(...slugBinds(siteId, postId, after.slug)).first<{ available: number }>();
-        if (!available?.available) throw new ConflictError("A post with this slug already exists");
-        throw new ConflictError("Post changed concurrently; retry the save");
+        if (!available?.available) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
+        throw new ConflictError("Post changed since your read. Call posts.get, reconcile your changes with current content, then retry with currentVersionNumber as expectedVersionNumber.");
       }
       return { post: (await getPost(siteId, postId))!, versionNumber: nextVersionNumber };
     },
@@ -603,7 +603,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
           (options.allowOlderVersion || before.currentVersionNumber === expectedVersionNumber)) {
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
           .bind(...slugBinds(siteId, postId, approved.slug)).first<{ available: number }>();
-        if (!available?.available) throw new ConflictError("A post with this slug already exists");
+        if (!available?.available) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
         return { post: before, capReached: false, versionConflict: false };
       }
 
@@ -775,7 +775,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
 
       const current = await getPost(siteId, postId);
       if (!current) return { post: null, capReached: false, versionConflict: false };
-      if (current.status === "archived") throw new ConflictError("Post was archived");
+      if (current.status === "archived") throw new ConflictError("Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.");
       if (options.scheduleLeaseToken) {
         const lease = await db.prepare(`SELECT 1 FROM post_schedules WHERE site_id = ? AND post_id = ?
           AND version_number = ? AND status = 'processing' AND lease_token = ?`)
@@ -790,7 +790,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       if (target) {
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
           .bind(...slugBinds(siteId, postId, target.slug)).first<{ available: number }>();
-        if (!available?.available) throw new ConflictError("A post with this slug already exists");
+        if (!available?.available) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
       }
       if (
         current.status === "published" &&

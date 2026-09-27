@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { beforeAll, describe, expect, inject, it } from 'vitest'
 import { createD1PostRepository, createDataAccess } from '@vc/db'
-import { createPost, firstParagraph, publishPost, updatePost, type Actor } from '@vc/core'
+import { archivePost, createPost, firstParagraph, publishPost, updatePost, type Actor } from '@vc/core'
 import { mapPost, mapPostSummary } from '@vc/api-contract'
 import { updatePostForApp } from './post-mutations'
 import { handleExport } from './export'
@@ -34,6 +34,18 @@ async function draft(slug: string, coverAssetId: string | null = null) {
 }
 
 describe('release regression paths', () => {
+  it('rejects archive when the approved saved tip changed', async () => {
+    const post = await draft('archive-approval-binding')
+    const updated = await updatePost(repo, actor, { siteId, postId: post.id,
+      expectedVersionNumber: post.currentVersionNumber, title: 'New human edit' })
+    await expect(archivePost(repo, actor, { siteId, postId: post.id,
+      expectedVersionNumber: post.currentVersionNumber })).rejects.toMatchObject({
+      code: 'CONFLICT', message: 'Post changed since archive approval. Re-read the post and confirm the current version before archiving.',
+    })
+    expect((await repo.getPost(siteId, post.id))?.status).toBe('draft')
+    expect((await archivePost(repo, actor, { siteId, postId: post.id,
+      expectedVersionNumber: updated.post.currentVersionNumber })).status).toBe('archived')
+  })
   it('persists an explicit null cover from the dashboard save', async () => {
     const assetId = 'release-cover'
     await env.DB.prepare(`INSERT INTO assets (id, site_id, r2_key, filename, mime_type, size_bytes, created_by_type, created_by_id, created_at, updated_at)
