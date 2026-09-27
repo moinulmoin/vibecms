@@ -154,7 +154,7 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "posts schedule": { usage: "posts schedule <postId> --version-number <n> --at <ISO-8601 UTC>", flags: ["version-number", "expected-version", "at"], revision: "--version-number: approved saved version from `vibecms posts versions <postId>`; --expected-version is an alias" },
   "posts unschedule": { usage: "posts unschedule <postId>" }, "posts rotate-preview": { usage: "posts rotate-preview <postId>" },
   "posts restore": { usage: "posts restore <postId> <versionNumber> --expected-version <n>", flags: ["expected-version"] },
-  "posts archive": { usage: "posts archive <postId> [--expected-version <n>]", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`" },
+  "posts archive": { usage: "posts archive <postId> [--expected-version <n>]", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`. Archiving saves a new version; use the returned currentVersionNumber next." },
   "posts unarchive": { usage: "posts unarchive <postId>" },
   "assets list": { usage: "assets list" }, "assets get": { usage: "assets get <assetId>" },
   "assets update": { usage: "assets update <assetId> --alt <text>", flags: ["alt"] },

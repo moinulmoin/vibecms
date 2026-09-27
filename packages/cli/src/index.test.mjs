@@ -211,3 +211,15 @@ test('per-command value hints match the API enums', () => {
   const statusLine = listHelp.split('\n').find((l) => l.trim().startsWith('status:'))
   assert.deepEqual(statusLine.split(':')[1].split('|').map((v) => v.trim()).sort(), [...status].sort())
 })
+
+test('output adds a readable ISO time next to each Unix timestamp', () => {
+  const body = JSON.stringify([{ id: 'p1', updatedAt: 1790263442, publishedAt: null, scheduledPublish: { publishAt: 1790586000 }, versionNumber: 3 }])
+  const result = run(['posts', 'list', '--json'], { NODE_OPTIONS: `--import=${fetchMock}`, VC_FETCH_BODY: body })
+  assert.equal(result.status, 0, result.stderr)
+  const [post] = JSON.parse(result.stdout)
+  assert.equal(post.updatedAt, 1790263442)
+  assert.equal(post.updatedAtIso, '2026-09-24T15:24:02.000Z')
+  assert.equal(post.scheduledPublish.publishAtIso, '2026-09-28T09:00:00.000Z')
+  assert.equal('publishedAtIso' in post, false)
+  assert.equal('versionNumberIso' in post, false)
+})

@@ -21,8 +21,24 @@ export type OutputFormat = { json?: boolean; ndjson?: boolean };
 let jsonErrors = false;
 export function setErrorFormat(json: boolean): void { jsonErrors = json; }
 
+// Timestamps are Unix seconds (…At). Add a readable …AtIso next to each so
+// "when was this changed?" needs no conversion; the raw number stays for scripts.
+export function withIsoTimes(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withIsoTimes);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    out[key] = withIsoTimes(child);
+    if (/At$/.test(key) && typeof child === "number" && Number.isInteger(child) && child > 1e9 && child < 1e11) {
+      out[`${key}Iso`] = new Date(child * 1000).toISOString();
+    }
+  }
+  return out;
+}
+
 // All machine output goes to stdout as JSON; no color, no spinners.
-export function printData(data: unknown, fmt: OutputFormat): void {
+export function printData(raw: unknown, fmt: OutputFormat): void {
+  const data = withIsoTimes(raw);
   if (fmt.ndjson && Array.isArray(data)) {
     for (const item of data) process.stdout.write(`${JSON.stringify(item)}\n`);
     return;

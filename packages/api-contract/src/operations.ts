@@ -251,7 +251,7 @@ export const operations = [
     operationId: "archivePost",
     requiredScope: "posts:archive",
     description: opDescription(
-      "Take a post off the blog (or shelve a draft); returns the archived post. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions).",
+      "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions).",
       "posts:archive",
       writeErrors,
     ),
@@ -263,7 +263,7 @@ export const operations = [
     toolName: "posts.unarchive",
     operationId: "unarchivePost",
     requiredScope: "posts:update",
-    description: opDescription("Restore an archived post to draft.", "posts:update", writeErrors),
+    description: opDescription("Restore an archived post to draft. This saves a new version; use the returned currentVersionNumber for the next edit. Publish again to make it public.", "posts:update", writeErrors),
     requestSchema: unarchivePostRequestSchema,
     responseSchema: postDtoSchema,
     annotations: {},

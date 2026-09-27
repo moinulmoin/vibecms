@@ -36,8 +36,7 @@ if (!marketing) {
   blog = await loadPublicPostForSite(db, Astro.request.url, site, "docs", env);
   if (!blog) {
     // A legacy post that used to live at /docs may have moved.
-    const moved = await publicPostRedirect(db, site, "docs", Astro.request, env);
-    return moved ?? new Response("Not found", { status: 404 });
+    return (await publicPostRedirect(db, site, "docs", Astro.request, env)) ?? new Response("Not found", { status: 404 });
   }
   for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
     markdownAlternateHref: new URL("/docs.md", blog.origin).href,

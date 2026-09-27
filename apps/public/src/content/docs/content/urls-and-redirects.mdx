@@ -9,6 +9,6 @@ Changing the slug of a published post changes its private draft first. The publi
 
 ## Archive or delete
 
-`posts.archive` removes a post from public output but keeps the post, versions, and activity history. While archived, its public URL and old redirects do not resolve to a live article. `posts.unarchive` restores it as a draft; publish again to make it public. A previous live slug can redirect to the newly published slug after a rename and republish.
+`posts.archive` removes a post from public output but keeps the post, versions, and activity history. While archived, its public URL and old redirects do not resolve to a live article. `posts.unarchive` restores it as a draft; publish again to make it public. Archiving and restoring each save a new version, so use the `currentVersionNumber` they return (or re-read the post) before the next edit. A previous live slug can redirect to the newly published slug after a rename and republish.
 
 Permanent deletion is available only in the dashboard to a human owner or editor, and only after archival. It removes the post and its version snapshots. Activity entries remain as a record of who did what, but their before and after content snapshots are cleared. Redirects tied to the deleted post are removed, so old links stop redirecting. Agents cannot permanently delete posts.

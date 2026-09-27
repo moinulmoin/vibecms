@@ -7659,7 +7659,7 @@
     "/api/v1/posts/{postId}/archive": {
       "post": {
         "operationId": "archivePost",
-        "description": "Take a post off the blog (or shelve a draft); returns the archived post. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:archive.",
+        "description": "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:archive.",
         "security": [
           {
             "bearerAuth": []
@@ -8067,7 +8067,7 @@
     "/api/v1/posts/{postId}/unarchive": {
       "post": {
         "operationId": "unarchivePost",
-        "description": "Restore an archived post to draft. Requires scope: posts:update.",
+        "description": "Restore an archived post to draft. This saves a new version; use the returned currentVersionNumber for the next edit. Publish again to make it public. Requires scope: posts:update.",
         "security": [
           {
             "bearerAuth": []
