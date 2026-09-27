@@ -94,7 +94,7 @@ function ThemeSwatch({ id, name }: { id: PresetId; name: string }) {
     <figure className="m-0">
       <div
         data-vc-theme={id}
-        data-vc-mode="light"
+        data-vc-mode="dark"
         style={presetStyle(id)}
         className="rounded-[var(--vc-radius)] border border-vc-border bg-vc-bg p-3"
         aria-hidden="true"
@@ -127,7 +127,7 @@ function PostMock() {
   return (
     <div
       data-vc-theme="technical"
-      data-vc-mode="light"
+      data-vc-mode="dark"
       style={presetStyle("technical")}
       className="overflow-hidden rounded-2xl bg-vc-bg text-left text-vc-fg ring-1 ring-[color:var(--hairline)]"
       aria-hidden="true"
@@ -152,7 +152,7 @@ function PostMock() {
             <span className="font-semibold text-vc-accent">Note</span>
             <span className="text-vc-fg/85"> Tokens are scoped per agent.</span>
           </div>
-          <pre className="mt-4 overflow-hidden rounded-lg bg-[oklch(0.2_0.01_250)] px-3.5 py-3 font-mono text-[11.5px] leading-[1.7] text-[oklch(0.9_0.01_250)]">
+          <pre className="mt-4 overflow-hidden rounded-lg bg-[oklch(0.2_0.01_250)] ring-1 ring-vc-border px-3.5 py-3 font-mono text-[11.5px] leading-[1.7] text-[oklch(0.9_0.01_250)]">
             <code>
               <span className="text-[oklch(0.72_0.14_300)]">await</span> vibecms.posts.
               <span className="text-[oklch(0.78_0.12_230)]">publish</span>({"{"}
