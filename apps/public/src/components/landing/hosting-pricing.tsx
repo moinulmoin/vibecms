@@ -1,6 +1,6 @@
 import { BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
 import { Check } from "./icons";
-import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionShell } from "./primitives";
+import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
 
 const INCLUDED = [
   "Unlimited published posts",
@@ -20,7 +20,8 @@ const INCLUDED = [
 export function HostingPricing({ loginUrl }: { loginUrl: string }) {
   return (
     <section id="pricing" aria-labelledby="pricing-title">
-      <SectionShell>
+      <SectionShell className="isolate">
+        <SectionLight x="70%" y="50%" size={820} strength={0.7} />
         <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-14">
           <div data-reveal className="min-w-0">
             <h2 id="pricing-title" className={H2}>

@@ -41,6 +41,7 @@ export function CtaFooter({
 
   return (
     <>
+      <section id="start" aria-label="Start free">
       <SectionShell className="pb-10 md:pb-14">
         <div
           className="relative overflow-hidden rounded-[22px] px-6 py-14 text-center ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:px-10 md:py-[76px]"
@@ -80,6 +81,7 @@ export function CtaFooter({
           </div>
         </div>
       </SectionShell>
+      </section>
 
       <footer className="py-12">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-7">

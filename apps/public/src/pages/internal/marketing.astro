@@ -35,8 +35,8 @@ const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;
 ---
 <LandingLayout loginUrl={loginUrl} ogImage={ogImage}>
   <main id="main" tabindex="-1" class="dark relative min-h-dvh overflow-hidden bg-background text-foreground">
-    <DotGrid className="pointer-events-none fixed inset-0 z-0 opacity-90" />
-    <Glow className="pointer-events-none fixed -top-[32%] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
+    <DotGrid className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[1100px] opacity-90" />
+    <Glow className="pointer-events-none absolute -top-[300px] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
     <div class="relative z-[1]">
       <HeaderHero loginUrl={loginUrl} />
       <ControlSection />

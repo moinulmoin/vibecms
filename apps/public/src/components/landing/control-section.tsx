@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 import { CalendarClock, Eye, History, ShieldCheck } from "./icons";
-import { H2, LEAD, PANEL, SectionShell } from "./primitives";
+import { H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
 
 type Point = {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -85,7 +85,8 @@ function VersionMock() {
 export function ControlSection() {
   return (
     <section id="control" aria-labelledby="control-title">
-      <SectionShell className="grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+      <SectionShell className="isolate grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+        <SectionLight x="28%" y="55%" size={680} strength={0.5} />
         <div data-reveal className="min-w-0 lg:order-2">
           <h2 id="control-title" className={H2}>
             Nothing goes live

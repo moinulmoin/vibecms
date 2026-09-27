@@ -40,3 +40,19 @@
   & [data-cap-on] { display: none; }
   & [data-cap-off] { display: block; }
 }
+
+/* Below the hero, reveals play as each section scrolls into view (not all at
+   once on load). Unsupported browsers keep the load-time reveal; reduced
+   motion is handled in app.css (always visible). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    main section[id] [data-reveal] {
+      animation-timeline: view();
+      animation-range: entry 5% cover 28%;
+      animation-delay: 0s;
+    }
+    main section[id] [data-reveal][data-d] {
+      animation-range: entry 15% cover 34%;
+    }
+  }
+}

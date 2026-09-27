@@ -1,10 +1,11 @@
 import { KeyLevelsDemo } from "./key-levels";
-import { H2, LEAD, PANEL, SectionShell } from "./primitives";
+import { H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
 
 export function AgentsDemo({ apiDocsUrl }: { apiDocsUrl: string }) {
   return (
     <section id="agents" aria-labelledby="agents-title">
-      <SectionShell className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
+      <SectionShell className="isolate grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
+        <SectionLight x="72%" y="50%" size={760} strength={0.65} />
         <div data-reveal className="min-w-0">
           <h2 id="agents-title" className={H2}>
             A key for each agent.

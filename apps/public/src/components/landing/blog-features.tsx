@@ -22,7 +22,7 @@ import {
   Search,
   Zap,
 } from "./icons";
-import { H2, LEAD, SectionShell } from "./primitives";
+import { DotGrid, H2, LEAD, SectionShell } from "./primitives";
 
 type Feature = {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -178,7 +178,8 @@ function PostMock() {
 
 export function BlogFeatures() {
   return (
-    <section id="features" aria-labelledby="features-title">
+    <section id="features" aria-labelledby="features-title" className="relative isolate">
+      <DotGrid className="-z-10" />
       <SectionShell>
         <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
           <div data-reveal className="min-w-0">
