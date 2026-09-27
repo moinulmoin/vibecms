@@ -1,7 +1,7 @@
-import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
-import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
+import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
+import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
-import type { ListPostsRequest } from "@vc/api-contract";
+import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import {
   mapActivityRow,
   mapAsset,
@@ -25,6 +25,9 @@ import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
 import { RENDERER_VERSION } from "@vc/content/constants";
+import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsForApp, updateSiteSettingsForApp, type SiteSettingsPayload } from "./onboarding";
+import { getVoiceProfileSettings, updateVoiceProfileForApp } from "./voice-profile";
+import { loadAnalyticsForApp, type AnalyticsRange } from "./analytics";
 
 export type OperationContext = {
   actor: Actor;
@@ -106,6 +109,129 @@ export async function getSiteOp(ctx: OperationContext) {
   ]);
   const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
   return mapSiteRow(row, url, voiceProfile);
+}
+
+function mutationResult(result: { kind: 'ok' | 'error'; code: string }) {
+  if (result.kind === 'ok') return;
+  if (result.code === 'settings_conflict') throw new ConflictError('Site settings changed. Read the current site and retry with its updatedAt.');
+  if (result.code === 'site_not_found') throw new NotFoundError('Site not found');
+  if (result.code === 'owner_required') throw new AppError('FORBIDDEN', 'Manage access required', 403);
+  throw new ValidationError(result.code);
+}
+
+export async function updateSiteOp(ctx: OperationContext, input: UpdateSiteRequest) {
+  requireScope(ctx.actor, 'site:write');
+  mutationResult(await updateSiteSettingsForApp(appUser(ctx), input));
+  const [row, voiceProfile, settings] = await Promise.all([
+    createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId), getVoiceProfileForSite(ctx.siteId), getSiteSettings(appUser(ctx)),
+  ]);
+  if (!row) throw new NotFoundError('Site not found');
+  const site = mapSiteRow(row, await getSitePublicBaseUrl(ctx.siteId, row.slug), voiceProfile);
+  if (!site) throw new NotFoundError('Site not found');
+  const { newsletterSettings: _newsletterSettings, ...publicSettings } = settings;
+  return { ...site, settings: publicSettings };
+}
+
+type ThemeLook = Pick<SiteSettingsPayload, 'theme' | 'themeAccent' | 'themeFont' | 'themeRadius' | 'themeWidth' | 'themeMode'>;
+
+function rawLook(row: NonNullable<Awaited<ReturnType<ReturnType<typeof createDataAccess>['sites']['getSiteSettings']>>>) : ThemeLook {
+  return { theme: row.theme ?? 'minimal', themeAccent: row.themeAccent, themeFont: row.themeFont,
+    themeRadius: row.themeRadius, themeWidth: row.themeWidth, themeMode: row.themeMode };
+}
+
+async function previousLook(siteId: string) {
+  return env.DB.prepare('SELECT look_json AS lookJson, saved_at AS savedAt FROM site_theme_previous_look WHERE site_id = ?')
+    .bind(siteId).first<{ lookJson: string; savedAt: number }>();
+}
+
+export async function getThemeOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const app = appUser(ctx);
+  const [site, saved] = await Promise.all([getSiteSettings(app), previousLook(ctx.siteId)]);
+  const options = {
+    templates: Object.entries(THEME_PRESETS).map(([id, value]) => ({ id, name: value.name })),
+    accents: ACCENTS.map(({ id, name }) => ({ id, name })), fonts: FONTS.map(({ id, name }) => ({ id, name })),
+    radii: THEME_RADII.map((id) => ({ id, name: ({ none: 'Square', sm: 'Soft', md: 'Round', lg: 'Rounder' })[id] })),
+    widths: THEME_WIDTHS.map((id) => ({ id, name: ({ narrow: 'Narrow', normal: 'Normal', wide: 'Wide' })[id] })),
+    modes: THEME_MODES.map((id) => ({ id, name: ({ light: 'Light', dark: 'Dark', system: 'System' })[id] })),
+  };
+  return { template: site.theme, accent: site.themeAccent, font: site.themeFont, radius: site.themeRadius,
+    width: site.themeWidth, mode: site.themeMode, updatedAt: site.updatedAt,
+    url: await siteBaseUrl(ctx.siteId), canRevert: saved?.savedAt === site.updatedAt, options };
+}
+
+export async function updateThemeOp(ctx: OperationContext, input: UpdateThemeRequest) {
+  requireScope(ctx.actor, 'site:write');
+  const current = await createDataAccess(env.DB).sites.getSiteSettings(ctx.siteId);
+  if (!current) throw new NotFoundError('Site not found');
+  if (current.updatedAt !== input.expectedUpdatedAt) throw new ConflictError('Site settings changed');
+  const change: SiteSettingsPayload = { expectedUpdatedAt: input.expectedUpdatedAt };
+  if (input.template !== undefined) {
+    change.theme = input.template;
+    if (input.keepLook) {
+      const resolved = await getSiteSettings(appUser(ctx));
+      Object.assign(change, { themeAccent: resolved.themeAccent, themeFont: resolved.themeFont,
+        themeRadius: resolved.themeRadius, themeWidth: resolved.themeWidth, themeMode: resolved.themeMode });
+    } else {
+      const defaults = THEME_PRESETS[resolvePresetId(input.template)].template.defaults;
+      Object.assign(change, { themeAccent: defaults.accent, themeFont: defaults.font,
+        themeRadius: defaults.radius, themeWidth: defaults.width, themeMode: defaults.mode });
+    }
+  }
+  if (input.accent !== undefined) change.themeAccent = input.accent;
+  if (input.font !== undefined) change.themeFont = input.font;
+  if (input.radius !== undefined) change.themeRadius = input.radius;
+  if (input.width !== undefined) change.themeWidth = input.width;
+  if (input.mode !== undefined) change.themeMode = input.mode;
+  mutationResult(await updateSiteSettingsForApp(appUser(ctx), change, { previousLookJson: JSON.stringify(rawLook(current)) }));
+  return getThemeOp(ctx);
+}
+
+export async function revertThemeOp(ctx: OperationContext, input: { expectedUpdatedAt: number }) {
+  requireScope(ctx.actor, 'site:write');
+  const saved = await previousLook(ctx.siteId);
+  if (!saved || saved.savedAt !== input.expectedUpdatedAt) throw new ConflictError('No current theme change to revert');
+  const look = JSON.parse(saved.lookJson) as ThemeLook;
+  mutationResult(await updateSiteSettingsForApp(appUser(ctx), { ...look, expectedUpdatedAt: input.expectedUpdatedAt }));
+  await env.DB.prepare('DELETE FROM site_theme_previous_look WHERE site_id = ? AND saved_at = ?')
+    .bind(ctx.siteId, saved.savedAt).run();
+  return getThemeOp(ctx);
+}
+
+export async function updateVoiceOp(ctx: OperationContext, input: UpdateVoiceRequest) {
+  requireScope(ctx.actor, 'site:write');
+  mutationResult(await updateVoiceProfileForApp(appUser(ctx), { audience: input.audience, voiceSummary: input.tone,
+    preferRules: input.doRules, avoidRules: input.dontRules, representativePostIds: input.representativePostIds }));
+  return getVoiceProfileSettings(appUser(ctx));
+}
+
+export async function updateSignupFormOp(ctx: OperationContext, input: { expectedUpdatedAt: number; enabled?: boolean; heading?: string; description?: string; button?: string }) {
+  requireScope(ctx.actor, 'site:write');
+  mutationResult(await updateNewsletterSettingsForApp(appUser(ctx), {
+    ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+    ...(input.heading === undefined ? {} : { heading: input.heading }),
+    ...(input.description === undefined ? {} : { subtext: input.description }),
+    ...(input.button === undefined ? {} : { buttonLabel: input.button }),
+  }, { expectedUpdatedAt: input.expectedUpdatedAt }));
+  const updated = await getNewsletterSettingsForApp(appUser(ctx));
+  return { enabled: updated.enabled, heading: updated.heading, description: updated.subtext, button: updated.buttonLabel };
+}
+
+export async function listTagsOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const rows = await env.DB.prepare(`SELECT json_each.value AS name, COUNT(DISTINCT posts.id) AS postCount
+    FROM posts, json_each(posts.tags_json) WHERE posts.site_id = ? AND posts.status != 'archived'
+    GROUP BY json_each.value ORDER BY postCount DESC, name COLLATE NOCASE`).bind(ctx.siteId)
+    .all<{ name: string; postCount: number }>();
+  return rows.results;
+}
+
+export async function getAnalyticsOp(ctx: OperationContext, input: { range: string }) {
+  requireScope(ctx.actor, 'analytics:read');
+  const range = input.range === 'all' ? 'all' : Number(input.range) as AnalyticsRange;
+  const result = await loadAnalyticsForApp(appUser(ctx), range);
+  if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', 'Analytics are on the paid plan.', 402);
+  return result;
 }
 
 export async function listPostsOp(ctx: OperationContext, input: ListPostsRequest) {

@@ -10,6 +10,7 @@ import {
   postVersionSummaryDtoSchema,
   previewPostDtoSchema,
   siteDtoSchema,
+  updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
@@ -36,6 +37,8 @@ import {
   searchPostsRequestSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
+  updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
 } from "./requests";
 
 export type OperationAnnotations = {
@@ -80,6 +83,46 @@ export const operations = [
     requestSchema: getSiteRequestSchema,
     responseSchema: siteDtoSchema.nullable(),
     annotations: { readOnly: true },
+  },
+  {
+    toolName: 'sites.update', operationId: 'updateSite', requiredScope: 'site:write',
+    description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Changes are live immediately.', 'site:write', writeErrors),
+    requestSchema: updateSiteRequestSchema, responseSchema: updatedSiteDtoSchema, annotations: { idempotent: true },
+  },
+  {
+    toolName: 'sites.theme.get', operationId: 'getSiteTheme', requiredScope: 'site:write',
+    description: opDescription('Read the current blog template and look, plus allowed values with human names. Use its updatedAt for a theme update. Example: {}.', 'site:write', readErrors),
+    requestSchema: getThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'sites.theme.update', operationId: 'updateSiteTheme', requiredScope: 'site:write',
+    description: opDescription('Change any part of the blog look. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately.', 'site:write', writeErrors),
+    requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.theme.revert', operationId: 'revertSiteTheme', requiredScope: 'site:write',
+    description: opDescription('Undo the last theme change and restore the exact previous look. Example: {"expectedUpdatedAt": 124}. Read the current theme first; stale values return CONFLICT.', 'site:write', writeErrors),
+    requestSchema: revertThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.voice.update', operationId: 'updateSiteVoice', requiredScope: 'site:write',
+    description: opDescription('Save the writing voice: audience, tone, do and don\'t rules, and up to three published representative posts. Example: {"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Uses dashboard voice limits.', 'site:write', writeErrors),
+    requestSchema: updateVoiceRequestSchema, responseSchema: voiceSettingsDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
+    description: opDescription('Update only the sent email signup form fields. Example: {"enabled":true,"heading":"Get new posts"}. Existing fields stay unchanged; changes are live immediately.', 'site:write', writeErrors),
+    requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',
+    description: opDescription('List tags currently used by non-archived posts and their post counts. Reuse these spellings when tagging a post. Example: {}.', 'site:write', readErrors),
+    requestSchema: listTagsRequestSchema, responseSchema: z.array(tagDtoSchema), annotations: { readOnly: true },
+  },
+  {
+    toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
+    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
+    requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
   },
   {
     toolName: "posts.list",

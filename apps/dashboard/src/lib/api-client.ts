@@ -342,7 +342,7 @@ export function clearVoiceProfileMutation() {
   return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile/clear', {})
 }
 
-export function createApiKeyMutation(data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' }) {
+export function createApiKeyMutation(data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'manage' }) {
   return dashboardPost<ApiKeyMutationResult>('/api/dashboard/api-keys', data)
 }
 

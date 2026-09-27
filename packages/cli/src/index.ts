@@ -19,6 +19,14 @@ Commands:
   login --token <tok> [--api-url <url>]    Save credentials to ~/.vibecms/config.json
   whoami                                    Verify the token (GET /site)
   site                                      Show the current site
+  sites update --expected-updated-at <n> --data '<json>'   Change site fields (or --data-file)
+  sites theme get                           Current look and allowed choices
+  sites theme update --expected-updated-at <n> --data '<json>'  Change the look
+  sites theme revert --expected-updated-at <n>  Undo the last theme change
+  sites voice update --data '<json>'        Save audience, tone, rules, exemplar posts
+  sites signup-form update --expected-updated-at <n> --data '<json>'  Change signup form fields
+  tags list                                 Tags in use with post counts
+  analytics get [--range 7|30|90|365|all] Aggregate paid-plan analytics
   activity [--limit <n> --offset <n>]       Changes by you and your agents
   posts list [--status --search --limit --offset]
   posts search <query> [--limit <n>]
@@ -92,6 +100,10 @@ const OPTIONS = {
   "seo-description": { type: "string" },
   "canonical-url": { type: "string" },
   preset: { type: "string" },
+  data: { type: "string" },
+  "data-file": { type: "string" },
+  "expected-updated-at": { type: "string" },
+  range: { type: "string" },
 } as const;
 
 type Values = { [K in keyof typeof OPTIONS]?: string | boolean };
@@ -192,6 +204,13 @@ async function mutate(
   emit(await apiRequest(cfg, method, path, { body }), fmt);
 }
 
+async function readRequest(cfg: ResolvedConfig, path: string, v: Values, fmt: OutputFormat, query?: Record<string, unknown>) {
+  const url = new URL(cfg.apiUrl + path)
+  for (const [key, value] of Object.entries(query ?? {})) if (value !== undefined) url.searchParams.set(key, String(value))
+  if (v['dry-run']) return printData({ dryRun: true, method: 'GET', url: url.toString(), body: null }, fmt)
+  return emit(await apiRequest(cfg, 'GET', path, { query }), fmt)
+}
+
 
 /** "none" clears a nullable field; undefined leaves it unchanged. */
 function nullable(v: string | undefined): string | null | undefined {
@@ -237,6 +256,41 @@ function parseExpectedVersion(v: Values, required: boolean): number | undefined 
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1) fail("--expected-version must be a positive integer", EXIT.USAGE);
   return n;
+}
+
+function expectedUpdatedAt(v: Values): number {
+  const value = Number(need(str(v['expected-updated-at']), '--expected-updated-at'));
+  if (!Number.isInteger(value) || value < 1) fail('--expected-updated-at must be a positive integer', EXIT.USAGE);
+  return value;
+}
+
+async function jsonData(v: Values): Promise<Record<string, unknown>> {
+  const inline = str(v.data);
+  const file = str(v['data-file']);
+  if (Boolean(inline) === Boolean(file)) fail('Provide exactly one of --data or --data-file', EXIT.USAGE);
+  let value: unknown;
+  try { value = JSON.parse(inline ?? await readFile(file!, 'utf8')); }
+  catch { fail('Data must be valid JSON', EXIT.USAGE); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Data must be a JSON object', EXIT.USAGE);
+  return value as Record<string, unknown>;
+}
+
+async function sitesCommand(action: string | undefined, rest: string[], v: Values, cfg: ResolvedConfig, fmt: OutputFormat) {
+  if (action === 'update') return mutate(cfg, 'PATCH', '/api/v1/site',
+    { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+  if (action === 'theme') {
+    if (rest[0] === 'get') return readRequest(cfg, '/api/v1/site/theme', v, fmt);
+    if (rest[0] === 'update') return mutate(cfg, 'PATCH', '/api/v1/site/theme',
+      { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+    if (rest[0] === 'revert') return mutate(cfg, 'POST', '/api/v1/site/theme/revert',
+      { expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+  }
+  if (action === 'voice' && rest[0] === 'update')
+    return mutate(cfg, 'PUT', '/api/v1/site/voice', await jsonData(v), v, fmt);
+  if (action === 'signup-form' && rest[0] === 'update')
+    return mutate(cfg, 'PATCH', '/api/v1/site/signup-form',
+      { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+  fail(`Unknown sites subcommand: ${[action, ...rest].join(' ')}`, EXIT.USAGE);
 }
 
 async function postsCommand(
@@ -477,6 +531,14 @@ async function main(): Promise<void> {
       return emit(await apiRequest(cfg, "GET", "/api/v1/site"), fmt);
     case "activity":
       return emit(await apiRequest(cfg, "GET", "/api/v1/activity", { query: { limit: str(v.limit), offset: str(v.offset) } }), fmt);
+    case 'sites':
+      return sitesCommand(action, pos.slice(2), v, cfg, fmt);
+    case 'tags':
+      if (action !== 'list') fail('Use tags list', EXIT.USAGE);
+      return readRequest(cfg, '/api/v1/tags', v, fmt);
+    case 'analytics':
+      if (action !== 'get') fail('Use analytics get', EXIT.USAGE);
+      return readRequest(cfg, '/api/v1/analytics', v, fmt, { range: str(v.range) });
     case "schema":
       return schemaCommand(action, fmt);
     case "posts":

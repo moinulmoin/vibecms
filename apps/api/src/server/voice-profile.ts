@@ -2,17 +2,18 @@ import { createDataAccess } from '@vc/db'
 import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
+import { can } from '@vc/core'
 
 export type VoiceProfileMutationResult =
   | { kind: 'ok'; code: 'voice_profile_saved' | 'voice_profile_cleared' }
   | { kind: 'error'; code: 'voice_profile_invalid' | 'owner_required' }
 function editorFor(app: AppUserContext) {
-  if (app.actor.type !== 'human' || app.actor.role !== 'owner') throw new Error('Owner access required')
-  return { type: 'human' as const, id: app.actor.id, name: app.actor.name }
+  if (!canManageVoiceProfile(app)) throw new Error('Manage access required')
+  return { type: app.actor.type === 'system' ? 'system' as const : app.actor.type, id: app.actor.id, name: app.actor.name }
 }
 
 function canManageVoiceProfile(app: AppUserContext) {
-  return app.actor.type === 'human' && app.actor.role === 'owner'
+  return (app.actor.type === 'human' && app.actor.role === 'owner') || can(app.actor, 'site:write')
 }
 
 export async function getVoiceProfileForSite(siteId: string) {

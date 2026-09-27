@@ -252,7 +252,7 @@ dashboardRoutes.post('/api-keys', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ name: string; actorName: string; preset: 'draft' | 'publish' | 'full' }>()
+  const body = await c.req.json<{ name: string; actorName: string; preset: 'draft' | 'publish' | 'full' | 'manage' }>()
   return c.json(await createApiKeyForApp(auth.app, body))
 })
 
@@ -261,7 +261,8 @@ dashboardRoutes.post('/api-keys/revoke', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ keyId: string }>()
+  const body = await c.req.json<{ keyId?: unknown }>()
+  if (typeof body.keyId !== 'string' || !body.keyId) return c.json({ kind: 'error', code: 'validation_error' }, 400)
   return c.json(await revokeApiKeyForApp(auth.app, body.keyId))
 })
 

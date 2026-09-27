@@ -65,6 +65,12 @@ The server is authoritative, but the current capability groups are:
 - Upload/list/get assets: `assets:write`
 - Delete unused assets: `assets:delete`
 - Read activity: `activity:read`
+- Change site settings, links, theme, voice, and signup form; list tags: `site:write`
+- Read aggregate analytics: `analytics:read`
+
+## Managing the site
+
+A Manage key includes Publish, archive/restore, `site:write`, and `analytics:read`. Billing, key management, and deleting the blog or account stay with the person. Settings and theme changes are live immediately: describe the change first. After changing the theme, give the person the blog URL and offer to revert the theme if they do not like it. Read the current `updatedAt` before a site or theme change, and use it as `expectedUpdatedAt` so a concurrent dashboard save returns `CONFLICT` instead of being overwritten.
 
 ## Completion contracts
 

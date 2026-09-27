@@ -1,4 +1,4 @@
-import type { Actor } from '@vc/core'
+import { can, type Actor } from '@vc/core'
 import { listCustomDomains } from '@vc/core'
 import {
   BYLINE_NAME_MAX_LENGTH,
@@ -52,7 +52,7 @@ function now() {
 }
 
 export function canManageSiteSettings(app: AppUserContext) {
-  return app.actor.type === 'human' && app.actor.role === 'owner'
+  return (app.actor.type === 'human' && app.actor.role === 'owner') || can(app.actor, 'site:write')
 }
 
 function slugify(input: string) {
@@ -321,17 +321,24 @@ export async function getNewsletterSettingsForApp(app: AppUserContext): Promise<
 export async function updateNewsletterSettingsForApp(
   app: AppUserContext,
   payload: unknown,
+  options?: { expectedUpdatedAt: number },
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
-  const parsed = newsletterSettingsSchema.safeParse(payload)
+  const parsed = (options ? newsletterSettingsSchema.partial() : newsletterSettingsSchema).safeParse(payload)
   if (!parsed.success) return { kind: 'error', code: 'validation_error' }
+  if (options && (!Number.isInteger(options.expectedUpdatedAt) || options.expectedUpdatedAt < 1)) {
+    return { kind: 'error', code: 'invalid_settings_version' }
+  }
   const timestamp = now()
   const db = createDataAccess(env.DB)
   const currentSite = await db.sites.getSiteSettings(app.siteId)
-  await db.sites.updateNewsletterSettings({
+  const updated = await db.sites.updateNewsletterSettings({
     timestamp,
     siteId: app.siteId,
     newsletterSettings: JSON.stringify(parsed.data),
+    defaultNewsletterSettings: options ? JSON.stringify(DEFAULT_NEWSLETTER_SETTINGS) : undefined,
+    expectedUpdatedAt: options?.expectedUpdatedAt,
+    patch: Boolean(options),
     activity: {
       id: crypto.randomUUID(),
       actorType: app.actor.type,
@@ -341,6 +348,7 @@ export async function updateNewsletterSettingsForApp(
       summary: 'Updated newsletter settings',
     },
   })
+  if (!updated) return { kind: 'error', code: 'settings_conflict' }
   if (currentSite) {
     const published = await db.publicBlog.listPublishedPostSummaries(
       app.siteId,
@@ -452,6 +460,7 @@ export async function completeSiteSetupForApp(
 export async function updateSiteSettingsForApp(
   app: AppUserContext,
   payload: SiteSettingsPayload,
+  options?: { previousLookJson: string },
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
   if (!Number.isInteger(payload.expectedUpdatedAt) || payload.expectedUpdatedAt < 1) {
@@ -547,6 +556,7 @@ export async function updateSiteSettingsForApp(
     timestamp,
     siteId: app.siteId,
     expectedUpdatedAt: payload.expectedUpdatedAt,
+    previousLookJson: options?.previousLookJson,
     site,
     activity: {
       id: crypto.randomUUID(),

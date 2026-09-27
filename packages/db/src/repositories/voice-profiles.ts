@@ -16,7 +16,7 @@ export type VoiceGuideline = {
 };
 
 export type VoiceProfileEditor = {
-  type: "human";
+  type: "human" | "api_key" | "agent" | "system";
   id: string;
   name: string;
 };

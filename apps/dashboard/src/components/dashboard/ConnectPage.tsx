@@ -23,18 +23,19 @@ import { clearTokenFlash, consumeTokenFlash, saveTokenFlash, type TokenFlash } f
 import { connectQuery, queryKeys } from '~/lib/queries'
 import type { ApiKeyListItem } from '~/types/dashboard'
 
-export type KeyAccess = 'draft' | 'publish' | 'full'
+export type KeyAccess = 'draft' | 'publish' | 'manage'
 
 const FIRST_DRAFT_PROMPT = 'Use vibecms to write a short first post for my blog. Save it as a draft and show me the title and a short preview. I will publish it from the dashboard.'
 
 export const KEY_ACCESS: Array<{ id: KeyAccess; label: string; description: string }> = [
   { id: 'draft', label: 'Write drafts', description: 'Drafts, edits, and image uploads. You publish.' },
   { id: 'publish', label: 'Write and publish', description: 'Drafts, edits, image uploads, and publishing without using the dashboard.' },
-  { id: 'full', label: 'Full access', description: 'Everything above, plus archiving posts and deleting unused images.' },
+  { id: 'manage', label: 'Manage', description: 'Publishing, plus settings, links, theme, voice, the signup form, and analytics. Billing, keys, and deleting the blog stay with you.' },
 ]
 
 export function accessLabel(scopes: string[]): string {
   const set = new Set(scopes as Scope[])
+  if (set.has('site:write')) return 'Manage'
   if (set.has('posts:archive') || set.has('assets:delete')) return 'Full access'
   if (set.has('posts:publish')) return 'Write and publish'
   return 'Write drafts'

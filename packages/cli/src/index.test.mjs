@@ -49,3 +49,27 @@ test('agent parity commands build the expected requests', () => {
   assert.equal(preview.status, 0, preview.stderr)
   assert.match(preview.stdout, /"postId":\s*"post-1"/)
 })
+
+test('Manage commands build the REST requests and preserve JSON payloads', () => {
+  const run = (...args) => spawnSync(tsx, [cli, ...args, '--dry-run', '--api-url', 'https://example.com', '--token', 'vc_test'], { encoding: 'utf8' })
+  const check = (args, method, path, body) => {
+    const output = run(...args)
+    assert.equal(output.status, 0, output.stderr)
+    const request = JSON.parse(output.stdout)
+    assert.equal(request.method, method)
+    assert.equal(new URL(request.url).pathname, `/api/v1/${path}`)
+    if (body) assert.deepEqual(request.body, body)
+  }
+  check(['sites', 'update', '--expected-updated-at', '12', '--data', '{"name":"Field Notes"}'], 'PATCH', 'site', { expectedUpdatedAt: 12, name: 'Field Notes' })
+  check(['sites', 'theme', 'update', '--expected-updated-at', '12', '--data', '{"template":"editorial","keepLook":true}'], 'PATCH', 'site/theme', { expectedUpdatedAt: 12, template: 'editorial', keepLook: true })
+  check(['sites', 'theme', 'revert', '--expected-updated-at', '13'], 'POST', 'site/theme/revert', { expectedUpdatedAt: 13 })
+  check(['sites', 'voice', 'update', '--data', '{"audience":"Readers","tone":"Clear","doRules":[],"dontRules":[],"representativePostIds":[]}'], 'PUT', 'site/voice', { audience: 'Readers', tone: 'Clear', doRules: [], dontRules: [], representativePostIds: [] })
+  check(['sites', 'signup-form', 'update', '--expected-updated-at', '14', '--data', '{"heading":"Join"}'], 'PATCH', 'site/signup-form', { expectedUpdatedAt: 14, heading: 'Join' })
+  check(['sites', 'theme', 'get'], 'GET', 'site/theme')
+  check(['tags', 'list'], 'GET', 'tags')
+  check(['analytics', 'get', '--range', '90'], 'GET', 'analytics')
+  const help = spawnSync(tsx, [cli, '--help'], { encoding: 'utf8' })
+  assert.match(help.stdout, /tags list/)
+  assert.match(help.stdout, /analytics get/)
+  assert.match(help.stdout, /sites theme get/)
+})

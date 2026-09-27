@@ -40,7 +40,7 @@ type SiteVoiceProfileMapper = {
   }>;
   representativePosts: Array<{ id: string; title: string; slug: string; updatedAt: number }>;
   warnings: string[];
-  updatedBy: { type: "human"; id: string; name: string };
+  updatedBy: { type: "human" | "agent" | "api_key" | "system"; id: string; name: string };
   createdAt: number;
   updatedAt: number;
 };

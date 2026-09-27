@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { KEY_ACCESS, NewKeyForm } from './ConnectPage'
+import { KEY_ACCESS, NewKeyForm, accessLabel } from './ConnectPage'
 
 describe('new agent keys', () => {
   afterEach(() => { document.body.innerHTML = '' })
@@ -19,5 +19,12 @@ describe('new agent keys', () => {
     expect(onCreate).toHaveBeenCalledWith({ name: 'My agent', preset: 'draft' })
     await act(async () => root.unmount())
     container.remove()
+  })
+
+  it('offers Manage with clear human controls while recognizing legacy full keys', () => {
+    expect(KEY_ACCESS.map((access) => access.id)).toEqual(['draft', 'publish', 'manage'])
+    expect(KEY_ACCESS[2].description).toBe('Publishing, plus settings, links, theme, voice, the signup form, and analytics. Billing, keys, and deleting the blog stay with you.')
+    expect(accessLabel(['site:write', 'posts:publish'])).toBe('Manage')
+    expect(accessLabel(['posts:archive', 'assets:delete'])).toBe('Full access')
   })
 })

@@ -18,6 +18,8 @@ export type ApiKeyListItem = {
 
 const allScopes: Scope[] = [
   'sites:read',
+  'site:write',
+  'analytics:read',
   'posts:read',
   'posts:create',
   'posts:update',
@@ -74,6 +76,7 @@ function parseScopes(form: FormData) {
   if (preset === 'full') return AGENT_TOKEN_PRESETS.full
   if (preset === 'draft') return AGENT_TOKEN_PRESETS.draft
   if (preset === 'publish') return AGENT_TOKEN_PRESETS.publish
+  if (preset === 'manage') return AGENT_TOKEN_PRESETS.manage
   const requested = form
     .getAll('scopes')
     .filter((value): value is Scope => typeof value === 'string' && allScopes.includes(value as Scope))
@@ -119,7 +122,7 @@ export type ApiKeyMutationResult =
 
 export async function createApiKeyForApp(
   app: AppUserContext,
-  input: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' },
+  input: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' | 'manage' },
 ): Promise<ApiKeyMutationResult> {
   try {
     requireApiKeyManager(app)
@@ -235,6 +238,7 @@ export async function authenticateBearerToken(
   const row: ApiKeyAuthRecord | null = await db.apiKeys.authenticateByHash(hash)
   if (!row || row.revokedAt) return null
   await db.apiKeys.markUsed(row.id, now())
+  const scopes = JSON.parse(row.scopesJson) as Scope[]
   return {
     siteId: row.siteId,
     workspaceId: row.workspaceId,
@@ -242,8 +246,8 @@ export async function authenticateBearerToken(
     actor: {
       type: 'api_key',
       id: row.id,
-      name: row.actorName,
-      scopes: JSON.parse(row.scopesJson) as Scope[],
+      name: scopes.includes('site:write') ? row.name : row.actorName,
+      scopes,
     },
   }
 }

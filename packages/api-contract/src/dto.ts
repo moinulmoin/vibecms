@@ -68,6 +68,49 @@ export const siteDtoSchema = z.object({
   updatedAt: z.number(),
 });
 
+export const siteSettingsDtoSchema = z.object({
+  name: z.string(), description: z.string(), defaultSeoTitle: z.string(),
+  defaultSeoDescription: z.string(), defaultSocialAssetId: z.string().nullable(),
+  logoAssetId: z.string().nullable(), faviconAssetId: z.string().nullable(),
+  navLinks: siteDtoSchema.shape.navLinks, socialLinks: siteDtoSchema.shape.socialLinks,
+  theme: z.string(), slug: z.string(), themeAccent: z.string(), themeFont: z.string(),
+  themeMode: z.string(), themeRadius: z.string(), themeWidth: z.string(),
+  bylineName: z.string(), showAgentCredit: z.boolean(), updatedAt: z.number(),
+});
+export const updatedSiteDtoSchema = siteDtoSchema.extend({ settings: siteSettingsDtoSchema });
+const namedChoiceSchema = z.object({ id: z.string(), name: z.string() });
+export const themeDtoSchema = z.object({
+  template: z.string(), accent: z.string(), font: z.string(), radius: z.string(),
+  width: z.string(), mode: z.string(), updatedAt: z.number(),
+  options: z.object({
+    templates: z.array(namedChoiceSchema), accents: z.array(namedChoiceSchema),
+    fonts: z.array(namedChoiceSchema), radii: z.array(namedChoiceSchema),
+    widths: z.array(namedChoiceSchema), modes: z.array(namedChoiceSchema),
+  }),
+  url: z.string().nullable(), canRevert: z.boolean(),
+});
+export const voiceSettingsDtoSchema = z.object({
+  configured: z.boolean(), audience: z.string(), voiceSummary: z.string(),
+  preferRules: z.array(z.string()), avoidRules: z.array(z.string()),
+  representativePostIds: z.array(z.string()), warnings: z.array(z.string()),
+  updatedByName: z.string().nullable(), updatedAt: z.number().nullable(),
+  publishedPosts: z.array(z.object({ id: z.string(), title: z.string(), slug: z.string(), updatedAt: z.number() })),
+});
+export const signupFormDtoSchema = z.object({
+  enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(),
+});
+export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
+export const analyticsDtoSchema = z.object({
+  status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
+  retentionDays: z.number(), views: z.number().optional(), previousViews: z.number().nullable().optional(),
+  trendPercent: z.number().nullable().optional(), seriesGranularity: z.enum(['day', 'month']).optional(),
+  aiReferralViews: z.number().optional(), series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })).optional(),
+  topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() })).optional(),
+  referrers: z.array(z.object({ domain: z.string(), views: z.number(), ai: z.boolean(), operator: z.string().nullable() })).optional(),
+  aiCrawlers: z.object({ status: z.enum(['available', 'unavailable']), lookbackDays: z.number(), requests: z.number(), agents: z.array(z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() })) }).optional(),
+  reason: z.enum(['self_hosted', 'not_configured', 'query_failed']).optional(),
+});
+
 export const postSummaryDtoSchema = z.object({
   id: z.string(),
   title: z.string(),

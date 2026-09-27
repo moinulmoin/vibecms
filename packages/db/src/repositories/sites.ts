@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { createDbClient } from "../client";
 import {
   activityEvents,
@@ -86,7 +86,10 @@ export interface SiteSettings {
 export interface UpdateNewsletterSettingsInput {
   timestamp: number;
   siteId: string;
-  newsletterSettings: string | null;
+  newsletterSettings: string;
+  defaultNewsletterSettings?: string;
+  expectedUpdatedAt?: number;
+  patch?: boolean;
   activity: SiteActivityEntry;
 }
 
@@ -142,6 +145,7 @@ export interface UpdateSiteSettingsInput {
   timestamp: number;
   siteId: string;
   expectedUpdatedAt: number;
+  previousLookJson?: string;
   site: Partial<{
     name: string;
     description: string | null;
@@ -201,7 +205,7 @@ export interface SitesRepository {
   ensureOnboardingBase(input: EnsureOnboardingBaseInput): Promise<void>;
   completeSiteSetup(input: CompleteSiteSetupInput): Promise<void>;
   updateSiteSettings(input: UpdateSiteSettingsInput): Promise<boolean>;
-  updateNewsletterSettings(input: UpdateNewsletterSettingsInput): Promise<void>;
+  updateNewsletterSettings(input: UpdateNewsletterSettingsInput): Promise<boolean>;
   getActiveDefaultHostname(siteId: string, preferredHostname?: string): Promise<string | null>;
   repairDefaultHostname(input: RepairDefaultHostnameInput): Promise<string>;
 }
@@ -257,7 +261,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             agentPreference: input.agentPreference,
             voiceSeedJson: JSON.stringify(input.voiceSeed),
             onboardingNote: input.onboardingNote,
-            updatedAt: input.timestamp,
+            updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
           })
           .where(eq(sites.id, input.siteId)),
         client.insert(activityEvents).values({
@@ -493,7 +497,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             description: input.site.description,
             defaultSeoTitle: input.site.defaultSeoTitle,
             defaultSeoDescription: input.site.defaultSeoDescription,
-            updatedAt: input.timestamp,
+            updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
           })
           .where(eq(sites.id, input.siteId)),
         client
@@ -540,7 +544,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
       const updates = settingsColumns.filter(([key]) => input.site[key] !== undefined);
       const updateSql = [
         ...updates.map(([, column]) => `${column} = ?`),
-        "updated_at = ?",
+        "updated_at = max(?, updated_at + 1)",
       ].join(", ");
       const updateValues = updates.map(([key]) => {
         const value = input.site[key];
@@ -548,7 +552,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         return typeof value === "boolean" ? (value ? 1 : 0) : (value as string | null);
       });
 
-      const [, result] = await db.batch([
+      const statements = [
         db
           .prepare(
             `INSERT INTO activity_events (
@@ -572,12 +576,18 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             input.siteId,
             input.expectedUpdatedAt,
           ),
+        ...(input.previousLookJson === undefined ? [] : [db.prepare(`INSERT INTO site_theme_previous_look (site_id, look_json, saved_at)
+          SELECT id, ?, max(?, updated_at + 1) FROM sites WHERE id = ? AND updated_at = ?
+            AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+          ON CONFLICT(site_id) DO UPDATE SET look_json = excluded.look_json, saved_at = excluded.saved_at`)
+          .bind(input.previousLookJson, input.timestamp, input.siteId, input.expectedUpdatedAt, input.activity.id)]),
         db
           .prepare(
             `UPDATE sites
              SET ${updateSql}
              WHERE id = ? AND updated_at = ?
-               AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`,
+               AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+               ${input.previousLookJson === undefined ? '' : 'AND EXISTS (SELECT 1 FROM site_theme_previous_look WHERE site_id = ? AND saved_at = max(?, updated_at + 1))'}`,
           )
           .bind(
             ...updateValues,
@@ -585,30 +595,39 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             input.siteId,
             input.expectedUpdatedAt,
             input.activity.id,
+            ...(input.previousLookJson === undefined ? [] : [input.siteId, input.timestamp]),
           ),
-      ]);
+      ];
+      const result = (await db.batch(statements))[statements.length - 1];
 
       return (result.meta.changes ?? 0) === 1;
     },
     async updateNewsletterSettings(input: UpdateNewsletterSettingsInput) {
-      await client
-        .update(sites)
-        .set({ newsletterSettings: input.newsletterSettings, updatedAt: input.timestamp })
-        .where(eq(sites.id, input.siteId))
-        .run();
-
-      await client.insert(activityEvents).values({
-        id: input.activity.id,
-        siteId: input.siteId,
-        actorType: input.activity.actorType,
-        actorId: input.activity.actorId,
-        actorName: input.activity.actorName,
-        action: input.activity.action,
-        entityType: "site",
-        entityId: input.siteId,
-        summary: input.activity.summary,
-        createdAt: input.timestamp,
-      });
+      const patch = JSON.parse(input.newsletterSettings) as Record<string, unknown>;
+      const fields = Object.entries(patch);
+      const valueSql = input.patch
+        ? `json_set(coalesce(newsletter_settings, ?), ${fields.map(() => '?, json(?)').join(', ')})`
+        : '?';
+      const values = input.patch
+        ? [input.defaultNewsletterSettings ?? '{}',
+          ...fields.flatMap(([key, value]) => [`$.${key}`, JSON.stringify(value)])]
+        : [input.newsletterSettings];
+      const expectedSql = input.expectedUpdatedAt === undefined ? '' : ' AND updated_at = ?';
+      const [, result] = await db.batch([
+        db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action,
+          entity_type, entity_id, summary, created_at)
+          SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ? FROM sites
+          WHERE id = ?${expectedSql}`)
+          .bind(input.activity.id, input.siteId, input.activity.actorType, input.activity.actorId,
+            input.activity.actorName, input.activity.action, input.siteId, input.activity.summary,
+            input.timestamp, input.siteId,
+            ...(input.expectedUpdatedAt === undefined ? [] : [input.expectedUpdatedAt])),
+        db.prepare(`UPDATE sites SET newsletter_settings = ${valueSql}, updated_at = max(?, updated_at + 1)
+          WHERE id = ?${expectedSql} AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
+          .bind(...values, input.timestamp, input.siteId,
+            ...(input.expectedUpdatedAt === undefined ? [] : [input.expectedUpdatedAt]), input.activity.id),
+      ]);
+      return (result.meta.changes ?? 0) === 1;
     },
 
     // Active default-domain hostname SELECT (type='default' AND status='active').

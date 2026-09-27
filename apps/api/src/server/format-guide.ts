@@ -256,7 +256,7 @@ export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
     rendererVersion: RENDERER_VERSION,
     recommendedComponents: preset.recommendedComponents,
     presetGuidance: preset.formatGuide,
-    examples: V1_EXAMPLES,
+    examples: `${V1_EXAMPLES}\n\n=== Managing the site ===\nSettings and theme changes are live immediately. Describe the change to your person first. After a theme change, give them the blog URL and offer to revert the theme if they do not like it.`,
     syntax: SYNTAX,
     presentationOptions: {
       supportedLayouts: [...layoutCap.supportedLayouts],

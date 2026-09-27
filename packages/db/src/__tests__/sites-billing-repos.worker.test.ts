@@ -336,6 +336,69 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
   });
 });
 
+describe("shared site revision", () => {
+  const siteId = "sb-revision-site";
+  const workspaceId = "sb-revision-workspace";
+  const activity = (id: string) => ({ id, actorType: "api_key" as const, actorId: "key", actorName: "Key", action: "site.updated", summary: id });
+
+  beforeAll(async () => {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(workspaceId, "Revision", workspaceId, T, T),
+      env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(siteId, workspaceId, "Revision", siteId, T, T),
+      env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)")
+        .bind("sb-revision-domain", siteId, "sb-revision.test", T, T),
+    ]);
+  });
+
+  it("keeps the theme snapshot in the same CAS batch as its site revision", async () => {
+    const dashboard = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T,
+      site: { themeAccent: "blue" }, activity: activity("sb-revision-dashboard") });
+    expect(dashboard).toBe(true);
+    const stale = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T,
+      site: { themeAccent: "rust" }, previousLookJson: JSON.stringify({ themeAccent: null }),
+      activity: activity("sb-revision-stale-theme") });
+    expect(stale).toBe(false);
+    expect(await env.DB.prepare("SELECT saved_at FROM site_theme_previous_look WHERE site_id = ?").bind(siteId).first()).toBeNull();
+    const applied = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T + 1,
+      site: { themeAccent: "rust" }, previousLookJson: JSON.stringify({ themeAccent: "blue" }),
+      activity: activity("sb-revision-theme") });
+    expect(applied).toBe(true);
+    const snapshot = await env.DB.prepare("SELECT look_json AS lookJson, saved_at AS savedAt FROM site_theme_previous_look WHERE site_id = ?")
+      .bind(siteId).first<{ lookJson: string; savedAt: number }>();
+    expect(snapshot).toEqual({ lookJson: JSON.stringify({ themeAccent: "blue" }), savedAt: T + 2 });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(snapshot?.savedAt);
+  });
+
+  it("applies a theme change when the clock is well past the last revision", async () => {
+    const revision = (await da.sites.getSiteSettings(siteId))!.updatedAt;
+    const later = revision + 3600;
+    expect(await da.sites.updateSiteSettings({ siteId, timestamp: later, expectedUpdatedAt: revision,
+      site: { themeAccent: "violet" }, previousLookJson: JSON.stringify({ themeAccent: "rust" }),
+      activity: activity("sb-revision-theme-later") })).toBe(true);
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(later);
+    expect(await env.DB.prepare("SELECT saved_at AS savedAt FROM site_theme_previous_look WHERE site_id = ?")
+      .bind(siteId).first()).toEqual({ savedAt: later });
+  });
+
+  it("advances the revision for personalization, signup, and setup writes in the same second", async () => {
+    let revision = (await da.sites.getSiteSettings(siteId))!.updatedAt;
+    await da.sites.updateSitePersonalization({ siteId, timestamp: T, agentPreference: null, voiceSeed: [],
+      onboardingNote: null, activity: activity("sb-revision-personalization") });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    expect(await da.sites.updateNewsletterSettings({ siteId, timestamp: T, newsletterSettings: JSON.stringify({ enabled: true }),
+      activity: activity("sb-revision-signup") })).toBe(true);
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    await da.sites.completeSiteSetup({ siteId, timestamp: T, site: { name: "Revision", slug: siteId,
+      description: null, defaultSeoTitle: "Revision", defaultSeoDescription: null },
+      defaultDomainHostname: "sb-revision.test", activity: activity("sb-revision-setup") });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    expect(await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T + 2,
+      site: { name: "Stale" }, activity: activity("sb-revision-stale") })).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // sites read getters — seeded values + null for unknown ids
 // ---------------------------------------------------------------------------

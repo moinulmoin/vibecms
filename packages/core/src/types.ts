@@ -4,6 +4,8 @@ export type HumanRole = "owner" | "editor" | "viewer";
 
 export type Scope =
   | "sites:read"
+  | "site:write"
+  | "analytics:read"
   | "posts:read"
   | "posts:create"
   | "posts:update"
@@ -96,10 +98,11 @@ export type ActivityInput = {
   after?: unknown;
 };
 
-export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full", Scope[]> = {
+export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full" | "manage", Scope[]> = {
   draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
   publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
   full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "assets:delete", "activity:read"],
+  manage: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read", "site:write", "analytics:read"],
 };
 
 // Least-privilege default for legacy/custom token forms that omit a preset.

@@ -29,6 +29,7 @@ import {
   updatePostOp,
   uploadAssetOp,
   type OperationContext,
+  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import {
@@ -57,6 +58,7 @@ import {
   restorePostVersionRoute,
   updatePostRoute,
   uploadAssetRoute,
+  updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
 } from "@/server/api/routes";
 
 type ApiEnv = {
@@ -118,6 +120,7 @@ function publicAppErrorCode(error: AppError) {
     "CONFLICT",
     "RATE_LIMIT",
     "VALIDATION_ERROR",
+    "ANALYTICS_PAID_PLAN",
   ].includes(error.code)
     ? error.code
     : "INTERNAL_ERROR";
@@ -184,6 +187,15 @@ apiV1App.openapi(getSiteRoute, async (c) => {
   const site = await getSiteOp(c.get("ctx"));
   return c.json(site, 200);
 });
+
+apiV1App.openapi(updateSiteRoute, async (c) => c.json(await updateSiteOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(getThemeRoute, async (c) => c.json(await getThemeOp(c.get('ctx')), 200));
+apiV1App.openapi(updateThemeRoute, async (c) => c.json(await updateThemeOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(revertThemeRoute, async (c) => c.json(await revertThemeOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(updateVoiceRoute, async (c) => c.json(await updateVoiceOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(updateSignupFormRoute, async (c) => c.json(await updateSignupFormOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(listTagsRoute, async (c) => c.json(await listTagsOp(c.get('ctx')), 200));
+apiV1App.openapi(getAnalyticsRoute, async (c) => c.json(await getAnalyticsOp(c.get('ctx'), c.req.valid('query')), 200));
 
 apiV1App.openapi(listPostsRoute, async (c) => {
   const query = c.req.valid("query");

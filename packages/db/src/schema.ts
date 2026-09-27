@@ -69,7 +69,7 @@ export const siteVoiceProfiles = sqliteTable("site_voice_profiles", {
   voiceSummary: text("voice_summary"),
   guidelinesJson: text("guidelines_json").notNull().default("[]"),
   representativePostIdsJson: text("representative_post_ids_json").notNull().default("[]"),
-  updatedByType: text("updated_by_type", { enum: ["human"] }).notNull(),
+  updatedByType: text("updated_by_type", { enum: ["human", "agent", "api_key", "system"] }).notNull(),
   updatedById: text("updated_by_id").notNull(),
   updatedByName: text("updated_by_name").notNull(),
   ...timestamps,

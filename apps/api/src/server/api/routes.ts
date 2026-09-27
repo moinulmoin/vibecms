@@ -29,6 +29,9 @@ import {
   siteDtoSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
+  updateSiteRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, getAnalyticsRequestSchema,
+  updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
@@ -130,6 +133,53 @@ export const getSiteRoute = createRoute({
     },
     ...routeErrors(401, 403, 429, 500),
   },
+});
+
+export const updateSiteRoute = createRoute({
+  method: 'patch', path: '/site', operationId: operationsByToolName['sites.update'].operationId,
+  description: operationsByToolName['sites.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateSiteRequestSchema } } } },
+  responses: { 200: { description: 'Updated site', content: { 'application/json': { schema: updatedSiteDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const getThemeRoute = createRoute({
+  method: 'get', path: '/site/theme', operationId: operationsByToolName['sites.theme.get'].operationId,
+  description: operationsByToolName['sites.theme.get'].description, security: bearerSecurity,
+  responses: { 200: { description: 'Current theme and options', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(401, 403, 429, 500) },
+});
+export const updateThemeRoute = createRoute({
+  method: 'patch', path: '/site/theme', operationId: operationsByToolName['sites.theme.update'].operationId,
+  description: operationsByToolName['sites.theme.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateThemeRequestSchema } } } },
+  responses: { 200: { description: 'Updated theme', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const revertThemeRoute = createRoute({
+  method: 'post', path: '/site/theme/revert', operationId: operationsByToolName['sites.theme.revert'].operationId,
+  description: operationsByToolName['sites.theme.revert'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: revertThemeRequestSchema } } } },
+  responses: { 200: { description: 'Restored theme', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const updateVoiceRoute = createRoute({
+  method: 'put', path: '/site/voice', operationId: operationsByToolName['sites.voice.update'].operationId,
+  description: operationsByToolName['sites.voice.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateVoiceRequestSchema } } } },
+  responses: { 200: { description: 'Updated voice', content: { 'application/json': { schema: voiceSettingsDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+});
+export const updateSignupFormRoute = createRoute({
+  method: 'patch', path: '/site/signup-form', operationId: operationsByToolName['sites.signup_form.update'].operationId,
+  description: operationsByToolName['sites.signup_form.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateSignupFormRequestSchema } } } },
+  responses: { 200: { description: 'Updated signup form', content: { 'application/json': { schema: signupFormDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+});
+export const listTagsRoute = createRoute({
+  method: 'get', path: '/tags', operationId: operationsByToolName['tags.list'].operationId,
+  description: operationsByToolName['tags.list'].description, security: bearerSecurity,
+  responses: { 200: { description: 'Tags in use', content: { 'application/json': { schema: z.array(tagDtoSchema) } } }, ...routeErrors(401, 403, 429, 500) },
+});
+export const getAnalyticsRoute = createRoute({
+  method: 'get', path: '/analytics', operationId: operationsByToolName['analytics.get'].operationId,
+  description: operationsByToolName['analytics.get'].description, security: bearerSecurity,
+  request: { query: getAnalyticsRequestSchema },
+  responses: { 200: { description: 'Aggregate analytics', content: { 'application/json': { schema: analyticsDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 429, 500) },
 });
 
 export const listPostsRoute = createRoute({
@@ -510,6 +560,7 @@ export const previewPostRoute = createRoute({
 /** All REST operation route definitions (order is stable for spec generation). */
 export const apiV1OperationRoutes = [
   getSiteRoute,
+  updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
   listPostsRoute,
   getPostBySlugRoute,
   getPostRoute,

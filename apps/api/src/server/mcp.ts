@@ -30,7 +30,7 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete"]);
+const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete", "sites.update", "sites.theme.update", "sites.theme.revert", "sites.voice.update", "sites.signup_form.update"]);
 
 function apiUsageKind(toolName: string): ApiUsageKind {
   return writeTools.has(toolName) ? "write" : "read";
@@ -283,6 +283,8 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
       return rpcError(id, -32003, error.message, 403);
     case "BILLING_REQUIRED":
       return rpcError(id, -32004, error.message, 402);
+    case "ANALYTICS_PAID_PLAN":
+      return rpcError(id, -32004, error.message, 402, undefined, { code: error.code });
     case "NOT_FOUND":
       return rpcError(id, -32005, error.message, 404);
     case "CONFLICT":

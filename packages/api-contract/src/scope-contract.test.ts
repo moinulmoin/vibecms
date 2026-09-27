@@ -25,4 +25,18 @@ describe("agent scope contract", () => {
     expect(operationsByToolName['assets.update'].requiredScope).toBe('assets:write');
     expect(operationsByToolName['activity.list'].requestSchema.parse({ offset: 50 })).toMatchObject({ offset: 50 });
   });
+
+  it('gates every site management operation behind Manage-only scopes', () => {
+    const names = ['sites.update', 'sites.theme.get', 'sites.theme.update', 'sites.theme.revert', 'sites.voice.update', 'sites.signup_form.update', 'tags.list'];
+    for (const name of names) {
+      const scope = operationsByToolName[name as keyof typeof operationsByToolName].requiredScope;
+      expect(scope).toBe('site:write');
+      expect(AGENT_TOKEN_PRESETS.draft).not.toContain(scope);
+      expect(AGENT_TOKEN_PRESETS.publish).not.toContain(scope);
+      expect(AGENT_TOKEN_PRESETS.manage).toContain(scope);
+    }
+    expect(operationsByToolName['analytics.get'].requiredScope).toBe('analytics:read');
+    expect(AGENT_TOKEN_PRESETS.manage).toEqual(expect.arrayContaining(['posts:archive', 'analytics:read']));
+    expect(AGENT_TOKEN_PRESETS.full).not.toContain('site:write');
+  });
 });

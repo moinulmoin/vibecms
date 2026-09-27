@@ -21,4 +21,6 @@ Images: upload with assets.upload (base64, max 10 MB, jpeg/png/webp/gif), then r
 
 Version history: posts.versions.list returns all saved versions (newest first) with actorName and changeSummary. posts.versions.get fetches the full Markdown for any version. posts.versions.restore requires expectedVersionNumber and replaces the current private tip content with the chosen version - it is content-only and never re-publishes, and it creates a new version entry marked post.restored. Requires posts:update scope.
 
+Managing the site: A Manage key can change site settings, links, theme, voice, and signup form, and read tags and aggregate analytics. Settings and theme changes are live immediately. Describe the change to your person first. After a theme change, give them the blog URL and offer to revert the theme if they do not like it. Billing, keys, and deleting the blog or account stay with the person.
+
 Limits and errors: calls share a workspace budget; on a rate-limit error, wait for the reset and retry. When a tool result is marked as an error, read its message and fix your input before retrying (for example, choose a different slug if one is already in use, or correct a field that failed validation).`;
