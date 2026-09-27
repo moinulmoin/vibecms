@@ -8,4 +8,11 @@ describe("public worker observability", () => {
     expect(config).toMatch(/"traces":\s*\{\s*"enabled":\s*false/);
     expect(config).not.toMatch(/"invocation_logs":\s*true/);
   });
+
+  it("keeps invocation logs off on the API worker in every environment", async () => {
+    const api = (await import("../../../api/wrangler.jsonc?raw")).default.replace(/^\s*\/\/.*$/gm, "");
+    const blocks = api.match(/"observability":\s*\{[^}]*\{[^}]*\}[^}]*\}/g) ?? [];
+    expect(blocks.length).toBe(3);
+    for (const block of blocks) expect(block).toMatch(/"invocation_logs":\s*false/);
+  });
 });

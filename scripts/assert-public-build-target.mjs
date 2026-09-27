@@ -19,7 +19,7 @@ const problems = [];
 if (built.name !== expectedWorker) problems.push(`Worker "${built.name}", expected "${expectedWorker}"`);
 if (expectedDatabase) {
   if (!expectedDb) problems.push(`wrangler.jsonc has no "${expectedDatabase}" database for env "${env || "(top level)"}"`);
-  else if (builtDbs.length !== 1 || builtDbs[0].database_name !== expectedDatabase || builtDbs[0].database_id !== expectedDb.database_id) {
+  else if (builtDbs.length !== 1 || builtDbs[0].database_name !== expectedDatabase || builtDbs[0].database_id !== expectedDb.database_id || builtDbs[0].binding !== expectedDb.binding) {
     problems.push(`D1 ${JSON.stringify(builtDbs.map((db) => [db.database_name, db.database_id]))}, expected [["${expectedDatabase}","${expectedDb.database_id}"]]`);
   }
 }

@@ -16,7 +16,9 @@ public content (migration 0018 onward), so the first deploy is a cutover.
    - yearly: **$71 off** → $79/year
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
    `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`.
-4. Check: `POLAR_SERVER=production POLAR_ACCESS_TOKEN=… pnpm preflight:pricing`.
+4. Check now (standalone mode reads your shell, so export all four ids):
+   `POLAR_SERVER=production POLAR_ACCESS_TOKEN=… POLAR_MONTHLY_PRODUCT_ID=… POLAR_YEARLY_PRODUCT_ID=… POLAR_LAUNCH_DISCOUNT_MONTHLY_ID=… POLAR_LAUNCH_DISCOUNT_YEARLY_ID=… pnpm preflight:pricing`.
+   The deploy's preflight reads the ids from `wrangler.jsonc`, not your shell.
    Preflight refuses to deploy while the site advertises launch pricing and
    the products or discounts don't produce exactly those prices.
 
@@ -33,8 +35,8 @@ change, the acknowledgement stops matching.
 ### 3. Write freeze
 
 The old API can't be paused from the new code. For the ~2 minutes between the
-migrations and the new API deploy, **no one may publish or edit on
-production**: pause agents that use production keys and don't use the
+migrations and the new API deploy (and across any failed attempts until the
+cutover completes), **no one may publish or edit on production**: pause agents that use production keys and don't use the
 dashboard. The deploy only starts with `CONFIRM_WRITE_FREEZE=1`.
 
 ### 4. Deploy
@@ -64,5 +66,6 @@ scheduled post, and a checkout on both plans (the first charge should be $9 / $7
 - The write freeze is manual (see above).
 - A checkout retried before the first one completes can leave an extra open
   checkout link. Polar expires unused checkouts; no charge is made.
-- The public Worker records no request URLs (preview links carry their token in
-  the path). The API Worker's request and error logs redact `/preview/…`.
+- Neither Worker keeps Cloudflare invocation logs (they record raw URLs, and
+  preview links carry their token in the path). Our own API request and error
+  logs redact `/preview/…`.

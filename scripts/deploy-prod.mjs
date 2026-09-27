@@ -70,6 +70,10 @@ if (process.argv.includes("--verify-pins")) {
   process.exit(0);
 }
 
+// Only the public build may see CLOUDFLARE_ENV; an inherited value would
+// retarget other steps.
+delete process.env.CLOUDFLARE_ENV;
+
 node("Confirm content write freeze", "scripts/assert-write-freeze.mjs");
 run("Production preflight", ["production:preflight"]);
 run("Backup production D1", ["production:backup"]);
@@ -84,6 +88,13 @@ const firstCutover = /0018_post_published_version/.test(pending);
 console.log(firstCutover ? "First cutover to versioned posts: will pin live versions before the API deploys." : "Versioned model already live: no pin step.");
 
 run("Apply production migrations", [...API, "d1", "migrations", "apply", "DB", ...REMOTE_PROD]);
+// Wrangler exits 0 when its confirmation prompt is declined; never deploy
+// Workers onto a schema that didn't migrate.
+const remaining = run("Confirm no migrations are still pending", ["-s", ...API, "d1", "migrations", "list", "DB", ...REMOTE_PROD], { capture: true });
+if (!/No migrations to apply/i.test(remaining)) {
+  console.error("✖ Production migrations are still pending (was the confirmation declined?). Nothing was deployed.");
+  process.exit(1);
+}
 run("Deploy OG worker", ["--filter", "@vc/og", "exec", "wrangler", "deploy", "--env", "production"]);
 run("Deploy public worker", ["--filter", "@vc/public", "exec", "wrangler", "deploy", "--config", "dist/server/wrangler.json"]);
 if (firstCutover) {

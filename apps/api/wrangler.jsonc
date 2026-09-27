@@ -5,9 +5,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/index.ts",
   "upload_source_maps": true,
+  // Our structured request logs redact preview tokens; Cloudflare's
+  // invocation logs would record raw URLs, so they stay off.
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 0.1
+    "head_sampling_rate": 0.1,
+    "logs": { "enabled": true, "invocation_logs": false }
   },
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
@@ -60,9 +63,12 @@
   "env": {
     "development": {
       "name": "vibecms-api-dev",
+      // Our structured request logs redact preview tokens; Cloudflare's
+      // invocation logs would record raw URLs, so they stay off.
       "observability": {
         "enabled": true,
-        "head_sampling_rate": 0.1
+        "head_sampling_rate": 0.1,
+        "logs": { "enabled": true, "invocation_logs": false }
       },
       "version_metadata": {
         "binding": "CF_VERSION_METADATA"
@@ -113,9 +119,12 @@
     },
     "production": {
       "name": "vibecms-prod",
+      // Our structured request logs redact preview tokens; Cloudflare's
+      // invocation logs would record raw URLs, so they stay off.
       "observability": {
         "enabled": true,
-        "head_sampling_rate": 0.1
+        "head_sampling_rate": 0.1,
+        "logs": { "enabled": true, "invocation_logs": false }
       },
       "version_metadata": {
         "binding": "CF_VERSION_METADATA"

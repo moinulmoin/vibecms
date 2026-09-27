@@ -27,7 +27,8 @@ function importedValues(frontmatter: string): Set<string> {
 
 function missingHelpers(source: string, names: string[]): string[] {
   // Comments can't bind anything at runtime.
-  const frontmatter = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // Trailing comments too, but not "//" inside URLs like "https://".
+  const frontmatter = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
   const bound = importedValues(frontmatter);
   return names.filter((name) =>
     new RegExp(`\\b${name}\\s*\\(`).test(frontmatter)
@@ -43,6 +44,7 @@ describe("page frontmatter imports", () => {
     expect(missingHelpers(`import { type markdownNotFound } from "x";\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual(["markdownNotFound"]);
     expect(missingHelpers(`import { markdownNotFound as notFound } from "x";\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual(["markdownNotFound"]);
     expect(missingHelpers(`// const markdownNotFound = () => null;\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual(["markdownNotFound"]);
+    expect(missingHelpers(`const other = 1; // const markdownNotFound = () => null;\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual(["markdownNotFound"]);
     expect(missingHelpers(`/* import { markdownNotFound } from "x"; */\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual(["markdownNotFound"]);
     expect(missingHelpers(`import { markdownNotFound } from "x";\nmarkdownNotFound();`, ["markdownNotFound"])).toEqual([]);
   });
