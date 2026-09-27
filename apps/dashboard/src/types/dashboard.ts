@@ -83,6 +83,7 @@ export type DashboardData = {
     status: Post['status']
     updatedAt: number
     publishedAt: number | null
+    scheduledPublish?: Post['scheduledPublish']
   }>
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
   recentDrafts: Array<{
@@ -345,6 +346,7 @@ export type PostEditorPageLoad = {
   site: EditorSiteInfo | null
   /** Public origin of the blog (null when no active hostname), for open-live links. */
   publicBaseUrl: string | null
+  previewUrl?: string | null
   currentVersionNumber: number | null
   /** Latest saved version (newest first), for the review strip's actor/time line. */
   latestVersion: PostVersionSummary | null
@@ -396,6 +398,7 @@ export type DashboardPostSummary = {
    * (user.name or api key name; null when neither matches). */
   updatedByType: string | null
   updatedByName: string | null
+  scheduledPublish?: Post['scheduledPublish']
 }
 
 export type ApiKeyMutationResult =

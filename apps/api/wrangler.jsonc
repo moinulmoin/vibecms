@@ -13,7 +13,7 @@
     "binding": "CF_VERSION_METADATA"
   },
   "triggers": {
-    "crons": ["17 2 * * *", "*/15 * * * *"]
+    "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
   },
   "d1_databases": [
     {
@@ -34,7 +34,7 @@
     "directory": "../dashboard/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
   },
   "routes": [
     { "pattern": "app.basedui.dev", "custom_domain": true },
@@ -69,13 +69,13 @@
       },
       "send_email": [{ "name": "EMAIL" }],
       "triggers": {
-        "crons": ["17 2 * * *", "*/15 * * * *"]
+        "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
       },
       "assets": {
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
       },
       "d1_databases": [
         {
@@ -122,13 +122,13 @@
       },
       "send_email": [{ "name": "EMAIL" }],
       "triggers": {
-        "crons": ["17 2 * * *", "*/15 * * * *"]
+        "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
       },
       "assets": {
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
       },
       "d1_databases": [
         {

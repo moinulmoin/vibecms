@@ -22,11 +22,11 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 2. **Load live formatting guidance.** Call `posts.format_guide` without a preset override unless the user explicitly requests an alternate presentation target.
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
 4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update` with `expectedVersionNumber` set to the current tip from `posts.get` / `posts.versions.list`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
-5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number.
+5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number. Send the person the `previewUrl` returned by `posts.create` / `posts.update` so they can see the saved draft on their own blog; never construct one.
 6. **Bind the approval request.** Call `posts.versions.list`. Identify the newest `versionNumber`, then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
 7. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.
 8. **Recheck.** Immediately before publishing, call `posts.versions.list` again. If the newest version changed, re-read, re-preview, and request fresh approval.
-9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`.
+9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`. If the person asked for a later time, call `posts.schedule` with `{ postId, versionNumber, publishAt }` instead (same approval rule); `posts.unschedule` cancels it.
 10. **Report evidence.** Return the exact title, published status, and tool-returned `url`. If `url` is null, say that; do not construct one.
 
 ## Draft vs live
@@ -60,7 +60,7 @@ The server is authoritative, but the current capability groups are:
 - Read/search/preview/format/version history: `posts:read`
 - Create drafts: `posts:create`
 - Update drafts or content and restore versions: `posts:update`
-- Publish: `posts:publish`
+- Publish or schedule: `posts:publish`
 - Archive: `posts:archive`
 - Upload/list/get assets: `assets:write`
 - Delete unused assets: `assets:delete`

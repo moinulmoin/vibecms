@@ -44,6 +44,15 @@ describe('DashboardOverview recent-post navigation', () => {
       params: { postId: 'post_123' },
     })
   })
+
+  it('preserves a scheduled publication in the overview response', () => {
+    const schedule = { versionNumber: 2, publishAt: 1_800_000_000, status: 'pending' as const, error: null }
+    const recentPosts = dashboardDataSchema.shape.recentPosts.parse([{
+      id: 'post-2', title: 'Later', slug: 'later', status: 'draft', updatedAt: 1,
+      publishedAt: null, scheduledPublish: schedule,
+    }])
+    expect(narrowDashboardData({ ...baseResponse, recentPosts }).recentPosts[0].scheduledPublish).toEqual(schedule)
+  })
 })
 
 describe('DashboardOverview entitlement status', () => {

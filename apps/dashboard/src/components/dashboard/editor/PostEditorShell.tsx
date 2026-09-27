@@ -15,6 +15,8 @@ import {
   deleteArchivedPostMutation,
   loadPostEditorPage,
   publishPostMutation,
+  schedulePostMutation,
+  unschedulePostMutation,
   restorePostVersionFn,
   updatePostMutation,
 } from '~/lib/api-client'
@@ -30,6 +32,7 @@ import { PostMetadataRail, type EditorMetadata } from './PostMetadataRail'
 import { parseTags } from './post-fields'
 import { PreviewPane } from './PreviewPane'
 import { PublishDialog } from './PublishDialog'
+import { scheduledLabel } from './schedule-label'
 import { ReviewView } from './ReviewView'
 import { uploadEditorMedia } from './media-upload'
 import { useAutosave } from './use-autosave'
@@ -215,6 +218,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [site, setSite] = useState<EditorSiteInfo | null>(null)
   const [presetId, setPresetId] = useState('minimal')
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
   const [redirectSlugs, setRedirectSlugs] = useState<string[]>([])
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
@@ -308,6 +312,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     setSite(result.site)
     setPresetId(nextPreset)
     setPublicBaseUrl(result.publicBaseUrl)
+    setPreviewUrl(result.previewUrl ?? null)
     setLatestVersion(result.latestVersion)
     setRedirectSlugs(result.redirectSlugs ?? [])
     setVersion(result.currentVersionNumber)
@@ -541,6 +546,53 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       } else {
         setPublishError(friendlyError(error))
       }
+    } finally {
+      setPublishPending(false)
+    }
+  }
+
+  async function handleSchedule(publishAt: number) {
+    const postIdNow = activePostIdRef.current
+    const approvedVersion = publishVersion
+    if (!postIdNow || approvedVersion == null) return
+    if (serializedRef.current !== dirtyBaselineRef.current || versionRef.current !== approvedVersion) {
+      setPublishError('The post changed after you opened this. Close and review the latest version.')
+      return
+    }
+    setPublishPending(true)
+    setPublishError(null)
+    try {
+      const result = await schedulePostMutation({ postId: postIdNow, versionNumber: approvedVersion, publishAt })
+      if (result.kind !== 'ok') throw new PostActionError(result.code, 'publish')
+      applyServerPage(await loadPostEditorPage({ postId: postIdNow }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['posts'] }),
+        queryClient.invalidateQueries({ queryKey: ['overview'] }),
+      ])
+      setPublishOpen(false)
+      setActionSuccess(`v${approvedVersion} scheduled.`)
+    } catch (error) {
+      setPublishError(friendlyError(error))
+    } finally {
+      setPublishPending(false)
+    }
+  }
+
+  async function handleUnschedule() {
+    const postIdNow = activePostIdRef.current
+    if (!postIdNow) return
+    setPublishPending(true)
+    try {
+      const result = await unschedulePostMutation({ postId: postIdNow })
+      if (result.kind !== 'ok') throw new PostActionError(result.code, 'publish')
+      applyServerPage(await loadPostEditorPage({ postId: postIdNow }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['posts'] }),
+        queryClient.invalidateQueries({ queryKey: ['overview'] }),
+      ])
+      setActionSuccess('Scheduled publish canceled.')
+    } catch (error) {
+      setActionError(friendlyError(error))
     } finally {
       setPublishPending(false)
     }
@@ -924,6 +976,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         pending={publishPending}
         error={publishError}
         onConfirm={() => void handlePublish()}
+        onSchedule={(publishAt) => void handleSchedule(publishAt)}
       />
       <h1 className="sr-only">{activePostId ? `Edit ${metadata.title || 'post'}` : 'New post'}</h1>
 
@@ -934,10 +987,18 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         <span className="flex min-w-0 items-center gap-2 text-sm">
           <span aria-hidden className={`size-2 shrink-0 rounded-full ${liveState === 'live' ? 'bg-brand-bright' : liveState === 'unpublished' ? 'bg-warning' : 'bg-muted-foreground/40'}`} />
           <span className="text-foreground">{STATE_LABEL[liveState]}</span>
+          {post?.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <span className="text-warning">· {scheduledLabel(post.scheduledPublish.publishAt)}</span> : null}
+          {post?.scheduledPublish?.status === 'failed' ? <span className="text-destructive" title={post.scheduledPublish.error ?? undefined}>· Schedule failed: {post.scheduledPublish.error}</span> : null}
           <span role="status" className={`hidden truncate sm:inline ${autosave.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>· {autosaveLabel}</span>
           {autosave.status === 'error' ? <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={autosave.retry}>Retry</Button> : null}
         </span>
         <div className="ms-auto flex flex-wrap items-center gap-1.5">
+          {previewUrl && activePostId ? <>
+            <Button type="button" variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(previewUrl)}>Copy preview link</Button>
+            <Button asChild variant="ghost" size="sm"><a href={previewUrl} target="_blank" rel="noreferrer">Open preview</a></Button>
+          </> : null}
+          {post?.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status) ?
+            <Button type="button" variant="ghost" size="sm" disabled={publishPending} onClick={() => void handleUnschedule()}>Unschedule</Button> : null}
           <Segmented label="View" value={effectiveView} onChange={selectView} options={viewOptions} />
           {post?.status === 'published' && liveUrl ? (
             <Button asChild variant="ghost" size="sm">

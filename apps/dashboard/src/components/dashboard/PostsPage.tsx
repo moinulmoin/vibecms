@@ -4,7 +4,8 @@ import { Archive, Bot, ExternalLink, FileText, Inbox, Pencil, Plus, RefreshCw, R
 import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary } from '~/types/dashboard'
-import { archivePostMutation, deleteArchivedPostMutation, loadPostsPage, unarchivePostMutation } from '~/lib/api-client'
+import { archivePostMutation, deleteArchivedPostMutation, loadPostsPage, unarchivePostMutation, unschedulePostMutation } from '~/lib/api-client'
+import { scheduledLabel } from './editor/schedule-label'
 import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, PageTabs, StatusBadge } from '~/components/dashboard/blocks'
 import { Tabs } from '~/components/ui/tabs'
@@ -117,7 +118,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     })
   }
 
-  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore' | 'delete') {
+  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore' | 'delete' | 'unschedule') {
     const key = `${post.id}:${action}`
     setRowPending(key)
     setRowError(null)
@@ -127,6 +128,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
         ? await archivePostMutation({ postId: post.id })
         : action === 'restore'
           ? await unarchivePostMutation({ postId: post.id })
+          : action === 'unschedule' ? await unschedulePostMutation({ postId: post.id })
           : await deleteArchivedPostMutation({ postId: post.id })
       if (result.kind === 'error') throw new Error(result.code)
       toast(
@@ -134,14 +136,17 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
           ? { variant: 'success', title: 'Post archived', message: `“${post.title}” is hidden from your blog. History is kept.` }
           : action === 'restore'
             ? { variant: 'success', title: 'Restored to draft', message: `“${post.title}” is a draft again.` }
+            : action === 'unschedule'
+              ? { variant: 'success', title: 'Schedule canceled', message: `“${post.title}” will not publish automatically.` }
             : { variant: 'success', title: 'Post deleted', message: `“${post.title}” was permanently deleted.` },
       )
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['posts'] }),
         queryClient.invalidateQueries({ queryKey: ['overview'] }),
       ])
-    } catch {
-      setRowError({ postId: post.id, message: `Could not ${action} this post.`, retry })
+    } catch (error) {
+      setRowError({ postId: post.id, message: error instanceof Error && error.message === 'Already publishing'
+        ? 'Already publishing' : `Could not ${action} this post.`, retry })
     } finally {
       setRowPending(null)
     }
@@ -185,7 +190,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
           <Input
             type="search"
             aria-label="Search posts"
-            placeholder="Search title, slug, excerpt"
+            placeholder="Search posts"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.currentTarget.value)}
             onKeyDown={(event) => {
@@ -228,6 +233,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 onArchive={() => runRowMutation(post, 'archive')}
                 onRestore={() => void runRowMutation(post, 'restore')}
                 onDelete={() => runRowMutation(post, 'delete')}
+                onUnschedule={() => runRowMutation(post, 'unschedule')}
                 showDelete={status === 'archived'}
                 me={me}
               />
@@ -295,6 +301,7 @@ function PostRow({
   onArchive,
   onRestore,
   onDelete,
+  onUnschedule,
   showDelete,
   me,
 }: {
@@ -307,6 +314,7 @@ function PostRow({
   onArchive: () => Promise<void>
   onRestore: () => void
   onDelete: () => Promise<void>
+  onUnschedule: () => Promise<void>
   showDelete: boolean
 }) {
   const review = reviewLabel(post)
@@ -338,6 +346,8 @@ function PostRow({
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 md:contents">
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge status={post.status} className="w-fit" />
+          {post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <StatusBadge status="pending" label={scheduledLabel(post.scheduledPublish.publishAt)} className="w-fit normal-case" /> : null}
+          {post.scheduledPublish?.status === 'failed' ? <span className="text-xs text-destructive" title={post.scheduledPublish.error ?? undefined}>Schedule failed: {post.scheduledPublish.error}</span> : null}
           {review && hasPendingChanges(post) ? (
             <StatusBadge status="pending" label="Changes" className="w-fit normal-case" />
           ) : review ? (
@@ -361,6 +371,8 @@ function PostRow({
       </div>
 
       <div className="flex items-center justify-end gap-1">
+        {canEdit && post.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status) ?
+          <Button type="button" size="sm" variant="ghost" disabled={Boolean(pendingKey)} onClick={() => void onUnschedule()}>Unschedule</Button> : null}
         {review && canEdit ? (
           <Button asChild size="sm" variant="outline">
             <Link {...editorLink}>Review</Link>

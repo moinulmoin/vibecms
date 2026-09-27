@@ -21,6 +21,7 @@ export type Actor =
 
 export type PostStatus = "draft" | "published" | "archived";
 export type BillingStatus = "active" | "past_due" | "canceled" | "unpaid" | "none";
+export type ScheduledPublish = { versionNumber: number; publishAt: number; status: "pending" | "processing" | "published" | "failed"; error?: string | null };
 
 export type Post = {
   id: string;
@@ -44,6 +45,7 @@ export type Post = {
   currentVersionNumber: number;
   /** Pinned public version; null until first successful publish. */
   publishedVersionNumber: number | null;
+  scheduledPublish?: ScheduledPublish | null;
 };
 export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation" | "currentVersionNumber" | "publishedVersionNumber">;
 

@@ -31,6 +31,8 @@ import {
   loadSetupPage,
   parsePostPayload,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   removeCustomDomainForApp,
   restorePostVersionForApp,
   revokeApiKeyForApp,
@@ -382,6 +384,26 @@ dashboardRoutes.post('/posts/publish', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ postId: string; expectedVersionNumber: number }>()
   return c.json(await publishPostForApp(auth.app, body.postId, body.expectedVersionNumber))
+})
+
+dashboardRoutes.post('/posts/schedule', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId: string; versionNumber: number; publishAt: number }>()
+  return c.json(await schedulePostForApp(auth.app, body.postId, body.versionNumber, body.publishAt))
+})
+
+dashboardRoutes.post('/posts/unschedule', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId: string }>()
+  const result = await unschedulePostForApp(auth.app, body.postId)
+  if (result.code === 'already_publishing') return c.json({ error: { code: 'CONFLICT', message: 'Already publishing' } }, 409)
+  return c.json(result)
 })
 
 dashboardRoutes.post('/posts/archive', async (c) => {

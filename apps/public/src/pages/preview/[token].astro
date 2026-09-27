@@ -1,0 +1,19 @@
+---
+import Base from '../../layouts/Base.astro';
+import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from '../../components/PublicBlogPages';
+import { loadPrivatePreview, previewNotFound, previewResponseHeaders } from '../../server/preview';
+import { publicDb, publicRuntimeEnv } from '../../server/runtime';
+
+for (const [name, value] of Object.entries(previewResponseHeaders)) Astro.response.headers.set(name, value);
+const token = Astro.params.token ?? '';
+const preview = await loadPrivatePreview(publicDb(Astro), Astro.request, token, publicRuntimeEnv(Astro));
+if (!preview) return previewNotFound();
+const { themeAttrs, fontId } = siteDocumentProps(preview.data.site);
+const highlighter = await loadPostHighlighter(preview.data.post.content_markdown);
+---
+<Base title={`${preview.data.post.title} · Preview`} robots="noindex, nofollow" themeAttrs={themeAttrs} fontId={fontId} faviconAssetId={preview.data.site.favicon_asset_id}>
+  <div role="status" style="position:sticky;top:0;z-index:20;padding:.75rem 1rem;text-align:center;background:#272727;color:#fff;font:600 .875rem/1.5 system-ui,sans-serif">
+    Preview — not published · v{preview.versionNumber}
+  </div>
+  <PublicBlogPostView data={preview.data} highlighter={highlighter} />
+</Base>

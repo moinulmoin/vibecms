@@ -6,6 +6,7 @@ import type { DashboardPostSummary } from '~/types/dashboard'
 
 const mock = vi.hoisted(() => ({
   deletePost: vi.fn(async () => ({ kind: 'ok', code: 'post_deleted' })),
+  unschedulePost: vi.fn(async () => ({ kind: 'ok', code: 'post_unscheduled' })),
   navigate: vi.fn(),
   invalidate: vi.fn(async () => undefined),
   status: 'archived',
@@ -27,6 +28,7 @@ vi.mock('~/lib/api-client', () => ({
   deleteArchivedPostMutation: mock.deletePost,
   loadPostsPage: vi.fn(),
   unarchivePostMutation: vi.fn(),
+  unschedulePostMutation: mock.unschedulePost,
 }))
 vi.mock('~/components/Toaster', () => ({ useToast: () => ({ toast: vi.fn() }) }))
 
@@ -65,6 +67,32 @@ describe('PostsPage permanent delete', () => {
     expect(mock.deletePost).toHaveBeenCalledWith({ postId: 'post-1' })
     await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
     expect(deleteButton()).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+
+  it('shows a local scheduled badge and lets the owner unschedule', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    mock.posts = [{ ...post('draft'), scheduledPublish: { versionNumber: 1, publishAt: 1_800_000_000, status: 'pending' } }]
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    expect(container.textContent).toContain('Scheduled ·')
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Unschedule'))
+    await act(async () => button?.click())
+    expect(mock.unschedulePost).toHaveBeenCalledWith({ postId: 'post-1' })
+    await act(async () => root.unmount())
+  })
+
+  it('shows Already publishing when unschedule loses the claim race', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    mock.posts = [{ ...post('draft'), scheduledPublish: { versionNumber: 1, publishAt: 1_800_000_000, status: 'pending' } }]
+    mock.unschedulePost.mockRejectedValueOnce(new Error('Already publishing'))
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Unschedule'))
+    await act(async () => button?.click())
+    expect(container.textContent).toContain('Already publishing')
     await act(async () => root.unmount())
   })
 })

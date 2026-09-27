@@ -9,6 +9,7 @@ import { activitySummary, isSystemActor } from '~/lib/activity-copy'
 import type { DashboardData } from '~/types/dashboard'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
+import { scheduledLabel } from './editor/schedule-label'
 
 type DashboardApiResponse = z.infer<typeof dashboardDataSchema>
 type DashboardPostStatus = DashboardData['recentPosts'][number]['status']
@@ -122,8 +123,8 @@ function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiU
       title="Agent usage"
       description={
         usage.enforced
-          ? `API and MCP requests this month. Resets ${formatDate(usage.calls.month.resetsAt)}.`
-          : 'API and MCP requests are not limited on a self-hosted install.'
+          ? `Requests from your agents this month. Resets ${formatDate(usage.calls.month.resetsAt)}.`
+          : 'Agent requests are not limited on a self-hosted install.'
       }
       action={canEdit ? (
         <Button asChild variant="ghost" size="sm">
@@ -399,6 +400,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
                     </Link>
                   ) : <span className="truncate font-medium text-foreground">{post.title}</span>}
                   <StatusBadge status={post.status} className="w-fit" />
+                  {post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <span className="text-xs text-warning">{scheduledLabel(post.scheduledPublish.publishAt)}</span> : null}
+                  {post.scheduledPublish?.status === 'failed' ? <span className="text-xs text-destructive" title={post.scheduledPublish.error ?? undefined}>Schedule failed</span> : null}
                   <span className="text-right text-sm tabular-nums text-muted-foreground" title={formatDateTime(post.updatedAt)}>
                     {formatRelative(post.updatedAt)}
                   </span>

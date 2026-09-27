@@ -25,6 +25,7 @@ import {
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
 import { resolvePublicByline, type PublicByline } from "../lib/byline";
+import { markdownNotFound } from "../lib/agent-discovery";
 
 export { isMarketingHost } from "./public-blog-data";
 
@@ -51,24 +52,23 @@ export function isReadableTenantPostSlug(slug: string | undefined): slug is stri
   return !!slug && (!RESERVED_ROOT_SLUGS.has(slug) || slug === "docs" || slug === "internal");
 }
 
-function notFound() {
-  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
-}
-
 export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv): Promise<Response | null> {
   const target = await getPublishedSlugRedirect(db, site.id, slug);
   if (!target) return null;
   const url = new URL(request.url);
-  const markdown = url.pathname.endsWith(".md");
+  // `?format=md` asks for the Markdown twin; send it to /new.md and keep any
+  // other query parameters.
+  const markdown = url.pathname.endsWith(".md") || url.searchParams.get("format") === "md";
+  url.searchParams.delete("format");
   url.pathname = `/${target}${markdown ? ".md" : ""}`;
-  url.search = "";
-  return new Response(null, {
-    status: 301,
-    headers: {
-      location: url.href,
-      ...publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]),
-    },
-  });
+  const headers = new Headers(publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]));
+  headers.set("location", url.href);
+  // Browsers must recheck: a remembered 301 would loop once a rename is
+  // reversed. The CDN may keep it briefly; site-tag purges clear it there.
+  headers.set("cache-control", "no-cache");
+  headers.set("cdn-cache-control", "public, max-age=300");
+  headers.delete("content-type");
+  return new Response(null, { status: 301, headers });
 }
 
 export function markdownRequested(request: Request) {
@@ -120,9 +120,10 @@ export function publicHtmlResponseHeaders(
   const indexable = isPublicBlogIndexable(site, env);
   const headers: Record<string, string> = {
     "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
-    "content-signal": indexable ? "ai-train=yes, search=yes, ai-input=yes" : "ai-train=no, search=no, ai-input=yes",
+    // Tenant writing is owner content; training is opt-out by default until the owner can choose.
+    "content-signal": `ai-train=no, search=${indexable ? "yes" : "no"}, ai-input=yes`,
+    vary: "Accept",
   };
-  if (options?.markdownAlternateHref) headers.vary = "Accept";
   if (!indexable) headers["x-robots-tag"] = "noindex, nofollow";
   if (cacheTags?.length) headers["cache-tag"] = cacheTags.join(",");
   if (options?.markdownAlternateHref) {
@@ -165,7 +166,7 @@ async function publicPostMarkdownResponse(
   env: PublicRuntimeEnv,
 ) {
   const post = await getPublishedPost(db, site.id, slug);
-  if (!post) return await publicPostRedirect(db, site, slug, request, env) ?? notFound();
+  if (!post) return await publicPostRedirect(db, site, slug, request, env) ?? markdownNotFound();
   const origin = publicOrigin(request.url);
   const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, origin).href;
   const markdownHref = new URL(`${basePath}/${slug}.md`, origin).href;
@@ -199,7 +200,7 @@ export async function tryPublicPostMarkdownResponse(
 ): Promise<Response | null> {
   const { slug, markdown } = stripMarkdownSuffix(rawSlug);
   if (!markdown && !markdownRequested(request)) return null;
-  if (!slug) return notFound();
+  if (!slug) return markdownNotFound();
 
   const cached = await matchArticleResponseCache(request.url, "markdown");
   if (
@@ -235,7 +236,7 @@ export async function handlePublicPostByHostGet(
   if (!markdown && !markdownRequested(request)) return null;
 
   const site = await resolveSite(request, db, env);
-  if (!site) return notFound();
+  if (!site) return markdownNotFound();
   return tryPublicPostMarkdownResponse(db, request, site, "", slug, env);
 }
 

@@ -18,6 +18,7 @@ import { getCoreBillingStatusForSite } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from '@/server/post-live-purge'
 import { assertPostImagesPublishable } from '@/server/publishing-images'
+import { schedulePostOp, unschedulePostOp } from '@/server/operations'
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
 
@@ -137,6 +138,28 @@ export async function publishPostForApp(
     return { kind: 'ok', code: 'post_published', postId }
   } catch (error) {
     if (error instanceof ConflictError) return { kind: 'error', code: 'version_conflict', postId }
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function schedulePostForApp(app: AppUserContext, postId: string, versionNumber: number, publishAt: number): Promise<MutationResult> {
+  try {
+    await schedulePostOp({ actor: app.actor, siteId: app.siteId, workspaceId: app.workspaceId, tokenId: '' },
+      { postId, versionNumber, publishAt })
+    return { kind: 'ok', code: 'post_scheduled', postId, versionNumber }
+  } catch (error) {
+    return { kind: 'error', code: postMutationErrorCode(error), postId }
+  }
+}
+
+export async function unschedulePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
+  try {
+    await unschedulePostOp({ actor: app.actor, siteId: app.siteId, workspaceId: app.workspaceId, tokenId: '' }, { postId })
+    return { kind: 'ok', code: 'post_unscheduled', postId }
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'CONFLICT' && error.message === 'Already publishing') {
+      return { kind: 'error', code: 'already_publishing', postId }
+    }
     return { kind: 'error', code: postMutationErrorCode(error), postId }
   }
 }

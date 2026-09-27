@@ -457,6 +457,14 @@ export function publishPostMutation(data: { postId: string; expectedVersionNumbe
   return dashboardPost<MutationResult>('/api/dashboard/posts/publish', data)
 }
 
+export function schedulePostMutation(data: { postId: string; versionNumber: number; publishAt: number }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/schedule', data)
+}
+
+export function unschedulePostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/unschedule', data)
+}
+
 export function archivePostMutation(data: { postId: string }) {
   return dashboardPost<MutationResult>('/api/dashboard/posts/archive', data)
 }

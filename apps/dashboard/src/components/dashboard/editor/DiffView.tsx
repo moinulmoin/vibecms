@@ -83,7 +83,7 @@ export function metadataChanges(before: PostSnapshot, after: PostSnapshot, asset
   }
   pushText('SEO title', before.seoTitle, after.seoTitle)
   pushText('SEO description', before.seoDescription, after.seoDescription)
-  pushText('Canonical URL', before.canonicalUrl, after.canonicalUrl, true)
+  pushText('Original URL', before.canonicalUrl, after.canonicalUrl, true)
   if ((before.layout ?? '') !== (after.layout ?? '') || Boolean(before.toc) !== Boolean(after.toc)) {
     const render = (snapshot: PostSnapshot) => (
       <span>{snapshot.layout ? snapshot.layout.charAt(0).toUpperCase() + snapshot.layout.slice(1) : 'Default'}{snapshot.toc ? ' · contents' : ''}</span>

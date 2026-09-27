@@ -1,6 +1,6 @@
-import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
 import { MEDIA, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
-import { createDataAccess, createD1AssetRepository, createD1PostRepository } from "@vc/db";
+import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { ListPostsRequest } from "@vc/api-contract";
 import {
   mapActivityRow,
@@ -21,6 +21,7 @@ import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
 import { getSitePublicBaseUrl } from "./site-public-url";
+import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
 import { RENDERER_VERSION } from "@vc/content/constants";
@@ -52,6 +53,10 @@ async function siteBaseUrl(siteId: string) {
 
 function postPublicUrl(base: string | null, post: { status: string; slug: string; publishedSlug?: string | null }) {
   return base && post.status === "published" ? `${base}/${post.publishedSlug ?? post.slug}` : null;
+}
+
+async function mapPostWithPreview(post: Parameters<typeof mapPost>[0], url: string | null) {
+  return mapPost(post, url, await previewUrlForPost(post.siteId, post.id));
 }
 
 async function requireBillableSite(siteId: string) {
@@ -126,13 +131,13 @@ export async function searchPostsOp(
 export async function getPostOp(ctx: OperationContext, input: { postId: string }) {
   const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
-  return mapPost(post, postPublicUrl(base, post));
+  return mapPostWithPreview(post, postPublicUrl(base, post));
 }
 
 export async function getPostBySlugOp(ctx: OperationContext, input: { slug: string }) {
   const post = await getPostBySlug(repository(), ctx.actor, ctx.siteId, input.slug);
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
-  return mapPost(post, postPublicUrl(base, post));
+  return mapPostWithPreview(post, postPublicUrl(base, post));
 }
 
 export async function createPostOp(
@@ -151,7 +156,7 @@ export async function createPostOp(
   },
 ) {
   await assertCoverAssetOwnedBySite(ctx.siteId, input.coverAssetId);
-  return mapPost(
+  return mapPostWithPreview(
     await createPost(repository(), ctx.actor, {
       siteId: ctx.siteId,
       title: input.title,
@@ -204,7 +209,7 @@ export async function updatePostOp(
   });
   // Draft edits on a live post do not change the public projection; no purge here.
   const base = post.status === "published" ? await siteBaseUrl(ctx.siteId) : null;
-  return mapPost(post, postPublicUrl(base, post));
+  return mapPostWithPreview(post, postPublicUrl(base, post));
 }
 
 export async function publishPostOp(
@@ -223,7 +228,52 @@ export async function publishPostOp(
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, published.slug);
   const base = siteSlug ? await getSitePublicBaseUrl(ctx.siteId, siteSlug) : null;
-  return mapPost(published, postPublicUrl(base, published));
+  return mapPostWithPreview(published, postPublicUrl(base, published));
+}
+
+export async function schedulePostOp(ctx: OperationContext, input: { postId: string; versionNumber: number; publishAt: number }) {
+  requireScope(ctx.actor, 'posts:publish');
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isInteger(input.publishAt) || input.publishAt <= now) throw new ValidationError('publishAt must be in the future');
+  const post = await repository().getPost(ctx.siteId, input.postId);
+  if (!post) throw new NotFoundError('Post not found');
+  if (post.status === 'archived') throw new ValidationError('Archived posts cannot be scheduled');
+  if (post.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Schedule is already publishing', 409);
+  const saved = await schedulePost(env.DB, ctx.siteId, input.postId, input.versionNumber, input.publishAt, ctx.actor, now);
+  if (!saved) {
+    const current = await repository().getPost(ctx.siteId, input.postId);
+    if (current?.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Schedule is already publishing', 409);
+    throw new ValidationError('Saved post version not found');
+  }
+  const updated = await repository().getPost(ctx.siteId, input.postId);
+  if (!updated) throw new NotFoundError('Post not found');
+  const base = updated.status === 'published' ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPostWithPreview(updated, postPublicUrl(base, updated));
+}
+
+export async function unschedulePostOp(ctx: OperationContext, input: { postId: string }) {
+  requireScope(ctx.actor, 'posts:publish');
+  const post = await repository().getPost(ctx.siteId, input.postId);
+  if (!post) throw new NotFoundError('Post not found');
+  if (post.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Already publishing', 409);
+  const canceled = await unschedulePost(env.DB, ctx.siteId, input.postId);
+  if (!canceled) {
+    const current = await repository().getPost(ctx.siteId, input.postId);
+    if (current?.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Already publishing', 409);
+  }
+  const updated = await repository().getPost(ctx.siteId, input.postId);
+  if (!updated) throw new NotFoundError('Post not found');
+  const base = updated.status === 'published' ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPostWithPreview(updated, postPublicUrl(base, updated));
+}
+
+export async function rotatePostPreviewOp(ctx: OperationContext, input: { postId: string }) {
+  requireScope(ctx.actor, 'posts:update');
+  const post = await repository().getPost(ctx.siteId, input.postId);
+  if (!post) throw new NotFoundError('Post not found');
+  const previewUrl = await previewUrlForPost(ctx.siteId, input.postId, true);
+  const base = post.status === 'published' ? await siteBaseUrl(ctx.siteId) : null;
+  return mapPost(post, postPublicUrl(base, post), previewUrl);
 }
 
 export async function archivePostOp(ctx: OperationContext, input: { postId: string }) {
@@ -347,9 +397,13 @@ function renderPresentedPreviewHtml(
 }
 export async function previewPostOp(
   ctx: OperationContext,
-  input: { contentMarkdown: string; presetId?: string; presentation?: Presentation | null },
+  input: { contentMarkdown?: string; postId?: string; presetId?: string; presentation?: Presentation | null },
 ) {
   requireScope(ctx.actor, "posts:read");
+  const saved = input.postId ? await getPost(repository(), ctx.actor, ctx.siteId, input.postId) : null;
+  const contentMarkdown = saved?.contentMarkdown ?? input.contentMarkdown;
+  if (contentMarkdown === undefined) throw new ValidationError('postId or contentMarkdown is required');
+  const requestedPresentation = saved?.presentation ?? input.presentation;
   let resolvedPresetId: string;
   if (input.presetId) {
     resolvedPresetId = resolvePresetId(input.presetId);
@@ -361,17 +415,17 @@ export async function previewPostOp(
   // Loaded on first preview so Worker startup doesn't pay for the Markdown pipeline.
   const [{ renderRichContent, renderRichContentResultToHtml, validateRichContent }, { createMathRenderer }] =
     await Promise.all([import("@vc/content"), import("@vc/content/math")]);
-  const renderResult = renderRichContent(input.contentMarkdown, {
+  const renderResult = renderRichContent(contentMarkdown, {
     presetId: resolvedPresetId,
     math: createMathRenderer(),
   });
   const { outline, warnings: renderWarnings } = renderResult;
-  const r = resolvePresentation(resolvedPresetId, input.presentation);
-  const validateWarnings = validateRichContent(input.contentMarkdown, { renderWarnings, hasPageToc: r.resolved.toc });
+  const r = resolvePresentation(resolvedPresetId, requestedPresentation);
+  const validateWarnings = validateRichContent(contentMarkdown, { renderWarnings, hasPageToc: r.resolved.toc });
 
   // Duplicate-TOC warning: page-level TOC block AND [[toc]] marker both present
   const dupTocWarnings: string[] =
-    r.resolved.toc && /\[\[toc\]\]/.test(input.contentMarkdown)
+    r.resolved.toc && /\[\[toc\]\]/.test(contentMarkdown)
       ? ["[[toc]] marker found in content but presentation.toc is true - the page-level TOC block already covers this; remove [[toc]] from content to avoid a duplicate"]
       : [];
 
@@ -380,6 +434,7 @@ export async function previewPostOp(
   const warnings = [...new Set([...renderWarnings, ...validateWarnings, ...dupTocWarnings])];
 
   return {
+    previewUrl: input.postId ? await previewUrlForPost(ctx.siteId, input.postId) : null,
     html: renderPresentedPreviewHtml(contentHtml, outline, r.resolved),
     outline,
     warnings,

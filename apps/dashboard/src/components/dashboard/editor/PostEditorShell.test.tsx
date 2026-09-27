@@ -125,6 +125,26 @@ describe('PostEditorShell', () => {
     document.body.innerHTML = ''
   })
 
+  it('offers copy and open links for a saved draft', async () => {
+    const page = editorPage('Preview body', 2)
+    page.previewUrl = 'https://blog.example/preview/opaque-token'
+    api.loadPostEditorPage.mockResolvedValueOnce(page)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await settle()
+    const copy = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Copy preview link'))
+    expect(copy).toBeDefined()
+    expect(container.querySelector('a[href="https://blog.example/preview/opaque-token"]')?.textContent).toContain('Open preview')
+    await act(async () => copy?.click())
+    expect(writeText).toHaveBeenCalledWith(page.previewUrl)
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
   it('offers permanent deletion only for an archived post and calls the dashboard API after two clicks', async () => {
     const page = editorPage('Archive', 2)
     page.post = { ...page.post!, status: 'archived' }

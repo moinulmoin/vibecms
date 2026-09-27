@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { isMarketingHost } from "../server/public-blog";
 import { publicRuntimeEnv } from "../server/runtime";
 import { docsSource } from "../lib/docs-source";
+import { agentPitch } from "../lib/agent-discovery";
 
 export const GET: APIRoute = async (context) => {
   const env = publicRuntimeEnv(context);
@@ -24,7 +25,7 @@ export const GET: APIRoute = async (context) => {
     })
     .join("\n\n---\n\n");
 
-  return new Response(`# vibecms documentation\n\n${content}\n`, {
-    headers: { "content-type": "text/plain; charset=utf-8" },
+  return new Response(`${agentPitch({ appUrl: env.appUrl })}## Docs\n\n${content}\n`, {
+    headers: { "content-type": "text/markdown; charset=utf-8" },
   });
 };

@@ -56,7 +56,7 @@ export type PostRepository = {
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
+  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number; allowOlderVersion?: boolean; scheduleLeaseToken?: string }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
   listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
   getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
@@ -159,6 +159,27 @@ export async function publishPost(
   if (capReached) throw new BillingRequiredError("Subscribe to publish more posts");
   if (!post) throw new NotFoundError("Post not found");
   return post;
+}
+
+/** Called only by the due-schedule worker: approval pins a saved version, not a moving tip. */
+export async function publishScheduledPost(
+  repo: PostRepository, actor: Actor,
+  input: { siteId: string; postId: string; versionNumber: number; billingStatus: BillingStatus; scheduledBy: string; leaseToken: string },
+) {
+  requireScope(actor, "posts:publish");
+  const post = await repo.getPost(input.siteId, input.postId);
+  if (!post) throw new NotFoundError("Post not found");
+  if (post.status === "archived") throw new ConflictError("Post was archived");
+  const version = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!version) throw new NotFoundError("Scheduled post version not found");
+  const result = await repo.publishPostWithHistory(input.siteId, input.postId, input.versionNumber, actor, {
+    changeSummary: `Published scheduled v${input.versionNumber}`,
+    activityAction: "post.published",
+    activitySummary: `Published scheduled v${input.versionNumber} of ${version.title} · Scheduled by ${input.scheduledBy}`,
+  }, { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT, allowOlderVersion: true, scheduleLeaseToken: input.leaseToken });
+  if (result.capReached) throw new BillingRequiredError("Subscribe to publish more posts");
+  if (!result.post) throw new NotFoundError("Post not found");
+  return result.post;
 }
 
 export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {

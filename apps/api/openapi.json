@@ -579,6 +579,41 @@
                           },
                           "updatedAt": {
                             "type": "number"
+                          },
+                          "scheduledPublish": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "versionNumber": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "publishAt": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "processing",
+                                  "published",
+                                  "failed"
+                                ]
+                              },
+                              "error": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "versionNumber",
+                              "publishAt",
+                              "status"
+                            ]
                           }
                         },
                         "required": [
@@ -593,7 +628,8 @@
                           "publishedAt",
                           "tags",
                           "createdAt",
-                          "updatedAt"
+                          "updatedAt",
+                          "scheduledPublish"
                         ]
                       }
                     },
@@ -947,6 +983,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -999,6 +1070,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -1014,13 +1092,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -1304,6 +1384,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -1356,6 +1471,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -1371,13 +1493,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -1659,6 +1783,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -1711,6 +1870,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -1726,13 +1892,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -2103,6 +2271,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -2155,6 +2358,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -2170,13 +2380,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -2509,6 +2721,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -2561,6 +2808,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -2576,13 +2830,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -2652,6 +2908,1321 @@
           },
           "402": {
             "description": "Billing required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/posts/{postId}/schedule": {
+      "post": {
+        "operationId": "schedulePost",
+        "description": "Schedule an approved saved version at a future UTC epoch second. Ask the person for explicit approval of that exact version and time first. Later edits do not alter the approved version. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "postId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionNumber": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "publishAt": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "versionNumber",
+                  "publishAt"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scheduled post",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "excerpt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "coverAssetId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "archived"
+                      ]
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "number"
+                    },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
+                    "contentMarkdown": {
+                      "type": "string"
+                    },
+                    "seoTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "seoDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canonicalUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "presentation": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "layout": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "essay",
+                            "feature",
+                            "wide"
+                          ]
+                        },
+                        "toc": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "slug",
+                    "publishedSlug",
+                    "url",
+                    "excerpt",
+                    "coverAssetId",
+                    "status",
+                    "publishedAt",
+                    "tags",
+                    "createdAt",
+                    "updatedAt",
+                    "scheduledPublish",
+                    "contentMarkdown",
+                    "seoTitle",
+                    "seoDescription",
+                    "canonicalUrl",
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber",
+                    "previewUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/posts/{postId}/unschedule": {
+      "post": {
+        "operationId": "unschedulePost",
+        "description": "Cancel a pending or failed scheduled publication. Requires scope: posts:publish. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "postId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unscheduled post",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "excerpt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "coverAssetId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "archived"
+                      ]
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "number"
+                    },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
+                    "contentMarkdown": {
+                      "type": "string"
+                    },
+                    "seoTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "seoDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canonicalUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "presentation": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "layout": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "essay",
+                            "feature",
+                            "wide"
+                          ]
+                        },
+                        "toc": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "slug",
+                    "publishedSlug",
+                    "url",
+                    "excerpt",
+                    "coverAssetId",
+                    "status",
+                    "publishedAt",
+                    "tags",
+                    "createdAt",
+                    "updatedAt",
+                    "scheduledPublish",
+                    "contentMarkdown",
+                    "seoTitle",
+                    "seoDescription",
+                    "canonicalUrl",
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber",
+                    "previewUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/posts/{postId}/preview/rotate": {
+      "post": {
+        "operationId": "rotatePostPreview",
+        "description": "Rotate a private preview link, immediately revoking the old URL. Requires scope: posts:update. Returns NOT_FOUND when a resource is missing; VALIDATION_ERROR when input is invalid; FORBIDDEN without scope; RATE_LIMIT when the workspace budget is exceeded. CONFLICT when a slug is already in use; BILLING_REQUIRED when a paid subscription is required.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "postId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rotated private preview link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publishedSlug": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "excerpt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "coverAssetId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "published",
+                        "archived"
+                      ]
+                    },
+                    "publishedAt": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "updatedAt": {
+                      "type": "number"
+                    },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
+                    "contentMarkdown": {
+                      "type": "string"
+                    },
+                    "seoTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "seoDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canonicalUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "presentation": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "layout": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "essay",
+                            "feature",
+                            "wide"
+                          ]
+                        },
+                        "toc": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "currentVersionNumber": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "publishedVersionNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "slug",
+                    "publishedSlug",
+                    "url",
+                    "excerpt",
+                    "coverAssetId",
+                    "status",
+                    "publishedAt",
+                    "tags",
+                    "createdAt",
+                    "updatedAt",
+                    "scheduledPublish",
+                    "contentMarkdown",
+                    "seoTitle",
+                    "seoDescription",
+                    "canonicalUrl",
+                    "presentation",
+                    "currentVersionNumber",
+                    "publishedVersionNumber",
+                    "previewUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
             "content": {
               "application/json": {
                 "schema": {
@@ -2926,6 +4497,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -2978,6 +4584,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -2993,13 +4606,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -3281,6 +4896,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -3333,6 +4983,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -3348,13 +5005,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -5933,6 +7592,41 @@
                     "updatedAt": {
                       "type": "number"
                     },
+                    "scheduledPublish": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "versionNumber": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "publishAt": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "published",
+                            "failed"
+                          ]
+                        },
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "versionNumber",
+                        "publishAt",
+                        "status"
+                      ]
+                    },
                     "contentMarkdown": {
                       "type": "string"
                     },
@@ -5985,6 +7679,13 @@
                         "null"
                       ],
                       "exclusiveMinimum": 0
+                    },
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
                     }
                   },
                   "required": [
@@ -6000,13 +7701,15 @@
                     "tags",
                     "createdAt",
                     "updatedAt",
+                    "scheduledPublish",
                     "contentMarkdown",
                     "seoTitle",
                     "seoDescription",
                     "canonicalUrl",
                     "presentation",
                     "currentVersionNumber",
-                    "publishedVersionNumber"
+                    "publishedVersionNumber",
+                    "previewUrl"
                   ]
                 }
               }
@@ -6547,6 +8250,10 @@
                     "type": "string",
                     "maxLength": 500000
                   },
+                  "postId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "presetId": {
                     "type": "string"
                   },
@@ -6572,9 +8279,6 @@
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "contentMarkdown"
-                ],
                 "additionalProperties": false
               }
             }
@@ -6588,6 +8292,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "previewUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uri"
+                    },
                     "html": {
                       "type": "string"
                     },
@@ -6672,6 +8383,7 @@
                     }
                   },
                   "required": [
+                    "previewUrl",
                     "html",
                     "outline",
                     "warnings",

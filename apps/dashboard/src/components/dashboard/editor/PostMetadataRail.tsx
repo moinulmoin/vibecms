@@ -396,7 +396,7 @@ export function PostMetadataRail({
           {metadata.seoDescription.length > 140 ? <p className="text-right font-mono text-xs tabular-nums text-muted-foreground">{metadata.seoDescription.length}/180</p> : null}
         </Field>
         <Field>
-          <FieldLabel htmlFor="post-canonical-url" className={labelClass}>Canonical URL</FieldLabel>
+          <FieldLabel htmlFor="post-canonical-url" className={labelClass}>Original URL</FieldLabel>
           <Input
             id="post-canonical-url"
             name="canonicalUrl"

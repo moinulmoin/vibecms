@@ -74,6 +74,12 @@ describe("markdown negotiation", () => {
       expect(response?.headers.get("location")).toBe(`https://demo.example.com/new${suffix}`);
       expect(response?.headers.get("cache-tag")).toBe("vc-site:site-1");
     }
+    // Query-based Markdown goes to the .md twin; other parameters survive.
+    const query = await publicPostRedirect(db, site, "old", new Request("https://demo.example.com/old?format=md&ref=x"), env);
+    expect(query?.headers.get("location")).toBe("https://demo.example.com/new.md?ref=x");
+    // Browsers always revalidate so a reversed rename can't loop; the CDN may cache briefly.
+    expect(query?.headers.get("cache-control")).toBe("no-cache");
+    expect(query?.headers.get("cdn-cache-control")).toBe("public, max-age=300");
     live = false;
     expect(await publicPostRedirect(db, site, "old", new Request("https://demo.example.com/old"), env)).toBeNull();
   });

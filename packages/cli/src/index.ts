@@ -26,11 +26,14 @@ Commands:
   posts get-by-slug <slug>
   posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [post fields]
   posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]
-  posts preview (--content <md> | --content-file <path>) [--preset <id> --layout <l> --toc <bool>]
+  posts preview [<postId> | --content <md> | --content-file <path>] [--preset <id> --layout <l> --toc <bool>]
   posts format-guide [--preset <id>]         Markdown syntax this blog renders (callouts, code, TOC...)
   posts versions <postId>                   List versions (who changed what)
   posts version <postId> <versionNumber>    Show one version
   posts publish <postId> --expected-version <n>
+  posts schedule <postId> --expected-version <n> --at <ISO-8601 UTC time>
+  posts unschedule <postId>
+  posts rotate-preview <postId>              Revoke the old private preview link
   posts restore <postId> <versionNumber> --expected-version <n>
   posts archive <postId>
   posts unarchive <postId>
@@ -81,6 +84,7 @@ const OPTIONS = {
   tags: { type: "string" },
   alt: { type: "string" },
   "expected-version": { type: "string" },
+  "at": { type: "string" },
   cover: { type: "string" },
   layout: { type: "string" },
   toc: { type: "string" },
@@ -258,17 +262,12 @@ async function postsCommand(
         fmt,
       );
     case "preview":
-      // Read-only render; never mutates, so it ignores --dry-run.
-      return emit(
-        await apiRequest(cfg, "POST", "/api/v1/posts/preview", {
-          body: dropUndefined({
-            contentMarkdown: await readContent(v, true),
-            presetId: str(v.preset),
-            presentation: presentation(v),
-          }),
-        }),
-        fmt,
-      );
+      return mutate(cfg, "POST", "/api/v1/posts/preview", dropUndefined({
+        contentMarkdown: await readContent(v, !rest[0]),
+        postId: rest[0],
+        presetId: str(v.preset),
+        presentation: presentation(v),
+      }), v, fmt);
     case "format-guide":
       return emit(await apiRequest(cfg, "GET", "/api/v1/posts/format-guide", { query: { presetId: str(v.preset) } }), fmt);
     case "versions":
@@ -329,6 +328,22 @@ async function postsCommand(
         fmt,
       );
     }
+    case "schedule": {
+      const id = need(rest[0], "<postId>");
+      // Same flag as publish: the exact version the person approved.
+      const versionNumber = versionArg(str(v['expected-version']));
+      const at = need(str(v.at), "--at");
+      const parsed = Date.parse(at);
+      if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(at) || !Number.isFinite(parsed)) {
+        fail("--at must be an ISO-8601 UTC time ending in Z", EXIT.USAGE);
+      }
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(id)}/schedule`,
+        { versionNumber, publishAt: Math.floor(parsed / 1000) }, v, fmt);
+    }
+    case "unschedule":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/unschedule`, undefined, v, fmt);
+    case "rotate-preview":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/preview/rotate`, undefined, v, fmt);
     case "restore": {
       const id = need(rest[0], "<postId>");
       const versionRaw = need(rest[1], "<versionNumber>");
@@ -426,7 +441,8 @@ async function schemaCommand(operationId: string | undefined, fmt: OutputFormat)
 async function main(): Promise<void> {
   let parsed: { values: Values; positionals: string[] };
   try {
-    parsed = parseArgs({ args: process.argv.slice(2), allowPositionals: true, strict: true, options: OPTIONS }) as {
+    const args = process.argv.slice(2);
+    parsed = parseArgs({ args, allowPositionals: true, strict: true, options: OPTIONS }) as {
       values: Values;
       positionals: string[];
     };

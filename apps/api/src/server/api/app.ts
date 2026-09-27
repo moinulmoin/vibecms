@@ -21,6 +21,9 @@ import {
   listPostVersionsOp,
   previewPostOp,
   publishPostOp,
+  schedulePostOp,
+  unschedulePostOp,
+  rotatePostPreviewOp,
   restorePostVersionOp,
   searchPostsOp,
   updatePostOp,
@@ -48,6 +51,9 @@ import {
   openApiInfo,
   previewPostRoute,
   publishPostRoute,
+  schedulePostRoute,
+  unschedulePostRoute,
+  rotatePostPreviewRoute,
   restorePostVersionRoute,
   updatePostRoute,
   uploadAssetRoute,
@@ -153,7 +159,7 @@ apiV1App.use("*", async (c, next) => {
 
   const auth = await authenticateBearerToken(c.req.raw);
   if (!auth) {
-    return c.json(errorEnvelope("UNAUTHORIZED", "Authentication required"), 401);
+    return c.json(errorEnvelope("UNAUTHORIZED", "Authentication required. Send Authorization: Bearer <agent key>; the owner creates keys under Connect in the dashboard. See /auth.md."), 401);
   }
 
   c.set("ctx", {
@@ -228,6 +234,19 @@ apiV1App.openapi(publishPostRoute, async (c) => {
   const { expectedVersionNumber } = c.req.valid("json");
   const post = await publishPostOp(c.get("ctx"), { postId, expectedVersionNumber });
   return c.json(post, 200);
+});
+
+apiV1App.openapi(schedulePostRoute, async (c) => {
+  const { postId } = c.req.valid('param');
+  return c.json(await schedulePostOp(c.get('ctx'), { postId, ...c.req.valid('json') }), 200);
+});
+
+apiV1App.openapi(unschedulePostRoute, async (c) => {
+  return c.json(await unschedulePostOp(c.get('ctx'), c.req.valid('param')), 200);
+});
+
+apiV1App.openapi(rotatePostPreviewRoute, async (c) => {
+  return c.json(await rotatePostPreviewOp(c.get('ctx'), c.req.valid('param')), 200);
 });
 
 apiV1App.openapi(archivePostRoute, async (c) => {

@@ -102,9 +102,13 @@ export async function handleRobots(db: D1Database, request: Request, env: Public
   const site = await resolveSite(request, db, env);
   const origin = publicOrigin(request.url);
   const indexable = (site ? isPublicBlogIndexable(site, env) : false) || isMarketingHost(request, env);
+  // A tenant's writing belongs to its owner, so AI training is disabled by default.
+  const contentSignal = site || !isMarketingHost(request, env)
+    ? "search=yes, ai-input=yes, ai-train=no"
+    : "search=yes, ai-input=yes, ai-train=yes";
   const body = indexable
-    ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
-    : "User-agent: *\nAllow: /\n";
+    ? `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\nSitemap: ${origin}/sitemap.xml\n`
+    : `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\n`;
   return new Response(body, {
     headers: {
       "content-type": "text/plain; charset=utf-8",

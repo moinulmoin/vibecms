@@ -10,6 +10,7 @@ import { HeaderHero } from "../../components/landing/header-hero";
 import { HostingPricing } from "../../components/landing/hosting-pricing";
 import { DotGrid, Glow } from "../../components/landing/primitives";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
+import { markdownNotFound, marketingHomeLinks, marketingMarkdown } from "../../lib/agent-discovery";
 import { appApiDocsUrl, appLoginUrl } from "../../lib/landing-links";
 import { publicOrigin } from "../../server/public-url";
 import { publicRuntimeEnv } from "../../server/runtime";
@@ -18,13 +19,16 @@ import marketingInteractionsUrl from "../../scripts/marketing-interactions.js?ur
 // Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
 // path stays non-indexable and never becomes a public canonical URL.
 if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
-  return new Response("Not found", {
-    status: 404,
-    headers: { "content-type": "text/plain; charset=utf-8" },
-  });
+  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404 });
 }
 
 const env = publicRuntimeEnv(Astro);
+const origin = publicOrigin(Astro.request.url);
+if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
+  return new Response(marketingMarkdown(env.appUrl), { headers: { "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: marketingHomeLinks(origin, env.appUrl) } });
+}
+Astro.response.headers.set("Vary", "Accept");
+Astro.response.headers.set("Link", marketingHomeLinks(origin, env.appUrl));
 const loginUrl = appLoginUrl(env.appUrl);
 const apiDocsUrl = appApiDocsUrl(env.appUrl);
 const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;

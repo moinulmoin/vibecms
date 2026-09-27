@@ -110,12 +110,12 @@ export function mapSiteRow(
 
 export function mapPostSummary(post: PostSummary, url: string | null): PostSummaryDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, publishedSlug: post.publishedSlug ?? null, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, scheduledPublish: post.scheduledPublish ?? null, url };
 }
 
-export function mapPost(post: Post, url: string | null): PostDto {
+export function mapPost(post: Post, url: string | null, previewUrl: string | null = null): PostDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, publishedSlug: post.publishedSlug ?? null, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, scheduledPublish: post.scheduledPublish ?? null, url, previewUrl };
 }
 
 export function mapAsset(asset: Asset, url: string): AssetDto {

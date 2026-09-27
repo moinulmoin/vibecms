@@ -34,6 +34,7 @@ import {
   type AgentPreference,
 } from '@/server/onboarding'
 import { getSitePublicBaseUrl } from '@/server/site-public-url'
+import { previewUrlForPost } from '@/server/post-preview'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '@/server/custom-domains'
 import { newsletterSettingsSchema, voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { clearVoiceProfileForApp, getVoiceProfileForSite, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
@@ -43,6 +44,8 @@ import {
   createPostForApp,
   deleteArchivedPostForApp,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   restorePostVersionForApp,
   updatePostForApp,
   unarchivePostForApp,
@@ -72,6 +75,7 @@ export interface DashboardPostSummary {
   latestActorType: string | null
   updatedByType: string | null
   updatedByName: string | null
+  scheduledPublish: Post['scheduledPublish']
 }
 
 const POST_LIST_SORTS = new Set(['updated', 'created', 'title', 'published'])
@@ -358,6 +362,7 @@ export async function loadPostsPage(
     latestActorType: row.latestActorType,
     updatedByType: row.updatedByType,
     updatedByName: row.updatedByName,
+    scheduledPublish: row.scheduledPublish,
   }))
   const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
   // Only the first page needs the origin for "view live" links.
@@ -420,6 +425,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
       publicBaseUrl,
       currentVersionNumber: null,
       latestVersion: null,
+      previewUrl: null,
     }
   }
   const repo = postRepository()
@@ -436,6 +442,7 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
     publicBaseUrl,
     currentVersionNumber: post?.currentVersionNumber ?? null,
     latestVersion: versions[0] ?? null,
+    previewUrl: post ? await previewUrlForPost(app.siteId, post.id) : null,
     redirectSlugs,
   }
 }
@@ -549,6 +556,8 @@ export {
   createPostForApp,
   updatePostForApp,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   archivePostForApp,
   deleteArchivedPostForApp,
   restorePostVersionForApp,

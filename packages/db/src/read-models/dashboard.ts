@@ -12,6 +12,7 @@ export interface DashboardRecentPost {
   updatedAt: number;
   publishedAt: number | null;
   versionNumber: number | null;
+  scheduledPublish: Post['scheduledPublish'];
 }
 
 /** Posts-page row: summary fields + latest version number + last-change actor
@@ -39,6 +40,7 @@ export interface DashboardPostListRow {
   latestActorType: string | null;
   updatedByType: string | null;
   updatedByName: string | null;
+  scheduledPublish: Post['scheduledPublish'];
 }
 
 /** "Needs review": agent-written drafts, or live posts whose tip moved past the live version. */
@@ -144,6 +146,12 @@ const publishedTitleSql = sql<string | null>`(select ${postVersions.title} from 
 const publishedExcerptSql = sql<string | null>`(select coalesce(nullif(trim(${postVersions.excerpt}), ''), ${postVersions.fallbackExcerpt}) from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
 const publishedTagsSql = sql<string | null>`(select ${postVersions.tagsJson} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
 const latestActorTypeSql = sql<string | null>`(select ${postVersions.createdByType} from ${postVersions} where ${postVersions.postId} = ${outerPostId} order by ${postVersions.versionNumber} desc limit 1)`;
+const scheduledPublishSql = sql<string | null>`(select json_object('versionNumber', s.version_number,
+  'publishAt', s.publish_at, 'status', s.status, 'error', s.error)
+  from post_schedules s where s.post_id = ${outerPostId})`;
+function scheduleFromJson(raw: string | null): Post['scheduledPublish'] {
+  return raw ? JSON.parse(raw) as NonNullable<Post['scheduledPublish']> : null;
+}
 // Agent drafts awaiting a decision, or live posts whose private tip moved past the live pin.
 const needsReviewSql = sql`(
   (${posts.status} = 'draft' and ${latestActorTypeSql} in ('agent', 'api_key'))
@@ -178,6 +186,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               updatedAt: posts.updatedAt,
               publishedAt: posts.publishedAt,
               versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
+              scheduledPublishJson: scheduledPublishSql,
             })
             .from(posts)
             .where(eq(posts.siteId, siteId))
@@ -192,6 +201,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               updatedAt: posts.updatedAt,
               publishedAt: posts.publishedAt,
               versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
+              scheduledPublishJson: scheduledPublishSql,
             })
             .from(posts)
             .where(and(eq(posts.siteId, siteId), eq(posts.status, "draft")))
@@ -280,6 +290,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
+          scheduledPublish: scheduleFromJson(post.scheduledPublishJson),
         })),
         recentDrafts: recentDraftRows.map((post) => ({
           id: post.id,
@@ -289,6 +300,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
+          scheduledPublish: scheduleFromJson(post.scheduledPublishJson),
         })),
         needsReview: reviewRows.map((post) => ({
           ...post,
@@ -345,6 +357,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           publishedVersionNumber: publishedVersionSql,
           latestActorType: latestActorTypeSql,
           updatedByName: sql<string | null>`coalesce(${user.name}, ${apiKeys.actorName})`,
+          scheduledPublishJson: scheduledPublishSql,
         })
         .from(posts)
         .leftJoin(user, eq(user.id, posts.updatedById))
@@ -355,6 +368,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         .offset(input.offset);
       return rows.map((row) => ({
         ...row,
+        scheduledPublish: scheduleFromJson(row.scheduledPublishJson),
         versionNumber: row.versionNumber > 0 ? row.versionNumber : null,
       }));
     },

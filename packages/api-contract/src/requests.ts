@@ -85,6 +85,14 @@ export const publishPostRequestSchema = z.object({
   expectedVersionNumber: z.coerce.number().int().min(1),
 }).strict();
 
+export const schedulePostRequestSchema = z.object({
+  postId: z.string().min(1),
+  versionNumber: z.coerce.number().int().min(1),
+  publishAt: z.coerce.number().int().positive(),
+}).strict();
+export const unschedulePostRequestSchema = z.object({ postId: z.string().min(1) }).strict();
+export const rotatePostPreviewRequestSchema = z.object({ postId: z.string().min(1) }).strict();
+
 export const archivePostRequestSchema = z.object({
   postId: z.string().min(1),
 }).strict();
@@ -123,10 +131,12 @@ export const restorePostVersionRequestSchema = z.object({
   expectedVersionNumber: z.coerce.number().int().min(1),
 }).strict();
 export const previewPostRequestSchema = z.object({
-  contentMarkdown: contentField,
+  contentMarkdown: contentField.optional(),
+  postId: z.string().min(1).optional(),
   presetId: z.string().optional(),
   presentation: presentationField.optional(),
-}).strict();
+}).strict().refine((input) => input.postId || input.contentMarkdown !== undefined,
+  { message: 'postId or contentMarkdown is required' });
 
 export const getFormatGuideRequestSchema = z.object({
   presetId: z.string().optional(),
@@ -141,6 +151,8 @@ export type GetPostBySlugRequest = z.infer<typeof getPostBySlugRequestSchema>;
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
 export type UpdatePostRequest = z.infer<typeof updatePostRequestSchema>;
 export type PublishPostRequest = z.infer<typeof publishPostRequestSchema>;
+export type SchedulePostRequest = z.infer<typeof schedulePostRequestSchema>;
+export type UnschedulePostRequest = z.infer<typeof unschedulePostRequestSchema>;
 export type ArchivePostRequest = z.infer<typeof archivePostRequestSchema>;
 export type UnarchivePostRequest = z.infer<typeof unarchivePostRequestSchema>;
 export type UploadAssetRequest = z.infer<typeof uploadAssetRequestSchema>;

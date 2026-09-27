@@ -5,12 +5,17 @@ import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 import { publicOrigin } from "../../server/public-url";
+import { listingMarkdown } from "../../lib/agent-pages";
+import { markdownNotFound } from "../../lib/agent-discovery";
 
 const env = publicRuntimeEnv(Astro);
 const tag = Astro.params.tag ?? "";
 const blog = await loadPublicTagByHost(publicDb(Astro), Astro.request, tag, env, requestedPublicPage(Astro.url.searchParams.get("page")));
 if (!blog) {
-  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
+  return new Response(listingMarkdown(blog, publicOrigin(Astro.url)), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept" } });
 }
 for (const [key, value] of Object.entries(publicListingResponseHeaders(blog.site, env))) {
   Astro.response.headers.set(key, value);

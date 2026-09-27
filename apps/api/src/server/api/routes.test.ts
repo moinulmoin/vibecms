@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apiV1OperationRoutes, buildOpenApiDocument, getPostBySlugRoute } from "./routes";
+import { operationsByToolName } from '@vc/api-contract';
 
 describe("by-slug REST contract", () => {
   it("registers the by-slug route before the generic post-id route", () => {
@@ -31,4 +32,14 @@ describe("by-slug REST contract", () => {
     expect(paths['/api/v1/assets/{assetId}']?.patch?.operationId).toBe('updateAsset')
     expect(paths['/api/v1/activity']?.get?.parameters).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'offset' })]))
   })
+
+  it('keeps scheduling and preview rotation in REST and MCP contracts', () => {
+    const paths = buildOpenApiDocument().paths as Record<string, Record<string, { operationId?: string }>>;
+    expect(paths['/api/v1/posts/{postId}/schedule']?.post?.operationId).toBe('schedulePost');
+    expect(paths['/api/v1/posts/{postId}/unschedule']?.post?.operationId).toBe('unschedulePost');
+    expect(paths['/api/v1/posts/{postId}/preview/rotate']?.post?.operationId).toBe('rotatePostPreview');
+    expect(operationsByToolName['posts.schedule'].requiredScope).toBe('posts:publish');
+    expect(operationsByToolName['posts.unschedule'].requiredScope).toBe('posts:publish');
+    expect(operationsByToolName['posts.preview.rotate'].requiredScope).toBe('posts:update');
+  });
 });

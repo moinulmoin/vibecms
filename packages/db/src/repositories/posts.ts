@@ -3,6 +3,13 @@ import { changedPostFields, ConflictError, firstParagraph, type Actor, type Post
 import { createDbClient } from "../client";
 import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
+type ScheduleProjection = { versionNumber: number; publishAt: number; status: "pending" | "processing" | "published" | "failed"; error: string | null };
+function parseSchedule(raw: string | null | undefined): ScheduleProjection | null {
+  return raw ? JSON.parse(raw) as ScheduleProjection : null;
+}
+const scheduleProjection = sql<string | null>`(SELECT json_object('versionNumber', s.version_number, 'publishAt', s.publish_at,
+  'status', s.status, 'error', s.error) FROM post_schedules s WHERE s.post_id = posts.id AND s.site_id = posts.site_id)`;
+
 function now() {
   return Math.floor(Date.now() / 1000);
 }
@@ -39,7 +46,7 @@ function actorTypeOf(t: string): Actor["type"] {
 // Drizzle returns camelCase fields (the schema maps snake_case columns); project to the core domain model.
 function mapPost(
   row: PostRow,
-  versions: { currentVersionNumber: number; publishedVersionNumber: number | null; publishedSlug: string | null },
+  versions: { currentVersionNumber: number; publishedVersionNumber: number | null; publishedSlug: string | null; scheduledPublish?: string | null },
 ): Post {
   return {
     id: row.id,
@@ -61,6 +68,7 @@ function mapPost(
     updatedAt: row.updatedAt,
     currentVersionNumber: versions.currentVersionNumber,
     publishedVersionNumber: versions.publishedVersionNumber,
+    scheduledPublish: parseSchedule(versions.scheduledPublish),
   };
 }
 
@@ -78,6 +86,7 @@ type PostSummaryProjection = {
   tagsJson: string;
   createdAt: number;
   updatedAt: number;
+  scheduledPublish?: string | null;
 };
 const postSummaryFields = {
   id: posts.id,
@@ -92,6 +101,7 @@ const postSummaryFields = {
   tagsJson: posts.tagsJson,
   createdAt: posts.createdAt,
   updatedAt: posts.updatedAt,
+  scheduledPublish: scheduleProjection,
 };
 function mapPostSummary(row: PostSummaryProjection): PostSummary {
   return {
@@ -107,6 +117,7 @@ function mapPostSummary(row: PostSummaryProjection): PostSummary {
     tags: JSON.parse(row.tagsJson) as string[],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    scheduledPublish: parseSchedule(row.scheduledPublish),
   };
 }
 
@@ -190,6 +201,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
     currentVersionNumber: sql<number>`coalesce((select max(pv.version_number) from post_versions pv where pv.site_id = posts.site_id and pv.post_id = posts.id), 0)`,
     publishedVersionNumber: sql<number | null>`(select pv.version_number from post_versions pv where pv.id = posts.published_version_id and pv.site_id = posts.site_id and pv.post_id = posts.id)`,
     publishedSlug: sql<string | null>`(select pv.slug from post_versions pv where pv.id = posts.published_version_id and pv.site_id = posts.site_id and pv.post_id = posts.id)`,
+    scheduledPublish: scheduleProjection,
   };
 
   // Include mutable content and both version numbers in the same SQLite statement.
@@ -227,6 +239,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
     if (patch.status !== undefined && patch.status !== before.status) return null;
     if (before.currentVersionNumber !== expectedVersionNumber) return null;
     if (before.publishedVersionNumber === expectedVersionNumber) return null;
+    const scheduled = await db.prepare(`SELECT 1 FROM post_schedules WHERE site_id = ? AND post_id = ?
+      AND version_number = ? AND status IN ('pending', 'processing')`)
+      .bind(before.siteId, before.id, expectedVersionNumber).first();
+    if (scheduled) return null;
     const tip = await db
       .prepare(
         `SELECT id, created_by_type AS createdByType, created_by_id AS createdById,
@@ -262,8 +278,11 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
     // second tab land its content after another save already folded the tip.
     const tipGate = `(SELECT max(version_number) FROM post_versions WHERE site_id = ? AND post_id = ?) = ?
       AND coalesce((SELECT published_version_id FROM posts WHERE site_id = ? AND id = ?), '') <> ?
+      AND NOT EXISTS (SELECT 1 FROM post_schedules WHERE site_id = ? AND post_id = ?
+        AND version_number = ? AND status IN ('pending', 'processing'))
       AND ${slugAvailable}`;
-    const tipGateBinds = [before.siteId, before.id, expectedVersionNumber, before.siteId, before.id, tip.id, ...slugBinds(before.siteId, before.id, after.slug)];
+    const tipGateBinds = [before.siteId, before.id, expectedVersionNumber, before.siteId, before.id, tip.id,
+      before.siteId, before.id, expectedVersionNumber, ...slugBinds(before.siteId, before.id, after.slug)];
 
     let results: D1Result[];
     try {
@@ -576,12 +595,14 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
     async publishPostWithHistory(siteId, postId, expectedVersionNumber, actor, history, options) {
       const before = await getPost(siteId, postId);
       if (!before) return { post: null, capReached: false, versionConflict: false };
+      const approved = await this.getPostVersion(siteId, postId, expectedVersionNumber);
+      if (!approved) return { post: null, capReached: false, versionConflict: true };
 
       // Even an idempotent approval must not accept a legacy duplicate live URL.
-      if (before.status === "published" && before.publishedVersionNumber === expectedVersionNumber &&
-          before.currentVersionNumber === expectedVersionNumber) {
+      if (!options.scheduleLeaseToken && before.status === "published" && before.publishedVersionNumber === expectedVersionNumber &&
+          (options.allowOlderVersion || before.currentVersionNumber === expectedVersionNumber)) {
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
-          .bind(...slugBinds(siteId, postId, before.slug)).first<{ available: number }>();
+          .bind(...slugBinds(siteId, postId, approved.slug)).first<{ available: number }>();
         if (!available?.available) throw new ConflictError("A post with this slug already exists");
         return { post: before, capReached: false, versionConflict: false };
       }
@@ -591,7 +612,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       const after: Post = {
         ...before,
         status: "published",
-        publishedSlug: before.slug,
+        publishedSlug: approved.slug,
         publishedAt: before.status === "published" && before.publishedAt != null ? before.publishedAt : timestamp,
         updatedAt: timestamp,
         publishedVersionNumber: expectedVersionNumber,
@@ -618,12 +639,16 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
                updated_at = ?,
                updated_by_type = ?,
                updated_by_id = ?
-             WHERE site_id = ? AND id = ?
-               AND coalesce((
+             WHERE site_id = ? AND id = ? AND status <> 'archived'
+               AND (? IS NULL OR EXISTS (SELECT 1 FROM post_schedules AS schedule
+                 WHERE schedule.site_id = posts.site_id AND schedule.post_id = posts.id
+                   AND schedule.version_number = ? AND schedule.status = 'processing'
+                   AND schedule.lease_token = ?))
+               AND (? = 1 OR coalesce((
                  SELECT max(pv.version_number)
                  FROM post_versions AS pv
                  WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
-               ), 0) = ?
+               ), 0) = ?)
                AND EXISTS (
                  SELECT 1 FROM post_versions AS pv
                  WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
@@ -666,6 +691,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             actor.id,
             siteId,
             postId,
+            options.scheduleLeaseToken ?? null,
+            expectedVersionNumber,
+            options.scheduleLeaseToken ?? null,
+            options.allowOlderVersion ? 1 : 0,
             expectedVersionNumber,
             expectedVersionNumber,
             expectedVersionNumber,
@@ -674,14 +703,29 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             options.freeLimit,
             expectedVersionNumber,
           ),
+          // The last live URL redirects to the new one, including after an
+          // archive -> draft -> rename -> republish; never take over a slug that
+          // another post is live at now.
           db.prepare(`INSERT INTO post_slug_redirects (site_id, from_slug, post_id, created_at)
             SELECT ?, ?, ?, ? WHERE changes() = 1 AND ? IS NOT NULL AND ? <> ?
+              AND (? IS NULL OR EXISTS (SELECT 1 FROM post_schedules
+                WHERE site_id = ? AND post_id = ? AND version_number = ?
+                  AND status = 'processing' AND lease_token = ?))
+              AND NOT EXISTS (SELECT 1 FROM posts AS other
+                JOIN post_versions AS live ON live.id = other.published_version_id
+                WHERE other.site_id = ? AND other.id <> ? AND other.status = 'published' AND live.slug = ?)
             ON CONFLICT(site_id, from_slug) DO UPDATE SET post_id = excluded.post_id, created_at = excluded.created_at`)
-            .bind(siteId, before.publishedSlug, postId, timestamp, before.status === "published" ? before.publishedSlug : null, before.publishedSlug, before.slug),
+            .bind(siteId, before.publishedSlug, postId, timestamp, before.publishedSlug, before.publishedSlug, approved.slug,
+              options.scheduleLeaseToken ?? null, siteId, postId, expectedVersionNumber, options.scheduleLeaseToken ?? null,
+              siteId, postId, before.publishedSlug),
           db.prepare(`DELETE FROM post_slug_redirects WHERE site_id = ? AND from_slug = ?
+            AND (? IS NULL OR EXISTS (SELECT 1 FROM post_schedules
+              WHERE site_id = ? AND post_id = ? AND version_number = ?
+                AND status = 'processing' AND lease_token = ?))
             AND EXISTS (SELECT 1 FROM posts WHERE site_id = ? AND id = ? AND status = 'published'
               AND published_version_id = (SELECT id FROM post_versions WHERE site_id = ? AND post_id = ? AND version_number = ?))`)
-            .bind(siteId, before.slug, siteId, postId, siteId, postId, expectedVersionNumber),
+            .bind(siteId, approved.slug, options.scheduleLeaseToken ?? null, siteId, postId,
+              expectedVersionNumber, options.scheduleLeaseToken ?? null, siteId, postId, siteId, postId, expectedVersionNumber),
           db.prepare(
             `INSERT INTO activity_events (
               id, site_id, actor_type, actor_id, actor_name, action, entity_type,
@@ -690,6 +734,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             SELECT ?, ?, ?, ?, ?, ?, 'post', ?, ?, ?, ?, ?
             FROM posts
             WHERE site_id = ? AND id = ? AND status = 'published'
+              AND (? IS NULL OR EXISTS (SELECT 1 FROM post_schedules AS schedule
+                WHERE schedule.site_id = posts.site_id AND schedule.post_id = posts.id
+                  AND schedule.version_number = ? AND schedule.status = 'processing'
+                  AND schedule.lease_token = ?))
               AND published_version_id = (
                 SELECT pv.id FROM post_versions AS pv
                 WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
@@ -710,6 +758,9 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             timestamp,
             siteId,
             postId,
+            options.scheduleLeaseToken ?? null,
+            expectedVersionNumber,
+            options.scheduleLeaseToken ?? null,
             expectedVersionNumber,
             timestamp,
           ),
@@ -724,7 +775,14 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
 
       const current = await getPost(siteId, postId);
       if (!current) return { post: null, capReached: false, versionConflict: false };
-      if (current.currentVersionNumber !== expectedVersionNumber) {
+      if (current.status === "archived") throw new ConflictError("Post was archived");
+      if (options.scheduleLeaseToken) {
+        const lease = await db.prepare(`SELECT 1 FROM post_schedules WHERE site_id = ? AND post_id = ?
+          AND version_number = ? AND status = 'processing' AND lease_token = ?`)
+          .bind(siteId, postId, expectedVersionNumber, options.scheduleLeaseToken).first();
+        if (!lease) throw new ConflictError("Schedule lease expired");
+      }
+      if (!options.allowOlderVersion && current.currentVersionNumber !== expectedVersionNumber) {
         return { post: null, capReached: false, versionConflict: true };
       }
       const target = await db.prepare("SELECT slug FROM post_versions WHERE site_id = ? AND post_id = ? AND version_number = ?")

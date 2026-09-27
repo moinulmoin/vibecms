@@ -81,6 +81,12 @@ export const postSummaryDtoSchema = z.object({
   tags: z.array(z.string()),
   createdAt: z.number(),
   updatedAt: z.number(),
+  scheduledPublish: z.object({
+    versionNumber: z.number().int().positive(),
+    publishAt: z.number().int(),
+    status: z.enum(['pending', 'processing', 'published', 'failed']),
+    error: z.string().nullable().optional(),
+  }).nullable(),
 });
 
 export const postDtoSchema = postSummaryDtoSchema.extend({
@@ -91,6 +97,7 @@ export const postDtoSchema = postSummaryDtoSchema.extend({
   presentation: presentationSchema,
   currentVersionNumber: z.number().int().positive(),
   publishedVersionNumber: z.number().int().positive().nullable(),
+  previewUrl: z.url().nullable(),
 });
 
 export const assetDtoSchema = z.object({
@@ -174,6 +181,7 @@ export const formatGuideDtoSchema = z.object({
 export type FormatGuideDto = z.infer<typeof formatGuideDtoSchema>;
 
 export const previewPostDtoSchema = z.object({
+  previewUrl: z.url().nullable(),
   html: z.string(),
   outline: z.array(z.object({
     depth: z.number(),

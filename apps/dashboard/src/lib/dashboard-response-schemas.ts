@@ -63,6 +63,11 @@ export const mutationResultSchema = z.object({
 const billingStatusSchema = z.enum(['active', 'past_due', 'canceled', 'unpaid', 'none'])
 const entitlementAccessSchema = z.enum(['self_hosted', 'hosted_paid', 'hosted_free'])
 const entitlementSourceSchema = z.enum(['self_hosted', 'polar', 'managed_sponsorship', 'none'])
+const scheduledPublishSchema = z.object({
+  versionNumber: z.number(), publishAt: z.number(),
+  status: z.enum(['pending', 'processing', 'published', 'failed']),
+  error: z.string().nullable().optional(),
+}).nullable().optional()
 
 export const dashboardDataSchema = z.object({
   site: z.object({ name: z.string(), slug: z.string() }).nullable(),
@@ -118,6 +123,7 @@ export const dashboardDataSchema = z.object({
       status: z.string(),
       updatedAt: z.number(),
       publishedAt: z.number().nullable(),
+      scheduledPublish: scheduledPublishSchema,
     }),
   ),
   recentDrafts: z.array(
@@ -128,6 +134,7 @@ export const dashboardDataSchema = z.object({
       status: z.string(),
       updatedAt: z.number(),
       publishedAt: z.number().nullable(),
+      scheduledPublish: scheduledPublishSchema,
     }),
   ),
   needsReview: z

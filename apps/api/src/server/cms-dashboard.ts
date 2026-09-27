@@ -45,6 +45,7 @@ export type DashboardData = {
     status: Post['status']
     updatedAt: number
     publishedAt: number | null
+    scheduledPublish?: import('@vc/core').Post['scheduledPublish']
   }>
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
   recentDrafts: Array<{

@@ -22,6 +22,9 @@ import {
   previewPostDtoSchema,
   previewPostRequestSchema,
   publishPostRequestSchema,
+  schedulePostRequestSchema,
+  unschedulePostRequestSchema,
+  rotatePostPreviewRequestSchema,
   restorePostVersionRequestSchema,
   siteDtoSchema,
   updatePostRequestSchema,
@@ -77,6 +80,9 @@ const getPostBySlugOpDef = operationsByToolName["posts.get_by_slug"];
 const createPostOpDef = operationsByToolName["posts.create"];
 const updatePostOpDef = operationsByToolName["posts.update"];
 const publishPostOpDef = operationsByToolName["posts.publish"];
+const schedulePostOpDef = operationsByToolName["posts.schedule"];
+const unschedulePostOpDef = operationsByToolName["posts.unschedule"];
+const rotatePostPreviewOpDef = operationsByToolName["posts.preview.rotate"];
 const archivePostOpDef = operationsByToolName["posts.archive"];
 const unarchivePostOpDef = operationsByToolName["posts.unarchive"];
 const uploadAssetOpDef = operationsByToolName["assets.upload"];
@@ -101,6 +107,7 @@ const postIdParamsSchema = getPostRequestSchema;
 const postSlugParamsSchema = getPostBySlugRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
 const publishPostBodySchema = publishPostRequestSchema.omit({ postId: true });
+const schedulePostBodySchema = schedulePostRequestSchema.omit({ postId: true });
 const restorePostVersionBodySchema = restorePostVersionRequestSchema.omit({ postId: true, versionNumber: true });
 
 const postVersionParamsSchema = z.object({
@@ -242,6 +249,31 @@ export const publishPostRoute = createRoute({
     },
     ...routeErrors(400, 401, 402, 403, 404, 409, 429, 500),
   },
+});
+
+export const schedulePostRoute = createRoute({
+  method: "post", path: "/posts/{postId}/schedule",
+  operationId: schedulePostOpDef.operationId, description: schedulePostOpDef.description,
+  security: bearerSecurity,
+  request: { params: postIdParamsSchema, body: { required: true, content: { "application/json": { schema: schedulePostBodySchema } } } },
+  responses: { 200: { description: "Scheduled post", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+
+export const unschedulePostRoute = createRoute({
+  method: "post", path: "/posts/{postId}/unschedule",
+  operationId: unschedulePostOpDef.operationId, description: unschedulePostOpDef.description,
+  security: bearerSecurity, request: { params: unschedulePostRequestSchema },
+  responses: { 200: { description: "Unscheduled post", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+
+export const rotatePostPreviewRoute = createRoute({
+  method: "post", path: "/posts/{postId}/preview/rotate",
+  operationId: rotatePostPreviewOpDef.operationId, description: rotatePostPreviewOpDef.description,
+  security: bearerSecurity, request: { params: rotatePostPreviewRequestSchema },
+  responses: { 200: { description: "Rotated private preview link", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
 });
 
 export const archivePostRoute = createRoute({
@@ -484,6 +516,9 @@ export const apiV1OperationRoutes = [
   createPostRoute,
   updatePostRoute,
   publishPostRoute,
+  schedulePostRoute,
+  unschedulePostRoute,
+  rotatePostPreviewRoute,
   archivePostRoute,
   unarchivePostRoute,
   uploadAssetRoute,

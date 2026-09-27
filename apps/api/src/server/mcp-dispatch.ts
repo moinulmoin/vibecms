@@ -17,6 +17,9 @@ import {
   listPostVersionsRequestSchema,
   previewPostRequestSchema,
   publishPostRequestSchema,
+  schedulePostRequestSchema,
+  unschedulePostRequestSchema,
+  rotatePostPreviewRequestSchema,
   restorePostVersionRequestSchema,
   searchPostsRequestSchema,
   updatePostRequestSchema,
@@ -41,6 +44,9 @@ import {
   listPostVersionsOp,
   previewPostOp,
   publishPostOp,
+  schedulePostOp,
+  unschedulePostOp,
+  rotatePostPreviewOp,
   restorePostVersionOp,
   searchPostsOp,
   updatePostOp,
@@ -66,6 +72,12 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return updatePostOp(ctx, updatePostRequestSchema.parse(rawArguments ?? {}));
     case "posts.publish":
       return publishPostOp(ctx, publishPostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.schedule":
+      return schedulePostOp(ctx, schedulePostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.unschedule":
+      return unschedulePostOp(ctx, unschedulePostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.preview.rotate":
+      return rotatePostPreviewOp(ctx, rotatePostPreviewRequestSchema.parse(rawArguments ?? {}));
     case "posts.archive":
       return archivePostOp(ctx, archivePostRequestSchema.parse(rawArguments ?? {}));
     case "posts.unarchive":

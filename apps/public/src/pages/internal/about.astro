@@ -1,0 +1,39 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { BRAND } from "@vc/config";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+import { isDirectInternalRootHit } from "../../lib/internal-root";
+
+const env = publicRuntimeEnv(Astro);
+if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname) || env.selfHosted || !isMarketingHost(Astro.request, env)) return new Response("Not found", { status: 404 });
+---
+<LegalLayout title="About vibecms" description="An open-source CMS built for AI agents and the people who own their work." updated="September 27, 2026">
+  <p>
+    vibecms is a CMS for developers, indie hackers, and small technical teams who want an AI
+    agent to help run a blog, changelog, or notes site. The agent can draft, preview, and publish
+    through MCP over HTTPS, a REST API, or the CLI. The person who owns the site stays in charge
+    of what goes live. New agent keys are scoped to drafts by default, and publishing access is
+    a separate choice made by the owner.
+  </p>
+  <h2>Control over every change</h2>
+  <p>
+    Post changes create versions, so the owner can see what changed and restore an earlier
+    version. Activity records show the work done in the workspace. A draft can be reviewed in
+    preview before the owner approves publication. These controls matter because an agent should
+    be useful without taking ownership of a person's writing or publishing decisions.
+  </p>
+  <h2>Open source and hosting</h2>
+  <p>
+    The project is <a href={BRAND.repoUrl}>open source</a>. vibecms Cloud runs the hosted
+    service; the same repository also supports self-hosting on an operator's own Cloudflare
+    D1 and R2 resources. Self-hosting is an option for teams that want to operate their own
+    infrastructure, while the hosted service is for people who want a blog without running it.
+  </p>
+  <h2>Contact</h2>
+  <p>
+    For account, billing, or private questions, email <a href="mailto:support@vibecms.dev">support@vibecms.dev</a>.
+    For bugs and feature ideas, open an issue in the public repository. The
+    <a href="/legal/support">support page</a> explains what information helps us investigate.
+  </p>
+</LegalLayout>

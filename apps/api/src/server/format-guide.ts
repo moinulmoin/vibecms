@@ -12,6 +12,7 @@ export { RENDERER_VERSION };
  * presentationOptions so agents understand how to declare layout intent.
  */
 const PRESENTATION_NOTES =
+  "After saving, send your person the previewUrl. Ask the person before posts.schedule, naming the exact saved version and publish time. " +
   "Agents archive posts; people can permanently delete archived posts in the dashboard. " +
   "Declare layout intent via the typed `presentation` field on posts.create or posts.update - NOT in front-matter or body text. " +
   "Supported fields: `layout` (`standard`, `essay` for longform with a lead paragraph, or `feature` for a full-width cover above the title) and `toc` (boolean; the page-level outline appears once a post has 3+ H2/H3 headings). " +

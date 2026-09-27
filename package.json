@@ -63,7 +63,8 @@
     "openapi:check": "pnpm openapi:gen && git diff --exit-code apps/api/openapi.json",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "gen:agent-skills": "node scripts/gen-agent-skills.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

@@ -138,6 +138,30 @@ export const postVersions = sqliteTable("post_versions", {
   createdAt: integer("created_at").notNull(),
 }, (table) => [uniqueIndex("idx_post_versions_post_number").on(table.postId, table.versionNumber)]);
 
+export const postPreviewTokens = sqliteTable("post_preview_tokens", {
+  postId: text("post_id").primaryKey().references(() => posts.id, { onDelete: "cascade" }),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  nonce: text("nonce").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [index("idx_post_preview_tokens_site_hash").on(table.siteId, table.tokenHash)]);
+
+export const postSchedules = sqliteTable("post_schedules", {
+  postId: text("post_id").primaryKey().references(() => posts.id, { onDelete: "cascade" }),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  publishAt: integer("publish_at").notNull(),
+  status: text("status", { enum: ["pending", "processing", "published", "failed"] }).notNull(),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  leaseToken: text("lease_token"),
+  scheduledByType: text("scheduled_by_type").notNull(),
+  scheduledById: text("scheduled_by_id").notNull(),
+  scheduledByName: text("scheduled_by_name").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [index("idx_post_schedules_due").on(table.status, table.publishAt)]);
+
 export const postSlugRedirects = sqliteTable("post_slug_redirects", {
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
   fromSlug: text("from_slug").notNull(),

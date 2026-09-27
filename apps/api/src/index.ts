@@ -23,6 +23,8 @@ import { errorEnvelope, jsonAppError } from '@/server/http-errors'
 import { runWithExecutionContext } from '@/server/execution-scope'
 import { rpcHandleSubscribe } from '@/rpc/public'
 import { autoseopilotRoutes } from '@/routes/autoseopilot'
+import rootPackage from '../../../package.json'
+import { apiCatalog, mcpServerCard, agentSkillsIndex, skillArtifacts, authMarkdown } from '@vc/config/agent-discovery'
 
 type AppEnv = {
   Bindings: Cloudflare.Env
@@ -32,6 +34,7 @@ type AppEnv = {
 export const app = new Hono<AppEnv>()
 
 const NO_STORE = 'no-store'
+const marketingOrigin = (env: Cloudflare.Env) => `https://${env.PUBLIC_BLOG_DOMAIN}`
 
 function requestLog(c: Context<AppEnv>, status: number, durationMs: number) {
   return {
@@ -122,6 +125,19 @@ app.get('/api/health/live', (c) =>
     version: c.env.CF_VERSION_METADATA?.id ?? null,
   }),
 )
+
+app.get('/.well-known/api-catalog', (c) => c.body(JSON.stringify(apiCatalog(c.env.APP_URL, marketingOrigin(c.env))), 200, { 'Content-Type': 'application/linkset+json; charset=utf-8' }))
+app.get('/.well-known/mcp/server-card.json', (c) => c.json(mcpServerCard(c.env.APP_URL, rootPackage.version)))
+app.get('/.well-known/agent-skills/index.json', async (c) => c.json(await agentSkillsIndex(c.env.APP_URL.replace(/\/$/, ''))))
+app.get('/.well-known/agent-skills/:name/SKILL.md', (c) => {
+  const name = c.req.param('name')
+  if (!(name in skillArtifacts)) return c.json({ error: 'Not found' }, 404)
+  return c.body(skillArtifacts[name as keyof typeof skillArtifacts], 200, { 'Content-Type': 'text/markdown; charset=utf-8' })
+})
+app.get('/auth.md', (c) => c.body(authMarkdown(c.env.APP_URL, marketingOrigin(c.env)), 200, { 'Content-Type': 'text/markdown; charset=utf-8' }))
+app.get('/openapi.json', (c) => apiV1App.fetch(new Request(new URL('/api/v1/openapi.json', c.req.url), c.req.raw)))
+app.get('/llms.txt', (c) => c.body(`# vibecms app and API\n\nThe marketing guide is at ${marketingOrigin(c.env)}/llms.txt.\n\n- MCP: ${c.env.APP_URL}/mcp\n- OpenAPI: ${c.env.APP_URL}/openapi.json\n- Authentication: ${c.env.APP_URL}/auth.md\n`, 200, { 'Content-Type': 'text/markdown; charset=utf-8' }))
+app.get('/robots.txt', (c) => c.body(`User-agent: *\nDisallow: /\nAllow: /.well-known/\nAllow: /openapi.json\nAllow: /auth.md\nAllow: /llms.txt\nContent-Signal: search=yes, ai-input=yes, ai-train=no\nSitemap: ${marketingOrigin(c.env)}/sitemap.xml\n`, 200, { 'Content-Type': 'text/plain; charset=utf-8' }))
 
 app.get('/api/health/ready', async (c) => {
   c.header('Cache-Control', NO_STORE)
@@ -221,7 +237,7 @@ app.onError((err, c) => {
 
 app.notFound((c) => {
   const path = new URL(c.req.url).pathname
-  if (path.startsWith('/api/') || path === '/mcp' || path.startsWith('/internal/')) {
+  if (path.startsWith('/api/') || path === '/mcp' || path.startsWith('/internal/') || path.startsWith('/.well-known/')) {
     const correlationId = c.req.header('X-Correlation-Id') ?? c.get('requestId')
     if (path.startsWith('/internal/')) {
       c.header('Cache-Control', NO_STORE)

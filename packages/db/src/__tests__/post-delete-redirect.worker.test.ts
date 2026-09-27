@@ -83,6 +83,18 @@ describe("post deletion and live slug redirects", () => {
     expect(await repo.listPostRedirects(siteId, post.id)).toEqual([]);
   });
 
+  it("keeps the last live URL after archive, back to draft, rename, and republish", async () => {
+    const post = await create(`kept-${++sequence}`);
+    await publish(post.id, 1);
+    await repo.updatePostWithHistory(siteId, post.id, { status: "archived" }, actor,
+      { changeSummary: "Archived", activityAction: "post.archived", activitySummary: "Archived" }, 1);
+    await repo.updatePostWithHistory(siteId, post.id, { status: "draft" }, actor,
+      { changeSummary: "Restored", activityAction: "post.unarchived", activitySummary: "Restored" }, 2);
+    await rename(post.id, `kept-new-${sequence}`, 3);
+    await publish(post.id, 4);
+    expect(await getPublishedSlugRedirect(env.DB, siteId, post.slug)).toBe(`kept-new-${sequence}`);
+  });
+
   it("lets another post deliberately reuse a redirected slug and removes the redirect on publish", async () => {
     const original = await create(`reused-${++sequence}`);
     await publish(original.id, 1);
