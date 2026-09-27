@@ -82,13 +82,13 @@ export function AgentSurface({ apiDocsUrl }: { apiDocsUrl: string }) {
 
         <div data-reveal data-d="1" className="order-1 min-w-0 lg:order-2">
           <h2 id="surface-title" className={H2}>
-            Connect once.
+            Works with the agent
             <br />
-            Use any interface.
+            you already use.
           </h2>
           <p className={`mt-4 max-w-[440px] ${LEAD}`}>
-            MCP, REST, and the CLI run through the same core. Same scopes, same
-            version checks, same activity log.
+            Claude, Codex, Cursor, or a script: connect over MCP, REST, or the
+            CLI. Same rules and the same history everywhere.
           </p>
 
           <dl className="mt-7 grid gap-4">

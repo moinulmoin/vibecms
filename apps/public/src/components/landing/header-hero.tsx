@@ -16,7 +16,10 @@ const agents = [
 export function HeaderHero({ loginUrl }: { loginUrl: string }) {
   return (
     <>
-      <header className="sticky top-0 z-[60] bg-background/70 backdrop-blur-xl">
+      <header
+        className="sticky top-0 z-[60] border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300 data-[scrolled]:border-[color:var(--hairline)] data-[scrolled]:bg-background/60 data-[scrolled]:backdrop-blur-xl"
+        data-landing-header
+      >
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-4 sm:px-7">
           <a
             className="relative flex items-center gap-2.5 font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground no-underline before:absolute before:-inset-y-2 before:inset-x-[-4px] before:content-['']"

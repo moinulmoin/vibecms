@@ -1,6 +1,6 @@
 import { BRAND, LEGAL } from "@vc/config";
 import { ArrowRight } from "./icons";
-import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
+import { GHOST_CTA, GREEN_BG, GREEN_CTA, SectionLight, SectionShell } from "./primitives";
 
 const productLinks = [
   ["Features", "#features"],
@@ -43,23 +43,21 @@ export function CtaFooter({
     <>
       <section id="start" aria-label="Start free">
       <SectionShell className="pb-10 md:pb-14">
-        <div
-          className="relative overflow-hidden rounded-[22px] px-6 py-14 text-center ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:px-10 md:py-[76px]"
-          data-reveal
-        >
-          <Glow className="pointer-events-none absolute left-1/2 -top-24 size-[min(560px,90vw)] -translate-x-1/2 opacity-60" />
+        <div className="relative isolate py-10 text-center md:py-16" data-reveal>
+          <SectionLight x="50%" y="46%" size={1000} alpha={0.13} />
           <img
             src="/brand/icon.svg"
             alt=""
             className="relative mx-auto mb-7 size-16 animate-vc-float sm:size-[68px]"
             aria-hidden="true"
           />
-          <h2 className="relative mx-auto max-w-[18ch] text-balance font-display text-[clamp(1.875rem,4.4vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-            Your agents. Your content.{" "}
-            <span className="text-brand-bright">Your call.</span>
+          <h2 className="relative mx-auto max-w-[16ch] text-balance font-display text-[clamp(2rem,4.6vw,3.5rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+            Your agent is ready to write.{" "}
+            <span className="text-brand-bright">Give it a blog.</span>
           </h2>
-          <p className="relative mx-auto mt-4 max-w-[460px] text-balance text-base leading-7 text-muted-foreground">
-            Free to start, no card. Your agent can publish its first post in minutes.
+          <p className="relative mx-auto mt-4 max-w-[440px] text-balance text-base leading-7 text-muted-foreground">
+            Free to start, no card. Connect your agent and publish your first
+            post today.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
             <a

@@ -155,6 +155,18 @@ function initCopyPrompt() {
   }
 }
 
+// Transparent over the hero; a light backing appears once content scrolls under it.
+function initHeader() {
+  const header = document.querySelector("[data-landing-header]");
+  if (!(header instanceof HTMLElement)) return;
+  const update = () => {
+    if (window.scrollY > 8) header.dataset.scrolled = "";
+    else delete header.dataset.scrolled;
+  };
+  update();
+  window.addEventListener("scroll", update, { passive: true });
+}
+
 function initMobileNav() {
   const nav = document.querySelector("[data-mobile-nav]");
   if (!(nav instanceof HTMLDetailsElement)) return;
@@ -182,6 +194,7 @@ function initMobileNav() {
 }
 
 initNav();
+initHeader();
 initMobileNav();
 initKeyLevels();
 initCopyPrompt();

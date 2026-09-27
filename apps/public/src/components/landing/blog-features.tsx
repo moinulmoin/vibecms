@@ -184,9 +184,9 @@ export function BlogFeatures() {
         <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
           <div data-reveal className="min-w-0">
             <h2 id="features-title" className={H2}>
-              Markdown in.
+              Your agent writes Markdown.
               <br />
-              A blog worth reading out.
+              Readers get a real blog.
             </h2>
             <p className={`mt-4 max-w-[440px] ${LEAD}`}>
               Callouts, highlighted code with copy buttons, tables of contents,
