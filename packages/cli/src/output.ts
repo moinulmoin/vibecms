@@ -18,6 +18,8 @@ export function exitCodeForStatus(status: number): number {
 }
 
 export type OutputFormat = { json?: boolean; ndjson?: boolean };
+let jsonErrors = false;
+export function setErrorFormat(json: boolean): void { jsonErrors = json; }
 
 // All machine output goes to stdout as JSON; no color, no spinners.
 export function printData(data: unknown, fmt: OutputFormat): void {
@@ -30,6 +32,19 @@ export function printData(data: unknown, fmt: OutputFormat): void {
 
 // Errors go to stderr; process exits nonzero with a stable code.
 export function fail(payload: unknown, code: number): never {
+  if (jsonErrors) {
+    const value = payload && typeof payload === "object" && "error" in payload ? (payload as { error: unknown }).error : payload;
+    const error = value && typeof value === "object" && "message" in value
+      ? value as Record<string, unknown>
+      : { message: typeof value === "string" ? value : JSON.stringify(value) };
+    process.stderr.write(`${JSON.stringify({ error: {
+      code: typeof error.code === "string" ? error.code : code === EXIT.USAGE ? "USAGE_ERROR" : "HTTP_ERROR",
+      message: String(error.message),
+      ...(error.details === undefined ? {} : { details: error.details }),
+      ...(error.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
+    } })}\n`);
+    process.exit(code);
+  }
   const text = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
   process.stderr.write(`${text}\n`);
   process.exit(code);
