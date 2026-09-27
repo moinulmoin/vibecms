@@ -40,7 +40,7 @@ export async function getVoiceProfileSettings(app: AppUserContext): Promise<Voic
     db.posts.listPosts({ siteId: app.siteId, status: 'published', limit: 100, offset: 0 }),
   ])
   return {
-    configured: profile ? true : false,
+    configured: profile?.configured ?? false,
     audience: profile?.audience ?? '',
     voiceSummary: profile?.voiceSummary ?? '',
     preferRules: profile?.guidelines.filter((rule) => rule.kind === 'prefer').map((rule) => rule.text) ?? [],

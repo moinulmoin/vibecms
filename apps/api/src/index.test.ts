@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import { app, redactErrorText } from './index'
+import { app, redactErrorText, redactPathSecrets } from './index'
 
 describe('API Worker request hardening', () => {
   it('rejects an oversized auth body before dispatch', async () => {
@@ -177,3 +177,11 @@ describe('app-host agent discovery', () => {
     expect(await response.json()).toMatchObject({ error: { code: 'NOT_FOUND' } })
   })
 })
+
+describe('redactPathSecrets', () => {
+  it('keeps preview tokens out of request logs', () => {
+    expect(redactPathSecrets('/preview/0123abcd')).toBe('/preview/[redacted]')
+    expect(redactPathSecrets('/api/v1/posts')).toBe('/api/v1/posts')
+  })
+})
+

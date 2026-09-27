@@ -60,6 +60,20 @@ describe('sites.get Voice Profile contract', () => {
     expect(voiceProfile).not.toHaveProperty('updatedBy')
     expect(JSON.stringify(voiceProfile)).not.toContain('private-user-id')
   })
+
+  it('returns a cleared profile as unconfigured with its current revision', () => {
+    expect(mapSiteRow(site, null, {
+      configured: false,
+      audience: null,
+      voiceSummary: null,
+      guidelines: [],
+      representativePosts: [],
+      warnings: [],
+      updatedBy: { type: 'system', id: '__voice_profile_cleared__', name: '' },
+      createdAt: 250,
+      updatedAt: 301,
+    })?.voiceProfile).toMatchObject({ configured: false, revision: 301, updatedByName: null })
+  })
 })
 
 describe('sites.get template + byline contract', () => {

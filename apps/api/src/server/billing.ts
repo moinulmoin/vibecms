@@ -68,23 +68,28 @@ function requireOwner(app: AppUserContext) {
   }
 }
 
-/** Idempotency-Key for one logical checkout attempt (workspace + interval). Uses Polar's header facility within its supported retry window. */
-export function checkoutIdempotencyKey(workspaceId: string, interval: CheckoutInterval) {
-  return `vc-checkout:${workspaceId}:${interval}`
+/** Polar retry key scoped to the selected offer. */
+export function checkoutIdempotencyKey(workspaceId: string, interval: CheckoutInterval, productId: string, discountId?: string) {
+  return `vc-checkout:${workspaceId}:${interval}:${productId}:${discountId ?? 'none'}`
 }
 
 export type PolarOpenCheckout = {
   url?: string | null
   status?: string | null
   expiresAt?: Date | string | null
+  productId?: string | null
+  discountId?: string | null
 }
 
-/** Pick a still-open, non-expired checkout URL when Polar already has one for this customer/product. */
+/** Reuse only an open checkout for the exact product and discount. */
 export function pickReusableOpenCheckoutUrl(
   items: PolarOpenCheckout[],
+  productId: string,
+  discountId?: string,
   nowMs: number = Date.now(),
 ): string | null {
   for (const item of items) {
+    if (item.productId !== productId || (item.discountId ?? null) !== (discountId ?? null)) continue
     if (item.status != null && item.status !== 'open') continue
     if (!item.url) continue
     if (item.expiresAt != null) {
@@ -105,6 +110,7 @@ export type ListOpenPolarCheckouts = (query: {
 export type CreatePolarCheckout = (
   body: {
     products: string[]
+    discountId?: string
     successUrl: string
     returnUrl: string
     externalCustomerId: string
@@ -114,7 +120,7 @@ export type CreatePolarCheckout = (
     customerMetadata: { workspaceId: string }
   },
   options?: { headers?: HeadersInit },
-) => Promise<{ url?: string | null }>
+) => Promise<{ url?: string | null; productId?: string | null; discountId?: string | null }>
 
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
@@ -177,7 +183,7 @@ export async function createCheckoutSessionForApp(
         externalCustomerId: app.workspaceId,
         productId,
       })
-      const existingUrl = pickReusableOpenCheckoutUrl(openItems)
+      const existingUrl = pickReusableOpenCheckoutUrl(openItems, productId, discountId)
       if (existingUrl) return { kind: 'ok', url: existingUrl }
     } catch (error) {
       console.error('polar open checkout list failed', error)
@@ -197,8 +203,13 @@ export async function createCheckoutSessionForApp(
         metadata: { workspaceId: app.workspaceId },
         customerMetadata: { workspaceId: app.workspaceId },
       },
-      { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval) } },
+      { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval, productId, discountId) } },
     )
+    if (session.productId !== productId || (session.discountId ?? null) !== (discountId ?? null)) {
+      console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: discountId ?? null,
+        returnedProductId: session.productId, returnedDiscountId: session.discountId })
+      return { kind: 'error', code: 'checkout_failed' }
+    }
     if (!session.url) return { kind: 'error', code: 'checkout_failed' }
     return { kind: 'ok', url: session.url }
   } catch (error) {

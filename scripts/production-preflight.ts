@@ -112,16 +112,12 @@ await assertImagesBindingConfigured(missing);
 await assertEmailSendingConfigured(missing);
 await assertCustomHostnameFallback(zoneId, missing);
 await assertSecrets(missing);
-const polarVars = extractPolarVars(productionApiConfig);
+const polarVars = productionPolarEnv(productionApiConfig, process.env.POLAR_ACCESS_TOKEN);
 if (polarVars.POLAR_SERVER !== "production") {
   missing.push(`Production Worker POLAR_SERVER must be production; got ${polarVars.POLAR_SERVER ?? "missing"}`);
 }
 try {
-  await checkPricing({
-    ...process.env,
-    ...polarVars,
-    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
-  });
+  await checkPricing(polarVars);
 } catch (error) {
   missing.push(`Polar pricing: ${error instanceof Error ? error.message : String(error)}`);
 }
@@ -208,13 +204,15 @@ Required environment:
 
 Notes:
   - Failures stop before migrations.
+  - Legacy scheduled and unversioned published post counts block production until reconciled
+    or explicitly acknowledged with ACK_LEGACY_SCHEDULED_POSTS and ACK_LEGACY_UNVERSIONED_POSTS.
   - Astro sessions are disabled; no SESSION KV is required.
   - preflight:pricing requires POLAR_ACCESS_TOKEN, POLAR_SERVER, both POLAR_*_PRODUCT_ID
     and both POLAR_LAUNCH_DISCOUNT_*_ID values in the environment.
 `);
 }
 
-function extractPolarVars(source: string): Record<string, string> {
+export function extractPolarVars(source: string): Record<string, string> {
   const vars: Record<string, string> = {};
   for (const name of [
     "POLAR_SERVER",
@@ -227,6 +225,10 @@ function extractPolarVars(source: string): Record<string, string> {
     if (match?.[1]) vars[name] = match[1];
   }
   return vars;
+}
+
+export function productionPolarEnv(source: string, token?: string): Record<string, string | undefined> {
+  return { ...extractPolarVars(source), POLAR_ACCESS_TOKEN: token };
 }
 
 type D1Row = Record<string, unknown>;
@@ -289,14 +291,18 @@ export async function checkLegacyData(
     const scheduled = await query("SELECT id FROM posts WHERE status = 'scheduled' LIMIT 5");
     const scheduledCount = d1Count(await query("SELECT count(*) AS count FROM posts WHERE status = 'scheduled'"));
     if (scheduledCount) {
-      console.warn(`0021 will convert ${scheduledCount} scheduled post(s) to drafts; example ids: ${scheduled.map((row) => row.id).join(", ")}. Recreate legitimate schedules in post_schedules after 0030, with the intended publish time and version, before reopening publishing.`);
+      const message = `0021 will convert ${scheduledCount} scheduled post(s) to drafts; example ids: ${scheduled.map((row) => row.id).join(", ")}. Recreate legitimate schedules in post_schedules after 0030, with the intended publish time and version, before reopening publishing.`;
+      if (process.env.ACK_LEGACY_SCHEDULED_POSTS !== String(scheduledCount)) failures.push(`${message} Set ACK_LEGACY_SCHEDULED_POSTS=${scheduledCount} only after explicitly accepting this conversion.`);
+      else console.warn(message);
     }
 
     const missingVersion = `status = 'published' AND (NOT EXISTS (SELECT 1 FROM post_versions WHERE post_versions.post_id = posts.id)${postColumns.has("published_version_id") ? " OR published_version_id IS NULL" : ""})`;
     const unversioned = await query(`SELECT id FROM posts WHERE ${missingVersion} LIMIT 5`);
     const unversionedCount = d1Count(await query(`SELECT count(*) AS count FROM posts WHERE ${missingVersion}`));
     if (unversionedCount) {
-      console.warn(`0021 may convert ${unversionedCount} published post(s) to drafts or leave them without a live version; example ids: ${unversioned.map((row) => row.id).join(", ")}. Create post_versions snapshots and set published_version_id for these posts before applying 0021; verify their public content afterward.`);
+      const message = `0021 may convert ${unversionedCount} published post(s) to drafts or leave them without a live version; example ids: ${unversioned.map((row) => row.id).join(", ")}. Create post_versions snapshots and set published_version_id for these posts before applying 0021; verify their public content afterward.`;
+      if (process.env.ACK_LEGACY_UNVERSIONED_POSTS !== String(unversionedCount)) failures.push(`${message} Set ACK_LEGACY_UNVERSIONED_POSTS=${unversionedCount} only after explicitly accepting this conversion.`);
+      else console.warn(message);
     }
   } catch (error) {
     failures.push(`Unable to run read-only D1 migration checks: ${error instanceof Error ? error.message : String(error)}`);
@@ -369,7 +375,7 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
       const amount = discount.amounts?.usd ?? (discount.currency?.toLowerCase() === "usd" ? discount.amount : undefined);
       if (Number.isInteger(amount) && amount! >= 0) effective = Math.max(0, plan.list - amount!);
     } else if (discount.type === "percentage" && Number.isInteger(discount.basis_points)) {
-      effective = Math.round(plan.list * (10_000 - discount.basis_points!) / 10_000);
+      effective = plan.list - Math.round(plan.list * discount.basis_points! / 10_000);
     }
     if (effective !== plan.launch) {
       throw new Error(`${plan.label} Polar discount ${discountId}: expected ${plan.launch} cents after discount from ${plan.list} cents; got ${effective ?? "unsupported type/currency"} (type ${discount.type ?? "missing"})`);

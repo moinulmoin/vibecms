@@ -111,9 +111,10 @@ async function seedManagedWorkspace(id: string) {
 
 describe('checkoutIdempotencyKey', () => {
   it('is stable for the same workspace and interval', () => {
-    expect(checkoutIdempotencyKey('ws_a', 'monthly')).toBe('vc-checkout:ws_a:monthly')
-    expect(checkoutIdempotencyKey('ws_a', 'monthly')).toBe(checkoutIdempotencyKey('ws_a', 'monthly'))
-    expect(checkoutIdempotencyKey('ws_a', 'yearly')).not.toBe(checkoutIdempotencyKey('ws_a', 'monthly'))
+    expect(checkoutIdempotencyKey('ws_a', 'monthly', 'product', 'discount')).toBe('vc-checkout:ws_a:monthly:product:discount')
+    expect(checkoutIdempotencyKey('ws_a', 'monthly', 'product', 'discount')).toBe(checkoutIdempotencyKey('ws_a', 'monthly', 'product', 'discount'))
+    expect(checkoutIdempotencyKey('ws_a', 'monthly', 'product')).not.toBe(checkoutIdempotencyKey('ws_a', 'monthly', 'product', 'discount'))
+    expect(checkoutIdempotencyKey('ws_a', 'monthly', 'other', 'discount')).not.toBe(checkoutIdempotencyKey('ws_a', 'monthly', 'product', 'discount'))
   })
 })
 
@@ -124,8 +125,9 @@ describe('pickReusableOpenCheckoutUrl', () => {
       pickReusableOpenCheckoutUrl(
         [
           { url: 'https://polar.example/expired', status: 'open', expiresAt: '2026-07-25T11:00:00.000Z' },
-          { url: 'https://polar.example/open', status: 'open', expiresAt: '2026-07-25T13:00:00.000Z' },
+          { url: 'https://polar.example/open', status: 'open', productId: 'product', expiresAt: '2026-07-25T13:00:00.000Z' },
         ],
+        'product', undefined,
         now,
       ),
     ).toBe('https://polar.example/open')
@@ -136,8 +138,8 @@ describe('pickReusableOpenCheckoutUrl', () => {
       pickReusableOpenCheckoutUrl([
         { url: 'https://polar.example/confirmed', status: 'confirmed' },
         { status: 'open' },
-        { url: 'https://polar.example/ok', status: 'open' },
-      ]),
+        { url: 'https://polar.example/ok', status: 'open', productId: 'product' },
+      ], 'product'),
     ).toBe('https://polar.example/ok')
   })
 })
@@ -222,6 +224,7 @@ describe('createCheckoutSessionForApp — open checkout reuse', () => {
     const listOpenCheckouts = vi.fn().mockResolvedValue([
       {
         url: 'https://polar.example/checkout/existing',
+        productId: 'prod_monthly',
         status: 'open',
         expiresAt: new Date(Date.now() + 60_000),
       },
@@ -253,7 +256,7 @@ describe('createCheckoutSessionForApp — repeat request idempotency key', () =>
     const db = createDataAccess(env.DB)
     await db.billing.ensureBillingRow(workspaceId, 'none')
 
-    const createCheckout = vi.fn().mockResolvedValue({ url: 'https://polar.example/checkout/1' })
+    const createCheckout = vi.fn().mockResolvedValue({ url: 'https://polar.example/checkout/1', productId: 'prod_monthly', discountId: null })
     const listOpenCheckouts = vi.fn().mockResolvedValue([])
     const app = ownerApp(workspaceId)
     const deps = { createCheckout, listOpenCheckouts }
@@ -266,7 +269,7 @@ describe('createCheckoutSessionForApp — repeat request idempotency key', () =>
     expect(listOpenCheckouts).toHaveBeenCalledTimes(2)
     expect(createCheckout).toHaveBeenCalledTimes(2)
 
-    const key = checkoutIdempotencyKey(workspaceId, 'monthly')
+    const key = checkoutIdempotencyKey(workspaceId, 'monthly', 'prod_monthly')
     expect(createCheckout.mock.calls[0][1]).toEqual({ headers: { 'Idempotency-Key': key } })
     expect(createCheckout.mock.calls[1][1]).toEqual({ headers: { 'Idempotency-Key': key } })
     expect(createCheckout.mock.calls[0][1]).toEqual(createCheckout.mock.calls[1][1])
@@ -303,7 +306,7 @@ describe('createCheckoutSessionForApp — launch discount', () => {
     mutableEnv.APP_URL = 'https://app.example.com'
     const workspaceId = 'ws-billing-launch'
     await seedWorkspace(workspaceId)
-    const createCheckout = vi.fn(async (_body: Record<string, unknown>, _options?: unknown) => ({ url: 'https://polar.example/checkout' }))
+    const createCheckout = vi.fn(async (body: { discountId?: string }, _options?: unknown) => ({ url: 'https://polar.example/checkout', productId: 'prod_monthly', discountId: body.discountId ?? null }))
     const listOpenCheckouts = vi.fn(async () => [])
 
     mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
@@ -317,5 +320,27 @@ describe('createCheckoutSessionForApp — launch discount', () => {
     await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts })
     expect(createCheckout.mock.calls.at(-1)?.[0]).not.toHaveProperty('discountId')
   })
-})
 
+  it('skips open checkouts with another product or discount and rejects a mismatched create response', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-billing-offer-mismatch'
+    await seedWorkspace(workspaceId)
+    const listOpenCheckouts = vi.fn().mockResolvedValue([
+      { url: 'https://polar.example/wrong-product', status: 'open', productId: 'other', discountId: 'disc_launch_monthly' },
+      { url: 'https://polar.example/wrong-discount', status: 'open', productId: 'prod_monthly', discountId: null },
+    ])
+    const createCheckout = vi.fn().mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: null })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const result = await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { listOpenCheckouts, createCheckout })
+    expect(result).toEqual({ kind: 'error', code: 'checkout_failed' })
+    expect(createCheckout).toHaveBeenCalledOnce()
+    expect(log).toHaveBeenCalledWith('polar checkout offer mismatch', expect.objectContaining({ requestedDiscountId: 'disc_launch_monthly', returnedDiscountId: null }))
+    createCheckout.mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: 'disc_launch_monthly' })
+    expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { listOpenCheckouts, createCheckout }))
+      .toEqual({ kind: 'ok', url: 'https://polar.example/new' })
+  })
+})

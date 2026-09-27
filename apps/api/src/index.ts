@@ -36,12 +36,17 @@ export const app = new Hono<AppEnv>()
 const NO_STORE = 'no-store'
 const marketingOrigin = (env: Cloudflare.Env) => `https://${env.PUBLIC_BLOG_DOMAIN}`
 
+/** Preview links carry their secret in the path; never log it. */
+export function redactPathSecrets(pathname: string) {
+  return pathname.replace(/\/preview\/[^/]+/g, '/preview/[redacted]')
+}
+
 function requestLog(c: Context<AppEnv>, status: number, durationMs: number) {
   return {
     service: 'vibecms-api',
     requestId: c.get('requestId'),
     method: c.req.method,
-    path: new URL(c.req.url).pathname,
+    path: redactPathSecrets(new URL(c.req.url).pathname),
     status,
     durationMs,
     cfRay: c.req.header('cf-ray') ?? null,

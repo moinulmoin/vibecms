@@ -31,6 +31,7 @@ function parseVoiceSeedJson(raw: string): string[] {
 }
 
 type SiteVoiceProfileMapper = {
+  configured?: boolean;
   audience: string | null;
   voiceSummary: string | null;
   guidelines: Array<{
@@ -77,13 +78,13 @@ export function mapSiteRow(
     voiceSeedUrls: parseVoiceSeedJson(row.voiceSeedJson),
     voiceProfile: voiceProfile
       ? {
-          configured: true,
+          configured: voiceProfile.configured ?? true,
           audience: voiceProfile.audience,
           voiceSummary: voiceProfile.voiceSummary,
           guidelines: voiceProfile.guidelines,
           representativePosts: voiceProfile.representativePosts,
           warnings: voiceProfile.warnings,
-          updatedByName: voiceProfile.updatedBy.name,
+          updatedByName: voiceProfile.configured === false ? null : voiceProfile.updatedBy.name,
           createdAt: voiceProfile.createdAt,
           updatedAt: voiceProfile.updatedAt,
           revision: voiceProfile.updatedAt,

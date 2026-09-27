@@ -130,7 +130,7 @@ describe("VoiceProfilesRepository", () => {
         activityId: "voice-activity-clear",
       }),
     ).resolves.toBe(true);
-    await expect(repository.getBySite(SITE_ID)).resolves.toBeNull();
+    await expect(repository.getBySite(SITE_ID)).resolves.toMatchObject({ configured: false, audience: null });
   });
 
   it("increments same-second revisions and rejects stale saves and clears without activity", async () => {
@@ -152,5 +152,26 @@ describe("VoiceProfilesRepository", () => {
     expect((await repository.getBySite(OTHER_SITE_ID))?.audience).toBe("Second");
     expect((await env.DB.prepare("SELECT count(*) AS total FROM activity_events WHERE site_id = ?")
       .bind(OTHER_SITE_ID).first<{ total: number }>())?.total).toBe(activityBefore?.total);
+  });
+
+  it("keeps a monotonic revision across create, clear, and recreate in one second", async () => {
+    const repository = createVoiceProfilesRepository(env.DB);
+    const siteId = "voice-site-recreate";
+    const editor = { type: "human" as const, id: "voice-user", name: "Voice Owner" };
+    await env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(siteId, "voice-workspace", siteId, siteId, T0, T0).run();
+    const base = { siteId, audience: "First", voiceSummary: null, guidelines: [], representativePostIds: [], editor, timestamp: T0 + 50 };
+    await repository.save({ ...base, expectedUpdatedAt: 0, activityId: crypto.randomUUID() });
+    const first = (await repository.getBySite(siteId))!;
+    await repository.clear({ siteId, expectedUpdatedAt: first.updatedAt, editor, timestamp: base.timestamp, activityId: crypto.randomUUID() });
+    const cleared = (await repository.getBySite(siteId))!;
+    expect(cleared).toMatchObject({ configured: false, audience: null, guidelines: [], representativePostIds: [] });
+    expect(cleared.updatedAt).toBeGreaterThan(first.updatedAt);
+    await expect(repository.save({ ...base, expectedUpdatedAt: 0, activityId: crypto.randomUUID() })).rejects.toBeInstanceOf(VoiceProfileConflictError);
+    await repository.save({ ...base, audience: "Recreated", expectedUpdatedAt: cleared.updatedAt, activityId: crypto.randomUUID() });
+    const recreated = (await repository.getBySite(siteId))!;
+    expect(recreated.updatedAt).toBeGreaterThan(cleared.updatedAt);
+    await expect(repository.save({ ...base, audience: "Stale", expectedUpdatedAt: first.updatedAt, activityId: crypto.randomUUID() })).rejects.toBeInstanceOf(VoiceProfileConflictError);
+    expect((await repository.getBySite(siteId))?.audience).toBe("Recreated");
   });
 });

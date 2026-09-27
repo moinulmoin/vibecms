@@ -1,19 +1,27 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { checkLegacyData, checkPricing } from "./production-preflight.ts";
+import { checkLegacyData, checkPricing, productionPolarEnv } from "./production-preflight.ts";
 
 const originalFetch = globalThis.fetch;
 const originalWarn = console.warn;
+const originalScheduledAck = process.env.ACK_LEGACY_SCHEDULED_POSTS;
+const originalUnversionedAck = process.env.ACK_LEGACY_UNVERSIONED_POSTS;
 afterEach(() => {
   globalThis.fetch = originalFetch;
   console.warn = originalWarn;
+  if (originalScheduledAck === undefined) delete process.env.ACK_LEGACY_SCHEDULED_POSTS;
+  else process.env.ACK_LEGACY_SCHEDULED_POSTS = originalScheduledAck;
+  if (originalUnversionedAck === undefined) delete process.env.ACK_LEGACY_UNVERSIONED_POSTS;
+  else process.env.ACK_LEGACY_UNVERSIONED_POSTS = originalUnversionedAck;
 });
 
 function json(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
-test("D1 preflight reports canonical email collisions and warns with affected post ids before 0018", async () => {
+test("D1 preflight blocks legacy conversion until current counts are acknowledged", async () => {
+  delete process.env.ACK_LEGACY_SCHEDULED_POSTS;
+  delete process.env.ACK_LEGACY_UNVERSIONED_POSTS;
   const sql: string[] = [];
   const warnings: string[] = [];
   console.warn = (message) => warnings.push(String(message));
@@ -35,8 +43,20 @@ test("D1 preflight reports canonical email collisions and warns with affected po
   const failures: string[] = [];
   await checkLegacyData("account", "database", "token", failures);
   assert.match(failures[0]!, /1 collision group.*owner@example.com \[u1,u2\]/);
-  assert.match(warnings[0]!, /2 scheduled post.*p1, p2.*Recreate legitimate schedules/);
-  assert.match(warnings[1]!, /1 published post.*p3.*Create post_versions snapshots/);
+  assert.match(failures[1]!, /2 scheduled post.*p1, p2.*Recreate legitimate schedules.*ACK_LEGACY_SCHEDULED_POSTS=2/);
+  assert.match(failures[2]!, /1 published post.*p3.*Create post_versions snapshots.*ACK_LEGACY_UNVERSIONED_POSTS=1/);
+  process.env.ACK_LEGACY_SCHEDULED_POSTS = "1";
+  process.env.ACK_LEGACY_UNVERSIONED_POSTS = "1";
+  const staleFailures: string[] = [];
+  await checkLegacyData("account", "database", "token", staleFailures);
+  assert.match(staleFailures[1]!, /ACK_LEGACY_SCHEDULED_POSTS=2/);
+  process.env.ACK_LEGACY_SCHEDULED_POSTS = "2";
+  const acknowledgedFailures: string[] = [];
+  await checkLegacyData("account", "database", "token", acknowledgedFailures);
+  assert.equal(acknowledgedFailures.length, 1);
+  assert.match(warnings[0]!, /1 published post/);
+  assert.match(warnings[1]!, /2 scheduled post/);
+  assert.match(warnings[2]!, /1 published post/);
   assert.equal(sql.some((statement) => statement.includes("published_version_id")), false);
 });
 
@@ -69,10 +89,10 @@ const env = {
   POLAR_LAUNCH_DISCOUNT_YEARLY_ID: "yearly-discount",
 };
 
-function mockPolar(overrides: Record<string, Record<string, unknown>> = {}): void {
+function mockPolar(overrides: Record<string, Record<string, unknown>> = {}, server = "sandbox"): void {
   globalThis.fetch = async (url, init) => {
     const path = new URL(String(url)).pathname;
-    assert.equal(new URL(String(url)).host, "sandbox-api.polar.sh");
+    assert.equal(new URL(String(url)).host, server === "production" ? "api.polar.sh" : "sandbox-api.polar.sh");
     assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer token");
     const monthly = path.includes("monthly");
     const product = path.includes("/products/");
@@ -113,4 +133,17 @@ test("Polar pricing fails on wrong interval, amount, duration, and effective lau
   }
   mockPolar();
   await assert.rejects(checkPricing({ ...env, POLAR_LAUNCH_DISCOUNT_MONTHLY_ID: "" }), /POLAR_LAUNCH_DISCOUNT_MONTHLY_ID is required/);
+});
+
+test("production pricing rejects shell-only discounts while sandbox pricing accepts shell values", async () => {
+  mockPolar({}, "production");
+  const production = productionPolarEnv('"POLAR_SERVER": "production", "POLAR_MONTHLY_PRODUCT_ID": "monthly", "POLAR_YEARLY_PRODUCT_ID": "yearly"', env.POLAR_ACCESS_TOKEN);
+  await assert.rejects(checkPricing(production), /POLAR_LAUNCH_DISCOUNT_MONTHLY_ID is required/);
+  mockPolar();
+  await checkPricing(env);
+});
+
+test("Polar percentage discount rounds the discount before subtracting", async () => {
+  mockPolar({ "/v1/discounts/yearly-discount": { type: "percentage", basis_points: 4733, amounts: undefined } });
+  await checkPricing(env);
 });

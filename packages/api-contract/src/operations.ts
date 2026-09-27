@@ -77,7 +77,7 @@ export const operations = [
     operationId: "getSite",
     requiredScope: "sites:read",
     description: opDescription(
-      "Get the current site for this token, including its voice profile revision and signup form settings.",
+      "Get the current site for this token, including its voice profile revision and signup form settings. A cleared voice profile returns configured: false with its current nonzero revision; send that revision as expectedUpdatedAt when recreating it. Revision zero means never configured.",
       "sites:read",
       readErrors,
     ),

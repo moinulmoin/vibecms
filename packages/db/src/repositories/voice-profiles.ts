@@ -30,6 +30,7 @@ export type RepresentativePost = {
 
 export type SiteVoiceProfile = {
   siteId: string;
+  configured: boolean;
   audience: string | null;
   voiceSummary: string | null;
   guidelines: VoiceGuideline[];
@@ -136,12 +137,13 @@ function parseRepresentativePostIds(json: string): string[] {
 function mapStoredProfile(row: SiteVoiceProfileRow) {
   return {
     siteId: row.siteId,
+    configured: row.updatedById !== "__voice_profile_cleared__",
     audience: row.audience,
     voiceSummary: row.voiceSummary,
     guidelines: parseGuidelines(row.guidelinesJson),
     representativePostIds: parseRepresentativePostIds(row.representativePostIdsJson),
     updatedBy: {
-      type: "human" as const,
+      type: row.updatedByType,
       id: row.updatedById,
       name: row.updatedByName,
     },
@@ -297,7 +299,7 @@ export function createVoiceProfilesRepository(db: D1Database): VoiceProfilesRepo
     async clear(input) {
       const before = await getStored(input.siteId);
       if (input.expectedUpdatedAt === 0 && !before) return false;
-      const [activity, deleted] = await db.batch([
+      const [activity, cleared] = await db.batch([
         db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name,
           action, entity_type, entity_id, summary, before_json, after_json, created_at)
           SELECT ?, ?, ?, ?, ?, 'site.voice.cleared', 'site', ?, 'Cleared voice profile', ?, NULL, ?
@@ -305,11 +307,15 @@ export function createVoiceProfilesRepository(db: D1Database): VoiceProfilesRepo
           .bind(input.activityId, input.siteId, input.editor.type, input.editor.id, input.editor.name,
             input.siteId, before ? JSON.stringify(profileSnapshot(before)) : null, input.timestamp,
             input.siteId, input.expectedUpdatedAt),
-        db.prepare(`DELETE FROM site_voice_profiles WHERE site_id = ? AND updated_at = ?
+        db.prepare(`UPDATE site_voice_profiles SET audience = NULL, voice_summary = NULL,
+          guidelines_json = '[]', representative_post_ids_json = '[]',
+          updated_by_type = 'system', updated_by_id = '__voice_profile_cleared__',
+          updated_by_name = '', updated_at = max(?, updated_at + 1)
+          WHERE site_id = ? AND updated_at = ?
           AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
-          .bind(input.siteId, input.expectedUpdatedAt, input.activityId),
+          .bind(input.timestamp, input.siteId, input.expectedUpdatedAt, input.activityId),
       ]);
-      if ((activity.meta.changes ?? 0) !== 1 || (deleted.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
+      if ((activity.meta.changes ?? 0) !== 1 || (cleared.meta.changes ?? 0) !== 1) throw new VoiceProfileConflictError();
       return true;
     },
   };
