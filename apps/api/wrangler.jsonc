@@ -58,6 +58,8 @@
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
     "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
     "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
+    "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID": "a040a508-bccc-4a51-ba53-e42f0e55eb8b",
+    "POLAR_LAUNCH_DISCOUNT_YEARLY_ID": "807bf65b-e7e6-416e-af83-b133296473a9",
     "POLAR_SERVER": "sandbox"
   },
   "env": {
@@ -114,6 +116,8 @@
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
         "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
         "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
+        "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID": "a040a508-bccc-4a51-ba53-e42f0e55eb8b",
+        "POLAR_LAUNCH_DISCOUNT_YEARLY_ID": "807bf65b-e7e6-416e-af83-b133296473a9",
         "POLAR_SERVER": "sandbox"
       }
     },

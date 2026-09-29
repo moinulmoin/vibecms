@@ -10,10 +10,14 @@ public content (migration 0018 onward), so the first deploy is a cutover.
 
 ### 1. Launch pricing in Polar (production)
 
+Dev uses the Polar **sandbox** with the same setup; its ids are already in the
+dev vars of `apps/api/wrangler.jsonc`.
+
 1. Keep the products at the list price: monthly **$15**, yearly **$150**.
-2. Create two **percentage** discounts, duration **forever**, each limited to its product:
-   - monthly: **40% off** → $9/month
-   - yearly: **50% off** → $75/year
+2. Create two discounts, duration **forever**, no code, each limited to its product.
+   Fixed amounts give exact prices (percentages work too; the site shows percentages either way):
+   - monthly: **$6 off** (40%) → $9/month
+   - yearly: **$75 off** (50%) → $75/year
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
    `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`.
 4. Check now (standalone mode reads your shell, so export all four ids):
