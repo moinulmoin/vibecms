@@ -75,6 +75,13 @@ export const PRICING = {
  * and the rate is retained while the subscription stays active. Standard prices
  * remain the visual anchor.
  */
+/**
+ * Polar API contract our billing code is written against. Polar moves its
+ * default contract every quarter; unpinned requests would change shape under
+ * us. Upgrade deliberately after reviewing Polar's changelog.
+ */
+export const POLAR_API_VERSION = "2026-04";
+
 export const LAUNCH_OFFER = {
   phaseLabel: "Launch pricing",
   slotsLabel: "Launch price",

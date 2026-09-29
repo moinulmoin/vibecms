@@ -4,6 +4,8 @@ import { createDataAccess } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
 import { LAUNCH_OFFER, PRICING } from '@vc/config'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
+import { HTTPClient } from '@polar-sh/sdk/lib/http.js'
+import { POLAR_API_VERSION } from '@vc/config'
 import { env } from 'cloudflare:workers'
 import { applyPolarWebhookAtomically, polarEventId } from '@/server/polar-webhook-receipts'
 import type { AppUserContext } from '@/server/onboarding'
@@ -49,11 +51,23 @@ export async function getBillingStatusForSite(siteId: string): Promise<BillingSt
   return workspaceId ? getBillingStatus(workspaceId) : 'none'
 }
 
+/** Every Polar request carries our pinned API contract (see POLAR_API_VERSION). */
+export function pinnedPolarHttpClient(fetcher?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+  const client = new HTTPClient(fetcher ? { fetcher } : undefined)
+  client.addHook('beforeRequest', (request) => {
+    const pinned = new Request(request)
+    pinned.headers.set('Polar-Version', POLAR_API_VERSION)
+    return pinned
+  })
+  return client
+}
+
 function polar() {
   if (!env.POLAR_ACCESS_TOKEN) return null
   return new Polar({
     accessToken: env.POLAR_ACCESS_TOKEN,
     server: env.POLAR_SERVER === 'sandbox' ? 'sandbox' : 'production',
+    httpClient: pinnedPolarHttpClient(),
   })
 }
 

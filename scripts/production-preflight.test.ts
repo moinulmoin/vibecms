@@ -108,6 +108,7 @@ function mockPolar(overrides: Record<string, Record<string, unknown>> = {}, serv
     const path = new URL(String(url)).pathname;
     assert.equal(new URL(String(url)).host, server === "production" ? "api.polar.sh" : "sandbox-api.polar.sh");
     assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer token");
+    assert.equal(new Headers(init?.headers).get("Polar-Version"), "2026-04");
     const monthly = path.includes("monthly");
     const product = path.includes("/products/");
     const data = product

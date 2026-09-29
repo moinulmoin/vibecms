@@ -11,6 +11,7 @@ import {
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   pickReusableOpenCheckoutUrl,
+  pinnedPolarHttpClient,
 } from '@/server/billing'
 import type { AppUserContext } from '@/server/onboarding'
 
@@ -385,5 +386,21 @@ describe('createCheckoutSessionForApp — launch discount', () => {
     createCheckout.mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: 'disc_launch_monthly', currency: 'usd', netAmount: 900 })
     expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { listOpenCheckouts, createCheckout }))
       .toEqual({ kind: 'ok', url: 'https://polar.example/new' })
+  })
+})
+
+describe('Polar API version pin', () => {
+  it('sends Polar-Version on every SDK request', async () => {
+    const seen: Array<string | null> = []
+    const fetcher = async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Request(input, init).headers.get('Polar-Version'))
+      return new Response(JSON.stringify({ items: [], pagination: { total_count: 0, max_page: 0 } }), { headers: { 'content-type': 'application/json' } })
+    }
+    const { Polar } = await import('@polar-sh/sdk')
+    const { POLAR_API_VERSION } = await import('@vc/config')
+    const client = new Polar({ accessToken: 'polar_test', server: 'sandbox', httpClient: pinnedPolarHttpClient(fetcher) })
+    await client.products.list({}).catch(() => undefined)
+    expect(seen.length).toBeGreaterThan(0)
+    expect(new Set(seen)).toEqual(new Set([POLAR_API_VERSION]))
   })
 })

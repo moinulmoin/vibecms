@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { LAUNCH_OFFER, PRICING } from "../packages/config/src/index.ts";
+import { LAUNCH_OFFER, POLAR_API_VERSION, PRICING } from "../packages/config/src/index.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 let accountId: string;
@@ -342,7 +342,7 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
   const base = server === "sandbox" ? "https://sandbox-api.polar.sh" : "https://api.polar.sh";
   async function get<T>(path: string): Promise<T> {
     const response = await fetch(`${base}/v1/${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, "Polar-Version": POLAR_API_VERSION },
       signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) throw new Error(`Polar ${path}: HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
