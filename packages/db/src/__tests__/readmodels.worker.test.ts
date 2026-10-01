@@ -444,16 +444,16 @@ describe("dashboard.getDashboardAggregate — seeded site", () => {
     expect(agg.versionCount).toBe(4);
   });
 
-  it("returns recentPosts newest-first capped at 5", async () => {
+  it("returns recentPosts newest-first capped at 5, leaving archived posts out", async () => {
     const agg = await da.dashboard.getDashboardAggregate("rm-site-full");
-    // updated_at desc: p1(+60), p2(+50), p3(+40), p4(+30), p5(+20). p6(+10)
-    // and p7(0) fall off the 5-row cap.
+    // updated_at desc: p1(+60), p2(+50), p3(+40), p4(+30), p6(+10). p5 is
+    // archived; p7(0) falls off the 5-row cap.
     expect(agg.recentPosts.map((p) => p.id)).toEqual([
       "rm-p1",
       "rm-p2",
       "rm-p3",
       "rm-p4",
-      "rm-p5",
+      "rm-p6",
     ]);
     const p4 = agg.recentPosts.find((p) => p.id === "rm-p4");
     expect(p4?.status).toBe("draft");

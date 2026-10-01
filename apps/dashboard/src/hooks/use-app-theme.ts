@@ -43,8 +43,28 @@ export function applyAppTheme(theme: AppTheme) {
   root.style.colorScheme = resolved
 }
 
+const THEME_CHANGE_EVENT = 'vc-theme-change'
+
 export function useAppTheme() {
   const [theme, setThemeState] = useState<AppTheme>(readAppTheme)
+
+  // Every switch (account menu, command palette, another tab) moves every
+  // instance, so none of them re-applies a stale choice.
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const next = (event as CustomEvent<unknown>).detail
+      if (typeof next === 'string' && isAppTheme(next)) setThemeState(next)
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === APP_THEME_STORAGE_KEY) setThemeState(readAppTheme())
+    }
+    window.addEventListener(THEME_CHANGE_EVENT, onChange)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(THEME_CHANGE_EVENT, onChange)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
 
   useEffect(() => {
     applyAppTheme(theme)
@@ -81,6 +101,7 @@ export function useAppTheme() {
     } catch {
       // Storage can be unavailable in privacy-restricted contexts.
     }
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: nextTheme }))
   }, [])
 
   return { theme, setTheme }

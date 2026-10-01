@@ -192,7 +192,8 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               scheduledPublishJson: scheduledPublishSql,
             })
             .from(posts)
-            .where(eq(posts.siteId, siteId))
+            // Recent work, like the Posts list's All: archived posts stay in their tab.
+            .where(and(eq(posts.siteId, siteId), ne(posts.status, "archived")))
             .orderBy(desc(posts.updatedAt))
             .limit(5),
           client

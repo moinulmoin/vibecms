@@ -48,6 +48,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { TooltipProvider } from '~/components/ui/tooltip'
+import { CommandPalette } from '~/components/dashboard/CommandPalette'
 import { setupAuthClient } from '~/lib/auth-client'
 import { selectDashboardApp, suspendDashboardMutations } from '~/lib/api-client'
 import { queryClient } from '~/lib/queries'
@@ -412,6 +413,7 @@ export function AppShell({
               <span aria-hidden className="hidden px-2 text-muted-foreground/50 sm:inline">/</span>
               <span className="font-medium text-foreground">{pageTitle(current)}</span>
             </span>
+            <CommandPalette role={currentRole} />
           </header>
           <div
             id="dashboard-main"
