@@ -25,6 +25,7 @@ import { Switch } from '~/components/ui/switch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
+import { FloatingSaveBar } from '~/components/dashboard/FloatingSaveBar'
 import {
   addCustomDomainMutation,
   removeCustomDomainMutation,
@@ -207,37 +208,6 @@ function isSiteDraftDirty(draft: ReturnType<typeof siteDraftFromForm>, baseline:
     || draft.logoAssetId !== (baseline.logoAssetId ?? '')
     || draft.faviconAssetId !== (baseline.faviconAssetId ?? '')
     || draft.bylineName !== baseline.bylineName
-}
-
-/** Save row at the foot of a form: disabled and quiet until something changes. */
-function SaveRow({
-  dirty,
-  pending,
-  disabled,
-  onDiscard,
-  pendingText = 'Saving…',
-  children,
-}: {
-  dirty: boolean
-  pending: boolean
-  disabled?: boolean
-  onDiscard?: () => void
-  pendingText?: string
-  children?: ReactNode
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--hairline)] pt-5">
-      <PendingSubmitButton pending={pending} pendingText={pendingText} disabled={!dirty || disabled}>
-        {dirty ? 'Save changes' : 'Saved'}
-      </PendingSubmitButton>
-      {dirty && onDiscard ? (
-        <Button type="button" variant="ghost" onClick={onDiscard}>
-          Discard
-        </Button>
-      ) : null}
-      {children}
-    </div>
-  )
 }
 
 const SOCIAL_KIND_LABELS: Record<SocialLink['kind'], string> = {
@@ -637,7 +607,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
         <TabsContent value="site">
           <form
             key={siteFormRevision}
-            className="grid max-w-2xl gap-8"
+            className="grid max-w-5xl gap-8"
             onChange={(event) => { if (editable) markSiteDirty(event.currentTarget) }}
             onSubmit={(event) => { if (editable) void handleSiteSave(event); else event.preventDefault() }}
           >
@@ -648,7 +618,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                 <Button type="button" variant="outline" size="sm" onClick={discardSite}>Reload settings</Button>
               </div>
             ) : null}
-            <Section title="Your blog">
+            <Section layout="aside" title="Your blog" description="What readers see first: its name, a line about it, and its icons.">
               <Field>
                 <FieldLabel htmlFor="site-name">Name</FieldLabel>
                 <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
@@ -692,7 +662,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               ) : null}
             </Section>
 
-            <Section title="Links" description="Add links to your blog navigation and footer.">
+            <Section layout="aside" title="Links" description="Add links to your blog navigation and footer.">
               <Field>
                 <FieldLabel>Navigation links</FieldLabel>
                 <FieldHint>Shown after All posts. Up to 6 links.</FieldHint>
@@ -724,7 +694,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               </Field>
             </Section>
 
-            <Section title="Byline">
+            <Section layout="aside" title="Byline" description="How you appear on your posts.">
               <Field>
                 <FieldLabel htmlFor="site-byline-name">Public name</FieldLabel>
                 <Input
@@ -754,7 +724,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               </div>
             </Section>
 
-            <Section title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
+            <Section layout="aside" title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
               <Field>
                 <FieldLabel htmlFor="default-seo-title">Title</FieldLabel>
                 <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} aria-describedby="default-seo-title-help" />
@@ -812,17 +782,18 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             </Section>
 
             </fieldset>
-            {editable ? <SaveRow
+            {editable ? <FloatingSaveBar
               dirty={siteFormDirty}
               pending={formPending === 'site'}
               disabled={Boolean(selectedSocialAsset && !selectedSocialAsset.altText)}
               onDiscard={discardSite}
+              hint="Your blog shows the saved settings until you save."
             /> : null}
           </form>
         </TabsContent>
 
         <TabsContent value="voice">
-          <form className="grid max-w-2xl gap-8" onSubmit={(event) => { if (editable) void handleVoiceProfileSave(event); else event.preventDefault() }}>
+          <form className="grid max-w-5xl gap-8" onSubmit={(event) => { if (editable) void handleVoiceProfileSave(event); else event.preventDefault() }}>
             <fieldset disabled={!editable} className="contents">
             {voiceConflict ? <div role="alert" className="flex items-center gap-3 text-sm text-warning-foreground">
               <span>This changed since you opened it. Reload to see the latest.</span>
@@ -832,7 +803,20 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               }}>Reload</Button>
             </div> : null}
             <Section
+              layout="aside"
               title="How your agents write"
+              action={editable && data.voiceProfile.configured && !voiceDirty ? (
+                <SpaConfirmButton
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  confirmLabel="Reset voice"
+                  helperText="Agents go back to the default voice."
+                  onConfirm={() => void handleVoiceProfileClear()}
+                >
+                  <RotateCcw aria-hidden data-icon="inline-start" /> Reset to default
+                </SpaConfirmButton>
+              ) : undefined}
               description={
                 data.voiceProfile.configured
                   ? 'Agents read this before every draft.'
@@ -871,7 +855,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               </Field>
             </Section>
 
-            <Section title="Rules" description={`One per line, up to ${VOICE_RULE_LIMIT} in total.`}>
+            <Section layout="aside" title="Rules" description={`One per line, up to ${VOICE_RULE_LIMIT} in total.`}>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="voice-prefer-rules">Do</FieldLabel>
@@ -925,7 +909,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
               ) : null}
             </Section>
 
-            <Section title="Example posts" description="Pick up to three published posts that sound like you. Agents read them for tone.">
+            <Section layout="aside" title="Example posts" description="Pick up to three published posts that sound like you. Agents read them for tone.">
               <FieldSet className="gap-0">
                 <FieldLegend className="sr-only">Example posts</FieldLegend>
                 {data.voiceProfile.publishedPosts.length > 0 || voiceRepresentativeIds.length > 0 ? (
@@ -995,7 +979,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             ) : null}
 
             </fieldset>
-            {editable ? <SaveRow
+            {editable ? <FloatingSaveBar
               dirty={voiceDirty}
               pending={formPending === 'voice'}
               disabled={!voiceValidation.isValid}
@@ -1003,26 +987,14 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                 seedVoice(data.voiceProfile)
                 setVoiceDirty(false)
               }}
-            >
-              {data.voiceProfile.configured && !voiceDirty ? (
-                <SpaConfirmButton
-                  type="button"
-                  variant="ghost"
-                  confirmLabel="Reset voice"
-                  helperText="Agents go back to the default voice."
-                  onConfirm={() => void handleVoiceProfileClear()}
-                  className="text-muted-foreground"
-                >
-                  <RotateCcw aria-hidden data-icon="inline-start" /> Reset to default
-                </SpaConfirmButton>
-              ) : null}
-            </SaveRow> : null}
+              hint="Agents use the saved voice until you save."
+            /> : null}
           </form>
         </TabsContent>
 
         {isOwner ? (
-          <TabsContent value="domain" className="grid max-w-2xl gap-10">
-            <Section title="Your blog’s address">
+          <TabsContent value="domain" className="grid max-w-5xl gap-8">
+            <Section layout="aside" title="Your blog’s address">
               {defaultAddress ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <code className="min-w-0 truncate font-mono text-[0.9375rem] text-foreground">
@@ -1041,6 +1013,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             </Section>
 
             <Section
+              layout="aside"
               title="Your own domain"
               description="Serve the blog from a domain you own, like blog.example.com. HTTPS is set up for you."
               action={
@@ -1124,8 +1097,9 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
         <TabsContent value="billing">{activeTab === 'billing' ? <PlanAndBilling /> : null}</TabsContent>
 
         {isOwner ? (
-          <TabsContent value="export" className="max-w-2xl">
+          <TabsContent value="export" className="max-w-5xl">
             <Section
+              layout="aside"
               title="Export posts"
               description="Download every post (drafts, published, and archived) as one JSON file. Your writing is yours."
             >

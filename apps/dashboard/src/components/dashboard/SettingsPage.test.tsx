@@ -54,7 +54,7 @@ vi.mock('~/components/dashboard/blocks', () => ({
   PageSkeleton: () => <p>Loading</p>,
   PageTabs: () => null,
   Panel: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
-  Section: ({ children }: { children?: ReactNode }) => <section>{children}</section>,
+  Section: ({ action, children }: { action?: ReactNode; children?: ReactNode }) => <section>{action}{children}</section>,
   StatusBadge: () => null,
 }))
 
@@ -251,9 +251,10 @@ describe('SettingsPage', () => {
 
     const checkbox = container.querySelector<HTMLInputElement>('#post-post-1')
     const voiceForm = checkbox?.closest('form')
-    const save = [...(voiceForm?.querySelectorAll('button') ?? [])].find((button) => button.textContent === 'Saved')
+    const save = [...(voiceForm?.querySelectorAll('button') ?? [])].find((button) => button.textContent === 'Save changes')
     expect(checkbox).toBeTruthy()
-    expect(save?.disabled).toBe(true)
+    // Nothing to save yet: the save bar stays out of the way.
+    expect(save).toBeUndefined()
 
     await act(async () => checkbox?.click())
 
@@ -311,7 +312,7 @@ describe('SettingsPage', () => {
     expect(container.textContent).toContain('Your email is never shown.')
     expect(credit?.getAttribute('aria-checked')).toBe('true')
     const saveButton = () => [...(siteForm?.querySelectorAll('button') ?? [])].find((button) => /Save/.test(button.textContent ?? ''))
-    expect(saveButton()?.disabled).toBe(true)
+    expect(saveButton()).toBeUndefined()
 
     await act(async () => credit?.click())
     expect(credit?.getAttribute('aria-checked')).toBe('false')
