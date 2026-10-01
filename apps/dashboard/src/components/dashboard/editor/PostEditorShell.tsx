@@ -3,6 +3,7 @@ import { THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { renderRichContent } from '@vc/content'
 import { Button, Skeleton } from '@vc/ui'
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { CopyButton } from '@vc/ui'
 import { AlertTriangle, ArrowLeft, ExternalLink, PanelRightClose, PanelRightOpen, Send, SlidersHorizontal } from 'lucide-react'
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Panel } from '~/components/dashboard/blocks'
@@ -1015,10 +1016,16 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           {autosave.status === 'error' ? <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={autosave.retry}>Retry</Button> : null}
         </span>
         <div className="ms-auto flex flex-wrap items-center gap-1.5">
-          {previewUrl && activePostId && post?.status !== 'archived' ? <>
-            <Button type="button" variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(previewUrl)}>Copy preview link</Button>
-            <Button asChild variant="ghost" size="sm"><a href={previewUrl} target="_blank" rel="noreferrer">Open preview</a></Button>
-          </> : null}
+          {previewUrl && activePostId && post?.status !== 'archived' ? (
+            <span className="inline-flex items-center">
+              <CopyButton value={previewUrl} label="Copy preview link" copiedLabel="Link copied" className="rounded-r-none" />
+              <Button asChild variant="outline" size="sm" className="-ml-px rounded-l-none px-2">
+                <a href={previewUrl} target="_blank" rel="noreferrer" title="Open the private preview">
+                  <ExternalLink aria-hidden="true" className="size-4" /><span className="sr-only">Open private preview</span>
+                </a>
+              </Button>
+            </span>
+          ) : null}
           {post?.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status) ?
             <Button type="button" variant="ghost" size="sm" disabled={publishPending} onClick={() => void handleUnschedule()}>Unschedule</Button> : null}
           <Segmented label="View" value={effectiveView} onChange={selectView} options={viewOptions} />
