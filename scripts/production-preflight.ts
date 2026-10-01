@@ -525,14 +525,15 @@ async function assertR2Exists(name: string, missing: string[]): Promise<void> {
       "wrangler",
       "r2",
       "bucket",
-      "list",
+      "info",
+      name,
     ]);
+    // `bucket list` is paginated (20 per page), so ask for this bucket directly.
     if (listed.status !== 0) {
-      missing.push(`Unable to list R2 buckets: ${listed.stderr || listed.stdout}`);
-      return;
-    }
-    if (!listed.stdout.includes(name)) {
-      missing.push(`R2 bucket ${name} was not found in this Cloudflare account`);
+      const output = String(listed.stderr || listed.stdout);
+      missing.push(/not exist|not found|10006/i.test(output)
+        ? `R2 bucket ${name} was not found in this Cloudflare account`
+        : `Unable to check R2 bucket ${name}: ${output.slice(0, 300)}`);
     }
   } catch (error) {
     missing.push(`Unable to list R2 buckets: ${error instanceof Error ? error.message : String(error)}`);
@@ -618,7 +619,6 @@ async function assertSecrets(missing: string[]): Promise<void> {
     const requiredSecrets = [
       "BETTER_AUTH_SECRET",
       "TOKEN_PEPPER",
-      "AUTOSEOPILOT_INTERNAL_SECRET",
       "POLAR_ACCESS_TOKEN",
       "POLAR_WEBHOOK_SECRET",
       "CACHE_PURGE_API_TOKEN",
@@ -627,6 +627,10 @@ async function assertSecrets(missing: string[]): Promise<void> {
     ];
     for (const name of requiredSecrets) {
       if (!secretNames.has(name)) missing.push(`Worker secret ${name}`);
+    }
+    // Optional: without it the AutoSEOPilot integration endpoint stays disabled (404).
+    if (!secretNames.has("AUTOSEOPILOT_INTERNAL_SECRET")) {
+      console.warn("AUTOSEOPILOT_INTERNAL_SECRET is not set: the AutoSEOPilot integration stays disabled.");
     }
   } catch (error) {
     missing.push(`Unable to list production Worker secrets: ${error instanceof Error ? error.message : String(error)}`);
