@@ -20,11 +20,14 @@ dev vars of `apps/api/wrangler.jsonc`.
    - yearly: **$75 off** (50%) → $75/year
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
    `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`.
-4. Check now (standalone mode reads your shell, so export all four ids):
+4. Optional live check (needs a read-only Polar token; the deploy skips it
+   without one, and checkout refuses mismatched prices either way). Standalone
+   mode reads your shell, so export all four ids:
    `POLAR_SERVER=production POLAR_ACCESS_TOKEN=… POLAR_MONTHLY_PRODUCT_ID=… POLAR_YEARLY_PRODUCT_ID=… POLAR_LAUNCH_DISCOUNT_MONTHLY_ID=… POLAR_LAUNCH_DISCOUNT_YEARLY_ID=… pnpm preflight:pricing`.
    The deploy's preflight reads the ids from `wrangler.jsonc`, not your shell.
-   Preflight refuses to deploy while the site advertises launch pricing and
-   the products or discounts don't produce exactly those prices.
+   With a token, preflight refuses to deploy unless the products and discounts
+   produce exactly the advertised prices. Without one, it only requires the
+   discount ids in config; verify with a real checkout after deploying.
 
 To end launch pricing later: remove the two vars and update `LAUNCH_OFFER` in
 `packages/config`. Existing subscribers keep their discount.

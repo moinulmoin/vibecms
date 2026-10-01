@@ -117,10 +117,20 @@ const polarVars = productionPolarEnv(productionApiConfig, process.env.POLAR_ACCE
 if (polarVars.POLAR_SERVER !== "production") {
   missing.push(`Production Worker POLAR_SERVER must be production; got ${polarVars.POLAR_SERVER ?? "missing"}`);
 }
-try {
-  await checkPricing(polarVars);
-} catch (error) {
-  missing.push(`Polar pricing: ${error instanceof Error ? error.message : String(error)}`);
+// The live check against Polar is optional: checkout itself refuses any price
+// that doesn't match the site. Without a token we still require the launch
+// discount ids in config, then verify with a real checkout after deploying.
+if (process.env.POLAR_ACCESS_TOKEN?.trim()) {
+  try {
+    await checkPricing(polarVars);
+  } catch (error) {
+    missing.push(`Polar pricing: ${error instanceof Error ? error.message : String(error)}`);
+  }
+} else {
+  for (const key of ["POLAR_LAUNCH_DISCOUNT_MONTHLY_ID", "POLAR_LAUNCH_DISCOUNT_YEARLY_ID"] as const) {
+    if (!polarVars[key]) missing.push(`${key} is missing from the production API config while the site advertises launch pricing`);
+  }
+  console.warn("Polar pricing not checked live (no POLAR_ACCESS_TOKEN). Checkout still refuses mismatched prices; confirm with a real checkout after deploy.");
 }
 
 if (missing.length > 0) {
