@@ -8,8 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Disabled primary turns calmly neutral instead of a half-faded brand green.
         default:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 dark:bg-[linear-gradient(180deg,var(--brand-bright),var(--primary))] dark:text-primary-foreground dark:hover:opacity-95",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 dark:bg-[linear-gradient(180deg,var(--brand-bright),var(--primary))] dark:text-primary-foreground dark:hover:opacity-95 disabled:bg-none disabled:bg-foreground/[0.08] disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100 dark:disabled:bg-none dark:disabled:bg-foreground/10",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground ring-1 ring-[color:var(--hairline)] hover:bg-secondary/80",
