@@ -143,7 +143,7 @@ export async function ensureOnboarding(user: AuthSessionUser): Promise<AppUserCo
     siteCreatedActivity: {
       id: `activity_site_created_${user.id}`,
       siteId,
-      summary: 'Created site during onboarding',
+      summary: 'Created the blog',
     },
   })
   await ensureBillingRow(workspaceId, 'none')

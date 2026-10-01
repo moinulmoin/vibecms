@@ -162,10 +162,10 @@ function Stat({ label, value, detail, to, search }: {
   )
 }
 
-type SetupStep = { title: string; detail: string; done: boolean; optional?: boolean; action?: { label: string; to: '/dashboard/connect' | '/dashboard/posts/new' | '/dashboard/posts' | '/dashboard/theme'; search?: Record<string, unknown> } }
+type SetupStep = { title: string; detail: string; done: boolean; optional?: boolean; action?: { label: string; to: '/dashboard/connect' | '/dashboard/posts/new' | '/dashboard/posts' | '/dashboard/theme' | '/dashboard/posts/$postId/edit'; params?: Record<string, string>; search?: Record<string, unknown> } }
 
 /** First-run guide: shown until something is live, with real progress, not a static checklist. */
-function GetStarted({ data, canEdit }: { data: DashboardData; canEdit: boolean }) {
+function GetStarted({ data, canEdit, onlyDraft }: { data: DashboardData; canEdit: boolean; onlyDraft?: { id: string; title: string } }) {
   // Site-specific evidence: a key for this blog has been used.
   const agentConnected = (data.usedTokenCount ?? 0) > 0
   const hasDraft = data.counts.draft + data.counts.published > 0
@@ -188,20 +188,29 @@ function GetStarted({ data, canEdit }: { data: DashboardData; canEdit: boolean }
     },
     {
       title: 'Publish it',
-      detail: 'Review the draft, then publish. Nothing goes live until then.',
+      detail: onlyDraft ? `“${onlyDraft.title}” is ready to review. Nothing goes live until you publish.` : 'Review the draft, then publish. Nothing goes live until then.',
       done: data.counts.published > 0,
-      action: hasDraft ? { label: 'Review drafts', to: '/dashboard/posts', search: postsListSearch({ status: 'draft' }) } : undefined,
+      // One draft waiting: go straight to it instead of a list of one.
+      action: onlyDraft
+        ? { label: 'Review draft', to: '/dashboard/posts/$postId/edit', params: { postId: onlyDraft.id }, search: emptyPostEditorSearch }
+        : hasDraft ? { label: 'Review drafts', to: '/dashboard/posts', search: postsListSearch({ status: 'draft' }) } : undefined,
     },
     {
       title: 'Make it yours',
-      detail: 'Optional: pick a template, accent, and font. Change them any time.',
+      detail: 'Pick a template, accent, and font. Change them any time.',
       done: false,
       optional: true,
       action: { label: 'Open Theme', to: '/dashboard/theme' },
     },
   ]
+  // The first unfinished required step is the one to do next: give it the primary button.
+  const nextIndex = steps.findIndex((step) => !step.done && !step.optional)
   return (
-    <Section title="Get started" description="Three steps to a live blog your agents can write for.">
+    <Section
+      title="Get started"
+      description="Three steps to a live blog your agents can write for."
+      action={<span className="text-sm tabular-nums text-muted-foreground">{steps.filter((step) => step.done && !step.optional).length} of 3 done</span>}
+    >
       <ol className="grid">
         {steps.map((step, index) => (
           <li
@@ -211,21 +220,22 @@ function GetStarted({ data, canEdit }: { data: DashboardData; canEdit: boolean }
             <span
               aria-hidden
               className={step.done
-                ? 'flex size-6 items-center justify-center rounded-full bg-brand-bright/15 text-primary'
-                : 'flex size-6 items-center justify-center rounded-full border border-border font-mono text-xs text-muted-foreground'}
+                ? 'flex size-6 items-center justify-center rounded-full bg-brand-bright text-brand-bright-foreground'
+                : 'flex size-6 items-center justify-center rounded-full border border-border text-xs font-medium tabular-nums text-muted-foreground'}
             >
-              {step.done ? <Check className="size-3.5" /> : step.optional ? '·' : index + 1}
+              {step.done ? <Check className="size-3.5" strokeWidth={3} /> : index + 1}
             </span>
             <span className="min-w-0">
-              <span className={step.done ? 'block text-muted-foreground line-through decoration-muted-foreground/40' : 'block font-medium text-foreground'}>
+              <span className={step.done ? 'block text-muted-foreground' : 'flex flex-wrap items-center gap-x-2 font-medium text-foreground'}>
                 {step.title}
+                {step.optional && !step.done ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-normal text-muted-foreground">Optional</span> : null}
                 <span className="sr-only">{step.done ? ' (done)' : ''}</span>
               </span>
               <span className="block text-sm text-muted-foreground">{step.detail}</span>
             </span>
             {step.action && canEdit ? (
-              <Button asChild variant="outline" size="sm">
-                <Link to={step.action.to} search={step.action.search as never}>{step.action.label}</Link>
+              <Button asChild variant={index === nextIndex ? 'default' : 'outline'} size="sm">
+                <Link to={step.action.to} params={step.action.params as never} search={step.action.search as never}>{step.action.label}</Link>
               </Button>
             ) : <span />}
           </li>
@@ -263,10 +273,13 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const images = `${data.media.count} ${data.media.count === 1 ? 'image' : 'images'}`
   // Until something is live, guide the owner instead of showing a wall of zeros.
   const firstRun = data.counts.published === 0
-  // A wall of zeros says nothing; show the numbers once any of them moves.
-  const nothingYet = firstRun && data.counts.draft === 0 && data.counts.archived === 0 && data.subscriberCount === 0 && data.media.count === 0
-  // The guide already covers "no posts yet"; don't repeat it in an empty list.
-  const showRecentPosts = !(firstRun && data.recentPosts.length === 0)
+  // On a first run with a single draft, the guide links straight to it; don't list it three times.
+  const onlyDraft = firstRun && reviewQueue.length === 1 && data.recentPosts.length <= 1
+    ? { id: reviewQueue[0]!.id, title: reviewQueue[0]!.title }
+    : undefined
+  const freePlan = billingBadgeLabel === 'Free plan'
+  // The guide already covers "no posts yet" (or the single first draft); don't repeat it in a list.
+  const showRecentPosts = !(firstRun && data.recentPosts.length <= 1)
 
   return (
     <>
@@ -304,9 +317,9 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         ) : undefined}
       />
 
-      {firstRun ? <GetStarted data={data} canEdit={canEdit} /> : null}
+      {firstRun ? <GetStarted data={data} canEdit={canEdit} onlyDraft={onlyDraft} /> : null}
 
-      {nothingYet ? null : <StatCardGrid className="xl:grid-cols-4">
+      {firstRun ? null : <StatCardGrid className="xl:grid-cols-4">
         <Stat
           label="Published"
           value={data.counts.published}
@@ -331,13 +344,13 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         <Stat
           label="Media"
           value={formatBytes(data.media.bytes)}
-          detail={`${images} of ${MEDIA.paidStorageLabel}`}
+          detail={freePlan ? 'Image uploads come with the paid plan' : `${images} of ${MEDIA.paidStorageLabel}`}
           to={canEdit ? '/dashboard/media' : undefined}
           search={emptyDashboardStatusSearch}
         />
       </StatCardGrid>}
 
-      {reviewQueue.length > 0 ? (
+      {reviewQueue.length > 0 && !onlyDraft ? (
         <Section
           title="Needs review"
           description="Agent drafts and live posts with unpublished changes."
