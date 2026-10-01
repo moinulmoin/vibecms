@@ -6,6 +6,7 @@ import {
   consumeTokenFlash,
   getActivationKeyId,
   saveTokenFlash,
+  isRevealedKeyGone,
 } from './token-flash'
 
 const values = new Map<string, string>()
@@ -72,5 +73,18 @@ describe('token flash storage', () => {
 
     expect(consumeTokenFlash()).toBeNull()
     expect(getActivationKeyId()).toBeNull()
+  })
+
+  it('drops a reveal once its key is deleted, but not before the key list has caught up', () => {
+    const key = { id: 'key_1', tokenPrefix: 'vc_live_abc', revokedAt: null }
+    const flash = { token: 'vc_live_abcdef', name: 'My agent', id: 'key_1', createdAt: 1_000 }
+    expect(isRevealedKeyGone(flash, [key], 2_000)).toBe(false)
+    expect(isRevealedKeyGone(flash, [], 2_000)).toBe(true)
+    expect(isRevealedKeyGone(flash, [{ ...key, revokedAt: 5 }], 2_000)).toBe(true)
+    // A list fetched before the key was created can't know about it yet.
+    expect(isRevealedKeyGone(flash, [], 500)).toBe(false)
+    // Older reveals without an id match on the key prefix.
+    expect(isRevealedKeyGone({ token: 'vc_live_abcdef', name: 'My agent' }, [key], 2_000)).toBe(false)
+    expect(isRevealedKeyGone({ token: 'vc_live_zzz', name: 'My agent' }, [key], 2_000)).toBe(true)
   })
 })

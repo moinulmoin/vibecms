@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
 import { useToast } from '~/components/Toaster'
 import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
 import { createApiKeyMutation, revokeApiKeyMutation } from '~/lib/api-client'
-import { clearTokenFlash, consumeTokenFlash, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
+import { clearTokenFlash, consumeTokenFlash, isRevealedKeyGone, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
 import { connectQuery, queryKeys } from '~/lib/queries'
 import type { ApiKeyListItem } from '~/types/dashboard'
 
@@ -201,6 +201,15 @@ export function ConnectPage() {
     }
   }, [])
 
+  // A reveal whose key has since been deleted (here, in another tab, or by
+  // onboarding) goes away instead of handing out a dead key.
+  useEffect(() => {
+    if (flash && query.data && isRevealedKeyGone(flash, query.data.apiKeys, query.dataUpdatedAt)) {
+      clearTokenFlash()
+      setFlash(null)
+    }
+  }, [flash, query.data, query.dataUpdatedAt])
+
   const data = query.data
   const activeClient: AgentClient =
     client === 'claude_code' || client === 'codex' || client === 'cursor' || client === 'other'
@@ -216,7 +225,7 @@ export function ConnectPage() {
     try {
       const result = await createApiKeyMutation({ name: input.name, actorName: input.name, preset: input.preset })
       if (result.kind === 'ok') {
-        const next = { token: result.token, name: result.name, id: result.id }
+        const next = { token: result.token, name: result.name, id: result.id, createdAt: Date.now() }
         saveTokenFlash(next)
         setFlash(next)
         setFormOpen(false)

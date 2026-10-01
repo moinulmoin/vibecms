@@ -10,7 +10,7 @@ import { AgentSetup, CodeBlock, clientFromPreference, type AgentClient } from '~
 import { createApiKeyMutation, savePersonalizationMutation } from '~/lib/api-client'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch } from '~/lib/dashboard-search'
 import { connectQuery, onboardingStatusQuery, queryKeys } from '~/lib/queries'
-import { consumeTokenFlash, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
+import { clearTokenFlash, consumeTokenFlash, isRevealedKeyGone, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
 import type { OnboardingConnectStatus } from '~/types/dashboard'
 
 const STEP = { current: 2, total: 2 }
@@ -197,6 +197,15 @@ export function PersonalizePage() {
     }
   }, [])
 
+  // A reveal whose key has since been deleted (here, in another tab, or by
+  // onboarding) goes away instead of handing out a dead key.
+  useEffect(() => {
+    if (flash && connect.data && isRevealedKeyGone(flash, connect.data.apiKeys, connect.dataUpdatedAt)) {
+      clearTokenFlash()
+      setFlash(null)
+    }
+  }, [flash, connect.data, connect.dataUpdatedAt])
+
   async function createKey() {
     setCreating(true)
     setKeyError(false)
@@ -206,7 +215,7 @@ export function PersonalizePage() {
         setKeyError(true)
         return
       }
-      const next = { token: result.token, name: result.name, id: result.id }
+      const next = { token: result.token, name: result.name, id: result.id, createdAt: Date.now() }
       saveTokenFlash(next)
       setFlash(next)
       void queryClient.invalidateQueries({ queryKey: queryKeys.connect })

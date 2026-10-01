@@ -22,6 +22,7 @@ vi.mock('~/lib/token-flash', () => ({
   consumeTokenFlash: () => null,
   saveTokenFlash: vi.fn(),
   clearTokenFlash: vi.fn(),
+  isRevealedKeyGone: () => false,
 }))
 
 import { PersonalizePage } from './PersonalizePage'
