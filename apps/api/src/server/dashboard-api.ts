@@ -365,13 +365,19 @@ export async function loadPostsPage(
     scheduledPublish: row.scheduledPublish,
   }))
   const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
-  // Only the first page needs the origin for "view live" links.
-  const siteSlug = offset === 0 ? await createDataAccess(env.DB).sites.getSiteSlug(app.siteId) : null
+  // Only the first page needs the origin for "view live" links and the tab counts.
+  const [siteSlug, counts] = offset === 0
+    ? await Promise.all([
+        createDataAccess(env.DB).sites.getSiteSlug(app.siteId),
+        createDataAccess(env.DB).dashboard.countPostsForDashboard(app.siteId),
+      ])
+    : [null, null]
   const publicBaseUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
   return {
     posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions,
     hasMore,
     publicBaseUrl,
+    counts,
   }
 }
 

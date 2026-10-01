@@ -707,9 +707,11 @@ describe("dashboard.listPostsForDashboard — actor join, version fold, list sem
       "rm-ap-pv-3", "rm-ap-1", "rm-site-actors", 3, "Actor A", "actor-a", "# a3", "published", "[]", "human", "rm-actor-user", T,
     );
 
+    // All leaves archived posts to their own tab.
     const rows = await da.dashboard.listPostsForDashboard("rm-site-actors", { limit: 10, offset: 0 });
-    expect(rows.map((r) => r.id)).toEqual(["rm-ap-1", "rm-ap-2", "rm-ap-3"]);
-    const [a, b, c] = rows;
+    expect(rows.map((r) => r.id)).toEqual(["rm-ap-1", "rm-ap-2"]);
+    const [a, b] = rows;
+    const [c] = await da.dashboard.listPostsForDashboard("rm-site-actors", { status: "archived", limit: 10, offset: 0 });
     // Human name wins from user.name; api key name from api_keys.actor_name;
     // an unmatched system actor yields null (the UI guards it).
     expect(a).toMatchObject({ versionNumber: 3, updatedByType: "human", updatedByName: "Rae Reviewer" });
@@ -719,8 +721,8 @@ describe("dashboard.listPostsForDashboard — actor join, version fold, list sem
     // Status + search semantics match the core listing.
     const drafts = await da.dashboard.listPostsForDashboard("rm-site-actors", { status: "draft", limit: 10, offset: 0 });
     expect(drafts.map((r) => r.id)).toEqual(["rm-ap-2"]);
-    const searched = await da.dashboard.listPostsForDashboard("rm-site-actors", { search: "actor-c", limit: 10, offset: 0 });
-    expect(searched.map((r) => r.id)).toEqual(["rm-ap-3"]);
+    const searched = await da.dashboard.listPostsForDashboard("rm-site-actors", { search: "actor-b", limit: 10, offset: 0 });
+    expect(searched.map((r) => r.id)).toEqual(["rm-ap-2"]);
   });
 });
 
@@ -766,6 +768,15 @@ describe("dashboard.getDashboardAggregate — review queue", () => {
     const live = rows.find((row) => row.id === "rv-live")!;
     expect(live).toMatchObject({ title: "Draft title", publishedTitle: "Live title", publishedExcerpt: "First paragraph.", publishedTagsJson: '["live"]' });
     expect(rows.find((row) => row.id === "rv-agent-draft")).toMatchObject({ publishedTitle: null });
+  });
+
+  it("leaves archived posts out of All and counts each posts tab", async () => {
+    await post("rv-archived", "archived", null);
+    const all = await da.dashboard.listPostsForDashboard(site, { limit: 10, offset: 0 });
+    expect(all.map((row) => row.id)).not.toContain("rv-archived");
+    const archived = await da.dashboard.listPostsForDashboard(site, { status: "archived", limit: 10, offset: 0 });
+    expect(archived.map((row) => row.id)).toEqual(["rv-archived"]);
+    expect(await da.dashboard.countPostsForDashboard(site)).toEqual({ all: 2, review: 2, draft: 1, published: 1, archived: 1 });
   });
 
   it("counts active keys an agent has used, separately from all active keys", async () => {

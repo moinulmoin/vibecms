@@ -361,6 +361,8 @@ export type PostsPageLoad = {
   hasMore: boolean
   /** Public origin for "view live" links; only on the first page. */
   publicBaseUrl?: string | null
+  /** Tab counts ("all" leaves out archived); only on the first page. */
+  counts?: Record<'all' | 'review' | 'draft' | 'published' | 'archived', number> | null
 }
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }

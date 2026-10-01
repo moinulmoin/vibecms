@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Bot, ExternalLink, FileText, Inbox, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { Archive, Bot, ExternalLink, FileText, Inbox, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
-import type { DashboardPostSummary } from '~/types/dashboard'
+import type { DashboardPostSummary, PostsPageLoad } from '~/types/dashboard'
 import { archivePostMutation, deleteArchivedPostMutation, loadPostsPage, unarchivePostMutation, unschedulePostMutation } from '~/lib/api-client'
 import { scheduledLabel } from './editor/schedule-label'
 import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, PageTabs, StatusBadge } from '~/components/dashboard/blocks'
 import { Tabs } from '~/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { useToast } from '~/components/Toaster'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, postsListSearch, type PostsListSearch } from '~/lib/dashboard-search'
@@ -44,6 +46,26 @@ const SORTS = [
 ] as const
 
 const SEARCH_DEBOUNCE_MS = 250
+
+type TabCounts = NonNullable<PostsPageLoad['counts']>
+
+function TabLabel({ label, count, highlight }: { label: string; count: number | undefined; highlight?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {label}
+      {count ? (
+        <span
+          className={[
+            'min-w-5 rounded-full px-1.5 text-center text-xs font-medium tabular-nums leading-5',
+            highlight ? 'bg-brand-bright text-brand-bright-foreground' : 'bg-foreground/[0.06] text-muted-foreground',
+          ].join(' ')}
+        >
+          {count}
+        </span>
+      ) : null}
+    </span>
+  )
+}
 
 function normalizeStatus(value: string | undefined) {
   return STATUS_TABS.some((tab) => tab.value === value && value !== 'all') ? value : undefined
@@ -163,9 +185,13 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
   const pages = query.data.pages
   const posts = pages.flatMap((page) => page.posts)
   const publicBaseUrl = pages[0]?.publicBaseUrl ?? null
+  const counts: TabCounts | null = pages[0]?.counts ?? null
   const hasFilters = Boolean(status || searchQuery)
   const emptyCopy = searchQuery
-    ? { title: 'No posts match', description: `Nothing matches “${searchQuery}”${status ? ' in this view' : ''}.` }
+    ? {
+        title: 'No posts match',
+        description: `Nothing matches “${searchQuery}”${status ? ' in this view' : ''}.${!status && counts?.archived ? ' Archived posts are in the Archived tab.' : ''}`,
+      }
     : status
       ? EMPTY_COPY[status]
       : null
@@ -174,7 +200,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     <>
       <PageHeader
         title="Posts"
-        description="Everything you and your agents write. Agents with publish keys can publish without the dashboard."
+        description="Everything you and your agents write."
         action={canEdit ? (
           <Button asChild>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><Plus aria-hidden data-icon="inline-start" /> New post</Link>
@@ -182,7 +208,13 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
         ) : undefined}
       />
       <Tabs value={status ?? 'all'} onValueChange={(value) => setListParams({ status: value })} className="gap-0">
-        <PageTabs label="Filter posts" tabs={STATUS_TABS.map((tab) => ({ value: tab.value, label: tab.label }))} />
+        <PageTabs
+          label="Filter posts"
+          tabs={STATUS_TABS.map((tab) => ({
+            value: tab.value,
+            label: <TabLabel label={tab.label} count={counts?.[tab.value]} highlight={tab.value === 'review'} />,
+          }))}
+        />
       </Tabs>
 
       <div className="-mt-2 flex flex-wrap items-center gap-3">
@@ -235,6 +267,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 onRestore={() => void runRowMutation(post, 'restore')}
                 onDelete={() => runRowMutation(post, 'delete')}
                 onUnschedule={() => runRowMutation(post, 'unschedule')}
+                onCopied={() => toast({ variant: 'success', title: 'Link copied', message: 'The live link is on your clipboard.' })}
                 showDelete={status === 'archived'}
                 me={me}
               />
@@ -303,6 +336,7 @@ function PostRow({
   onRestore,
   onDelete,
   onUnschedule,
+  onCopied,
   showDelete,
   me,
 }: {
@@ -316,9 +350,12 @@ function PostRow({
   onRestore: () => void
   onDelete: () => Promise<void>
   onUnschedule: () => Promise<void>
+  onCopied: () => void
   showDelete: boolean
 }) {
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const review = reviewLabel(post)
+  const title = post.title || 'Untitled'
   // The byline describes the last change, while latestActorType describes the
   // tip version. A scheduled publish can have different actors for those two.
   const agentWrote = isAgentActor(post.updatedByType)
@@ -326,30 +363,50 @@ function PostRow({
   const liveSlug = post.publishedVersionNumber == null ? post.slug : post.publishedSlug ?? null
   const liveUrl = post.status === 'published' && publicBaseUrl && liveSlug ? `${publicBaseUrl}/${liveSlug}` : null
   const editorLink = { to: '/dashboard/posts/$postId/edit' as const, params: { postId: post.id }, search: emptyPostEditorSearch }
+  const scheduled = post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status)
+  const canUnschedule = canEdit && post.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status)
+  const archiving = pendingKey === `${post.id}:archive`
+  const showMenu = post.status !== 'archived' && (Boolean(liveUrl) || canEdit)
+  const actorName = agentWrote
+    ? actorDisplayName(post.updatedByType, post.updatedByName)
+    : personLabel(actorDisplayName(post.updatedByType, post.updatedByName), me)
+
+  async function copyLink() {
+    if (!liveUrl) return
+    try {
+      await navigator.clipboard.writeText(liveUrl)
+      onCopied()
+    } catch {
+      window.open(liveUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-[color:var(--hairline)] py-4 first:pt-2 last:border-b-0 md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_9.5rem]">
+    // The title link stretches over the row (after:inset-0), so the whole row
+    // opens the editor; controls sit above it (relative z-10). The hairline is
+    // inset to the content edge while the hover wash bleeds past it.
+    <li className={`relative -mx-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-3 py-3.5 transition-colors after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-[color:var(--hairline)] last:after:hidden md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_10rem] ${canEdit ? 'hover:bg-muted/50 has-[a[data-row-link]:focus-visible]:bg-muted/50 has-[[aria-expanded=true]]:bg-muted/50' : ''}`}>
       <div className="col-span-2 min-w-0 md:col-span-1">
         {canEdit ? (
           <Link
             {...editorLink}
-            className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline hover:underline"
+            data-row-link=""
+            className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
           >
-            {post.title || 'Untitled'}
+            {title}
           </Link>
         ) : (
-          <strong className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{post.title || 'Untitled'}</strong>
+          <strong className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{title}</strong>
         )}
-        <p className="mt-1 truncate text-sm text-muted-foreground">
-          <span className="font-mono text-xs">/{post.slug}</span>
-          {post.excerpt ? <><span aria-hidden> · </span>{post.excerpt}</> : null}
+        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+          {post.excerpt ? post.excerpt : <span className="font-mono text-xs">/{post.slug}</span>}
         </p>
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 md:contents">
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge status={post.status} className="w-fit" />
-          {post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <StatusBadge status="pending" label={scheduledLabel(post.scheduledPublish.publishAt)} className="w-fit normal-case" /> : null}
+          {scheduled ? <StatusBadge status="pending" label={scheduledLabel(post.scheduledPublish!.publishAt)} className="w-fit normal-case" /> : null}
           {post.scheduledPublish?.status === 'failed' ? <span className="text-xs text-destructive" title={post.scheduledPublish.error ?? undefined}>Schedule failed: {post.scheduledPublish.error}</span> : null}
           {review && hasPendingChanges(post) ? (
             <StatusBadge status="pending" label="Changes" className="w-fit normal-case" />
@@ -358,34 +415,22 @@ function PostRow({
           ) : null}
         </div>
         <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <time className="shrink-0" dateTime={new Date(post.updatedAt * 1000).toISOString()} title={formatDateTime(post.updatedAt)}>
+          <time className="relative z-10 shrink-0" dateTime={new Date(post.updatedAt * 1000).toISOString()} title={formatDateTime(post.updatedAt)}>
             {formatRelative(post.updatedAt)}
           </time>
           <span aria-hidden>·</span>
           {agentWrote ? <Bot aria-hidden className="size-3.5 shrink-0" /> : null}
-          {(() => {
-            const name = agentWrote
-              ? actorDisplayName(post.updatedByType, post.updatedByName)
-              : personLabel(actorDisplayName(post.updatedByType, post.updatedByName), me)
-            return <span className="truncate" title={name}>{name}</span>
-          })()}
+          <span className="truncate" title={actorName}>{actorName}</span>
           {agentWrote ? <span className="sr-only">(agent)</span> : null}
         </p>
       </div>
 
-      <div className="flex items-center justify-end gap-1">
-        {canEdit && post.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status) ?
+      <div className="relative z-10 flex items-center justify-end gap-1">
+        {canUnschedule ?
           <Button type="button" size="sm" variant="ghost" disabled={Boolean(pendingKey)} onClick={() => void onUnschedule()}>Unschedule</Button> : null}
         {review && canEdit ? (
           <Button asChild size="sm" variant="outline">
             <Link {...editorLink}>Review</Link>
-          </Button>
-        ) : null}
-        {liveUrl ? (
-          <Button asChild size="icon" variant="ghost" className="size-8 text-muted-foreground hover:text-foreground">
-            <a href={liveUrl} target="_blank" rel="noreferrer" title="View live" aria-label={`View “${post.title}” live`}>
-              <ExternalLink aria-hidden />
-            </a>
           </Button>
         ) : null}
         {canEdit && post.status === 'archived' ? (
@@ -416,31 +461,81 @@ function PostRow({
             <span className="sr-only">Delete “{post.title}” forever</span>
           </SpaConfirmButton>
         ) : null}
-        {canEdit && post.status !== 'archived' ? (
-          <SpaConfirmButton
-            size="icon"
-            variant="ghost"
-            className="size-8 text-muted-foreground hover:text-foreground"
-            confirmLabel="Archive?"
-            pendingLabel="Archiving…"
-            title="Archive"
-            disabled={pendingKey === `${post.id}:archive`}
-            onConfirm={onArchive}
-          >
-            <Archive aria-hidden />
-            <span className="sr-only">Archive “{post.title}”</span>
-          </SpaConfirmButton>
+        {showMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8 text-muted-foreground hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
+                aria-label={`More actions for “${title}”`}
+              >
+                <MoreHorizontal aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              {canEdit ? (
+                <DropdownMenuItem asChild>
+                  <Link {...editorLink}><Pencil aria-hidden />Open in editor</Link>
+                </DropdownMenuItem>
+              ) : null}
+              {liveUrl ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <a href={liveUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden />View live</a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void copyLink()}><Link2 aria-hidden />Copy link</DropdownMenuItem>
+                </>
+              ) : null}
+              {canEdit ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={archiving} onSelect={() => setArchiveOpen(true)}>
+                    <Archive aria-hidden />{archiving ? 'Archiving…' : 'Archive…'}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
 
       {error ? (
-        <p className="col-span-full flex flex-wrap items-center gap-2 text-sm text-destructive" role="alert">
+        <p className="relative z-10 col-span-full flex flex-wrap items-center gap-2 text-sm text-destructive" role="alert">
           {error.message}
           <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={error.retry}>
             Try again
           </Button>
         </p>
       ) : null}
+
+      <Dialog open={archiveOpen} onOpenChange={(next) => { if (!archiving) setArchiveOpen(next) }}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Archive “{title}”?</DialogTitle>
+            <DialogDescription>
+              {post.status === 'published'
+                ? 'It comes off your blog right away. You can restore it later as a draft; its history stays.'
+                : 'It moves to Archived. You can restore it any time; its history stays.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={archiving} onClick={() => setArchiveOpen(false)}>Keep it</Button>
+            <Button
+              type="button"
+              disabled={archiving}
+              onClick={async () => {
+                await onArchive()
+                setArchiveOpen(false)
+              }}
+            >
+              <Archive aria-hidden data-icon="inline-start" />
+              {archiving ? 'Archiving…' : post.status === 'published' ? 'Take down and archive' : 'Archive'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </li>
   )
 }

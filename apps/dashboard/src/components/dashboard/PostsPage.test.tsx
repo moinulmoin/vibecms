@@ -6,6 +6,8 @@ import type { DashboardPostSummary } from '~/types/dashboard'
 
 const mock = vi.hoisted(() => ({
   deletePost: vi.fn(async () => ({ kind: 'ok', code: 'post_deleted' })),
+  archivePost: vi.fn(async () => ({ kind: 'ok', code: 'post_archived' })),
+  counts: null as null | Record<'all' | 'review' | 'draft' | 'published' | 'archived', number>,
   unschedulePost: vi.fn(async () => ({ kind: 'ok', code: 'post_unscheduled' })),
   navigate: vi.fn(),
   invalidate: vi.fn(async () => undefined),
@@ -15,16 +17,17 @@ const mock = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-query')>()),
-  useInfiniteQuery: () => ({ data: { pages: [{ posts: mock.posts, publicBaseUrl: null, hasMore: false }] }, isPlaceholderData: false }),
+  useInfiniteQuery: () => ({ data: { pages: [{ posts: mock.posts, publicBaseUrl: 'https://notes.example.com', hasMore: false, counts: mock.counts }] }, isPlaceholderData: false }),
   useQuery: () => ({ data: { app: { user: { name: 'Owner' } } } }),
   useQueryClient: () => ({ invalidateQueries: mock.invalidate }),
 }))
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: ReactNode }) => <a href="#">{children}</a>,
+  Link: ({ children, to: _to, params: _params, search: _search, ...rest }: { children: ReactNode; to?: unknown; params?: unknown; search?: unknown }) =>
+    <a href="#" {...rest}>{children}</a>,
   useNavigate: () => mock.navigate,
 }))
 vi.mock('~/lib/api-client', () => ({
-  archivePostMutation: vi.fn(),
+  archivePostMutation: mock.archivePost,
   deleteArchivedPostMutation: mock.deletePost,
   loadPostsPage: vi.fn(),
   unarchivePostMutation: vi.fn(),
@@ -110,6 +113,39 @@ describe('PostsPage permanent delete', () => {
     const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Unschedule'))
     await act(async () => button?.click())
     expect(container.textContent).toContain('Already publishing')
+    await act(async () => root.unmount())
+  })
+
+  it('counts each tab, highlighting what needs review', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    mock.posts = [post('draft')]
+    mock.counts = { all: 5, review: 2, draft: 3, published: 2, archived: 4 }
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    const tabs = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
+    expect(tabs).toEqual(['All5', 'Needs review2', 'Drafts3', 'Published2', 'Archived4'])
+    mock.counts = null
+    await act(async () => root.unmount())
+  })
+
+  it('archives from the row menu only after the owner confirms, saying a live post comes down', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    mock.posts = [{ ...post('published'), publishedVersionNumber: 1, publishedSlug: 'a-title' }]
+    await act(async () => root.render(<PostsPage search={postsListSearch({})} canEdit />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="More actions for “A title”"]')!
+    await act(async () => trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    const items = [...document.querySelectorAll('[role="menuitem"]')]
+    expect(items.map((item) => item.textContent)).toEqual(['Open in editor', 'View live', 'Copy link', 'Archive…'])
+    expect(items[1]?.getAttribute('href')).toBe('https://notes.example.com/a-title')
+    await act(async () => (items[3] as HTMLElement).click())
+    expect(document.body.textContent).toContain('It comes off your blog right away.')
+    expect(mock.archivePost).not.toHaveBeenCalled()
+    const confirm = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Take down and archive'))
+    await act(async () => confirm?.click())
+    expect(mock.archivePost).toHaveBeenCalledWith({ postId: 'post-1' })
     await act(async () => root.unmount())
   })
 })

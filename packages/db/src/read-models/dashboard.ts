@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, like, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, like, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { Post } from "@vc/core";
 import { createDbClient } from "../client";
@@ -58,6 +58,8 @@ export interface DashboardReviewPost {
 
 export type DashboardPostListStatus = Post["status"] | "review";
 export type DashboardPostListSort = "updated" | "created" | "title" | "published";
+/** Tab counts for the posts page. "all" is every post that isn't archived. */
+export type DashboardPostCounts = Record<"all" | DashboardPostListStatus, number>;
 
 // camelCase projection of activity_events.{action,summary,actor_name,created_at} for the dashboard feed.
 export interface DashboardRecentActivity {
@@ -126,6 +128,7 @@ export interface DashboardReadModel {
     siteId: string,
     input: { status?: DashboardPostListStatus; search?: string; sort?: DashboardPostListSort; limit: number; offset: number },
   ): Promise<DashboardPostListRow[]>;
+  countPostsForDashboard(siteId: string): Promise<DashboardPostCounts>;
   // Currently-published posts (no published_at<=now cutoff) for onboarding attribution.
   listPublishedForAttribution(siteId: string, limit: number): Promise<AttributionPublishedPost[]>;
   // Site-level activation proof from api_key activity (live wins over draft). Bounded
@@ -311,14 +314,36 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         activeDefaultHostname: domainRows[0]?.hostname ?? null,
       };
     },
+    async countPostsForDashboard(siteId) {
+      const [statusRows, reviewRows] = await Promise.all([
+        client
+          .select({ status: posts.status, count: sql<number>`count(*)`.mapWith(Number) })
+          .from(posts)
+          .where(eq(posts.siteId, siteId))
+          .groupBy(posts.status),
+        client
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(posts)
+          .where(and(eq(posts.siteId, siteId), needsReviewSql)),
+      ]);
+      const counts: DashboardPostCounts = { all: 0, review: reviewRows[0]?.count ?? 0, draft: 0, published: 0, archived: 0 };
+      for (const row of statusRows) {
+        if (row.status === "draft" || row.status === "published" || row.status === "archived") counts[row.status] = row.count;
+      }
+      counts.all = counts.draft + counts.published;
+      return counts;
+    },
     async listPostsForDashboard(siteId, input) {
       // Site filter, status (or "review"), escaped %term% LIKE across
       // title/slug/excerpt, and a sort, plus version pins and last-change actor
       // in one query — no N+1.
       const search = input.search ? `%${escapeLike(input.search)}%` : null;
       const conditions: (SQL | undefined)[] = [eq(posts.siteId, siteId)];
+      // No status means "All": everything you're working with. Archived posts
+      // have their own tab.
       if (input.status === "review") conditions.push(needsReviewSql);
       else if (input.status) conditions.push(eq(posts.status, input.status));
+      else conditions.push(ne(posts.status, "archived"));
       if (search) {
         conditions.push(
           or(
