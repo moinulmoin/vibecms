@@ -117,6 +117,7 @@ export const queryKeys = {
   get personalization() { return tenantKey('personalization') },
   get setup() { return tenantKey('setup') },
   onboardingStatus: (keyId: string | null) => tenantKey('onboarding-status', keyId),
+  palette: (term: string) => tenantKey('palette', term),
 }
 
 /** Session + site context. Cached so navigation and hover preloads don't wait on it. */

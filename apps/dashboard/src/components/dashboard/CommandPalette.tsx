@@ -31,6 +31,7 @@ import { StatusBadge } from '~/components/dashboard/blocks'
 import { resolveAppTheme, useAppTheme } from '~/hooks/use-app-theme'
 import { loadPostsPage } from '~/lib/api-client'
 import { emptyPostEditorSearch, postsListSearch } from '~/lib/dashboard-search'
+import { queryKeys } from '~/lib/queries'
 
 type Role = 'owner' | 'editor' | 'viewer' | undefined
 
@@ -87,7 +88,7 @@ export function CommandPalette({ role }: { role: Role }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="ml-auto inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-56"
+        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-56"
         aria-label="Search and jump to"
         aria-keyshortcuts="Meta+K Control+K"
       >
@@ -124,7 +125,7 @@ function PaletteBody({ role, onClose }: { role: Role; onClose: () => void }) {
   // Recent posts when empty; title search as you type. The first page also
   // carries the blog's public address.
   const posts = useQuery({
-    queryKey: ['command-palette', 'posts', term],
+    queryKey: queryKeys.palette(term),
     queryFn: ({ signal }) => loadPostsPage({ search: term || undefined }, signal),
     staleTime: 30_000,
   })
