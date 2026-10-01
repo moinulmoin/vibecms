@@ -148,7 +148,8 @@ describe('ThemePage', () => {
       expectedUpdatedAt: 10,
       theme: 'technical',
     }))
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    // The preview's subscribe form keeps its own hidden alert; read the visible one.
+    expect(container.querySelector('[role="alert"]:not([hidden])')?.textContent).toContain(
       'saved theme changed elsewhere',
     )
     expect(technical?.getAttribute('aria-pressed')).toBe('true')
@@ -190,6 +191,28 @@ describe('ThemePage', () => {
     const preview = container.querySelector('[aria-label="Theme preview"]')
     expect(preview?.querySelector('a[href="/about"]')?.textContent).toBe('About')
     expect(preview?.querySelector('a[aria-label="GitHub"]')).toBeTruthy()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('saves with Cmd/Ctrl+S only when something changed, from a bar that appears with the change', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue(settings())
+    vi.mocked(updateSiteSettingsMutation).mockResolvedValue({ kind: 'ok', code: 'updated' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    const saveS = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, cancelable: true }))
+    expect(container.textContent).not.toContain('Unsaved changes')
+    await act(async () => { saveS() })
+    expect(updateSiteSettingsMutation).not.toHaveBeenCalled()
+    const notebook = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Notebook'))
+    await act(async () => notebook?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(container.textContent).toContain('Unsaved changes')
+    await act(async () => { saveS() })
+    await settle()
+    expect(updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ theme: 'technical' }))
     await act(async () => root.unmount())
     container.remove()
   })

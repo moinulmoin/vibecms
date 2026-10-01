@@ -246,6 +246,8 @@ function renderArticle(article: PreviewArticle, highlighter: CodeHighlighter | n
   return renderRichContent(article.markdown, { pageTitle: article.title, highlighter })
 }
 
+const SAVE_SHORTCUT = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘S' : 'Ctrl+S'
+
 export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
   const [site, setSite] = useState<ThemeSiteBaseline | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -335,6 +337,19 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
   const renderResult = useMemo(() => renderArticle(article, highlighter), [article, highlighter])
   const blocksRef = useBlockEnhancers(renderResult)
 
+  // ⌘S / Ctrl+S saves, like the post editor.
+  const saveShortcutRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        saveShortcutRef.current?.()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   if (loadError) {
     return (
       <>
@@ -362,6 +377,8 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
     selectedRadius !== site.themeRadius ||
     selectedWidth !== site.themeWidth
 
+  saveShortcutRef.current = editable && themeDirty && !saving ? () => void handleThemeSave() : null
+
   function discard() {
     if (!site) return
     setSelectedTheme(site.theme)
@@ -374,8 +391,8 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
     setSaveError(null)
   }
 
-  async function handleThemeSave(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function handleThemeSave(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault()
     if (!site || !editable) return
     setSaving(true)
     setSaveError(null)
@@ -668,26 +685,6 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
             </p>
           </section>
 
-          {editable ? <div className="flex flex-col gap-2 border-t border-[color:var(--hairline)] pt-5">
-            {saveError ? (
-              <p className="text-sm text-destructive" role="alert">
-                {saveError}
-              </p>
-            ) : null}
-            <div className="flex items-center gap-2">
-              <PendingSubmitButton pending={saving} pendingText="Saving…" disabled={!themeDirty}>
-                {themeDirty ? 'Save changes' : 'Saved'}
-              </PendingSubmitButton>
-              {themeDirty ? (
-                <Button type="button" variant="ghost" onClick={discard} disabled={saving}>
-                  Discard
-                </Button>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground" aria-live="polite">
-              {themeDirty ? 'Unsaved changes. Readers still see your current theme.' : justSaved ? 'Your blog is updated.' : ''}
-            </p>
-          </div> : null}
         </div>
 
         <div className="min-w-0 xl:sticky xl:top-6">
@@ -797,6 +794,39 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
               ? 'Showing your published posts.'
               : article.source === 'published' ? 'Showing your latest published post.' : 'Showing a sample post until you publish one.'}
           </p>
+        </div>
+
+        {/* Floats at the bottom of the screen while there is something to save,
+            so Save is never below the fold. */}
+        <div aria-live="polite" className="pointer-events-none sticky bottom-4 z-20 flex justify-center empty:hidden xl:col-span-2">
+          {editable && (themeDirty || saving || justSaved || saveError) ? (
+            <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-xl border border-border bg-background/95 py-2 pl-4 pr-2 shadow-lg shadow-black/10 backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 max-sm:px-3">
+              <p className="text-sm">
+                {saveError ? (
+                  <span role="alert" className="text-destructive">{saveError}</span>
+                ) : themeDirty || saving ? (
+                  <>
+                    <span className="font-medium text-foreground">Unsaved changes</span>
+                    <span className="hidden text-muted-foreground sm:inline"> · Readers still see your current theme.</span>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 py-1 pr-2 text-foreground">
+                    <Check aria-hidden className="size-4 text-brand-bright" /> Your blog is updated.
+                  </span>
+                )}
+              </p>
+              {themeDirty || saving ? (
+                <div className="flex items-center gap-1.5">
+                  <Button type="button" size="sm" variant="ghost" onClick={discard} disabled={saving}>
+                    Discard
+                  </Button>
+                  <PendingSubmitButton size="sm" pending={saving} pendingText="Saving…" title={`Save changes (${SAVE_SHORTCUT})`}>
+                    Save changes
+                  </PendingSubmitButton>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </form>
     </>
