@@ -42,15 +42,17 @@ describe('minute scheduled publishing with a fake clock', () => {
     const clock = 1_800_003_000;
     await schedulePost(env.DB, SITE, item.id, 1, clock, actor, clock - 10);
     await archivePost(repo, actor, { siteId: SITE, postId: item.id });
+    // A repeat archive is a no-op: no second version or activity row.
+    await archivePost(repo, actor, { siteId: SITE, postId: item.id });
     await unarchivePost(repo, actor, { siteId: SITE, postId: item.id });
     let calls = 0;
     expect(await processDueSchedules(env.DB, clock, async () => { calls++; }))
       .toEqual({ published: 0, failed: 0, retrying: 0 });
     expect(calls).toBe(0);
     expect(await status(item.id)).toBeNull();
-    const event = await env.DB.prepare("SELECT summary FROM activity_events WHERE entity_id = ? AND action = 'post.archived'")
-      .bind(item.id).first<{ summary: string }>();
-    expect(event?.summary).toContain('cancelled any pending schedule');
+    const events = await env.DB.prepare("SELECT summary FROM activity_events WHERE entity_id = ? AND action = 'post.archived'")
+      .bind(item.id).all<{ summary: string }>();
+    expect(events.results.map((event) => event.summary)).toEqual([`Archived ${item.title} (scheduled publish canceled)`]);
   });
 
   it('invalidates a claimed lease before a restored post can be published', async () => {

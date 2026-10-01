@@ -189,10 +189,13 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
   if (input.expectedVersionNumber !== undefined && input.expectedVersionNumber !== before.currentVersionNumber) {
     throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
   }
+  // Already archived: nothing changes, so no new version or activity row.
+  if (before.status === "archived") return before;
+  const scheduleCanceled = before.scheduledPublish?.status === "pending";
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
     changeSummary: "Archived post",
     activityAction: "post.archived",
-    activitySummary: `Archived ${before.title}; cancelled any pending schedule`,
+    activitySummary: scheduleCanceled ? `Archived ${before.title} (scheduled publish canceled)` : `Archived ${before.title}`,
   }, before.currentVersionNumber);
   if (!after) throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
   return after.post;
