@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ACTIVE_WINDOW_SECONDS, activeAgents, presenceLabel } from './AgentPresence'
+import { ACTIVE_WINDOW_SECONDS, activeAgents, newestAgentRequest, presenceLabel } from './AgentPresence'
 
 const key = (id: string, lastUsedAt: number | null, revokedAt: number | null = null) => ({
   id, name: id, tokenPrefix: `vc_${id}`, scopes: [], createdAt: 0, lastUsedAt, revokedAt,
@@ -22,5 +22,10 @@ describe('agent presence', () => {
     expect(presenceLabel([])).toBeNull()
     expect(presenceLabel([{ name: 'My agent' }])).toBe('My agent is working')
     expect(presenceLabel([{ name: 'Claude' }, { name: 'Codex' }])).toBe('2 agents are working')
+  })
+
+  it('finds the newest request from a live key', () => {
+    expect(newestAgentRequest([])).toBe(0)
+    expect(newestAgentRequest([key('a', null), key('b', 40), key('c', 90, 95)])).toBe(40)
   })
 })

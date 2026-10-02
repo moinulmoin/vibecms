@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@vc/ui'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '~/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '~/components/ui/dialog'
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { resolveAppTheme, useAppTheme } from '~/hooks/use-app-theme'
 import { loadPostsPage } from '~/lib/api-client'
@@ -69,6 +69,8 @@ function useDebounced<T>(value: T, ms: number) {
  */
 export function CommandPalette({ role }: { role: Role }) {
   const [open, setOpen] = useState(false)
+  // Opened from the keyboard: give focus back to where it was on close.
+  const returnFocus = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -76,39 +78,50 @@ export function CommandPalette({ role }: { role: Role }) {
       if (event.defaultPrevented) return
       if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
         event.preventDefault()
+        if (!open) returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
         setOpen((value) => !value)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [open])
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-56"
-        aria-label="Search and jump to"
-        aria-keyshortcuts="Meta+K Control+K"
-      >
-        <Search aria-hidden className="size-4" />
-        <span className="hidden sm:inline">Search…</span>
-        <kbd className="ml-auto hidden rounded border border-border px-1.5 font-sans text-[11px] leading-5 text-muted-foreground sm:inline">
-          {SHORTCUT}
-        </kbd>
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          showCloseButton={false}
-          className="top-[12vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-xl"
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          onClick={() => { returnFocus.current = null }}
+          className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-56"
+          aria-label="Search and jump to"
+          aria-keyshortcuts="Meta+K Control+K"
         >
-          <DialogTitle className="sr-only">Search and jump to</DialogTitle>
-          <DialogDescription className="sr-only">Type to find a page, a post, or an action. Use the arrow keys, then Enter.</DialogDescription>
-          {open ? <PaletteBody role={role} onClose={() => setOpen(false)} /> : null}
-        </DialogContent>
-      </Dialog>
-    </>
+          <Search aria-hidden className="size-4" />
+          <span className="hidden sm:inline">Search…</span>
+          <kbd className="ml-auto hidden rounded border border-border px-1.5 font-sans text-[11px] leading-5 text-muted-foreground sm:inline">
+            {SHORTCUT}
+          </kbd>
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        showCloseButton={false}
+        className="top-[12vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-xl"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocus.current
+          returnFocus.current = null
+          // Radix returns focus to the Search button; a keyboard opening
+          // returns it to wherever the person was instead.
+          if (target?.isConnected) {
+            event.preventDefault()
+            target.focus()
+          }
+        }}
+      >
+        <DialogTitle className="sr-only">Search and jump to</DialogTitle>
+        <DialogDescription className="sr-only">Type to find a page, a post, or an action. Use the arrow keys, then Enter.</DialogDescription>
+        {open ? <PaletteBody role={role} onClose={() => setOpen(false)} /> : null}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -142,7 +155,10 @@ function PaletteBody({ role, onClose }: { role: Role; onClose: () => void }) {
         keywords: `${post.slug} ${term}`,
         Icon: FileText,
         meta: <StatusBadge status={post.status} className="w-fit" />,
-        run: () => void navigate({ to: '/dashboard/posts/$postId/edit', params: { postId: post.id }, search: emptyPostEditorSearch }),
+        // Viewers can't open the editor; take them to the post in the list.
+        run: canEdit
+          ? () => void navigate({ to: '/dashboard/posts/$postId/edit', params: { postId: post.id }, search: emptyPostEditorSearch })
+          : () => void navigate({ to: '/dashboard/posts', search: postsListSearch({ search: post.title || post.slug }) }),
       })
     }
     if (canEdit) {

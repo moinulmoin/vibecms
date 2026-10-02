@@ -128,7 +128,14 @@ export async function dashboardFetch<T>(
   schema?: z.ZodType<T>,
 ): Promise<T> {
   const method = (init?.method ?? 'GET').toUpperCase()
-  if (method === 'GET' || method === 'HEAD') return dashboardRequest(path, init, schema)
+  if (method === 'GET' || method === 'HEAD') {
+    try {
+      return await dashboardRequest(path, init, schema)
+    } catch (error) {
+      handleDashboardSiteChanged(error)
+      throw error
+    }
+  }
   try {
     tenantMutations.signal.throwIfAborted()
     return await dashboardRequest(path, {
@@ -149,7 +156,11 @@ async function dashboardRequest<T>(
   schema?: z.ZodType<T>,
 ): Promise<T> {
   const headers = new Headers(init?.headers)
-  if (init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase())) {
+  const read = !init?.method || ['GET', 'HEAD'].includes(init.method.toUpperCase())
+  // Reads carry the pinned site too, so a tab pinned to one site never caches
+  // another site's data after a switch in another tab. The context read is
+  // exempt: it is how this tab notices the switch.
+  if (!read || !path.startsWith('/api/dashboard/context')) {
     for (const [name, value] of Object.entries(dashboardMutationHeaders())) headers.set(name, value)
   }
   if (init?.body !== undefined && !(init.body instanceof FormData) && !headers.has('content-type')) {

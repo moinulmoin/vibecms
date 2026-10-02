@@ -76,4 +76,16 @@ describe('CommandPalette', () => {
     expect(labels).not.toContain('New post')
     await act(async () => root.unmount())
   })
+
+  it('sends viewers to the post in the list instead of the editor they cannot open', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    await act(async () => root.render(<CommandPalette role="viewer" />))
+    await act(async () => { press('k', { metaKey: true }) })
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Search posts, pages, and actions"]')!
+    await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(mock.navigate).toHaveBeenCalledWith({ to: '/dashboard/posts', search: expect.objectContaining({ search: 'Shipping notes' }) })
+    await act(async () => root.unmount())
+  })
 })

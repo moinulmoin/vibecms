@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+import { dashboardMutationSignal } from '~/lib/api-client'
 import { connectQuery, queryKeys } from '~/lib/queries'
 import type { ApiKeyListItem } from '~/types/dashboard'
 
@@ -12,6 +13,11 @@ export function activeAgents(keys: ApiKeyListItem[], nowSeconds: number) {
   return keys
     .filter((key) => key.revokedAt == null && key.lastUsedAt != null && nowSeconds - key.lastUsedAt < ACTIVE_WINDOW_SECONDS)
     .sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0))
+}
+
+/** Latest request from any live key; 0 when none has been used. */
+export function newestAgentRequest(keys: ApiKeyListItem[]) {
+  return keys.reduce((latest, key) => (key.revokedAt == null && (key.lastUsedAt ?? 0) > latest ? key.lastUsedAt! : latest), 0)
 }
 
 export function presenceLabel(active: Array<Pick<ApiKeyListItem, 'name'>>) {
@@ -36,23 +42,25 @@ function useNowSeconds(intervalMs: number) {
 export function AgentPresence({ role }: { role?: 'owner' | 'editor' | 'viewer' }) {
   const enabled = role === 'owner' || role === 'editor'
   const queryClient = useQueryClient()
-  // Polls only while the tab is visible (React Query's default).
-  const connect = useQuery({ ...connectQuery, enabled, refetchInterval: POLL_MS })
   const now = useNowSeconds(POLL_MS / 2)
+  // Polls only while the tab is visible (React Query's default), and stops
+  // once this tab knows another tab switched sites.
+  const connect = useQuery({ ...connectQuery, enabled: enabled && !dashboardMutationSignal().aborted, refetchInterval: POLL_MS })
   const active = activeAgents(connect.data?.apiKeys ?? [], now)
-  const latest = active[0]?.lastUsedAt ?? 0
+  const newest = newestAgentRequest(connect.data?.apiKeys ?? [])
   const seen = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!latest) return
-    // The first reading is the baseline; refresh only on new agent requests.
-    if (seen.current !== null && latest > seen.current) {
+    if (!connect.data) return
+    // The first loaded list is the baseline (even if no agent has worked
+    // yet); any newer agent request after it refreshes the views.
+    if (seen.current !== null && newest > seen.current) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.overview })
       void queryClient.invalidateQueries({ queryKey: queryKeys.postsAll })
       void queryClient.invalidateQueries({ queryKey: queryKeys.activityAll })
     }
-    seen.current = Math.max(seen.current ?? 0, latest)
-  }, [latest, queryClient])
+    seen.current = Math.max(seen.current ?? 0, newest)
+  }, [connect.data, newest, queryClient])
 
   const label = presenceLabel(active)
   if (!label) return null
