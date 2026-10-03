@@ -3,14 +3,16 @@ import { env } from "cloudflare:workers";
 import { canonicalHostRedirect } from "./server/canonical-host.server";
 import {
   ARTICLE_HTML_CACHE_HIT_HEADER,
-  RESERVED_ROOT_SLUGS,
   cachePublicPostHtmlResponse,
   markdownRequested,
+  isReadableTenantPostSlug,
+  isMarketingHost,
   stripMarkdownSuffix,
 } from "./server/public-blog";
 import { conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
+import { markdownErrorForRequest, marketingTrustRedirect, varyAgentRepresentation } from "./lib/agent-discovery";
 
 function articleSlugCandidate(pathname: string): string | undefined {
   if (pathname === "/" || pathname.length < 2) return undefined;
@@ -39,8 +41,28 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return redirect;
   }
 
+  if (!publicEnv.selfHosted && isMarketingHost(context.request, publicEnv)) {
+    const trustRedirect = marketingTrustRedirect(pathname);
+    if (trustRedirect) return trustRedirect;
+  }
+
   const response = await next();
+  // Agents probing /api/* here get a JSON pointer to the real API, not a page.
+  if (response.status === 404 && pathname.startsWith("/api/")) {
+    const apiMissing = Response.json(
+      { error: { code: "NOT_FOUND", message: "No API here. The vibecms API lives on the app host.", docs: `${publicEnv.appUrl.replace(/\/$/, "")}/openapi.json` } },
+      { status: 404, headers: { "cache-control": "no-store" } },
+    );
+    applyPublicSecurityHeaders(pathname, "application/json", apiMissing.headers);
+    return apiMissing;
+  }
+  const missing = markdownErrorForRequest(context.request, response);
+  if (missing) {
+    applyPublicSecurityHeaders(pathname, missing.headers.get("content-type"), missing.headers);
+    return missing;
+  }
   const headers = new Headers(response.headers);
+  varyAgentRepresentation(headers);
   const articleHtmlCacheHit = headers.has(ARTICLE_HTML_CACHE_HIT_HEADER);
   headers.delete(ARTICLE_HTML_CACHE_HIT_HEADER);
   applyPublicSecurityHeaders(pathname, headers.get("content-type"), headers);
@@ -51,7 +73,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.request.method === "GET" &&
       response.ok &&
       article?.slug &&
-      !RESERVED_ROOT_SLUGS.has(article.slug) &&
+      isReadableTenantPostSlug(article.slug) &&
+      (article.slug !== "docs" && article.slug !== "internal" || publicEnv.selfHosted || !isMarketingHost(context.request, publicEnv)) &&
       !article.markdown &&
       !markdownRequested(context.request) &&
       (headers.get("content-type") || "").includes("text/html"),

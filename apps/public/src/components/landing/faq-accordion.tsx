@@ -1,63 +1,72 @@
-import { PlusIcon } from "@radix-ui/react-icons";
-import { GlassCard, SectionShell } from "./primitives";
+import { FREE_TIER, LAUNCH_OFFER, PRICING } from "@vc/config";
+import { AskAi } from "./ask-ai";
+import { Plus } from "./icons";
+import { H2, SectionShell } from "./primitives";
 
 const faqs = [
   {
-    question: "Is vibecms an AI writer?",
-    answer:
-      "No. It is the CMS your trusted agents publish into - you own every post. Bring your own agent, ours, or no editor at all; vibecms is the publication layer underneath.",
+    question: "What do I get for free?",
+    answer: `A full blog, your agent connected, and up to ${FREE_TIER.publishedPosts} published posts. No card. Free posts stay out of search engines; subscribing unlocks indexing, your domain, media, and unlimited publishing.`,
   },
   {
-    question: "Who is this for?",
-    answer:
-      "Solo writers and small teams who want one clean Markdown blog with real version history and optional agent help.",
+    question: "What is launch pricing?",
+    answer: `While launch pricing runs, new subscribers get ${LAUNCH_OFFER.monthlyPercentOff}% off monthly or ${LAUNCH_OFFER.annualPercentOff}% off yearly: $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
   },
   {
-    question: "Can I self-host it?",
+    question: "Does vibecms write my posts?",
     answer:
-      "Yes. Deploy to your own Cloudflare Workers with D1 and R2, inspect the code, and keep the exact same scoped-MCP publishing model.",
+      "No. Your agent or you write. vibecms stores, versions, checks, and publishes. It never generates content.",
   },
   {
-    question: "What is not included?",
+    question: "Which agents work with it?",
     answer:
-      "No multi-site dashboards and no bloated page builder. One blog, done well - with media, versions, public output, and scoped agent access.",
+      "Any MCP client: Claude Code, Codex, Cursor, OpenCode, Amp, and others. Scripts can use the REST API or the CLI.",
+  },
+  {
+    question: "Can an agent publish without me?",
+    answer:
+      "Only if its key allows it. Draft keys can write and send you a preview but not publish. Every change is logged and reversible.",
+  },
+  {
+    question: "Can my agent run the rest of the blog?",
+    answer:
+      "Yes, with a Manage key: settings, links, theme, voice, the signup form, and analytics. Billing, keys, and deleting the blog stay with you.",
+  },
+  {
+    question: "Can I leave?",
+    answer:
+      "Yes. Export every post as JSON anytime, or self-host the open-source version on your own Cloudflare account.",
   },
 ] as const;
 
 export function FaqAccordion() {
   return (
-    <section id="faq">
+    <section id="faq" aria-labelledby="faq-title">
       <SectionShell>
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 lg:items-start">
-          <div data-reveal>
-            <h2 className="max-w-md text-balance font-display text-[clamp(1.875rem,4vw,3rem)] font-semibold leading-[1.02] tracking-[-0.03em] text-foreground">
-              Questions
-              <br />
-              before launch.
+        <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:gap-14">
+          <div data-reveal className="lg:sticky lg:top-28">
+            <h2 id="faq-title" className={H2}>
+              Questions.
             </h2>
+            <div className="mt-8">
+              <AskAi />
+            </div>
           </div>
-          <div className="space-y-4" data-reveal data-d="1">
+          <div className="divide-y divide-[color:var(--hairline)] border-y border-[color:var(--hairline)]" data-reveal data-d="1">
             {faqs.map((item, index) => (
-              <div
+              <details
                 key={item.question}
-                data-reveal
-                data-d={String(Math.min(index + 2, 5))}
+                open={index === 0}
+                className="group [&_summary::-webkit-details-marker]:hidden"
               >
-                <GlassCard className="overflow-hidden p-0">
-                  <details open={index === 0} className="group [&_summary::-webkit-details-marker]:hidden">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-display text-lg font-medium tracking-[-0.01em] text-foreground marker:content-none">
-                      <span>{item.question}</span>
-                      <PlusIcon
-                        className="size-5 shrink-0 text-brand-bright transition-transform duration-200 group-open:rotate-45"
-                        aria-hidden
-                      />
-                    </summary>
-                    <p className="border-t border-[color:var(--hairline)] px-6 pb-5 pt-0 text-sm leading-7 text-muted-foreground">
-                      <span className="block pt-4">{item.answer}</span>
-                    </p>
-                  </details>
-                </GlassCard>
-              </div>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-md py-5 text-[17px] font-medium tracking-[-0.01em] text-foreground outline-none marker:content-none focus-visible:ring-2 focus-visible:ring-brand-bright/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                  <span>{item.question}</span>
+                  <Plus className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
+                </summary>
+                <p className="max-w-[60ch] pb-5 text-[15px] leading-7 text-muted-foreground">
+                  {item.answer}
+                </p>
+              </details>
             ))}
           </div>
         </div>

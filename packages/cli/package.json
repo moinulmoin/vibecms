@@ -20,9 +20,11 @@
     "build": "tsc && cp ../../apps/api/openapi.json dist/openapi.json",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "test": "node --test src/index.test.mjs"
   },
   "devDependencies": {
+    "@vc/config": "workspace:*",
     "@types/node": "~25.6.2",
     "typescript": "6.0.3"
   }

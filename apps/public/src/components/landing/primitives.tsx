@@ -7,11 +7,12 @@ type Classable = {
 
 // The single source of truth for the primary green CTA. Visual + interaction
 // only (rounded, color, shadow, hover/active); each call adds its own size /
-// padding. Pair with GREEN_BG on the style prop. Hover lift is motion-reduce safe.
+// padding. Pair with GREEN_BG on the style prop; the hex bg is the fallback
+// when a renderer drops the oklch gradient (dark ink would vanish otherwise). Hover lift is motion-reduce safe.
 export const GREEN_BG =
   "linear-gradient(180deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))";
 export const GREEN_CTA =
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)] transition duration-200 ease-out hover:-translate-y-px hover:brightness-[1.06] active:translate-y-0 active:brightness-100 motion-reduce:hover:translate-y-0";
+  "bg-[#57e08a] inline-flex items-center justify-center whitespace-nowrap rounded-xl font-semibold text-brand-bright-foreground no-underline shadow-[0_8px_20px_-8px_oklch(0.8107_0.1705_152.72/0.7),inset_0_1px_0_var(--hairline)] transition duration-200 ease-out hover:-translate-y-px hover:brightness-[1.06] active:translate-y-0 active:brightness-100 motion-reduce:hover:translate-y-0";
 // Secondary / ghost button, with a hover that lifts the hairline + ink.
 export const GHOST_CTA =
   "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl font-semibold text-secondary-foreground no-underline ring-1 ring-[color:var(--hairline)] [background:var(--surface-glass)] transition-colors duration-200 hover:text-foreground hover:ring-[color:var(--brand-bright)]/30";
@@ -71,44 +72,6 @@ export function GlassCard({ className, children }: Classable) {
   );
 }
 
-export function GreenCard({ className, children }: Classable) {
-  return (
-    <div
-      className={[
-        "rounded-[18px] text-brand-bright-foreground shadow-[inset_0_1px_0_var(--hairline),0_40px_80px_-30px_oklch(0.8107_0.1705_152.72/0.55)]",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        background:
-          "linear-gradient(160deg, oklch(0.8693 0.1435 156.03), oklch(0.7423 0.1585 154.53))",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-type MonoEyebrowProps = Classable & {
-  label: string;
-};
-
-export function MonoEyebrow({ className, label }: MonoEyebrowProps) {
-  return (
-    <p
-      className={[
-        "font-mono text-xs text-brand-bright",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {label.startsWith("//") ? label : `// ${label}`}
-    </p>
-  );
-}
-
 type PillProps = Classable & {
   pulse?: boolean;
 };
@@ -134,17 +97,58 @@ export function Pill({ className, children, pulse }: PillProps) {
   );
 }
 
+/** Flat panel surface for product mocks (hairline ring, no heavy shadow). */
+export const PANEL =
+  "overflow-hidden rounded-2xl ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))]";
+
+export const H2 =
+  "text-balance font-display text-[clamp(1.875rem,4vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-foreground";
+
+export const LEAD = "text-[16.5px] leading-[1.6] text-muted-foreground";
+
 export function SectionShell({ className, children }: Classable) {
   return (
-    <section
+    <div
       className={[
-        "relative mx-auto w-full max-w-[1200px] px-5 py-16 sm:px-7 md:py-[110px]",
+        "relative mx-auto w-full max-w-[1200px] px-5 py-16 sm:px-7 md:py-24",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
       {children}
-    </section>
+    </div>
+  );
+}
+
+/**
+ * A soft pool of ambient light anchored to a section (scrolls with it), so the
+ * page has depth past the hero. Sized well beyond the panel it sits behind so
+ * the light reads as a halo around it. Diffuse brand tint only, never a panel.
+ */
+export function SectionLight({
+  x = "50%",
+  y = "50%",
+  size = 1100,
+  alpha = 0.12,
+}: {
+  x?: string;
+  y?: string;
+  size?: number;
+  /** Brand-green alpha at the center of the pool. */
+  alpha?: number;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute -z-10 -translate-x-1/2 -translate-y-1/2"
+      style={{
+        left: x,
+        top: y,
+        width: size,
+        height: size * 0.75,
+        background: `radial-gradient(closest-side, oklch(0.8107 0.1705 152.72 / ${alpha}), oklch(0.8107 0.1705 152.72 / ${alpha * 0.4}) 45%, transparent)`,
+      }}
+      aria-hidden="true"
+    />
   );
 }

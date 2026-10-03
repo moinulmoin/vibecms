@@ -1,14 +1,21 @@
-import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { BRAND } from "@vc/config";
-import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow, SectionShell } from "./primitives";
+import { BRAND, LEGAL } from "@vc/config";
+import { ArrowRight } from "./icons";
+import { GHOST_CTA, GREEN_BG, GREEN_CTA, SectionLight, SectionShell } from "./primitives";
 
 const productLinks = [
   ["Features", "#features"],
   ["Agents", "#agents"],
   ["Pricing", "#pricing"],
+  ["FAQ", "#faq"],
 ] as const;
 
-const exploreLinks = [
+const legalLinks = [
+  ["Privacy", LEGAL.privacy],
+  ["Terms", LEGAL.terms],
+  ["Support", LEGAL.support],
+] as const;
+
+const makerLinks = [
   ["Ideaplexa", "https://ideaplexa.com"],
   ["VoiceTypr", "https://voicetypr.com"],
   ["ChadNext", "https://chadnext.moinulmoin.com"],
@@ -34,24 +41,23 @@ export function CtaFooter({
 
   return (
     <>
+      <section id="start" aria-label="Start free">
       <SectionShell className="pb-10 md:pb-14">
-        <div
-          className="relative overflow-hidden rounded-[22px] px-6 py-14 text-center ring-1 ring-[color:var(--hairline)] [background:linear-gradient(180deg,var(--surface-panel-from),var(--surface-panel-to))] sm:px-10 md:py-[76px]"
-          data-reveal
-        >
-          <Glow className="pointer-events-none absolute left-1/2 -top-24 size-[min(560px,90vw)] -translate-x-1/2 opacity-60" />
+        <div className="relative isolate py-10 text-center md:py-16" data-reveal>
+          <SectionLight x="50%" y="46%" size={1000} alpha={0.13} />
           <img
             src="/brand/icon.svg"
             alt=""
             className="relative mx-auto mb-7 size-16 animate-vc-float sm:size-[68px]"
             aria-hidden="true"
           />
-          <h2 className="relative mx-auto max-w-[18ch] text-balance font-display text-[clamp(1.875rem,4.4vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
-            Your agents. Your content.{" "}
-            <span className="text-brand-bright">Your call.</span>
+          <h2 className="relative mx-auto max-w-[16ch] text-balance font-display text-[clamp(2rem,4.6vw,3.5rem)] font-semibold leading-[1.04] tracking-[-0.03em] text-foreground">
+            Your agent is ready to write.{" "}
+            <span className="text-brand-bright">Give it a blog.</span>
           </h2>
-          <p className="relative mx-auto mt-4 max-w-[460px] text-balance text-base leading-7 text-muted-foreground">
-            Scoped MCP, a full version trail, and your login never leaves your hands.
+          <p className="relative mx-auto mt-4 max-w-[440px] text-balance text-base leading-7 text-muted-foreground">
+            Free to start, no card. Connect your agent and publish your first
+            post today.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
             <a
@@ -68,17 +74,17 @@ export function CtaFooter({
               target="_blank"
             >
               View on GitHub
-              <ArrowRightIcon className="size-4" aria-hidden="true" />
+              <ArrowRight className="size-4" />
             </a>
           </div>
         </div>
       </SectionShell>
+      </section>
 
       <footer className="py-12">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-7">
           <div
             className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-5"
-            data-reveal
           >
             <div className="sm:col-span-2 lg:col-span-1">
               <a
@@ -96,33 +102,31 @@ export function CtaFooter({
                 </span>
               </a>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                The CMS your agents publish into.
+                CMS for AI agents.
               </p>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Product
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Product">
                 {productLinks.map(([label, href]) => (
-                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
                   </a>
                 ))}
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
-                Explore
+              <p className="mb-2 text-sm font-medium text-foreground">
+                Legal
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                {exploreLinks.map(([label, href]) => (
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Legal">
+                {legalLinks.map(([label, href]) => (
                   <a
-                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
+                    className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
-                    rel="noopener noreferrer"
-                    target="_blank"
                   >
                     {label}
                   </a>
@@ -130,13 +134,13 @@ export function CtaFooter({
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Resources
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Resources">
                 {deployLinks.map(([label, href]) => (
                   <a
-                    className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground"
+                    className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground"
                     href={href}
                     key={label}
                     {...(href.startsWith("http") ? { rel: "noopener noreferrer", target: "_blank" } : {})}
@@ -147,12 +151,12 @@ export function CtaFooter({
               </nav>
             </div>
             <div>
-              <p className="mb-4 font-mono text-xs text-brand-bright">
+              <p className="mb-2 text-sm font-medium text-foreground">
                 Account
               </p>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+              <nav className="flex flex-col text-sm text-muted-foreground" aria-label="Account">
                 {accountLinks.map(([label, href]) => (
-                  <a className="inline-flex min-h-[40px] items-center no-underline hover:text-foreground" href={href} key={label}>
+                  <a className="inline-flex min-h-[44px] items-center no-underline hover:text-foreground" href={href} key={label}>
                     {label}
                   </a>
                 ))}
@@ -160,13 +164,11 @@ export function CtaFooter({
             </div>
           </div>
           <p
-            className="mt-10 font-mono text-xs tracking-[0.08em] text-muted-foreground"
-            data-reveal
-            data-d="1"
+            className="mt-10 text-pretty font-mono text-xs leading-5 text-muted-foreground"
           >
             © {year} vibecms - a product of{" "}
             <a
-              className="text-muted-foreground underline-offset-2 hover:text-foreground"
+              className="whitespace-nowrap text-muted-foreground underline-offset-2 hover:text-foreground"
               href="https://ideaplexa.com"
               rel="noopener noreferrer"
               target="_blank"
@@ -175,6 +177,22 @@ export function CtaFooter({
             </a>
             .
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs leading-5 text-muted-foreground">
+            <span className="w-full sm:w-auto">Also from the maker:</span>
+            {makerLinks.map(([label, href], index) => (
+              <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
+                {index > 0 ? <span aria-hidden="true">·</span> : null}
+                <a
+                  className="underline-offset-2 hover:text-foreground"
+                  href={href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {label}
+                </a>
+              </span>
+            ))}
+          </div>
         </div>
       </footer>
     </>

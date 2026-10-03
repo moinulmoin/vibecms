@@ -7,25 +7,43 @@ import { env } from 'cloudflare:workers'
 import { sendOtpEmail } from '@/server/email'
 
 const googleConfigured = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+const githubConfigured = Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET)
 
+// Local dev reaches the worker through vite's http proxy, so the effective
+// origin is the plain-http route host; trust it only outside production.
 const trustedOrigins =
   env.APP_ENV === 'production'
     ? [env.BETTER_AUTH_URL, env.APP_URL].filter(Boolean)
-    : [env.BETTER_AUTH_URL, env.APP_URL, 'http://localhost:3000'].filter(Boolean)
+    : [
+        env.BETTER_AUTH_URL,
+        env.APP_URL,
+        'http://localhost:3000',
+        'http://app.basedui.dev',
+      ].filter(Boolean)
 
 export const auth = betterAuth({
   database: drizzleAdapter(createDbClient(env.DB), {
     provider: 'sqlite',
     schema,
   }),
-  socialProviders: googleConfigured
-    ? {
-        google: {
-          clientId: env.GOOGLE_CLIENT_ID!,
-          clientSecret: env.GOOGLE_CLIENT_SECRET!,
-        },
-      }
-    : undefined,
+  socialProviders: {
+    ...(googleConfigured
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID!,
+            clientSecret: env.GOOGLE_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+    ...(githubConfigured
+      ? {
+          github: {
+            clientId: env.GITHUB_CLIENT_ID!,
+            clientSecret: env.GITHUB_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+  },
   plugins: [
     emailOTP({
       otpLength: 6,
@@ -38,6 +56,13 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: Array.from(new Set(trustedOrigins)),
+  account: {
+    accountLinking: {
+      // Google/GitHub return provider-verified emails; OTP sign-ins always
+      // set emailVerified, so same-email sign-ins link instead of duplicating.
+      trustedProviders: ['google', 'github'],
+    },
+  },
   advanced: {
     ipAddress: {
       ipAddressHeaders: ['cf-connecting-ip'],
@@ -48,4 +73,8 @@ export const auth = betterAuth({
 
 export function googleSignInEnabled() {
   return googleConfigured
+}
+
+export function githubSignInEnabled() {
+  return githubConfigured
 }

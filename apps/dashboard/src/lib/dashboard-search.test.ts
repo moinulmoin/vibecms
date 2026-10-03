@@ -10,6 +10,12 @@ describe("validateSettingsSearch", () => {
     });
   });
 
+  it("maps legacy tab names and keeps theme for the route redirect", () => {
+    expect(validateSettingsSearch({ tab: "general" }).tab).toBe("site");
+    expect(validateSettingsSearch({ tab: "data" }).tab).toBe("export");
+    expect(validateSettingsSearch({ tab: "theme" }).tab).toBe("theme");
+  });
+
   it("drops unknown tabs without dropping status feedback", () => {
     expect(validateSettingsSearch({ tab: "unknown", ok: "voice_profile_saved" })).toEqual({
       ok: "voice_profile_saved",

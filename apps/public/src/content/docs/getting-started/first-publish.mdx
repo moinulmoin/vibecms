@@ -1,9 +1,9 @@
 ---
 title: Publish the first post
-description: Draft, preview, approve, and publish one exact saved version.
+description: Draft, share a private preview, approve an exact version, and publish or schedule it.
 ---
 
-Use this sequence for the first post and every later publication:
+Start with a **Write drafts** key if you will publish in the dashboard. Use **Write and publish** or **Manage** if your agent will call `posts.publish` or `posts.schedule`. Both calls require `posts:publish` and your approval of the exact saved version.
 
 ```txt
 sites.get
@@ -11,43 +11,26 @@ sites.get
 -> posts.create or posts.update
 -> posts.get
 -> posts.preview
+-> send previewUrl to the person
 -> posts.versions.list
--> explicit approval for the exact version
--> posts.versions.list again
--> posts.publish
+-> approval of the exact version and time
+-> posts.publish or posts.schedule
 ```
 
-## Prepare a draft
+## Prepare and review
 
-Call `sites.get` for the current site and Voice Profile. Then call `posts.format_guide` to load the live renderer and presentation rules.
+Call `sites.get` for the site's editorial context, then `posts.format_guide` for the renderer's supported syntax. `posts.create` saves a draft. Fetch it with `posts.get` and use `posts.preview` to check the rendered content, outline, and warnings. Fix incomplete or inaccessible content, including missing image alt text.
 
-`posts.create` always creates a draft. It does not publish.
+Send the returned `previewUrl` to the person. It opens the latest saved version in a browser, even if an older version is live. Anyone with the link can read it. If the response has no `previewUrl`, say so. [Learn how private links work](/docs/content/previews-and-scheduling).
 
-## Review what was saved
+## Approve one version
 
-Fetch the post again with `posts.get`, then pass that exact Markdown and presentation to `posts.preview`. Resolve warnings that would make the article incomplete or inaccessible, especially missing image alt text.
+Call `posts.versions.list` and tell the person the title, post ID, newest `versionNumber`, and any remaining warnings. Ask whether to publish that version now or schedule it for a specific UTC time. Reviewing a preview or accepting editorial direction does not authorize publication.
 
-## Bind approval to a version
-
-Call `posts.versions.list` and present the newest `versionNumber` to the owner with the title, post ID, and remaining warnings.
-
-Ask a precise question:
-
-> Publish this exact version now?
-
-Brief acceptance, draft feedback, and a successful preview are not publication approval.
-
-## Recheck and publish
-
-Immediately before publishing, call `posts.versions.list` again. If the newest version changed, read and preview it before requesting fresh approval.
-
-Call `posts.publish` once with:
+Immediately before publishing or scheduling, check the version again. If the saved tip changed, show the new version and ask for fresh approval. To publish now:
 
 ```json
-{
-  "postId": "post_...",
-  "expectedVersionNumber": 4
-}
+{"postId":"post_...","expectedVersionNumber":4}
 ```
 
-Report the exact URL returned by VibeCMS. Do not construct a public URL from the slug.
+To schedule, send the approved `versionNumber` and a future `publishAt` UTC epoch second to `posts.schedule`. Later edits will not change that scheduled version. Report the returned status and the exact URL from vibecms when present; do not construct a public URL from the slug.

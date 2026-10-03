@@ -127,7 +127,7 @@ writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
 writeFileSync(join(root, ".wrangler/production/last-backup.json"), `${JSON.stringify({ metadataPath, stamp }, null, 2)}\n`);
 
 if (timeTravel.status !== 0) {
-  console.warn(`Warning: D1 time-travel info failed:\n${timeTravel.stderr || timeTravel.stdout}`);
+  console.error(`D1 time-travel info failed:\n${timeTravel.stderr || timeTravel.stdout}`);
 }
 if (schemaExport.status !== 0) {
   console.warn(`Warning: D1 schema export failed:\n${schemaExport.stderr || schemaExport.stdout}`);
@@ -139,8 +139,8 @@ if (publicDeployments.status !== 0) {
   console.warn(`Warning: public deployments list failed:\n${publicDeployments.stderr || publicDeployments.stdout}`);
 }
 
-if (timeTravel.status !== 0 && apiDeployments.status !== 0 && publicDeployments.status !== 0) {
-  throw new Error(`Unable to capture any production backup metadata. See ${metadataPath}`);
+if (timeTravel.status !== 0) {
+  throw new Error(`Unable to capture the required D1 recovery bookmark. Deployment must stop. See ${metadataPath}`);
 }
 
 console.log(`Production backup metadata written to ${metadataPath}`);

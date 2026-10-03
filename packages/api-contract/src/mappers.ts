@@ -1,3 +1,5 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks } from "@vc/validators";
+import { resolvePresetId } from "@vc/config";
 import type { Asset, Post, PostSummary, PostVersion, PostVersionSummary } from "@vc/core";
 import type { ActivityDto, AssetDto, PostDto, PostSummaryDto, PostVersionDto, PostVersionSummaryDto, SiteDto } from "./dto";
 
@@ -7,11 +9,29 @@ type SiteMapperRow = {
   name: string;
   slug: string;
   description: string | null;
+  voiceSeedJson: string;
+  logoAssetId?: string | null;
+  faviconAssetId?: string | null;
+  navLinksJson?: string | null;
+  socialLinksJson?: string | null;
+  theme?: string | null;
+  bylineName?: string | null;
+  showAgentCredit?: boolean | null;
   createdAt: number;
   updatedAt: number;
 };
 
+function parseVoiceSeedJson(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 type SiteVoiceProfileMapper = {
+  configured?: boolean;
   audience: string | null;
   voiceSummary: string | null;
   guidelines: Array<{
@@ -21,7 +41,7 @@ type SiteVoiceProfileMapper = {
   }>;
   representativePosts: Array<{ id: string; title: string; slug: string; updatedAt: number }>;
   warnings: string[];
-  updatedBy: { type: "human"; id: string; name: string };
+  updatedBy: { type: "human" | "agent" | "api_key" | "system"; id: string; name: string };
   createdAt: number;
   updatedAt: number;
 };
@@ -51,17 +71,23 @@ export function mapSiteRow(
     slug: row.slug,
     description: row.description,
     url,
+    logoUrl: row.logoAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.logoAssetId)}` : null,
+    faviconUrl: row.faviconAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.faviconAssetId)}` : null,
+    navLinks: parseSiteLinks(row.navLinksJson, navLinksSchema),
+    socialLinks: parseSiteLinks(row.socialLinksJson, socialLinksSchema),
+    voiceSeedUrls: parseVoiceSeedJson(row.voiceSeedJson),
     voiceProfile: voiceProfile
       ? {
-          configured: true,
+          configured: voiceProfile.configured ?? true,
           audience: voiceProfile.audience,
           voiceSummary: voiceProfile.voiceSummary,
           guidelines: voiceProfile.guidelines,
           representativePosts: voiceProfile.representativePosts,
           warnings: voiceProfile.warnings,
-          updatedByName: voiceProfile.updatedBy.name,
+          updatedByName: voiceProfile.configured === false ? null : voiceProfile.updatedBy.name,
           createdAt: voiceProfile.createdAt,
           updatedAt: voiceProfile.updatedAt,
+          revision: voiceProfile.updatedAt,
         }
       : {
           configured: false,
@@ -73,7 +99,13 @@ export function mapSiteRow(
           updatedByName: null,
           createdAt: null,
           updatedAt: null,
+          revision: 0,
         },
+    template: resolvePresetId(row.theme),
+    byline: {
+      name: row.bylineName?.trim() || row.name,
+      agentCredit: row.showAgentCredit ?? true,
+    },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -81,12 +113,12 @@ export function mapSiteRow(
 
 export function mapPostSummary(post: PostSummary, url: string | null): PostSummaryDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, scheduledPublish: post.scheduledPublish ?? null, url };
 }
 
-export function mapPost(post: Post, url: string | null): PostDto {
+export function mapPost(post: Post, url: string | null, previewUrl: string | null = null): PostDto {
   const { siteId: _siteId, ...rest } = post;
-  return { ...rest, url };
+  return { ...rest, publishedSlug: post.publishedSlug ?? null, scheduledPublish: post.scheduledPublish ?? null, url, previewUrl };
 }
 
 export function mapAsset(asset: Asset, url: string): AssetDto {

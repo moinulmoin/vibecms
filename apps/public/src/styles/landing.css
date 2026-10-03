@@ -1,6 +1,8 @@
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
 @import "@vc/ui/styles/app";
+@import "@vc/content/styles";
+@import "@vc/content/styles/presets";
 
 /* Marketing-only utility graph. Tenant content ships from tenant.css. */
 @source "../components/landing";
@@ -11,3 +13,76 @@
 @source "../layouts/DocsLayout.astro";
 @source "../pages/docs";
 @source "../scripts/marketing-interactions.js";
+
+/* Hero conversation: turns after the current step wait off-stage. SSR renders
+   the final step, so no-JS and reduced motion show the whole exchange. */
+[data-hero-demo][data-step="1"] [data-hero-turn]:not([data-hero-turn="1"]),
+[data-hero-demo][data-step="2"] [data-hero-turn="3"],
+[data-hero-demo][data-step="2"] [data-hero-turn="4"],
+[data-hero-demo][data-step="3"] [data-hero-turn="4"] {
+  opacity: 0;
+  transform: translateY(6px);
+}
+[data-hero-demo][data-step="1"] [data-hero-post] {
+  opacity: 0.4;
+}
+
+/* Key levels: show the selected level's note and scopes; dim what it can't do. */
+[data-key-demo]:not([data-level="draft"]) [data-for="draft"],
+[data-key-demo]:not([data-level="publish"]) [data-for="publish"],
+[data-key-demo]:not([data-level="manage"]) [data-for="manage"],
+[data-key-demo] [data-cap-off] {
+  display: none;
+}
+[data-key-demo][data-level="draft"] :is([data-cap="publish"], [data-cap="manage"]),
+[data-key-demo][data-level="publish"] [data-cap="manage"] {
+  opacity: 0.45;
+  & [data-cap-on] { display: none; }
+  & [data-cap-off] { display: block; }
+}
+
+/* Below the hero, reveals play as each section scrolls into view (not all at
+   once on load). Unsupported browsers keep the load-time reveal; reduced
+   motion is handled in app.css (always visible). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    main section[id] [data-reveal] {
+      animation-timeline: view();
+      animation-range: entry 5% cover 28%;
+      animation-delay: 0s;
+    }
+    main section[id] [data-reveal][data-d] {
+      animation-range: entry 15% cover 34%;
+    }
+  }
+}
+
+/* Version history: a restored version slides in on top. */
+@keyframes vc-history-in {
+  from { opacity: 0; transform: translateY(-8px); background: oklch(0.8107 0.1705 152.72 / 0.12); }
+  to { opacity: 1; transform: none; }
+}
+.vc-history-in {
+  animation: vc-history-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Pricing: show the chosen billing period. */
+[data-pricing][data-period="monthly"] [data-for-period="yearly"],
+[data-pricing][data-period="yearly"] [data-for-period="monthly"] {
+  display: none;
+}
+
+/* FAQ answers open smoothly where the browser supports animating to auto. */
+@supports (interpolate-size: allow-keywords) {
+  #faq {
+    interpolate-size: allow-keywords;
+  }
+  #faq details::details-content {
+    height: 0;
+    overflow: clip;
+    transition: height 0.28s cubic-bezier(0.2, 0, 0, 1), content-visibility 0.28s allow-discrete;
+  }
+  #faq details[open]::details-content {
+    height: auto;
+  }
+}

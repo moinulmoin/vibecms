@@ -1,11 +1,12 @@
-import { BarChartIcon, LockClosedIcon } from '@radix-ui/react-icons'
-import { Link } from '@tanstack/react-router'
-import { Badge, Button, Skeleton } from '@vc/ui'
-import { useEffect, useMemo, useState } from 'react'
+import { BarChart3, LockKeyhole } from 'lucide-react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Button, cn } from '@vc/ui'
+import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
-import { loadAnalyticsPage } from '~/lib/api-client'
+import { EmptyState, ListRow, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
+import { analyticsQuery } from '~/lib/queries'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
 import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
@@ -14,6 +15,12 @@ import { MetricStrip as SharedMetricStrip } from '~/components/dashboard/blocks'
 const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
 const dateLabel = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+export function analyticsUnavailableMessage(reason: Extract<AnalyticsPageData, { status: 'unavailable' }>['reason']) {
+  if (reason === 'self_hosted') return 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
+  if (reason === 'not_configured') return 'Analytics isn’t available for this blog yet. Try again later.'
+  return 'Analytics couldn’t be read right now. Try again in a few minutes.'
+}
 
 function formatDate(value: string) {
   return dateLabel.format(new Date(`${value}T00:00:00Z`))
@@ -29,42 +36,61 @@ const trafficChartConfig = {
   views: { label: 'Views', color: 'var(--chart-1)' },
   aiCrawlerRequests: { label: 'AI crawlers', color: 'var(--chart-2)' },
 } satisfies ChartConfig
-
-function AnalyticsSkeleton() {
+export function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <>
-      <div className="space-y-3">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-6 w-full max-w-2xl" />
-      </div>
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-72 rounded-2xl" />
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Skeleton className="h-64 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    </>
+    <Panel title="Top posts" meta="Views">
+      {data.topPosts.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No post views"
+          description="No post views in this range."
+        />
+      ) : (
+        <div>
+          {data.topPosts.map((post, index) => (
+            <RankedRow
+              key={post.postId}
+              index={index}
+              count={post.views}
+              label={
+                <Link
+                  to="/dashboard/posts/$postId/edit"
+                  params={{ postId: post.postId }}
+                  search={emptyPostEditorSearch}
+                  className="block break-words text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {post.title}
+                </Link>
+              }
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
   )
 }
 
+
+
 function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (value: AnalyticsRange) => void }) {
   return (
-    <div className="flex items-center rounded-xl bg-muted p-1" aria-label="Analytics date range">
+    <nav className="flex gap-0.5 overflow-x-auto rounded-lg border border-border p-0.5" aria-label="Date range">
       {RANGE_OPTIONS.map((option) => (
-        <Button
+        <button
           key={option}
           type="button"
-          size="sm"
-          variant={value === option ? 'secondary' : 'ghost'}
-          className="h-8 px-3 font-mono text-xs tabular-nums"
           aria-pressed={value === option}
           onClick={() => onChange(option)}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            value === option ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+          )}
         >
           {option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}
-        </Button>
+        </button>
       ))}
-    </div>
+    </nav>
   )
 }
 
@@ -74,14 +100,13 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     {
       label: allTime ? 'Lifetime views' : 'Page views',
       value: compactNumber.format(data.views),
-      detail: allTime ? 'Since analytics collection began' : trendLabel(data.trendPercent),
+      detail: allTime
+        ? 'Daily for a year, monthly before that'
+        : data.previousViews === null || data.trendPercent === null
+          ? 'Nothing earlier to compare with'
+          : `${trendLabel(data.trendPercent)} (${compactNumber.format(data.previousViews)})`,
     },
-    {
-      label: allTime ? 'Detailed history' : 'Previous period',
-      value: allTime ? '1 year' : data.previousViews === null ? '—' : compactNumber.format(data.previousViews),
-      detail: allTime ? 'Older history is retained monthly' : `${data.rangeDays} days before this range`,
-    },
-    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Human visits sent by AI services' },
+    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Visits sent by AI assistants' },
     {
       label: 'AI crawler requests',
       value: data.aiCrawlers.status === 'available' ? compactNumber.format(data.aiCrawlers.requests) : '—',
@@ -91,7 +116,7 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     },
   ]
 
-  return <SharedMetricStrip metrics={metrics} />
+  return <SharedMetricStrip metrics={metrics} columns={3} />
 }
 
 function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
@@ -113,7 +138,7 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
     >
       {data.views === 0 && data.aiCrawlers.requests === 0 ? (
         <EmptyState
-          icon={<BarChartIcon />}
+          icon={<BarChart3 />}
           title="No traffic recorded yet"
           description="Open a published post to verify collection. New page views appear here within a few minutes."
           action={
@@ -139,6 +164,7 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
               axisLine={false}
               tickMargin={8}
               width={40}
+              allowDecimals={false}
             />
             <ChartTooltip
               content={<ChartTooltipContent indicator="line" />}
@@ -154,50 +180,51 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
   )
 }
 
-function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+function RankedRow({
+  index,
+  label,
+  detail,
+  count,
+}: {
+  index: number
+  label: ReactNode
+  detail?: ReactNode
+  count: number
+}) {
   return (
-    <Panel title="Top posts" meta={<Badge variant="outline">Views</Badge>}>
-      {data.topPosts.length === 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">No post views in this range.</p>
-      ) : (
-        <ol className="space-y-1">
-          {data.topPosts.map((post, index) => (
-            <li key={post.postId} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
-              <Link
-                to="/dashboard/posts/$postId/edit"
-                params={{ postId: post.postId }}
-                search={emptyPostEditorSearch}
-                className="min-w-0 truncate text-base font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                {post.title}
-              </Link>
-              <span className="font-mono text-sm tabular-nums text-foreground">{post.views.toLocaleString()}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </Panel>
+    <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0">
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+      <div className="min-w-0">
+        {label}
+        {detail ? <div className="mt-1 text-xs text-muted-foreground">{detail}</div> : null}
+      </div>
+      <span className="font-mono text-sm tabular-nums text-foreground">{count.toLocaleString()}</span>
+    </div>
   )
 }
 
 function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <Panel title="Referrers" meta={<Badge variant="outline">External</Badge>}>
+    <Panel title="Referrers" meta="Views">
       {data.referrers.length === 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">No external referrers in this range.</p>
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No referrers"
+          description="No external referrers in this range."
+        />
       ) : (
-        <ol className="space-y-1">
-          {data.referrers.map((referrer) => (
-            <li key={referrer.domain} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0">
-              <div className="min-w-0">
-                <p className="truncate font-mono text-sm text-foreground">{referrer.domain}</p>
-                {referrer.ai ? <p className="mt-1 text-xs text-muted-foreground">AI referral · {referrer.operator}</p> : null}
-              </div>
-              <span className="font-mono text-sm tabular-nums text-foreground">{referrer.views.toLocaleString()}</span>
-            </li>
+        <div>
+          {data.referrers.map((referrer, index) => (
+            <RankedRow
+              key={referrer.domain}
+              index={index}
+              count={referrer.views}
+              label={<span className="block truncate font-mono text-sm text-foreground">{referrer.domain}</span>}
+              detail={referrer.ai ? <>AI referral · {referrer.operator}</> : undefined}
+            />
           ))}
-        </ol>
+        </div>
       )}
     </Panel>
   )
@@ -205,34 +232,38 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
 
 function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
-    <Panel
-      title="AI discovery"
-      meta={<Badge className="border-brand-bright/30 bg-brand-bright/10 text-primary">Crawler activity</Badge>}
-    >
+    <Panel title="AI crawlers">
       <div className="mb-5 max-w-3xl space-y-2">
-        <p className="text-base leading-7 text-muted-foreground">
-          Requests from published AI crawler identities {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
+        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          Requests from known AI crawlers {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
         </p>
-        <p className="font-mono text-xs leading-5 text-muted-foreground">
+        <p className="text-sm leading-5 text-muted-foreground">
           Identity is matched from Cloudflare request analytics using official user-agent tokens. User agents can be spoofed.
         </p>
       </div>
       {data.aiCrawlers.status === 'unavailable' ? (
-        <p className="rounded-xl bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
-          AI crawler reporting is not configured for this deployment. Human page views and AI referrals are still tracked.
-        </p>
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="Crawler reporting unavailable"
+          description="Human page views and AI referrals are still tracked."
+        />
       ) : data.aiCrawlers.agents.length === 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">No AI crawler requests {data.rangeDays === 'all' ? 'since collection began' : `in the last ${data.aiCrawlers.lookbackDays} days`}.</p>
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No crawler requests"
+          description={data.rangeDays === 'all' ? 'None since collection began.' : `None in the last ${data.aiCrawlers.lookbackDays} days.`}
+        />
       ) : (
         <div className="grid gap-x-8 md:grid-cols-2">
           {data.aiCrawlers.agents.map((crawler) => (
-            <div key={crawler.agent} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-foreground/[0.065] py-3.5 last:border-b-0 md:border-b-0">
-              <div className="min-w-0">
-                <p className="truncate font-mono text-sm font-medium text-foreground">{crawler.agent}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{crawler.operator} · {crawler.category}</p>
-              </div>
-              <span className="font-mono text-sm tabular-nums text-foreground">{crawler.requests.toLocaleString()}</span>
-            </div>
+            <ListRow
+              key={crawler.agent}
+              title={<span className="truncate font-sans text-sm font-medium text-foreground">{crawler.agent}</span>}
+              description={<span>{crawler.operator} · {crawler.category}</span>}
+              actions={<span className="font-mono text-sm tabular-nums text-foreground">{crawler.requests.toLocaleString()}</span>}
+            />
           ))}
         </div>
       )}
@@ -242,68 +273,63 @@ function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: '
 
 function LockedAnalytics() {
   return (
-    <Panel title="Analytics is included with vibecms Cloud">
-      <div className="max-w-2xl py-4">
-        <span className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground"><LockClosedIcon className="size-5" /></span>
-        <h2 className="mt-6 font-display text-2xl font-semibold tracking-[-0.025em] text-foreground">See what readers and AI systems discover.</h2>
-        <p className="mt-3 text-base leading-7 text-muted-foreground">
-          Unlock lifetime page-view totals, one year of daily trends, older monthly history, top posts, referring domains, AI referrals, and named crawler activity.
+    <div className="flex max-w-xl flex-col items-start gap-4 py-6">
+      <span className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground">
+        <LockKeyhole className="size-4" aria-hidden />
+      </span>
+      <div className="space-y-2">
+        <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
+          See who reads, and which AI tools find you
+        </h2>
+        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          Page views, top posts, where readers come from, and AI crawler visits. Included with the paid plan.
         </p>
-        <Button asChild className="mt-6">
-                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-            View plan
-          </Link>
-        </Button>
       </div>
-    </Panel>
+      <Button asChild>
+        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
+          See plans
+        </Link>
+      </Button>
+    </div>
   )
 }
 
-export function AnalyticsPage() {
-  const [range, setRange] = useState<AnalyticsRange>(30)
-  const [data, setData] = useState<AnalyticsPageData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
+  const navigate = useNavigate()
+  const query = useQuery({ ...analyticsQuery(range), placeholderData: keepPreviousData })
+  const data = query.data
+  const setRange = (next: AnalyticsRange) =>
+    void navigate({ to: '/dashboard/analytics', search: { range: next === 30 ? undefined : next }, replace: true })
+  const headerAction = <RangeControl value={range} onChange={setRange} />
 
-  useEffect(() => {
-    const controller = new AbortController()
-    setData(null)
-    setError(null)
-    void loadAnalyticsPage(range, controller.signal)
-      .then(setData)
-      .catch((loadError: unknown) => {
-        if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-        setError('Could not load analytics.')
-      })
-    return () => controller.abort()
-  }, [range])
-
-  const headerAction = useMemo(() => <RangeControl value={range} onChange={setRange} />, [range])
-
-  if (error) return <LoadError message={error} />
-  if (!data) return <AnalyticsSkeleton />
+  if (query.isError && !data) {
+    return (
+      <>
+        <PageHeader title="Analytics" />
+        <LoadError message="Analytics didn’t load. Try again in a moment." onRetry={() => void query.refetch()} />
+      </>
+    )
+  }
+  if (!data) return <PageSkeleton variant="stats" />
 
   return (
     <>
       <PageHeader
-        title="Readers and AI discovery"
-        description="Privacy-friendly post analytics without cookies, IP storage, or visitor profiles."
+        title="Analytics"
+        description="Private by design: no cookies, no IP addresses, no visitor profiles."
         action={data.status === 'available' ? headerAction : undefined}
       />
 
       {data.status === 'locked' ? <LockedAnalytics /> : null}
       {data.status === 'unavailable' ? (
-        <Panel title="Analytics unavailable">
-          <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            {data.reason === 'self_hosted'
-              ? 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
-              : data.reason === 'not_configured'
-                ? 'Analytics credentials have not been configured for this deployment.'
-                : 'Cloudflare analytics could not be queried. Try again in a few minutes.'}
+        <div className="max-w-2xl py-4">
+          <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+            {analyticsUnavailableMessage(data.reason)}
           </p>
-        </Panel>
+        </div>
       ) : null}
       {data.status === 'available' ? (
-        <>
+        <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}>
           <MetricStrip data={data} />
           <TrafficChart data={data} />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -311,10 +337,10 @@ export function AnalyticsPage() {
             <Referrers data={data} />
           </div>
           <AiCrawlerPanel data={data} />
-          <p className="font-mono text-xs leading-5 text-muted-foreground">
-            Lifetime totals · One year of daily detail · Older history retained monthly · Cookie-free · DNT and Global Privacy Control respected · No IP addresses or visitor identifiers stored
+          <p className="text-sm leading-6 text-muted-foreground">
+            Daily detail for a year, monthly after that. Do Not Track and Global Privacy Control are respected.
           </p>
-        </>
+        </div>
       ) : null}
     </>
   )

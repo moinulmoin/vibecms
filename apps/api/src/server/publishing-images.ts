@@ -1,11 +1,13 @@
 import { AppError, NotFoundError } from '@vc/core'
-import { MISSING_IMAGE_ALT_WARNING, validateRichContent } from '@vc/content'
+import { MISSING_IMAGE_ALT_WARNING } from '@vc/content/constants'
 import { createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
 
-export async function assertPostImagesPublishable(siteId: string, postId: string): Promise<void> {
+export async function assertPostImagesPublishable(siteId: string, postId: string, versionNumber?: number): Promise<void> {
   const data = createDataAccess(env.DB)
-  const post = await data.posts.getPost(siteId, postId)
+  const post = versionNumber === undefined
+    ? await data.posts.getPost(siteId, postId)
+    : await data.posts.getPostVersion(siteId, postId, versionNumber)
   if (!post) throw new NotFoundError('Post not found')
 
   if (post.coverAssetId) {
@@ -16,6 +18,7 @@ export async function assertPostImagesPublishable(siteId: string, postId: string
     }
   }
 
+  const { validateRichContent } = await import('@vc/content')
   if (validateRichContent(post.contentMarkdown).includes(MISSING_IMAGE_ALT_WARNING)) {
     throw new AppError('IMAGE_ALT_REQUIRED', 'Add alt text to every inline image before publishing', 400)
   }

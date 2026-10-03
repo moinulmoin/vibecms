@@ -1,8 +1,10 @@
 import type { McpToolName } from "@vc/api-contract";
 import {
   archivePostRequestSchema,
+  unarchivePostRequestSchema,
   createPostRequestSchema,
   deleteAssetRequestSchema,
+  updateAssetRequestSchema,
   getAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
@@ -15,16 +17,23 @@ import {
   listPostVersionsRequestSchema,
   previewPostRequestSchema,
   publishPostRequestSchema,
+  schedulePostRequestSchema,
+  unschedulePostRequestSchema,
+  rotatePostPreviewRequestSchema,
   restorePostVersionRequestSchema,
   searchPostsRequestSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
+  updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
 } from "@vc/api-contract";
 import type { OperationContext } from "./operations";
 import {
   archivePostOp,
+  unarchivePostOp,
   createPostOp,
   deleteAssetOp,
+  updateAssetOp,
   getAssetOp,
   getFormatGuideOp,
   getPostOp,
@@ -37,10 +46,14 @@ import {
   listPostVersionsOp,
   previewPostOp,
   publishPostOp,
+  schedulePostOp,
+  unschedulePostOp,
+  rotatePostPreviewOp,
   restorePostVersionOp,
   searchPostsOp,
   updatePostOp,
   uploadAssetOp,
+  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
 } from "./operations";
 
 export async function dispatchOperation(toolName: McpToolName, ctx: OperationContext, rawArguments: unknown) {
@@ -48,6 +61,24 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
     case "sites.get":
       getSiteRequestSchema.parse(rawArguments ?? {});
       return getSiteOp(ctx);
+    case 'sites.update':
+      return updateSiteOp(ctx, updateSiteRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.theme.get':
+      getThemeRequestSchema.parse(rawArguments ?? {});
+      return getThemeOp(ctx);
+    case 'sites.theme.update':
+      return updateThemeOp(ctx, updateThemeRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.theme.revert':
+      return revertThemeOp(ctx, revertThemeRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.voice.update':
+      return updateVoiceOp(ctx, updateVoiceRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.signup_form.update':
+      return updateSignupFormOp(ctx, updateSignupFormRequestSchema.parse(rawArguments ?? {}));
+    case 'tags.list':
+      listTagsRequestSchema.parse(rawArguments ?? {});
+      return listTagsOp(ctx);
+    case 'analytics.get':
+      return getAnalyticsOp(ctx, getAnalyticsRequestSchema.parse(rawArguments ?? {}));
     case "posts.list":
       return listPostsOp(ctx, listPostsRequestSchema.parse(rawArguments ?? {}));
     case "posts.search":
@@ -62,8 +93,16 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return updatePostOp(ctx, updatePostRequestSchema.parse(rawArguments ?? {}));
     case "posts.publish":
       return publishPostOp(ctx, publishPostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.schedule":
+      return schedulePostOp(ctx, schedulePostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.unschedule":
+      return unschedulePostOp(ctx, unschedulePostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.preview.rotate":
+      return rotatePostPreviewOp(ctx, rotatePostPreviewRequestSchema.parse(rawArguments ?? {}));
     case "posts.archive":
       return archivePostOp(ctx, archivePostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.unarchive":
+      return unarchivePostOp(ctx, unarchivePostRequestSchema.parse(rawArguments ?? {}));
     case "assets.upload":
       return uploadAssetOp(ctx, uploadAssetRequestSchema.parse(rawArguments ?? {}));
     case "assets.list":
@@ -71,6 +110,8 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return listAssetsOp(ctx);
     case "assets.get":
       return getAssetOp(ctx, getAssetRequestSchema.parse(rawArguments ?? {}));
+    case "assets.update":
+      return updateAssetOp(ctx, updateAssetRequestSchema.parse(rawArguments ?? {}));
     case "assets.delete":
       return deleteAssetOp(ctx, deleteAssetRequestSchema.parse(rawArguments ?? {}));
     case "activity.list":

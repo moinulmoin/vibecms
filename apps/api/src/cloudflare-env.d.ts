@@ -17,6 +17,8 @@ declare namespace Cloudflare {
     EMAIL_FROM?: string;
     GOOGLE_CLIENT_ID?: string;
     GOOGLE_CLIENT_SECRET?: string;
+    GITHUB_CLIENT_ID?: string;
+    GITHUB_CLIENT_SECRET?: string;
     API_USAGE_TEST_LIMIT?: string;
     POLAR_ACCESS_TOKEN?: string;
     POLAR_MONTHLY_PRODUCT_ID?: string;

@@ -182,6 +182,17 @@ export async function getApiUsageSummary(input: { workspaceId: string; siteId: s
   const period = windows();
   const enforced = !isSelfHosted();
   const usage = createDataAccess(env.DB).usage;
+  // Independent counter reads: fetch together instead of one round-trip each.
+  const [minute, day, month, writesDay, writesMonth, tokenMinute] = await Promise.all([
+    readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.calls.minute),
+    readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.day.period), CALLS_METRIC, period.day, limits.calls.day),
+    readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.month.period), CALLS_METRIC, period.month, limits.calls.month),
+    readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.day.period), WRITES_METRIC, period.day, limits.writes.day),
+    readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.month.period), WRITES_METRIC, period.month, limits.writes.month),
+    input.tokenId
+      ? readStatus(usage, tokenCounterId(input.tokenId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.token.minute)
+      : Promise.resolve(null),
+  ]);
   return {
     enforced,
     billingStatus,
@@ -189,17 +200,8 @@ export async function getApiUsageSummary(input: { workspaceId: string; siteId: s
     effective: entitlement.effective,
     access: entitlement.access,
     source: entitlement.source,
-    calls: {
-      minute: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.calls.minute),
-      day: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.day.period), CALLS_METRIC, period.day, limits.calls.day),
-      month: await readStatus(usage, workspaceCounterId(input.workspaceId, CALLS_METRIC, period.month.period), CALLS_METRIC, period.month, limits.calls.month),
-    },
-    writes: {
-      day: await readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.day.period), WRITES_METRIC, period.day, limits.writes.day),
-      month: await readStatus(usage, workspaceCounterId(input.workspaceId, WRITES_METRIC, period.month.period), WRITES_METRIC, period.month, limits.writes.month),
-    },
-    token: input.tokenId
-      ? { minute: await readStatus(usage, tokenCounterId(input.tokenId, CALLS_METRIC, period.minute.period), CALLS_METRIC, period.minute, limits.token.minute) }
-      : null,
+    calls: { minute, day, month },
+    writes: { day: writesDay, month: writesMonth },
+    token: tokenMinute ? { minute: tokenMinute } : null,
   };
 }

@@ -23,13 +23,16 @@ export function isReservedSiteSlug(slug: string): boolean {
   return RESERVED_SITE_SLUGS[slug.trim().toLowerCase()] === true;
 }
 
+// Site slugs become the left-most label in `<slug>.<public-domain>`.
+export const SITE_SLUG_MAX_LENGTH = 63;
+
 export const createSiteInput = z.object({
   workspaceId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
   slug: z
     .string()
     .min(1)
-    .max(80)
+    .max(SITE_SLUG_MAX_LENGTH)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .refine((value) => !isReservedSiteSlug(value), { message: "That name is reserved." }),
   description: z.string().trim().max(300).optional(),
@@ -86,3 +89,47 @@ export const voiceProfileSettingsInputSchema = z.object({
 
 export type SiteVoiceProfileInput = z.infer<typeof siteVoiceProfileInputSchema>;
 export type VoiceProfileSettingsInput = z.infer<typeof voiceProfileSettingsInputSchema>;
+export const NEWSLETTER_HEADING_MAX_LENGTH = 80;
+export const NEWSLETTER_SUBTEXT_MAX_LENGTH = 160;
+export const NEWSLETTER_BUTTON_LABEL_MAX_LENGTH = 24;
+
+export const newsletterSettingsSchema = z.object({
+  enabled: z.boolean(),
+  heading: z.string().trim().min(1).max(NEWSLETTER_HEADING_MAX_LENGTH),
+  subtext: z.string().trim().min(1).max(NEWSLETTER_SUBTEXT_MAX_LENGTH),
+  buttonLabel: z.string().trim().min(1).max(NEWSLETTER_BUTTON_LABEL_MAX_LENGTH),
+}).strict();
+
+export type NewsletterSettings = z.infer<typeof newsletterSettingsSchema>;
+
+export const navLinkSchema = z.object({
+  label: z.string().trim().min(1, 'Enter a label').max(40, 'Use 40 characters or fewer'),
+  url: z.string().trim().min(1, 'Enter a URL').refine((value) => value.startsWith('/') && !value.startsWith('//') && !/[\\\u0000-\u001f]/.test(value) || /^(https?:\/\/|mailto:)/i.test(value) && isSafeLinkUrl(value), 'Use a path, http(s), or mailto URL'),
+}).strict();
+
+function isSafeLinkUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ['https:', 'http:', 'mailto:'].includes(url.protocol) && Boolean(url.pathname);
+  } catch { return false; }
+}
+
+export const navLinksSchema = z.array(navLinkSchema).max(6);
+export const socialKindSchema = z.enum(['x', 'github', 'linkedin', 'bluesky', 'mastodon', 'youtube', 'instagram', 'website', 'email']);
+export const socialLinkSchema = z.object({
+  kind: socialKindSchema,
+  url: z.string().trim().min(1, 'Enter a URL'),
+}).strict().transform(({ kind, url }) => ({
+  kind,
+  url: kind === 'email' && !url.toLowerCase().startsWith('mailto:') ? `mailto:${url}` : url,
+})).refine(({ kind, url }) => kind === 'email'
+  ? /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(url)
+  : /^https:\/\//i.test(url) && isSafeLinkUrl(url), 'Use a valid link for this service');
+export const socialLinksSchema = z.array(socialLinkSchema).max(8);
+export type NavLink = z.infer<typeof navLinkSchema>;
+export type SocialLink = z.infer<typeof socialLinkSchema>;
+
+export function parseSiteLinks<T>(raw: string | null | undefined, schema: z.ZodType<T>): T {
+  try { return schema.parse(raw ? JSON.parse(raw) : []); }
+  catch { return schema.parse([]); }
+}

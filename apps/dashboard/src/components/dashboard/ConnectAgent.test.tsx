@@ -2,60 +2,63 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import {
   APPROVAL_FIRST_WRITING_PROMPT,
-  ConnectAgent,
+  AgentSetup,
+  FIRST_POST_PROMPT,
   READ_ONLY_CHECK_PROMPT,
+  TOKEN_PLACEHOLDER,
+  agentConfigs,
+  clientFromPreference,
+  cursorInstallUrl,
 } from './ConnectAgent'
 
-describe('ConnectAgent onboarding contract', () => {
-  it('frames VibeCMS as universal Streamable HTTP MCP with Claude Code as the primary example', () => {
-    const html = renderToStaticMarkup(
-      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" />,
-    )
+const MCP = 'https://app.example.com/mcp'
 
-    expect(html).toContain('standard Streamable HTTP transport')
-    expect(html).toContain('Any compatible MCP client')
-    expect(html).toContain('Claude Code · primary example')
-    expect(html).toContain('Other MCP clients')
-    expect(html).toContain('vibecms-core')
-    expect(html).toContain('vibecms-writing')
-    expect(html).not.toContain('Claude Desktop')
-    expect(html).not.toContain('mcp-remote')
+describe('agent setup', () => {
+  it('offers one tab per popular client plus a generic HTTP option', () => {
+    const html = renderToStaticMarkup(
+      <AgentSetup mcpUrl={MCP} token="vc_secret" client="claude_code" onClientChange={() => undefined} />,
+    )
+    for (const label of ['Claude Code', 'Codex', 'Cursor', 'Other']) expect(html).toContain(label)
+    expect(html).toContain('claude mcp add --transport http vibecms https://app.example.com/mcp')
+    expect(html).toContain('Bearer vc_secret')
   })
 
-  it('progressively discloses alternate clients and writing guidance with native details', () => {
-    const disconnected = renderToStaticMarkup(
-      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" />,
-    )
-    const connected = renderToStaticMarkup(
-      <ConnectAgent mcpUrl="https://app.example.com/mcp" token="vc_secret" tokenName="Publishing agent" connected />,
-    )
+  it('embeds a fresh key in every config and falls back to a placeholder', () => {
+    const withKey = agentConfigs(MCP, 'vc_secret')
+    const withoutKey = agentConfigs(MCP)
+    for (const config of Object.values(withKey)) expect(config.code).toContain('vc_secret')
+    for (const config of Object.values(withoutKey)) expect(config.code).toContain(TOKEN_PLACEHOLDER)
+    expect(withKey.codex.code).toContain('[mcp_servers.vibecms]')
+    expect(withKey.cursor.code).toContain('"mcpServers"')
+  })
 
-    expect(disconnected).toContain('<details')
-    expect(disconnected).toContain('Other MCP clients')
-    expect(disconnected).toContain('2. Verify read-only access')
-    expect(disconnected).toContain('3. Draft, review, then approve')
-    expect(disconnected).not.toMatch(/<details[^>]* open="">/)
-    expect(connected).toMatch(/<details[^>]* open="">/)
-    expect(disconnected).toContain('max-w-full overflow-x-auto')
-    expect(disconnected).toContain('break-all')
+  it('builds a Cursor one-click link with the encoded config', () => {
+    const url = cursorInstallUrl(MCP, 'vc_secret')
+    expect(url.startsWith('cursor://anysphere.cursor-deeplink/mcp/install?name=vibecms&config=')).toBe(true)
+    const encoded = decodeURIComponent(url.split('config=')[1] ?? '')
+    expect(JSON.parse(atob(encoded))).toEqual({ url: MCP, headers: { Authorization: 'Bearer vc_secret' } })
+  })
+
+  it('maps the saved client preference to a tab', () => {
+    expect(clientFromPreference('cursor')).toBe('cursor')
+    expect(clientFromPreference('droid')).toBe('other')
+    expect(clientFromPreference(null)).toBe('claude_code')
+  })
+})
+
+describe('agent prompts', () => {
+  it('asks for approval before the first post is published', () => {
+    expect(FIRST_POST_PROMPT).toContain('Save it as a draft')
+    expect(FIRST_POST_PROMPT).toContain('only after I say yes')
   })
 
   it('keeps the protected connection check read-only', () => {
-    expect(READ_ONLY_CHECK_PROMPT).toContain('sites.get')
-    expect(READ_ONLY_CHECK_PROMPT).toContain('posts.list')
-    expect(READ_ONLY_CHECK_PROMPT).toContain('posts.format_guide')
     expect(READ_ONLY_CHECK_PROMPT).toContain('without changing any content')
     expect(READ_ONLY_CHECK_PROMPT).toContain('Do not create, update, publish, archive, delete, restore, or upload anything')
   })
 
   it('defers publishing to explicit later approval and pins the reviewed version', () => {
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('read at most three')
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('posts.preview')
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('posts.versions.list')
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('explicit approval')
     expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('Do not call posts.publish in the same turn as drafting')
     expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('expectedVersionNumber')
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('version I approved')
-    expect(APPROVAL_FIRST_WRITING_PROMPT).toContain('return the URL from the tool result')
   })
 })

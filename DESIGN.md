@@ -10,10 +10,12 @@ drift maximalist. See `PRODUCT.md` for the why.
 ## Theme
 
 Dark-first dev tool. The marketing landing renders dark (terminal aesthetic);
-the app respects system preference with explicit `.light` / `.dark` overrides and
-a `prefers-color-scheme` fallback. Tokens are OKLCH throughout, defined as raw
-`--*` custom properties and surfaced to Tailwind v4 via `@theme inline` (e.g.
-`bg-background`, `text-brand-bright`, `bg-vc-bg`).
+the app is dark by default with a Light/Dark/System switch in the sidebar
+persisted to `vc-theme` and stamped pre-paint by a no-FOUC bootstrap script
+(`.dark` / `.light` on `<html>`; System resolves via `matchMedia`). Tokens are
+OKLCH throughout, defined as raw `--*` custom properties and surfaced to
+Tailwind v4 via `@theme inline` (e.g. `bg-background`, `text-brand-bright`,
+`bg-vc-bg`).
 
 Color strategy: **Restrained** - monochrome (zero-chroma) neutrals carry the
 surface; one green brand color is the only saturated hue, used at ~8% for accents
@@ -42,9 +44,21 @@ placement, not from flooding color.
 | `--secondary` / `--muted` | `oklch(0.22 0.012 168)` | Quiet fills |
 | `--muted-foreground` | `oklch(0.72 0.014 155)` | Secondary text - verify ≥4.5:1 |
 | `--accent` | `oklch(0.28 0.055 152)` | Hover / active green-tinted fill |
-| `--border` | `oklch(0.47 0.014 168)` | Borders |
+| `--border` | `oklch(0.3 0.018 168)` | Borders (component boundaries) |
 | `--destructive` | `oklch(0.54 0.2 25)` | Errors / danger |
 | `--sidebar` | `oklch(0.165 0.008 244)` | Dashboard sidebar |
+
+**Two-tier line rule:** `--border` (near-surface, ~0.3L on dark — a quiet but
+real edge around inputs, buttons, cards) is the component-boundary tier; any
+bare `border` utility resolves to it, so default components stay consistent
+without per-class overrides. `--hairline` (translucent white on dark / black
+on light) is the decorative tier for ruled lists and section separators.
+Between them lies nothing: no third border color, no hard outlines.
+
+Semantic status color: `--warning` / `--warning-foreground` (amber, AA on both
+themes) completes the status vocabulary alongside `--destructive`. Elevation:
+`--shadow-menu` (popovers/dropdowns/tooltips) and `--shadow-overlay`
+(dialogs/sheets) are the only shadows — flat surfaces stay border-only.
 
 Surface helpers: `--hairline` (`oklch(1 0 0 / 0.12)`), `--surface-glass` /
 `--surface-glass-strong`, `--surface-panel-from/to`, `--dot-grid-fill`.
@@ -55,33 +69,43 @@ Monochrome zero-chroma neutrals: bg `oklch(0.985 0 0)`, ink `oklch(0.18 0 0)`,
 card `oklch(1 0 0)`, border `oklch(0.9 0 0)`. Primary is a deep green
 `oklch(0.32 0.095 152)`. Hairline/dot-grid use black alpha.
 
-### Blog templates / presets (user-selectable, `presets.css`)
+### Blog templates / presets (user-selectable, `--vc-*`)
 
 These are the **blog themes a vibecms user picks for their own published blog** -
-a product feature, not app chrome. All presets share one surface/color token
-vocabulary (`--vc-*`, ~43 tokens × light/dark) selected via `[data-vc-theme]`
-(`minimal`, …). The source lives in `packages/content/src/styles/`
-(`presets.css` + `vc-rich-content.css`), imported by both apps via the
-`@vc/content/styles` package exports. The vocabulary covers surface,
-callouts, code, quote, figure, type, and spacing.
+a product feature, not app chrome. Source: `packages/content/src/styles/`.
 
-Presets are not color themes - they are **typographic identities**. Each
-non-minimal preset overrides the type/rhythm tokens (measure, leading, heading
-scale, prose gap, section gap, radius) in the `PRESET IDENTITIES` block of
-`presets.css`, with matching chrome rules in `presented-post.module.css`
-(title voice, meta line), `prose.module.css` (editorial pull quote), and
-`public-blog.module.css` (index density). `PresentedPostArticle` stamps
-`data-vc-theme` on its `<article>` so chrome rules apply identically in public
-SSR and dashboard preview. Minimal is the reference identity and keeps the base
-values. Editorial = 66ch/1.8/scale 1.06/radius 4; Technical = 72ch/1.6/0.94/6;
-Product = 64ch/1.65/1.14/12.
+- **One token contract** (`vc-rich-content.css`): ~45 `--vc-*` tokens written once
+  with `light-dark()`, on any `[data-vc-theme]` / `[data-rich-content]` root. The
+  root's `color-scheme` picks the side: no `data-vc-mode` = follow the reader's OS,
+  `data-vc-mode="light" | "dark"` forces one. Neutral surfaces (no vibecms teal),
+  two line tiers (`--vc-border`, `--vc-hairline`), semantic callout hues, code
+  tokens incl. line highlight / diff add / diff remove.
+- **Customizer hooks** (inline style from `resolveSiteTheme`): `--vc-accent-light`,
+  `--vc-accent-dark`, `--vc-font-body`, `--vc-font-heading`. Accents (9, incl.
+  Graphite) and font pairings (Geist, Newsreader, Space Grotesk, Hanken Grotesk,
+  Geist Mono headings) live in `packages/config`.
+- **Presets are voices** (`presets.css`): minimal / editorial / technical / product
+  only re-voice type + rhythm tokens (`--vc-prose-size`, `--vc-prose-measure`,
+  leading, gaps, heading scale/weight/tracking, radius), with matching chrome
+  rules in the CSS modules. Every preset supports every layout
+  (`standard`, `essay`, `feature`) and the page-level ToC.
+- **The theme owns the document**: public pages stamp the theme on `<html>`
+  (`siteThemeRootAttributes`), so canvas, overscroll, scrollbars, and selection
+  follow the blog, not vibecms. `tenant.css` imports fonts only, never app chrome.
+- **Layout**: the shell width follows the content (reading column, or column +
+  13.5rem ToC rail), so the masthead always shares the article's left edge.
+  Responsive rules are `@container vc-page` queries, so the dashboard preview at
+  phone width renders exactly like a phone.
+- **Code**: Shiki (`@vc/content/highlight`, JS regex engine, dual `vitesse`
+  themes via `--shiki-light/-dark`), fence titles, `{1,3-5}` highlights, line
+  numbers, `[!code ++/--/highlight/focus]`, diff.
+- **Harness**: `pnpm --filter @vc/content harness` renders the real components
+  with a sample post (`?view=post|index&preset=&mode=&font=&accent=&layout=`).
 
 This token set is **deliberately decoupled** from the vibecms app/landing tokens
 above: the user's blog should look like *their* brand, not like vibecms. When
-designing app chrome use the `--*` / `--color-*` tokens; when designing or adding
-a blog template, work in the `--vc-*` set. Adding a new preset = a new
-`[data-vc-theme]` token block plus its chrome rules (a shippable product surface
-in its own right).
+designing app chrome use the `--*` / `--color-*` tokens; when designing a blog
+template, work in the `--vc-*` set.
 
 ## Typography
 
@@ -108,7 +132,7 @@ Landing primitives (`components/landing/primitives.tsx`):
 - **`DotGrid`** / **`Glow`** - ambient background texture (radial dot mask, blurred brand glow).
 
 Dashboard primitives live in `components/dashboard/DashboardPrimitives.tsx`.
-Radius scale anchored at `--radius: 0.9375rem` (`radius-sm`…`radius-2xl`).
+Radius scale anchored at `--radius: 0.625rem` (10px; controls are never pill-shaped) (`radius-sm`…`radius-2xl`).
 Cards only wrap genuinely interactive/bounded things - no decorative cards, no
 nesting (per PRODUCT.md "just enough").
 

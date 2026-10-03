@@ -46,17 +46,23 @@ describe("resolveCanonicalRedirect", () => {
     expect(resolveCanonicalRedirect(req("https://acme.vibecms.dev/api/authority"), APP_HOST)).toBeUndefined();
   });
 
-  it("never redirects localhost during local dev", () => {
+  it("never redirects loopback hosts (vite proxies to 127.0.0.1) during local dev", () => {
     expect(resolveCanonicalRedirect(req("http://localhost:5173/login"), APP_HOST)).toBeUndefined();
+    expect(resolveCanonicalRedirect(req("http://127.0.0.1:8787/login"), APP_HOST)).toBeUndefined();
+    expect(
+      resolveCanonicalRedirect(req("http://127.0.0.1:8787/api/auth/sign-in/email", "POST"), APP_HOST),
+    ).toBeUndefined();
+    expect(resolveCanonicalRedirect(req("http://[::1]:8787/api/auth/get-session"), APP_HOST)).toBeUndefined();
   });
 });
 
 describe("isAppContextHost", () => {
-  it("allows only the app host plus localhost dev", () => {
+  it("allows only the app host plus loopback dev", () => {
     expect(isAppContextHost("app.vibecms.dev", APP_HOST)).toBe(true);
     expect(isAppContextHost("vibecms.dev", APP_HOST)).toBe(false);
     expect(isAppContextHost("acme.vibecms.dev", APP_HOST)).toBe(false);
     expect(isAppContextHost("localhost", APP_HOST)).toBe(true);
+    expect(isAppContextHost("127.0.0.1", APP_HOST)).toBe(true);
   });
 
   it("fails closed when the app host cannot be derived", () => {

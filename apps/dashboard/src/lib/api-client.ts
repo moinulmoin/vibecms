@@ -1,3 +1,4 @@
+import { pinDashboardSiteOnce, pinnedDashboardSiteId, repinDashboardSite } from '~/lib/site-pin'
 import type {
   AddCustomDomainResult,
   AnalyticsPageData,
@@ -16,18 +17,23 @@ import type {
   OnboardingConnectStatus,
   RemoveCustomDomainResult,
   SettingsPageData,
+  SitePersonalization,
+  SubscribersPageLoad,
+  NewsletterSettings,
   VoiceProfileMutationResult,
   VoiceProfileSettingsInput,
 } from '~/types/dashboard'
 import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
-import type { z } from 'zod'
+import { z } from 'zod'
 import {
   appRouterContextSchema,
   analyticsPageDataSchema,
   dashboardDataSchema,
   mutationResultSchema,
+  newsletterSettingsSchema,
   onboardingConnectStatusSchema,
   settingsPageDataSchema,
+  subscribersPageLoadSchema,
 } from '~/lib/dashboard-response-schemas'
 
 export class DashboardApiError extends Error {
@@ -72,12 +78,91 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
+const mutationListeners = new Set<() => void>()
+const siteChangedListeners = new Set<() => void>()
+const tenantMutations = new AbortController()
+
+/** Stop writes started by a page whose selected site is no longer current. */
+export function suspendDashboardMutations() {
+  tenantMutations.abort()
+}
+
+export function onDashboardSiteChanged(listener: () => void) {
+  siteChangedListeners.add(listener)
+  return () => { siteChangedListeners.delete(listener) }
+}
+
+export function dashboardMutationHeaders(): Record<string, string> {
+  const siteId = pinnedDashboardSiteId()
+  return siteId ? { 'x-vc-expected-site': siteId } : {}
+}
+
+export function handleDashboardSiteChanged(error: unknown) {
+  if (!(error instanceof DashboardApiError) || error.status !== 409 || error.code !== 'site_changed') return
+  suspendDashboardMutations()
+  for (const listener of siteChangedListeners) listener()
+}
+
+export function dashboardMutationSignal() {
+  return tenantMutations.signal
+}
+
+/**
+ * Called after every non-GET dashboard request settles (success or failure),
+ * so cached page data from other screens is marked stale.
+ */
+export function onDashboardMutation(listener: () => void) {
+  mutationListeners.add(listener)
+  return () => {
+    mutationListeners.delete(listener)
+  }
+}
+
+export function notifyDashboardMutation() {
+  for (const listener of mutationListeners) listener()
+}
+
 export async function dashboardFetch<T>(
   path: string,
   init?: RequestInit & { signal?: AbortSignal },
   schema?: z.ZodType<T>,
 ): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (method === 'GET' || method === 'HEAD') {
+    try {
+      return await dashboardRequest(path, init, schema)
+    } catch (error) {
+      handleDashboardSiteChanged(error)
+      throw error
+    }
+  }
+  try {
+    tenantMutations.signal.throwIfAborted()
+    return await dashboardRequest(path, {
+      ...init,
+      signal: init?.signal ? AbortSignal.any([init.signal, tenantMutations.signal]) : tenantMutations.signal,
+    }, schema)
+  } catch (error) {
+    handleDashboardSiteChanged(error)
+    throw error
+  } finally {
+    notifyDashboardMutation()
+  }
+}
+
+async function dashboardRequest<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal },
+  schema?: z.ZodType<T>,
+): Promise<T> {
   const headers = new Headers(init?.headers)
+  const read = !init?.method || ['GET', 'HEAD'].includes(init.method.toUpperCase())
+  // Reads carry the pinned site too, so a tab pinned to one site never caches
+  // another site's data after a switch in another tab. The context read is
+  // exempt: it is how this tab notices the switch.
+  if (!read || !path.startsWith('/api/dashboard/context')) {
+    for (const [name, value] of Object.entries(dashboardMutationHeaders())) headers.set(name, value)
+  }
   if (init?.body !== undefined && !(init.body instanceof FormData) && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
   }
@@ -126,19 +211,25 @@ export async function dashboardPost<T>(
   )
 }
 
-export function loadAppRouterContext(signal?: AbortSignal) {
-  return dashboardFetch('/api/dashboard/context', { method: 'GET', signal }, appRouterContextSchema)
+export async function loadAppRouterContext(signal?: AbortSignal) {
+  const context = await dashboardFetch('/api/dashboard/context', { method: 'GET', signal }, appRouterContextSchema)
+  // Pin the first loaded site. A background refresh must not silently retarget
+  // writes from this tab after another tab changes the shared selection cookie.
+  pinDashboardSiteOnce(context.app?.siteId)
+  return context
 }
 
-export function selectDashboardApp(
+export async function selectDashboardApp(
   selection: { workspaceId: string; siteId: string },
   signal?: AbortSignal,
 ) {
-  return dashboardPost<{ ok: true }>(
+  const result = await dashboardPost<{ ok: true }>(
     '/api/dashboard/context/select',
     selection,
     signal,
   )
+  repinDashboardSite(selection.siteId)
+  return result
 }
 
 export function loadDashboardOverview(signal?: AbortSignal) {
@@ -154,7 +245,7 @@ export function loadAnalyticsPage(range: AnalyticsRange, signal?: AbortSignal) {
 }
 
 export function loadSetupPage(signal?: AbortSignal) {
-  return dashboardFetch<{ name: string; slug: string; description: string }>('/api/dashboard/setup', {
+  return dashboardFetch<{ name: string; slug: string; description: string; baseDomain?: string | null }>('/api/dashboard/setup', {
     method: 'GET',
     signal,
   })
@@ -164,33 +255,104 @@ export function completeSetupMutation(data: { name: string; slug: string; descri
   return dashboardPost('/api/dashboard/setup', data, undefined, mutationResultSchema)
 }
 
+export function loadPersonalization(signal?: AbortSignal) {
+  return dashboardFetch<SitePersonalization>('/api/dashboard/personalization', {
+    method: 'GET',
+    signal,
+  })
+}
+
+export function savePersonalizationMutation(data: {
+  agentPreference?: string | null
+  voiceSeed?: string[]
+  onboardingNote?: string | null
+}) {
+  return dashboardPost('/api/dashboard/personalization', data, undefined, mutationResultSchema)
+}
+
 export function loadSettingsPage(signal?: AbortSignal) {
   return dashboardFetch('/api/dashboard/settings', { method: 'GET', signal }, settingsPageDataSchema)
 }
 
 export function updateSiteSettingsMutation(data: {
-  name: string
-  description?: string
+  expectedUpdatedAt: number
+  name?: string
+  description?: string | null
   defaultSeoTitle?: string
-  defaultSeoDescription?: string
+  defaultSeoDescription?: string | null
   defaultSocialAssetId?: string | null
+  logoAssetId?: string | null
+  faviconAssetId?: string | null
+  navLinks?: { label: string; url: string }[]
+  socialLinks?: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   theme?: string
   themeAccent?: string | null
   themeFont?: string | null
   themeMode?: string | null
+  /** THEME_RADII id; null resets to the template default. */
+  themeRadius?: string | null
+  /** THEME_WIDTHS id; null resets to the template default. */
+  themeWidth?: string | null
+  /** Public author name (max 80); ''/null falls back to the site name. */
+  bylineName?: string | null
+  /** Credit agent-written posts on the public blog. */
+  showAgentCredit?: boolean
 }) {
   return dashboardPost('/api/dashboard/settings', data, undefined, mutationResultSchema)
 }
 
-export function updateVoiceProfileMutation(data: VoiceProfileSettingsInput) {
+export function loadNewsletterSettings(signal?: AbortSignal) {
+  return dashboardFetch<NewsletterSettings & { updatedAt: number }>(
+    '/api/dashboard/newsletter-settings',
+    { method: 'GET', signal },
+    newsletterSettingsSchema.extend({ updatedAt: z.number() }),
+  )
+}
+
+export function updateNewsletterSettingsMutation(data: NewsletterSettings & { expectedUpdatedAt: number }) {
+  return dashboardFetch<MutationResult & { updatedAt?: number }>(
+    '/api/dashboard/newsletter-settings',
+    { method: 'PUT', body: JSON.stringify(data) },
+  )
+}
+
+export function loadSubscribersPage(
+  data: { search?: string; status?: string; offset?: number } = {},
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams()
+  if (data.search) params.set('q', data.search)
+  if (data.status) params.set('status', data.status)
+  if (data.offset !== undefined) params.set('offset', String(data.offset))
+  const query = params.toString()
+  return dashboardFetch<SubscribersPageLoad>(
+    `/api/dashboard/subscribers${query ? `?${query}` : ''}`,
+    { method: 'GET', signal },
+    subscribersPageLoadSchema,
+  )
+}
+
+export function deleteSubscriberMutation(id: string) {
+  return dashboardFetch<MutationResult>(
+    `/api/dashboard/subscriber/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+    mutationResultSchema,
+  )
+}
+
+export function subscribersExportUrl() {
+  return '/api/dashboard/subscribers/export.csv'
+}
+
+export function updateVoiceProfileMutation(data: VoiceProfileSettingsInput & { expectedUpdatedAt: number }) {
   return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile', data)
 }
 
-export function clearVoiceProfileMutation() {
-  return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile/clear', {})
+export function clearVoiceProfileMutation(expectedUpdatedAt: number) {
+  return dashboardPost<VoiceProfileMutationResult>('/api/dashboard/voice-profile/clear', { expectedUpdatedAt })
 }
 
-export function createApiKeyMutation(data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'full' }) {
+export function createApiKeyMutation(data: { name: string; actorName: string; preset: 'draft' | 'publish' | 'manage' }) {
   return dashboardPost<ApiKeyMutationResult>('/api/dashboard/api-keys', data)
 }
 
@@ -211,12 +373,16 @@ export function removeCustomDomainMutation(data: { domainId: string }) {
 }
 
 export function loadMediaPage(signal?: AbortSignal) {
-  return dashboardFetch<{ assets: Asset[] }>('/api/dashboard/media', { method: 'GET', signal })
+  return dashboardFetch<{ assets: Asset[]; mediaGate: { effective: boolean; selfHosted: boolean } }>('/api/dashboard/media', { method: 'GET', signal })
 }
 
-export function loadActivityPage(data: { offset?: number } = {}, signal?: AbortSignal) {
+export function loadActivityPage(
+  data: { offset?: number; actor?: 'human' | 'agent' } = {},
+  signal?: AbortSignal,
+) {
   const params = new URLSearchParams()
   if (data.offset !== undefined) params.set('offset', String(data.offset))
+  if (data.actor) params.set('actor', data.actor)
   const qs = params.toString()
   return dashboardFetch<ActivityPageLoad>(`/api/dashboard/activity${qs ? `?${qs}` : ''}`, {
     method: 'GET',
@@ -243,12 +409,13 @@ export function loadOnboardingStatus(options?: { keyId?: string | null; signal?:
 }
 
 export function loadPostsPage(
-  data: { status?: string; search?: string; offset?: number },
+  data: { status?: string; search?: string; sort?: string; offset?: number },
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams()
   if (data.status) params.set('status', data.status)
   if (data.search) params.set('search', data.search)
+  if (data.sort) params.set('sort', data.sort)
   if (data.offset !== undefined) params.set('offset', String(data.offset))
   const qs = params.toString()
   return dashboardFetch<PostsPageLoad>(
@@ -300,8 +467,24 @@ export function publishPostMutation(data: { postId: string; expectedVersionNumbe
   return dashboardPost<MutationResult>('/api/dashboard/posts/publish', data)
 }
 
+export function schedulePostMutation(data: { postId: string; versionNumber: number; publishAt: number }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/schedule', data)
+}
+
+export function unschedulePostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/unschedule', data)
+}
+
 export function archivePostMutation(data: { postId: string }) {
   return dashboardPost<MutationResult>('/api/dashboard/posts/archive', data)
+}
+
+export function unarchivePostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/unarchive', data)
+}
+
+export function deleteArchivedPostMutation(data: { postId: string }) {
+  return dashboardPost<MutationResult>('/api/dashboard/posts/delete', data)
 }
 
 export function listPostVersionsFn(data: { postId: string }, signal?: AbortSignal) {

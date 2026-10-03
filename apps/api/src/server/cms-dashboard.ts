@@ -34,6 +34,9 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  /** Active keys an agent has used at least once. */
+  usedTokenCount: number
+  subscriberCount: number
   versionCount: number
   recentPosts: Array<{
     id: string
@@ -42,6 +45,7 @@ export type DashboardData = {
     status: Post['status']
     updatedAt: number
     publishedAt: number | null
+    scheduledPublish?: import('@vc/core').Post['scheduledPublish']
   }>
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
   recentDrafts: Array<{
@@ -52,6 +56,19 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Posts waiting on a human decision: agent drafts and live posts with unpublished changes. */
+  needsReview: Array<{
+    id: string
+    title: string
+    slug: string
+    status: Post['status']
+    updatedAt: number
+    publishedAt: number | null
+    versionNumber: number | null
+    publishedVersionNumber: number | null
+    latestActorType: string | null
+  }>
+  needsReviewCount: number
   recentActivity: ActivityRow[]
   activationPost: null | {
     id: string
@@ -65,12 +82,13 @@ export type DashboardData = {
 
 export async function getDashboardData(app: AppUserContext): Promise<DashboardData> {
   const db = createDataAccess(env.DB)
-  const agg = await db.dashboard.getDashboardAggregate(app.siteId)
-
-  const [billingStatus, entitlement, apiUsage] = await Promise.all([
+  // Independent reads run together: one D1 round-trip window, not four.
+  const [agg, billingStatus, entitlement, apiUsage, proof] = await Promise.all([
+    db.dashboard.getDashboardAggregate(app.siteId),
     getBillingStatus(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
     getApiUsageSummary({ workspaceId: app.workspaceId, siteId: app.siteId }),
+    db.dashboard.getActivationPost(app.siteId),
   ])
 
   // One-time repair of a stale local default hostname to the configured slug zone; mirrors site-public-url.ts.
@@ -88,7 +106,6 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
   const publicBaseUrl = agg.site ? publicUrlForHostname(hostname) : null
   // activationPost surfaces the durable live agent proof on Overview; the URL is
   // derived from the same live proof and the active public base URL (never fabricated).
-  const proof = await db.dashboard.getActivationPost(app.siteId)
   const activationPost = toActivationPost(proof, publicBaseUrl)
 
   return {
@@ -113,9 +130,13 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     counts: agg.counts,
     media: agg.media,
     tokenCount: agg.tokenCount,
+    usedTokenCount: agg.usedTokenCount,
+    subscriberCount: agg.subscriberCount,
     versionCount: agg.versionCount,
     recentPosts: agg.recentPosts,
     recentDrafts: agg.recentDrafts,
+    needsReview: agg.needsReview,
+    needsReviewCount: agg.needsReviewCount,
     recentActivity: agg.recentActivity.map((a) => ({
       action: a.action,
       summary: a.summary,

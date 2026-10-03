@@ -46,7 +46,8 @@
     {
       "binding": "API",
       "service": "vibecms"
-    }
+    },
+    { "binding": "OG", "service": "vibecms-og", "entrypoint": "OgWorker" }
   ],
   "vars": {
     "APP_ENV": "production",

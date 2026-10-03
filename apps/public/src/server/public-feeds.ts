@@ -15,6 +15,7 @@ import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
 import { sanitizeLlmsField } from "./llms-text";
 import { publicCacheControlForEntitlement, siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
+import { resolveResponsiveMediaSource } from "../lib/media-assets";
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
 
@@ -64,7 +65,12 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
   const origin = publicOrigin(requestUrl);
   const posts = await listPublishedPostsForFeed(db, site.id, PUBLIC_BLOG_LIMITS.feedBodies);
   const xml = buildRssXml(site, origin, posts, new URL(`${requestUrl.pathname}${requestUrl.search}`, origin).href, (post) =>
-    renderRichContentToHtml(post.content_markdown),
+    renderRichContentToHtml(post.content_markdown, {
+      target: "feed",
+      pageTitle: post.title,
+      baseUrl: new URL(`/${post.slug}`, origin).href,
+      resolveImage: resolveResponsiveMediaSource,
+    }),
   );
   return new Response(xml, {
     headers: {
@@ -96,9 +102,13 @@ export async function handleRobots(db: D1Database, request: Request, env: Public
   const site = await resolveSite(request, db, env);
   const origin = publicOrigin(request.url);
   const indexable = (site ? isPublicBlogIndexable(site, env) : false) || isMarketingHost(request, env);
+  // A tenant's writing belongs to its owner, so AI training is disabled by default.
+  const contentSignal = site || !isMarketingHost(request, env)
+    ? "search=yes, ai-input=yes, ai-train=no"
+    : "search=yes, ai-input=yes, ai-train=yes";
   const body = indexable
-    ? `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
-    : "User-agent: *\nAllow: /\n";
+    ? `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\nSitemap: ${origin}/sitemap.xml\n`
+    : `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\n`;
   return new Response(body, {
     headers: {
       "content-type": "text/plain; charset=utf-8",

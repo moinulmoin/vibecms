@@ -21,16 +21,11 @@ import { createHmac, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AGENT_TOKEN_PRESETS } from "../packages/core/src/types.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DB = "vibecms_dev";
 const MARKER = "dev-token";
-
-const SCOPE_PRESETS: Record<string, string[]> = {
-  full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
-  publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
-  draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
-};
 
 const argv = process.argv.slice(2);
 const hasFlag = (f: string) => argv.includes(f);
@@ -107,9 +102,9 @@ if (hasFlag("--sync-pepper")) {
 const siteId = optvalue("--site", "demo_site");
 const name = optvalue("--name", "dev-token");
 const preset = optvalue("--scopes", "full");
-const scopes = SCOPE_PRESETS[preset];
+const scopes = AGENT_TOKEN_PRESETS[preset as keyof typeof AGENT_TOKEN_PRESETS];
 if (!scopes) {
-  console.error(`Unknown --scopes '${preset}'. Use 'full' or 'draft'.`);
+  console.error(`Unknown --scopes '${preset}'. Use 'draft', 'publish', or 'full'.`);
   process.exit(2);
 }
 

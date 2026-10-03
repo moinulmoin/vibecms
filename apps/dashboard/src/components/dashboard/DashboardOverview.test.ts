@@ -1,10 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+const pageState = vi.hoisted(() => ({ response: null as unknown }))
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
+  useQuery: (options: { queryKey: readonly unknown[] }) => ({ data: options.queryKey[0] === 'context' ? null : pageState.response }),
+}))
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, className }: { children: unknown; className?: string }) => createElement('a', { className }, children as never),
+}))
 
 vi.mock('~/lib/api-client', () => ({
   loadDashboardOverview: vi.fn(),
 }))
 
-import { postEditorLink, narrowDashboardData, overviewEntitlementBadge } from './DashboardOverview'
+import { DashboardOverview, postEditorLink, narrowDashboardData, overviewEntitlementBadge } from './DashboardOverview'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
 
@@ -38,11 +49,34 @@ const baseResponse = {
 } as DashboardApiResponse
 
 describe('DashboardOverview recent-post navigation', () => {
+  it('keeps long review and recent-post titles readable without clipping them', () => {
+    const title = 'Share cards now render in their own Worker'
+    pageState.response = {
+      ...baseResponse,
+      counts: { published: 1, draft: 1, archived: 0 },
+      recentPosts: [{ id: 'p1', title, slug: 'share-cards', status: 'published', updatedAt: 1, publishedAt: 1 }],
+      needsReview: [{ id: 'p2', title, slug: 'share-cards-draft', status: 'draft', updatedAt: 1, publishedAt: null, versionNumber: 1, publishedVersionNumber: null, latestActorType: 'api_key' }],
+    }
+    const html = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
+    const matching = [...html.matchAll(/<[^>]+class="([^"]+)"[^>]*>Share cards now render in their own Worker/g)]
+    expect(matching.length).toBeGreaterThanOrEqual(2)
+    expect(matching.every((match) => !match[1]?.split(' ').includes('truncate'))).toBe(true)
+  })
+
   it('builds an edit link for the selected recent post', () => {
     expect(postEditorLink('post_123')).toEqual({
       to: '/dashboard/posts/$postId/edit',
       params: { postId: 'post_123' },
     })
+  })
+
+  it('preserves a scheduled publication in the overview response', () => {
+    const schedule = { versionNumber: 2, publishAt: 1_800_000_000, status: 'pending' as const, error: null }
+    const recentPosts = dashboardDataSchema.shape.recentPosts.parse([{
+      id: 'post-2', title: 'Later', slug: 'later', status: 'draft', updatedAt: 1,
+      publishedAt: null, scheduledPublish: schedule,
+    }])
+    expect(narrowDashboardData({ ...baseResponse, recentPosts }).recentPosts[0].scheduledPublish).toEqual(schedule)
   })
 })
 

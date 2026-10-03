@@ -3,7 +3,11 @@ import { basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { DEFAULT_API_URL, resolveConfig, saveConfigFile, type ResolvedConfig } from "./config.js";
-import { EXIT, exitCodeForStatus, fail, printData, type OutputFormat } from "./output.js";
+import { EXIT, exitCodeForStatus, fail, printData, setErrorFormat, type OutputFormat } from "./output.js";
+
+// Mirrors PRESENTATION_LAYOUTS in @vc/config (private, so the published CLI
+// cannot import it); index.test.mjs fails if the two drift.
+export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
 
 const VERSION = "0.1.0";
 
@@ -15,16 +19,39 @@ Commands:
   login --token <tok> [--api-url <url>]    Save credentials to ~/.vibecms/config.json
   whoami                                    Verify the token (GET /site)
   site                                      Show the current site
+  sites update --expected-updated-at <n> --data '<json>'   Change site fields (or --data-file)
+  sites theme get                           Current look and allowed choices
+  sites theme update --expected-updated-at <n> --data '<json>'  Change the look
+  sites theme revert --expected-updated-at <n>  Undo the last theme change
+  sites voice update --expected-updated-at <n> --data '<json>'  Save audience, tone, rules, exemplar posts
+  sites signup-form get                     Current form and site updatedAt
+  sites signup-form update --expected-updated-at <n> --data '<json>'  Change signup form fields
+  tags list                                 Tags in use with post counts
+  analytics get [--range 7|30|90|365|all] Aggregate paid-plan analytics
+  activity [--limit <n> --offset <n>]       Changes by you and your agents
   posts list [--status --search --limit --offset]
+  posts search <query> [--limit <n> --offset <n>]
   posts get <postId>
   posts get-by-slug <slug>
-  posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [--excerpt <e> --tags a,b]
-  posts update <postId> --expected-version <n> [--title --slug --content --content-file --excerpt --tags]
-  posts publish <postId> [--expected-version <n>]
+  posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [post fields]
+  posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]
+  posts preview [<postId> | --content <md> | --content-file <path>] [--preset <id> --layout <l> --toc <bool>]
+  posts format-guide [--preset <id>]         Markdown syntax this blog renders (callouts, code, TOC...)
+  posts versions <postId>                   List versions (who changed what)
+  posts version <postId> <versionNumber>    Show one version
+  posts publish <postId> --expected-version <n>
+  posts schedule <postId> --version-number <n> --at <ISO-8601 UTC time>  (--expected-version alias)
+  posts unschedule <postId>
+  posts rotate-preview <postId>              Revoke the old private preview link
   posts restore <postId> <versionNumber> --expected-version <n>
-  posts archive <postId>
+  posts archive <postId> [--expected-version <n>]
+  posts unarchive <postId>
+
+  Post fields: --excerpt <e> --tags a,b --cover <assetId|none> --layout ${PRESENTATION_LAYOUTS.join("|")}
+               --toc true|false --seo-title <t> --seo-description <d> --canonical-url <url|none>
   assets list
   assets get <assetId>
+  assets update <assetId> --alt <text>
   assets upload <file> [--alt <text>]
   assets delete <assetId>
   schema [operationId]                      Print the API operations as JSON (for agent introspection)
@@ -35,7 +62,7 @@ Global options:
   --json            Compact JSON to stdout
   --ndjson          Newline-delimited JSON for list output
   --dry-run         For mutations: print the request, send nothing, exit 0
-  -h, --help        Show this help
+  -h, --help        Show help for the selected command
   --version         Show version
 
 Environment (precedence: flag > env var > ~/.vibecms/config.json > default):
@@ -44,6 +71,9 @@ Environment (precedence: flag > env var > ~/.vibecms/config.json > default):
 
 Exit codes:
   0 ok   1 error   2 usage   3 auth (401/403)   4 not-found (404)   5 conflict (409)   6 rate-limit (429)
+  With --json, errors are one {error:{code,message,details?,retryAfterSeconds?}} object on stderr.
+
+publish, schedule, archive, and sites * changes affect the live site. Get the owner's explicit approval first.
 `;
 
 const OPTIONS = {
@@ -66,9 +96,85 @@ const OPTIONS = {
   tags: { type: "string" },
   alt: { type: "string" },
   "expected-version": { type: "string" },
+  "version-number": { type: "string" },
+  "at": { type: "string" },
+  cover: { type: "string" },
+  layout: { type: "string" },
+  toc: { type: "string" },
+  "seo-title": { type: "string" },
+  "seo-description": { type: "string" },
+  "canonical-url": { type: "string" },
+  preset: { type: "string" },
+  data: { type: "string" },
+  "data-file": { type: "string" },
+  "expected-updated-at": { type: "string" },
+  range: { type: "string" },
 } as const;
 
 type Values = { [K in keyof typeof OPTIONS]?: string | boolean };
+
+const POST_FIELDS = ["excerpt", "tags", "cover", "layout", "toc", "seo-title", "seo-description", "canonical-url"];
+const CONTENT = ["content", "content-file"];
+const DATA = ["data", "data-file", "expected-updated-at"];
+// Allowed values shown in per-command help; a test checks them against apps/api/openapi.json.
+const VALUE_HINTS = {
+  status: ["draft", "published", "archived"],
+  template: ["minimal", "editorial", "technical (Notebook)", "product (Magazine)"],
+  accent: ["teal", "blue", "indigo", "violet", "magenta", "crimson", "rust", "green", "graphite"],
+  font: ["geist-sans (Geist)", "serif (Newsreader)", "grotesk (Space Grotesk)", "humanist (Hanken Grotesk)", "mono (Geist Mono)"],
+  radius: ["none", "sm", "md", "lg"],
+  width: ["narrow", "normal", "wide"],
+  mode: ["light", "dark", "system"],
+  layout: ["standard", "essay", "feature", "wide"],
+} as const;
+const hint = (...keys: (keyof typeof VALUE_HINTS)[]) => keys.map((key) => `${key}: ${VALUE_HINTS[key].join(" | ")}`);
+
+const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Record<string, string>; revision?: string; values?: string[] }> = {
+  login: { usage: "login --token <tok> [--api-url <url>]" },
+  whoami: { usage: "whoami" }, site: { usage: "site" },
+  activity: { usage: "activity [--limit <n> --offset <n>]", flags: ["limit", "offset"] },
+  "sites update": { usage: "sites update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { name: "string", description: "string|null", bylineName: "string|null", showAgentCredit: "boolean", defaultSeoTitle: "string", defaultSeoDescription: "string|null", defaultSocialAssetId: "string|null", logoAssetId: "string|null", faviconAssetId: "string|null", navLinks: "array", socialLinks: "array" } },
+  "sites theme get": { usage: "sites theme get" },
+  "sites theme update": { usage: "sites theme update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { template: "string", keepLook: "boolean", accent: "string", font: "string", radius: "string", width: "string", mode: "string" }, values: [...hint("template", "accent", "font", "radius", "width", "mode"), "template and font also accept the display name (e.g. \"Magazine\", \"Newsreader\")"] },
+  "sites theme revert": { usage: "sites theme revert --expected-updated-at <n>", flags: ["expected-updated-at"], revision: "--expected-updated-at: the updatedAt from `vibecms sites theme get`" },
+  "sites voice update": { usage: "sites voice update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the voiceProfile.revision from `vibecms site` (0 if unconfigured)", fields: { audience: "string", tone: "string", doRules: "array", dontRules: "array", representativePostIds: "array" } },
+  "sites signup-form get": { usage: "sites signup-form get" },
+  "sites signup-form update": { usage: "sites signup-form update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms sites signup-form get` or `vibecms site`", fields: { enabled: "boolean", heading: "string", description: "string", button: "string" } },
+  "tags list": { usage: "tags list" },
+  "analytics get": { usage: "analytics get [--range 7|30|90|365|all]", flags: ["range"] },
+  "posts list": { usage: "posts list [--status --search --limit --offset]", flags: ["status", "search", "limit", "offset"], values: hint("status") },
+  "posts search": { usage: "posts search <query> [--status --limit --offset]", flags: ["search", "status", "limit", "offset"], values: hint("status") },
+  "posts get": { usage: "posts get <postId>" }, "posts get-by-slug": { usage: "posts get-by-slug <slug>" },
+  "posts create": { usage: "posts create --title <t> --slug <s> (--content <md> | --content-file <path>) [post fields]", flags: ["title", "slug", ...CONTENT, ...POST_FIELDS] },
+  "posts update": { usage: "posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]", flags: ["expected-version", "title", "slug", ...CONTENT, ...POST_FIELDS], revision: "--expected-version: currentVersionNumber from `vibecms posts get <postId>`" },
+  "posts preview": { usage: "posts preview [<postId> | --content <md> | --content-file <path>] [--preset --layout --toc]", flags: [...CONTENT, "preset", "layout", "toc"], values: [...hint("layout"), "preset: minimal | editorial | technical | product"] },
+  "posts format-guide": { usage: "posts format-guide [--preset <id>]", flags: ["preset"] },
+  "posts versions": { usage: "posts versions <postId>" }, "posts version": { usage: "posts version <postId> <versionNumber>" },
+  "posts publish": { usage: "posts publish <postId> --expected-version <n>", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`" },
+  "posts schedule": { usage: "posts schedule <postId> --version-number <n> --at <ISO-8601 UTC>", flags: ["version-number", "expected-version", "at"], revision: "--version-number: approved saved version from `vibecms posts versions <postId>`; --expected-version is an alias" },
+  "posts unschedule": { usage: "posts unschedule <postId>" }, "posts rotate-preview": { usage: "posts rotate-preview <postId>" },
+  "posts restore": { usage: "posts restore <postId> <versionNumber> --expected-version <n>", flags: ["expected-version"] },
+  "posts archive": { usage: "posts archive <postId> [--expected-version <n>]", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`. Archiving saves a new version; use the returned currentVersionNumber next." },
+  "posts unarchive": { usage: "posts unarchive <postId>" },
+  "assets list": { usage: "assets list" }, "assets get": { usage: "assets get <assetId>" },
+  "assets update": { usage: "assets update <assetId> --alt <text>", flags: ["alt"] },
+  "assets upload": { usage: "assets upload <file> [--alt <text>]", flags: ["alt"] },
+  "assets delete": { usage: "assets delete <assetId>" },
+  schema: { usage: "schema [operationId]" },
+};
+const GLOBAL_FLAGS = new Set(["api-url", "token", "json", "ndjson", "dry-run", "help", "version"]);
+
+function commandKey(pos: string[]): string | undefined {
+  return Object.keys(COMMANDS).sort((a, b) => b.length - a.length).find((key) => {
+    const parts = key.split(" ");
+    return parts.every((part, index) => pos[index] === part);
+  });
+}
+
+function commandHelp(key: string): string {
+  const cmd = COMMANDS[key];
+  return `Usage: vibecms ${cmd.usage}\nFlags: ${(cmd.flags ?? []).map((flag) => `--${flag}`).join(", ") || "none"}\nGlobal flags: --api-url --token --json --ndjson --dry-run --help\n${cmd.fields ? `--data fields: ${Object.entries(cmd.fields).map(([name, type]) => `${name} (${type})`).join(", ")}\n` : ""}${cmd.revision ? `${cmd.revision}\n` : ""}${cmd.values?.length ? `Values:\n${cmd.values.map((line) => `  ${line}`).join("\n")}\n` : ""}`;
+}
 
 type ApiResult = { res: Response; json: unknown };
 
@@ -125,9 +231,9 @@ function str(v: string | boolean | undefined): string | undefined {
 }
 
 function splitTags(v: string | undefined): string[] | undefined {
-  if (!v) return undefined;
+  if (v === undefined) return undefined;
   const tags = v.split(",").map((t) => t.trim()).filter(Boolean);
-  return tags.length ? tags : undefined;
+  return tags;
 }
 
 function dropUndefined(obj: Record<string, unknown>): Record<string, unknown> {
@@ -163,9 +269,55 @@ async function mutate(
     printData({ dryRun: true, method, url: cfg.apiUrl + path, body: body ?? null }, fmt);
     return;
   }
-  emit(await apiRequest(cfg, method, path, { body }), fmt);
+  const result = await apiRequest(cfg, method, path, { body });
+  if (method === 'DELETE' && result.res.status === 409 && !result.json) {
+    fail({ error: { code: 'CONFLICT', message: 'Asset is in use as a post cover or site social image and cannot be deleted.' } }, EXIT.CONFLICT);
+  }
+  emit(result, fmt);
 }
 
+async function readRequest(cfg: ResolvedConfig, path: string, v: Values, fmt: OutputFormat, query?: Record<string, unknown>) {
+  const url = new URL(cfg.apiUrl + path)
+  for (const [key, value] of Object.entries(query ?? {})) if (value !== undefined) url.searchParams.set(key, String(value))
+  if (v['dry-run']) return printData({ dryRun: true, method: 'GET', url: url.toString(), body: null }, fmt)
+  return emit(await apiRequest(cfg, 'GET', path, { query }), fmt)
+}
+
+
+/** "none" clears a nullable field; undefined leaves it unchanged. */
+function nullable(v: string | undefined): string | null | undefined {
+  if (v === undefined) return undefined;
+  return v === "none" ? null : v;
+}
+
+function presentation(v: Values): { layout?: string; toc?: boolean } | undefined {
+  const layout = str(v.layout);
+  const tocRaw = str(v.toc);
+  if (layout !== undefined && !PRESENTATION_LAYOUTS.includes(layout as (typeof PRESENTATION_LAYOUTS)[number])) {
+    fail(`--layout must be ${PRESENTATION_LAYOUTS.join(", ")}`, EXIT.USAGE);
+  }
+  if (tocRaw !== undefined && tocRaw !== "true" && tocRaw !== "false") fail("--toc must be true or false", EXIT.USAGE);
+  if (layout === undefined && tocRaw === undefined) return undefined;
+  return dropUndefined({ layout, toc: tocRaw === undefined ? undefined : tocRaw === "true" }) as { layout?: string; toc?: boolean };
+}
+
+function postFields(v: Values): Record<string, unknown> {
+  return {
+    excerpt: str(v.excerpt),
+    tags: splitTags(str(v.tags)),
+    coverAssetId: nullable(str(v.cover)),
+    canonicalUrl: nullable(str(v["canonical-url"])),
+    seoTitle: str(v["seo-title"]),
+    seoDescription: str(v["seo-description"]),
+    presentation: presentation(v),
+  };
+}
+
+function versionArg(raw: string | undefined): number {
+  const n = Number(need(raw, "<versionNumber>"));
+  if (!Number.isInteger(n) || n < 1) fail("<versionNumber> must be a positive integer", EXIT.USAGE);
+  return n;
+}
 
 function parseExpectedVersion(v: Values, required: boolean): number | undefined {
   const raw = str(v["expected-version"]);
@@ -178,17 +330,46 @@ function parseExpectedVersion(v: Values, required: boolean): number | undefined 
   return n;
 }
 
-async function currentVersionNumber(cfg: ResolvedConfig, postId: string): Promise<number> {
-  const result = await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(postId)}`);
-  if (!result.res.ok) {
-    fail(result.json ?? { error: { code: "HTTP", message: `HTTP ${result.res.status}` } }, exitCodeForStatus(result.res.status));
+function expectedUpdatedAt(v: Values, allowZero = false): number {
+  const value = Number(need(str(v['expected-updated-at']), '--expected-updated-at (see `vibecms site` for the current revision)'));
+  if (!Number.isInteger(value) || value < (allowZero ? 0 : 1)) fail('--expected-updated-at must be a non-negative integer from `vibecms site`', EXIT.USAGE);
+  return value;
+}
+
+async function jsonData(v: Values): Promise<Record<string, unknown>> {
+  const inline = str(v.data);
+  const file = str(v['data-file']);
+  if (Boolean(inline) === Boolean(file)) fail('Provide exactly one of --data or --data-file', EXIT.USAGE);
+  let value: unknown;
+  try { value = JSON.parse(inline ?? await readFile(file!, 'utf8')); }
+  catch { fail('Data must be valid JSON', EXIT.USAGE); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Data must be a JSON object', EXIT.USAGE);
+  return value as Record<string, unknown>;
+}
+
+async function sitesCommand(action: string | undefined, rest: string[], v: Values, cfg: ResolvedConfig, fmt: OutputFormat) {
+  if (action === 'update') return mutate(cfg, 'PATCH', '/api/v1/site',
+    { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+  if (action === 'theme') {
+    if (rest[0] === 'get') return readRequest(cfg, '/api/v1/site/theme', v, fmt);
+    if (rest[0] === 'update') return mutate(cfg, 'PATCH', '/api/v1/site/theme',
+      { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+    if (rest[0] === 'revert') return mutate(cfg, 'POST', '/api/v1/site/theme/revert',
+      { expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
   }
-  const body = result.json as { currentVersionNumber?: unknown };
-  const n = body?.currentVersionNumber;
-  if (typeof n !== "number" || !Number.isInteger(n) || n < 1) {
-    fail({ error: { code: "INVALID_RESPONSE", message: "Post response missing currentVersionNumber" } }, EXIT.OTHER);
+  if (action === 'voice' && rest[0] === 'update')
+    return mutate(cfg, 'PUT', '/api/v1/site/voice', { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v, true) }, v, fmt);
+  if (action === 'signup-form' && rest[0] === 'get') {
+    if (v['dry-run']) return readRequest(cfg, '/api/v1/site', v, fmt);
+    const result = await apiRequest(cfg, 'GET', '/api/v1/site');
+    if (!result.res.ok) return emit(result, fmt);
+    const site = result.json as { signupForm?: unknown; updatedAt?: unknown };
+    return printData({ signupForm: site.signupForm, updatedAt: site.updatedAt }, fmt);
   }
-  return n;
+  if (action === 'signup-form' && rest[0] === 'update')
+    return mutate(cfg, 'PATCH', '/api/v1/site/signup-form',
+      { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v) }, v, fmt);
+  fail(`Unknown sites subcommand: ${[action, ...rest].join(' ')}`, EXIT.USAGE);
 }
 
 async function postsCommand(
@@ -206,6 +387,33 @@ async function postsCommand(
         }),
         fmt,
       );
+    case "search":
+      return emit(
+        await apiRequest(cfg, "GET", "/api/v1/posts", {
+          query: { search: need(rest.join(" ") || str(v.search), "<query>"), status: str(v.status), limit: str(v.limit), offset: str(v.offset) },
+        }),
+        fmt,
+      );
+    case "preview":
+      return mutate(cfg, "POST", "/api/v1/posts/preview", dropUndefined({
+        contentMarkdown: await readContent(v, !rest[0]),
+        postId: rest[0],
+        presetId: str(v.preset),
+        presentation: presentation(v),
+      }), v, fmt);
+    case "format-guide":
+      return emit(await apiRequest(cfg, "GET", "/api/v1/posts/format-guide", { query: { presetId: str(v.preset) } }), fmt);
+    case "versions":
+      return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/versions`), fmt);
+    case "version":
+      return emit(
+        await apiRequest(
+          cfg,
+          "GET",
+          `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/versions/${versionArg(rest[1])}`,
+        ),
+        fmt,
+      );
     case "get":
       return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}`), fmt);
     case "get-by-slug":
@@ -219,8 +427,7 @@ async function postsCommand(
           title: need(str(v.title), "--title"),
           slug: need(str(v.slug), "--slug"),
           contentMarkdown: await readContent(v, true),
-          excerpt: str(v.excerpt),
-          tags: splitTags(str(v.tags)),
+          ...postFields(v),
         }),
         v,
         fmt,
@@ -236,8 +443,7 @@ async function postsCommand(
           title: str(v.title),
           slug: str(v.slug),
           contentMarkdown: await readContent(v, false),
-          excerpt: str(v.excerpt),
-          tags: splitTags(str(v.tags)),
+          ...postFields(v),
         }),
         v,
         fmt,
@@ -245,8 +451,7 @@ async function postsCommand(
     }
     case "publish": {
       const id = need(rest[0], "<postId>");
-      const expectedVersionNumber = parseExpectedVersion(v, false) ?? (v["dry-run"] ? undefined : await currentVersionNumber(cfg, id));
-      if (expectedVersionNumber === undefined) need(undefined, "--expected-version");
+      const expectedVersionNumber = parseExpectedVersion(v, true);
       return mutate(
         cfg,
         "POST",
@@ -256,6 +461,22 @@ async function postsCommand(
         fmt,
       );
     }
+    case "schedule": {
+      const id = need(rest[0], "<postId>");
+      if (v['version-number'] !== undefined && v['expected-version'] !== undefined) fail('Use either --version-number or --expected-version, not both', EXIT.USAGE);
+      const versionNumber = versionArg(str(v['version-number']) ?? str(v['expected-version']));
+      const at = need(str(v.at), "--at");
+      const parsed = Date.parse(at);
+      if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(at) || !Number.isFinite(parsed)) {
+        fail("--at must be an ISO-8601 UTC time ending in Z", EXIT.USAGE);
+      }
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(id)}/schedule`,
+        { versionNumber, publishAt: at }, v, fmt);
+    }
+    case "unschedule":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/unschedule`, undefined, v, fmt);
+    case "rotate-preview":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/preview/rotate`, undefined, v, fmt);
     case "restore": {
       const id = need(rest[0], "<postId>");
       const versionRaw = need(rest[1], "<versionNumber>");
@@ -273,7 +494,10 @@ async function postsCommand(
       );
     }
     case "archive":
-      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/archive`, undefined, v, fmt);
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/archive`,
+        dropUndefined({ expectedVersionNumber: parseExpectedVersion(v, false) }), v, fmt);
+    case "unarchive":
+      return mutate(cfg, "POST", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/unarchive`, undefined, v, fmt);
     default:
       fail(`Unknown posts subcommand: ${action ?? "(none)"}. Run 'vibecms --help'.`, EXIT.USAGE);
   }
@@ -291,6 +515,8 @@ async function assetsCommand(
       return emit(await apiRequest(cfg, "GET", "/api/v1/assets"), fmt);
     case "get":
       return emit(await apiRequest(cfg, "GET", `/api/v1/assets/${encodeURIComponent(need(rest[0], "<assetId>"))}`), fmt);
+    case "update":
+      return mutate(cfg, "PATCH", `/api/v1/assets/${encodeURIComponent(need(rest[0], "<assetId>"))}`, { altText: need(str(v.alt), "--alt") }, v, fmt);
     case "upload": {
       const file = need(rest[0], "<file>");
       const mimeType = MIME[extname(file).toLowerCase()];
@@ -307,23 +533,27 @@ async function assetsCommand(
     }
     case "delete": {
       const assetId = need(rest[0], "<assetId>");
-      const result = await apiRequest(cfg, "DELETE", `/api/v1/assets/${encodeURIComponent(assetId)}`);
-      if (result.res.status === 409) {
-        fail(
-          result.json ?? { error: { code: "CONFLICT", message: "Asset is in use as a post cover image and cannot be deleted." } },
-          EXIT.CONFLICT,
-        );
-      }
-      return emit(result, fmt);
+      return mutate(cfg, "DELETE", `/api/v1/assets/${encodeURIComponent(assetId)}`, undefined, v, fmt);
     }
     default:
       fail(`Unknown assets subcommand: ${action ?? "(none)"}. Run 'vibecms --help'.`, EXIT.USAGE);
   }
 }
 
-async function schemaCommand(operationId: string | undefined, fmt: OutputFormat): Promise<void> {
+async function schemaCommand(operationId: string | undefined, cfg: ResolvedConfig, fmt: OutputFormat): Promise<void> {
   const specPath = fileURLToPath(new URL("./openapi.json", import.meta.url));
-  const spec = JSON.parse(await readFile(specPath, "utf8")) as {
+  let remote: unknown;
+  try {
+    const headers: Record<string, string> = cfg.token ? { authorization: `Bearer ${cfg.token}` } : {};
+    const res = await fetch(`${cfg.apiUrl}/api/v1/openapi.json`, { headers });
+    if (res.ok) remote = await res.json();
+  } catch { /* The bundled schema is available offline in the published CLI. */ }
+  let bundled: unknown;
+  if (!remote || typeof remote !== "object" || !("paths" in remote)) {
+    try { bundled = JSON.parse(await readFile(specPath, "utf8")); }
+    catch { fail(`API schema unavailable from ${cfg.apiUrl}/api/v1/openapi.json and no bundled openapi.json was found`, EXIT.OTHER); }
+  }
+  const spec = (bundled ?? remote) as {
     security?: unknown;
     paths?: Record<string, Record<string, Record<string, unknown>>>;
   };
@@ -339,17 +569,24 @@ async function schemaCommand(operationId: string | undefined, fmt: OutputFormat)
         security: op.security ?? spec.security,
         parameters: op.parameters,
         requestBody: op.requestBody,
-        responses: Object.keys((op.responses as Record<string, unknown>) ?? {}),
+        responses: operationId ? op.responses : Object.keys((op.responses as Record<string, unknown>) ?? {}),
       });
     }
   }
-  printData(operationId ? ops.filter((o) => o.operationId === operationId) : ops, fmt);
+  if (operationId) {
+    const operation = ops.find((op) => op.operationId === operationId);
+    if (!operation) fail(`Unknown operationId: ${operationId}`, EXIT.USAGE);
+    return printData(operation, fmt);
+  }
+  printData(ops, fmt);
 }
 
 async function main(): Promise<void> {
+  setErrorFormat(process.argv.slice(2).includes('--json'));
   let parsed: { values: Values; positionals: string[] };
   try {
-    parsed = parseArgs({ args: process.argv.slice(2), allowPositionals: true, strict: true, options: OPTIONS }) as {
+    const args = process.argv.slice(2);
+    parsed = parseArgs({ args, allowPositionals: true, strict: true, options: OPTIONS }) as {
       values: Values;
       positionals: string[];
     };
@@ -363,9 +600,21 @@ async function main(): Promise<void> {
     process.stdout.write(`${VERSION}\n`);
     return;
   }
-  if (v.help || pos.length === 0) {
+  if (pos.length === 0) {
     process.stdout.write(HELP);
     return;
+  }
+
+  const helpPos = pos[0] === 'help' ? pos.slice(1) : pos;
+  const key = commandKey(helpPos);
+  if (v.help || pos[0] === 'help') {
+    if (!key) fail(`Unknown command: ${helpPos.join(' ')}`, EXIT.USAGE);
+    process.stdout.write(commandHelp(key));
+    return;
+  }
+  if (!key) fail(`Unknown command: ${pos.join(' ')}`, EXIT.USAGE);
+  for (const flag of Object.keys(v)) {
+    if (!GLOBAL_FLAGS.has(flag) && !COMMANDS[key].flags?.includes(flag)) fail(`Unsupported flag --${flag} for ${key}`, EXIT.USAGE);
   }
 
   const fmt: OutputFormat = { json: Boolean(v.json), ndjson: Boolean(v.ndjson) };
@@ -383,9 +632,17 @@ async function main(): Promise<void> {
     case "site":
       return emit(await apiRequest(cfg, "GET", "/api/v1/site"), fmt);
     case "activity":
-      return emit(await apiRequest(cfg, "GET", "/api/v1/activity", { query: { limit: str(v.limit) } }), fmt);
+      return emit(await apiRequest(cfg, "GET", "/api/v1/activity", { query: { limit: str(v.limit), offset: str(v.offset) } }), fmt);
+    case 'sites':
+      return sitesCommand(action, pos.slice(2), v, cfg, fmt);
+    case 'tags':
+      if (action !== 'list') fail('Use tags list', EXIT.USAGE);
+      return readRequest(cfg, '/api/v1/tags', v, fmt);
+    case 'analytics':
+      if (action !== 'get') fail('Use analytics get', EXIT.USAGE);
+      return readRequest(cfg, '/api/v1/analytics', v, fmt, { range: str(v.range) });
     case "schema":
-      return schemaCommand(action, fmt);
+      return schemaCommand(action, cfg, fmt);
     case "posts":
       return postsCommand(action, pos.slice(2), v, cfg, fmt);
     case "assets":

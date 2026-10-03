@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { renderRichContent } from '@vc/content'
 import { PresentedPostArticle } from '@vc/content/presented-post'
 import { describe, expect, it } from 'vitest'
-import { isPreviewCurrent } from './MarkdownEditor'
 import { resolveFormStatus } from './useFormStatusFromSearch'
 
 describe('dashboard preview article contract', () => {
@@ -25,7 +24,7 @@ Nested detail text.
 `
 
   const renderResult = renderRichContent(ARTICLE_MD, { pageTitle: 'My Article' })
-  const presentation = { layout: 'essay' as const, toc: true }
+  const presentation = { layout: 'standard' as const, toc: true }
 
   function previewHtml(overrides: Record<string, unknown> = {}): string {
     return renderToStaticMarkup(
@@ -66,7 +65,7 @@ Nested detail text.
     const html = previewHtml()
     const h1Pos = html.indexOf('<h1')
     const deckPos = html.indexOf('An introductory lede paragraph that serves as the excerpt.')
-    const metaPos = html.indexOf('By Author')
+    const metaPos = html.indexOf('>Author<')
     const tagsPos = html.indexOf('/blog/tag/essay')
     const bodyTextPos = html.indexOf('Body text under the first section heading.')
     expect(h1Pos).toBeLessThan(deckPos)
@@ -122,6 +121,14 @@ describe('dashboard form-status feedback', () => {
     expect(resolveFormStatus({ ok: 'untrusted-message' })).toBeNull()
   })
 
+  it('explains that stale settings preserve local values for a retry', () => {
+    expect(resolveFormStatus({ error: 'settings_conflict' })).toMatchObject({
+      variant: 'error',
+      title: 'Settings changed elsewhere',
+      message: expect.stringContaining('local values were kept'),
+    })
+  })
+
   it('resolves archive/restore error and restore success feedback used by PostEditorPage', () => {
     expect(resolveFormStatus({ error: 'unknown' })).toMatchObject({
       variant: 'error',
@@ -135,14 +142,5 @@ describe('dashboard form-status feedback', () => {
       variant: 'success',
       title: 'Version restored',
     })
-  })
-})
-
-describe('Markdown preview freshness', () => {
-  it('is current only when both Markdown and post metadata match the rendered snapshot', () => {
-    expect(isPreviewCurrent(2, 2, 4, 4)).toBe(true)
-    expect(isPreviewCurrent(3, 3, 4, 4)).toBe(true)
-    expect(isPreviewCurrent(3, 2, 4, 4)).toBe(false)
-    expect(isPreviewCurrent(2, 2, 5, 4)).toBe(false)
   })
 })

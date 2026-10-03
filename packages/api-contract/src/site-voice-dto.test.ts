@@ -6,11 +6,22 @@ const site = {
   name: 'Voice Site',
   slug: 'voice-site',
   description: 'A publication for careful builders.',
+  voiceSeedJson: '["https://example.com/essay","https://example.com/notes"]',
   createdAt: 100,
   updatedAt: 200,
 }
 
 describe('sites.get Voice Profile contract', () => {
+  it('maps owner-shared voiceSeedUrls and tolerates malformed seed JSON', () => {
+    expect(mapSiteRow(site, 'https://voice.example.com')?.voiceSeedUrls).toEqual([
+      'https://example.com/essay',
+      'https://example.com/notes',
+    ])
+    expect(
+      mapSiteRow({ ...site, voiceSeedJson: 'not-json' }, null)?.voiceSeedUrls,
+    ).toEqual([])
+  })
+
   it('returns an explicit unconfigured profile for existing sites without one', () => {
     expect(mapSiteRow(site, 'https://voice.example.com')?.voiceProfile).toEqual({
       configured: false,
@@ -22,6 +33,7 @@ describe('sites.get Voice Profile contract', () => {
       updatedByName: null,
       createdAt: null,
       updatedAt: null,
+      revision: 0,
     })
   })
 
@@ -47,5 +59,37 @@ describe('sites.get Voice Profile contract', () => {
     })
     expect(voiceProfile).not.toHaveProperty('updatedBy')
     expect(JSON.stringify(voiceProfile)).not.toContain('private-user-id')
+  })
+
+  it('returns a cleared profile as unconfigured with its current revision', () => {
+    expect(mapSiteRow(site, null, {
+      configured: false,
+      audience: null,
+      voiceSummary: null,
+      guidelines: [],
+      representativePosts: [],
+      warnings: [],
+      updatedBy: { type: 'system', id: '__voice_profile_cleared__', name: '' },
+      createdAt: 250,
+      updatedAt: 301,
+    })?.voiceProfile).toMatchObject({ configured: false, revision: 301, updatedByName: null })
+  })
+})
+
+describe('sites.get template + byline contract', () => {
+  it('reports the template id and falls back to the site name for the byline', () => {
+    expect(mapSiteRow(site, null)).toMatchObject({
+      template: 'minimal',
+      byline: { name: 'Voice Site', agentCredit: true },
+    })
+  })
+
+  it('uses the public byline name and the owner agent-credit choice', () => {
+    expect(
+      mapSiteRow({ ...site, theme: 'technical', bylineName: '  Ada  ', showAgentCredit: false }, null),
+    ).toMatchObject({
+      template: 'technical',
+      byline: { name: 'Ada', agentCredit: false },
+    })
   })
 })

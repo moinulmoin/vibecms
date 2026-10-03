@@ -1,44 +1,32 @@
 ---
 title: Scopes and MCP tools
-description: Grant the smallest capability set that supports the intended workflow.
+description: See every agent tool and the scope required to call it.
 ---
 
-The server is authoritative for tool schemas and scope enforcement.
+Each key belongs to one site. The server checks the key's scopes for every MCP or REST operation. The current contract defines 32 tools.
 
-| Scope | Capabilities |
+| Scope | Tools |
 | --- | --- |
 | `sites:read` | `sites.get` |
-| `posts:read` | List, search, read, preview, formatting guide, and version history |
-| `posts:create` | Create drafts |
-| `posts:update` | Update drafts and restore versions |
-| `posts:publish` | Publish an exact version |
-| `posts:archive` | Archive a post |
-| `assets:write` | Upload, list, read, and delete assets |
-| `activity:read` | Read site activity |
+| `site:write` | `sites.update`, `sites.theme.get`, `sites.theme.update`, `sites.theme.revert`, `sites.voice.update`, `sites.signup_form.update`, `tags.list` |
+| `analytics:read` | `analytics.get` |
+| `posts:read` | `posts.list`, `posts.search`, `posts.get`, `posts.get_by_slug`, `posts.versions.list`, `posts.versions.get`, `posts.format_guide`, `posts.preview` |
+| `posts:create` | `posts.create` |
+| `posts:update` | `posts.update`, `posts.preview.rotate`, `posts.unarchive`, `posts.versions.restore` |
+| `posts:publish` | `posts.publish`, `posts.schedule`, `posts.unschedule` |
+| `posts:archive` | `posts.archive` |
+| `assets:write` | `assets.upload`, `assets.list`, `assets.get`, `assets.update` |
+| `assets:delete` | `assets.delete` |
+| `activity:read` | `activity.list` |
 
-## Read and preparation tools
+## Key levels in Connect
 
-- `sites.get`
-- `posts.list`
-- `posts.search`
-- `posts.get`
-- `posts.get_by_slug`
-- `posts.format_guide`
-- `posts.preview`
-- `posts.versions.list`
-- `posts.versions.get`
-- `assets.list`
-- `assets.get`
-- `activity.list`
+| Level | Granted scopes |
+| --- | --- |
+| **Write drafts** | `sites:read`, `posts:read`, `posts:create`, `posts:update`, `assets:write`, `activity:read` |
+| **Write and publish** | Write drafts scopes plus `posts:publish` |
+| **Manage** | Write and publish scopes plus `posts:archive`, `site:write`, `analytics:read` |
 
-## Mutation tools
+Manage can archive posts. None of these three levels grants `assets:delete`. The key's scope controls whether a call is allowed; ask the person to approve the exact version and time before publishing or scheduling.
 
-- `posts.create`
-- `posts.update`
-- `posts.publish`
-- `posts.archive`
-- `posts.versions.restore`
-- `assets.upload`
-- `assets.delete`
-
-Granting `posts:publish` is not a substitute for approval. Scope answers whether a token may perform the call. Approval answers whether the owner wants that exact public change now.
+**Never available to agents:** billing, creating or deleting keys, permanently deleting archived posts, and deleting the blog or account.

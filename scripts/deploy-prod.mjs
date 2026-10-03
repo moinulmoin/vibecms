@@ -1,0 +1,108 @@
+// Production deploy. Order matters for the first cutover to the versioned
+// model (migration 0018): the old API keeps serving until the new one deploys.
+//
+//   preflight → backup → builds (checked) → migrations
+//   → [first cutover only: confirm write freeze] → OG → public → [first cutover only: pin live versions] → API
+//   → verify every published post is pinned (fail closed) → smoke
+//
+// The pin runs only when 0018 was still pending when this run started, i.e.
+// while the old API is live and a post's latest version is its live content.
+// A rerun after a partial failure never pins: by then the new API may be live
+// and a latest version can be a private draft. `--verify-pins` runs only the
+// read-only check.
+import { spawnSync } from "node:child_process";
+
+const API = ["--filter", "@vc/api", "exec", "wrangler"];
+const REMOTE_PROD = ["--remote", "--env", "production"];
+
+function run(label, args, { capture = false } = {}) {
+  console.log(`\n▶ ${label}`);
+  const result = spawnSync("pnpm", args, { stdio: capture ? ["inherit", "pipe", "inherit"] : "inherit", encoding: "utf8" });
+  if (result.status !== 0) {
+    console.error(`\n✖ Stopped at: ${label}. Nothing after this step ran.`);
+    process.exit(result.status ?? 1);
+  }
+  return result.stdout ?? "";
+}
+
+function node(label, script, args = []) {
+  console.log(`\n▶ ${label}`);
+  const result = spawnSync("node", [script, ...args], { stdio: "inherit" });
+  if (result.status !== 0) {
+    console.error(`\n✖ Stopped at: ${label}. Nothing after this step ran.`);
+    process.exit(result.status ?? 1);
+  }
+}
+
+function d1Json(label, sql) {
+  const out = run(label, ["-s", ...API, "d1", "execute", "DB", ...REMOTE_PROD, "--json", "--command", sql], { capture: true });
+  let parsed;
+  try {
+    parsed = JSON.parse(out.slice(out.indexOf("[")));
+  } catch {
+    console.error(`✖ ${label}: could not parse D1 output`);
+    process.exit(1);
+  }
+  const first = Array.isArray(parsed) ? parsed[0] : undefined;
+  if (!first || first.success !== true || !Array.isArray(first.results)) {
+    console.error(`✖ ${label}: query did not succeed: ${JSON.stringify(first ?? parsed).slice(0, 300)}`);
+    process.exit(1);
+  }
+  return first.results;
+}
+
+function verifyPins() {
+  const rows = d1Json(
+    "Verify every published post has a pinned version",
+    "SELECT id, slug FROM posts WHERE status = 'published' AND published_version_id IS NULL",
+  );
+  if (rows.length) {
+    console.error(`✖ ${rows.length} published post(s) have no pinned version:`);
+    for (const row of rows) console.error(`  ${row.id}  /${row.slug}`);
+    console.error("Pin each to the version that was live, then run `pnpm deploy:prod -- --verify-pins` and smoke. Do not rerun the pin.");
+    process.exit(1);
+  }
+  console.log("✓ every published post has a pinned version");
+}
+
+if (process.argv.includes("--verify-pins")) {
+  verifyPins();
+  process.exit(0);
+}
+
+// Only the public build may see CLOUDFLARE_ENV; an inherited value would
+// retarget other steps.
+delete process.env.CLOUDFLARE_ENV;
+
+run("Production preflight", ["production:preflight"]);
+run("Backup production D1", ["production:backup"]);
+run("Build dashboard", ["--filter", "@vc/dashboard", "build"]);
+process.env.CLOUDFLARE_ENV = "production";
+run("Build public site for production", ["--filter", "@vc/public", "build"]);
+delete process.env.CLOUDFLARE_ENV;
+node("Check public build targets production", "scripts/assert-public-build-target.mjs", ["vibecms-public-prod", "vibecms_prod", "production"]);
+
+const pending = run("List pending production migrations", ["-s", ...API, "d1", "migrations", "list", "DB", ...REMOTE_PROD], { capture: true });
+const firstCutover = /0018_post_published_version/.test(pending);
+console.log(firstCutover ? "First cutover to versioned posts: will pin live versions before the API deploys." : "Versioned model already live: no pin step.");
+// The one-time upgrade runs the new schema under the old API for ~2 minutes;
+// only then must nobody publish or edit. Routine deploys don't ask.
+if (firstCutover) node("Confirm nobody edits for the next ~2 minutes", "scripts/assert-write-freeze.mjs");
+
+run("Apply production migrations", [...API, "d1", "migrations", "apply", "DB", ...REMOTE_PROD]);
+// Wrangler exits 0 when its confirmation prompt is declined; never deploy
+// Workers onto a schema that didn't migrate.
+const remaining = run("Confirm no migrations are still pending", ["-s", ...API, "d1", "migrations", "list", "DB", ...REMOTE_PROD], { capture: true });
+if (!/No migrations to apply/i.test(remaining)) {
+  console.error("✖ Production migrations are still pending (was the confirmation declined?). Nothing was deployed.");
+  process.exit(1);
+}
+run("Deploy OG worker", ["--filter", "@vc/og", "exec", "wrangler", "deploy", "--env", "production"]);
+run("Deploy public worker", ["--filter", "@vc/public", "exec", "wrangler", "deploy", "--config", "dist/server/wrangler.json"]);
+if (firstCutover) {
+  run("Pin live versions (old API still serving)", [...API, "d1", "execute", "DB", ...REMOTE_PROD, "--file", "../../scripts/prod-pin-before-api-cutover.sql"]);
+}
+run("Deploy API worker", [...API, "deploy", "--env", "production"]);
+verifyPins();
+run("Production smoke test", ["production:smoke"]);
+console.log("\n✓ Production deploy complete. Reopen content writes.");

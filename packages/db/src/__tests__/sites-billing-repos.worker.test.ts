@@ -246,9 +246,29 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
     // Onboarding leaves theme at its schema default ('minimal') — sanity, then mutate.
     expect((await da.sites.getSiteSettings("site-sb-settings"))?.theme).toBe("minimal");
 
-    await da.sites.updateSiteSettings({
+    await expect(da.sites.updateSiteSettings({
       timestamp: T2,
       siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
+      site: { name: "Must roll back" },
+      activity: {
+        id: "act-sb-settings-created",
+        actorType: "human",
+        actorId: "user-sb-settings",
+        actorName: "Settings User",
+        action: "site.settings.updated",
+        summary: "Conflicting activity id",
+      },
+    })).rejects.toThrow();
+    expect(await da.sites.getSiteSettings("site-sb-settings")).toMatchObject({
+      name: "SB Settings Site",
+      updatedAt: T,
+    });
+
+    const applied = await da.sites.updateSiteSettings({
+      timestamp: T2,
+      siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
       site: {
         name: "SB Settings Renamed",
         description: "Settings description",
@@ -259,6 +279,10 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         themeAccent: null,
         themeFont: null,
         themeMode: "system",
+        themeRadius: "lg",
+        themeWidth: "wide",
+        bylineName: "Ada Lovelace",
+        showAgentCredit: false,
       },
       activity: {
         id: "act-sb-settings-saved",
@@ -269,6 +293,7 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
         summary: "Site settings updated",
       },
     });
+    expect(applied).toBe(true);
 
     expect(await da.sites.getSiteSettings("site-sb-settings")).toMatchObject({
       name: "SB Settings Renamed",
@@ -277,6 +302,11 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
       defaultSeoDescription: "Settings SEO Description",
       theme: "editorial",
       slug: "site-sb-settings",
+      themeRadius: "lg",
+      themeWidth: "wide",
+      bylineName: "Ada Lovelace",
+      showAgentCredit: false,
+      updatedAt: T2,
     });
 
     expect(await countRows("SELECT COUNT(*) AS c FROM activity_events WHERE site_id = ?", "site-sb-settings")).toBe(2);
@@ -285,6 +315,87 @@ describe("sites setup + settings — atomic field + domain + activity writes", (
       .bind("act-sb-settings-saved")
       .first<{ action: string }>();
     expect(act?.action).toBe("site.settings.updated");
+
+    const staleApplied = await da.sites.updateSiteSettings({
+      timestamp: T2 + 1,
+      siteId: "site-sb-settings",
+      expectedUpdatedAt: T,
+      site: { name: "Stale replacement" },
+      activity: {
+        id: "act-sb-settings-stale",
+        actorType: "human",
+        actorId: "user-sb-settings",
+        actorName: "Settings User",
+        action: "site.settings.updated",
+        summary: "Stale settings update",
+      },
+    });
+    expect(staleApplied).toBe(false);
+    expect((await da.sites.getSiteSettings("site-sb-settings"))?.name).toBe("SB Settings Renamed");
+    expect(await countRows("SELECT COUNT(*) AS c FROM activity_events WHERE id = ?", "act-sb-settings-stale")).toBe(0);
+  });
+});
+
+describe("shared site revision", () => {
+  const siteId = "sb-revision-site";
+  const workspaceId = "sb-revision-workspace";
+  const activity = (id: string) => ({ id, actorType: "api_key" as const, actorId: "key", actorName: "Key", action: "site.updated", summary: id });
+
+  beforeAll(async () => {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(workspaceId, "Revision", workspaceId, T, T),
+      env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(siteId, workspaceId, "Revision", siteId, T, T),
+      env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)")
+        .bind("sb-revision-domain", siteId, "sb-revision.test", T, T),
+    ]);
+  });
+
+  it("keeps the theme snapshot in the same CAS batch as its site revision", async () => {
+    const dashboard = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T,
+      site: { themeAccent: "blue" }, activity: activity("sb-revision-dashboard") });
+    expect(dashboard).toBe(true);
+    const stale = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T,
+      site: { themeAccent: "rust" }, previousLookJson: JSON.stringify({ themeAccent: null }),
+      activity: activity("sb-revision-stale-theme") });
+    expect(stale).toBe(false);
+    expect(await env.DB.prepare("SELECT saved_at FROM site_theme_previous_look WHERE site_id = ?").bind(siteId).first()).toBeNull();
+    const applied = await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T + 1,
+      site: { themeAccent: "rust" }, previousLookJson: JSON.stringify({ themeAccent: "blue" }),
+      activity: activity("sb-revision-theme") });
+    expect(applied).toBe(true);
+    const snapshot = await env.DB.prepare("SELECT look_json AS lookJson, saved_at AS savedAt FROM site_theme_previous_look WHERE site_id = ?")
+      .bind(siteId).first<{ lookJson: string; savedAt: number }>();
+    expect(snapshot).toEqual({ lookJson: JSON.stringify({ themeAccent: "blue" }), savedAt: T + 2 });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(snapshot?.savedAt);
+  });
+
+  it("applies a theme change when the clock is well past the last revision", async () => {
+    const revision = (await da.sites.getSiteSettings(siteId))!.updatedAt;
+    const later = revision + 3600;
+    expect(await da.sites.updateSiteSettings({ siteId, timestamp: later, expectedUpdatedAt: revision,
+      site: { themeAccent: "violet" }, previousLookJson: JSON.stringify({ themeAccent: "rust" }),
+      activity: activity("sb-revision-theme-later") })).toBe(true);
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(later);
+    expect(await env.DB.prepare("SELECT saved_at AS savedAt FROM site_theme_previous_look WHERE site_id = ?")
+      .bind(siteId).first()).toEqual({ savedAt: later });
+  });
+
+  it("advances the revision for personalization, signup, and setup writes in the same second", async () => {
+    let revision = (await da.sites.getSiteSettings(siteId))!.updatedAt;
+    await da.sites.updateSitePersonalization({ siteId, timestamp: T, agentPreference: null, voiceSeed: [],
+      onboardingNote: null, activity: activity("sb-revision-personalization") });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    expect(await da.sites.updateNewsletterSettings({ siteId, timestamp: T, newsletterSettings: JSON.stringify({ enabled: true }),
+      activity: activity("sb-revision-signup") })).toBe(true);
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    await da.sites.completeSiteSetup({ siteId, timestamp: T, site: { name: "Revision", slug: siteId,
+      description: null, defaultSeoTitle: "Revision", defaultSeoDescription: null },
+      defaultDomainHostname: "sb-revision.test", activity: activity("sb-revision-setup") });
+    expect((await da.sites.getSiteSettings(siteId))?.updatedAt).toBe(++revision);
+    expect(await da.sites.updateSiteSettings({ siteId, timestamp: T, expectedUpdatedAt: T + 2,
+      site: { name: "Stale" }, activity: activity("sb-revision-stale") })).toBe(false);
   });
 });
 
@@ -328,6 +439,10 @@ describe("sites read getters — seeded values and null for unknown ids", () => 
       slug: "site-sb-getters",
       defaultSeoTitle: null,
       defaultSeoDescription: null,
+      themeRadius: null,
+      themeWidth: null,
+      bylineName: null,
+      showAgentCredit: true,
     });
     // Known member is the owner; an unknown user resolves to no membership.
     expect(await da.sites.getMembershipRole("ws-sb-getters", "user-sb-getters")).toBe("owner");

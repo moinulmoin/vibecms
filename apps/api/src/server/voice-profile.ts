@@ -1,18 +1,19 @@
-import { createDataAccess } from '@vc/db'
+import { createDataAccess, VoiceProfileConflictError } from '@vc/db'
 import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
+import { can, ConflictError } from '@vc/core'
 
 export type VoiceProfileMutationResult =
   | { kind: 'ok'; code: 'voice_profile_saved' | 'voice_profile_cleared' }
   | { kind: 'error'; code: 'voice_profile_invalid' | 'owner_required' }
 function editorFor(app: AppUserContext) {
-  if (app.actor.type !== 'human' || app.actor.role !== 'owner') throw new Error('Owner access required')
-  return { type: 'human' as const, id: app.actor.id, name: app.actor.name }
+  if (!canManageVoiceProfile(app)) throw new Error('Manage access required')
+  return { type: app.actor.type === 'system' ? 'system' as const : app.actor.type, id: app.actor.id, name: app.actor.name }
 }
 
 function canManageVoiceProfile(app: AppUserContext) {
-  return app.actor.type === 'human' && app.actor.role === 'owner'
+  return (app.actor.type === 'human' && app.actor.role === 'owner') || can(app.actor, 'site:write')
 }
 
 export async function getVoiceProfileForSite(siteId: string) {
@@ -39,7 +40,7 @@ export async function getVoiceProfileSettings(app: AppUserContext): Promise<Voic
     db.posts.listPosts({ siteId: app.siteId, status: 'published', limit: 100, offset: 0 }),
   ])
   return {
-    configured: profile ? true : false,
+    configured: profile?.configured ?? false,
     audience: profile?.audience ?? '',
     voiceSummary: profile?.voiceSummary ?? '',
     preferRules: profile?.guidelines.filter((rule) => rule.kind === 'prefer').map((rule) => rule.text) ?? [],
@@ -60,8 +61,10 @@ export async function getVoiceProfileSettings(app: AppUserContext): Promise<Voic
 export async function updateVoiceProfileForApp(
   app: AppUserContext,
   rawPayload: VoiceProfileSettingsInput,
+  options?: { expectedUpdatedAt: number },
 ): Promise<VoiceProfileMutationResult> {
   if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
+  if (!Number.isInteger(options?.expectedUpdatedAt) || options!.expectedUpdatedAt < 0) throw new ConflictError('Voice profile revision is required')
   const parsed = voiceProfileSettingsInputSchema.safeParse(rawPayload)
   if (!parsed.success) return { kind: 'error', code: 'voice_profile_invalid' }
 
@@ -83,20 +86,29 @@ export async function updateVoiceProfileForApp(
       editor: editorFor(app),
       timestamp: Math.floor(Date.now() / 1000),
       activityId: crypto.randomUUID(),
+      expectedUpdatedAt: options!.expectedUpdatedAt,
     })
     return { kind: 'ok', code: 'voice_profile_saved' }
   } catch (error) {
+    if (error instanceof VoiceProfileConflictError) throw new ConflictError(error.message)
     throw error
   }
 }
 
-export async function clearVoiceProfileForApp(app: AppUserContext): Promise<VoiceProfileMutationResult> {
+export async function clearVoiceProfileForApp(app: AppUserContext, options?: { expectedUpdatedAt: number }): Promise<VoiceProfileMutationResult> {
   if (!canManageVoiceProfile(app)) return { kind: 'error', code: 'owner_required' }
-  await createDataAccess(env.DB).voiceProfiles.clear({
-    siteId: app.siteId,
-    editor: editorFor(app),
-    timestamp: Math.floor(Date.now() / 1000),
-    activityId: crypto.randomUUID(),
-  })
+  if (!Number.isInteger(options?.expectedUpdatedAt) || options!.expectedUpdatedAt < 0) throw new ConflictError('Voice profile revision is required')
+  try {
+    await createDataAccess(env.DB).voiceProfiles.clear({
+      siteId: app.siteId,
+      expectedUpdatedAt: options!.expectedUpdatedAt,
+      editor: editorFor(app),
+      timestamp: Math.floor(Date.now() / 1000),
+      activityId: crypto.randomUUID(),
+    })
+  } catch (error) {
+    if (error instanceof VoiceProfileConflictError) throw new ConflictError(error.message)
+    throw error
+  }
   return { kind: 'ok', code: 'voice_profile_cleared' }
 }

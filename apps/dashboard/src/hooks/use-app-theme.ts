@@ -1,0 +1,125 @@
+import { useCallback, useEffect, useState } from 'react'
+
+export const APP_THEME_STORAGE_KEY = 'vc-theme'
+export const APP_THEMES = ['light', 'dark', 'system'] as const
+
+export type AppTheme = (typeof APP_THEMES)[number]
+export type ResolvedAppTheme = Exclude<AppTheme, 'system'>
+
+function isAppTheme(value: string | null): value is AppTheme {
+  return value === 'light' || value === 'dark' || value === 'system'
+}
+
+function systemTheme(): ResolvedAppTheme {
+  return typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light'
+}
+
+export function resolveAppTheme(theme: AppTheme): ResolvedAppTheme {
+  return theme === 'system' ? systemTheme() : theme
+}
+
+export function readAppTheme(): AppTheme {
+  if (typeof window === 'undefined') return 'dark'
+
+  try {
+    const stored = window.localStorage.getItem(APP_THEME_STORAGE_KEY)
+    return isAppTheme(stored) ? stored : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
+
+export function applyAppTheme(theme: AppTheme) {
+  if (typeof document === 'undefined') return
+
+  const resolved = resolveAppTheme(theme)
+  const root = document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(resolved)
+  root.style.colorScheme = resolved
+}
+
+const THEME_CHANGE_EVENT = 'vc-theme-change'
+
+export function useAppTheme() {
+  const [theme, setThemeState] = useState<AppTheme>(readAppTheme)
+
+  // Every switch (account menu, command palette, another tab) moves every
+  // instance, so none of them re-applies a stale choice.
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const next = (event as CustomEvent<unknown>).detail
+      if (typeof next === 'string' && isAppTheme(next)) setThemeState(next)
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === APP_THEME_STORAGE_KEY) setThemeState(readAppTheme())
+    }
+    window.addEventListener(THEME_CHANGE_EVENT, onChange)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(THEME_CHANGE_EVENT, onChange)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
+  useEffect(() => {
+    applyAppTheme(theme)
+
+    if (theme !== 'system' || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => applyAppTheme('system')
+    const supportsEventListener = typeof media.addEventListener === 'function'
+
+    if (supportsEventListener) {
+      media.addEventListener('change', handleChange)
+    } else {
+      media.addListener(handleChange)
+    }
+
+    return () => {
+      if (supportsEventListener) {
+        media.removeEventListener('change', handleChange)
+      } else {
+        media.removeListener(handleChange)
+      }
+    }
+  }, [theme])
+
+  const setTheme = useCallback((nextTheme: AppTheme) => {
+    setThemeState(nextTheme)
+    applyAppTheme(nextTheme)
+
+    try {
+      window.localStorage.setItem(APP_THEME_STORAGE_KEY, nextTheme)
+    } catch {
+      // Storage can be unavailable in privacy-restricted contexts.
+    }
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: nextTheme }))
+  }, [])
+
+  return { theme, setTheme }
+}
+
+function currentResolvedTheme(): ResolvedAppTheme {
+  if (typeof document === 'undefined') return 'dark'
+  return document.documentElement.classList.contains('light') ? 'light' : 'dark'
+}
+
+/** The dashboard's resolved light/dark, tracking the class the theme switch stamps on <html>. */
+export function useResolvedAppTheme(): ResolvedAppTheme {
+  const [resolved, setResolved] = useState<ResolvedAppTheme>(currentResolvedTheme)
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return
+    const observer = new MutationObserver(() => setResolved(currentResolvedTheme()))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  return resolved
+}

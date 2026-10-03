@@ -2,10 +2,12 @@ import {
   activityDtoSchema,
   apiErrorEnvelopeSchema,
   archivePostRequestSchema,
+  unarchivePostRequestSchema,
   assetDtoSchema,
   createPostRequestSchema,
   formatGuideDtoSchema,
   getAssetRequestSchema,
+  updateAssetRequestSchema,
   getFormatGuideRequestSchema,
   getPostRequestSchema,
   getPostBySlugRequestSchema,
@@ -20,10 +22,16 @@ import {
   previewPostDtoSchema,
   previewPostRequestSchema,
   publishPostRequestSchema,
+  schedulePostRequestSchema,
+  unschedulePostRequestSchema,
+  rotatePostPreviewRequestSchema,
   restorePostVersionRequestSchema,
-  siteDtoSchema,
+  siteWithSignupFormDtoSchema,
   updatePostRequestSchema,
   uploadAssetRequestSchema,
+  updateSiteRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, getAnalyticsRequestSchema,
+  updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
@@ -75,10 +83,15 @@ const getPostBySlugOpDef = operationsByToolName["posts.get_by_slug"];
 const createPostOpDef = operationsByToolName["posts.create"];
 const updatePostOpDef = operationsByToolName["posts.update"];
 const publishPostOpDef = operationsByToolName["posts.publish"];
+const schedulePostOpDef = operationsByToolName["posts.schedule"];
+const unschedulePostOpDef = operationsByToolName["posts.unschedule"];
+const rotatePostPreviewOpDef = operationsByToolName["posts.preview.rotate"];
 const archivePostOpDef = operationsByToolName["posts.archive"];
+const unarchivePostOpDef = operationsByToolName["posts.unarchive"];
 const uploadAssetOpDef = operationsByToolName["assets.upload"];
 const listAssetsOpDef = operationsByToolName["assets.list"];
 const getAssetOpDef = operationsByToolName["assets.get"];
+const updateAssetOpDef = operationsByToolName["assets.update"];
 const deleteAssetOpDef = operationsByToolName["assets.delete"];
 const listActivityOpDef = operationsByToolName["activity.list"];
 const listPostVersionsOpDef = operationsByToolName["posts.versions.list"];
@@ -97,6 +110,7 @@ const postIdParamsSchema = getPostRequestSchema;
 const postSlugParamsSchema = getPostBySlugRequestSchema;
 const updatePostBodySchema = updatePostRequestSchema.omit({ postId: true });
 const publishPostBodySchema = publishPostRequestSchema.omit({ postId: true });
+const schedulePostBodySchema = schedulePostRequestSchema.omit({ postId: true });
 const restorePostVersionBodySchema = restorePostVersionRequestSchema.omit({ postId: true, versionNumber: true });
 
 const postVersionParamsSchema = z.object({
@@ -104,6 +118,7 @@ const postVersionParamsSchema = z.object({
   versionNumber: z.coerce.number().int().min(1),
 });
 const assetIdParamsSchema = getAssetRequestSchema;
+const updateAssetBodySchema = updateAssetRequestSchema.omit({ assetId: true });
 
 export const getSiteRoute = createRoute({
   method: "get",
@@ -114,10 +129,57 @@ export const getSiteRoute = createRoute({
   responses: {
     200: {
       description: "Current site",
-      content: { "application/json": { schema: siteDtoSchema.nullable() } },
+      content: { "application/json": { schema: siteWithSignupFormDtoSchema.nullable() } },
     },
     ...routeErrors(401, 403, 429, 500),
   },
+});
+
+export const updateSiteRoute = createRoute({
+  method: 'patch', path: '/site', operationId: operationsByToolName['sites.update'].operationId,
+  description: operationsByToolName['sites.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateSiteRequestSchema } } } },
+  responses: { 200: { description: 'Updated site', content: { 'application/json': { schema: updatedSiteDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const getThemeRoute = createRoute({
+  method: 'get', path: '/site/theme', operationId: operationsByToolName['sites.theme.get'].operationId,
+  description: operationsByToolName['sites.theme.get'].description, security: bearerSecurity,
+  responses: { 200: { description: 'Current theme and options', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(401, 403, 429, 500) },
+});
+export const updateThemeRoute = createRoute({
+  method: 'patch', path: '/site/theme', operationId: operationsByToolName['sites.theme.update'].operationId,
+  description: operationsByToolName['sites.theme.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateThemeRequestSchema } } } },
+  responses: { 200: { description: 'Updated theme', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const revertThemeRoute = createRoute({
+  method: 'post', path: '/site/theme/revert', operationId: operationsByToolName['sites.theme.revert'].operationId,
+  description: operationsByToolName['sites.theme.revert'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: revertThemeRequestSchema } } } },
+  responses: { 200: { description: 'Restored theme', content: { 'application/json': { schema: themeDtoSchema } } }, ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+export const updateVoiceRoute = createRoute({
+  method: 'put', path: '/site/voice', operationId: operationsByToolName['sites.voice.update'].operationId,
+  description: operationsByToolName['sites.voice.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateVoiceRequestSchema } } } },
+  responses: { 200: { description: 'Updated voice', content: { 'application/json': { schema: voiceSettingsDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+});
+export const updateSignupFormRoute = createRoute({
+  method: 'patch', path: '/site/signup-form', operationId: operationsByToolName['sites.signup_form.update'].operationId,
+  description: operationsByToolName['sites.signup_form.update'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: updateSignupFormRequestSchema } } } },
+  responses: { 200: { description: 'Updated signup form', content: { 'application/json': { schema: signupFormDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+});
+export const listTagsRoute = createRoute({
+  method: 'get', path: '/tags', operationId: operationsByToolName['tags.list'].operationId,
+  description: operationsByToolName['tags.list'].description, security: bearerSecurity,
+  responses: { 200: { description: 'Tags in use', content: { 'application/json': { schema: z.array(tagDtoSchema) } } }, ...routeErrors(401, 403, 429, 500) },
+});
+export const getAnalyticsRoute = createRoute({
+  method: 'get', path: '/analytics', operationId: operationsByToolName['analytics.get'].operationId,
+  description: operationsByToolName['analytics.get'].description, security: bearerSecurity,
+  request: { query: getAnalyticsRequestSchema },
+  responses: { 200: { description: 'Aggregate analytics', content: { 'application/json': { schema: analyticsDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 429, 500) },
 });
 
 export const listPostsRoute = createRoute({
@@ -239,6 +301,31 @@ export const publishPostRoute = createRoute({
   },
 });
 
+export const schedulePostRoute = createRoute({
+  method: "post", path: "/posts/{postId}/schedule",
+  operationId: schedulePostOpDef.operationId, description: schedulePostOpDef.description,
+  security: bearerSecurity,
+  request: { params: postIdParamsSchema, body: { required: true, content: { "application/json": { schema: schedulePostBodySchema } } } },
+  responses: { 200: { description: "Scheduled post", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+
+export const unschedulePostRoute = createRoute({
+  method: "post", path: "/posts/{postId}/unschedule",
+  operationId: unschedulePostOpDef.operationId, description: unschedulePostOpDef.description,
+  security: bearerSecurity, request: { params: unschedulePostRequestSchema },
+  responses: { 200: { description: "Unscheduled post", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+
+export const rotatePostPreviewRoute = createRoute({
+  method: "post", path: "/posts/{postId}/preview/rotate",
+  operationId: rotatePostPreviewOpDef.operationId, description: rotatePostPreviewOpDef.description,
+  security: bearerSecurity, request: { params: rotatePostPreviewRequestSchema },
+  responses: { 200: { description: "Rotated private preview link", content: { "application/json": { schema: postDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500) },
+});
+
 export const archivePostRoute = createRoute({
   method: "post",
   path: "/posts/{postId}/archive",
@@ -246,13 +333,27 @@ export const archivePostRoute = createRoute({
   description: archivePostOpDef.description,
   security: bearerSecurity,
   request: {
-    params: archivePostRequestSchema,
+    params: archivePostRequestSchema.pick({ postId: true }),
+    body: { required: false, content: { "application/json": { schema: archivePostRequestSchema.partial() } } },
   },
   responses: {
     200: {
       description: "Archived post",
       content: { "application/json": { schema: postDtoSchema } },
     },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
+  },
+});
+
+export const unarchivePostRoute = createRoute({
+  method: "post",
+  path: "/posts/{postId}/unarchive",
+  operationId: unarchivePostOpDef.operationId,
+  description: unarchivePostOpDef.description,
+  security: bearerSecurity,
+  request: { params: unarchivePostRequestSchema },
+  responses: {
+    200: { description: "Restored draft post", content: { "application/json": { schema: postDtoSchema } } },
     ...routeErrors(400, 401, 403, 404, 429, 500),
   },
 });
@@ -308,6 +409,22 @@ export const getAssetRoute = createRoute({
       content: { "application/json": { schema: assetDtoSchema } },
     },
     ...routeErrors(400, 401, 403, 404, 429, 500),
+  },
+});
+
+export const updateAssetRoute = createRoute({
+  method: "patch",
+  path: "/assets/{assetId}",
+  operationId: updateAssetOpDef.operationId,
+  description: updateAssetOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: assetIdParamsSchema,
+    body: { content: { "application/json": { schema: updateAssetBodySchema } }, required: true },
+  },
+  responses: {
+    200: { description: "Updated asset", content: { "application/json": { schema: assetDtoSchema } } },
+    ...routeErrors(400, 401, 403, 404, 409, 429, 500),
   },
 });
 
@@ -444,16 +561,22 @@ export const previewPostRoute = createRoute({
 /** All REST operation route definitions (order is stable for spec generation). */
 export const apiV1OperationRoutes = [
   getSiteRoute,
+  updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
   listPostsRoute,
   getPostBySlugRoute,
   getPostRoute,
   createPostRoute,
   updatePostRoute,
   publishPostRoute,
+  schedulePostRoute,
+  unschedulePostRoute,
+  rotatePostPreviewRoute,
   archivePostRoute,
+  unarchivePostRoute,
   uploadAssetRoute,
   listAssetsRoute,
   getAssetRoute,
+  updateAssetRoute,
   deleteAssetRoute,
   listActivityRoute,
   listPostVersionsRoute,

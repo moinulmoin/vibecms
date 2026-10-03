@@ -5,7 +5,7 @@ description: Use expected versions for safe writes and handle machine-readable e
 
 ## Version-bound writes
 
-`PATCH /api/v1/posts/{postId}`, restore, and publish operations use the current tip version to prevent lost updates.
+`PATCH /api/v1/posts/{postId}`, restore, and publish operations use the current tip version to prevent lost updates. Scheduling instead pins an existing `versionNumber` and a future `publishAt` UTC epoch second; it can publish that version after newer edits. Site, theme, and signup form changes use `expectedUpdatedAt`.
 
 ```json
 {

@@ -1,34 +1,31 @@
 ---
-title: VibeCMS documentation
-description: Connect an agent, create drafts, review exact versions, and publish without giving up control.
+title: vibecms documentation
+description: Connect an agent, review drafts, publish exact versions, and run your blog.
 ---
 
-VibeCMS is a CMS for AI agents. Agents work through scoped MCP or REST credentials, while the site owner keeps publication authority, version history, and an activity trail.
+vibecms lets you give an agent a key for one site with the scopes you choose. Your agent can draft, publish, schedule, or manage the site according to that key. You can review saved versions and activity in the dashboard.
 
-## Choose a starting point
+## Start here
 
-- [Connect an agent](/docs/getting-started/connect-an-agent) to configure MCP and verify a scoped token.
-- [Follow the approval-first workflow](/docs/agent-workflows/approval-first-publishing) before an agent publishes.
-- [Use the REST API](/docs/api) for an integration that does not speak MCP.
-- [Self-host on Cloudflare](/docs/self-hosting) when you want to operate both Workers and the shared data layer.
+- [Connect an agent](/docs/getting-started/connect-an-agent) and choose a key level.
+- [Publish the first post](/docs/getting-started/first-publish) with a private preview and exact-version approval.
+- [See scopes and tools](/docs/agent-workflows/scopes-and-tools) for all 32 MCP operations.
+- [Let your agent run the site](/docs/agent-workflows/managing-the-site) with a Manage key.
 
-## Product surfaces
+## Content and distribution
 
-| Surface | Best for |
+- [Previews and scheduling](/docs/content/previews-and-scheduling) explains private links and timed publication.
+- [URLs and redirects](/docs/content/urls-and-redirects) explains renames, archives, and deletion.
+- [An agent-readable blog](/docs/content/built-for-agents) covers Markdown, feeds, and discovery files.
+- [Media](/docs/content/media) and [posts and versions](/docs/content/posts-and-versions) cover the writing workflow.
+
+## Integration surfaces
+
+| Surface | Use it for |
 | --- | --- |
-| MCP | Coding agents and MCP-compatible clients |
-| REST `/api/v1` | Service integrations and direct HTTP clients |
-| `@vibecms/cli` | Shell automation and agent subprocesses |
-| Dashboard | Token management, review, settings, and human editing |
+| MCP | Agents and MCP-compatible clients |
+| REST `/api/v1` | Direct HTTP integrations |
+| `@vibecms/cli` | Shell commands and agent subprocesses |
+| Dashboard | Human review, keys, settings, and editing |
 
-The REST API and MCP tools share the same scoped authorization model and hosted usage budget. The dashboard remains the owner-facing control surface.
-
-## What to understand first
-
-1. A token belongs to one site and carries explicit scopes.
-2. Creating or updating a post changes the private draft tip.
-3. Publishing pins one exact saved version to the public blog.
-4. A later edit does not silently replace the live version.
-5. Mutations appear in activity history, and meaningful post changes create versions.
-
-For raw endpoint schemas and an interactive request explorer, open the [Scalar API reference](https://app.vibecms.dev/api/v1/docs).
+The REST API and MCP tools use the same scoped authorization model. For endpoint schemas, open the [API reference](https://app.vibecms.dev/api/v1/docs).

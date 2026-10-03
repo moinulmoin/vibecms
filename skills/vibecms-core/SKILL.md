@@ -18,25 +18,25 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 
 ## Canonical authoring flow
 
-1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, and current Voice Profile.
+1. **Inspect the site.** Call `sites.get`. Record the site identity, public URL when present, current Voice Profile, and owner-shared `voiceSeedUrls`. When the Voice Profile is unconfigured but `voiceSeedUrls` exist, offer to learn the owner's voice from a small sample of those links and propose explicit prefer/avoid rules. The owner can save them under Settings → Voice profile; with Manage access and separate approval, use `sites.voice.update` with the current profile revision.
 2. **Load live formatting guidance.** Call `posts.format_guide` without a preset override unless the user explicitly requests an alternate presentation target.
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
 4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update` with `expectedVersionNumber` set to the current tip from `posts.get` / `posts.versions.list`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
-5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number.
-6. **Bind the approval request.** Call `posts.versions.list`. Identify the newest `versionNumber`, then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
+5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number. Send the person the `previewUrl` returned by `posts.create` / `posts.update` so they can see the saved draft on their own blog; never construct one.
+6. **Bind the approval request.** Record currentVersionNumber from the same posts.get response whose Markdown and presentation you previewed. Bind approval to that number. If a subsequent read reports a different currentVersionNumber, fetch and preview that version before requesting approval. Then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
 7. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.
-8. **Recheck.** Immediately before publishing, call `posts.versions.list` again. If the newest version changed, re-read, re-preview, and request fresh approval.
-9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`.
+8. **Recheck.** Immediately before publishing, call `posts.get` again. If the currentVersionNumber changed, re-read, re-preview, and request fresh approval.
+9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`. If the person asked for a later time, call `posts.schedule` with `{ postId, versionNumber, publishAt }` instead (same approval rule); `posts.unschedule` cancels it.
 10. **Report evidence.** Return the exact title, published status, and tool-returned `url`. If `url` is null, say that; do not construct one.
 
 ## Draft vs live
 
 Public article/list/tag/search/feed output is pinned to `publishedVersionNumber`. `posts.update` and `posts.versions.restore` mutate the private tip only; they require `expectedVersionNumber` and return `CONFLICT` when the tip moved. Live public content changes only when `posts.publish` pins a new approved tip version.
 
-Before any of these actions, preview the proposed result and obtain separate explicit confirmation immediately before the call:
+These changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval. Before any of these actions, preview the proposed result and obtain separate explicit confirmation immediately before the call:
 
 - `posts.publish` (switches the public pin);
-- `posts.archive`;
+- `posts.archive` with `expectedVersionNumber` from `posts.get`;
 - `assets.delete`;
 - any other operation that removes or mutates currently public state.
 
@@ -60,10 +60,17 @@ The server is authoritative, but the current capability groups are:
 - Read/search/preview/format/version history: `posts:read`
 - Create drafts: `posts:create`
 - Update drafts or content and restore versions: `posts:update`
-- Publish: `posts:publish`
+- Publish or schedule: `posts:publish`
 - Archive: `posts:archive`
-- Upload/list/get/delete assets: `assets:write`
+- Upload/list/get assets: `assets:write`
+- Delete unused assets: `assets:delete`
 - Read activity: `activity:read`
+- Change site settings, links, theme, voice, and signup form; list tags: `site:write`
+- Read aggregate analytics: `analytics:read`
+
+## Managing the site
+
+A Manage key includes Publish, archive/restore, `site:write`, and `analytics:read`. Billing, key management, and deleting the blog or account stay with the person. These changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval. After changing the theme, give the person the blog URL and offer to revert the theme if they do not like it. Read the current `updatedAt` before a site or theme change, and use it as `expectedUpdatedAt` so a concurrent dashboard save returns `CONFLICT` instead of being overwritten.
 
 ## Completion contracts
 
@@ -89,6 +96,8 @@ Report:
 - returned status;
 - exact tool-returned `url`;
 - any blocker if publication did not occur.
+
+If this is the blog's **first** published post, also mention once, in plain terms, that the free tier covers the owner's first 5 published posts and that a limited launch offer (monthly or yearly) on unlimited publishing is available from the dashboard. Never repeat the mention on later publishes, and never condition any task or quality of work on whether the owner upgrades.
 
 ## Dynamic server truth
 

@@ -1,3 +1,4 @@
+import { operationsByToolName, zodToJsonSchema } from "@vc/api-contract";
 /// <reference types="@cloudflare/vitest-pool-workers" />
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
@@ -356,27 +357,29 @@ describe("MCP 2026-07-28 stateless transport", () => {
   });
 });
 
-describe("MCP tools/list outputSchema contract", () => {
-  it("every tool advertises a top-level object outputSchema", async () => {
+describe("MCP tools/list stays lean", () => {
+  it("does not send output schemas (they were two thirds of the payload)", async () => {
     const tools = await toolsList();
     expect(tools.length).toBeGreaterThan(0);
-    const bad = tools.filter((tool) => tool.outputSchema?.type !== "object").map((tool) => tool.name);
-    expect(bad).toEqual([]);
+    expect(tools.filter((tool) => "outputSchema" in tool).map((tool) => tool.name)).toEqual([]);
   });
 
-  it("wraps array and nullable DTOs under result, leaves objects unwrapped", async () => {
-    const byName = new Map((await toolsList()).map((tool) => [tool.name, tool]));
-    expect(byName.get("posts.list")?.outputSchema?.properties?.result?.type).toBe("array");
-    expect(byName.get("sites.get")?.outputSchema?.properties?.result).toBeDefined();
-    expect(byName.get("posts.get")?.outputSchema?.properties?.result).toBeUndefined();
+  it("keeps the full catalog under a context budget", async () => {
+    // Every agent pays for this before it can do anything. Raise deliberately, not by drift.
+    expect(JSON.stringify(await toolsList()).length).toBeLessThan(32_000);
   });
 
-  it("advertises a public url field on post and site DTOs", async () => {
-    const byName = new Map((await toolsList()).map((tool) => [tool.name, tool]));
-    expect(byName.get("posts.get")?.outputSchema?.properties?.url).toBeDefined();
-    expect(byName.get("posts.publish")?.outputSchema?.properties?.url).toBeDefined();
-    expect(byName.get("sites.get")?.outputSchema?.properties?.result?.properties?.url).toBeDefined();
-    expect(byName.get("posts.list")?.outputSchema?.properties?.result?.items?.properties?.url).toBeDefined();
+  it("still documents a public url on post and site responses (OpenAPI / typed clients)", () => {
+    const url = (name: keyof typeof operationsByToolName) => {
+      const schema = zodToJsonSchema(operationsByToolName[name].responseSchema) as {
+        properties?: Record<string, unknown>; items?: { properties?: Record<string, unknown> };
+      };
+      return schema.properties?.url ?? schema.items?.properties?.url;
+    };
+    expect(url("posts.get")).toBeDefined();
+    expect(url("posts.publish")).toBeDefined();
+    expect(url("sites.get")).toBeDefined();
+    expect(url("posts.list")).toBeDefined();
   });
 });
 

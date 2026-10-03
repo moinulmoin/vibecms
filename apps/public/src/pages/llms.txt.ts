@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { llms } from "fumadocs-core/source";
 import { docsSource } from "../lib/docs-source";
+import { marketingLlmsTxt } from "../lib/agent-discovery";
 import { handleLlmsTxt } from "../server/public-feeds";
 import { isMarketingHost } from "../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
@@ -8,7 +9,7 @@ import { publicDb, publicRuntimeEnv } from "../server/runtime";
 export const GET: APIRoute = async (context) => {
   const env = publicRuntimeEnv(context);
   if (!env.selfHosted && isMarketingHost(context.request, env)) {
-    return new Response(llms(docsSource).index(), {
+    return new Response(marketingLlmsTxt(env.appUrl, llms(docsSource).index()), {
       headers: { "content-type": "text/markdown; charset=utf-8" },
     });
   }

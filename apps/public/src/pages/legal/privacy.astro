@@ -1,0 +1,75 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { BRAND } from "@vc/config";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+
+const env = publicRuntimeEnv(Astro);
+if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
+  return new Response("Not found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+---
+<LegalLayout
+  title="Privacy Policy"
+  description={`How ${BRAND.name} collects, uses, and protects your data.`}
+  updated="August 16, 2026"
+>
+  <h2>The short version</h2>
+  <p>
+    We collect only what it takes to run your blog: your sign-in email, your content, and the
+    minimum technical logs to keep the service reliable. We do not sell data, we do not run ads,
+    and your posts belong to you. Reads on hosted blogs are counted with respect for Do Not Track
+    and Global Privacy Control.
+  </p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Account.</strong> The email address you sign in with, used for one-time-code login and service notices.</li>
+    <li><strong>Workspace content.</strong> Your blog&rsquo;s posts, media, settings, and version history.</li>
+    <li><strong>Access tokens.</strong> API and MCP tokens are stored only as hashes. Full tokens are shown once at creation.</li>
+    <li><strong>Billing.</strong> Payments are processed by Polar. We never see or store your card number.</li>
+    <li><strong>Operations.</strong> Short-lived technical logs from our hosting provider for security and debugging.</li>
+  </ul>
+
+  <h2>What we never do</h2>
+  <ul>
+    <li>Sell, rent, or broker your data.</li>
+    <li>Load advertising networks or third-party trackers on the app or marketing site.</li>
+    <li>Read your content to train models. Agents you authorize access it over scoped tokens; that access is visible in your activity log.</li>
+  </ul>
+
+  <h2>Reader analytics on your blog</h2>
+  <p>
+    Hosted blogs count page views so you can see what resonates. Visitor identifiers are hashed,
+    and requests carrying Do Not Track or Global Privacy Control signals are not counted.
+    Newsletter subscriber capture is explicit-consent based, with IP and user agent stored hashed.
+  </p>
+
+  <h2>Providers</h2>
+  <p>
+    The service runs on Cloudflare (compute, database, and media storage) with Polar for payments
+    and a transactional email provider for sign-in codes and service messages. Each provider
+    processes data only as needed to deliver the service.
+  </p>
+
+  <h2>Your content and your exits</h2>
+  <p>
+    You own everything you publish. Your posts and media are readable back through the same typed
+    API and CLI your agents use, so leaving is a read operation, not a negotiation. Ask us to
+    delete a workspace and we remove its content; encrypted backups roll off on a fixed cycle.
+  </p>
+
+  <h2>Early access</h2>
+  <p>
+    vibecms is in public early access, and this policy will mature with the product. If a change
+    materially expands what we collect, we will announce it on the site before it takes effect.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions or requests about your data: <a href="mailto:support@vibecms.dev">support@vibecms.dev</a>.
+  </p>
+</LegalLayout>

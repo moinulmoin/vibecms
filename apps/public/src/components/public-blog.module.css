@@ -1,207 +1,86 @@
-/* public-blog.module.css — index/listing styles ONLY. The page shell (themed
-   canvas, container, masthead, focus language, reduced-motion) lives in
-   @vc/content's public-chrome.module.css so public SSR and the dashboard
-   editor preview share it. Per-theme index rules key off the [data-vc-theme]
-   attribute on the chrome root, not a module-local class. */
+/* public-blog.module.css — listing headers, empty states, pagination, 404.
+   The post list itself is @vc/content's PublicPostList. */
 
-/* §4: single-column, borderless index. Entries breathe via ~3rem gap, not rules. */
-.postList {
-  display: grid;
-  gap: 3rem;
+/* ── Listing header (tag / search / 404) ───────────────────────────────── */
+
+.listingHeader {
+  margin: 0 0 2.25rem;
 }
 
-.postCard {
-  /* §1: no card border. Separation is the list gap. */
-}
-
-.postCard p {
+.listingEyebrow {
+  margin: 0 0 0.35rem;
   color: var(--vc-muted-fg);
-  line-height: 1.6;
+  font-size: 0.8125rem;
 }
 
-.coverImage {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--vc-radius);
-  margin-bottom: 18px;
-}
-
-.postCard h2 {
-  margin: 6px 0;
+.listingHeading {
+  margin: 0;
   font-family: var(--vc-font-heading);
-  font-size: calc(clamp(24px, 4vw, 32px) * var(--vc-heading-scale));
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  font-weight: 700;
+  font-size: calc(clamp(1.75rem, 1.3rem + 1.8vw, 2.25rem) * var(--vc-heading-scale));
+  font-weight: max(var(--vc-heading-weight), 650);
+  letter-spacing: calc(var(--vc-heading-tracking) - 0.006em);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
-.postCard a,
-.backLink {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* §4: hover = title color shift only (no hover-card chrome). */
-.postCard h2 a:hover,
-.backLink:hover {
-  color: var(--vc-accent);
-}
-
-/* ==========================================================================
-   Preset identities — index composition matching presets.css token blocks.
-   Title size already tracks --vc-heading-scale; these rules re-voice density
-   and metadata. Scoped to the [data-vc-theme] attribute on the chrome root.
-   ========================================================================== */
-
-/* Editorial — narrative index: maximum air between entries. */
-[data-vc-theme="editorial"] .postList {
-  gap: 3.5rem;
-}
-
-/* Technical — reference index: dense list, mono uppercase dates. */
-[data-vc-theme="technical"] .postList {
-  gap: 2rem;
-}
-
-[data-vc-theme="technical"] .metaLine {
-  font-family: var(--vc-font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-/* Product — launch index: confident spacing, heavier card titles. */
-[data-vc-theme="product"] .postList {
-  gap: 3.25rem;
-}
-
-[data-vc-theme="product"] .postCard h2 {
-  font-weight: 750;
-  letter-spacing: -0.03em;
-}
-
-.backLink {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-/* Listing card meta line — muted, middle-dot separated. */
-.metaLine {
+.listingCount {
+  margin: 0.5rem 0 0;
   color: var(--vc-muted-fg);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin: 0 0 0.5rem;
-  max-width: var(--vc-prose-measure);
+  font-size: 0.875rem;
 }
 
 .empty,
 .notFound {
+  padding: 2rem 0 1rem;
   color: var(--vc-muted-fg);
-  text-align: center;
-  padding: 4rem 1rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.6;
 }
 
-/* ── Search form + listing banners ─────────────────────────────────────────── */
-
-/* §1: search = ONE integrated bordered control (input + submit share a single
-   border + radius). The form itself is the bordered box; the input is transparent
-   inside it and the submit button sits inline, separated by a hairline divider.
-   Accent is reserved for the focus ring. */
-.searchForm {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  background: var(--vc-bg);
-  border: 1px solid var(--vc-border);
-  border-radius: var(--vc-radius);
-  margin-bottom: var(--vc-section-gap);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+.empty p {
+  margin: 0 0 0.75rem;
 }
 
-/* Accessible name for the search field — visually hidden, never the placeholder. */
-.searchLabel {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.notFoundText {
+  margin: 0.75rem 0 1.25rem;
 }
 
-.searchInput {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--vc-radius) - 1px) 0 0 calc(var(--vc-radius) - 1px);
+.emptyLink {
+  color: var(--vc-link);
+  text-underline-offset: 0.2em;
+}
+
+/* ── Pagination ────────────────────────────────────────────────────────── */
+
+.pagination {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  font-size: 0.875rem;
+}
+
+.pageLink {
   color: var(--vc-fg);
-  font-family: var(--vc-font-body);
-  font-size: 1rem;
-  padding: 0.7rem 0.875rem;
-  outline: none;
+  text-decoration: none;
 }
 
-.searchInput::placeholder {
+.pageLink:last-child {
+  justify-self: end;
+}
+
+.pageLink:hover {
+  color: var(--vc-accent);
+}
+
+.pageStatus {
   color: var(--vc-muted-fg);
 }
 
-/* Accent reserved for interactive emphasis: the whole control picks up an accent
-   ring when the field (or button) is focused. */
-.searchForm:focus-within {
-  border-color: var(--vc-accent);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--vc-accent) 30%, transparent);
-}
-
-.searchButton {
-  flex: 0 0 auto;
-  background: transparent;
-  border: none;
-  border-left: 1px solid var(--vc-border);
-  border-radius: 0 calc(var(--vc-radius) - 1px) calc(var(--vc-radius) - 1px) 0;
-  color: var(--vc-muted-fg);
-  font-family: var(--vc-font-body);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0.7rem 1rem;
-  transition: color 180ms ease;
-}
-
-.searchButton:hover {
-  color: var(--vc-fg);
-}
-
-/* ── Focus states ─────────────────────────────────────────────────────────── */
-
-/* Listing links share the chrome's focus language (2px accent outline, 2px
-   offset); chrome links themselves are covered in public-chrome.module.css. */
-.postCard h2 a:focus-visible,
-.backLink:focus-visible {
+.pageLink:focus-visible,
+.emptyLink:focus-visible {
   outline: 2px solid var(--vc-accent);
   outline-offset: 2px;
   border-radius: 3px;
-}
-
-.listingBanner {
-  margin-bottom: var(--vc-section-gap);
-}
-
-.listingHeading {
-  font-family: var(--vc-font-heading);
-  font-size: calc(clamp(22px, 4vw, 32px) * var(--vc-heading-scale));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0 0 8px;
-}
-
-@media (max-width: 640px) {
-  .postCard h2 {
-    font-size: clamp(22px, 6vw, 28px);
-  }
 }

@@ -23,15 +23,35 @@ require_file apps/api/.dev.vars.example
 require_file wrangler.jsonc
 require_file wrangler.public.jsonc
 
-if find . -path './node_modules' -prune -o -path './.wrangler' -prune -o -path './apps/*/dist' -prune -o -path './dist' -prune -o -name '.env' -o -name '.env.*' -o -name '.dev.vars' -o -name '.dev.vars.*' | grep -vE '(\.example)$' | grep -q .; then
+while IFS= read -r tracked_file; do
+  tracked_name="${tracked_file##*/}"
+  case "$tracked_name" in
+    .env|.env.*|.dev.vars|.dev.vars.*)
+      [[ "$tracked_name" == *.example ]] || fail "tracked environment file found: $tracked_file"
+      ;;
+  esac
+done < <(git ls-files)
+
+if find . \
+  -path './node_modules' -prune -o \
+  -path './.git' -prune -o \
+  -path './.wrangler' -prune -o \
+  -path './apps/*/dist' -prune -o \
+  -path './dist' -prune -o \
+  \( -name '.env' -o -name '.env.*' -o -name '.dev.vars' -o -name '.dev.vars.*' \) \
+  ! -name '*.example' -print -quit | grep -q .; then
   echo "warning: local env files exist; keep them untracked and do not publish them" >&2
 fi
 
-if rg -n --hidden --glob '!**/node_modules/**' --glob '!**/.vite/**' --glob '!**/dist/**' --glob '!.wrangler/**' --glob '!pnpm-lock.yaml' --glob '!apps/api/.dev.vars' --glob '!.agents/**' --glob '!scripts/public-release-audit.sh' '(polar_(oat|whs)_[A-Za-z0-9]+|ghp_[A-Za-z0-9_]+|\bsk-[A-Za-z0-9_]+|AIza[0-9A-Za-z_-]+|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' .; then
+if git grep -I -q -E \
+  '(polar_(oat|whs)_[A-Za-z0-9]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|vc_live_[A-Za-z0-9_-]{32,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' \
+  -- . ':(exclude)pnpm-lock.yaml' ':(exclude).agents/**' ':(exclude)scripts/public-release-audit.sh'; then
   fail "possible committed secret found"
 fi
 
-if rg -n --hidden --glob '!**/node_modules/**' --glob '!**/.vite/**' --glob '!**/dist/**' --glob '!.wrangler/**' --glob '!.agents/**' --glob '!scripts/public-release-audit.sh' 'Downloads/|agent_native_blog_docs|bare-bones RedwoodSDK starter|"license": "MIT"|REDACTED' .; then
+if git grep -I -q -E \
+  'Downloads/|agent_native_blog_docs|bare-bones RedwoodSDK starter|"license": "MIT"|REDACTED' \
+  -- . ':(exclude).agents/**' ':(exclude)scripts/public-release-audit.sh'; then
   fail "private scaffolding or stale metadata found"
 fi
 

@@ -17,6 +17,7 @@ export default defineConfig({
   },
   plugins: [cloudflareTest(workerPoolOpts)],
   test: {
+    maxWorkers: 2,
     include: ["src/**/*.test.ts"],
     pool: cloudflarePool(workerPoolOpts),
     globalSetup: ["./src/worker-global-setup.ts"],

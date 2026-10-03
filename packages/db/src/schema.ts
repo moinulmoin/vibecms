@@ -32,6 +32,8 @@ export const sites = sqliteTable("sites", {
   description: text("description"),
   logoAssetId: text("logo_asset_id"),
   faviconAssetId: text("favicon_asset_id"),
+  navLinksJson: text("nav_links_json"),
+  socialLinksJson: text("social_links_json"),
   defaultSeoTitle: text("default_seo_title"),
   defaultSeoDescription: text("default_seo_description"),
   defaultSocialAssetId: text("default_social_asset_id"),
@@ -44,6 +46,20 @@ export const sites = sqliteTable("sites", {
   themeAccent: text("theme_accent"),
   themeFont: text("theme_font"),
   themeMode: text("theme_mode").notNull().default("system"),
+  // Template shape knobs; NULL = the template's default (see @vc/config TEMPLATES).
+  themeRadius: text("theme_radius"),
+  themeWidth: text("theme_width"),
+  // Public byline. NULL name falls back to the site name (never the email).
+  bylineName: text("byline_name"),
+  showAgentCredit: integer("show_agent_credit", { mode: "boolean" }).notNull().default(true),
+  // Personalized onboarding (Layer 3) — nullable so pre-personalization rows
+  // simply read as "not answered yet". voice_seed_json holds up to 3 writing
+  // sample URLs the owner shared so an agent can build the voice profile.
+  agentPreference: text("agent_preference"),
+  voiceSeedJson: text("voice_seed_json").notNull().default("[]"),
+  onboardingNote: text("onboarding_note"),
+  // Newsletter copy and visibility are nullable for backwards-compatible defaults.
+  newsletterSettings: text("newsletter_settings"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 
@@ -53,7 +69,7 @@ export const siteVoiceProfiles = sqliteTable("site_voice_profiles", {
   voiceSummary: text("voice_summary"),
   guidelinesJson: text("guidelines_json").notNull().default("[]"),
   representativePostIdsJson: text("representative_post_ids_json").notNull().default("[]"),
-  updatedByType: text("updated_by_type", { enum: ["human"] }).notNull(),
+  updatedByType: text("updated_by_type", { enum: ["human", "agent", "api_key", "system"] }).notNull(),
   updatedById: text("updated_by_id").notNull(),
   updatedByName: text("updated_by_name").notNull(),
   ...timestamps,
@@ -107,6 +123,7 @@ export const postVersions = sqliteTable("post_versions", {
   title: text("title").notNull(),
   slug: text("slug").notNull(),
   excerpt: text("excerpt"),
+  fallbackExcerpt: text("fallback_excerpt"),
   contentMarkdown: text("content_markdown").notNull(),
   coverAssetId: text("cover_asset_id"),
   status: text("status").notNull(),
@@ -120,6 +137,40 @@ export const postVersions = sqliteTable("post_versions", {
   changeSummary: text("change_summary"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [uniqueIndex("idx_post_versions_post_number").on(table.postId, table.versionNumber)]);
+
+export const postPreviewTokens = sqliteTable("post_preview_tokens", {
+  postId: text("post_id").primaryKey().references(() => posts.id, { onDelete: "cascade" }),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  nonce: text("nonce").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [index("idx_post_preview_tokens_site_hash").on(table.siteId, table.tokenHash)]);
+
+export const postSchedules = sqliteTable("post_schedules", {
+  postId: text("post_id").primaryKey().references(() => posts.id, { onDelete: "cascade" }),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  publishAt: integer("publish_at").notNull(),
+  status: text("status", { enum: ["pending", "processing", "published", "failed"] }).notNull(),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  leaseToken: text("lease_token"),
+  scheduledByType: text("scheduled_by_type").notNull(),
+  scheduledById: text("scheduled_by_id").notNull(),
+  scheduledByName: text("scheduled_by_name").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [index("idx_post_schedules_due").on(table.status, table.publishAt)]);
+
+export const postSlugRedirects = sqliteTable("post_slug_redirects", {
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  fromSlug: text("from_slug").notNull(),
+  postId: text("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_post_slug_redirects_site_slug").on(table.siteId, table.fromSlug),
+  index("idx_post_slug_redirects_post_id").on(table.postId),
+]);
 
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey(),

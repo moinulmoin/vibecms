@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import { app, redactErrorText } from './index'
+import { app, redactErrorText, redactPathSecrets } from './index'
 
 describe('API Worker request hardening', () => {
   it('rejects an oversized auth body before dispatch', async () => {
@@ -127,3 +127,62 @@ describe('GET /api/health/ready', () => {
     expect(body.checks).toMatchObject({ assets: 'unavailable' })
   })
 })
+
+describe('app-host agent discovery', () => {
+  const get = (path: string) => app.fetch(new Request(`https://app.basedui.dev${path}`), env)
+
+  it('serves the catalog, server card, skills index and exact skill artifacts', async () => {
+    const catalog = await get('/.well-known/api-catalog')
+    expect(catalog.status).toBe(200)
+    expect(catalog.headers.get('content-type')).toContain('application/linkset+json')
+    expect((await catalog.json() as { linkset: unknown[] }).linkset).toHaveLength(1)
+
+    const card = await get('/.well-known/mcp/server-card.json')
+    expect(card.headers.get('content-type')).toContain('application/json')
+    expect(await card.json()).toMatchObject({ serverInfo: { name: 'vibecms', version: '0.1.0' }, endpoint: `${env.APP_URL}/mcp`, capabilities: { tools: {} } })
+
+    const index = await get('/.well-known/agent-skills/index.json')
+    const document = await index.json() as { $schema: string; skills: { name: string; url: string; digest: string }[] }
+    expect(document.$schema).toBe('https://schemas.agentskills.io/discovery/0.2.0/schema.json')
+    expect(document.skills.map((skill) => skill.name)).toEqual(['vibecms-core', 'vibecms-writing'])
+    for (const skill of document.skills) {
+      const artifact = await get(new URL(skill.url).pathname)
+      expect(artifact.status).toBe(200)
+      expect(artifact.headers.get('content-type')).toContain('text/markdown')
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(await artifact.text()))
+      expect(skill.digest).toBe(`sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`)
+    }
+  })
+
+  it('serves app host auth, OpenAPI, llms and robots with their expected types', async () => {
+    const auth = await get('/auth.md')
+    expect(auth.headers.get('content-type')).toContain('text/markdown')
+    expect(await auth.text()).toContain('Authorization: Bearer')
+    const openapi = await get('/openapi.json')
+    expect(openapi.status).toBe(200)
+    expect(openapi.headers.get('content-type')).toContain('application/json')
+    expect(await openapi.json()).toMatchObject({ openapi: expect.any(String) })
+    const llms = await get('/llms.txt')
+    expect(llms.headers.get('content-type')).toContain('text/markdown')
+    expect(await llms.text()).toContain(`${env.APP_URL}/mcp`)
+    const robots = await get('/robots.txt')
+    expect(robots.headers.get('content-type')).toContain('text/plain')
+    expect(await robots.text()).toContain('Content-Signal: search=yes, ai-input=yes, ai-train=no')
+  })
+
+  it('returns JSON 404 for unknown well-known paths', async () => {
+    const response = await get('/.well-known/unknown')
+    expect(response.status).toBe(404)
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(await response.json()).toMatchObject({ error: { code: 'NOT_FOUND' } })
+  })
+})
+
+describe('redactPathSecrets', () => {
+  it('keeps preview tokens out of request logs', () => {
+    expect(redactPathSecrets('/preview/0123abcd')).toBe('/preview/[redacted]')
+    expect(redactPathSecrets('/api/v1/posts')).toBe('/api/v1/posts')
+    expect(redactErrorText('fetch https://blog.example/preview/0123abcd failed')).toBe('fetch https://blog.example/preview/[redacted] failed')
+  })
+})
+

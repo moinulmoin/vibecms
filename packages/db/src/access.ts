@@ -1,11 +1,17 @@
-import type { DomainRepository, PostRepository } from "@vc/core";
+import type { Actor, DomainRepository, PostRepository } from "@vc/core";
 import { createDbClient, type DbClient } from "./client";
 import { createActivityRepository, type ActivityRepository } from "./repositories/activity";
 import { createApiKeysRepository, type ApiKeysRepository } from "./repositories/api-keys";
 import { createD1AssetRepository, type AssetDbRepository } from "./repositories/assets";
 import { createD1DomainRepository } from "./repositories/domains";
 import { createD1PostRepository } from "./repositories/posts";
-import { createD1SubscriberRepository, type AddPendingInput } from "./repositories/subscribers";
+import {
+  createD1SubscriberRepository,
+  type AddPendingInput,
+  type SubscriberCountInput,
+  type SubscriberListInput,
+  type SubscriberListRow,
+} from "./repositories/subscribers";
 import { createSitesRepository, type SitesRepository } from "./repositories/sites";
 import { createVoiceProfilesRepository, type VoiceProfilesRepository } from "./repositories/voice-profiles";
 import { createBillingRepository, type BillingRepository } from "./repositories/billing";
@@ -21,9 +27,12 @@ import { createPublicBlogReadModel, type PublicBlogReadModel } from "./read-mode
 import { createDashboardReadModel, type DashboardReadModel } from "./read-models/dashboard";
 import { createExportReadModel, type ExportReadModel } from "./read-models/exports";
 
-// Shape returned by createD1SubscriberRepository (which has no named type).
+// Shape returned by createD1SubscriberRepository.
 export interface SubscriberRepository {
   addPending(input: AddPendingInput): Promise<{ created: boolean }>;
+  list(input: SubscriberListInput): Promise<SubscriberListRow[]>;
+  count(siteId: string, input?: SubscriberCountInput): Promise<{ total: number; pendingCount: number }>;
+  deleteById(siteId: string, id: string, actor: Actor): Promise<boolean>;
 }
 
 export interface DataAccess {

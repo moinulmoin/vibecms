@@ -1,6 +1,5 @@
 import type { Asset, BillingStatus, DomainRecord, Post, PostVersionSummary } from '@vc/core'
-import type { VoiceProfileSettingsInput } from '@vc/validators'
-
+import type { NewsletterSettings, VoiceProfileSettingsInput } from '@vc/validators'
 export type SessionUser = { id: string; name: string; email: string }
 
 export type AppChoice = {
@@ -26,6 +25,7 @@ export type AppUserContext = {
 
 export type AppRouterContext = {
   googleEnabled: boolean
+  githubEnabled: boolean
   user: SessionUser | null
   app: AppUserContext | null
   apps: AppChoice[]
@@ -73,6 +73,8 @@ export type DashboardData = {
   counts: { published: number; draft: number; archived: number }
   media: { bytes: number; count: number }
   tokenCount: number
+  usedTokenCount?: number
+  subscriberCount: number
   versionCount: number
   recentPosts: Array<{
     id: string
@@ -81,6 +83,7 @@ export type DashboardData = {
     status: Post['status']
     updatedAt: number
     publishedAt: number | null
+    scheduledPublish?: Post['scheduledPublish']
   }>
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
   recentDrafts: Array<{
@@ -91,6 +94,9 @@ export type DashboardData = {
     updatedAt: number
     publishedAt: number | null
   }>
+  /** Posts waiting on a human decision: agent drafts and live posts with unpublished changes. */
+  needsReview?: DashboardReviewPost[]
+  needsReviewCount?: number
   recentActivity: Array<{ action: string; summary: string; actor_name: string; created_at: number }>
   activationPost: null | {
     id: string
@@ -158,6 +164,14 @@ export type ApiKeyListItem = {
   revokedAt: number | null
 }
 
+export type AgentPreference = 'claude_code' | 'codex' | 'cursor' | 'droid' | 'other'
+
+export type SitePersonalization = {
+  agentPreference: AgentPreference | null
+  voiceSeed: string[]
+  onboardingNote: string | null
+}
+
 export type ConnectPageData = {
   canManage: boolean
   mcpUrl: string
@@ -171,6 +185,10 @@ export type ConnectPageData = {
     expiresAt: number | null
     effective: boolean
   } | null
+  personalization: {
+    agentPreference: AgentPreference | null
+    voiceSeedPending: boolean
+  }
 }
 
 export type ActivationKeyInfo = {
@@ -229,6 +247,10 @@ export type VoiceProfileSettings = {
 }
 
 export type SiteSettingsForm = {
+  logoAssetId: string | null
+  faviconAssetId: string | null
+  navLinks: { label: string; url: string }[]
+  socialLinks: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   name: string
   description: string
   defaultSeoTitle: string
@@ -239,6 +261,16 @@ export type SiteSettingsForm = {
   themeAccent: string
   themeFont: string
   themeMode: string
+  /** Resolved template radius (THEME_RADII). */
+  themeRadius: string
+  /** Resolved template reading width (THEME_WIDTHS). */
+  themeWidth: string
+  /** Public author name; '' means "use the site name". Never the email. */
+  bylineName: string
+  /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
+  showAgentCredit: boolean
+  updatedAt: number
+  newsletterSettings: NewsletterSettings
 }
 
 export type SettingsPageData = {
@@ -266,12 +298,22 @@ export type SettingsPageData = {
 }
 
 export type ActivityEvent = {
+  id?: string
   action: string
   summary: string
   actor_type: string
   actor_name: string
   created_at: number
+  entity_type?: string
+  entity_id?: string
+  /** Short before → after lines (title, URL, status, body size). */
+  changes?: string[]
+  /** Optional snapshots on newer site events; older rows only have a summary. */
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
 }
+
+export type ActivityActorFilter = 'human' | 'agent'
 
 export type ActivityPageLoad = {
   events: ActivityEvent[]
@@ -280,11 +322,22 @@ export type ActivityPageLoad = {
 
 export type EditorSiteInfo = {
   name: string
+  logoAssetId?: string | null
+  navLinks?: { label: string; url: string }[]
+  socialLinks?: { kind: "x" | "github" | "linkedin" | "bluesky" | "mastodon" | "youtube" | "instagram" | "website" | "email"; url: string }[]
   description: string | null
   slug: string
   themeAccent: string | null
   themeFont: string | null
   themeMode: string
+  /** Template shape knobs (null = template default). */
+  themeRadius?: string | null
+  themeWidth?: string | null
+  /** Public author name (null = site name) and agent credit setting. */
+  bylineName?: string | null
+  showAgentCredit?: boolean
+  /** Subscribe form copy/visibility, as the public end-of-post form uses it. */
+  newsletterSettings?: { enabled: boolean; heading: string; subtext: string; buttonLabel: string } | null
 }
 
 export type PostEditorPageLoad = {
@@ -296,17 +349,35 @@ export type PostEditorPageLoad = {
   site: EditorSiteInfo | null
   /** Public origin of the blog (null when no active hostname), for open-live links. */
   publicBaseUrl: string | null
+  previewUrl?: string | null
   currentVersionNumber: number | null
   /** Latest saved version (newest first), for the review strip's actor/time line. */
   latestVersion: PostVersionSummary | null
+  redirectSlugs?: string[]
 }
 
 export type PostsPageLoad = {
   posts: DashboardPostSummary[]
   hasMore: boolean
+  /** Public origin for "view live" links; only on the first page. */
+  publicBaseUrl?: string | null
+  /** Tab counts ("all" leaves out archived); only on the first page. */
+  counts?: Record<'all' | 'review' | 'draft' | 'published' | 'archived', number> | null
 }
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
+
+export type DashboardReviewPost = {
+  id: string
+  title: string
+  slug: string
+  status: Post['status']
+  updatedAt: number
+  publishedAt: number | null
+  versionNumber: number | null
+  publishedVersionNumber: number | null
+  latestActorType: string | null
+}
 
 export type DashboardPostSummary = {
   id: string
@@ -320,10 +391,19 @@ export type DashboardPostSummary = {
   createdAt: number
   updatedAt: number
   versionNumber: number | null
+  /** Version pinned live; lower than versionNumber = changes waiting for review. */
+  publishedVersionNumber?: number | null
+  /** Slug of the live version; the draft slug may differ until it is published. */
+  publishedSlug?: string | null
+  /** The live version's title, excerpt, and tags (null when never published). */
+  published?: { title: string; excerpt: string | null; tags: string[] } | null
+  /** Who wrote the tip version (human/agent/api_key/system). */
+  latestActorType?: string | null
   /** Last-change actor: type (human/agent/api_key/system) + resolved name
    * (user.name or api key name; null when neither matches). */
   updatedByType: string | null
   updatedByName: string | null
+  scheduledPublish?: Post['scheduledPublish']
 }
 
 export type ApiKeyMutationResult =
@@ -338,5 +418,21 @@ export type VoiceProfileMutationResult =
 
 export type AddCustomDomainResult = { ok: true; domain: CustomDomainView } | { ok: false; code: string }
 export type RemoveCustomDomainResult = { ok: true } | { ok: false; code: string }
+export type SubscriberStatus = 'pending' | 'confirmed' | 'unsubscribed'
 
-export type { VoiceProfileSettingsInput }
+export type SubscriberRow = {
+  id: string
+  email: string
+  status: SubscriberStatus
+  sourceUrl: string | null
+  createdAt: number
+  consentVersion: string
+}
+
+export type SubscribersPageLoad = {
+  rows: SubscriberRow[]
+  total: number
+  pendingCount: number
+}
+
+export type { NewsletterSettings, VoiceProfileSettingsInput }

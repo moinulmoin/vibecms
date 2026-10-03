@@ -1,0 +1,134 @@
+---
+import "../styles/global.css";
+import "../styles/landing.css";
+import { BRAND, LEGAL } from "@vc/config";
+import { seo } from "../lib/landing-seo";
+import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
+import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
+
+interface Props {
+  title: string;
+  description: string;
+  updated: string;
+}
+const { title, description, updated } = Astro.props;
+const meta = seo({
+  title: `${title} | ${BRAND.name}`,
+  description,
+});
+const legalLinks = [
+  ["Privacy", LEGAL.privacy],
+  ["Terms", LEGAL.terms],
+  ["Support", LEGAL.support],
+] as const;
+---
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0c100e" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f8f4" media="(prefers-color-scheme: light)" />
+    {meta.map((tag) =>
+      "title" in tag ? <title>{String(tag.title)}</title> :
+      "name" in tag && tag.name ? <meta name={String(tag.name)} content={String(tag.content ?? "")} /> :
+      "property" in tag && tag.property ? <meta property={String(tag.property)} content={String(tag.content ?? "")} /> :
+      null
+    )}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="preload" href={geistFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistMonoFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+  </head>
+  <body>
+    <div class="min-h-dvh bg-background text-foreground">
+      <header class="border-b border-[color:var(--hairline)]">
+        <div class="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-4 sm:px-7">
+          <a
+            href="/"
+            class="inline-flex min-h-[40px] items-center gap-2.5 no-underline"
+          >
+            <img src="/brand/icon.svg" alt="" class="size-7 rounded-lg" aria-hidden="true" />
+            <span class="font-mono text-[15px] font-medium lowercase tracking-tight text-foreground">
+              vibecms<span class="text-brand-bright">.</span>
+            </span>
+          </a>
+          <nav class="flex items-center gap-1 font-mono text-[12px] text-muted-foreground sm:gap-2" aria-label="Legal">
+            {legalLinks.map(([label, href]) => (
+              <a
+                class="inline-flex min-h-[40px] items-center rounded-md px-2.5 no-underline hover:text-foreground sm:px-3"
+                href={href}
+                aria-current={Astro.url.pathname === href ? "page" : undefined}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+        </div>
+      </header>
+      <main class="mx-auto w-full max-w-[720px] px-5 py-14 sm:px-7 sm:py-20">
+        <p class="font-mono text-xs text-brand-bright">// legal</p>
+        <h1 class="mt-3 text-balance font-display text-[clamp(1.875rem,5vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-foreground">
+          {title}
+        </h1>
+        <p class="mt-3 font-mono text-[12px] text-muted-foreground">
+          Last updated · {updated}
+        </p>
+        <article class="legal-doc mt-10">
+          <slot />
+        </article>
+      </main>
+      <footer class="border-t border-[color:var(--hairline)]">
+        <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-5 py-6 sm:px-7">
+          <p class="font-mono text-xs text-muted-foreground">
+            © {new Date().getFullYear()} vibecms - Ideaplexa LLC
+          </p>
+          <a
+            class="inline-flex min-h-[40px] items-center font-mono text-xs text-muted-foreground no-underline hover:text-foreground"
+            href="/"
+          >
+            <span aria-hidden="true">←</span>&nbsp;Back to vibecms.dev
+          </a>
+        </div>
+      </footer>
+    </div>
+    <style is:global>
+      .legal-doc p {
+        color: var(--muted-foreground);
+        font-size: 15px;
+        line-height: 1.75;
+        margin-top: 1rem;
+      }
+      .legal-doc h2 {
+        color: var(--foreground);
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin-top: 2.75rem;
+      }
+      .legal-doc ul {
+        color: var(--muted-foreground);
+        font-size: 15px;
+        line-height: 1.75;
+        list-style: disc;
+        margin-top: 1rem;
+        padding-left: 1.25rem;
+      }
+      .legal-doc li + li {
+        margin-top: 0.375rem;
+      }
+      .legal-doc strong {
+        color: var(--foreground);
+        font-weight: 600;
+      }
+      .legal-doc a {
+        color: var(--brand-bright);
+        text-underline-offset: 3px;
+      }
+      .legal-doc a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </body>
+</html>

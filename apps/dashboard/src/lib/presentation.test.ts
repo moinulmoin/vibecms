@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { resolvePresentation } from '@vc/config';
 
-// Preset defaults (from packages/config):
-//   minimal:   { layout: 'standard', toc: false }, supportedLayouts: ['standard'],          supportsToc: false
-//   editorial: { layout: 'essay',    toc: false }, supportedLayouts: ['standard', 'essay'], supportsToc: true
-//   technical: { layout: 'standard', toc: false }, supportedLayouts: ['standard'],          supportsToc: true
-//   product:   { layout: 'feature',  toc: false }, supportedLayouts: ['standard','feature'],supportsToc: false
+// Preset defaults (from packages/config): every preset supports every layout
+// and the page-level ToC; they differ only in defaults.
+//   minimal:   { layout: 'standard', toc: true }
+//   editorial: { layout: 'essay',    toc: true }
+//   technical: { layout: 'standard', toc: true }
+//   product:   { layout: 'feature',  toc: false }
 
 describe('resolvePresentation', () => {
   // ─── null / undefined input ─────────────────────────────────────────────────
@@ -14,14 +15,14 @@ describe('resolvePresentation', () => {
     it('returns requested:null and the preset default when requested is null', () => {
       const r = resolvePresentation('minimal', null);
       expect(r.requested).toBeNull();
-      expect(r.resolved).toEqual({ layout: 'standard', toc: false });
+      expect(r.resolved).toEqual({ layout: 'standard', toc: true });
       expect(r.warnings).toHaveLength(0);
     });
 
     it('returns requested:null and the preset default when requested is undefined', () => {
       const r = resolvePresentation('editorial', undefined);
       expect(r.requested).toBeNull();
-      expect(r.resolved).toEqual({ layout: 'essay', toc: false });
+      expect(r.resolved).toEqual({ layout: 'essay', toc: true });
       expect(r.warnings).toHaveLength(0);
     });
 
@@ -29,7 +30,7 @@ describe('resolvePresentation', () => {
       const r = resolvePresentation('not-a-real-preset', null);
       expect(r.requested).toBeNull();
       // resolvePresetId falls back to 'minimal' (DEFAULT_PRESET_ID)
-      expect(r.resolved).toEqual({ layout: 'standard', toc: false });
+      expect(r.resolved).toEqual({ layout: 'standard', toc: true });
       expect(r.warnings).toHaveLength(0);
     });
   });
@@ -38,43 +39,37 @@ describe('resolvePresentation', () => {
 
   describe('unsupported layout', () => {
     it('clamps an unsupported layout to the preset default and pushes a warning', () => {
-      // minimal only supports 'standard'; 'feature' is unsupported
-      const r = resolvePresentation('minimal', { layout: 'feature' });
+      // Unknown layout values (e.g. from an old agent) clamp to the preset default.
+      const r = resolvePresentation('minimal', { layout: 'grid' as never });
       expect(r.resolved.layout).toBe('standard');
       expect(r.warnings).toHaveLength(1);
-      expect(r.warnings[0]).toMatch(/layout.*feature.*not supported/);
+      expect(r.warnings[0]).toMatch(/layout.*grid.*not supported/);
     });
 
     it('clamps an unsupported layout on the product preset', () => {
-      // product supports ['standard', 'feature']; 'essay' is not in that list
-      const r = resolvePresentation('product', { layout: 'essay' });
+      const r = resolvePresentation('product', { layout: 'magazine' as never });
       expect(r.resolved.layout).toBe('feature'); // product default
       expect(r.warnings).toHaveLength(1);
     });
 
     it('stores the original requested value even when the layout is clamped', () => {
-      const r = resolvePresentation('minimal', { layout: 'feature' });
-      expect(r.requested).toEqual({ layout: 'feature' });
+      const r = resolvePresentation('minimal', { layout: 'grid' as never });
+      expect(r.requested).toEqual({ layout: 'grid' });
     });
   });
 
   // ─── toc:true clamps to false + warning when !supportsToc ───────────────────
 
-  describe('toc:true on a preset that does not support TOC', () => {
-    it('clamps toc:true to false and pushes a warning for the minimal preset', () => {
-      const r = resolvePresentation('minimal', { toc: true });
-      expect(r.resolved.toc).toBe(false);
-      expect(r.warnings).toHaveLength(1);
-      expect(r.warnings[0]).toMatch(/toc.*not supported/);
+  describe('toc is honored on every preset', () => {
+    it('keeps toc:true on minimal and product without warnings', () => {
+      for (const preset of ['minimal', 'product']) {
+        const r = resolvePresentation(preset, { toc: true });
+        expect(r.resolved.toc).toBe(true);
+        expect(r.warnings).toHaveLength(0);
+      }
     });
 
-    it('clamps toc:true to false and pushes a warning for the product preset', () => {
-      const r = resolvePresentation('product', { toc: true });
-      expect(r.resolved.toc).toBe(false);
-      expect(r.warnings).toHaveLength(1);
-    });
-
-    it('does NOT warn when toc:false is passed to a preset that does not support TOC', () => {
+    it('lets a post opt out of the default toc', () => {
       const r = resolvePresentation('minimal', { toc: false });
       expect(r.resolved.toc).toBe(false);
       expect(r.warnings).toHaveLength(0);

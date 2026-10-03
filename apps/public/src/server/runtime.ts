@@ -1,5 +1,6 @@
 import type { APIContext } from "astro";
 import { env } from "cloudflare:workers";
+import type { OgCardModel } from "@vc/content/og-card";
 import type { PublicRuntimeEnv } from "../env";
 import { parsePublicRuntimeEnv } from "./public-url";
 
@@ -30,4 +31,7 @@ export function publicImages(context: APIContext): ImagesBinding | undefined {
 
 export function apiBinding(context: APIContext): Fetcher {
   return workerEnv(context).API;
+}
+export function ogBinding(context: APIContext): { render(model: OgCardModel): Promise<Uint8Array<ArrayBuffer>> } | undefined {
+  return (workerEnv(context) as unknown as { OG?: { render(model: OgCardModel): Promise<Uint8Array<ArrayBuffer>> } }).OG;
 }

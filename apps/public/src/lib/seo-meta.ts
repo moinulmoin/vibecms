@@ -12,9 +12,21 @@
  *  - `buildPostHeadContent` emits the full TanStack `head()` payload.
  */
 
+import {
+  OG_CARD_HEIGHT,
+  OG_CARD_WIDTH,
+  ogCardTextSupported,
+  ogCardVersion,
+  ogImagePath,
+} from './og-card';
+import { resolveBylineName } from './byline';
+
 /** Snake_case subset of a published post row, matching the app-layer PostRow. */
 export interface SeoPostInput {
   title: string;
+  /** Needed for the generated share card URL (`/og/{slug}.png`). */
+  slug?: string;
+  published_by_agent?: boolean | null;
   excerpt: string | null;
   published_at: number | null;
   updated_at: number | null;
@@ -31,6 +43,16 @@ export interface SeoPostInput {
 /** Minimal site identity consumed by the SEO builders. */
 export interface SeoSiteInput {
   name: string;
+  // Theme + byline inputs version the generated share card (see og-card.ts).
+  theme?: string | null;
+  theme_accent?: string | null;
+  theme_font?: string | null;
+  theme_mode?: string | null;
+  theme_radius?: string | null;
+  description?: string | null;
+  default_seo_description?: string | null;
+  byline_name?: string | null;
+  show_agent_credit?: boolean | null;
   default_social_asset_id?: string | null;
   default_social_asset_mime_type?: string | null;
   default_social_asset_width?: number | null;
@@ -49,18 +71,37 @@ export type ResolvedSocialImage = {
   mimeType: string;
   width: number | null;
   height: number | null;
-  source: 'post' | 'site' | 'brand';
+  source: 'post' | 'site' | 'generated';
 };
+
+function generatedCard(origin: string, post: SeoPostInput | null, site: SeoSiteInput): ResolvedSocialImage {
+  const version = ogCardVersion(site, post, new URL(origin).host);
+  return {
+    url: absoluteUrlPath(origin, `${ogImagePath(post?.slug)}?v=${version}`),
+    alt: post ? post.title : site.name,
+    mimeType: 'image/png',
+    width: OG_CARD_WIDTH,
+    height: OG_CARD_HEIGHT,
+    source: 'generated',
+  };
+}
 
 /**
  * One deterministic image decision shared by Open Graph, Twitter, and
- * structured data: post featured image → site default → VibeCMS fallback.
+ * structured data. Tenant blogs never fall back to vibecms branding:
+ *  - post: its cover (agents set it via MCP/CLI) → a generated card in the
+ *    blog's theme (`/og/{slug}.png?v=…`)
+ *  - index/tag (post = null): the site default share image → a generated
+ *    home card (`/og.png?v=…`)
+ * A post whose title the card fonts can't draw (e.g. CJK) uses the index
+ * decision instead of rendering missing-glyph boxes.
  */
 export function resolveSocialImage(
   origin: string,
   post: SeoPostInput | null,
   site: SeoSiteInput,
-): ResolvedSocialImage {
+  generatedCards: boolean,
+): ResolvedSocialImage | null {
   if (post?.cover_asset_id) {
     return {
       url: absoluteUrlPath(origin, `/media-assets/${post.cover_asset_id}`),
@@ -71,6 +112,7 @@ export function resolveSocialImage(
       source: 'post',
     };
   }
+  if (generatedCards && post?.slug && ogCardTextSupported(post.title)) return generatedCard(origin, post, site);
   if (site.default_social_asset_id) {
     return {
       url: absoluteUrlPath(origin, `/media-assets/${site.default_social_asset_id}`),
@@ -81,14 +123,7 @@ export function resolveSocialImage(
       source: 'site',
     };
   }
-  return {
-    url: absoluteUrlPath(origin, '/brand/og.png'),
-    alt: 'VibeCMS',
-    mimeType: 'image/png',
-    width: 1200,
-    height: 630,
-    source: 'brand',
-  };
+  return generatedCards ? generatedCard(origin, null, site) : null;
 }
 
 /** W3C date (`YYYY-MM-DD`); empty string for null/undefined/NaN. */
@@ -144,10 +179,11 @@ export function buildBlogPostingJsonLd(input: {
   site: SeoSiteInput;
   origin: string;
   canonicalUrl: string;
-  socialImage?: ResolvedSocialImage;
+  socialImage?: ResolvedSocialImage | null;
+  generatedCards?: boolean;
 }): Record<string, unknown> {
   const { post, site, origin, canonicalUrl } = input;
-  const socialImage = input.socialImage ?? resolveSocialImage(origin, post, site);
+  const socialImage = input.socialImage === undefined ? resolveSocialImage(origin, post, site, input.generatedCards ?? true) : input.socialImage;
 
   const obj: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -158,7 +194,10 @@ export function buildBlogPostingJsonLd(input: {
       '@id': absoluteUrlPath(origin, canonicalUrl),
     },
     publisher: { '@type': 'Organization', name: site.name },
-    author: { '@type': 'Organization', name: site.name },
+    // Public byline only (never an account email); unset → the publication.
+    author: site.byline_name?.trim()
+      ? { '@type': 'Person', name: resolveBylineName(site) }
+      : { '@type': 'Organization', name: site.name },
   };
 
   const description = post.seo_description || post.excerpt;
@@ -170,7 +209,7 @@ export function buildBlogPostingJsonLd(input: {
   const dateModified = formatIsoDate(post.updated_at);
   if (dateModified) obj.dateModified = dateModified;
 
-  obj.image = socialImage.url;
+  if (socialImage) obj.image = socialImage.url;
 
   return obj;
 }
@@ -182,6 +221,7 @@ export interface PostHeadInput {
   canonicalUrl: string;
   origin: string;
   indexable: boolean;
+  generatedCards: boolean;
 }
 
 /**
@@ -199,7 +239,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const effectiveCanonical = post.canonical_url || canonicalUrl;
   const absoluteCanonical = absoluteUrlPath(origin, effectiveCanonical);
-  const socialImage = resolveSocialImage(origin, post, site);
+  const socialImage = resolveSocialImage(origin, post, site, input.generatedCards);
 
   const meta: Array<Record<string, unknown>> = [{ title: seoTitle }];
   if (seoDescription) {
@@ -211,28 +251,31 @@ export function buildPostHeadContent(input: PostHeadInput): {
   }
   meta.push({ property: 'og:type', content: 'article' });
   meta.push({ property: 'og:url', content: absoluteCanonical });
-  meta.push({ property: 'og:image', content: socialImage.url });
-  meta.push({ property: 'og:image:type', content: socialImage.mimeType });
-  if (socialImage.width) meta.push({ property: 'og:image:width', content: String(socialImage.width) });
-  if (socialImage.height) meta.push({ property: 'og:image:height', content: String(socialImage.height) });
-  meta.push({ property: 'og:image:alt', content: socialImage.alt });
+  if (socialImage) {
+    meta.push({ property: 'og:image', content: socialImage.url });
+    meta.push({ property: 'og:image:type', content: socialImage.mimeType });
+    if (socialImage.width) meta.push({ property: 'og:image:width', content: String(socialImage.width) });
+    if (socialImage.height) meta.push({ property: 'og:image:height', content: String(socialImage.height) });
+    meta.push({ property: 'og:image:alt', content: socialImage.alt });
+  }
   meta.push({ property: 'og:site_name', content: site.name });
   const publishedIso = formatIsoDate(post.published_at);
   if (publishedIso) meta.push({ property: 'article:published_time', content: publishedIso });
   const modifiedIso = formatIsoDate(post.updated_at);
   if (modifiedIso) meta.push({ property: 'article:modified_time', content: modifiedIso });
-  meta.push({ name: 'twitter:card', content: 'summary_large_image' });
+  meta.push({ name: 'twitter:card', content: socialImage ? 'summary_large_image' : 'summary' });
   meta.push({ name: 'twitter:title', content: seoTitle });
   if (seoDescription) meta.push({ name: 'twitter:description', content: seoDescription });
-  meta.push({ name: 'twitter:image', content: socialImage.url });
-  meta.push({ name: 'twitter:image:alt', content: socialImage.alt });
+  if (socialImage) {
+    meta.push({ name: 'twitter:image', content: socialImage.url });
+    meta.push({ name: 'twitter:image:alt', content: socialImage.alt });
+  }
   if (!indexable) {
     meta.push({ name: 'robots', content: 'noindex,nofollow' });
   }
 
-  const markdownAlternate = absoluteCanonical.endsWith('.md')
-    ? absoluteCanonical
-    : `${absoluteCanonical.replace(/\/$/, '')}.md`;
+  const servingSlug = post.slug ?? new URL(canonicalUrl, origin).pathname.replace(/^\//, "");
+  const markdownAlternate = new URL(`/${servingSlug}.md`, origin).href;
   const links: Array<Record<string, unknown>> = [
     { rel: 'canonical', href: absoluteCanonical },
     { rel: 'alternate', type: 'text/markdown', href: markdownAlternate },

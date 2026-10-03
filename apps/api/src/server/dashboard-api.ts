@@ -1,3 +1,5 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks } from '@vc/validators'
+import { publicBlogBaseDomain } from '@/server/public-url'
 import type { Post } from '@vc/core'
 import { listPostVersions, getPostVersion } from '@vc/core'
 import { resolvePresetId } from '@vc/config'
@@ -11,7 +13,7 @@ import {
   type CheckoutInterval,
 } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
-import { getActivity } from '@/server/cms'
+import { getActivity, type ActivityActorFilter } from '@/server/cms'
 import { getDashboardData } from '@/server/cms-dashboard'
 import {
   canManageApiKeys,
@@ -23,21 +25,30 @@ import {
 import { getMedia, updateAssetAltForApp } from '@/server/media'
 import {
   completeSiteSetupForApp,
+  getNewsletterSettingsForApp,
   getSiteSettings,
   getSiteSetup,
+  loadPersonalization,
+  updateNewsletterSettingsForApp,
   updateSiteSettingsForApp,
+  type AgentPreference,
 } from '@/server/onboarding'
 import { getSitePublicBaseUrl } from '@/server/site-public-url'
+import { previewUrlForPost } from '@/server/post-preview'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '@/server/custom-domains'
-import { voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
-import { clearVoiceProfileForApp, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
+import { newsletterSettingsSchema, voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
+import { clearVoiceProfileForApp, getVoiceProfileForSite, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
 import type { AppUserContext } from '@/server/onboarding'
 import {
   archivePostForApp,
   createPostForApp,
+  deleteArchivedPostForApp,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   restorePostVersionForApp,
   updatePostForApp,
+  unarchivePostForApp,
   type PostFormPayload,
 } from '@/server/post-mutations'
 import { loadAnalyticsForApp, type AnalyticsRange } from '@/server/analytics'
@@ -49,6 +60,9 @@ export interface DashboardPostSummary {
   id: string
   title: string
   slug: string
+  publishedSlug: string | null
+  /** What readers see: the live version's title, excerpt, and tags. */
+  published: { title: string; excerpt: string | null; tags: string[] } | null
   excerpt: string | null
   coverAssetId: string | null
   status: Post['status']
@@ -57,7 +71,14 @@ export interface DashboardPostSummary {
   createdAt: number
   updatedAt: number
   versionNumber: number | null
+  publishedVersionNumber: number | null
+  latestActorType: string | null
+  updatedByType: string | null
+  updatedByName: string | null
+  scheduledPublish: Post['scheduledPublish']
 }
+
+const POST_LIST_SORTS = new Set(['updated', 'created', 'title', 'published'])
 
 export type ConnectPageData = {
   canManage: boolean
@@ -72,6 +93,12 @@ export type ConnectPageData = {
     expiresAt: number | null
     effective: boolean
   } | null
+  personalization: {
+    /** Agent identity from onboarding's client choice; drives the connect-page dialect. */
+    agentPreference: AgentPreference | null
+    /** Voice seed saved but voice profile not built yet — agent/deferred recommendation. */
+    voiceSeedPending: boolean
+  }
 }
 
 export type OnboardingKey = null | {
@@ -142,8 +169,62 @@ export async function loadDashboardOverview(app: AppUserContext) {
   return getDashboardData(app)
 }
 
+const SUBSCRIBERS_PAGE_SIZE = 50
+
+type SubscriberStatus = 'pending' | 'confirmed' | 'unsubscribed'
+
+function subscriberStatus(value: string | undefined): SubscriberStatus | undefined {
+  return value === 'pending' || value === 'confirmed' || value === 'unsubscribed' ? value : undefined
+}
+
+export async function loadSubscribersPage(
+  app: AppUserContext,
+  input: { search?: string; status?: string; offset?: number } = {},
+) {
+  const status = subscriberStatus(input.status)
+  const search = input.search?.trim().slice(0, 120) || undefined
+  const offset = Math.min(Math.max(Math.floor(input.offset ?? 0), 0), 1_000_000)
+  const db = createDataAccess(env.DB)
+  const [rows, counts] = await Promise.all([
+    db.subscribers.list({ siteId: app.siteId, search, status, limit: SUBSCRIBERS_PAGE_SIZE, offset }),
+    db.subscribers.count(app.siteId, { search, status }),
+  ])
+  return { rows, total: counts.total, pendingCount: counts.pendingCount }
+}
+
+export async function deleteSubscriberForApp(app: AppUserContext, subscriberId: string) {
+  const deleted = await createDataAccess(env.DB).subscribers.deleteById(app.siteId, subscriberId, app.actor)
+  return deleted ? { kind: 'ok' as const, code: 'subscriber_deleted' } : { kind: 'error' as const, code: 'not_found' }
+}
+
+function csvField(value: string | number | null): string {
+  const text = value === null ? '' : String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+export async function exportSubscribersCsv(app: AppUserContext): Promise<string> {
+  const db = createDataAccess(env.DB)
+  const { total } = await db.subscribers.count(app.siteId)
+  const rows = await db.subscribers.list({
+    siteId: app.siteId,
+    limit: Math.max(total, 1),
+    offset: 0,
+  })
+  const lines = [
+    ['email', 'status', 'source_url', 'consent_version', 'created_at'].join(','),
+    ...rows.map((row) => [
+      csvField(row.email),
+      csvField(row.status),
+      csvField(row.sourceUrl),
+      csvField(row.consentVersion),
+      csvField(new Date(row.createdAt * 1000).toISOString()),
+    ].join(',')),
+  ]
+  return `\uFEFF${lines.join('\r\n')}\r\n`
+}
+
 export async function loadSetupPage(app: AppUserContext) {
-  return getSiteSetup(app)
+  return { ...(await getSiteSetup(app)), baseDomain: publicBlogBaseDomain() }
 }
 
 export async function loadSettingsPage(app: AppUserContext) {
@@ -188,12 +269,19 @@ export async function loadSettingsPage(app: AppUserContext) {
 }
 
 export async function loadMediaPage(app: AppUserContext) {
-  return { assets: await getMedia(app) }
+  const [assets, entitlement] = await Promise.all([
+    getMedia(app),
+    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+  ])
+  return {
+    assets,
+    mediaGate: { effective: entitlement.effective, selfHosted: entitlement.access === 'self_hosted' },
+  }
 }
 
-export async function loadActivityPage(app: AppUserContext, offset = 0) {
+export async function loadActivityPage(app: AppUserContext, offset = 0, actor?: ActivityActorFilter) {
   const safeOffset = Math.min(Math.max(offset, 0), 10_000)
-  const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, safeOffset)
+  const fetched = await getActivity(app, ACTIVITY_PAGE_SIZE + 1, safeOffset, actor)
   const hasMore = fetched.length > ACTIVITY_PAGE_SIZE
   return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
 }
@@ -204,15 +292,21 @@ export async function loadAnalyticsPage(app: AppUserContext, rangeDays: Analytic
 
 export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageData> {
   const canManage = canManageApiKeys(app)
-  const [apiKeys, managedSnapshot, entitlement] = await Promise.all([
+  const [apiKeys, managedSnapshot, entitlement, personalization, voiceProfile] = await Promise.all([
     listApiKeys(app),
     createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
+    loadPersonalization(app),
+    getVoiceProfileForSite(app.siteId),
   ])
   return {
     canManage,
     mcpUrl: `${env.APP_URL}/mcp`,
     apiKeys,
+    personalization: {
+      agentPreference: personalization.agentPreference,
+      voiceSeedPending: personalization.voiceSeed.length > 0 && !voiceProfile?.configured,
+    },
     effectiveEntitlement: {
       effective: entitlement.effective,
       source: entitlement.source,
@@ -229,18 +323,22 @@ export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageD
 
 export async function loadPostsPage(
   app: AppUserContext,
-  input: { status?: string; search?: string; offset?: number },
+  input: { status?: string; search?: string; sort?: string; offset?: number },
 ) {
   const status =
-    input.status === 'draft' || input.status === 'published' || input.status === 'archived'
+    input.status === 'draft' || input.status === 'published' || input.status === 'archived' || input.status === 'review'
       ? input.status
       : undefined
+  const sort = input.sort && POST_LIST_SORTS.has(input.sort)
+    ? (input.sort as 'updated' | 'created' | 'title' | 'published')
+    : undefined
   const offset = Math.min(Math.max(input.offset ?? 0, 0), 10_000)
   // One read-model query: summary + latest version number + last-change actor
   // (the previous shape fetched versions per row — N+1).
   const rows = await createDataAccess(env.DB).dashboard.listPostsForDashboard(app.siteId, {
     status,
     search: input.search?.trim() || undefined,
+    sort,
     limit: POSTS_PAGE_SIZE + 1,
     offset,
   })
@@ -248,6 +346,10 @@ export async function loadPostsPage(
     id: row.id,
     title: row.title,
     slug: row.slug,
+    publishedSlug: row.publishedSlug,
+    published: row.publishedTitle === null
+      ? null
+      : { title: row.publishedTitle, excerpt: row.publishedExcerpt, tags: row.publishedTagsJson ? (JSON.parse(row.publishedTagsJson) as string[]) : [] },
     excerpt: row.excerpt,
     coverAssetId: row.coverAssetId,
     status: row.status,
@@ -256,11 +358,38 @@ export async function loadPostsPage(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     versionNumber: row.versionNumber,
+    publishedVersionNumber: row.publishedVersionNumber,
+    latestActorType: row.latestActorType,
     updatedByType: row.updatedByType,
     updatedByName: row.updatedByName,
+    scheduledPublish: row.scheduledPublish,
   }))
   const hasMore = postsWithVersions.length > POSTS_PAGE_SIZE
-  return { posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions, hasMore }
+  // Only the first page needs the origin for "view live" links and the tab counts.
+  const [siteSlug, counts] = offset === 0
+    ? await Promise.all([
+        createDataAccess(env.DB).sites.getSiteSlug(app.siteId),
+        createDataAccess(env.DB).dashboard.countPostsForDashboard(app.siteId),
+      ])
+    : [null, null]
+  const publicBaseUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
+  return {
+    posts: hasMore ? postsWithVersions.slice(0, POSTS_PAGE_SIZE) : postsWithVersions,
+    hasMore,
+    publicBaseUrl,
+    counts,
+  }
+}
+
+/** Same reading as the public blog: unset or invalid settings keep the default copy. */
+function editorNewsletterSettings(raw: string | null) {
+  if (!raw) return null
+  try {
+    const parsed = newsletterSettingsSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
 }
 
 export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
@@ -274,11 +403,20 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
   const site = siteRow
     ? {
         name: siteRow.name,
+        logoAssetId: siteRow.logoAssetId,
+        navLinks: parseSiteLinks(siteRow.navLinksJson, navLinksSchema),
+        socialLinks: parseSiteLinks(siteRow.socialLinksJson, socialLinksSchema),
         description: siteRow.description,
         slug: siteRow.slug,
         themeAccent: siteRow.themeAccent,
         themeFont: siteRow.themeFont,
         themeMode: siteRow.themeMode,
+        // Raw template knobs (null = template default) and the public byline.
+        themeRadius: siteRow.themeRadius,
+        themeWidth: siteRow.themeWidth,
+        bylineName: siteRow.bylineName,
+        showAgentCredit: siteRow.showAgentCredit,
+        newsletterSettings: editorNewsletterSettings(siteRow.newsletterSettings),
       }
     : null
   const publicBaseUrl = siteRow ? await getSitePublicBaseUrl(app.siteId, siteRow.slug) : null
@@ -293,11 +431,13 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
       publicBaseUrl,
       currentVersionNumber: null,
       latestVersion: null,
+      previewUrl: null,
     }
   }
   const repo = postRepository()
   const post = await repo.getPost(app.siteId, postId)
   const versions = post ? await listPostVersions(repo, app.actor, { siteId: app.siteId, postId }) : []
+  const redirectSlugs = post?.status === 'published' ? await repo.listPostRedirects(app.siteId, postId) : []
   return {
     mode: 'edit' as const,
     post: post as Post | null,
@@ -308,6 +448,8 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
     publicBaseUrl,
     currentVersionNumber: post?.currentVersionNumber ?? null,
     latestVersion: versions[0] ?? null,
+    previewUrl: post ? await previewUrlForPost(app.siteId, post.id) : null,
+    redirectSlugs,
   }
 }
 
@@ -405,9 +547,10 @@ export async function loadOnboardingStatus(
     firstPost,
   }
 }
-
 export {
   completeSiteSetupForApp,
+  getNewsletterSettingsForApp,
+  updateNewsletterSettingsForApp,
   updateSiteSettingsForApp,
   updateVoiceProfileForApp,
   clearVoiceProfileForApp,
@@ -419,8 +562,12 @@ export {
   createPostForApp,
   updatePostForApp,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   archivePostForApp,
+  deleteArchivedPostForApp,
   restorePostVersionForApp,
+  unarchivePostForApp,
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   voiceProfileSettingsInputSchema,

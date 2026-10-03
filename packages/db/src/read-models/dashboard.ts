@@ -1,8 +1,8 @@
-import { and, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, like, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import type { Post } from "@vc/core";
-import { isNotNull } from "drizzle-orm";
 import { createDbClient } from "../client";
-import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, user } from "../schema";
+import { activityEvents, apiKeys, assets, domains, postVersions, posts, sites, subscribers, user } from "../schema";
 
 export interface DashboardRecentPost {
   id: string;
@@ -12,6 +12,7 @@ export interface DashboardRecentPost {
   updatedAt: number;
   publishedAt: number | null;
   versionNumber: number | null;
+  scheduledPublish: Post['scheduledPublish'];
 }
 
 /** Posts-page row: summary fields + latest version number + last-change actor
@@ -20,6 +21,11 @@ export interface DashboardPostListRow {
   id: string;
   title: string;
   slug: string;
+  publishedSlug: string | null;
+  /** Title/excerpt/tags of the live version (null when never published). */
+  publishedTitle: string | null;
+  publishedExcerpt: string | null;
+  publishedTagsJson: string | null;
   excerpt: string | null;
   coverAssetId: string | null;
   status: Post["status"];
@@ -28,9 +34,32 @@ export interface DashboardPostListRow {
   createdAt: number;
   updatedAt: number;
   versionNumber: number | null;
+  /** Version pinned live; null until first publish. */
+  publishedVersionNumber: number | null;
+  /** Who wrote the tip version (human/agent/api_key/system); null without versions. */
+  latestActorType: string | null;
   updatedByType: string | null;
   updatedByName: string | null;
+  scheduledPublish: Post['scheduledPublish'];
 }
+
+/** "Needs review": agent-written drafts, or live posts whose tip moved past the live version. */
+export interface DashboardReviewPost {
+  id: string;
+  title: string;
+  slug: string;
+  status: Post["status"];
+  updatedAt: number;
+  publishedAt: number | null;
+  versionNumber: number | null;
+  publishedVersionNumber: number | null;
+  latestActorType: string | null;
+}
+
+export type DashboardPostListStatus = Post["status"] | "review";
+export type DashboardPostListSort = "updated" | "created" | "title" | "published";
+/** Tab counts for the posts page. "all" is every post that isn't archived. */
+export type DashboardPostCounts = Record<"all" | DashboardPostListStatus, number>;
 
 // camelCase projection of activity_events.{action,summary,actor_name,created_at} for the dashboard feed.
 export interface DashboardRecentActivity {
@@ -48,10 +77,10 @@ export interface AttributionPublishedPost {
   publishedAt: number | null;
 }
 
-// Site-level activation proof derived from API-key activity: the newest post an
-// api_key published (live), or when none exists the newest draft an api_key
-// created/updated (draft). Human-only posts never qualify. URL is appended by
-// the app layer (it needs the resolved public base URL).
+// Site-level activation proof derived from API-key activity: the newest live
+// post an api_key created/updated, or when none exists the newest draft an
+// api_key created/updated. A human can approve the live version; posts without
+// agent authorship never qualify. URL is appended by the app layer.
 export interface ActivationDraftPost {
   id: string;
   title: string;
@@ -78,10 +107,16 @@ export interface DashboardAggregate {
   counts: { published: number; draft: number; archived: number };
   media: { bytes: number; count: number };
   tokenCount: number;
+  usedTokenCount: number;
+  subscriberCount: number;
   versionCount: number;
   recentPosts: DashboardRecentPost[];
   /** Drafts awaiting a human review decision (updatedAt desc, limit 5). */
   recentDrafts: DashboardRecentPost[];
+  /** Posts waiting on a human decision (updatedAt desc, limit 5). */
+  needsReview: DashboardReviewPost[];
+  /** Total posts waiting on a human decision. */
+  needsReviewCount: number;
   recentActivity: DashboardRecentActivity[];
   activeDefaultHostname: string | null;
 }
@@ -91,8 +126,9 @@ export interface DashboardReadModel {
   /** Posts-page listing with last-change actor, one query (no per-row version lookups). */
   listPostsForDashboard(
     siteId: string,
-    input: { status?: Post["status"]; search?: string; limit: number; offset: number },
+    input: { status?: DashboardPostListStatus; search?: string; sort?: DashboardPostListSort; limit: number; offset: number },
   ): Promise<DashboardPostListRow[]>;
+  countPostsForDashboard(siteId: string): Promise<DashboardPostCounts>;
   // Currently-published posts (no published_at<=now cutoff) for onboarding attribution.
   listPublishedForAttribution(siteId: string, limit: number): Promise<AttributionPublishedPost[]>;
   // Site-level activation proof from api_key activity (live wins over draft). Bounded
@@ -101,12 +137,42 @@ export interface DashboardReadModel {
 }
 
 // Dashboard aggregate read model extracted from cms-dashboard.getDashboardData's env.DB.batch. Takes a D1Database and builds its own Drizzle client; no env import. The eight read-only selects run in parallel (the plan permits this for the dashboard read-only aggregate); the returned data is identical to the original single batch.
+// Correlated subqueries must name the outer row explicitly: in a join-free
+// select Drizzle renders `${posts.id}` as a bare "id", which binds to
+// post_versions.id inside the subquery and silently matches nothing.
+const outerPostId = sql.raw(`"posts"."id"`);
+const outerPublishedVersionId = sql.raw(`"posts"."published_version_id"`);
+const tipVersionSql = sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${outerPostId}), 0)`;
+const publishedVersionSql = sql<number | null>`(select ${postVersions.versionNumber} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedSlugSql = sql<string | null>`(select ${postVersions.slug} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedTitleSql = sql<string | null>`(select ${postVersions.title} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedExcerptSql = sql<string | null>`(select coalesce(nullif(trim(${postVersions.excerpt}), ''), ${postVersions.fallbackExcerpt}) from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const publishedTagsSql = sql<string | null>`(select ${postVersions.tagsJson} from ${postVersions} where ${postVersions.id} = ${outerPublishedVersionId})`;
+const latestActorTypeSql = sql<string | null>`(select ${postVersions.createdByType} from ${postVersions} where ${postVersions.postId} = ${outerPostId} order by ${postVersions.versionNumber} desc limit 1)`;
+const scheduledPublishSql = sql<string | null>`(select json_object('versionNumber', s.version_number,
+  'publishAt', s.publish_at, 'status', s.status, 'error', s.error)
+  from post_schedules s where s.post_id = ${outerPostId})`;
+function scheduleFromJson(raw: string | null): Post['scheduledPublish'] {
+  return raw ? JSON.parse(raw) as NonNullable<Post['scheduledPublish']> : null;
+}
+// Agent drafts awaiting a decision, or live posts whose private tip moved past the live pin.
+const needsReviewSql = sql`(
+  (${posts.status} = 'draft' and ${latestActorTypeSql} in ('agent', 'api_key'))
+  or (${posts.status} = 'published' and ${posts.publishedVersionId} is not null
+      and coalesce(${publishedVersionSql}, 0) < ${tipVersionSql})
+)`;
+
+function escapeLike(term: string) {
+  return term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 export function createDashboardReadModel(db: D1Database): DashboardReadModel {
   const client = createDbClient(db);
+  const agentActivity = alias(activityEvents, "agent_activity");
 
   return {
     async getDashboardAggregate(siteId) {
-      const [siteRows, statusRows, recentPostRows, recentDraftRows, mediaRows, tokenRows, versionRows, activityRows, domainRows] =
+      const [siteRows, statusRows, recentPostRows, recentDraftRows, mediaRows, tokenRows, subscriberRows, versionRows, activityRows, domainRows, reviewRows, reviewCountRows] =
         await Promise.all([
           client.select({ name: sites.name, slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1),
           client
@@ -123,9 +189,11 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               updatedAt: posts.updatedAt,
               publishedAt: posts.publishedAt,
               versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
+              scheduledPublishJson: scheduledPublishSql,
             })
             .from(posts)
-            .where(eq(posts.siteId, siteId))
+            // Recent work, like the Posts list's All: archived posts stay in their tab.
+            .where(and(eq(posts.siteId, siteId), ne(posts.status, "archived")))
             .orderBy(desc(posts.updatedAt))
             .limit(5),
           client
@@ -137,6 +205,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
               updatedAt: posts.updatedAt,
               publishedAt: posts.publishedAt,
               versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
+              scheduledPublishJson: scheduledPublishSql,
             })
             .from(posts)
             .where(and(eq(posts.siteId, siteId), eq(posts.status, "draft")))
@@ -150,9 +219,18 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
             .from(assets)
             .where(eq(assets.siteId, siteId)),
           client
-            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .select({
+              count: sql<number>`count(*)`.mapWith(Number),
+              // Keys an agent has actually used: "connected" without relying on
+              // usage counters (not recorded self-hosted, reset monthly).
+              used: sql<number>`count(${apiKeys.lastUsedAt})`.mapWith(Number),
+            })
             .from(apiKeys)
             .where(and(eq(apiKeys.siteId, siteId), isNull(apiKeys.revokedAt))),
+          client
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(subscribers)
+            .where(eq(subscribers.siteId, siteId)),
           client
             .select({ count: sql<number>`count(*)`.mapWith(Number) })
             .from(postVersions)
@@ -173,6 +251,26 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
             .from(domains)
             .where(and(eq(domains.siteId, siteId), eq(domains.type, "default"), eq(domains.status, "active")))
             .limit(1),
+          client
+            .select({
+              id: posts.id,
+              title: posts.title,
+              slug: posts.slug,
+              status: posts.status,
+              updatedAt: posts.updatedAt,
+              publishedAt: posts.publishedAt,
+              versionNumber: tipVersionSql,
+              publishedVersionNumber: publishedVersionSql,
+              latestActorType: latestActorTypeSql,
+            })
+            .from(posts)
+            .where(and(eq(posts.siteId, siteId), needsReviewSql))
+            .orderBy(desc(posts.updatedAt))
+            .limit(5),
+          client
+            .select({ count: sql<number>`count(*)`.mapWith(Number) })
+            .from(posts)
+            .where(and(eq(posts.siteId, siteId), needsReviewSql)),
         ]);
 
       const counts: DashboardAggregate["counts"] = { published: 0, draft: 0, archived: 0 };
@@ -185,6 +283,8 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         counts,
         media: { bytes: media.bytes, count: media.count },
         tokenCount: tokenRows[0]?.count ?? 0,
+        usedTokenCount: tokenRows[0]?.used ?? 0,
+        subscriberCount: subscriberRows[0]?.count ?? 0,
         versionCount: versionRows[0]?.count ?? 0,
         recentPosts: recentPostRows.map((post) => ({
           id: post.id,
@@ -194,6 +294,7 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
+          scheduledPublish: scheduleFromJson(post.scheduledPublishJson),
         })),
         recentDrafts: recentDraftRows.map((post) => ({
           id: post.id,
@@ -203,24 +304,73 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           updatedAt: post.updatedAt,
           publishedAt: post.publishedAt,
           versionNumber: post.versionNumber,
+          scheduledPublish: scheduleFromJson(post.scheduledPublishJson),
         })),
+        needsReview: reviewRows.map((post) => ({
+          ...post,
+          versionNumber: post.versionNumber > 0 ? post.versionNumber : null,
+        })),
+        needsReviewCount: reviewCountRows[0]?.count ?? 0,
         recentActivity: activityRows,
         activeDefaultHostname: domainRows[0]?.hostname ?? null,
       };
     },
+    async countPostsForDashboard(siteId) {
+      const [statusRows, reviewRows] = await Promise.all([
+        client
+          .select({ status: posts.status, count: sql<number>`count(*)`.mapWith(Number) })
+          .from(posts)
+          .where(eq(posts.siteId, siteId))
+          .groupBy(posts.status),
+        client
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(posts)
+          .where(and(eq(posts.siteId, siteId), needsReviewSql)),
+      ]);
+      const counts: DashboardPostCounts = { all: 0, review: reviewRows[0]?.count ?? 0, draft: 0, published: 0, archived: 0 };
+      for (const row of statusRows) {
+        if (row.status === "draft" || row.status === "published" || row.status === "archived") counts[row.status] = row.count;
+      }
+      counts.all = counts.draft + counts.published;
+      return counts;
+    },
     async listPostsForDashboard(siteId, input) {
-      // Same listing semantics as the core repository listPosts (site filter,
-      // status, %term% LIKE across title/slug/excerpt, updatedAt desc), plus the
-      // latest version number and last-change actor in one query — no N+1.
-      const search = input.search ? `%${input.search}%` : null;
+      // Site filter, status (or "review"), escaped %term% LIKE across
+      // title/slug/excerpt, and a sort, plus version pins and last-change actor
+      // in one query — no N+1.
+      const search = input.search ? `%${escapeLike(input.search)}%` : null;
       const conditions: (SQL | undefined)[] = [eq(posts.siteId, siteId)];
-      if (input.status) conditions.push(eq(posts.status, input.status));
-      if (search) conditions.push(or(like(posts.title, search), like(posts.slug, search), like(posts.excerpt, search)));
+      // No status means "All": everything you're working with. Archived posts
+      // have their own tab.
+      if (input.status === "review") conditions.push(needsReviewSql);
+      else if (input.status) conditions.push(eq(posts.status, input.status));
+      else conditions.push(ne(posts.status, "archived"));
+      if (search) {
+        conditions.push(
+          or(
+            sql`${posts.title} like ${search} escape '\\'`,
+            sql`${posts.slug} like ${search} escape '\\'`,
+            sql`${posts.excerpt} like ${search} escape '\\'`,
+          ),
+        );
+      }
+      const order =
+        input.sort === "title"
+          ? [sql`lower(${posts.title}) asc`, desc(posts.updatedAt)]
+          : input.sort === "created"
+            ? [desc(posts.createdAt)]
+            : input.sort === "published"
+              ? [sql`${posts.publishedAt} is null`, desc(posts.publishedAt), desc(posts.updatedAt)]
+              : [desc(posts.updatedAt)];
       const rows = await client
         .select({
           id: posts.id,
           title: posts.title,
           slug: posts.slug,
+          publishedSlug: publishedSlugSql,
+          publishedTitle: publishedTitleSql,
+          publishedExcerpt: publishedExcerptSql,
+          publishedTagsJson: publishedTagsSql,
           excerpt: posts.excerpt,
           coverAssetId: posts.coverAssetId,
           status: posts.status,
@@ -229,18 +379,22 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
           createdAt: posts.createdAt,
           updatedAt: posts.updatedAt,
           updatedByType: posts.updatedByType,
-          versionNumber: sql<number>`coalesce((select max(${postVersions.versionNumber}) from ${postVersions} where ${postVersions.postId} = ${posts.id}), 0)`,
+          versionNumber: tipVersionSql,
+          publishedVersionNumber: publishedVersionSql,
+          latestActorType: latestActorTypeSql,
           updatedByName: sql<string | null>`coalesce(${user.name}, ${apiKeys.actorName})`,
+          scheduledPublishJson: scheduledPublishSql,
         })
         .from(posts)
         .leftJoin(user, eq(user.id, posts.updatedById))
         .leftJoin(apiKeys, eq(apiKeys.id, posts.updatedById))
         .where(and(...conditions))
-        .orderBy(desc(posts.updatedAt))
+        .orderBy(...order, desc(posts.id))
         .limit(input.limit)
         .offset(input.offset);
       return rows.map((row) => ({
         ...row,
+        scheduledPublish: scheduleFromJson(row.scheduledPublishJson),
         versionNumber: row.versionNumber > 0 ? row.versionNumber : null,
       }));
     },
@@ -253,9 +407,9 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         .limit(limit);
     },
     async getActivationPost(siteId: string): Promise<ActivationPost> {
-      // LIVE: newest api_key 'post.published' activity on a currently-published
-      // post. A human-only publish (actor_type != 'api_key') never matches, so
-      // human pre-published content cannot activate onboarding.
+      // LIVE: newest publication of a currently-published post with prior
+      // api_key create/update activity. The publisher may be the human approver;
+      // unrelated human-only content cannot activate onboarding.
       const liveRows = await client
         .select({
           id: posts.id,
@@ -266,10 +420,20 @@ export function createDashboardReadModel(db: D1Database): DashboardReadModel {
         })
         .from(activityEvents)
         .innerJoin(posts, and(eq(posts.id, activityEvents.entityId), eq(posts.siteId, activityEvents.siteId)))
+        .innerJoin(
+          agentActivity,
+          and(
+            eq(agentActivity.siteId, activityEvents.siteId),
+            eq(agentActivity.entityId, activityEvents.entityId),
+            eq(agentActivity.entityType, "post"),
+            eq(agentActivity.actorType, "api_key"),
+            inArray(agentActivity.action, ["post.created", "post.updated"]),
+            lte(agentActivity.createdAt, activityEvents.createdAt),
+          ),
+        )
         .where(
           and(
             eq(activityEvents.siteId, siteId),
-            eq(activityEvents.actorType, "api_key"),
             eq(activityEvents.entityType, "post"),
             eq(activityEvents.action, "post.published"),
             eq(posts.status, "published"),

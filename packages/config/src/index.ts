@@ -4,6 +4,18 @@ export const BRAND = {
   description:
     "The CMS your agents publish into: Markdown posts, versions, and media over scoped MCP - you own every post.",
   repoUrl: "https://github.com/moinulmoin/vibecms",
+  /** Canonical marketing origin. Auth/onboarding brand links escape here. */
+  marketingUrl: "https://vibecms.dev",
+} as const;
+
+/** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
+export const AGENT_TOOL_COUNT = 32;
+
+/** Legal/support routes served on the marketing origin (apps/public, `/legal/*`). */
+export const LEGAL = {
+  privacy: "/legal/privacy",
+  terms: "/legal/terms",
+  support: "/legal/support",
 } as const;
 
 export const MEDIA = {
@@ -15,6 +27,13 @@ export const MEDIA = {
   formatsLabel: "JPEG, PNG, WebP, GIF",
   mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as const,
 } as const;
+
+/** Root paths routed by the public worker instead of serving blog posts. */
+export const RESERVED_POST_SLUGS = [
+  "dashboard", "api", "blog", "login", "mcp", "media-assets", "internal",
+  "feed.xml", "sitemap.xml", "robots.txt", "llms.txt", "llms-full.txt",
+  "docs-search.json", "docs", "__vc-health",
+] as const;
 
 export const API_USAGE_LIMITS = {
   paid: {
@@ -43,10 +62,45 @@ export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
   planName: "vibecms Cloud",
-  monthlyUsd: 19,
-  annualUsd: 190,
-  monthlyLabel: "$19/month",
-  annualLabel: "$190/year",
+  monthlyUsd: 15,
+  annualUsd: 150,
+  monthlyLabel: "$15/month",
+  annualLabel: "$150/year",
+} as const;
+
+/**
+ * Public Early Access launch offer. The operator prices the Polar monthly and
+ * yearly products directly at the offer during the launch window (no checkout
+ * eligibility enforcement). The offer remains available while it is displayed,
+ * and the rate is retained while the subscription stays active. Standard prices
+ * remain the visual anchor.
+ */
+/**
+ * Polar API contract our billing code is written against. Polar moves its
+ * default contract every quarter; unpinned requests would change shape under
+ * us. Upgrade deliberately after reviewing Polar's changelog.
+ */
+export const POLAR_API_VERSION = "2026-04";
+
+export const LAUNCH_OFFER = {
+  phaseLabel: "Launch pricing",
+  slotsLabel: "Launch price",
+  monthlyUsd: 9,
+  annualUsd: 75,
+  monthlyLabel: "$9/month",
+  annualLabel: "$75/year",
+  /** Shown as "40% off" / "50% off"; Polar discounts are these percentages. */
+  monthlyPercentOff: 40,
+  annualPercentOff: 50,
+  lockNote: "Locked while you stay subscribed.",
+  applyNote: "Launch pricing applies automatically at checkout.",
+} as const;
+
+/** Hosted free boundary, disclosed on marketing prices/upgrades. */
+export const FREE_TIER = {
+  publishedPosts: 5,
+  marketingLine:
+    "Free to start - no card. Draft, connect your agent, and publish your first 5 posts. Upgrade for more publishing, media, analytics, and your own domain.",
 } as const;
 
 export const ENTITLEMENTS = [
@@ -76,9 +130,10 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   post_published: { variant: "success", title: "Post published", message: "It is now live on your blog." },
   post_archived: { variant: "success", title: "Post archived", message: "It is hidden from the public blog. Versions and activity are kept." },
   media_uploaded: { variant: "success", title: "Image uploaded", message: "It is ready to use as a cover image." },
-  media_deleted: { variant: "success", title: "Image deleted", message: "The image has been removed from your library." },
-  media_updated: { variant: "success", title: "Alt text saved", message: "The image description has been updated." },
-  asset_in_use: { variant: "error", title: "Image in use", message: "Remove this image from post covers and site social settings before deleting it." },
+  media_bulk_deleted: { variant: "success", title: "Images deleted", message: "The selected images have been removed from your library." },
+  media_alt_saved: { variant: "success", title: "Alt text saved", message: "The image description has been updated." },
+  bulk_delete_partial: { variant: "error", title: "Some images were not deleted", message: "The failed images have been restored to your library. Try again." },
+  delete_failed: { variant: "error", title: "Images not deleted", message: "The selected images are still in your library. Try again." },
   setup_complete: { variant: "success", title: "Blog ready", message: "Your hosted blog is set up." },
   token_created: { variant: "success", title: "Token created", message: "Copy it now. It will not be shown again." },
   token_revoked: { variant: "success", title: "Token revoked", message: "That token can no longer access your workspace." },
@@ -102,6 +157,10 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to every featured and inline image before publishing." },
   invalid_social_image: { variant: "error", title: "Social image not found", message: "Choose an image from your media library." },
   social_image_alt_required: { variant: "error", title: "Alt text required", message: "Add alt text to the selected social image before saving." },
+  invalid_byline_name: { variant: "error", title: "Public name too long", message: "Use 80 characters or fewer for your public name." },
+  invalid_agent_credit: { variant: "error", title: "Setting not saved", message: "Turn agent credit on or off, then save again." },
+  invalid_theme_radius: { variant: "error", title: "Corner style not saved", message: "Pick one of the listed corner styles." },
+  invalid_theme_width: { variant: "error", title: "Reading width not saved", message: "Pick one of the listed reading widths." },
   alt_required_in_use: { variant: "error", title: "Alt text required", message: "This image is in use. Replace it or keep a useful description." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
@@ -158,10 +217,11 @@ export interface AccentSwatch {
 /**
  * Curated accent swatches. Each entry's oklchLight/oklchDark is the AA-verified
  * accent/link text color for that mode. Ids are stable persistence keys.
- * Default accent (`teal`) equals the minimal base accent oklch(45% 0.11 154).
+ * Default accent (`teal`) matches the fallback in vc-rich-content.css.
  */
 export const ACCENTS = [
-  { id: "teal",    name: "Teal",    oklchLight: "oklch(45% 0.11 154)",  oklchDark: "oklch(81% 0.170 153)" },
+  // A true blue-green, clearly apart from Green (145).
+  { id: "teal",    name: "Teal",    oklchLight: "oklch(46% 0.09 190)",  oklchDark: "oklch(80% 0.12 190)" },
   { id: "blue",    name: "Blue",    oklchLight: "oklch(45% 0.17 245)",  oklchDark: "oklch(75% 0.15 245)" },
   { id: "indigo",  name: "Indigo",  oklchLight: "oklch(45% 0.18 275)",  oklchDark: "oklch(74% 0.15 275)" },
   { id: "violet",  name: "Violet",  oklchLight: "oklch(45% 0.17 300)",  oklchDark: "oklch(78% 0.14 300)" },
@@ -169,6 +229,7 @@ export const ACCENTS = [
   { id: "crimson", name: "Crimson", oklchLight: "oklch(50% 0.18 25)",   oklchDark: "oklch(77% 0.15 25)" },
   { id: "rust",    name: "Rust",    oklchLight: "oklch(50% 0.14 50)",   oklchDark: "oklch(80% 0.13 50)" },
   { id: "green",   name: "Green",   oklchLight: "oklch(45% 0.12 145)",  oklchDark: "oklch(80% 0.15 145)" },
+  { id: "graphite", name: "Graphite", oklchLight: "oklch(32% 0.012 260)", oklchDark: "oklch(90% 0.008 260)" },
 ] as const satisfies readonly AccentSwatch[];
 
 export type AccentId = (typeof ACCENTS)[number]["id"];
@@ -197,21 +258,33 @@ export interface FontPairing {
 export const FONTS = [
   {
     id: "geist-sans",
-    name: "Geist Sans",
+    name: "Geist",
     bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
     headingStack: "Geist, ui-sans-serif, system-ui, sans-serif",
   },
   {
     id: "serif",
-    name: "Editorial Serif",
-    bodyStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
-    headingStack: 'Georgia, "Times New Roman", ui-serif, serif',
+    name: "Newsreader",
+    bodyStack: 'Newsreader, "Iowan Old Style", Georgia, ui-serif, serif',
+    headingStack: 'Newsreader, "Iowan Old Style", Georgia, ui-serif, serif',
   },
   {
     id: "grotesk",
     name: "Space Grotesk",
     bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
     headingStack: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+  },
+  {
+    id: "humanist",
+    name: "Hanken Grotesk",
+    bodyStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
+    headingStack: '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif',
+  },
+  {
+    id: "mono",
+    name: "Geist Mono",
+    bodyStack: "Geist, ui-sans-serif, system-ui, sans-serif",
+    headingStack: '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
   },
 ] as const satisfies readonly FontPairing[];
 
@@ -300,7 +373,7 @@ export type ComponentEmphasis = "high" | "medium" | "low";
 // Presentation intent (bounded layout + toc; per-post, preset-interpreted)
 // ---------------------------------------------------------------------------
 
-export const PRESENTATION_LAYOUTS = ["standard", "feature", "essay"] as const;
+export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
 export type PresentationLayout = (typeof PRESENTATION_LAYOUTS)[number];
 
 export interface Presentation {
@@ -351,13 +424,84 @@ export interface ThemePreset {
   formatGuide: string;
   /** Structural layout capability for this preset. */
   layout: PresetLayoutCapability;
+  /** The template: whole-blog structure + a curated starting look. */
+  template: TemplateDef;
+}
+
+// ---------------------------------------------------------------------------
+// Templates: a preset IS a template. Structure (chrome, index, article header)
+// is fixed per template; the look starts from `defaults` and every value stays
+// owner-tunable (accent, font, radius, width, mode) on the Theme page.
+// ---------------------------------------------------------------------------
+
+export const TEMPLATE_CHROMES = ["masthead", "centered", "sidebar"] as const;
+export type TemplateChrome = (typeof TEMPLATE_CHROMES)[number];
+export const TEMPLATE_INDEXES = ["list", "grid", "compact"] as const;
+export type TemplateIndex = (typeof TEMPLATE_INDEXES)[number];
+export const TEMPLATE_HEADERS = ["plain", "centered", "card"] as const;
+export type TemplateHeader = (typeof TEMPLATE_HEADERS)[number];
+
+export const THEME_RADII = ["none", "sm", "md", "lg"] as const;
+export type ThemeRadius = (typeof THEME_RADII)[number];
+/** Radius token per knob (--vc-radius). */
+export const RADIUS_VALUES: Record<ThemeRadius, string> = { none: "0px", sm: "4px", md: "8px", lg: "14px" };
+
+export const THEME_WIDTHS = ["narrow", "normal", "wide"] as const;
+export type ThemeWidth = (typeof THEME_WIDTHS)[number];
+/** Reading measure per knob (--vc-prose-measure). */
+export const WIDTH_VALUES: Record<ThemeWidth, string> = { narrow: "36rem", normal: "40rem", wide: "46rem" };
+
+export interface TemplateDef {
+  /** Site chrome: top masthead, centered masthead, or a left sidebar. */
+  chrome: TemplateChrome;
+  /** Home / tag / search listing style. */
+  index: TemplateIndex;
+  /** Article header treatment. */
+  header: TemplateHeader;
+  /** Pricing tier; nothing is gated yet. */
+  tier: "free" | "pro";
+  /** The curated starting look. Owners can change any of it. */
+  defaults: {
+    accent: AccentId;
+    font: FontId;
+    radius: ThemeRadius;
+    width: ThemeWidth;
+    mode: ThemeMode;
+  };
+}
+
+export function resolveRadius(value: string | null | undefined, presetId?: string | null): ThemeRadius {
+  if (value != null && (THEME_RADII as readonly string[]).includes(value)) return value as ThemeRadius;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.radius;
+}
+
+export function resolveWidth(value: string | null | undefined, presetId?: string | null): ThemeWidth {
+  if (value != null && (THEME_WIDTHS as readonly string[]).includes(value)) return value as ThemeWidth;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.width;
+}
+
+/**
+ * The accent a site actually renders with: the owner's pick, or the template's
+ * curated default when unset. Every surface (public blog, share card,
+ * dashboard settings/editor) must use this so they never disagree.
+ */
+export function resolveThemeAccent(value: string | null | undefined, presetId?: string | null): AccentId {
+  if (value != null && (ACCENT_IDS as readonly string[]).includes(value)) return value as AccentId;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.accent;
+}
+
+/** The font pairing a site actually renders with (owner's pick, else the template default). */
+export function resolveThemeFont(value: string | null | undefined, presetId?: string | null): FontId {
+  if (value != null && (FONT_IDS as readonly string[]).includes(value)) return value as FontId;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.defaults.font;
 }
 
 export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
   minimal: {
     id: "minimal",
     name: "Minimal",
-    designIntent: "Clean, airy, and neutral. Lets your words lead.",
+    designIntent: "A clean reading column and a quiet list of posts. Lets your words lead.",
+    template: { chrome: "masthead", index: "list", header: "plain", tier: "free", defaults: { accent: "teal", font: "geist-sans", radius: "md", width: "normal", mode: "system" } },
     recommendedComponents: [
       "list",
       "link",
@@ -387,16 +531,17 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Write clearly and directly. Prefer short sentences and concrete examples. " +
       "Use callouts sparingly - one per section at most. Let structure carry meaning.",
     layout: {
-      default: { layout: "standard", toc: false },
-      supportedLayouts: ["standard"],
-      supportsToc: false,
+      default: { layout: "standard", toc: true },
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
+      supportsToc: true,
     },
   },
 
   editorial: {
     id: "editorial",
     name: "Editorial",
-    designIntent: "Serif headings, pull quotes, and a relaxed narrative rhythm.",
+    designIntent: "Centered serif headlines, generous type, and pull quotes for essays.",
+    template: { chrome: "centered", index: "list", header: "centered", tier: "free", defaults: { accent: "rust", font: "serif", radius: "sm", width: "narrow", mode: "system" } },
     recommendedComponents: [
       "captioned-image",
       "blockquote",
@@ -430,16 +575,17 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Let prose carry the weight; avoid heavy structural markup. " +
       "For long essays, prefer setting presentation.toc=true for a page-level table of contents; use inline [[toc]] only as an intentional in-body marker.",
     layout: {
-      default: { layout: "essay", toc: false },
-      supportedLayouts: ["standard", "essay"],
+      default: { layout: "essay", toc: true },
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
 
   technical: {
     id: "technical",
-    name: "Technical",
-    designIntent: "Monospace emphasis, TOC, and tight density for docs.",
+    name: "Notebook",
+    designIntent: "A sidebar of tags and recent posts, a compact archive, and a wide column for code.",
+    template: { chrome: "sidebar", index: "compact", header: "plain", tier: "free", defaults: { accent: "blue", font: "mono", radius: "sm", width: "wide", mode: "system" } },
     recommendedComponents: [
       "table-of-contents",
       "fenced-code",
@@ -472,16 +618,17 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Tables work well for option references and comparisons. " +
       "Keep paragraphs short and factual; favour precision over decoration.",
     layout: {
-      default: { layout: "standard", toc: false },
-      supportedLayouts: ["standard"],
+      default: { layout: "standard", toc: true },
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
       supportsToc: true,
     },
   },
 
   product: {
     id: "product",
-    name: "Product",
-    designIntent: "Clean, confident, and conversion-aware for announcements.",
+    name: "Magazine",
+    designIntent: "A lead story and a grid of cards. Big confident headlines and full-width covers.",
+    template: { chrome: "masthead", index: "grid", header: "card", tier: "free", defaults: { accent: "crimson", font: "grotesk", radius: "lg", width: "normal", mode: "system" } },
     recommendedComponents: [
       "captioned-image",
       "callout",
@@ -516,8 +663,8 @@ export const THEME_PRESETS: Record<PresetId, ThemePreset> = {
       "Avoid deep code samples; this is a business voice.",
     layout: {
       default: { layout: "feature", toc: false },
-      supportedLayouts: ["standard", "feature"],
-      supportsToc: false,
+      supportedLayouts: ["standard", "essay", "feature", "wide"],
+      supportsToc: true,
     },
   },
 };
@@ -574,3 +721,10 @@ export function resolvePresentation(
     warnings,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Public byline
+// ---------------------------------------------------------------------------
+
+/** Max length of `sites.byline_name` (the public author name). */
+export const BYLINE_NAME_MAX_LENGTH = 80;

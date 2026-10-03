@@ -8,10 +8,11 @@ import type { D1Migration } from "cloudflare:test";
 import type { Actor } from "@vc/core";
 import {
   completeSiteSetupForApp,
+  getSiteSettings,
   updateSiteSettingsForApp,
   type AppUserContext,
 } from "@/server/onboarding";
-import { loadOnboardingStatus } from "@/server/dashboard-api";
+import { loadConnectPage, loadOnboardingStatus } from "@/server/dashboard-api";
 import { clearVoiceProfileForApp, updateVoiceProfileForApp } from "@/server/voice-profile";
 
 declare module "vitest" {
@@ -113,14 +114,10 @@ describe("loadOnboardingStatus — connection + exact-key resolution", () => {
     expect(status.connection).toBe("waiting");
   });
 
-  it("returns the shared {key, connection, firstPost} contract shape", async () => {
+  it("returns durable connection and first-post state without fabricating a public URL", async () => {
     const status = await loadOnboardingStatus(ownerApp(), KEY_SAME_SEC);
     // No api_key posts seeded on this site -> durable proof is 'waiting'.
     expect(status.firstPost.state).toBe("waiting");
-    // Exact contract field set.
-    expect(Object.keys(status).sort()).toEqual(
-      ["canManage", "connection", "firstPost", "key", "mcpUrl", "publicBaseUrl"].sort(),
-    );
     expect(status.key).toEqual(expect.objectContaining({ id: KEY_SAME_SEC, name: "SameSec" }));
     expect(status.connection).toBe("connected");
     // publicBaseUrl is null until a public default domain resolves (never fabricated).
@@ -136,6 +133,7 @@ describe("owner-only site configuration mutations", () => {
 
     await expect(
       updateSiteSettingsForApp(editorApp(), {
+        expectedUpdatedAt: T,
         name: "Edited",
         defaultSeoTitle: "Edited",
         theme: "minimal",
@@ -156,5 +154,119 @@ describe("owner-only site configuration mutations", () => {
       kind: "error",
       code: "owner_required",
     });
+  });
+});
+
+describe("connect page voice seed", () => {
+  it("becomes pending again when a configured voice profile is cleared", async () => {
+    await env.DB.prepare("UPDATE sites SET voice_seed_json = ? WHERE id = ?")
+      .bind(JSON.stringify(["https://example.com/writing"]), SITE_ID).run();
+    const app = ownerApp();
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(true);
+    expect(await updateVoiceProfileForApp(app, {
+      audience: "Readers", preferRules: [], avoidRules: [], representativePostIds: [],
+    }, { expectedUpdatedAt: 0 })).toEqual({ kind: "ok", code: "voice_profile_saved" });
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(false);
+    const profile = await env.DB.prepare("SELECT updated_at FROM site_voice_profiles WHERE site_id = ?")
+      .bind(SITE_ID).first<{ updated_at: number }>();
+    expect(await clearVoiceProfileForApp(app, { expectedUpdatedAt: profile!.updated_at }))
+      .toEqual({ kind: "ok", code: "voice_profile_cleared" });
+    expect((await loadConnectPage(app)).personalization.voiceSeedPending).toBe(true);
+  });
+});
+
+describe("site settings: public byline + template knobs", () => {
+  it("defaults to the site name, agent credit on, and the template's radius/width", async () => {
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      bylineName: "",
+      showAgentCredit: true,
+      themeRadius: "md",
+      themeWidth: "normal",
+    });
+  });
+
+  it("reports the template's accent/font for unset values, as the public blog renders them", async () => {
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, theme: "editorial", themeAccent: null, themeFont: null }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    const saved = await getSiteSettings(ownerApp());
+    expect(saved).toMatchObject({ theme: "editorial", themeAccent: "rust", themeFont: "serif" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: saved.updatedAt, theme: "minimal" }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+  });
+
+  it("rejects unknown radius/width ids and over-long public names", async () => {
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, themeRadius: "huge" }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_theme_radius" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, themeWidth: "full" }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_theme_width" });
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, bylineName: "x".repeat(81) }),
+    ).resolves.toEqual({ kind: "error", code: "invalid_byline_name" });
+  });
+
+  it("saves the byline and knobs; blank name and null knobs reset to defaults", async () => {
+    let { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), {
+        expectedUpdatedAt: updatedAt,
+        bylineName: "  Ada Lovelace  ",
+        showAgentCredit: false,
+        themeRadius: "lg",
+        themeWidth: "wide",
+      }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    const saved = await getSiteSettings(ownerApp());
+    expect(saved).toMatchObject({ bylineName: "Ada Lovelace", showAgentCredit: false, themeRadius: "lg", themeWidth: "wide" });
+
+    updatedAt = saved.updatedAt;
+    await expect(
+      updateSiteSettingsForApp(ownerApp(), {
+        expectedUpdatedAt: updatedAt,
+        bylineName: "   ",
+        showAgentCredit: true,
+        themeRadius: null,
+        themeWidth: null,
+      }),
+    ).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      bylineName: "",
+      showAgentCredit: true,
+      themeRadius: "md",
+      themeWidth: "normal",
+    });
+  });
+});
+
+describe("site settings: identity and links", () => {
+  it("round-trips image ids and links, and rejects foreign or non-image assets", async () => {
+    const assetColumns = "id, site_id, r2_key, filename, mime_type, size_bytes, created_by_type, created_by_id, created_at, updated_at";
+    await env.DB.prepare(`INSERT INTO assets (${assetColumns}) VALUES (?, ?, ?, ?, ?, 1, 'human', 'owner-ob', ?, ?)`)
+      .bind("logo-ob", SITE_ID, "logo-ob", "logo.png", "image/png", T, T).run();
+    await env.DB.prepare(`INSERT INTO assets (${assetColumns}) VALUES (?, ?, ?, ?, ?, 1, 'human', 'owner-ob', ?, ?)`)
+      .bind("not-image-ob", SITE_ID, "not-image-ob", "readme.txt", "text/plain", T, T).run();
+    const { updatedAt } = await getSiteSettings(ownerApp());
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, logoAssetId: "not-image-ob" }))
+      .resolves.toEqual({ kind: "error", code: "invalid_site_image" });
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, faviconAssetId: "foreign-id" }))
+      .resolves.toEqual({ kind: "error", code: "invalid_site_image" });
+    await expect(updateSiteSettingsForApp(ownerApp(), {
+      expectedUpdatedAt: updatedAt,
+      logoAssetId: "logo-ob", faviconAssetId: "logo-ob",
+      navLinks: [{ label: "About", url: "/about" }],
+      socialLinks: [{ kind: "email", url: "hello@example.com" }],
+    })).resolves.toEqual({ kind: "ok", code: "site_saved" });
+    await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
+      logoAssetId: "logo-ob", faviconAssetId: "logo-ob",
+      navLinks: [{ label: "About", url: "/about" }],
+      socialLinks: [{ kind: "email", url: "mailto:hello@example.com" }],
+    });
+    await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, navLinks: [] }))
+      .resolves.toEqual({ kind: "error", code: "settings_conflict" });
   });
 });

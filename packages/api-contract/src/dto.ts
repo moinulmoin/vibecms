@@ -38,6 +38,7 @@ export const siteVoiceProfileDtoSchema = z.object({
   updatedByName: z.string().nullable(),
   createdAt: z.number().nullable(),
   updatedAt: z.number().nullable(),
+  revision: z.number().int().nonnegative(),
 });
 
 export const siteDtoSchema = z.object({
@@ -46,15 +47,80 @@ export const siteDtoSchema = z.object({
   slug: z.string(),
   description: z.string().nullable(),
   url: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  faviconUrl: z.string().nullable(),
+  navLinks: z.array(z.object({ label: z.string().max(40), url: z.string() })).max(6),
+  socialLinks: z.array(z.object({ kind: z.enum(["x", "github", "linkedin", "bluesky", "mastodon", "youtube", "instagram", "website", "email"]), url: z.string() })).max(8),
+  /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
+  voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
+  signupForm: z.object({ enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string() }).optional(),
+  /** Blog template (preset) id: minimal, editorial, technical (Notebook), or product (Magazine). */
+  template: z.string(),
+  /**
+   * Public byline. `name` is the owner's public name (or the site name) and is
+   * never an email. With `agentCredit`, agent-written posts read
+   * "Written with an agent · Reviewed by {name}".
+   */
+  byline: z.object({
+    name: z.string(),
+    agentCredit: z.boolean(),
+  }),
   createdAt: z.number(),
   updatedAt: z.number(),
+});
+
+export const siteSettingsDtoSchema = z.object({
+  name: z.string(), description: z.string(), defaultSeoTitle: z.string(),
+  defaultSeoDescription: z.string(), defaultSocialAssetId: z.string().nullable(),
+  logoAssetId: z.string().nullable(), faviconAssetId: z.string().nullable(),
+  navLinks: siteDtoSchema.shape.navLinks, socialLinks: siteDtoSchema.shape.socialLinks,
+  theme: z.string(), slug: z.string(), themeAccent: z.string(), themeFont: z.string(),
+  themeMode: z.string(), themeRadius: z.string(), themeWidth: z.string(),
+  bylineName: z.string(), showAgentCredit: z.boolean(), updatedAt: z.number(),
+});
+export const updatedSiteDtoSchema = siteDtoSchema.extend({ settings: siteSettingsDtoSchema });
+const namedChoiceSchema = z.object({ id: z.string(), name: z.string() });
+export const themeDtoSchema = z.object({
+  template: z.string(), accent: z.string(), font: z.string(), radius: z.string(),
+  width: z.string(), mode: z.string(), updatedAt: z.number(),
+  options: z.object({
+    templates: z.array(namedChoiceSchema), accents: z.array(namedChoiceSchema),
+    fonts: z.array(namedChoiceSchema), radii: z.array(namedChoiceSchema),
+    widths: z.array(namedChoiceSchema), modes: z.array(namedChoiceSchema),
+  }),
+  url: z.string().nullable(), canRevert: z.boolean(),
+});
+export const voiceSettingsDtoSchema = z.object({
+  configured: z.boolean(), audience: z.string(), voiceSummary: z.string(),
+  preferRules: z.array(z.string()), avoidRules: z.array(z.string()),
+  representativePostIds: z.array(z.string()), warnings: z.array(z.string()),
+  updatedByName: z.string().nullable(), updatedAt: z.number().nullable(),
+  publishedPosts: z.array(z.object({ id: z.string(), title: z.string(), slug: z.string(), updatedAt: z.number() })),
+});
+export const signupFormDtoSchema = z.object({
+  enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(),
+});
+export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema });
+/** sites.signup_form.update echoes the new site revision for follow-up edits. */
+export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
+export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
+export const analyticsDtoSchema = z.object({
+  status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
+  retentionDays: z.number(), views: z.number().optional(), previousViews: z.number().nullable().optional(),
+  trendPercent: z.number().nullable().optional(), seriesGranularity: z.enum(['day', 'month']).optional(),
+  aiReferralViews: z.number().optional(), series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })).optional(),
+  topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() })).optional(),
+  referrers: z.array(z.object({ domain: z.string(), views: z.number(), ai: z.boolean(), operator: z.string().nullable() })).optional(),
+  aiCrawlers: z.object({ status: z.enum(['available', 'unavailable']), lookbackDays: z.number(), requests: z.number(), agents: z.array(z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() })) }).optional(),
+  reason: z.enum(['self_hosted', 'not_configured', 'query_failed']).optional(),
 });
 
 export const postSummaryDtoSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  publishedSlug: z.string().nullable(),
   url: z.string().nullable(),
   excerpt: z.string().nullable(),
   coverAssetId: z.string().nullable(),
@@ -63,6 +129,12 @@ export const postSummaryDtoSchema = z.object({
   tags: z.array(z.string()),
   createdAt: z.number(),
   updatedAt: z.number(),
+  scheduledPublish: z.object({
+    versionNumber: z.number().int().positive(),
+    publishAt: z.number().int(),
+    status: z.enum(['pending', 'processing', 'published', 'failed']),
+    error: z.string().nullable().optional(),
+  }).nullable(),
 });
 
 export const postDtoSchema = postSummaryDtoSchema.extend({
@@ -73,6 +145,7 @@ export const postDtoSchema = postSummaryDtoSchema.extend({
   presentation: presentationSchema,
   currentVersionNumber: z.number().int().positive(),
   publishedVersionNumber: z.number().int().positive().nullable(),
+  previewUrl: z.url().nullable(),
 });
 
 export const assetDtoSchema = z.object({
@@ -141,6 +214,10 @@ export const formatGuideDtoSchema = z.object({
   recommendedComponents: z.array(z.string()),
   presetGuidance: z.string(),
   examples: z.string(),
+  /** Structured syntax vocabulary (guide v4+); `examples` stays the prose reference. */
+  syntax: z
+    .array(z.object({ id: z.string(), summary: z.string(), example: z.string() }))
+    .optional(),
   presentationOptions: z.object({
     supportedLayouts: z.array(z.enum(PRESENTATION_LAYOUTS)),
     default: z.object({ layout: z.enum(PRESENTATION_LAYOUTS), toc: z.boolean() }),
@@ -152,6 +229,7 @@ export const formatGuideDtoSchema = z.object({
 export type FormatGuideDto = z.infer<typeof formatGuideDtoSchema>;
 
 export const previewPostDtoSchema = z.object({
+  previewUrl: z.url().nullable(),
   html: z.string(),
   outline: z.array(z.object({
     depth: z.number(),

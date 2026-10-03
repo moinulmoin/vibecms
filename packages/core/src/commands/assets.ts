@@ -82,7 +82,7 @@ export async function updateAssetAltText(
 }
 
 export async function deleteAsset(repo: AssetRepository, actor: Actor, siteId: string, assetId: string): Promise<Asset> {
-  requireScope(actor, "assets:write");
+  requireScope(actor, "assets:delete");
   const a = await repo.getAsset(siteId, assetId);
   if (!a) throw new NotFoundError("Asset not found");
   if (

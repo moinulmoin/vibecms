@@ -5,8 +5,10 @@ import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "@/server/api-keys";
 import {
   archivePostOp,
+  unarchivePostOp,
   createPostOp,
   deleteAssetOp,
+  updateAssetOp,
   getAssetOp,
   getFormatGuideOp,
   getPostOp,
@@ -19,18 +21,24 @@ import {
   listPostVersionsOp,
   previewPostOp,
   publishPostOp,
+  schedulePostOp,
+  unschedulePostOp,
+  rotatePostPreviewOp,
   restorePostVersionOp,
   searchPostsOp,
   updatePostOp,
   uploadAssetOp,
   type OperationContext,
+  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import {
   archivePostRoute,
+  unarchivePostRoute,
   bearerAuthSecurityScheme,
   createPostRoute,
   deleteAssetRoute,
+  updateAssetRoute,
   getAssetRoute,
   getFormatGuideRoute,
   getPostRoute,
@@ -44,9 +52,13 @@ import {
   openApiInfo,
   previewPostRoute,
   publishPostRoute,
+  schedulePostRoute,
+  unschedulePostRoute,
+  rotatePostPreviewRoute,
   restorePostVersionRoute,
   updatePostRoute,
   uploadAssetRoute,
+  updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
 } from "@/server/api/routes";
 
 type ApiEnv = {
@@ -108,6 +120,7 @@ function publicAppErrorCode(error: AppError) {
     "CONFLICT",
     "RATE_LIMIT",
     "VALIDATION_ERROR",
+    "ANALYTICS_PAID_PLAN",
   ].includes(error.code)
     ? error.code
     : "INTERNAL_ERROR";
@@ -149,7 +162,7 @@ apiV1App.use("*", async (c, next) => {
 
   const auth = await authenticateBearerToken(c.req.raw);
   if (!auth) {
-    return c.json(errorEnvelope("UNAUTHORIZED", "Authentication required"), 401);
+    return c.json(errorEnvelope("UNAUTHORIZED", "Authentication required. Send Authorization: Bearer <agent key>; the owner creates keys under Connect in the dashboard. See /auth.md."), 401);
   }
 
   c.set("ctx", {
@@ -174,6 +187,15 @@ apiV1App.openapi(getSiteRoute, async (c) => {
   const site = await getSiteOp(c.get("ctx"));
   return c.json(site, 200);
 });
+
+apiV1App.openapi(updateSiteRoute, async (c) => c.json(await updateSiteOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(getThemeRoute, async (c) => c.json(await getThemeOp(c.get('ctx')), 200));
+apiV1App.openapi(updateThemeRoute, async (c) => c.json(await updateThemeOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(revertThemeRoute, async (c) => c.json(await revertThemeOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(updateVoiceRoute, async (c) => c.json(await updateVoiceOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(updateSignupFormRoute, async (c) => c.json(await updateSignupFormOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(listTagsRoute, async (c) => c.json(await listTagsOp(c.get('ctx')), 200));
+apiV1App.openapi(getAnalyticsRoute, async (c) => c.json(await getAnalyticsOp(c.get('ctx'), c.req.valid('query')), 200));
 
 apiV1App.openapi(listPostsRoute, async (c) => {
   const query = c.req.valid("query");
@@ -226,10 +248,29 @@ apiV1App.openapi(publishPostRoute, async (c) => {
   return c.json(post, 200);
 });
 
+apiV1App.openapi(schedulePostRoute, async (c) => {
+  const { postId } = c.req.valid('param');
+  return c.json(await schedulePostOp(c.get('ctx'), { postId, ...c.req.valid('json') }), 200);
+});
+
+apiV1App.openapi(unschedulePostRoute, async (c) => {
+  return c.json(await unschedulePostOp(c.get('ctx'), c.req.valid('param')), 200);
+});
+
+apiV1App.openapi(rotatePostPreviewRoute, async (c) => {
+  return c.json(await rotatePostPreviewOp(c.get('ctx'), c.req.valid('param')), 200);
+});
+
 apiV1App.openapi(archivePostRoute, async (c) => {
   const { postId } = c.req.valid("param");
-  const post = await archivePostOp(c.get("ctx"), { postId });
+  const { expectedVersionNumber } = c.req.valid("json") ?? {};
+  const post = await archivePostOp(c.get("ctx"), { postId, expectedVersionNumber });
   return c.json(post, 200);
+});
+
+apiV1App.openapi(unarchivePostRoute, async (c) => {
+  const { postId } = c.req.valid("param");
+  return c.json(await unarchivePostOp(c.get("ctx"), { postId }), 200);
 });
 
 apiV1App.openapi(uploadAssetRoute, async (c) => {
@@ -254,6 +295,12 @@ apiV1App.openapi(deleteAssetRoute, async (c) => {
   const { assetId } = c.req.valid("param");
   const asset = await deleteAssetOp(c.get("ctx"), { assetId });
   return c.json(asset, 200);
+});
+
+apiV1App.openapi(updateAssetRoute, async (c) => {
+  const { assetId } = c.req.valid("param");
+  const { altText } = c.req.valid("json");
+  return c.json(await updateAssetOp(c.get("ctx"), { assetId, altText }), 200);
 });
 
 apiV1App.openapi(listActivityRoute, async (c) => {

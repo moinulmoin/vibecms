@@ -1,0 +1,31 @@
+---
+title: An agent-readable blog
+description: Read public posts as Markdown and find blog feeds and discovery files.
+---
+
+Your published blog serves both HTML and Markdown. Drafts and private previews are not part of the public discovery files.
+
+| URL or response | What an agent gets |
+| --- | --- |
+| `/llms.txt` | The blog name, summary, and links to published posts as Markdown. The list is bounded to 200 posts. |
+| `/<slug>.md` | The published version's Markdown with title, description, date, tags, and canonical URL in frontmatter. |
+| `/<slug>` with `Accept: text/markdown` | The same Markdown representation. `?format=md` also requests Markdown. |
+| `/robots.txt` | `Content-Signal: search=yes, ai-input=yes, ai-train=no` for tenant blogs. |
+| `/sitemap.xml` | Published post URLs when the blog is indexable. |
+| `/feed.xml` | An RSS feed of published posts, bounded to 50 full-body items. |
+
+HTML and Markdown article responses use `Vary: Accept` and an alternate `Link` header for the `.md` URL. A missing Markdown page returns a Markdown 404 instead of an HTML page. The blog home page also sends `Link` headers for `llms.txt`, the sitemap, and RSS. Blog pages include JSON-LD for the site and article.
+
+```sh
+curl https://your-blog.example/llms.txt
+curl https://your-blog.example/example-post.md
+curl -H 'Accept: text/markdown' https://your-blog.example/example-post
+curl https://your-blog.example/robots.txt
+curl https://your-blog.example/feed.xml
+```
+
+On a free default-domain blog, public pages remain readable but carry `noindex`; the sitemap is unavailable. A paid or self-hosted blog can be indexed.
+
+## Product discovery
+
+The vibecms product and app hosts also publish discovery files for connecting an agent: an MCP server card at `/.well-known/mcp/server-card.json`, an API catalog at `/.well-known/api-catalog`, agent skill files under `/.well-known/agent-skills/`, and `auth.md`. Use those files on `vibecms.dev` or the app host to discover the API. Your blog's files describe its published content.

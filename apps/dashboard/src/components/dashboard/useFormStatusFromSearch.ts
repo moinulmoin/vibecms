@@ -14,15 +14,24 @@ const EXTRA_OK: Record<string, FormStatus> = {
   },
 }
 
+const EXTRA_ERROR: Record<string, FormStatus> = {
+  settings_conflict: {
+    variant: 'error',
+    title: 'Settings changed elsewhere',
+    message: 'Your local values were kept against the latest saved version. Review them, then save again.',
+  },
+}
+
 /** Maps allowlisted `?ok=` / `?error=` search params to {@link StatusAlert} input. */
 export function resolveFormStatus(search: { ok?: string; error?: string }): FormStatus | null {
   const params = new URLSearchParams()
   if (search.error) params.set('error', search.error)
   else if (search.ok) params.set('ok', search.ok)
+  if (search.error && EXTRA_ERROR[search.error]) return EXTRA_ERROR[search.error]
+  if (search.ok && EXTRA_OK[search.ok]) return EXTRA_OK[search.ok]
   const fromConfig = readFormStatus(params)
   if (fromConfig) return fromConfig
-  if (search.ok && EXTRA_OK[search.ok]) return EXTRA_OK[search.ok]
-  if (search.error) return FORM_STATUS[search.error] ?? FORM_STATUS.unknown
+  if (search.error) return EXTRA_ERROR[search.error] ?? FORM_STATUS[search.error] ?? FORM_STATUS.unknown
   return null
 }
 

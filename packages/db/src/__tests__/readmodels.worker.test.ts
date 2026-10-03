@@ -294,8 +294,9 @@ async function seedDashboardSite(): Promise<void> {
 }
 
 // Activation-proof fixtures for getActivationPost on rm-site-activation: an
-// api_key-published post (live), an api_key-created draft (draft), a
-// human-only published post (must NOT count), and a post version on the draft.
+// api_key-authored, human-approved post (live), an api_key-created draft, a
+// human-only published post (must NOT count), an agent edit after a human-only
+// publication (must not retroactively count), and a post version on the draft.
 async function seedActivationSite(): Promise<void> {
   const site = "rm-site-activation";
   const insPost = (
@@ -315,9 +316,10 @@ async function seedActivationSite(): Promise<void> {
       id, site, actorType, actorId, actorName, action, "post", entityId, `${action} ${entityId}`, createdAt,
     );
 
-  // api_key published post -> LIVE activation proof.
+  // Agent authors the post, then a human approves it -> LIVE activation proof.
   await insPost("rm-act-live", "live-agent", "published", T + 5, T + 60, "api_key", "rm-key-agent");
-  await insAct("rm-act-live-evt", "api_key", "rm-key-agent", "Agent Key", "post.published", "rm-act-live", T + 60);
+  await insAct("rm-act-live-draft-evt", "api_key", "rm-key-agent", "Agent Key", "post.created", "rm-act-live", T + 50);
+  await insAct("rm-act-live-evt", "human", "rm-user-approver", "Human Approver", "post.published", "rm-act-live", T + 60);
 
   // api_key draft post -> DRAFT activation proof (only when no live post exists).
   await insPost("rm-act-draft", "draft-agent", "draft", null, T + 40, "api_key", "rm-key-agent");
@@ -326,6 +328,11 @@ async function seedActivationSite(): Promise<void> {
   // Human-only published post -> must NEVER activate (excluded by actor_type).
   await insPost("rm-act-human", "human-post", "published", T + 5, T + 70, "human", "rm-user-human");
   await insAct("rm-act-human-evt", "human", "rm-user-human", "Human User", "post.published", "rm-act-human", T + 70);
+
+  // Agent activity after a human-only publication cannot retroactively qualify it.
+  await insPost("rm-act-late-edit", "late-agent-edit", "published", T + 5, T + 80, "api_key", "rm-key-agent");
+  await insAct("rm-act-late-publish-evt", "human", "rm-user-human", "Human User", "post.published", "rm-act-late-edit", T + 75);
+  await insAct("rm-act-late-update-evt", "api_key", "rm-key-agent", "Agent Key", "post.updated", "rm-act-late-edit", T + 80);
 
   // A post version on the draft so versionNumber resolves to 3 (not 0).
   await exec(
@@ -437,16 +444,16 @@ describe("dashboard.getDashboardAggregate — seeded site", () => {
     expect(agg.versionCount).toBe(4);
   });
 
-  it("returns recentPosts newest-first capped at 5", async () => {
+  it("returns recentPosts newest-first capped at 5, leaving archived posts out", async () => {
     const agg = await da.dashboard.getDashboardAggregate("rm-site-full");
-    // updated_at desc: p1(+60), p2(+50), p3(+40), p4(+30), p5(+20). p6(+10)
-    // and p7(0) fall off the 5-row cap.
+    // updated_at desc: p1(+60), p2(+50), p3(+40), p4(+30), p6(+10). p5 is
+    // archived; p7(0) falls off the 5-row cap.
     expect(agg.recentPosts.map((p) => p.id)).toEqual([
       "rm-p1",
       "rm-p2",
       "rm-p3",
       "rm-p4",
-      "rm-p5",
+      "rm-p6",
     ]);
     const p4 = agg.recentPosts.find((p) => p.id === "rm-p4");
     expect(p4?.status).toBe("draft");
@@ -614,15 +621,15 @@ describe("assets.getAssetForServe — by-id, not site-scoped", () => {
 // ===========================================================================
 
 describe("dashboard.getActivationPost — live wins, draft fallback, human excluded", () => {
-  it("returns the live api_key-published post and ignores human-only publishes", async () => {
+  it("returns a human-approved agent post and ignores human-only publishes", async () => {
     const proof = await da.dashboard.getActivationPost("rm-site-activation");
-    // The human post (rm-act-human) was published LATER (T+70) than the agent
-    // post (T+60). If actor_type were not filtered, the human post would win.
+    // Both human-origin posts were published later than the agent-authored post;
+    // a later agent edit cannot retroactively qualify an earlier publication.
     expect(proof.state).toBe("live");
     if (proof.state !== "live") return;
     expect(proof.post.id).toBe("rm-act-live");
     expect(proof.post).toMatchObject({ title: "rm-act-live", slug: "live-agent", publishedAt: T + 5 });
-    expect(proof.actorName).toBe("Agent Key");
+    expect(proof.actorName).toBe("Human Approver");
   });
 
   it("falls back to the latest api_key draft only when no live post exists", async () => {
@@ -700,9 +707,11 @@ describe("dashboard.listPostsForDashboard — actor join, version fold, list sem
       "rm-ap-pv-3", "rm-ap-1", "rm-site-actors", 3, "Actor A", "actor-a", "# a3", "published", "[]", "human", "rm-actor-user", T,
     );
 
+    // All leaves archived posts to their own tab.
     const rows = await da.dashboard.listPostsForDashboard("rm-site-actors", { limit: 10, offset: 0 });
-    expect(rows.map((r) => r.id)).toEqual(["rm-ap-1", "rm-ap-2", "rm-ap-3"]);
-    const [a, b, c] = rows;
+    expect(rows.map((r) => r.id)).toEqual(["rm-ap-1", "rm-ap-2"]);
+    const [a, b] = rows;
+    const [c] = await da.dashboard.listPostsForDashboard("rm-site-actors", { status: "archived", limit: 10, offset: 0 });
     // Human name wins from user.name; api key name from api_keys.actor_name;
     // an unmatched system actor yields null (the UI guards it).
     expect(a).toMatchObject({ versionNumber: 3, updatedByType: "human", updatedByName: "Rae Reviewer" });
@@ -712,7 +721,76 @@ describe("dashboard.listPostsForDashboard — actor join, version fold, list sem
     // Status + search semantics match the core listing.
     const drafts = await da.dashboard.listPostsForDashboard("rm-site-actors", { status: "draft", limit: 10, offset: 0 });
     expect(drafts.map((r) => r.id)).toEqual(["rm-ap-2"]);
-    const searched = await da.dashboard.listPostsForDashboard("rm-site-actors", { search: "actor-c", limit: 10, offset: 0 });
-    expect(searched.map((r) => r.id)).toEqual(["rm-ap-3"]);
+    const searched = await da.dashboard.listPostsForDashboard("rm-site-actors", { search: "actor-b", limit: 10, offset: 0 });
+    expect(searched.map((r) => r.id)).toEqual(["rm-ap-2"]);
   });
 });
+
+describe("dashboard.getDashboardAggregate — review queue", () => {
+  const site = "rm-site-review";
+  const version = (id: string, postId: string, n: number, by: string) =>
+    exec(
+      "INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, tags_json, created_by_type, created_by_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, postId, site, n, postId, postId, "# x", "draft", "[]", by, "rm-actor", T + n,
+    );
+  const post = (id: string, status: string, publishedVersionId: string | null) =>
+    exec(
+      "INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, published_version_id, tags_json, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      id, site, id, id, "# x", status, status === "published" ? T : null, publishedVersionId, "[]", "human", "rm-user", "human", "rm-user", T, T + 10,
+    );
+
+  beforeAll(async () => {
+    await exec(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      site, "rm-ws", "RM Review Site", site, T, T,
+    );
+    // An agent draft, and a live post (v1 pinned) with an unpublished v2.
+    await post("rv-agent-draft", "draft", null);
+    await version("rv-ad-1", "rv-agent-draft", 1, "api_key");
+    await post("rv-live", "published", null);
+    await version("rv-live-1", "rv-live", 1, "human");
+    await version("rv-live-2", "rv-live", 2, "human");
+    await exec("UPDATE posts SET published_version_id = ? WHERE id = ?", "rv-live-1", "rv-live");
+  });
+
+  it("includes agent drafts and live posts with pending changes, with real version numbers", async () => {
+    const agg = await da.dashboard.getDashboardAggregate(site);
+    const byId = Object.fromEntries(agg.needsReview.map((row) => [row.id, row]));
+    expect(agg.needsReviewCount).toBe(2);
+    expect(byId["rv-agent-draft"]).toMatchObject({ versionNumber: 1, latestActorType: "api_key" });
+    expect(byId["rv-live"]).toMatchObject({ versionNumber: 2, publishedVersionNumber: 1, latestActorType: "human" });
+  });
+
+  it("lists the live version's title, excerpt fallback, and tags next to the draft", async () => {
+    await exec("UPDATE post_versions SET title = ?, excerpt = NULL, fallback_excerpt = ?, tags_json = ? WHERE id = ?", "Live title", "First paragraph.", '["live"]', "rv-live-1");
+    await exec("UPDATE posts SET title = ? WHERE id = ?", "Draft title", "rv-live");
+    const rows = await da.dashboard.listPostsForDashboard(site, { limit: 10, offset: 0 });
+    const live = rows.find((row) => row.id === "rv-live")!;
+    expect(live).toMatchObject({ title: "Draft title", publishedTitle: "Live title", publishedExcerpt: "First paragraph.", publishedTagsJson: '["live"]' });
+    expect(rows.find((row) => row.id === "rv-agent-draft")).toMatchObject({ publishedTitle: null });
+  });
+
+  it("leaves archived posts out of All and counts each posts tab", async () => {
+    await post("rv-archived", "archived", null);
+    const all = await da.dashboard.listPostsForDashboard(site, { limit: 10, offset: 0 });
+    expect(all.map((row) => row.id)).not.toContain("rv-archived");
+    const archived = await da.dashboard.listPostsForDashboard(site, { status: "archived", limit: 10, offset: 0 });
+    expect(archived.map((row) => row.id)).toEqual(["rv-archived"]);
+    expect(await da.dashboard.countPostsForDashboard(site)).toEqual({ all: 2, review: 2, draft: 1, published: 1, archived: 1 });
+  });
+
+  it("counts active keys an agent has used, separately from all active keys", async () => {
+    const key = (id: string, lastUsedAt: number | null, revokedAt: number | null) =>
+      exec(
+        "INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, last_used_at, revoked_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        id, site, id, `${id}_`, `hash-${id}`, "[]", id, "rm-user", lastUsedAt, revokedAt, T, T,
+      );
+    await key("rv-key-unused", null, null);
+    await key("rv-key-used", T + 5, null);
+    await key("rv-key-revoked-used", T + 5, T + 6);
+    const agg = await da.dashboard.getDashboardAggregate(site);
+    expect(agg.tokenCount).toBe(2);
+    expect(agg.usedTokenCount).toBe(1);
+  });
+});
+

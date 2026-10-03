@@ -1,463 +1,541 @@
-'use client'
-
 import { useEffect, useRef, useState } from 'react'
-import { ArchiveIcon, FileTextIcon, MagnifyingGlassIcon, MixerHorizontalIcon, Pencil2Icon, PlusIcon, ReloadIcon, RocketIcon } from '@radix-ui/react-icons'
-import { Field, FieldLabel, Input, Select } from '@vc/ui'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Archive, Bot, ExternalLink, FileText, Inbox, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
-import type { DashboardPostSummary } from '~/types/dashboard'
-import {
-  archivePostMutation,
-  loadPostsPage,
-  publishPostMutation,
-} from '~/lib/api-client'
-import {
-  Button,
-  LoadError,
-  formatDate,
-} from '~/components/dashboard/DashboardLayout'
-import { DataRow, EmptyState, PageHeader, Panel } from '~/components/dashboard/blocks'
-import { Badge } from "@vc/ui"
-import { Skeleton } from "@vc/ui"
-import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { postsListSearch, emptyPostsListSearch, emptyPostEditorSearch, type PostsListSearch, emptyDashboardStatusSearch } from '~/lib/dashboard-search'
+import type { DashboardPostSummary, PostsPageLoad } from '~/types/dashboard'
+import { archivePostMutation, deleteArchivedPostMutation, loadPostsPage, unarchivePostMutation, unschedulePostMutation } from '~/lib/api-client'
+import { scheduledLabel } from './editor/schedule-label'
+import { Button, LoadError, formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
+import { EmptyState, PageHeader, PageSkeleton, PageTabs, StatusBadge } from '~/components/dashboard/blocks'
+import { Tabs } from '~/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
+import { useToast } from '~/components/Toaster'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { StatusBadge } from '~/components/dashboard/blocks'
-
-export function postListRefreshError(action: 'publish' | 'archive') {
-  return `Post ${action === 'publish' ? 'published' : 'archived'}, but the list could not refresh.`
-}
+import { emptyDashboardStatusSearch, emptyPostEditorSearch, postsListSearch, type PostsListSearch } from '~/lib/dashboard-search'
+import { hasPendingChanges, isAgentActor, reviewLabel } from '~/lib/post-review'
+import { contextQuery, queryKeys } from '~/lib/queries'
+import { personLabel } from '~/lib/people'
 
 /**
  * Last-change actor label for the posts list. Single-human workspace: a human
  * change with an empty profile name is the owner ("you"); unnamed token/agent
- * changes read as "agent".
+ * changes read as "agent", and background jobs read as "vibecms".
  */
 export function actorDisplayName(updatedByType: string | null, updatedByName: string | null): string {
   const name = updatedByName?.trim()
   if (name) return name
+  if (updatedByType === 'system') return 'vibecms'
   return updatedByType === 'api_key' || updatedByType === 'agent' ? 'agent' : 'you'
 }
 
-function PostsSkeleton() {
+const STATUS_TABS = [
+  { value: 'all', label: 'All' },
+  { value: 'review', label: 'Needs review' },
+  { value: 'draft', label: 'Drafts' },
+  { value: 'published', label: 'Published' },
+  { value: 'archived', label: 'Archived' },
+] as const
+
+const SORTS = [
+  { value: 'updated', label: 'Last updated' },
+  { value: 'created', label: 'Newest' },
+  { value: 'published', label: 'Recently published' },
+  { value: 'title', label: 'Title A–Z' },
+] as const
+
+const SEARCH_DEBOUNCE_MS = 250
+
+type TabCounts = NonNullable<PostsPageLoad['counts']>
+
+function TabLabel({ label, count, highlight }: { label: string; count: number | undefined; highlight?: boolean }) {
   return (
-    <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-4 w-80" />
-        </div>
-        <Skeleton className="h-9 w-28" />
-      </div>
-      <Skeleton className="h-64 rounded-2xl" />
-    </>
+    <span className="inline-flex items-center gap-1.5">
+      {label}
+      {count ? (
+        <span
+          className={[
+            'min-w-5 rounded-full px-1.5 text-center text-xs font-medium tabular-nums leading-5',
+            highlight ? 'bg-brand-bright text-brand-bright-foreground' : 'bg-foreground/[0.06] text-muted-foreground',
+          ].join(' ')}
+        >
+          {count}
+        </span>
+      ) : null}
+    </span>
   )
+}
+
+function normalizeStatus(value: string | undefined) {
+  return STATUS_TABS.some((tab) => tab.value === value && value !== 'all') ? value : undefined
+}
+
+function normalizeSort(value: string | undefined) {
+  return SORTS.some((sort) => sort.value === value && value !== 'updated') ? value : undefined
+}
+
+const EMPTY_COPY: Record<string, { title: string; description: string }> = {
+  review: {
+    title: 'Nothing waiting on you',
+    description: 'Agent drafts and unpublished changes to live posts show up here.',
+  },
+  draft: { title: 'No drafts', description: 'New posts from you or your agents start as drafts.' },
+  published: { title: 'Nothing published yet', description: 'Published posts appear here once they are live.' },
+  archived: { title: 'Nothing archived', description: 'Archived posts are hidden from your blog but keep their history.' },
 }
 
 export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdit: boolean }) {
   const navigate = useNavigate()
-  const [posts, setPosts] = useState<DashboardPostSummary[] | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [rowPending, setRowPending] = useState<string | null>(null)
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
-  const [rowError, setRowError] = useState<{ key: string; message: string; retry: () => void } | null>(null)
-  const [listRefreshError, setListRefreshError] = useState<string | null>(null)
-
-  const statusFilter =
-    search.status === 'draft' || search.status === 'published' || search.status === 'archived'
-      ? search.status
-      : undefined
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const me = useQuery(contextQuery).data?.app?.user
+  const status = normalizeStatus(search.status)
+  const sort = normalizeSort(search.sort)
   const searchQuery = search.search?.trim() || undefined
-  const hasFilters = Boolean(statusFilter || searchQuery)
+  const [searchDraft, setSearchDraft] = useState(searchQuery ?? '')
+  const lastPushedSearch = useRef(searchQuery ?? '')
+  const [rowPending, setRowPending] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ postId: string; message: string; retry: () => void } | null>(null)
+
+  const params = { status, search: searchQuery, sort }
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.posts({ ...params, list: true }),
+    queryFn: ({ pageParam, signal }) => loadPostsPage({ ...params, offset: pageParam || undefined }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.hasMore ? pages.reduce((total, page) => total + page.posts.length, 0) : undefined,
+    placeholderData: keepPreviousData,
+  })
+
+  // External URL changes (tab links, clear button, back/forward) win over the draft.
+  useEffect(() => {
+    if ((searchQuery ?? '') !== lastPushedSearch.current) {
+      lastPushedSearch.current = searchQuery ?? ''
+      setSearchDraft(searchQuery ?? '')
+    }
+  }, [searchQuery])
 
   useEffect(() => {
-    let cancelled = false
-    void loadPostsPage({ status: search.status, search: search.search })
-      .then((result) => {
-        if (!cancelled) {
-          setPosts(result.posts)
-          setHasMore(result.hasMore)
-        }
+    const next = searchDraft.trim()
+    if (next === lastPushedSearch.current) return
+    const timer = window.setTimeout(() => {
+      lastPushedSearch.current = next
+      void navigate({
+        to: '/dashboard/posts',
+        replace: true,
+        search: postsListSearch({ status, sort, search: next || undefined }),
       })
-      .catch(() => {
-        if (!cancelled) setLoadError('Could not load posts.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [search.status, search.search])
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchDraft, navigate, status, sort])
 
-  async function publishApprovedVersion(postId: string, versionNumber: number | null) {
-    if (versionNumber === null) return { kind: 'error' as const, code: 'not_found' }
-    return publishPostMutation({ postId, expectedVersionNumber: versionNumber })
+  function setListParams(next: { status?: string; sort?: string }) {
+    void navigate({
+      to: '/dashboard/posts',
+      search: postsListSearch({
+        status: normalizeStatus('status' in next ? next.status : status),
+        sort: normalizeSort('sort' in next ? next.sort : sort),
+        search: searchQuery,
+      }),
+    })
   }
 
-  async function refreshPosts() {
-    setListRefreshError(null)
-    try {
-      const refreshed = await loadPostsPage({ status: search.status, search: search.search })
-      setPosts(refreshed.posts)
-      setHasMore(refreshed.hasMore)
-    } catch {
-      setListRefreshError('The post list could not refresh. Your current list is still available.')
-    }
-  }
-
-  async function runRowMutation(
-    key: string,
-    action: 'publish' | 'archive',
-    mutate: () => Promise<{ kind: 'ok' | 'error'; code: string }>,
-  ) {
+  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore' | 'delete' | 'unschedule') {
+    const key = `${post.id}:${action}`
     setRowPending(key)
-    let successCode = ''
     setRowError(null)
+    const retry = () => void runRowMutation(post, action)
     try {
-      const result = await mutate()
-      if (result.kind === 'error') {
-        setRowError({
-          key,
-          message: `Could not ${action} this post. Try again.`,
-          retry: () => void runRowMutation(key, action, mutate),
-        })
-        return
-      }
-      successCode = result.code
-    } catch {
-      setRowError({
-        key,
-        message: `Could not ${action} this post. Try again.`,
-        retry: () => void runRowMutation(key, action, mutate),
-      })
-      return
+      const result = action === 'archive'
+        ? await archivePostMutation({ postId: post.id })
+        : action === 'restore'
+          ? await unarchivePostMutation({ postId: post.id })
+          : action === 'unschedule' ? await unschedulePostMutation({ postId: post.id })
+          : await deleteArchivedPostMutation({ postId: post.id })
+      if (result.kind === 'error') throw new Error(result.code)
+      toast(
+        action === 'archive'
+          ? { variant: 'success', title: 'Post archived', message: `“${post.title}” is hidden from your blog. History is kept.` }
+          : action === 'restore'
+            ? { variant: 'success', title: 'Restored to draft', message: `“${post.title}” is a draft again.` }
+            : action === 'unschedule'
+              ? { variant: 'success', title: 'Schedule canceled', message: `“${post.title}” will not publish automatically.` }
+            : { variant: 'success', title: 'Post deleted', message: `“${post.title}” was permanently deleted.` },
+      )
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['posts'] }),
+        queryClient.invalidateQueries({ queryKey: ['overview'] }),
+      ])
+    } catch (error) {
+      setRowError({ postId: post.id, message: error instanceof Error && error.message === 'Already publishing'
+        ? 'Already publishing' : `Could not ${action} this post.`, retry })
     } finally {
       setRowPending(null)
     }
-
-    try {
-      await navigate({
-        to: '/dashboard/posts',
-        search: postsListSearch({ status: search.status, search: search.search, ok: successCode }),
-      })
-      const refreshed = await loadPostsPage({ status: search.status, search: search.search })
-      setPosts(refreshed.posts)
-      setHasMore(refreshed.hasMore)
-    } catch {
-      setListRefreshError(postListRefreshError(action))
-    }
-
   }
 
-  const loadingMoreRef = useRef(false)
-  async function loadMore() {
-    if (!posts || loadingMoreRef.current) return
-    loadingMoreRef.current = true
-    setLoadingMore(true)
-    setLoadMoreError(null)
-    try {
-      const result = await loadPostsPage({ status: search.status, search: search.search, offset: posts.length })
-      setPosts((prev) => [...(prev ?? []), ...result.posts])
-      setHasMore(result.hasMore)
-    } catch {
-      setLoadMoreError('Could not load more posts. Your current list is still available.')
-    } finally {
-      loadingMoreRef.current = false
-      setLoadingMore(false)
-    }
+  if (query.isError && !query.data) {
+    return <LoadError message="Could not load posts." />
+  }
+  if (!query.data) {
+    return <PageSkeleton variant="table" />
   }
 
-  if (loadError) {
-    return <LoadError message={loadError} />
-  }
-  if (!posts) {
-    return <PostsSkeleton />
-  }
+  const pages = query.data.pages
+  const posts = pages.flatMap((page) => page.posts)
+  const publicBaseUrl = pages[0]?.publicBaseUrl ?? null
+  const counts: TabCounts | null = pages[0]?.counts ?? null
+  const hasFilters = Boolean(status || searchQuery)
+  const emptyCopy = searchQuery
+    ? {
+        title: 'No posts match',
+        description: `Nothing matches “${searchQuery}”${status ? ' in this view' : ''}.${!status && counts?.archived ? ' Archived posts are in the Archived tab.' : ''}`,
+      }
+    : status
+      ? EMPTY_COPY[status]
+      : null
 
   return (
     <>
       <PageHeader
         title="Posts"
-        description="Draft, review, publish, and restore every post—whether it came from you or an agent."
+        description="Everything you and your agents write."
         action={canEdit ? (
           <Button asChild>
-            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><PlusIcon aria-hidden data-icon="inline-start" /> New post</Link>
+            <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}><Plus aria-hidden data-icon="inline-start" /> New post</Link>
           </Button>
         ) : undefined}
       />
-      <Panel title="All posts">
-        {posts.length > 0 || hasFilters ? (
-          <form
-            className="mb-4 flex flex-wrap items-end gap-3 border-b border-[color:var(--hairline)] pb-4"
-            method="get"
-            onSubmit={(event) => {
-              event.preventDefault()
-              const form = event.currentTarget
-              const nextStatus = (form.elements.namedItem('status') as HTMLSelectElement | null)?.value ?? ''
-              const nextSearch = (form.elements.namedItem('search') as HTMLInputElement | null)?.value?.trim() ?? ''
-              void navigate({
-                to: '/dashboard/posts',
-                search: postsListSearch({ status: nextStatus || undefined, search: nextSearch || undefined }),
-              })
+      <Tabs value={status ?? 'all'} onValueChange={(value) => setListParams({ status: value })} className="gap-0">
+        <PageTabs
+          label="Filter posts"
+          tabs={STATUS_TABS.map((tab) => ({
+            value: tab.value,
+            label: <TabLabel label={tab.label} count={counts?.[tab.value]} highlight={tab.value === 'review'} />,
+          }))}
+        />
+      </Tabs>
+
+      <div className="-mt-2 flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:w-80">
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label="Search posts"
+            placeholder="Search posts"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && searchDraft) {
+                event.preventDefault()
+                setSearchDraft('')
+              }
             }}
-          >
-            <Field className="w-full gap-2 sm:w-72">
-              <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-search">
-                Search posts
-              </FieldLabel>
-              <Input id="posts-search" name="search" placeholder="Search title, slug, excerpt" defaultValue={searchQuery ?? ''} />
-            </Field>
-            <Field className="w-full gap-2 sm:w-44">
-              <FieldLabel className="sr-only font-mono text-[11px] text-muted-foreground" htmlFor="posts-status">
-                Status
-              </FieldLabel>
-              <Select id="posts-status" name="status" defaultValue={statusFilter ?? ''}>
-                <option value="">All statuses</option>
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="archived">Archived</option>
-              </Select>
-            </Field>
-            <Button className="h-9" type="submit">
-              <MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Filter
-            </Button>
-          </form>
-        ) : null}
-        {posts.length ? (
-          <>
-            <div className="grid gap-0 md:hidden">
-              {posts.map((post) => (
-                <article className="grid gap-3 border-b border-foreground/[0.065] py-4 last:border-b-0" key={post.id}>
-                  <div className="min-w-0">
-                    {canEdit ? (
-                      <Link
-                        className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
-                        to="/dashboard/posts/$postId/edit"
-                        search={emptyPostEditorSearch}
-                        params={{ postId: post.id }}
-                      >
-                        {post.title}
-                      </Link>
-                    ) : (
-                      <strong className="font-display text-base font-semibold tracking-[-0.02em] text-foreground">
-                        {post.title}
-                      </strong>
-                    )}
-                    <p className="mt-1.5 break-words font-mono text-[11px] leading-5 text-muted-foreground">
-                      <span className="text-primary/90">/{post.slug}</span>
-                      <span className="text-muted-foreground"> · </span>
-                      {post.excerpt || 'No excerpt yet'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                    <StatusBadge status={post.status} />
-                    <span className="truncate">By {actorDisplayName(post.updatedByType, post.updatedByName)}</span>
-                    <span className="tabular-nums">Updated {formatDate(post.updatedAt)}</span>
-                  </div>
-                  {canEdit ? <div className="flex flex-wrap gap-2 pt-1">
-                    <Button asChild size="sm" variant="outline">
-                      <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
-                      </Link>
-                    </Button>
-                    {post.status !== 'published' ? (
-                      <PendingSubmitButton
-                        size="sm"
-                        pending={rowPending === `${post.id}:publish`}
-                        pendingText="Publishing…"
-                        onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
-                            publishApprovedVersion(post.id, post.versionNumber),
-                          )
-                        }
-                      >
-                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
-                      </PendingSubmitButton>
-                    ) : null}
-                    {post.status !== 'archived' ? (
-                      <SpaConfirmButton
-                        size="sm"
-                        confirmLabel="Confirm archive"
-                        helperText="Archiving hides this post from the public blog."
-                        disabled={rowPending === `${post.id}:archive`}
-                        onConfirm={() =>
-                          runRowMutation(`${post.id}:archive`, 'archive', () =>
-                            archivePostMutation({ postId: post.id }),
-                          )
-                        }
-                      >
-                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
-                      </SpaConfirmButton>
-                    ) : null}
-                  </div> : null}
-                  {rowError?.key.startsWith(`${post.id}:`) ? (
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
-                      <span>{rowError.message}</span>{' '}
-                      <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={rowError.retry}>
-                        Try again
-                      </Button>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-            <div className="hidden md:grid md:gap-0">
-              <div className={`grid gap-3 px-1 pb-1 font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground ${
-                canEdit ? 'grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr]' : 'grid-cols-[1.5fr_.5fr_.55fr_.6fr]'
-              }`}>
-                <span>Post</span>
-                <span>Status</span>
-                <span>By</span>
-                <span>Updated</span>
-                {canEdit ? <span className="text-right">Actions</span> : null}
-              </div>
-              {posts.map((post) => (
-                <DataRow
-                  className={canEdit
-                    ? 'md:grid-cols-[1.5fr_.5fr_.55fr_.6fr_.85fr] md:items-center'
-                    : 'md:grid-cols-[1.5fr_.5fr_.55fr_.6fr] md:items-center'}
-                  key={post.id}
-                >
-                  <div className="min-w-0">
-                    {canEdit ? (
-                      <Link
-                        className="font-display text-base font-semibold tracking-[-0.02em] text-foreground no-underline hover:text-primary hover:underline"
-                        data-row-key
-                        to="/dashboard/posts/$postId/edit"
-                        search={emptyPostEditorSearch}
-                        params={{ postId: post.id }}
-                      >
-                        {post.title}
-                      </Link>
-                    ) : (
-                      <strong className="font-display text-base font-semibold tracking-[-0.02em] text-foreground">
-                        {post.title}
-                      </strong>
-                    )}
-                    <p className="mt-1 max-w-xl truncate font-mono text-xs text-muted-foreground">
-                      <span className="text-primary/90">/{post.slug}</span>
-                      <span> · </span>
-                      {post.excerpt || 'No excerpt yet'}
-                    </p>
-                  </div>
-                  <StatusBadge status={post.status} className="w-fit" />
-                  <span
-                    className="truncate font-mono text-xs text-muted-foreground"
-                    title={post.updatedByName ?? undefined}
-                  >
-                    {actorDisplayName(post.updatedByType, post.updatedByName)}
-                  </span>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDate(post.updatedAt)}</span>
-                  {canEdit ? <div className="flex flex-wrap justify-end gap-2">
-                    <Button asChild size="sm" variant="outline">
-                      <Link to="/dashboard/posts/$postId/edit" search={emptyPostEditorSearch} params={{ postId: post.id }}>
-                        <Pencil2Icon aria-hidden data-icon="inline-start" /> Edit
-                      </Link>
-                    </Button>
-                    {post.status !== 'published' ? (
-                      <PendingSubmitButton
-                        size="sm"
-                        pending={rowPending === `${post.id}:publish`}
-                        pendingText="Publishing…"
-                        onClick={() =>
-                          void runRowMutation(`${post.id}:publish`, 'publish', () =>
-                            publishApprovedVersion(post.id, post.versionNumber),
-                          )
-                        }
-                      >
-                        <RocketIcon aria-hidden data-icon="inline-start" /> Publish
-                      </PendingSubmitButton>
-                    ) : null}
-                    {post.status !== 'archived' ? (
-                      <SpaConfirmButton
-                        size="sm"
-                        confirmLabel="Confirm archive"
-                        helperText="Archiving hides this post from the public blog."
-                        disabled={rowPending === `${post.id}:archive`}
-                        onConfirm={() =>
-                          runRowMutation(`${post.id}:archive`, 'archive', () =>
-                            archivePostMutation({ postId: post.id }),
-                          )
-                        }
-                      >
-                        <ArchiveIcon aria-hidden data-icon="inline-start" /> Archive
-                      </SpaConfirmButton>
-                    ) : null}
-                  </div> : null}
-                  {rowError?.key.startsWith(`${post.id}:`) ? (
-                    <div className="col-span-full rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
-                      <span>{rowError.message}</span>{' '}
-                      <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={rowError.retry}>
-                        Try again
-                      </Button>
-                    </div>
-                  ) : null}
-                </DataRow>
-              ))}
-            </div>
-            {hasMore || loadMoreError ? (
-              <>
-                {hasMore ? (
-                  <div className="mt-3 flex justify-center">
-                    <Button type="button" variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                      <ReloadIcon aria-hidden data-icon="inline-start" />
-                      {loadingMore ? 'Loading…' : 'Load more'}
-                    </Button>
-                  </div>
-                ) : null}
-                {loadMoreError ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
-                    <span>{loadMoreError}</span>
-                    <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void loadMore()}>
-                      Try again
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-            {listRefreshError ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
-                <span>{listRefreshError}</span>
-                <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void refreshPosts()}>
-                  Reload posts
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <EmptyState
-            icon={hasFilters ? <MagnifyingGlassIcon /> : <FileTextIcon />}
-            title={hasFilters ? 'No posts match' : 'No posts yet'}
-            description={
-              hasFilters
-                ? 'Clear the filters or try a different search to review existing drafts and published posts.'
-                : canEdit
-                  ? 'Connect an agent to draft your first post through the approval-first flow, or start one manually.'
-                  : 'No posts have been drafted or published for this site yet.'
-            }
-            action={
-              hasFilters ? (
-                <Button asChild variant="outline">
-                  <Link to="/dashboard/posts" search={emptyPostsListSearch}><MixerHorizontalIcon aria-hidden data-icon="inline-start" /> Clear filters</Link>
-                </Button>
-              ) : canEdit ? (
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button asChild>
-                    <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
-                      <RocketIcon aria-hidden data-icon="inline-start" /> Publish with agent
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
-                      <Pencil2Icon aria-hidden data-icon="inline-start" /> Write manually
-                    </Link>
-                  </Button>
-                </div>
-              ) : undefined
-            }
+            className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
           />
-        )}
-      </Panel>
+          {searchDraft ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchDraft('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X aria-hidden className="size-4" />
+            </button>
+          ) : null}
+        </div>
+        <div className="w-full sm:ml-auto sm:w-48">
+          <Select aria-label="Sort posts" value={sort ?? 'updated'} onChange={(event) => setListParams({ sort: event.currentTarget.value })}>
+            {SORTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </Select>
+        </div>
+      </div>
+
+      {posts.length ? (
+        <div className={query.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <ul className="grid">
+            {posts.map((post) => (
+              <PostRow
+                key={post.id}
+                post={post}
+                canEdit={canEdit}
+                publicBaseUrl={publicBaseUrl}
+                pendingKey={rowPending}
+                error={rowError?.postId === post.id ? rowError : null}
+                onArchive={() => runRowMutation(post, 'archive')}
+                onRestore={() => void runRowMutation(post, 'restore')}
+                onDelete={() => runRowMutation(post, 'delete')}
+                onUnschedule={() => runRowMutation(post, 'unschedule')}
+                onCopied={() => toast({ variant: 'success', title: 'Link copied', message: 'The live link is on your clipboard.' })}
+                showDelete={status === 'archived'}
+                me={me}
+              />
+            ))}
+          </ul>
+          {query.hasNextPage ? (
+            <div className="mt-4 flex justify-center">
+              <Button type="button" variant="outline" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>
+                <RefreshCw aria-hidden data-icon="inline-start" />
+                {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
+          {query.isFetchNextPageError ? (
+            <p className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-destructive" role="alert">
+              Could not load more posts.
+              <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={() => void query.fetchNextPage()}>
+                Try again
+              </Button>
+            </p>
+          ) : null}
+        </div>
+      ) : hasFilters && emptyCopy ? (
+        <EmptyState
+          icon={searchQuery ? <Search /> : status === 'review' ? <Inbox /> : <FileText />}
+          title={emptyCopy.title}
+          description={emptyCopy.description}
+          action={searchQuery ? (
+            <Button type="button" variant="outline" onClick={() => setSearchDraft('')}>Clear search</Button>
+          ) : undefined}
+        />
+      ) : (
+        <EmptyState
+          icon={<FileText />}
+          title="No posts yet"
+          description={canEdit
+            ? 'Connect an agent to draft your first post, or start one yourself.'
+            : 'No posts have been drafted or published for this site yet.'}
+          action={canEdit ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button asChild>
+                <Link to="/dashboard/connect" search={emptyDashboardStatusSearch}>
+                  <Rocket aria-hidden data-icon="inline-start" /> Connect an agent
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
+                  <Pencil aria-hidden data-icon="inline-start" /> Write a post
+                </Link>
+              </Button>
+            </div>
+          ) : undefined}
+        />
+      )}
     </>
+  )
+}
+
+function PostRow({
+  post,
+  canEdit,
+  publicBaseUrl,
+  pendingKey,
+  error,
+  onArchive,
+  onRestore,
+  onDelete,
+  onUnschedule,
+  onCopied,
+  showDelete,
+  me,
+}: {
+  me?: { email?: string | null; name?: string | null }
+  post: DashboardPostSummary
+  canEdit: boolean
+  publicBaseUrl: string | null
+  pendingKey: string | null
+  error: { message: string; retry: () => void } | null
+  onArchive: () => Promise<void>
+  onRestore: () => void
+  onDelete: () => Promise<void>
+  onUnschedule: () => Promise<void>
+  onCopied: () => void
+  showDelete: boolean
+}) {
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const review = reviewLabel(post)
+  const title = post.title || 'Untitled'
+  // The byline describes the last change, while latestActorType describes the
+  // tip version. A scheduled publish can have different actors for those two.
+  const agentWrote = isAgentActor(post.updatedByType)
+  // The public URL follows the live version's slug, not an unpublished rename.
+  const liveSlug = post.publishedVersionNumber == null ? post.slug : post.publishedSlug ?? null
+  const liveUrl = post.status === 'published' && publicBaseUrl && liveSlug ? `${publicBaseUrl}/${liveSlug}` : null
+  const editorLink = { to: '/dashboard/posts/$postId/edit' as const, params: { postId: post.id }, search: emptyPostEditorSearch }
+  const scheduled = post.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status)
+  const canUnschedule = canEdit && post.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status)
+  const archiving = pendingKey === `${post.id}:archive`
+  const showMenu = post.status !== 'archived' && (Boolean(liveUrl) || canEdit)
+  const actorName = agentWrote
+    ? actorDisplayName(post.updatedByType, post.updatedByName)
+    : personLabel(actorDisplayName(post.updatedByType, post.updatedByName), me)
+
+  async function copyLink() {
+    if (!liveUrl) return
+    try {
+      await navigator.clipboard.writeText(liveUrl)
+      onCopied()
+    } catch {
+      window.open(liveUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  return (
+    // The title link stretches over the row (after:inset-0), so the whole row
+    // opens the editor; controls sit above it (relative z-10). The hairline is
+    // inset to the content edge while the hover wash bleeds past it.
+    <li className={`relative -mx-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-3 py-3.5 transition-colors after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-[color:var(--hairline)] last:after:hidden md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_10rem] ${canEdit ? 'hover:bg-muted/50 has-[a[data-row-link]:focus-visible]:bg-muted/50 has-[[aria-expanded=true]]:bg-muted/50' : ''}`}>
+      <div className="col-span-2 min-w-0 md:col-span-1">
+        {canEdit ? (
+          <Link
+            {...editorLink}
+            data-row-link=""
+            className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
+          >
+            {title}
+          </Link>
+        ) : (
+          <strong className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{title}</strong>
+        )}
+        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+          {post.excerpt ? post.excerpt : <span className="font-mono text-xs">/{post.slug}</span>}
+        </p>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 md:contents">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={post.status} className="w-fit" />
+          {scheduled ? <StatusBadge status="pending" label={scheduledLabel(post.scheduledPublish!.publishAt)} className="w-fit normal-case" /> : null}
+          {post.scheduledPublish?.status === 'failed' ? <span className="text-xs text-destructive" title={post.scheduledPublish.error ?? undefined}>Schedule failed: {post.scheduledPublish.error}</span> : null}
+          {review && hasPendingChanges(post) ? (
+            <StatusBadge status="pending" label="Changes" className="w-fit normal-case" />
+          ) : review ? (
+            <StatusBadge status="pending" label="Review" className="w-fit normal-case" />
+          ) : null}
+        </div>
+        <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <time className="relative z-10 shrink-0" dateTime={new Date(post.updatedAt * 1000).toISOString()} title={formatDateTime(post.updatedAt)}>
+            {formatRelative(post.updatedAt)}
+          </time>
+          <span aria-hidden>·</span>
+          {agentWrote ? <Bot aria-hidden className="size-3.5 shrink-0" /> : null}
+          <span className="truncate" title={actorName}>{actorName}</span>
+          {agentWrote ? <span className="sr-only">(agent)</span> : null}
+        </p>
+      </div>
+
+      <div className="relative z-10 flex items-center justify-end gap-1">
+        {canUnschedule ?
+          <Button type="button" size="sm" variant="ghost" disabled={Boolean(pendingKey)} onClick={() => void onUnschedule()}>Unschedule</Button> : null}
+        {review && canEdit ? (
+          <Button asChild size="sm" variant="outline">
+            <Link {...editorLink}>Review</Link>
+          </Button>
+        ) : null}
+        {canEdit && post.status === 'archived' ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={pendingKey === `${post.id}:restore`}
+            onClick={onRestore}
+          >
+            <RotateCcw aria-hidden data-icon="inline-start" />
+            {pendingKey === `${post.id}:restore` ? 'Restoring…' : 'Restore'}
+          </Button>
+        ) : null}
+        {canEdit && showDelete && post.status === 'archived' ? (
+          <SpaConfirmButton
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground hover:text-destructive"
+            confirmationKey={post.id}
+            confirmLabel={`Delete “${post.title}” forever?`}
+            pendingLabel="Deleting…"
+            helperText="Versions and history go too. This can't be undone."
+            disabled={Boolean(pendingKey)}
+            onConfirm={onDelete}
+          >
+            <Trash2 aria-hidden />
+            <span className="sr-only">Delete “{post.title}” forever</span>
+          </SpaConfirmButton>
+        ) : null}
+        {showMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8 text-muted-foreground hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground"
+                aria-label={`More actions for “${title}”`}
+              >
+                <MoreHorizontal aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              {canEdit ? (
+                <DropdownMenuItem asChild>
+                  <Link {...editorLink}><Pencil aria-hidden />Open in editor</Link>
+                </DropdownMenuItem>
+              ) : null}
+              {liveUrl ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <a href={liveUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden />View live</a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void copyLink()}><Link2 aria-hidden />Copy link</DropdownMenuItem>
+                </>
+              ) : null}
+              {canEdit ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={archiving} onSelect={() => setArchiveOpen(true)}>
+                    <Archive aria-hidden />{archiving ? 'Archiving…' : 'Archive…'}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="relative z-10 col-span-full flex flex-wrap items-center gap-2 text-sm text-destructive" role="alert">
+          {error.message}
+          <Button type="button" variant="link" className="h-auto p-0 text-destructive underline" onClick={error.retry}>
+            Try again
+          </Button>
+        </p>
+      ) : null}
+
+      <Dialog open={archiveOpen} onOpenChange={(next) => { if (!archiving) setArchiveOpen(next) }}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Archive “{title}”?</DialogTitle>
+            <DialogDescription>
+              {post.status === 'published'
+                ? 'It comes off your blog right away. You can restore it later as a draft; its history stays.'
+                : 'It moves to Archived. You can restore it any time; its history stays.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={archiving} onClick={() => setArchiveOpen(false)}>Keep it</Button>
+            <Button
+              type="button"
+              disabled={archiving}
+              onClick={async () => {
+                await onArchive()
+                setArchiveOpen(false)
+              }}
+            >
+              <Archive aria-hidden data-icon="inline-start" />
+              {archiving ? 'Archiving…' : post.status === 'published' ? 'Take down and archive' : 'Archive'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </li>
   )
 }

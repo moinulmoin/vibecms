@@ -5,6 +5,7 @@ export type PublicRuntimeEnv = {
   appUrl: string;
   publicBlogDomain: string | null;
   selfHosted: boolean;
+  generatedCards: boolean;
 };
 
 declare global {

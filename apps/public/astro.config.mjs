@@ -27,7 +27,7 @@ export default defineConfig({
         "base-uri 'self'",
         "form-action 'self'",
         "object-src 'none'",
-        "img-src 'self' data:",
+        "img-src 'self' data: https:",
         "font-src 'self'",
         "connect-src 'self'",
         "manifest-src 'self'",
@@ -44,6 +44,8 @@ export default defineConfig({
     plugins: [tailwindcss()],
     build: {
       cssMinify: false,
+      // Never inline scripts as data: URLs; the CSP only allows same-origin scripts.
+      assetsInlineLimit: (file) => (/\.[cm]?js$/.test(file) ? false : undefined),
     },
     resolve: {
       dedupe: ["react", "react-dom"],

@@ -5,17 +5,17 @@ A complete, value-oriented inventory of what vibecms delivers. Grounded in the c
 - `docs/FEATURES.md` = terse internal ledger of shipped/planned/skipped state.
 - This file = the full customer + agent facing feature inventory, including small details.
 
-Last updated: 2026-06-23
+Last updated: 2026-09-03
 
 ---
 
 ## The value proposition
 
-**vibecms is the calm, markdown-native blog built for the human + agent era: hosted, own-your-domain, own-your-data, $19/month.**
+**vibecms is the agent-native publishing control plane: exact Markdown, scoped automation, approval-first releases with stale-version rejection, managed hosting, your own domain and your own data for $19/month.**
 
 Three things make it worth paying for:
 
-1. **A genuinely nice blog, done for you.** Markdown-native (no block-editor bloat), 4 designed themes, full SEO/RSS/`llms.txt` hygiene, your own domain, fast managed hosting on Cloudflare.
+1. **A genuinely nice blog, done for you.** Markdown-native (no block-canonical page-builder bloat), 4 designed themes, full SEO/RSS/`llms.txt` hygiene, your own domain, fast managed hosting on Cloudflare.
 2. **Your AI agent is a first-class operator.** A real MCP server (19 tools), a typed REST API (OpenAPI + live docs), a CLI, and scoped reveal-once tokens. An agent can run the whole blog safely.
 3. **The trust boundary that avoids slop.** The platform never generates content; your agent is the intelligence, and the platform validates and nudges (`posts.format_guide`, `posts.preview`) while keeping an audit trail. You can export everything and walk away (no lock-in).
 
@@ -26,25 +26,26 @@ Three things make it worth paying for:
 ### Accounts and sign-in
 - Passwordless email OTP (6-digit, 10-minute expiry); no passwords.
 - OTP delivery via Cloudflare Email Sending when configured, console fallback otherwise.
-- OTP send rate limit: 5 per hour per email (fail-open).
+- OTP send rate limit: 5 per hour per email (fail-closed when the durable budget cannot be checked).
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default subdomain + billing row, in one step.
 - Cross-origin POST guard on app and onboarding endpoints.
-- Google OAuth wired but gated (off until credentials are set).
+- Google and GitHub OAuth wired but gated (each appears only when its credentials are set).
 
 ### Content and posts
 - Markdown-native posts; status model draft to published to archived.
 - Fields: title (160), slug (120, lowercase-hyphen, per-site unique), excerpt (500), content (500 KB), cover image, canonical URL (2048), SEO title (70), SEO description (180), up to 20 tags (40 chars each), presentation (layout + TOC).
 - True-patch updates (omit a field to keep it; explicit null to clear).
-- Atomic, idempotent publish; free tier caps at 1 published post (race-safe).
+- Atomic, idempotent publish; free tier caps at 5 published posts (race-safe).
 - Archive hides from public but keeps versions and activity.
 - Auto-slug from title (stops once the slug is edited manually).
 
 ### Editor (dashboard authoring)
-- Write/Preview toggle using the exact public renderer.
+- Write/Source/Preview/Settings modes using the exact public renderer.
+- Byte-safe visual/source editing: the BlockNote canvas is offered only when its Markdown round trip is exact; CodeMirror 6 provides GFM-aware source editing, search, history, slash commands, and image insertion.
 - Insert image from the media library at the cursor.
 - Cover-image picker, SEO fields, tags, presentation panel (layout + TOC, constrained to the active theme).
 - Unsaved-changes guard (in-app navigation + browser beforeunload).
-- Inline validation; explicit manual save (no surprise autosave).
+- Inline validation; version-aware autosave with visible state, a manual Save action, optimistic concurrency, and conflict recovery when another human or agent writes first.
 
 ### Version history and audit
 - Immutable snapshot on every create/update/publish/archive/restore, with the actor (human, token, or agent) and a change summary.
@@ -55,14 +56,14 @@ Three things make it worth paying for:
 ### Media
 - Image upload (JPEG/PNG/WebP/GIF, up to 10 MB) to Cloudflare R2.
 - Served at `/media-assets/<id>` with immutable 1-year cache.
-- Alt text, list, delete; delete blocked (409) if the image is a post cover.
+- Alt text, list, delete; delete blocked (409) if the image is a post cover or site social image, and agent deletion requires a dedicated destructive scope.
 - 5 GB hosted storage on paid; live storage-usage meter.
 
 ### Themes and presentation
 - 4 designed presets: `minimal` (default), `editorial`, `technical`, `product`; each token-driven, light/dark/system.
 - 3 layouts: `standard`, `feature` (full-width hero cover), `essay` (prose measure + drop cap).
 - Per-preset table-of-contents support; unsupported layout/TOC requests clamp gracefully (never error).
-- Live theme preview in Settings with light/system/dark toggle.
+- Dedicated Theme workspace with preset, light/system/dark mode, accent, typography, and a live public-site preview.
 
 ### Rich content rendering (shared by editor preview and public blog)
 - Sanitized pipeline, no raw HTML (XSS-safe by construction).
@@ -103,19 +104,19 @@ Three things make it worth paying for:
 
 ### Agent and API surfaces (the differentiator)
 - MCP server at `POST /mcp`, 19 tools: `sites.get`, `posts.list/search/get/get_by_slug/create/update/publish/archive`, `posts.versions.list/get/restore`, `posts.format_guide`, `posts.preview`, `assets.upload/list/get/delete`, `activity.list`. JSON-RPC, 3 protocol versions, per-tool scope + read/destructive/idempotent hints.
-- REST API `/api/v1`, 18 operations, plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
+- REST API `/api/v1`, 18 OpenAPI operations covering the same capabilities (`posts.search` is the posts-list search query), plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
 - CLI `@vibecms/cli` (`vibecms`): login, whoami, site, activity, schema introspection, posts (list/get/get-by-slug/create/update/publish/archive), assets (list/get/upload/delete); `--json`/`--ndjson`/`--dry-run`; typed exit codes.
-- Scoped bearer tokens `vc_live_...`: HMAC-hashed + peppered, reveal-once, 8 scopes, 3 presets (draft / publish=default / full), max 10 active, last-used tracking, owner-only management.
+- Scoped bearer tokens `vc_live_...`: HMAC-hashed + peppered, reveal-once, 9 scopes, 3 presets (Drafter=default / Publisher / Full publisher), max 10 active, last-used tracking, owner-only management. Media deletion has its own Full-only scope.
 - `posts.preview` + `posts.format_guide` give agents theme-aware guidance before they write.
 
 ### Dashboard
-- Overview (blog status, published/draft counts, media used, active tokens, API usage, recent posts/activity), Analytics, Posts, Media, Activity, Settings, Connect, Billing, Setup.
-- Connect-an-agent flow: one-click token, copy-paste MCP snippets for Claude Code, Codex CLI, Cursor, generic HTTP-MCP, and a stdio bridge, a live polling self-test, recovery states, and a starter prompt.
+- Overview (blog status, published/draft counts, media used, active tokens, API usage, recent posts/activity), Analytics, Posts, Media, Subscribers, Activity, Theme, Settings, Connect, Billing, Setup.
+- Connect-an-agent flow: reveal-once scoped token, focused setup for Claude Code, Codex, Cursor, Factory Droid, and generic MCP clients, a protected-read connection check, recovery states, and an approval-first starter prompt.
 - Consistent inline success/error alerts via the `?ok=`/`?error=` pattern.
 
 ### Billing and plans
 - Polar checkout (monthly + yearly) plus customer portal (owner-only); webhook flips subscription status.
-- Free tier: drafting + agent tokens + 1 published (noindex) post.
+- Free tier: drafting + agent tokens + 5 published (noindex) posts.
 - Paid unlocks: unlimited indexed publishing, media uploads, search indexing, custom domains, and reader + AI discovery analytics.
 
 ### Quotas, security, and privacy
@@ -141,5 +142,5 @@ Plan includes: 1 hosted blog, unlimited posts, scoped MCP access, activity histo
 ## What vibecms deliberately does not do (positioning, not gaps)
 
 - No platform-authored AI content. The agent writes; the platform validates.
-- No scheduled posts, no multi-blog/teams/comments, no block or page builder. Calm and markdown-native by design.
+- No scheduled posts, no multi-blog/teams/comments, and no block-canonical or page-builder content model. Calm and markdown-native by design.
 - Newsletter sending is captured-but-deferred (audience is collected today; delivery is a later track).

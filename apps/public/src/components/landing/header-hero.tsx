@@ -1,8 +1,8 @@
 import { BRAND } from "@vc/config";
-import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
-import { HeaderNav } from "./header-nav";
+import { HeaderNav, MobileNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
+import { ArrowRight } from "./icons";
 
 const agents = [
   ["Claude", "claude.svg"],
@@ -16,10 +16,13 @@ const agents = [
 export function HeaderHero({ loginUrl }: { loginUrl: string }) {
   return (
     <>
-      <header className="sticky top-0 z-[60] bg-background/70 backdrop-blur-xl">
+      <header
+        className="sticky top-0 z-[60] border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300 data-[scrolled]:border-[color:var(--hairline)] data-[scrolled]:bg-background/60 data-[scrolled]:backdrop-blur-xl"
+        data-landing-header
+      >
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-4 sm:px-7">
           <a
-            className="flex items-center gap-2.5 font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground no-underline"
+            className="relative flex items-center gap-2.5 font-display text-[17px] font-semibold tracking-[-0.02em] text-foreground no-underline before:absolute before:-inset-y-2 before:inset-x-[-4px] before:content-['']"
             href="/"
           >
             <img
@@ -37,9 +40,10 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
 
           <HeaderNav />
 
-          <div className="flex items-center gap-3 sm:gap-3.5">
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            <MobileNav loginUrl={loginUrl} />
             <a
-              className="inline-flex min-h-[44px] items-center whitespace-nowrap text-sm font-medium text-secondary-foreground no-underline transition-colors hover:text-foreground"
+              className="hidden min-h-[44px] items-center whitespace-nowrap text-sm font-medium text-secondary-foreground no-underline transition-colors hover:text-foreground sm:inline-flex"
               href={loginUrl}
             >
               Sign in
@@ -60,9 +64,10 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
           <h1 className="mx-auto max-w-[15ch] text-balance font-display text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-[-0.035em] text-foreground">
             CMS for <span className="text-brand-bright">AI agents.</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-[460px] text-balance text-lg leading-[1.6] text-muted-foreground">
-            Your coding agent publishes to your blog through scoped MCP. You own every
-            post; it never sees your login.
+          <p className="mx-auto mt-5 max-w-[520px] text-balance text-lg leading-[1.6] text-muted-foreground">
+            Tell your agent what to write. It drafts, sends you a private
+            preview, and publishes when you say so. You keep every version and
+            the final say.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
@@ -79,13 +84,13 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
               target="_blank"
             >
               View on GitHub
-              <ArrowRightIcon className="size-4" aria-hidden="true" />
+              <ArrowRight className="size-4" />
             </a>
           </div>
 
           <div className="mt-9 flex flex-col items-center gap-3">
-            <span className="font-mono text-[11px] text-muted-foreground">
-              Works with your agents
+            <span className="font-mono text-xs text-muted-foreground">
+              Works with
             </span>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
               {agents.map(([name, file]) => (
@@ -102,7 +107,7 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
                   {name}
                 </span>
               ))}
-              <span className="text-[13px] font-medium text-muted-foreground/70">
+              <span className="text-[13px] font-medium text-muted-foreground">
                 + any MCP client
               </span>
             </div>

@@ -1,8 +1,9 @@
+import { getPublishedSlugRedirect } from "@vc/db";
 import {
   getPublishedPost,
   isPublicBlogIndexable,
   listPublishedPostSummaries,
-  listPublishedPostSummariesByTag,
+  listPublishedPostPage,
   searchPublishedPostSummaries,
   resolveSite,
   type PostDetailRow,
@@ -20,8 +21,11 @@ import {
   matchArticleResponseCache,
   publicCacheControlForEntitlement,
   putArticleResponseCache,
+  siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
+import { resolvePublicByline, type PublicByline } from "../lib/byline";
+import { markdownNotFound } from "../lib/agent-discovery";
 
 export { isMarketingHost } from "./public-blog-data";
 
@@ -43,8 +47,28 @@ export const RESERVED_ROOT_SLUGS = new Set([
   "__vc-health",
 ]);
 
-function notFound() {
-  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+/** These routes gained special handling after tenant posts with these slugs existed. */
+export function isReadableTenantPostSlug(slug: string | undefined): slug is string {
+  return !!slug && (!RESERVED_ROOT_SLUGS.has(slug) || slug === "docs" || slug === "internal");
+}
+
+export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv): Promise<Response | null> {
+  const target = await getPublishedSlugRedirect(db, site.id, slug);
+  if (!target) return null;
+  const url = new URL(request.url);
+  // `?format=md` asks for the Markdown twin; send it to /new.md and keep any
+  // other query parameters.
+  const markdown = url.pathname.endsWith(".md") || url.searchParams.get("format") === "md";
+  url.searchParams.delete("format");
+  url.pathname = `/${target}${markdown ? ".md" : ""}`;
+  const headers = new Headers(publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]));
+  headers.set("location", url.href);
+  // Browsers must recheck: a remembered 301 would loop once a rename is
+  // reversed. The CDN may keep it briefly; site-tag purges clear it there.
+  headers.set("cache-control", "no-cache");
+  headers.set("cdn-cache-control", "public, max-age=300");
+  headers.delete("content-type");
+  return new Response(null, { status: 301, headers });
 }
 
 export function markdownRequested(request: Request) {
@@ -79,7 +103,7 @@ function buildPostMarkdown(post: PostDetailRow, canonicalUrl: string) {
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
-  return `${frontmatter}\n\n# ${post.title}\n\n${post.content_markdown}\n`;
+  return `${frontmatter}\n\n${post.content_markdown}\n`;
 }
 
 export type PublicArticleHeaderOptions = {
@@ -96,9 +120,10 @@ export function publicHtmlResponseHeaders(
   const indexable = isPublicBlogIndexable(site, env);
   const headers: Record<string, string> = {
     "cache-control": publicCacheControlForEntitlement(site.effective_entitlement),
-    "content-signal": indexable ? "ai-train=yes, search=yes, ai-input=yes" : "ai-train=no, search=no, ai-input=yes",
+    // Tenant writing is owner content; training is opt-out by default until the owner can choose.
+    "content-signal": `ai-train=no, search=${indexable ? "yes" : "no"}, ai-input=yes`,
+    vary: "Accept",
   };
-  if (options?.markdownAlternateHref) headers.vary = "Accept";
   if (!indexable) headers["x-robots-tag"] = "noindex, nofollow";
   if (cacheTags?.length) headers["cache-tag"] = cacheTags.join(",");
   if (options?.markdownAlternateHref) {
@@ -141,7 +166,7 @@ async function publicPostMarkdownResponse(
   env: PublicRuntimeEnv,
 ) {
   const post = await getPublishedPost(db, site.id, slug);
-  if (!post) return notFound();
+  if (!post) return await publicPostRedirect(db, site, slug, request, env) ?? markdownNotFound();
   const origin = publicOrigin(request.url);
   const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, origin).href;
   const markdownHref = new URL(`${basePath}/${slug}.md`, origin).href;
@@ -175,7 +200,7 @@ export async function tryPublicPostMarkdownResponse(
 ): Promise<Response | null> {
   const { slug, markdown } = stripMarkdownSuffix(rawSlug);
   if (!markdown && !markdownRequested(request)) return null;
-  if (!slug) return notFound();
+  if (!slug) return markdownNotFound();
 
   const cached = await matchArticleResponseCache(request.url, "markdown");
   if (
@@ -205,13 +230,13 @@ export async function handlePublicPostByHostGet(
   env: PublicRuntimeEnv,
 ) {
   const { slug: stripped } = stripMarkdownSuffix(slug);
-  if (!stripped || RESERVED_ROOT_SLUGS.has(stripped)) return null;
+  if (!isReadableTenantPostSlug(stripped)) return null;
 
   const { markdown } = stripMarkdownSuffix(slug);
   if (!markdown && !markdownRequested(request)) return null;
 
   const site = await resolveSite(request, db, env);
-  if (!site) return notFound();
+  if (!site) return markdownNotFound();
   return tryPublicPostMarkdownResponse(db, request, site, "", slug, env);
 }
 
@@ -246,14 +271,71 @@ export async function cachePublicPostHtmlResponse(
   await putArticleResponseCache(requestUrl, "html", response, waitUntil);
 }
 
+export type AdjacentPostSummary = { title: string; slug: string; publishedAt: number | null };
+export type { PublicByline };
+
+export type SidebarPostLink = { title: string; slug: string };
+export type SidebarTag = { name: string; count: number };
+/** Sidebar data for templates with a sidebar chrome (Notebook). */
+export type PublicSidebarData = {
+  /** Newest published posts (max 6), excluding the current post on article pages. */
+  recent: SidebarPostLink[];
+  /** Tags across published posts, most used first (max 16). */
+  tags: SidebarTag[];
+};
+
+export const SIDEBAR_RECENT_LIMIT = 6;
+export const SIDEBAR_TAG_LIMIT = 16;
+
+function parseTags(tagsJson: string): string[] {
+  try {
+    const parsed = JSON.parse(tagsJson) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === "string" && tag.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Build sidebar data from newest-first published summaries. */
+export function buildPublicSidebar(
+  summaries: readonly PostSummaryRow[],
+  excludePostId?: string,
+): PublicSidebarData {
+  const recent = summaries
+    .filter((summary) => summary.id !== excludePostId)
+    .slice(0, SIDEBAR_RECENT_LIMIT)
+    .map((summary) => ({ title: summary.title, slug: summary.slug }));
+  const counts = new Map<string, number>();
+  for (const summary of summaries) {
+    for (const tag of new Set(parseTags(summary.tags_json))) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  const tags = [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, SIDEBAR_TAG_LIMIT);
+  return { recent, tags };
+}
+
 export type PublicPostLoaderData = {
   site: SiteRow;
   post: PostDetailRow;
+  /** Newer/older published neighbours for end-of-post navigation. */
+  newer?: AdjacentPostSummary | null;
+  older?: AdjacentPostSummary | null;
+  /** Recent posts + tag counts for sidebar templates. */
+  sidebar: PublicSidebarData;
   basePath: string;
   canonicalUrl: string;
   origin: string;
   indexable: boolean;
   cacheTags: string[];
+  /**
+   * Public author line for the article header. `name` = site.byline_name
+   * (trimmed) or the site name — never the account email. `agent` = the owner
+   * keeps agent credit on AND the pinned version was agent-written; render it
+   * as "Written with an agent · Reviewed by {name}", else "By {name}".
+   */
+  byline: PublicByline;
 };
 
 export async function loadPublicPostForSite(
@@ -264,18 +346,28 @@ export async function loadPublicPostForSite(
   env: PublicRuntimeEnv,
 ): Promise<PublicPostLoaderData | null> {
   const { slug: postSlug } = stripMarkdownSuffix(slug);
-  if (!postSlug || RESERVED_ROOT_SLUGS.has(postSlug)) return null;
-  const post = await getPublishedPost(db, site.id, postSlug);
+  if (!isReadableTenantPostSlug(postSlug)) return null;
+  const [post, summaries] = await Promise.all([
+    getPublishedPost(db, site.id, postSlug),
+    listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+  ]);
   if (!post) return null;
   const origin = publicOrigin(requestUrl);
+  const index = summaries.findIndex((summary) => summary.id === post.id);
+  const neighbour = (summary: PostSummaryRow | undefined): AdjacentPostSummary | null =>
+    summary ? { title: summary.title, slug: summary.slug, publishedAt: summary.published_at } : null;
   return {
     site,
     post,
+    newer: index > 0 ? neighbour(summaries[index - 1]) : null,
+    older: index >= 0 ? neighbour(summaries[index + 1]) : null,
+    sidebar: buildPublicSidebar(summaries, post.id),
     basePath: "",
     canonicalUrl: post.canonical_url || `/${post.slug}`,
     origin,
     indexable: isPublicBlogIndexable(site, env),
     cacheTags: articleCacheTags(site.id, post.slug),
+    byline: resolvePublicByline(site, post),
   };
 }
 
@@ -298,9 +390,13 @@ export type PublicListingContext =
 export type PublicIndexLoaderData = {
   site: SiteRow;
   posts: PostSummaryRow[];
+  totalPosts?: number;
+  page?: number;
   basePath: string;
   indexable: boolean;
   listing: PublicListingContext;
+  /** Recent posts + tag counts for sidebar templates (always site-wide). */
+  sidebar: PublicSidebarData;
 };
 
 export async function loadPublicIndexByHost(
@@ -308,20 +404,37 @@ export async function loadPublicIndexByHost(
   request: Request,
   env: PublicRuntimeEnv,
   query?: string,
+  requestedPage = 1,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
   if (query !== undefined) {
-    const posts = await searchPublishedPostSummaries(db, site.id, query);
-    return { site, posts, basePath: "", indexable: false, listing: { kind: "search", query } };
+    const [posts, all] = await Promise.all([
+      searchPublishedPostSummaries(db, site.id, query),
+      listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+    ]);
+    return {
+      site,
+      posts,
+      basePath: "",
+      indexable: false,
+      listing: { kind: "search", query },
+      sidebar: buildPublicSidebar(all),
+    };
   }
-  const posts = await listPublishedPostSummaries(db, site.id);
+  const [result, all] = await Promise.all([
+    listPublishedPostPage(db, site.id, requestedPage, 20),
+    listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+  ]);
   return {
     site,
-    posts,
+    posts: result.posts,
+    totalPosts: result.total,
+    page: result.page,
     basePath: "",
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "index" },
+    sidebar: buildPublicSidebar(all),
   };
 }
 
@@ -330,16 +443,24 @@ export async function loadPublicTagByHost(
   request: Request,
   tag: string,
   env: PublicRuntimeEnv,
+  requestedPage = 1,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
-  const posts = await listPublishedPostSummariesByTag(db, site.id, tag);
-  if (posts.length === 0) return null;
+  // Sidebar stays site-wide (all tags, newest posts), not just this tag's posts.
+  const [result, all] = await Promise.all([
+    listPublishedPostPage(db, site.id, requestedPage, 20, tag),
+    listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
+  ]);
+  if (result.total === 0) return null;
   return {
     site,
-    posts,
+    posts: result.posts,
+    totalPosts: result.total,
+    page: result.page,
     basePath: "",
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "tag", tag },
+    sidebar: buildPublicSidebar(all),
   };
 }

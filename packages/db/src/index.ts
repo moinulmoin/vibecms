@@ -2,6 +2,8 @@ export * from "./schema";
 export * from "./client";
 export * from "./access";
 export * from "./repositories/posts";
+export * from "./repositories/post-preview";
+export * from "./repositories/post-schedules";
 export * from "./repositories/assets";
 export * from "./repositories/subscribers";
 export * from "./repositories/activity";

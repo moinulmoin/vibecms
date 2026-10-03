@@ -22,7 +22,7 @@ export function StatCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+        <p className="text-sm text-muted-foreground">{label}</p>
         {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
       </div>
       <p className="mt-2.5 font-display text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground">{value}</p>
@@ -35,9 +35,9 @@ export function StatCardGrid({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        'grid overflow-hidden rounded-2xl border border-foreground/[0.065] bg-card sm:grid-cols-2 xl:grid-cols-4',
-        '[&>*]:border-b [&>*]:border-foreground/[0.065] [&>*:last-child]:border-b-0',
-        'sm:[&>*:nth-child(odd)]:border-r sm:[&>*:nth-child(n+3)]:border-b-0',
+        'grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-5',
+        '[&>*]:border-b [&>*]:border-border [&>*:last-child]:border-b-0',
+        'sm:[&>*:nth-child(odd)]:border-r sm:[&>*:nth-child(n+3)]:border-b-0 sm:[&>*:last-child]:border-r-0',
         'xl:[&>*]:border-b-0 xl:[&>*:not(:last-child)]:border-r',
         className,
       )}

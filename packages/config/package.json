@@ -5,14 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./runtime": "./src/runtime-env.ts"
+    "./runtime": "./src/runtime-env.ts",
+    "./agent-discovery": "./src/agent/discovery.ts"
   },
   "scripts": {
     "typecheck": "tsc",
     "lint": "tsc"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260801.1",
+    "@cloudflare/workers-types": "5.20260820.1",
     "typescript": "6.0.3"
   }
 }

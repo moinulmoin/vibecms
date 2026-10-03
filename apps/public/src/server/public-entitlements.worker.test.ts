@@ -247,6 +247,7 @@ describe("public effective entitlement resolution", () => {
       canonicalUrl: blog!.canonicalUrl,
       origin: blog!.origin,
       indexable: blog!.indexable,
+      generatedCards: true,
     });
     expect(head.meta).toContainEqual({ name: "robots", content: "noindex,nofollow" });
 
@@ -263,7 +264,9 @@ describe("public effective entitlement resolution", () => {
     expect(sitemap.status).toBe(404);
 
     const robots = await handleRobots(env.DB, requestFor(DEFAULT_HOST, "/robots.txt"), runtimeEnv);
-    expect(await robots.text()).not.toContain("Sitemap:");
+    const robotsBody = await robots.text();
+    expect(robotsBody).not.toContain("Sitemap:");
+    expect(robotsBody).toContain("Content-Signal: search=yes, ai-input=yes, ai-train=no");
     expect(robots.headers.get("cache-tag")).toBe(`vc-site:${SITE_ID}`);
 
     const feed = await handleFeed(env.DB, requestFor(DEFAULT_HOST, "/feed.xml"), runtimeEnv);

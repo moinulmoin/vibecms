@@ -20,6 +20,12 @@ export const dashboardPostSummarySchema = z.object({
   createdAt: z.number(),
   updatedAt: z.number(),
   versionNumber: z.number().nullable(),
+  /** Version pinned live; a lower number than versionNumber means unpublished changes. */
+  publishedVersionNumber: z.number().nullable(),
+  /** Who wrote the tip version: human, agent, api_key, or system. */
+  latestActorType: z.string().nullable(),
+  updatedByType: z.string().nullable(),
+  updatedByName: z.string().nullable(),
 })
 
 export const dashboardContextSchema = z.object({

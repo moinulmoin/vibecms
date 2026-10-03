@@ -1,34 +1,43 @@
 import { Hono } from 'hono'
+import { ConflictError } from '@vc/core'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
-import { requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
+import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
   addCustomDomainForApp,
   archivePostForApp,
+  unarchivePostForApp,
   clearVoiceProfileForApp,
   completeSiteSetupForApp,
   createApiKeyForApp,
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   createPostForApp,
+  deleteArchivedPostForApp,
+  deleteSubscriberForApp,
+  exportSubscribersCsv,
   getPostVersionForDashboard,
   listPostVersionsForDashboard,
   loadActivityPage,
   loadAnalyticsPage,
-  loadBillingPage,
   loadConnectPage,
   loadDashboardOverview,
   loadMediaPage,
+  loadBillingPage,
   loadOnboardingStatus,
   loadPostEditorPage,
   loadPostsPage,
+  loadSubscribersPage,
   loadSettingsPage,
   loadSetupPage,
   parsePostPayload,
   publishPostForApp,
+  schedulePostForApp,
+  unschedulePostForApp,
   removeCustomDomainForApp,
   restorePostVersionForApp,
   revokeApiKeyForApp,
   updateAssetAltForApp,
+  updateNewsletterSettingsForApp,
   updateSiteSettingsForApp,
   updatePostForApp,
   updateVoiceProfileForApp,
@@ -36,11 +45,16 @@ import {
 } from '@/server/dashboard-api'
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
+import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
   return rejectCrossOriginBrowserPost(request)
 }
+function canManageSubscribers(auth: { app: { actor: { type: string; role?: string } } }) {
+  return auth.app.actor.type === 'human' && (auth.app.actor.role === 'owner' || auth.app.actor.role === 'editor')
+}
+
 
 export const dashboardRoutes = new Hono()
 
@@ -51,6 +65,7 @@ dashboardRoutes.get('/context', async (c) => {
   const ctx = await resolveAppSessionContext(c.req.raw)
   return c.json({
     googleEnabled: ctx.googleEnabled,
+    githubEnabled: ctx.githubEnabled,
     user: ctx.user,
     app: ctx.app,
     apps: ctx.apps,
@@ -69,6 +84,8 @@ dashboardRoutes.post('/context/select', async (c) => {
       401,
     )
   }
+  const changed = rejectChangedSite(c.req.raw, ctx)
+  if (changed) return changed
   const body = await c.req.json<{
     workspaceId?: unknown
     siteId?: unknown
@@ -124,6 +141,21 @@ dashboardRoutes.post('/setup', async (c) => {
   return c.json(await completeSiteSetupForApp(auth.app, body))
 })
 
+dashboardRoutes.get('/personalization', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await loadPersonalization(auth.app))
+})
+
+dashboardRoutes.post('/personalization', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json()
+  return c.json(await updatePersonalizationForApp(auth.app, body))
+})
+
 dashboardRoutes.get('/settings', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
@@ -138,15 +170,77 @@ dashboardRoutes.post('/settings', async (c) => {
   const body = await c.req.json()
   return c.json(await updateSiteSettingsForApp(auth.app, body))
 })
+dashboardRoutes.get('/newsletter-settings', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  if (!canManageSubscribers(auth)) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Editor access required' } }, 403)
+  }
+  return c.json(await getNewsletterSettingsWithRevisionForApp(auth.app))
+})
+
+dashboardRoutes.put('/newsletter-settings', async (c) => {
+  const blocked = rejectCrossOriginBrowserPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const { expectedUpdatedAt, ...settings } = await c.req.json<Record<string, unknown>>()
+  if (!Number.isInteger(expectedUpdatedAt) || (expectedUpdatedAt as number) < 1) return c.json({ kind: 'error', code: 'invalid_settings_version' }, 400)
+  const result = await updateNewsletterSettingsForApp(auth.app, settings, { expectedUpdatedAt: expectedUpdatedAt as number })
+  if (result.code === 'settings_conflict') throw new ConflictError('This changed since you opened it. Reload to see the latest.')
+  return c.json(result)
+})
+
+dashboardRoutes.get('/subscribers/export.csv', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  if (auth.app.actor.type !== 'human' || auth.app.actor.role !== 'owner') {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Owner access required' } }, 403)
+  }
+  const csv = await exportSubscribersCsv(auth.app)
+  return new Response(csv, {
+    headers: {
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': 'attachment; filename="subscribers.csv"',
+      'cache-control': 'no-store',
+    },
+  })
+})
+
+dashboardRoutes.get('/subscribers', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  if (!canManageSubscribers(auth)) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Editor access required' } }, 403)
+  }
+  return c.json(await loadSubscribersPage(auth.app, {
+    search: c.req.query('q'),
+    status: c.req.query('status'),
+    offset: Number(c.req.query('offset') ?? '0') || 0,
+  }))
+})
+
+dashboardRoutes.delete('/subscriber/:id', async (c) => {
+  const blocked = rejectCrossOriginBrowserPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  if (!canManageSubscribers(auth)) {
+    return c.json({ error: { code: 'FORBIDDEN', message: 'Editor access required' } }, 403)
+  }
+  const result = await deleteSubscriberForApp(auth.app, c.req.param('id'))
+  return c.json(result)
+})
 
 dashboardRoutes.post('/voice-profile', async (c) => {
   const blocked = guardDashboardPost(c.req.raw)
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const parsed = voiceProfileSettingsInputSchema.safeParse(await c.req.json())
+  const { expectedUpdatedAt, ...payload } = await c.req.json<Record<string, unknown>>()
+  const parsed = voiceProfileSettingsInputSchema.safeParse(payload)
   if (!parsed.success) return c.json({ kind: 'error', code: 'validation_error' }, 400)
-  return c.json(await updateVoiceProfileForApp(auth.app, parsed.data))
+  return c.json(await updateVoiceProfileForApp(auth.app, parsed.data, { expectedUpdatedAt: expectedUpdatedAt as number }))
 })
 
 dashboardRoutes.post('/voice-profile/clear', async (c) => {
@@ -154,7 +248,8 @@ dashboardRoutes.post('/voice-profile/clear', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  return c.json(await clearVoiceProfileForApp(auth.app))
+  const body = await c.req.json<{ expectedUpdatedAt: number }>()
+  return c.json(await clearVoiceProfileForApp(auth.app, body))
 })
 
 dashboardRoutes.post('/api-keys', async (c) => {
@@ -162,7 +257,7 @@ dashboardRoutes.post('/api-keys', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ name: string; actorName: string; preset: 'draft' | 'publish' | 'full' }>()
+  const body = await c.req.json<{ name: string; actorName: string; preset: 'draft' | 'publish' | 'full' | 'manage' }>()
   return c.json(await createApiKeyForApp(auth.app, body))
 })
 
@@ -171,7 +266,8 @@ dashboardRoutes.post('/api-keys/revoke', async (c) => {
   if (blocked) return blocked
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
-  const body = await c.req.json<{ keyId: string }>()
+  const body = await c.req.json<{ keyId?: unknown }>()
+  if (typeof body.keyId !== 'string' || !body.keyId) return c.json({ kind: 'error', code: 'validation_error' }, 400)
   return c.json(await revokeApiKeyForApp(auth.app, body.keyId))
 })
 
@@ -212,7 +308,9 @@ dashboardRoutes.get('/activity', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
   const offset = Number(c.req.query('offset') ?? '0')
-  return c.json(await loadActivityPage(auth.app, Number.isFinite(offset) ? offset : 0))
+  const actorParam = c.req.query('actor')
+  const actor = actorParam === 'human' || actorParam === 'agent' ? actorParam : undefined
+  return c.json(await loadActivityPage(auth.app, Number.isFinite(offset) ? offset : 0, actor))
 })
 
 dashboardRoutes.get('/analytics', async (c) => {
@@ -254,6 +352,7 @@ dashboardRoutes.get('/posts', async (c) => {
     await loadPostsPage(auth.app, {
       status: c.req.query('status'),
       search: c.req.query('search'),
+      sort: c.req.query('sort'),
       offset: Number(c.req.query('offset') ?? '0') || 0,
     }),
   )
@@ -293,6 +392,26 @@ dashboardRoutes.post('/posts/publish', async (c) => {
   return c.json(await publishPostForApp(auth.app, body.postId, body.expectedVersionNumber))
 })
 
+dashboardRoutes.post('/posts/schedule', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId: string; versionNumber: number; publishAt: number }>()
+  return c.json(await schedulePostForApp(auth.app, body.postId, body.versionNumber, body.publishAt))
+})
+
+dashboardRoutes.post('/posts/unschedule', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId: string }>()
+  const result = await unschedulePostForApp(auth.app, body.postId)
+  if (result.code === 'already_publishing') return c.json({ error: { code: 'CONFLICT', message: 'Already publishing' } }, 409)
+  return c.json(result)
+})
+
 dashboardRoutes.post('/posts/archive', async (c) => {
   const blocked = guardDashboardPost(c.req.raw)
   if (blocked) return blocked
@@ -300,6 +419,29 @@ dashboardRoutes.post('/posts/archive', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ postId: string }>()
   return c.json(await archivePostForApp(auth.app, body.postId))
+})
+
+dashboardRoutes.post('/posts/unarchive', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId: string }>()
+  return c.json(await unarchivePostForApp(auth.app, body.postId))
+})
+
+dashboardRoutes.post('/posts/delete', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ postId?: string }>()
+  if (!body.postId) return c.json({ error: { code: 'VALIDATION_ERROR', message: 'postId required' } }, 400)
+  try {
+    return c.json(await deleteArchivedPostForApp(auth.app, body.postId))
+  } catch (error) {
+    return jsonAppError(error)
+  }
 })
 
 dashboardRoutes.get('/posts/versions', async (c) => {

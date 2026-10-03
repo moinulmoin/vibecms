@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { createDbClient } from "../client";
 import {
   activityEvents,
@@ -11,14 +11,31 @@ import {
 
 type ActorType = "human" | "agent" | "api_key" | "system";
 
-// SELECT id, name, slug, description, created_at, updated_at FROM sites
+// SELECT id, name, slug, description, voice_seed_json, created_at, updated_at FROM sites
 export interface CurrentSite {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  voiceSeedJson: string;
+  logoAssetId: string | null;
+  faviconAssetId: string | null;
+  navLinksJson: string | null;
+  socialLinksJson: string | null;
+  /** Preset / template id (resolve with resolvePresetId). */
+  theme: string | null;
+  /** Public byline name; null = the site name. */
+  bylineName: string | null;
+  showAgentCredit: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+// SELECT agent_preference, voice_seed_json, onboarding_note FROM sites
+export interface SitePersonalization {
+  agentPreference: string | null;
+  voiceSeedJson: string;
+  onboardingNote: string | null;
 }
 
 export interface SiteSlugLookup {
@@ -46,12 +63,34 @@ export interface SiteSettings {
   defaultSeoTitle: string | null;
   defaultSeoDescription: string | null;
   defaultSocialAssetId: string | null;
+  logoAssetId: string | null;
+  faviconAssetId: string | null;
+  navLinksJson: string | null;
+  socialLinksJson: string | null;
   theme: string | null;
   slug: string;
   // Theme customizer (Layer 2) — nullable→resolver-default on read.
   themeAccent: string | null;
   themeFont: string | null;
   themeMode: string;
+  // Template shape knobs — nullable→template default on read.
+  themeRadius: string | null;
+  themeWidth: string | null;
+  // Public byline — null name falls back to the site name (never the email).
+  bylineName: string | null;
+  showAgentCredit: boolean;
+  newsletterSettings: string | null;
+  updatedAt: number;
+}
+
+export interface UpdateNewsletterSettingsInput {
+  timestamp: number;
+  siteId: string;
+  newsletterSettings: string;
+  defaultNewsletterSettings?: string;
+  expectedUpdatedAt?: number;
+  patch?: boolean;
+  activity: SiteActivityEntry;
 }
 
 export type MembershipRole = "owner" | "editor" | "viewer";
@@ -76,6 +115,8 @@ export interface SiteActivityEntry {
   actorName: string;
   action: string;
   summary: string;
+  beforeJson?: string | null;
+  afterJson?: string | null;
 }
 
 // Five-statement idempotent onboarding batch; caller supplies every id/name/hostname/timestamp.
@@ -105,18 +146,30 @@ export interface CompleteSiteSetupInput {
 export interface UpdateSiteSettingsInput {
   timestamp: number;
   siteId: string;
-  site: {
+  expectedUpdatedAt: number;
+  previousLookJson?: string;
+  site: Partial<{
     name: string;
     description: string | null;
     defaultSeoTitle: string;
     defaultSeoDescription: string | null;
     defaultSocialAssetId: string | null;
+    logoAssetId: string | null;
+    faviconAssetId: string | null;
+    navLinksJson: string | null;
+    socialLinksJson: string | null;
     theme: string;
     // Theme customizer (Layer 2) — null accent/font = use resolver default.
     themeAccent: string | null;
     themeFont: string | null;
     themeMode: string;
-  };
+    // Template knobs — null = the template's default.
+    themeRadius: string | null;
+    themeWidth: string | null;
+    // Public byline — null = the site name.
+    bylineName: string | null;
+    showAgentCredit: boolean;
+  }>;
   activity: SiteActivityEntry;
 }
 
@@ -126,8 +179,20 @@ export interface RepairDefaultHostnameInput {
   newHostname: string;
 }
 
+// Personalized onboarding write: UPDATE sites personalization columns + activity.
+export interface UpdateSitePersonalizationInput {
+  timestamp: number;
+  siteId: string;
+  agentPreference: string | null;
+  voiceSeed: string[];
+  onboardingNote: string | null;
+  activity: SiteActivityEntry;
+}
+
 export interface SitesRepository {
   getCurrentSite(siteId: string): Promise<CurrentSite | null>;
+  getSitePersonalization(siteId: string): Promise<SitePersonalization | null>;
+  updateSitePersonalization(input: UpdateSitePersonalizationInput): Promise<void>;
   getSiteSlug(siteId: string): Promise<string | null>;
   // Exact global slug lookup, including archived sites. Managed provisioning
   // must reserve a slug before its multi-row insert begins.
@@ -136,11 +201,13 @@ export interface SitesRepository {
   getSiteTheme(siteId: string): Promise<string | null>;
   getSiteSetup(siteId: string): Promise<SiteSetup | null>;
   getSiteSettings(siteId: string): Promise<SiteSettings | null>;
+  getSiteNewsletterSettings(siteId: string): Promise<string | null>;
   getMembershipRole(workspaceId: string, userId: string): Promise<MembershipRole | null>;
   listAccessibleApps(userId: string): Promise<AccessibleApp[]>;
   ensureOnboardingBase(input: EnsureOnboardingBaseInput): Promise<void>;
   completeSiteSetup(input: CompleteSiteSetupInput): Promise<void>;
-  updateSiteSettings(input: UpdateSiteSettingsInput): Promise<void>;
+  updateSiteSettings(input: UpdateSiteSettingsInput): Promise<boolean>;
+  updateNewsletterSettings(input: UpdateNewsletterSettingsInput): Promise<boolean>;
   getActiveDefaultHostname(siteId: string, preferredHostname?: string): Promise<string | null>;
   repairDefaultHostname(input: RepairDefaultHostnameInput): Promise<string>;
 }
@@ -158,6 +225,14 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           name: sites.name,
           slug: sites.slug,
           description: sites.description,
+          voiceSeedJson: sites.voiceSeedJson,
+          logoAssetId: sites.logoAssetId,
+          faviconAssetId: sites.faviconAssetId,
+          navLinksJson: sites.navLinksJson,
+          socialLinksJson: sites.socialLinksJson,
+          theme: sites.theme,
+          bylineName: sites.bylineName,
+          showAgentCredit: sites.showAgentCredit,
           createdAt: sites.createdAt,
           updatedAt: sites.updatedAt,
         })
@@ -165,6 +240,45 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         .where(eq(sites.id, siteId))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+    async getSitePersonalization(siteId) {
+      const rows = await client
+        .select({
+          agentPreference: sites.agentPreference,
+          voiceSeedJson: sites.voiceSeedJson,
+          onboardingNote: sites.onboardingNote,
+        })
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+
+    async updateSitePersonalization(input) {
+      await client.batch([
+        client
+          .update(sites)
+          .set({
+            agentPreference: input.agentPreference,
+            voiceSeedJson: JSON.stringify(input.voiceSeed),
+            onboardingNote: input.onboardingNote,
+            updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
+          })
+          .where(eq(sites.id, input.siteId)),
+        client.insert(activityEvents).values({
+          id: input.activity.id,
+          siteId: input.siteId,
+          actorType: input.activity.actorType,
+          actorId: input.activity.actorId,
+          actorName: input.activity.actorName,
+          action: input.activity.action,
+          entityType: "site",
+          entityId: input.siteId,
+          summary: input.activity.summary,
+          createdAt: input.timestamp,
+        }),
+      ]);
     },
 
     async getSiteSlug(siteId) {
@@ -225,16 +339,35 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           defaultSeoTitle: sites.defaultSeoTitle,
           defaultSeoDescription: sites.defaultSeoDescription,
           defaultSocialAssetId: sites.defaultSocialAssetId,
+          logoAssetId: sites.logoAssetId,
+          faviconAssetId: sites.faviconAssetId,
+          navLinksJson: sites.navLinksJson,
+          socialLinksJson: sites.socialLinksJson,
           theme: sites.theme,
           slug: sites.slug,
           themeAccent: sites.themeAccent,
           themeFont: sites.themeFont,
           themeMode: sites.themeMode,
+          themeRadius: sites.themeRadius,
+          themeWidth: sites.themeWidth,
+          bylineName: sites.bylineName,
+          showAgentCredit: sites.showAgentCredit,
+          newsletterSettings: sites.newsletterSettings,
+          updatedAt: sites.updatedAt,
         })
         .from(sites)
         .where(eq(sites.id, siteId))
         .limit(1);
       return rows[0] ?? null;
+    },
+
+    async getSiteNewsletterSettings(siteId) {
+      const rows = await client
+        .select({ newsletterSettings: sites.newsletterSettings })
+        .from(sites)
+        .where(eq(sites.id, siteId))
+        .limit(1);
+      return rows[0]?.newsletterSettings ?? null;
     },
 
     async getMembershipRole(workspaceId, userId) {
@@ -366,7 +499,7 @@ export function createSitesRepository(db: D1Database): SitesRepository {
             description: input.site.description,
             defaultSeoTitle: input.site.defaultSeoTitle,
             defaultSeoDescription: input.site.defaultSeoDescription,
-            updatedAt: input.timestamp,
+            updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
           })
           .where(eq(sites.id, input.siteId)),
         client
@@ -388,37 +521,118 @@ export function createSitesRepository(db: D1Database): SitesRepository {
       ]);
     },
 
-    // Settings update: two sequential statements (NOT batched) matching the original app path.
+    // Compare-and-swap prevents Theme and Settings (or two browser tabs) from
+    // silently replacing each other's fields. Only owned fields are patched.
     async updateSiteSettings(input) {
-      await client
-        .update(sites)
-        .set({
-          name: input.site.name,
-          description: input.site.description,
-          defaultSeoTitle: input.site.defaultSeoTitle,
-          defaultSeoDescription: input.site.defaultSeoDescription,
-          defaultSocialAssetId: input.site.defaultSocialAssetId,
-          theme: input.site.theme,
-          themeAccent: input.site.themeAccent,
-          themeFont: input.site.themeFont,
-          themeMode: input.site.themeMode,
-          updatedAt: input.timestamp,
-        })
-        .where(eq(sites.id, input.siteId))
-        .run();
-
-      await client.insert(activityEvents).values({
-        id: input.activity.id,
-        siteId: input.siteId,
-        actorType: input.activity.actorType,
-        actorId: input.activity.actorId,
-        actorName: input.activity.actorName,
-        action: input.activity.action,
-        entityType: "site",
-        entityId: input.siteId,
-        summary: input.activity.summary,
-        createdAt: input.timestamp,
+      const settingsColumns: Array<[keyof typeof input.site, string]> = [
+        ["name", "name"],
+        ["description", "description"],
+        ["defaultSeoTitle", "default_seo_title"],
+        ["defaultSeoDescription", "default_seo_description"],
+        ["defaultSocialAssetId", "default_social_asset_id"],
+        ["logoAssetId", "logo_asset_id"],
+        ["faviconAssetId", "favicon_asset_id"],
+        ["navLinksJson", "nav_links_json"],
+        ["socialLinksJson", "social_links_json"],
+        ["theme", "theme"],
+        ["themeAccent", "theme_accent"],
+        ["themeFont", "theme_font"],
+        ["themeMode", "theme_mode"],
+        ["themeRadius", "theme_radius"],
+        ["themeWidth", "theme_width"],
+        ["bylineName", "byline_name"],
+        ["showAgentCredit", "show_agent_credit"],
+      ];
+      const updates = settingsColumns.filter(([key]) => input.site[key] !== undefined);
+      const updateSql = [
+        ...updates.map(([, column]) => `${column} = ?`),
+        "updated_at = max(?, updated_at + 1)",
+      ].join(", ");
+      const updateValues = updates.map(([key]) => {
+        const value = input.site[key];
+        // D1 stores booleans as 0/1 (show_agent_credit).
+        return typeof value === "boolean" ? (value ? 1 : 0) : (value as string | null);
       });
+
+      const statements = [
+        db
+          .prepare(
+            `INSERT INTO activity_events (
+              id, site_id, actor_type, actor_id, actor_name, action,
+              entity_type, entity_id, summary, before_json, after_json, created_at
+            )
+            SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?, ?, ?
+            FROM sites
+            WHERE id = ? AND updated_at = ?`,
+          )
+          .bind(
+            input.activity.id,
+            input.siteId,
+            input.activity.actorType,
+            input.activity.actorId,
+            input.activity.actorName,
+            input.activity.action,
+            input.siteId,
+            input.activity.summary,
+            input.activity.beforeJson ?? null,
+            input.activity.afterJson ?? null,
+            input.timestamp,
+            input.siteId,
+            input.expectedUpdatedAt,
+          ),
+        ...(input.previousLookJson === undefined ? [] : [db.prepare(`INSERT INTO site_theme_previous_look (site_id, look_json, saved_at)
+          SELECT id, ?, max(?, updated_at + 1) FROM sites WHERE id = ? AND updated_at = ?
+            AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+          ON CONFLICT(site_id) DO UPDATE SET look_json = excluded.look_json, saved_at = excluded.saved_at`)
+          .bind(input.previousLookJson, input.timestamp, input.siteId, input.expectedUpdatedAt, input.activity.id)]),
+        db
+          .prepare(
+            `UPDATE sites
+             SET ${updateSql}
+             WHERE id = ? AND updated_at = ?
+               AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)
+               ${input.previousLookJson === undefined ? '' : 'AND EXISTS (SELECT 1 FROM site_theme_previous_look WHERE site_id = ? AND saved_at = max(?, updated_at + 1))'}`,
+          )
+          .bind(
+            ...updateValues,
+            input.timestamp,
+            input.siteId,
+            input.expectedUpdatedAt,
+            input.activity.id,
+            ...(input.previousLookJson === undefined ? [] : [input.siteId, input.timestamp]),
+          ),
+      ];
+      const result = (await db.batch(statements))[statements.length - 1];
+
+      return (result.meta.changes ?? 0) === 1;
+    },
+    async updateNewsletterSettings(input: UpdateNewsletterSettingsInput) {
+      const patch = JSON.parse(input.newsletterSettings) as Record<string, unknown>;
+      const fields = Object.entries(patch);
+      const valueSql = input.patch
+        ? `json_set(coalesce(newsletter_settings, ?), ${fields.map(() => '?, json(?)').join(', ')})`
+        : '?';
+      const values = input.patch
+        ? [input.defaultNewsletterSettings ?? '{}',
+          ...fields.flatMap(([key, value]) => [`$.${key}`, JSON.stringify(value)])]
+        : [input.newsletterSettings];
+      const expectedSql = input.expectedUpdatedAt === undefined ? '' : ' AND updated_at = ?';
+      const [, result] = await db.batch([
+        db.prepare(`INSERT INTO activity_events (id, site_id, actor_type, actor_id, actor_name, action,
+          entity_type, entity_id, summary, before_json, after_json, created_at)
+          SELECT ?, ?, ?, ?, ?, ?, 'site', ?, ?, ?, ?, ? FROM sites
+          WHERE id = ?${expectedSql}`)
+          .bind(input.activity.id, input.siteId, input.activity.actorType, input.activity.actorId,
+            input.activity.actorName, input.activity.action, input.siteId, input.activity.summary,
+            input.activity.beforeJson ?? null, input.activity.afterJson ?? null,
+            input.timestamp, input.siteId,
+            ...(input.expectedUpdatedAt === undefined ? [] : [input.expectedUpdatedAt])),
+        db.prepare(`UPDATE sites SET newsletter_settings = ${valueSql}, updated_at = max(?, updated_at + 1)
+          WHERE id = ?${expectedSql} AND EXISTS (SELECT 1 FROM activity_events WHERE id = ?)`)
+          .bind(...values, input.timestamp, input.siteId,
+            ...(input.expectedUpdatedAt === undefined ? [] : [input.expectedUpdatedAt]), input.activity.id),
+      ]);
+      return (result.meta.changes ?? 0) === 1;
     },
 
     // Active default-domain hostname SELECT (type='default' AND status='active').

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPublicSidebar,
   markdownRequested,
   publicHtmlResponseHeaders,
   publicListingResponseHeaders,
+  publicPostRedirect,
   RESERVED_ROOT_SLUGS,
+  isReadableTenantPostSlug,
   stripMarkdownSuffix,
 } from "./public-blog";
 import {
@@ -19,7 +22,8 @@ import {
   siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
-import type { SiteRow } from "./public-blog-data";
+import type { PostSummaryRow, SiteRow } from "./public-blog-data";
+import { resolvePublicByline } from "../lib/byline";
 
 const site = {
   id: "site-1",
@@ -30,6 +34,10 @@ const site = {
   theme_accent: null,
   theme_font: null,
   theme_mode: "system",
+  theme_radius: null,
+  theme_width: null,
+  byline_name: null,
+  show_agent_credit: true,
   description: null,
   default_seo_title: null,
   default_seo_description: null,
@@ -51,9 +59,30 @@ const site = {
   },
 } satisfies SiteRow;
 
-const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false };
+const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false, generatedCards: false };
 
 describe("markdown negotiation", () => {
+  it("redirects old HTML and .md links with a site cache tag, but not archived targets", async () => {
+    let live = true;
+    const db = {
+      prepare: () => ({ bind: () => ({ first: async () => live ? { slug: "new" } : null }) }),
+    } as unknown as D1Database;
+    for (const suffix of ["", ".md"]) {
+      const request = new Request(`https://demo.example.com/old${suffix}`);
+      const response = await publicPostRedirect(db, site, "old", request, env);
+      expect(response?.status).toBe(301);
+      expect(response?.headers.get("location")).toBe(`https://demo.example.com/new${suffix}`);
+      expect(response?.headers.get("cache-tag")).toBe("vc-site:site-1");
+    }
+    // Query-based Markdown goes to the .md twin; other parameters survive.
+    const query = await publicPostRedirect(db, site, "old", new Request("https://demo.example.com/old?format=md&ref=x"), env);
+    expect(query?.headers.get("location")).toBe("https://demo.example.com/new.md?ref=x");
+    // Browsers always revalidate so a reversed rename can't loop; the CDN may cache briefly.
+    expect(query?.headers.get("cache-control")).toBe("no-cache");
+    expect(query?.headers.get("cdn-cache-control")).toBe("public, max-age=300");
+    live = false;
+    expect(await publicPostRedirect(db, site, "old", new Request("https://demo.example.com/old"), env)).toBeNull();
+  });
   it("detects Accept: text/markdown", () => {
     const req = new Request("https://demo.example.com/post", { headers: { accept: "text/markdown" } });
     expect(markdownRequested(req)).toBe(true);
@@ -70,6 +99,12 @@ describe("markdown negotiation", () => {
     expect(RESERVED_ROOT_SLUGS.has("docs")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("docs-search.json")).toBe(true);
     expect(RESERVED_ROOT_SLUGS.has("llms-full.txt")).toBe(true);
+  });
+
+  it("keeps existing docs and internal tenant posts readable", () => {
+    expect(isReadableTenantPostSlug("docs")).toBe(true);
+    expect(isReadableTenantPostSlug("internal")).toBe(true);
+    expect(isReadableTenantPostSlug("feed.xml")).toBe(false);
   });
 });
 
@@ -217,5 +252,58 @@ describe("Accept: text/markdown after cached HTML", () => {
 
   it("changes the strong validator whenever rendered bytes change", async () => {
     expect(await contentEtag("<html>first</html>")).not.toBe(await contentEtag("<html>second</html>"));
+  });
+});
+
+describe("public byline", () => {
+  it("falls back to the site name, never anything account-shaped", () => {
+    expect(resolvePublicByline(site, { published_by_agent: false })).toEqual({ name: "Demo", agent: false });
+    expect(resolvePublicByline({ ...site, byline_name: "   " }, null)).toEqual({ name: "Demo", agent: false });
+    expect(resolvePublicByline({ ...site, byline_name: "  Ada Lovelace " }, null).name).toBe("Ada Lovelace");
+  });
+
+  it("credits the agent only for agent-written versions when the owner keeps credit on", () => {
+    expect(resolvePublicByline(site, { published_by_agent: true }).agent).toBe(true);
+    expect(resolvePublicByline({ ...site, show_agent_credit: false }, { published_by_agent: true }).agent).toBe(false);
+    expect(resolvePublicByline(site, { published_by_agent: false }).agent).toBe(false);
+  });
+});
+
+describe("public sidebar", () => {
+  const summary = (id: string, tags: string[]): PostSummaryRow => ({
+    id,
+    title: `Title ${id}`,
+    slug: `slug-${id}`,
+    excerpt: null,
+    cover_asset_id: null,
+    published_at: 1,
+    updated_at: 1,
+    seo_title: null,
+    seo_description: null,
+    canonical_url: null,
+    cover_asset_mime_type: null,
+    cover_asset_width: null,
+    cover_asset_height: null,
+    cover_asset_alt_text: null,
+    tags_json: JSON.stringify(tags),
+  });
+
+  it("lists up to six recent posts excluding the current one", () => {
+    const rows = Array.from({ length: 9 }, (_, i) => summary(String(i), []));
+    const sidebar = buildPublicSidebar(rows, "0");
+    expect(sidebar.recent.map((post) => post.slug)).toEqual(["slug-1", "slug-2", "slug-3", "slug-4", "slug-5", "slug-6"]);
+  });
+
+  it("counts tags most-used first, capped at sixteen, ignoring bad JSON", () => {
+    const rows = [
+      summary("a", ["ai", "cloudflare", "ai"]),
+      summary("b", ["ai"]),
+      summary("c", ["zeta"]),
+      { ...summary("d", []), tags_json: "not json" },
+      ...Array.from({ length: 20 }, (_, i) => summary(`t${i}`, [`tag-${String(i).padStart(2, "0")}`])),
+    ];
+    const { tags } = buildPublicSidebar(rows);
+    expect(tags[0]).toEqual({ name: "ai", count: 2 });
+    expect(tags).toHaveLength(16);
   });
 });

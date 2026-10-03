@@ -1,0 +1,38 @@
+---
+title: Let your agent run the site
+description: Use a Manage key for site settings, theme, voice, tags, and analytics.
+---
+
+Create a **Manage** key in **Dashboard > Connect** when you want your agent to change the site. It grants `site:write` and `analytics:read` alongside the writing and publishing scopes. It also grants `posts:archive`. [See the full scope list](/docs/agent-workflows/scopes-and-tools).
+
+| Tool | What it does |
+| --- | --- |
+| `sites.update` | Changes only the fields you send, including name, description, byline, SEO defaults, images, navigation, and social links. Changes go live immediately. |
+| `sites.theme.get` | Returns the current look, `updatedAt`, `canRevert`, and allowed choices with human names. |
+| `sites.theme.update` | Changes the template or look immediately and saves the previous look for one revert. A new template applies its defaults unless `keepLook` is `true`. |
+| `sites.theme.revert` | Restores the exact previous look in one call. No secret link is needed. |
+| `sites.voice.update` | Saves audience, tone, do and don't rules, and up to three published representative posts. |
+| `sites.signup_form.update` | Changes only the sent email signup form fields. Changes go live immediately. |
+| `tags.list` | Lists tags used by non-archived posts with post counts. |
+| `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and crawler requests. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Analytics requires a paid plan. |
+
+## Avoid overwriting a newer change
+
+Read `sites.get` before `sites.update`. Send its `updatedAt` as `expectedUpdatedAt`, a positive integer. Read `sites.theme.get` before `sites.theme.update` or `sites.theme.revert`, and send that response's `updatedAt` as `expectedUpdatedAt`. `sites.signup_form.update` also requires `expectedUpdatedAt`; send at least one of `enabled`, `heading`, `description`, or `button`.
+
+A theme update looks like this:
+
+```json
+{"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true, "mode": "dark"}
+```
+
+For `sites.theme.update`, `template`, `keepLook`, `accent`, `font`, `radius`, `width`, and `mode` are optional. Get allowed values from `sites.theme.get`. For `sites.theme.revert`, send only `expectedUpdatedAt`. A stale value returns HTTP `409` with `CONFLICT`; a revert without a current saved look also returns `CONFLICT`. Read the current site or theme and discuss the change before retrying.
+
+`sites.voice.update` sends the complete `audience`, `tone`, `doRules`, `dontRules`, and `representativePostIds` object. It does not take `expectedUpdatedAt`. `tags.list` takes `{}`; `analytics.get` takes `{"range":"30"}` or another listed range.
+
+## Example conversation
+
+1. You say, “Make the blog darker.”
+2. The agent calls `sites.theme.get`, then `sites.theme.update` with the returned `updatedAt` and `mode: "dark"`. It shows you the live result.
+3. You say, “I liked the old look better.”
+4. The agent calls `sites.theme.get`, then `sites.theme.revert` with its current `updatedAt`. The previous look is restored.

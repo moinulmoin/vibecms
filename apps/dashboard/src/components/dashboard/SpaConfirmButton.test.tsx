@@ -25,6 +25,7 @@ function render(node: ReactNode) {
     container,
     button: () => container.querySelector('button') as HTMLButtonElement,
     helper: () => container.querySelector('[role="status"]'),
+    rerender: (next: ReactNode) => act(() => root.render(next)),
     unmount: () => {
       act(() => root.unmount())
       container.remove()
@@ -221,5 +222,29 @@ describe('SpaConfirmButton two-step interaction', () => {
     expect(onConfirm).not.toHaveBeenCalled()
     expect(button().textContent).toBe('Revoke token')
     unmount()
+  })
+
+  it('disarms when the reviewed version changes', () => {
+    const onConfirm = vi.fn()
+    const view = render(
+      <SpaConfirmButton confirmationKey={3} confirmLabel="Confirm v3" onConfirm={onConfirm}>
+        Publish v3
+      </SpaConfirmButton>,
+    )
+
+    click(view.button())
+    expect(view.button().textContent).toBe('Confirm v3')
+
+    view.rerender(
+      <SpaConfirmButton confirmationKey={4} confirmLabel="Confirm v4" onConfirm={onConfirm}>
+        Publish v4
+      </SpaConfirmButton>,
+    )
+
+    expect(view.button().textContent).toBe('Publish v4')
+    click(view.button())
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(view.button().textContent).toBe('Confirm v4')
+    view.unmount()
   })
 })

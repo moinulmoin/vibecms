@@ -3,6 +3,12 @@
 Status: canonical V1 contract. This document supersedes
 `docs/asp-integration-spec.md`.
 
+Implementation status (2026-09-03): the binding, internal routes, entitlement
+gates, credential lifecycle, by-slug read, redaction, and focused worker tests
+are implemented and pass locally. The final launch gate remains a credentialed
+cross-system production proof of provision, status, REST/MCP use, generation
+rotation, revoke, denied credential reuse, and preserved customer content.
+
 ## Product boundary
 
 VibeCMS hosting is a built-in managed destination included with an active
@@ -142,6 +148,7 @@ posts:update
 posts:publish
 posts:archive
 assets:write
+assets:delete
 activity:read
 ```
 
@@ -200,6 +207,7 @@ and a reconciliation:
   "externalWorkspaceId": "00000000-0000-4000-8000-000000000001",
   "workspaceId": "vc-workspace-example",
   "siteId": "vc-site-example",
+  "siteName": "Example journal",
   "apiKeyId": "vc-key-example",
   "apiKeyPrefix": "vc_live_EXAMPLE",
   "publicUrl": "https://example.vibecms.example",
@@ -247,11 +255,13 @@ PUT idempotency and generation rules are:
 ### GET status
 
 `GET /internal/autoseopilot/sites/{externalWorkspaceId}` uses the same
-secret and returns the current receipt shape without changing state. It is
-the recovery read after a timeout or lost response. An unknown external
-workspace returns HTTP 404 with `NOT_FOUND`. An expired active sponsorship
-returns `status: "active"` and `effective: false`; expiry does not silently
-create a new key or change the stored lifecycle status.
+secret and returns the current receipt shape without changing state. The
+receipt re-reads the current VibeCMS-owned `siteName` and `publicUrl`, so a
+caller refresh observes customer changes without overwriting them. It is the
+recovery read after a timeout or lost response. An unknown external workspace
+returns HTTP 404 with `NOT_FOUND`. An expired active sponsorship returns
+`status: "active"` and `effective: false`; expiry does not silently create a
+new key or change the stored lifecycle status.
 
 ### POST revoke
 
@@ -285,7 +295,8 @@ receipt shape with:
 ```
 
 The complete response still includes `externalWorkspaceId`, `workspaceId`,
-`siteId`, `apiKeyId`, `apiKeyPrefix`, `publicUrl`, and `correlationId`.
+`siteId`, `siteName`, `apiKeyId`, `apiKeyPrefix`, `publicUrl`, and
+`correlationId`.
 `effective` is normally false for a managed-only site. It MAY remain true if
 self-hosting or an independent Polar subscription supplies entitlement, but
 the AutoSEOPilot API key is still revoked.
@@ -404,7 +415,11 @@ or transfer, remote content purge, ASP account deletion initiated by VibeCMS,
 OAuth, browser-session authentication for internal calls, outbound webhooks,
 a general partner API, or a second queue.
 
-## Acceptance checklist
+## Production acceptance checklist
+
+The implementation and automated tests cover these invariants. Check them off
+only after rerunning the complete lifecycle with production credentials across
+both deployed systems; local green tests alone are not a launch claim.
 
 - [ ] One unique binding exists for `externalWorkspaceId`.
 - [ ] Workspace UUID, not email, is the cross-system key.

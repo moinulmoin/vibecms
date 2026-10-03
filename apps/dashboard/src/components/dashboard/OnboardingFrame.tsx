@@ -1,73 +1,88 @@
 import { BRAND } from '@vc/config'
-import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { CheckIcon } from '@radix-ui/react-icons'
 
-const STEPS = ['Blog setup', 'Connect agent', 'First post'] as const
+const STEP_NAMES = ['Name your blog', 'Connect your agent'] as const
 
-export function OnboardingStepper({ step, complete = false }: { step: number; complete?: boolean }) {
+function StepIndicator({ step }: { step: { current: number; total: number } }) {
   return (
-    <ol aria-label="Onboarding steps" className="flex items-center gap-3 font-mono text-xs sm:gap-5 sm:text-[13px]">
-      {STEPS.map((label, index) => {
-        const position = index + 1
-        const state = complete || position < step ? 'done' : position === step ? 'current' : 'todo'
-        return (
-          <li
-            key={label}
-            aria-current={state === 'current' ? 'step' : undefined}
-            className="flex items-center gap-2"
-          >
-            {state === 'done' ? (
-              <CheckIcon className="size-4 text-primary" aria-hidden="true" />
-            ) : (
-              <span className={state === 'current' ? 'text-primary' : 'text-muted-foreground/70'}>
-                0{position}
-              </span>
-            )}
-            <span
-              className={
-                state === 'current'
-                  ? 'font-medium text-foreground'
-                  : 'hidden text-muted-foreground/70 sm:inline'
-              }
-            >
-              {label}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
+    <div className="flex items-center gap-3">
+      <ol className="flex items-center gap-1.5" aria-label={`Step ${step.current} of ${step.total}`}>
+        {Array.from({ length: step.total }, (_, index) => {
+          const n = index + 1
+          return (
+            <li key={n} aria-current={n === step.current ? 'step' : undefined}>
+              <span
+                className={[
+                  'block h-1 rounded-full transition-[width,background-color] duration-300 ease-out',
+                  n === step.current ? 'w-8 bg-brand-bright' : n < step.current ? 'w-4 bg-brand-bright/60' : 'w-4 bg-foreground/15',
+                ].join(' ')}
+              />
+              <span className="sr-only">{STEP_NAMES[index] ?? `Step ${n}`}</span>
+            </li>
+          )
+        })}
+      </ol>
+      <span className="text-sm tabular-nums text-muted-foreground" aria-hidden="true">
+        {step.current}/{step.total}
+      </span>
+    </div>
   )
 }
 
+/**
+ * Frame for the two onboarding screens: no sidebar, a soft brand glow, a step
+ * indicator, and an optional side panel (live preview / live agent status).
+ */
 export function OnboardingFrame({
   children,
-  step = 1,
-  title = 'Set up a calm publishing system for you and your AI agents.',
+  step,
+  title,
+  description,
+  aside,
 }: {
   children: ReactNode
-  /** 1-based position in the onboarding journey; earlier steps render as done. */
-  step?: number
-  title?: string
+  step?: { current: number; total: number }
+  title: string
+  description?: ReactNode
+  aside?: ReactNode
 }) {
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-2xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
-      <header className="mb-10 flex flex-col gap-7">
+    <div className="relative isolate min-h-svh overflow-x-clip">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[-280px] -z-10 h-[560px] w-[min(1100px,140vw)] -translate-x-1/2 rounded-full opacity-90"
+        style={{ background: 'radial-gradient(closest-side, var(--glow-primary), transparent)' }}
+      />
+      <main className={`mx-auto flex min-h-svh w-full flex-col px-5 py-8 sm:px-8 sm:py-10 ${aside ? 'max-w-5xl' : 'max-w-xl'}`}>
         <div className="flex items-center justify-between gap-3">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-sm font-semibold tracking-[-0.02em] text-foreground no-underline"
+          <a
+            href={BRAND.marketingUrl}
+            className="inline-flex min-h-11 items-center gap-2 text-[0.9375rem] font-semibold tracking-[-0.02em] text-foreground no-underline"
           >
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
-          </Link>
-          <OnboardingStepper step={step} />
+          </a>
+          {step ? <StepIndicator step={step} /> : null}
         </div>
-        <h1 className="text-balance font-display text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl">
-          {title}
-        </h1>
-      </header>
-      {children}
-    </main>
+        <div
+          className={
+            aside
+              ? 'grid flex-1 content-start items-start gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:content-center lg:gap-14 lg:py-16'
+              : 'flex flex-1 flex-col justify-center py-10'
+          }
+        >
+          <div className="min-w-0">
+            <header className="mb-8 space-y-2.5">
+              <h1 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[2.125rem]">
+                {title}
+              </h1>
+              {description ? <p className="max-w-[46ch] text-pretty text-base leading-7 text-muted-foreground">{description}</p> : null}
+            </header>
+            {children}
+          </div>
+          {aside ? <aside className="min-w-0 lg:sticky lg:top-10">{aside}</aside> : null}
+        </div>
+      </main>
+    </div>
   )
 }

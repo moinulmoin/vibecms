@@ -1,5 +1,3 @@
-'use client'
-
 import { Button, type ButtonProps } from '@vc/ui'
 import * as React from 'react'
 
@@ -9,6 +7,8 @@ export type SpaConfirmButtonProps = ButtonProps & {
   /** Label shown while the onConfirm promise is in flight. Defaults to confirmLabel. */
   pendingLabel?: React.ReactNode
   armedTimeoutMs?: number
+  /** Changing the reviewed resource/version invalidates an armed confirmation. */
+  confirmationKey?: string | number
   onConfirm: () => void | Promise<void>
 }
 
@@ -18,11 +18,14 @@ export function SpaConfirmButton({
   confirmLabel,
   helperText,
   pendingLabel,
-  armedTimeoutMs = 5000,
+  armedTimeoutMs = 8000,
+  confirmationKey,
   onConfirm,
   variant,
   disabled,
   onClick,
+  size,
+  className,
   ...props
 }: SpaConfirmButtonProps) {
   const [armed, setArmed] = React.useState(false)
@@ -34,6 +37,10 @@ export function SpaConfirmButton({
     const timer = window.setTimeout(() => setArmed(false), armedTimeoutMs)
     return () => window.clearTimeout(timer)
   }, [armed, armedTimeoutMs])
+
+  React.useEffect(() => {
+    setArmed(false)
+  }, [confirmationKey])
 
   const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     onClick?.(event)
@@ -58,16 +65,20 @@ export function SpaConfirmButton({
   }
 
   const label = submitting ? (pendingLabel ?? confirmLabel) : armed ? confirmLabel : children
+  // An icon-only trigger grows into a small text button while it asks to confirm.
+  const expanded = (armed || submitting) && size === 'icon'
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <Button
         ref={ref}
         type="button"
-        variant={variant ?? (armed ? 'destructive' : 'outline')}
+        variant={armed ? 'destructive' : (variant ?? 'outline')}
         aria-busy={submitting || undefined}
         disabled={disabled || submitting}
         onClick={handleClick}
+        size={expanded ? 'sm' : size}
+        className={expanded ? undefined : className}
         {...props}
       >
         {label}

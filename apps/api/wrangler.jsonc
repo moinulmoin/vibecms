@@ -5,15 +5,18 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/index.ts",
   "upload_source_maps": true,
+  // Our structured request logs redact preview tokens; Cloudflare's
+  // invocation logs would record raw URLs, so they stay off.
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 0.1
+    "head_sampling_rate": 0.1,
+    "logs": { "enabled": true, "invocation_logs": false }
   },
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
   "triggers": {
-    "crons": ["17 2 * * *", "*/15 * * * *"]
+    "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
   },
   "d1_databases": [
     {
@@ -34,7 +37,7 @@
     "directory": "../dashboard/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
   },
   "routes": [
     { "pattern": "app.basedui.dev", "custom_domain": true },
@@ -55,27 +58,32 @@
     "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
     "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
     "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
+    "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID": "a040a508-bccc-4a51-ba53-e42f0e55eb8b",
+    "POLAR_LAUNCH_DISCOUNT_YEARLY_ID": "807bf65b-e7e6-416e-af83-b133296473a9",
     "POLAR_SERVER": "sandbox"
   },
   "env": {
     "development": {
       "name": "vibecms-api-dev",
+      // Our structured request logs redact preview tokens; Cloudflare's
+      // invocation logs would record raw URLs, so they stay off.
       "observability": {
         "enabled": true,
-        "head_sampling_rate": 0.1
+        "head_sampling_rate": 0.1,
+        "logs": { "enabled": true, "invocation_logs": false }
       },
       "version_metadata": {
         "binding": "CF_VERSION_METADATA"
       },
       "send_email": [{ "name": "EMAIL" }],
       "triggers": {
-        "crons": ["17 2 * * *", "*/15 * * * *"]
+        "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
       },
       "assets": {
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
       },
       "d1_databases": [
         {
@@ -108,27 +116,32 @@
         "EMAIL_FROM": "vibecms <hey@vibecms.dev>",
         "POLAR_MONTHLY_PRODUCT_ID": "e9e797ae-f1d4-46c8-a22a-cbe1b27848a2",
         "POLAR_YEARLY_PRODUCT_ID": "f83ff026-d730-47cb-a913-5b45b32d9e78",
+        "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID": "a040a508-bccc-4a51-ba53-e42f0e55eb8b",
+        "POLAR_LAUNCH_DISCOUNT_YEARLY_ID": "807bf65b-e7e6-416e-af83-b133296473a9",
         "POLAR_SERVER": "sandbox"
       }
     },
     "production": {
       "name": "vibecms-prod",
+      // Our structured request logs redact preview tokens; Cloudflare's
+      // invocation logs would record raw URLs, so they stay off.
       "observability": {
         "enabled": true,
-        "head_sampling_rate": 0.1
+        "head_sampling_rate": 0.1,
+        "logs": { "enabled": true, "invocation_logs": false }
       },
       "version_metadata": {
         "binding": "CF_VERSION_METADATA"
       },
       "send_email": [{ "name": "EMAIL" }],
       "triggers": {
-        "crons": ["17 2 * * *", "*/15 * * * *"]
+        "crons": ["17 2 * * *", "*/15 * * * *", "* * * * *"]
       },
       "assets": {
         "directory": "../dashboard/dist",
         "binding": "ASSETS",
         "not_found_handling": "single-page-application",
-        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/__scheduled"]
+        "run_worker_first": ["/api/*", "/mcp", "/mcp/*", "/webhooks/*", "/media-assets/*", "/internal/*", "/.well-known/*", "/openapi.json", "/auth.md", "/robots.txt", "/llms.txt", "/__scheduled"]
       },
       "d1_databases": [
         {
@@ -161,7 +174,9 @@
         "POLAR_SERVER": "production",
         "CUSTOM_HOSTNAME_CNAME_TARGET": "cname.vibecms.dev",
         "POLAR_MONTHLY_PRODUCT_ID": "305d416c-5ec6-4517-b5ea-f21fdc5b34b3",
-        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436"
+        "POLAR_YEARLY_PRODUCT_ID": "4b453905-d966-4176-8e56-c929f47ad436",
+        "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID": "d5d42d96-c8c8-4c59-9145-7cf75b6889a7",
+        "POLAR_LAUNCH_DISCOUNT_YEARLY_ID": "9f5549b0-4e79-41d4-af4f-c7c7d547a332"
       }
     }
   }

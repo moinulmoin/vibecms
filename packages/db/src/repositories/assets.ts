@@ -1,8 +1,16 @@
-import { and, desc, eq, sql } from "drizzle-orm";
-import type { ActivityInput, Actor, Asset, AssetRepository } from "@vc/core";
-import { assets, posts, sites, type AssetRow } from "../schema";
+import { and, desc, eq, or, sql } from "drizzle-orm";
+import { ConflictError, type ActivityInput, type Actor, type Asset, type AssetRepository } from "@vc/core";
+import { assets, sites, type AssetRow } from "../schema";
 import { createDbClient } from "../client";
 import { createActivityRepository } from "./activity";
+
+// Keep every saved cover restorable, and protect inline Markdown images plus
+// the site's share image, logo, and favicon.
+export const assetUnusedSql = `NOT EXISTS (SELECT 1 FROM posts WHERE posts.site_id = assets.site_id
+    AND (posts.cover_asset_id = assets.id OR instr(posts.content_markdown, '/media-assets/' || assets.id) > 0))
+  AND NOT EXISTS (SELECT 1 FROM post_versions WHERE post_versions.site_id = assets.site_id
+    AND (post_versions.cover_asset_id = assets.id OR instr(post_versions.content_markdown, '/media-assets/' || assets.id) > 0))
+  AND NOT EXISTS (SELECT 1 FROM sites WHERE sites.id = assets.site_id AND assets.id IN (sites.default_social_asset_id, sites.logo_asset_id, sites.favicon_asset_id))`;
 
 function mapAsset(row: AssetRow): Asset {
   return {
@@ -96,34 +104,34 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
     },
 
     async updateAssetAltText(siteId: string, assetId: string, altText: string | null) {
-      await client
-        .update(assets)
-        .set({ altText, updatedAt: Math.floor(Date.now() / 1000) })
-        .where(and(eq(assets.siteId, siteId), eq(assets.id, assetId)))
-        .run();
+      const result = await db.prepare(`UPDATE assets SET alt_text = ?, updated_at = ?
+        WHERE site_id = ? AND id = ? AND (? IS NOT NULL OR ${assetUnusedSql})`)
+        .bind(altText, Math.floor(Date.now() / 1000), siteId, assetId, altText).run();
+      if (!result.meta.changes && altText === null && await this.getAsset(siteId, assetId)) {
+        throw new ConflictError("Alt text is required while this image is in use");
+      }
     },
 
     async deleteAsset(siteId: string, assetId: string) {
-      await client
-        .delete(assets)
-        .where(and(eq(assets.siteId, siteId), eq(assets.id, assetId)))
-        .run();
+      const result = await db.prepare(`DELETE FROM assets WHERE site_id = ? AND id = ? AND ${assetUnusedSql}`)
+        .bind(siteId, assetId).run();
+      if (!result.meta.changes && await this.getAsset(siteId, assetId)) throw new ConflictError("Asset is in use");
     },
 
     async isAssetReferencedAsCover(siteId: string, assetId: string) {
-      const rows = await client
-        .select({ id: posts.id })
-        .from(posts)
-        .where(and(eq(posts.siteId, siteId), eq(posts.coverAssetId, assetId)))
-        .limit(1);
-      return rows.length > 0;
+      const row = await db.prepare(`SELECT ${assetUnusedSql} AS unused FROM assets
+        WHERE site_id = ? AND id = ?`).bind(siteId, assetId).first<{ unused: number }>();
+      return row?.unused === 0;
     },
 
     async isAssetReferencedAsSiteSocialImage(siteId: string, assetId: string) {
       const rows = await client
         .select({ id: sites.id })
         .from(sites)
-        .where(and(eq(sites.id, siteId), eq(sites.defaultSocialAssetId, assetId)))
+        .where(and(
+          eq(sites.id, siteId),
+          or(eq(sites.defaultSocialAssetId, assetId), eq(sites.logoAssetId, assetId), eq(sites.faviconAssetId, assetId)),
+        ))
         .limit(1);
       return rows.length > 0;
     },
@@ -205,13 +213,13 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
 
     async deleteAssetWithActivity(siteId: string, assetId: string, activityInput: ActivityInput) {
       const timestamp = Math.floor(Date.now() / 1000);
-      await db.batch([
-        db.prepare(`DELETE FROM assets WHERE id = ? AND site_id = ?`).bind(assetId, siteId),
+      const [deleteResult] = await db.batch([
+        db.prepare(`DELETE FROM assets WHERE id = ? AND site_id = ? AND ${assetUnusedSql}`).bind(assetId, siteId),
         db.prepare(
           `INSERT INTO activity_events (
             id, site_id, actor_type, actor_id, actor_name, action, entity_type, entity_id,
             summary, before_json, after_json, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() > 0`,
         ).bind(
           crypto.randomUUID(),
           activityInput.siteId,
@@ -227,6 +235,7 @@ export function createD1AssetRepository(db: D1Database): AssetDbRepository {
           timestamp,
         ),
       ]);
+      if (!deleteResult.meta.changes && await this.getAsset(siteId, assetId)) throw new ConflictError("Asset is in use");
     },
 
     // Cover-asset ownership check for assertCoverAssetOwnedBySite (id AND site_id).

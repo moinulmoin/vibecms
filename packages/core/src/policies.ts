@@ -16,6 +16,7 @@ export function can(actor: Actor, scope: Scope): boolean {
         "posts:publish",
         "posts:archive",
         "assets:write",
+        "assets:delete",
         "activity:read",
       ].includes(scope);
     }
@@ -25,5 +26,5 @@ export function can(actor: Actor, scope: Scope): boolean {
 }
 
 export function requireScope(actor: Actor, scope: Scope): void {
-  if (!can(actor, scope)) throw new ForbiddenError(`Missing required scope: ${scope}`);
+  if (!can(actor, scope)) throw new ForbiddenError(`Missing required scope: ${scope}. This key cannot perform the action. Explain the missing capability to the owner; do not retry or widen access automatically.`);
 }

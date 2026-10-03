@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ReloadIcon } from "@radix-ui/react-icons";
+import { LoaderCircle } from "lucide-react";
 import { Button, type ButtonProps } from "./button";
 
 export interface SubmitButtonProps extends ButtonProps {
@@ -42,7 +42,7 @@ function SubmitButton({ children, pendingText, onClick, ...props }: SubmitButton
     >
       {pending ? (
         <>
-          <ReloadIcon className="size-4 animate-spin" aria-hidden="true" />
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           {pendingText ?? children}
         </>
       ) : (

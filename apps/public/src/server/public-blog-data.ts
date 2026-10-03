@@ -1,3 +1,4 @@
+import { navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink } from "@vc/validators";
 import type { Presentation } from "@vc/config";
 import {
   createDataAccess,
@@ -8,11 +9,12 @@ import {
   type PublicPostSummaryRow,
   type PublicSiteRow,
 } from "@vc/db";
+import type { SubscribeSettings } from "@vc/content/public-chrome";
 import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
 
 export { PUBLIC_BLOG_LIMITS };
-
+type NewsletterSettings = Required<SubscribeSettings>;
 export type SiteRow = {
   id: string;
   workspace_id: string;
@@ -22,14 +24,26 @@ export type SiteRow = {
   theme_accent: string | null;
   theme_font: string | null;
   theme_mode: string;
+  /** Template knobs; null = the template's default (resolveRadius/resolveWidth). */
+  theme_radius: string | null;
+  theme_width: string | null;
+  /** Public author name; null falls back to the site name. Never the account email. */
+  byline_name: string | null;
+  /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
+  show_agent_credit: boolean;
   description: string | null;
   default_seo_title: string | null;
   default_seo_description: string | null;
   default_social_asset_id: string | null;
+  logo_asset_id?: string | null;
+  favicon_asset_id?: string | null;
+  nav_links?: NavLink[];
+  social_links?: SocialLink[];
   default_social_asset_mime_type: string | null;
   default_social_asset_width: number | null;
   default_social_asset_height: number | null;
   default_social_asset_alt_text: string | null;
+  newsletter_settings?: NewsletterSettings | null;
   billing_status: string | null;
   current_period_end: number | null;
   published_count: number | null;
@@ -64,7 +78,32 @@ export type PostBodyRow = PostSummaryRow & {
 export type PostDetailRow = PostBodyRow & {
   presentation_json: string | null;
   presentation: Presentation | null;
+  /** The pinned published version was written by an agent (agent / API key), not a human edit. */
+  published_by_agent: boolean;
 };
+function parseNewsletterSettings(raw: string | null): NewsletterSettings | null {
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Record<string, unknown>;
+    if (
+      typeof candidate.enabled !== "boolean" ||
+      typeof candidate.heading !== "string" ||
+      typeof candidate.subtext !== "string" ||
+      typeof candidate.buttonLabel !== "string"
+    ) return null;
+    return {
+      enabled: candidate.enabled,
+      heading: candidate.heading,
+      subtext: candidate.subtext,
+      buttonLabel: candidate.buttonLabel,
+    };
+  } catch {
+    return null;
+  }
+}
+
 
 function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEntitlement): SiteRow {
   return {
@@ -76,14 +115,23 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     theme_accent: row.themeAccent,
     theme_font: row.themeFont,
     theme_mode: row.themeMode,
+    theme_radius: row.themeRadius ?? null,
+    theme_width: row.themeWidth ?? null,
+    byline_name: row.bylineName ?? null,
+    show_agent_credit: row.showAgentCredit ?? true,
     description: row.description,
     default_seo_title: row.defaultSeoTitle,
     default_seo_description: row.defaultSeoDescription,
     default_social_asset_id: row.defaultSocialAssetId,
+    logo_asset_id: row.logoAssetId,
+    favicon_asset_id: row.faviconAssetId,
+    nav_links: parseSiteLinks(row.navLinksJson, navLinksSchema),
+    social_links: parseSiteLinks(row.socialLinksJson, socialLinksSchema),
     default_social_asset_mime_type: row.defaultSocialAssetMimeType,
     default_social_asset_width: row.defaultSocialAssetWidth,
     default_social_asset_height: row.defaultSocialAssetHeight,
     default_social_asset_alt_text: row.defaultSocialAssetAltText,
+    newsletter_settings: parseNewsletterSettings(row.newsletterSettings),
     billing_status: row.billingStatus,
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,
@@ -124,6 +172,7 @@ function toPostDetailRow(row: PublicPostDetailRow): PostDetailRow {
     ...toPostBodyRow(row),
     presentation_json: row.presentationJson,
     presentation: row.presentation,
+    published_by_agent: row.publishedByAgent,
   };
 }
 
@@ -187,6 +236,18 @@ export async function listPublishedPostSummaries(
   const now = Math.floor(Date.now() / 1000);
   const rows = await createDataAccess(db).publicBlog.listPublishedPostSummaries(siteId, now, limit);
   return rows.map(toPostSummaryRow);
+}
+
+export async function listPublishedPostPage(
+  db: D1Database,
+  siteId: string,
+  requestedPage: number,
+  pageSize: number,
+  tag?: string,
+): Promise<{ posts: PostSummaryRow[]; total: number; page: number }> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await createDataAccess(db).publicBlog.listPublishedPostPage(siteId, now, pageSize, requestedPage, tag);
+  return { ...result, posts: result.posts.map(toPostSummaryRow) };
 }
 
 export async function listPublishedPostsForFeed(

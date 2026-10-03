@@ -4,12 +4,15 @@ export type HumanRole = "owner" | "editor" | "viewer";
 
 export type Scope =
   | "sites:read"
+  | "site:write"
+  | "analytics:read"
   | "posts:read"
   | "posts:create"
   | "posts:update"
   | "posts:publish"
   | "posts:archive"
   | "assets:write"
+  | "assets:delete"
   | "activity:read";
 
 export type Actor =
@@ -20,12 +23,14 @@ export type Actor =
 
 export type PostStatus = "draft" | "published" | "archived";
 export type BillingStatus = "active" | "past_due" | "canceled" | "unpaid" | "none";
+export type ScheduledPublish = { versionNumber: number; publishAt: number; status: "pending" | "processing" | "published" | "failed"; error?: string | null };
 
 export type Post = {
   id: string;
   siteId: string;
   title: string;
   slug: string;
+  publishedSlug?: string | null;
   excerpt: string | null;
   contentMarkdown: string;
   coverAssetId: string | null;
@@ -42,6 +47,7 @@ export type Post = {
   currentVersionNumber: number;
   /** Pinned public version; null until first successful publish. */
   publishedVersionNumber: number | null;
+  scheduledPublish?: ScheduledPublish | null;
 };
 export type PostSummary = Omit<Post, "contentMarkdown" | "seoTitle" | "seoDescription" | "canonicalUrl" | "presentation" | "currentVersionNumber" | "publishedVersionNumber">;
 
@@ -92,11 +98,12 @@ export type ActivityInput = {
   after?: unknown;
 };
 
-export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full", Scope[]> = {
+export const AGENT_TOKEN_PRESETS: Record<"draft" | "publish" | "full" | "manage", Scope[]> = {
   draft: ["sites:read", "posts:read", "posts:create", "posts:update", "assets:write", "activity:read"],
   publish: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "assets:write", "activity:read"],
-  full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read"],
+  full: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "assets:delete", "activity:read"],
+  manage: ["sites:read", "posts:read", "posts:create", "posts:update", "posts:publish", "posts:archive", "assets:write", "activity:read", "site:write", "analytics:read"],
 };
 
-// Default scopes for a token minted without an explicit preset: non-destructive publisher (publish, no archive).
-export const DEFAULT_SCOPES: Scope[] = AGENT_TOKEN_PRESETS.publish;
+// Least-privilege default for legacy/custom token forms that omit a preset.
+export const DEFAULT_SCOPES: Scope[] = AGENT_TOKEN_PRESETS.draft;

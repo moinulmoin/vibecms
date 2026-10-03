@@ -1,0 +1,14 @@
+---
+title: URLs and redirects
+description: Understand post slugs, renamed links, archival, and permanent deletion.
+---
+
+A post slug uses lowercase letters and numbers separated by hyphens. It is at most 120 characters, cannot start or end with a hyphen, and cannot use a reserved route. The slug must not collide with another post's current slug or another published post's live slug.
+
+Changing the slug of a published post changes its private draft first. The public URL stays at the pinned published version until you publish the new version. Then the old URL redirects to the new one with HTTP 301. The redirect also works for `/<old-slug>.md` and `/<old-slug>?format=md`, leading to the new Markdown URL. A slug used only as an old redirect can be reused; a current post at that URL takes precedence over the redirect.
+
+## Archive or delete
+
+`posts.archive` removes a post from public output but keeps the post, versions, and activity history. While archived, its public URL and old redirects do not resolve to a live article. `posts.unarchive` restores it as a draft; publish again to make it public. Archiving and restoring each save a new version, so use the `currentVersionNumber` they return (or re-read the post) before the next edit. A previous live slug can redirect to the newly published slug after a rename and republish.
+
+Permanent deletion is available only in the dashboard to a human owner or editor, and only after archival. It removes the post and its version snapshots. Activity entries remain as a record of who did what, but their before and after content snapshots are cleared. Redirects tied to the deleted post are removed, so old links stop redirecting. Agents cannot permanently delete posts.

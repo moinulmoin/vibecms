@@ -14,6 +14,7 @@ import {
   MediaQuotaExceededError,
 } from '@vc/db'
 import { allowedImageMimeTypes, createAssetInput } from '@vc/validators'
+import { mapAsset } from '@vc/api-contract'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 import { readImageDimensions, validateDeclaredImageMime } from '@/server/media-bytes'
@@ -150,10 +151,10 @@ export async function uploadAssetForApp(
   app: AppUserContext,
   file: File,
   altText?: string,
-): Promise<{ kind: 'ok' | 'error'; code: string }> {
+): Promise<{ kind: 'ok'; code: string; asset: ReturnType<typeof mapAsset> } | { kind: 'error'; code: string }> {
   try {
-    await uploadAsset(app, file, altText)
-    return { kind: 'ok', code: 'media_uploaded' }
+    const asset = await uploadAsset(app, file, altText)
+    return { kind: 'ok', code: 'media_uploaded', asset: mapAsset(asset, `/media-assets/${asset.id}`) }
   } catch (error) {
     if (error instanceof UploadError) return { kind: 'error', code: error.code }
     return { kind: 'error', code: 'unknown' }
@@ -167,7 +168,7 @@ export async function updateAssetAltForApp(
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   try {
     await updateAssetAltText(assetRepository(), app.actor, app.siteId, assetId, altText)
-    return { kind: 'ok', code: 'media_updated' }
+    return { kind: 'ok', code: 'media_alt_saved' }
   } catch (error) {
     if (error instanceof ConflictError) return { kind: 'error', code: 'alt_required_in_use' }
     if (error instanceof NotFoundError) return { kind: 'error', code: 'not_found' }
@@ -180,7 +181,7 @@ export async function updateAssetAltForApp(
  * R2 failure leaves the delete op for the reconciler. Response stays stable either way.
  */
 export async function deleteAssetTracked(app: AppUserContext, assetId: string): Promise<Asset> {
-  requireScope(app.actor, 'assets:write')
+  requireScope(app.actor, 'assets:delete')
   const repo = assetRepository()
   const asset = await repo.getAsset(app.siteId, assetId)
   if (!asset) throw new NotFoundError('Asset not found')

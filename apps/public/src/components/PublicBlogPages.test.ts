@@ -42,3 +42,18 @@ describe("PublicBlogIndexView heading outline", () => {
     expect(html).toContain("Results for reliability");
   });
 });
+
+describe("listing pagination params", () => {
+  it("clamps ?page to the pages that exist", async () => {
+    const { resolvePublicPage, publicPageCanonicalPath } = await import("./PublicBlogPages");
+    expect(resolvePublicPage(null, 50)).toBe(1);
+    expect(resolvePublicPage("2", 50)).toBe(2);
+    expect(resolvePublicPage("999", 50)).toBe(3);
+    expect(resolvePublicPage("0", 50)).toBe(1);
+    expect(resolvePublicPage("-3", 50)).toBe(1);
+    expect(resolvePublicPage("2abc", 50)).toBe(1);
+    expect(resolvePublicPage("5", 0)).toBe(1);
+    expect(publicPageCanonicalPath("/", 1)).toBe("/");
+    expect(publicPageCanonicalPath("/tag/a%20b", 3)).toBe("/tag/a%20b?page=3");
+  });
+});

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('~/lib/api-client', () => ({
+  DashboardApiError: class DashboardApiError extends Error {},
+  dashboardMutationHeaders: () => ({}),
+  dashboardMutationSignal: () => new AbortController().signal,
+  handleDashboardSiteChanged: vi.fn(),
   loadMediaPage: vi.fn(),
   updateMediaAltMutation: vi.fn(),
 }))

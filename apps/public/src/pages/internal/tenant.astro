@@ -1,7 +1,9 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PublicBlogIndexView } from "../../components/PublicBlogPages";
+import { PublicBlogIndexView, publicPageCanonicalPath, requestedPublicPage, resolvePublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
+import { markdownNotFound, tenantHomeLinks } from "../../lib/agent-discovery";
+import { listingMarkdown, tenantBlogJsonLd } from "../../lib/agent-pages";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicOrigin } from "../../server/public-url";
@@ -10,10 +12,7 @@ import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 // Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
 // path stays non-indexable and never becomes a public canonical URL.
 if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
-  return new Response("Not found", {
-    status: 404,
-    headers: { "content-type": "text/plain; charset=utf-8" },
-  });
+  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404 });
 }
 
 const env = publicRuntimeEnv(Astro);
@@ -22,28 +21,35 @@ const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
 // Host resolution still uses the preserved Host header after rewrite; origin
 // for SEO/canonical comes from the external `/` path (originPathname).
 const originUrl = new URL(Astro.originPathname + Astro.url.search, Astro.url);
-const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query);
+const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query, requestedPublicPage(Astro.url.searchParams.get("page")));
 
 if (!blog) {
-  return new Response("Not found", {
+  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 }
 
+const origin = publicOrigin(originUrl);
+const page = blog.page ?? resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
+if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
+  return new Response(listingMarkdown({ ...blog, page }, origin), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: tenantHomeLinks(origin) } });
+}
+Astro.response.headers.set("Link", tenantHomeLinks(origin));
+
 const headers =
   blog.listing.kind === "search"
-    ? { "cache-control": "no-store", "x-robots-tag": "noindex" }
+    ? { "cache-control": "no-store", "x-robots-tag": "noindex", vary: "Accept" }
     : publicListingResponseHeaders(blog.site, env);
 for (const [key, value] of Object.entries(headers)) {
   Astro.response.headers.set(key, value);
 }
 
-const origin = publicOrigin(originUrl);
 const title = blog.site.default_seo_title || blog.site.name;
 const description = blog.site.default_seo_description || blog.site.description || undefined;
-const socialImage = resolveSocialImage(origin, null, blog.site);
-const canonical = new URL("/", origin).href;
+const socialImage = resolveSocialImage(origin, null, blog.site, env.generatedCards);
+const canonical = new URL(publicPageCanonicalPath("/", page), origin).href;
+const { themeAttrs, fontId } = siteDocumentProps(blog.site);
 ---
 <Base
   title={title}
@@ -51,6 +57,10 @@ const canonical = new URL("/", origin).href;
   robots={!blog.indexable ? "noindex,nofollow" : undefined}
   canonical={canonical}
   socialImage={socialImage}
+  themeAttrs={themeAttrs} fontId={fontId}
+  feedHref="/feed.xml"
+  feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}
 >
-  <PublicBlogIndexView data={blog} />
+  <Fragment slot="head"><script is:inline type="application/ld+json" set:html={tenantBlogJsonLd(blog.site.name, origin, blog.site.description || "")} /></Fragment>
+  <PublicBlogIndexView data={blog} page={page} />
 </Base>

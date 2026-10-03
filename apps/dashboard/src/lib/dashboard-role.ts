@@ -8,6 +8,10 @@ export function canManageDashboardContent(role: DashboardRole | undefined): bool
   return role === "owner" || role === "editor";
 }
 
+export function canManageDashboardSettings(role: DashboardRole | undefined): boolean {
+  return role === "owner";
+}
+
 export function requirePostEditorAccess(context: AppRouterContext): void {
   if (!canManageDashboardContent(context.app?.actor.role)) {
     throw redirect({ to: "/dashboard/posts", search: emptyPostsListSearch });

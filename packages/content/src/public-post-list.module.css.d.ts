@@ -1,0 +1,27 @@
+declare const styles: {
+  readonly archive: string;
+  readonly archiveDate: string;
+  readonly archiveGroup: string;
+  readonly archiveItem: string;
+  readonly archiveLink: string;
+  readonly archiveList: string;
+  readonly archiveMonth: string;
+  readonly card: string;
+  readonly cardLead: string;
+  readonly cardMedia: string;
+  readonly cardText: string;
+  readonly cardTitle: string;
+  readonly grid: string;
+  readonly postExcerpt: string;
+  readonly postItem: string;
+  readonly postLink: string;
+  readonly postList: string;
+  readonly postMeta: string;
+  readonly postText: string;
+  readonly postThumb: string;
+  readonly postTitle: string;
+  readonly tile: string;
+  readonly tileLabel: string;
+  readonly tileMark: string;
+};
+export default styles;

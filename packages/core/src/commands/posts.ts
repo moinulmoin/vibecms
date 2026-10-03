@@ -1,5 +1,5 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
-import { BillingRequiredError, ConflictError, NotFoundError } from "../errors";
+import { BillingRequiredError, ConflictError, NotFoundError, ValidationError } from "../errors";
 import { hasActiveSubscription, requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
@@ -7,7 +7,48 @@ export type PostMutationHistory = {
   changeSummary: string;
   activityAction: string;
   activitySummary: string;
+  /** Fields this mutation changed, in display order (edit mutations only). */
+  changedFields?: string[];
+  /**
+   * Allow folding this edit into the tip version when the same actor is still
+   * editing it (autosave). The repository decides whether it is safe.
+   */
+  coalesceVersion?: boolean;
+  /** Rebuilds the activity summary when coalescing widens the changed-field set. */
+  activitySummaryFor?: (fields: string[]) => string;
 };
+
+const POST_FIELD_LABELS: Array<[keyof Post, string]> = [
+  ["title", "title"],
+  ["contentMarkdown", "body"],
+  ["slug", "slug"],
+  ["excerpt", "excerpt"],
+  ["tags", "tags"],
+  ["coverAssetId", "cover"],
+  ["seoTitle", "SEO"],
+  ["seoDescription", "SEO"],
+  ["canonicalUrl", "canonical URL"],
+  ["presentation", "layout"],
+];
+
+/** Human labels for the fields that differ between two post states, deduped, in display order. */
+export function changedPostFields(before: Partial<Post>, after: Partial<Post>): string[] {
+  const labels: string[] = [];
+  for (const [key, label] of POST_FIELD_LABELS) {
+    if (!(key in after)) continue;
+    if (JSON.stringify(before[key] ?? null) === JSON.stringify(after[key] ?? null)) continue;
+    if (!labels.includes(label)) labels.push(label);
+  }
+  return labels;
+}
+
+function editActivitySummary(title: string, fields: string[]) {
+  return fields.length ? `Edited ${title} (${fields.join(", ")})` : `Saved ${title}`;
+}
+
+export function describeEdit(fields: string[]): string {
+  return fields.length ? `Edited ${fields.join(", ")}` : "Saved without changes";
+}
 
 export type PostRepository = {
   createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory): Promise<Post>;
@@ -15,7 +56,7 @@ export type PostRepository = {
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
+  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number; allowOlderVersion?: boolean; scheduleLeaseToken?: string }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
   listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
   getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
@@ -32,6 +73,7 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     siteId: data.siteId,
     title: data.title,
     slug: data.slug,
+    publishedSlug: null,
     excerpt: data.excerpt ?? null,
     contentMarkdown: data.contentMarkdown,
     coverAssetId: data.coverAssetId ?? null,
@@ -58,7 +100,7 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
   const patch = {
     title: data.title ?? before.title,
     slug: data.slug ?? before.slug,
-    excerpt: data.excerpt ?? before.excerpt,
+    excerpt: data.excerpt === undefined ? before.excerpt : data.excerpt || null,
     contentMarkdown: data.contentMarkdown ?? before.contentMarkdown,
     coverAssetId: data.coverAssetId === undefined ? before.coverAssetId : data.coverAssetId,
     canonicalUrl: data.canonicalUrl === undefined ? before.canonicalUrl : data.canonicalUrl || null,
@@ -68,10 +110,22 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
     // presentation: undefined = preserve prior, null = reset to preset default, object = store intent
     presentation: data.presentation === undefined ? before.presentation : data.presentation,
   };
+  const changedFields = changedPostFields(before, patch);
+  // A dashboard autosave that normalizes back to the saved state (e.g. a
+  // trailing space trimmed) is not an edit: cutting an identical version would
+  // flag a live post as having unpublished changes and void pending approvals.
+  if (actor.type === "human" && changedFields.length === 0 && before.currentVersionNumber === data.expectedVersionNumber) {
+    return { post: before, versionNumber: before.currentVersionNumber };
+  }
   const after = await repo.updatePostWithHistory(data.siteId, data.postId, patch, actor, {
-    changeSummary: "Updated post",
+    changeSummary: describeEdit(changedFields),
     activityAction: "post.updated",
-    activitySummary: `Updated ${patch.title}`,
+    activitySummary: editActivitySummary(patch.title, changedFields),
+    activitySummaryFor: (fields) => editActivitySummary(patch.title, fields),
+    changedFields,
+    // Autosave from the dashboard folds into the tip while the same person keeps
+    // editing. Agent and API writes always cut a version so each can be approved.
+    coalesceVersion: actor.type === "human",
   }, data.expectedVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after;
@@ -107,15 +161,56 @@ export async function publishPost(
   return post;
 }
 
-export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+/** Called only by the due-schedule worker: approval pins a saved version, not a moving tip. */
+export async function publishScheduledPost(
+  repo: PostRepository, actor: Actor,
+  input: { siteId: string; postId: string; versionNumber: number; billingStatus: BillingStatus; scheduledBy: string; leaseToken: string },
+) {
+  requireScope(actor, "posts:publish");
+  const post = await repo.getPost(input.siteId, input.postId);
+  if (!post) throw new NotFoundError("Post not found");
+  if (post.status === "archived") throw new ConflictError("Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.");
+  const version = await repo.getPostVersion(input.siteId, input.postId, input.versionNumber);
+  if (!version) throw new NotFoundError("Scheduled post version not found");
+  const result = await repo.publishPostWithHistory(input.siteId, input.postId, input.versionNumber, actor, {
+    changeSummary: `Published scheduled v${input.versionNumber}`,
+    activityAction: "post.published",
+    activitySummary: `Published scheduled v${input.versionNumber} of ${version.title} · Scheduled by ${input.scheduledBy}`,
+  }, { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT, allowOlderVersion: true, scheduleLeaseToken: input.leaseToken });
+  if (result.capReached) throw new BillingRequiredError("Subscribe to publish more posts");
+  if (!result.post) throw new NotFoundError("Post not found");
+  return result.post;
+}
+
+export async function archivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; expectedVersionNumber?: number }) {
   requireScope(actor, "posts:archive");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
-  // Archive is not client-versioned; pin against the tip observed in this command.
+  if (input.expectedVersionNumber !== undefined && input.expectedVersionNumber !== before.currentVersionNumber) {
+    throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
+  }
+  // Already archived: nothing changes, so no new version or activity row.
+  if (before.status === "archived") return before;
+  const scheduleCanceled = before.scheduledPublish?.status === "pending";
   const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "archived" }, actor, {
     changeSummary: "Archived post",
     activityAction: "post.archived",
-    activitySummary: `Archived ${before.title}`,
+    activitySummary: scheduleCanceled ? `Archived ${before.title} (scheduled publish canceled)` : `Archived ${before.title}`,
+  }, before.currentVersionNumber);
+  if (!after) throw new ConflictError("Post changed since archive approval. Re-read the post and confirm the current version before archiving.");
+  return after.post;
+}
+
+export async function unarchivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+  requireScope(actor, "posts:update");
+  const before = await repo.getPost(input.siteId, input.postId);
+  if (!before) throw new NotFoundError("Post not found");
+  if (before.status !== "archived") throw new ValidationError("Only archived posts can be restored to draft");
+  // Like archive, not client-versioned; pin against the tip observed in this command.
+  const after = await repo.updatePostWithHistory(input.siteId, input.postId, { status: "draft" }, actor, {
+    changeSummary: "Restored post to draft",
+    activityAction: "post.unarchived",
+    activitySummary: `Restored ${before.title} to draft`,
   }, before.currentVersionNumber);
   if (!after) throw new NotFoundError("Post not found");
   return after.post;

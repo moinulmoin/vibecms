@@ -9,7 +9,7 @@ declare module 'vitest' {
 
 import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
-import { beforeAll, describe, expect, inject, it } from 'vitest'
+import { beforeAll, describe, expect, inject, it, vi } from 'vitest'
 import { app } from '@/index'
 
 const INTERNAL_SECRET = 'managed-route-test-secret'
@@ -191,6 +191,45 @@ describe('managed AutoSEOPilot internal routes', () => {
     expect((await json(impossibleExpiry)).error.code).toBe('VALIDATION_ERROR')
   })
 
+  it('keeps managed site slugs within the DNS label limit', async () => {
+    const externalWorkspaceId = '00000000-0000-4000-8000-000000000907'
+    const credentialId = '00000000-0000-4000-8000-000000000908'
+    const oversizedSlug = await request(
+      `/internal/autoseopilot/sites/${externalWorkspaceId}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(provisionBody({ siteSlug: 'a'.repeat(64) })),
+      },
+    )
+    expect(oversizedSlug.status).toBe(400)
+    expect((await json(oversizedSlug)).error.code).toBe('VALIDATION_ERROR')
+
+    const generated = await request(
+      `/internal/autoseopilot/sites/${externalWorkspaceId}`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(
+          provisionBody({
+            siteName: 'A'.repeat(120),
+            credential: {
+              rawToken: ['vc', 'test', 'f'.repeat(32)].join('_') + '_',
+              credentialId,
+              generation: 1,
+            },
+          }),
+        ),
+      },
+    )
+    expect(generated.status).toBe(201)
+    const generatedBody = await json(generated)
+    const generatedUrl = new URL(generatedBody.publicUrl)
+    const slug = generatedUrl.hostname.split('.')[0]!
+    expect(slug).toHaveLength(63)
+    expect(slug).toBe(`${'a'.repeat(26)}-${externalWorkspaceId}`)
+  })
+
   it('provisions, replays, rotates, revokes, and recovers a managed site', async () => {
     const correlationId = 'managed-route-provision'
     const first = await request(
@@ -209,6 +248,7 @@ describe('managed AutoSEOPilot internal routes', () => {
     const firstBody = await json(first)
     expect(firstBody).toMatchObject({
       externalWorkspaceId: EXTERNAL_WORKSPACE_ID,
+      siteName: 'Managed Route Site',
       entitlement: { status: 'active', effective: true },
       lifecycle: { revision: 1, status: 'active' },
       correlationId,
@@ -256,16 +296,30 @@ describe('managed AutoSEOPilot internal routes', () => {
       .first<{ sites: number; keys: number; bindings: number }>()
     expect(countsAfterReplay).toEqual(countsBeforeReplay)
 
-    const ownerConflict = await request(
-      `/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`,
-      {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(provisionBody({ ownerEmail: 'other@example.test' })),
-      },
-    )
-    expect(ownerConflict.status).toBe(409)
-    expect((await json(ownerConflict)).error.code).toBe('OWNER_CONFLICT')
+    const conflictLog = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const ownerConflict = await request(
+        `/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`,
+        {
+          method: 'PUT',
+          headers: {
+            'content-type': 'application/json',
+            'X-Correlation-Id': 'managed-route-owner-conflict',
+          },
+          body: JSON.stringify(provisionBody({ ownerEmail: 'other@example.test' })),
+        },
+      )
+      expect(ownerConflict.status).toBe(409)
+      expect((await json(ownerConflict)).error.code).toBe('OWNER_CONFLICT')
+      const conflictOutput = conflictLog.mock.calls.flat().join('\n')
+      expect(conflictOutput).toContain('"event":"autoseopilot_managed_lifecycle"')
+      expect(conflictOutput).toContain('"correlationId":"managed-route-owner-conflict"')
+      expect(conflictOutput).not.toContain(INTERNAL_SECRET)
+      expect(conflictOutput).not.toContain(TOKEN)
+      expect(conflictOutput).not.toContain('other@example.test')
+    } finally {
+      conflictLog.mockRestore()
+    }
 
     const tokenConflict = await request(
       `/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`,
@@ -533,10 +587,15 @@ describe('managed AutoSEOPilot internal routes', () => {
       .prepare("UPDATE domains SET hostname = ? WHERE site_id = ? AND type = 'default'")
       .bind(localHostname, firstBody.siteId)
       .run()
+    await env.DB
+      .prepare("UPDATE sites SET name = ? WHERE id = ?")
+      .bind('Managed Route Site Renamed', firstBody.siteId)
+      .run()
     const recovery = await request(`/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`)
     expect(recovery.status).toBe(200)
     const recoveryBody = await json(recovery)
     expect(recoveryBody.lifecycle).toEqual({ revision: 3, status: 'revoked' })
+    expect(recoveryBody.siteName).toBe('Managed Route Site Renamed')
     expect(recoveryBody.publicUrl).toMatch(/^https:\/\//)
     expect(
       await env.DB

@@ -35,9 +35,8 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    archived state via tested `editorLiveState`, last-saved actor + time,
    open-live link, publish action next to the state it acts on. Review-before-
    publish (8c27065): strip's Review changes opens the pinned-vs-tip diff.
-   DEFERRED (explicit): mobile Preview/Markdown/Settings tabs — the stacked
-   layout recomposes correctly today; a tab system needs shared mode state
-   across panels and deserves its own pass with mobile QA.
+   Mobile Write/Preview/Settings tabs shipped later (that "DEFERRED" note was
+   stale; corrected in phase 8).
 3. **Dashboard composition/typeset** — DONE (b6c5877 + f93cd66): 1200px canvas,
    optional kicker with echo kickers removed, editor status dedup. Overview is
    decisions-first (status → Needs review drafts → latest publish → activity →
@@ -61,6 +60,121 @@ felt promise: **control is visible** — versions, activity, scoped tokens.
    were removed, page-title hierarchy was strengthened, and Overview, Posts,
    Media, Connect, Activity, Analytics, Billing, Settings, and the editor rail
    were aligned to the same density and responsive rhythm.
+6. **Launch finish** — IN PROGRESS. Driven by the Launch UX Review
+   (`.design/review-report.md`, 2026-08-15, score 3.0/4.0, no P0). Done and
+   committed (26e7167): login/onboarding brand links escape to
+   `BRAND.marketingUrl`; `/legal/privacy|terms|support` pages with footer
+   Legal group (maker links demoted) and login legal nav; marketing launch
+   offer (`LAUNCH_OFFER` in `@vc/config`, pricing module with standard
+   $19/$190 anchors, FAQ entry); free-tier disclosure line under the pricing
+   CTA (`FREE_TIER`); agent-surface MCP counts corrected (18 with Publisher
+   scope / up to 19); FAQ heading "Questions about early access"; launch
+   rehearsal refreshed to current pricing/facts. Onboarding progress continuity landed 2026-08-16 (77618c7): a compact
+   `OnboardingStepper` rail renders under the connect page header until the
+   first post is live, driven by tested `connectOnboardingStep` (existing
+   connection/first-post status, no second state machine). P2 batch landed
+   2026-08-16 (50e3c1a): disclosure mobile section menu (icon-only <380px,
+   Sign in inside it <sm), skip-to-content link, and invisible hit-area
+   extensions bringing landing/login/onboarding links and the email input to
+   ~44px without visual change. Also in 50e3c1a: GitHub OAuth mirrors the
+   existing env-gated Google wiring (`GITHUB_CLIENT_ID/SECRET` worker
+   secrets; AuthForm renders one button per enabled provider), and the login
+   page gained the restrained `// your agent never sees this login` cue
+   (P3 #12). Remaining operator steps (no code): set Google/GitHub worker
+   secrets with the `{BETTER_AUTH_URL}/api/auth/callback/{provider}` OAuth
+   clients, verify the compact-menu keyboard behavior, and deploy dev. **DESCOPED (user decision, 2026-08-16):** no artificial
+   checkout enforcement — no Polar auto-applied
+   discounts, no first-100 eligibility counter in billing. The launch offer is
+   expressed as the discounted price; Polar products
+   are set to the offer price directly. Review finding P1 #1 is satisfied by
+   the marketing-side module alone. NAMING (user, 2026-08-17): it is the
+   "launch offer", never "founding offer/rate" — renamed end to end (config,
+   marketing, FAQ, terms, dashboard, MCP instructions, skills). On a blog's
+   first successful publish, both surfaces mention the launch offer once:
+   the dashboard upgrade panel carries the offer line, and agent guidance
+   (MCP instructions + vibecms-core skill) tells the agent to name the free
+   boundary and offer exactly once — never repeated, never tied to task
+   quality.
+7. **Personalized onboarding** — DESIGN AGREED (2026-08-17), build starting.
+   Goal: the journey feels built-for-them without becoming a survey; every
+   question must produce a visible payoff ("input → payoff" rule — a question
+   that only feeds analytics gets cut). Shape: a short dedicated step between
+   setup and connect ("Make it yours"), rail becomes 4 honest beats (Setup →
+   Make it yours → Connect agent → First post); everything skippable; each
+   field carries a `// used for: …` note. Inputs: agent picker (Claude Code,
+   Codex, Cursor, Droid, other MCP), voice seed (2-3 links to their writing,
+   stored as-is), pain point free-text ("what made you look for vibecms?" →
+   site meta for the founder). Payoffs: connect page pre-loads the chosen
+   agent's config and instructions in its dialect, plus a copyable
+   personalized SKILL.md block for their blog repo; voice/prompt tailoring
+   lands via the existing voice-profile system; publishing focus stays
+   generic for now. **Deferred-to-agent model (user direction):** uncompleted
+   configuration surfaces as "recommended, not configured" states in the
+   dashboard and MCP instructions so the user's agent offers to complete it
+   under human approval — we do not build our own fetchers; coding agents
+   already fetch URLs natively. Brand-URL fetch / theme-preset
+   recommendation: POSTPONED to a later polish phase (heaviest payoff, can be
+   agent-triggered). No paywall mid-onboarding: the launch-offer line surfaces
+   at the first-live success peak (pull, not interruption). (**Corrected a
+   stale "founder rate" mention; the agreed name is launch offer.**)
+8. **Editor live preview** — BUILD (2026-08-18, user approved the direction in
+   plain terms: "when you type, the page next to your text updates by itself;
+   no buttons"). Informed by studying usemarble/marble (local clone +
+   marblecms.com): Marble's editor is Tiptap/Novel with bubble menus, slash
+   commands, and a metadata/analysis sidebar — rich, but it stores HTML and
+   can't round-trip a shared Markdown canonical, so the engine is NOT adopted.
+   What transfers: contextual over persistent chrome, the live/always-fresh
+   preview, an analysis-as-quiet-stats idea (word count + reading time in the
+   write toolbar), and the separate-settings-rail composition. Build: the
+   manual Refresh/stale-warning machinery (`isPreviewCurrent` revisions) is
+   replaced by a tested debounced `usePostPreviewSync` (~400ms after input
+   settles); desktop renders write | exact-public-page | settings rail (rail
+   full-width below the split on lg, right column from xl); mobile keeps the
+   Write/Preview/Settings tabs, now auto-fresh; the preview stays the shared
+   PublicPageChrome/PresentedPostArticle surface, inert to link clicks, and
+   the stale phase-2 note about deferred mobile tabs is corrected. Follow-ons
+   same day: slash-command block insertion into the textarea (caret-anchored
+   menu, /image routes to the alt-text-enforcing media dialog, no H1 — the
+   title owns it); posts rows navigate via data-row-key row clicks (Marble
+   pattern, guarded against interactive descendants/modifiers); media bulk
+   select+delete with optimistic removal, ordered partial-failure rollback,
+   and sr-only progress announcements. Hook detail fixed in review: preview
+   deps include the post identity so asset-less posts preview on load without
+   a keystroke. Copy adjusted for mobile (preview lives in the Preview tab).
+   V2 COMPOSITION (2026-08-20, user: the editor page still read too busy):
+   adopt Marble's page composition in our skin — one centered 46rem writing
+   column, slim sticky bar (back · state signal · Write/Preview switch ·
+   settings · Save/Publish), Preview as a full-canvas live mode, settings as
+   a right overlay Sheet whose inputs bind to the form via the form
+   attribute (portal-safe), mobile rail unchanged. The horizontal settings
+   tabs from earlier today were superseded by this Sheet; the user's actual
+   ask was horizontal tabs on the MAIN Settings page — still queued. Dark
+   --border/--input corrected to near-surface oklch(0.30/0.28) (learned from
+   Marble's dark tokens) and DESIGN.md documents the two-tier line rule.
+
+9. **Cleanliness contract** — DONE (2026-08-21). Outcome of a full Marble-vs-
+   vibecms detail audit (4 read-only scouts + first-hand reads): Marble's
+   quality comes from making each decision ONCE, not from any component. The
+   contract now binding on all future dashboard passes:
+   - **One boundary tier per role:** `border-border` for component boundaries
+     (panels, cards, inputs, popovers); `border-[color:var(--hairline)]` for
+     ruled-list separators and section dividers. No third border color — the
+     old `border-foreground/[0.065]` ad-hoc tier is fully migrated out.
+   - **One feedback channel:** mutations confirm through the canonical
+     `FORM_STATUS` map (packages/config) via the URL-flash toast; codes are
+     named after what happened (`media_alt_saved`, `media_bulk_deleted`,
+     `bulk_delete_partial`, `delete_failed`) and copy is past-tense fact.
+   - **Dirty-gated saves:** settings Save buttons stay disabled until the
+     form differs from loaded values; label flips Save changes ↔ Saved;
+     success resets the baseline. Never ship an always-enabled Save.
+   - **No dead primitives:** unused decorative components get deleted, not
+     parked (DotGrid/Glow removed).
+   - **Flatten box-in-box:** a Panel may contain ruled lists or alerts, not
+     another rounded fill surface (BillingPage rewritten: Plan panel +
+     "Included in the plan" quiet checklist).
+   - Craft lesson recorded verbatim (user framing): UI/UX from references is
+     something to LEARN, not copy-paste — adopt the discipline of one shared
+     recipe reused ruthlessly; keep our identity and our better bones.
 
 ## Invariants
 
