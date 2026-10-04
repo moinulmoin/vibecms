@@ -1,12 +1,14 @@
 import { BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
 import { Check } from "./icons";
 import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
+import { startFreeUrl } from "../../lib/landing-links";
 
 const INCLUDED = [
-  "Unlimited published posts",
+  "Unlimited posts",
   "Your own domain",
   "Indexed by search engines",
   `${MEDIA.paidStorageLabel} of media on R2`,
+  "Unlimited agent requests (fair use)",
   "MCP, REST API, and CLI",
   "Private previews and scheduling",
   "Versions, restore, activity log",
@@ -30,8 +32,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               serious blog.
             </h2>
             <p className={`mt-4 max-w-md ${LEAD}`}>
-              Start free, no card. Connect your agent and publish up to{" "}
-              {FREE_TIER.publishedPosts} posts. Subscribe for everything else.
+              Start free: {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, {FREE_TIER.images} images, no card.
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
               Less than a Claude subscription, and it runs the whole blog.
@@ -113,7 +114,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <a
                 className={`h-12 px-7 text-[15px] ${GREEN_CTA}`}
-                href={loginUrl}
+                href={startFreeUrl(loginUrl)}
                 style={{ background: GREEN_BG }}
               >
                 Start free

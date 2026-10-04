@@ -44,17 +44,19 @@ describe("landing URL props", () => {
 
   it("wires login CTAs through static HostingPricing", () => {
     const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
-    expect(html).toContain(`href="${loginUrl}"`);
+    expect(html).toContain(`href="${loginUrl}?intent=start"`);
     expect(html).toContain("Start free");
     expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}`);
     expect(html).toContain(`$${PRICING.monthlyUsd}`);
-    expect(html).toContain(`up to ${FREE_TIER.publishedPosts} posts`);
+    expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
+    expect(html).toContain(`${FREE_TIER.drafts} drafts at a time`);
+    expect(html).toContain(`${FREE_TIER.images} images`);
   });
 
   it("keeps FAQ pricing copy in sync with config", () => {
     const html = renderToStaticMarkup(createElement(FaqAccordion));
     expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}/month`);
-    expect(html).toContain(`up to ${FREE_TIER.publishedPosts} published posts`);
+    expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
   });
 
   it("wires login and docs through static CtaFooter", () => {
