@@ -3,6 +3,8 @@ const MESSAGES: Record<string, string> = {
   slug_conflict: 'Another post already uses this URL. Change the slug in post settings.',
   version_conflict: 'This post changed somewhere else while you were editing.',
   billing_required: 'The free plan includes 5 published posts. Upgrade to publish more.',
+  draft_limit: 'Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts.',
+  media_quota_free: 'Free plan: up to 10 images. Subscribe for 5 GB of media.',
   image_alt_required: 'Every image needs alt text before this can go live. Add a short description to each image.',
   invalid_cover_asset: 'That cover image is no longer in your media library. Pick another one.',
   not_found: 'This post no longer exists.',

@@ -273,7 +273,7 @@ export function PersonalizePage() {
           </Button>
           {!connect.data.effectiveEntitlement.effective ? (
             <p className="text-[13px] leading-5 text-muted-foreground">
-              The free plan includes {FREE_TIER.publishedPosts} published posts. Unlimited publishing, images, and your own domain are{' '}
+              Free includes {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, and {FREE_TIER.images} images. Unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use) are{' '}
               {LAUNCH_OFFER.monthlyLabel} at launch pricing.
             </p>
           ) : null}

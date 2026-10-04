@@ -81,6 +81,22 @@ describe('DashboardOverview recent-post navigation', () => {
 })
 
 describe('DashboardOverview entitlement status', () => {
+  it('shows paid month counts without quota meters and keeps free meters', () => {
+    const usage = { ...baseResponse.apiUsage, enforced: true,
+      calls: { ...baseResponse.apiUsage.calls, month: { ...baseResponse.apiUsage.calls.month, used: 42 } },
+      writes: { ...baseResponse.apiUsage.writes, month: { ...baseResponse.apiUsage.writes.month, used: 7 } },
+    }
+    pageState.response = { ...baseResponse, apiUsage: usage, billing: { status: 'active' } }
+    const paid = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
+    expect(paid).toContain('Requests this month: 42')
+    expect(paid).toContain('Writes this month: 7')
+    expect(paid).toContain('Unlimited, fair use')
+    expect(paid).not.toContain('role="meter"')
+
+    pageState.response = { ...baseResponse, apiUsage: usage }
+    const free = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
+    expect(free).toContain('role="meter"')
+  })
   it('shows managed access instead of a free-plan label', () => {
     expect(
       overviewEntitlementBadge({

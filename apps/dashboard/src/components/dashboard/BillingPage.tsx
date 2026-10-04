@@ -16,9 +16,11 @@ type Allowance = string | boolean
 /** One truth for what each plan includes. `∞` instead of limits on the paid plan. */
 export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance }> = [
   { label: 'Published posts', free: String(FREE_TIER.publishedPosts), paid: '∞' },
-  { label: 'Drafts and versions', free: '∞', paid: '∞' },
+  { label: 'Drafts', free: `${FREE_TIER.drafts} at a time`, paid: 'Unlimited' },
+  { label: 'Versions', free: '∞', paid: '∞' },
   { label: 'Agent keys', free: true, paid: true },
-  { label: 'Image uploads', free: false, paid: MEDIA.paidStorageLabel },
+  { label: 'Image uploads', free: `${FREE_TIER.images} images`, paid: MEDIA.paidStorageLabel },
+  { label: 'Agent requests', free: 'Limited', paid: 'Unlimited (fair use)' },
   { label: 'Found by search engines', free: false, paid: true },
   { label: 'Your own domain', free: false, paid: true },
   { label: 'Analytics', free: false, paid: true },
@@ -138,7 +140,7 @@ export function PlanAndBilling() {
                   : 'Everything is unlocked.'
                 : billing.status === 'canceled'
                   ? 'Your subscription ended. Posts stay online and nothing was deleted.'
-                  : `Publish up to ${FREE_TIER.publishedPosts} posts for free. Upgrade for unlimited publishing.`}
+                  : `Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images. Subscribe for unlimited posts.`}
           </p>
         </div>
         {!data.isOwner ? (

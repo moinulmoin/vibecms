@@ -25,6 +25,7 @@ export type ReserveUploadInput = {
   skipQuota: boolean;
   /** Paid storage byte limit; ignored when skipQuota is true. */
   limit: number;
+  quotaType?: "bytes" | "images";
   now?: number;
 };
 
@@ -47,8 +48,8 @@ export type DeleteAssetPendingInput = {
 };
 
 export class MediaQuotaExceededError extends Error {
-  constructor() {
-    super("media_quota_paid");
+  constructor(readonly code: "media_quota_paid" | "media_quota_free" = "media_quota_paid") {
+    super(code);
     this.name = "MediaQuotaExceededError";
   }
 }
@@ -146,11 +147,15 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
             `INSERT INTO pending_media_operations
               (id, kind, site_id, storage_key, size_bytes, created_at, updated_at, claimed_at, attempts, last_error)
              SELECT ?, 'upload_cleanup', ?, ?, ?, ?, ?, NULL, 0, NULL
-             WHERE (
+             WHERE ${input.quotaType === "images" ? `(
+               SELECT count(*) FROM assets WHERE site_id = ?
+             ) + (
+               SELECT count(*) FROM pending_media_operations WHERE site_id = ? AND kind = 'upload_cleanup'
+             ) + ? <= ?` : `(
                SELECT COALESCE(SUM(size_bytes), 0) FROM assets WHERE site_id = ?
              ) + (
                SELECT media_pending_bytes FROM sites WHERE id = ?
-             ) + ? <= ?`,
+             ) + ? <= ?`}`,
           )
           .bind(
             input.opId,
@@ -161,7 +166,7 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
             now,
             input.siteId,
             input.siteId,
-            input.sizeBytes,
+            input.quotaType === "images" ? 1 : input.sizeBytes,
             input.limit,
           ),
         db
@@ -174,7 +179,7 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
           .bind(input.sizeBytes, input.siteId, input.opId),
       ]);
 
-      if (!insertResult.meta.changes) throw new MediaQuotaExceededError();
+      if (!insertResult.meta.changes) throw new MediaQuotaExceededError(input.quotaType === "images" ? "media_quota_free" : "media_quota_paid");
     },
 
     async finalizeUpload(input) {

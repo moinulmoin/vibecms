@@ -6,7 +6,7 @@ import { H2, SectionShell } from "./primitives";
 const faqs = [
   {
     question: "What do I get for free?",
-    answer: `A full blog, your agent connected, and up to ${FREE_TIER.publishedPosts} published posts. No card. Free posts stay out of search engines; subscribing unlocks indexing, your domain, media, and unlimited publishing.`,
+    answer: `A full blog with ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts stay out of search engines. Subscribe for unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).`,
   },
   {
     question: "What is launch pricing?",

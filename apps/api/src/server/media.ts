@@ -18,13 +18,14 @@ import { mapAsset } from '@vc/api-contract'
 import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 import { readImageDimensions, validateDeclaredImageMime } from '@/server/media-bytes'
-import { assertMediaUploadAllowed, MediaQuotaError } from '@/server/media-quota'
+import { assertMediaUploadAllowed } from '@/server/media-quota'
 
 type UploadErrorCode =
   | 'upload_missing_file'
   | 'upload_type'
   | 'upload_too_large'
   | 'media_quota_paid'
+  | 'media_quota_free'
   | 'billing_required'
   | 'unknown'
 
@@ -108,10 +109,10 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
       sizeBytes: file.size,
       skipQuota: quota.skipQuota,
       limit: quota.limit,
+      quotaType: quota.quotaType,
     })
   } catch (error) {
-    if (error instanceof MediaQuotaError) throw new UploadError(error.code)
-    if (error instanceof MediaQuotaExceededError) throw new UploadError('media_quota_paid')
+    if (error instanceof MediaQuotaExceededError) throw new UploadError(error.code)
     throw new UploadError('unknown')
   }
 

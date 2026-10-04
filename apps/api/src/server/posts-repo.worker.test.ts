@@ -43,7 +43,9 @@ import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { createD1PostRepository } from "@vc/db";
 import {
   createPost,
+  archivePost,
   publishPost,
+  unarchivePost,
   BillingRequiredError,
   ConflictError,
 } from "@vc/core";
@@ -99,7 +101,7 @@ beforeAll(async () => {
     .bind("pr-ws", "PR Workspace", "pr-ws", ts, ts)
     .run();
 
-  const sites = ["pr-site-cap", "pr-site-attr", "pr-site-conf", "pr-site-list"];
+  const sites = ["pr-site-cap", "pr-site-attr", "pr-site-conf", "pr-site-list", "pr-site-drafts", "pr-site-draft-race"];
   for (const siteId of sites) {
     await env.DB.prepare(
       "INSERT OR IGNORE INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -233,6 +235,43 @@ async function countPublished(siteId: string): Promise<number> {
     .first<{ c: number }>();
   return row?.c ?? 0;
 }
+
+it("guards free drafts on create and unarchive while paid drafts remain unlimited", async () => {
+  const repo = createD1PostRepository(env.DB);
+  const siteId = "pr-site-drafts";
+  const draft = (number: number) => ({ siteId, title: `Draft ${number}`, slug: `pr-draft-${number}`, contentMarkdown: "# Draft" });
+  const first = await createPost(repo, fullApiActor, draft(1), "none");
+  await Promise.all([2, 3, 4, 5].map((number) => createPost(repo, fullApiActor, draft(number), "none")));
+  await expect(createPost(repo, fullApiActor, draft(6), "none")).rejects.toMatchObject({
+    code: "BILLING_REQUIRED",
+    message: "Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts.",
+  });
+
+  await publishPost(repo, fullApiActor, { siteId, postId: first.id, expectedVersionNumber: 1, billingStatus: "none" });
+  const sixth = await createPost(repo, fullApiActor, draft(6), "none");
+  await archivePost(repo, fullApiActor, { siteId, postId: sixth.id });
+  await createPost(repo, fullApiActor, draft(7), "none");
+  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: sixth.id, billingStatus: "none" }))
+    .rejects.toMatchObject({ code: "BILLING_REQUIRED" });
+  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: sixth.id, billingStatus: "active" }))
+    .resolves.toMatchObject({ status: "draft" });
+  await expect(createPost(repo, fullApiActor, draft(8), "active")).resolves.toMatchObject({ status: "draft" });
+});
+
+it("admits only one of two concurrent free drafts for the last slot", async () => {
+  const repo = createD1PostRepository(env.DB);
+  const siteId = "pr-site-draft-race";
+  for (let i = 0; i < 4; i++) {
+    await createPost(repo, fullApiActor, { siteId, title: `Race ${i}`, slug: `pr-race-${i}`, contentMarkdown: "# Race" }, "none");
+  }
+  const results = await Promise.allSettled([4, 5].map((i) => createPost(repo, fullApiActor,
+    { siteId, title: `Race ${i}`, slug: `pr-race-${i}`, contentMarkdown: "# Race" }, "none")));
+  expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+  const count = await env.DB.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'")
+    .bind(siteId).first<{ count: number }>();
+  expect(count?.count).toBe(5);
+});
 
 // ---------------------------------------------------------------------------
 // 1. publish — guarded free-published-post CAS cap

@@ -28,7 +28,7 @@ import {
   resolveEffectiveEntitlementForSite,
   resolveEffectiveEntitlementForWorkspace,
 } from './effective-entitlement'
-import { assertMediaUploadAllowed, MediaQuotaError } from './media-quota'
+import { assertMediaUploadAllowed } from './media-quota'
 import { listApiKeys, revokeApiKeyForApp } from './api-keys'
 import { enforceApiBudget, getApiUsageSummary } from './usage'
 import type { AppUserContext } from './onboarding'
@@ -249,6 +249,20 @@ describe('effective entitlement resolution', () => {
 })
 
 describe('publishing and media paid gates', () => {
+  it('keeps managed sponsorship and self-hosted drafts unlimited', async () => {
+    const managed = await seedSite('draft-managed', { managedStatus: 'active' })
+    const selfHosted = await seedSite('draft-self-hosted')
+    const repo = createD1PostRepository(env.DB)
+    for (const [site, hosted] of [[managed, false], [selfHosted, true]] as const) {
+      const billingStatus = await getCoreBillingStatusForSite(site.siteId, { selfHosted: hosted, now: NOW })
+      expect(billingStatus).toBe('active')
+      for (let index = 0; index < 6; index++) {
+        await expect(createPost(repo, fullActor, { siteId: site.siteId, title: `Draft ${index}`,
+          slug: `draft-${index}`, contentMarkdown: '# Draft' }, billingStatus))
+          .resolves.toMatchObject({ status: 'draft' })
+      }
+    }
+  })
   it('passes managed sponsorship into the core publish boundary while preserving the free cap', async () => {
     const managed = await seedSite('publish-managed', { managedStatus: 'active' })
     const free = await seedSite('publish-free')
@@ -270,17 +284,13 @@ describe('publishing and media paid gates', () => {
       }),
     ).resolves.toMatchObject({ status: 'published' })
 
-    const freePosts = []
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < 5; index += 1) {
       const post = await createPost(repo, fullActor, {
         siteId: free.siteId,
         title: `Free publish ${index}`,
         slug: `free-publish-${index}`,
         contentMarkdown: `# Free publish ${index}`,
-      })
-      freePosts.push(post)
-    }
-    for (const post of freePosts.slice(0, 5)) {
+      }, 'none')
       await publishPost(repo, fullActor, {
         siteId: free.siteId,
         postId: post.id,
@@ -288,11 +298,17 @@ describe('publishing and media paid gates', () => {
         billingStatus: 'none',
       })
     }
+    const sixth = await createPost(repo, fullActor, {
+      siteId: free.siteId,
+      title: 'Free publish 5',
+      slug: 'free-publish-5',
+      contentMarkdown: '# Free publish 5',
+    }, 'none')
     await expect(
       publishPost(repo, fullActor, {
         siteId: free.siteId,
-        postId: freePosts[5].id,
-        expectedVersionNumber: freePosts[5].currentVersionNumber,
+        postId: sixth.id,
+        expectedVersionNumber: sixth.currentVersionNumber,
         billingStatus: 'none',
       }),
     ).rejects.toBeInstanceOf(BillingRequiredError)
@@ -306,9 +322,7 @@ describe('publishing and media paid gates', () => {
     mutableEnv.SELF_HOSTED = 'false'
     await expect(assertMediaUploadAllowed(managed.siteId)).resolves.toMatchObject({ skipQuota: false })
     await expect(assertMediaUploadAllowed(polar.siteId)).resolves.toMatchObject({ skipQuota: false })
-    await expect(assertMediaUploadAllowed(free.siteId)).rejects.toMatchObject({
-      code: 'billing_required',
-    } satisfies Partial<MediaQuotaError>)
+    await expect(assertMediaUploadAllowed(free.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 10 })
 
     mutableEnv.SELF_HOSTED = 'true'
     await expect(assertMediaUploadAllowed(free.siteId)).resolves.toEqual({ skipQuota: true, limit: 0 })
@@ -316,6 +330,12 @@ describe('publishing and media paid gates', () => {
 })
 
 describe('usage plan and budget gates', () => {
+  it('keeps monthly paid caps above any month of daily guardrails', () => {
+    expect(API_USAGE_LIMITS.paid.calls.month).toBe(API_USAGE_LIMITS.paid.calls.day * 31)
+    expect(API_USAGE_LIMITS.paid.writes.month).toBe(API_USAGE_LIMITS.paid.writes.day * 31)
+    expect(API_USAGE_LIMITS.free.calls.month).toBe(1_000)
+    expect(API_USAGE_LIMITS.free.writes.month).toBe(200)
+  })
   it('uses effective entitlement for paid/free limits and budget enforcement', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.APP_ENV = 'production'

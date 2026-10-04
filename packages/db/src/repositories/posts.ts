@@ -1,5 +1,5 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
-import { changedPostFields, ConflictError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
+import { changedPostFields, DraftLimitError, ConflictError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
 import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
@@ -394,7 +394,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
   };
 
   return {
-    async createPostWithHistory(input, actor, history) {
+    async createPostWithHistory(input, actor, history, options) {
       const timestamp = now();
       const post: Post = {
         ...input,
@@ -412,13 +412,15 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             tags_json, presentation_json, published_version_id, created_by_type,
             created_by_id, updated_by_type, updated_by_id, created_at, updated_at
           ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?
-          WHERE ${slugAvailable}`).bind(
+          WHERE ${slugAvailable}
+            AND (? = 1 OR (SELECT count(*) FROM posts WHERE site_id = ? AND status = 'draft') < ?)`).bind(
             post.id, post.siteId, post.title, post.slug, post.excerpt, post.contentMarkdown,
             post.coverAssetId, post.status, post.publishedAt, post.seoTitle,
             post.seoDescription, post.canonicalUrl, JSON.stringify(post.tags),
             post.presentation ? JSON.stringify(post.presentation) : null,
             actor.type, actor.id, actor.type, actor.id, timestamp, timestamp,
             ...slugBinds(post.siteId, post.id, post.slug),
+            options?.billingActive === false ? 0 : 1, post.siteId, options?.freeLimit ?? 5,
           ),
           db.prepare(`INSERT INTO post_versions (
             id, post_id, site_id, version_number, title, slug, excerpt, fallback_excerpt, content_markdown,
@@ -440,14 +442,18 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
               history.activityAction, post.id, history.activitySummary, JSON.stringify(post),
               timestamp, post.id, post.siteId),
         ]);
-        if (!insertResult.meta.changes) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
+        if (!insertResult.meta.changes) {
+          const count = await db.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'").bind(post.siteId).first<{ count: number }>();
+          if (options?.billingActive === false && (count?.count ?? 0) >= (options?.freeLimit ?? 5)) throw new DraftLimitError(options.freeLimit);
+          throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
+        }
       } catch (error) {
         throw mapPostError(error);
       }
       return post;
     },
 
-    async updatePostWithHistory(siteId, postId, patch, actor, history, expectedVersionNumber) {
+    async updatePostWithHistory(siteId, postId, patch, actor, history, expectedVersionNumber, options) {
       const before = await getPost(siteId, postId);
       if (!before) return null;
       if (history.coalesceVersion) {
@@ -498,6 +504,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
                 WHERE pv.post_id = p.id AND pv.site_id = p.site_id
               ), 0) = ?
               ${lifecycleGate}
+              ${patch.status === "draft" && before.status === "archived" ? "AND (? = 1 OR (SELECT count(*) FROM posts WHERE site_id = ? AND status = 'draft') < ?)" : ""}
               AND ${slugAvailable}`,
           ).bind(
             versionId,
@@ -522,6 +529,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             postId,
             expectedVersionNumber,
             ...lifecycleBinds,
+            ...(patch.status === "draft" && before.status === "archived" ? [options?.billingActive === false ? 0 : 1, siteId, options?.freeLimit ?? 5] : []),
             ...slugBinds(siteId, postId, after.slug),
           ),
           db.prepare(
@@ -566,6 +574,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       }
 
       if ((versionResult.meta.changes ?? 0) === 0) {
+        if (patch.status === "draft" && before.status === "archived" && options?.billingActive === false) {
+          const count = await db.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'").bind(siteId).first<{ count: number }>();
+          if ((count?.count ?? 0) >= (options?.freeLimit ?? 5)) throw new DraftLimitError(options?.freeLimit ?? 5);
+        }
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
           .bind(...slugBinds(siteId, postId, after.slug)).first<{ available: number }>();
         if (!available?.available) throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");

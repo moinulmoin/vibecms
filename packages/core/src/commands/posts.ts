@@ -1,4 +1,5 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
+import { FREE_TIER } from "@vc/config";
 import { BillingRequiredError, ConflictError, NotFoundError, ValidationError } from "../errors";
 import { hasActiveSubscription, requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
@@ -51,8 +52,8 @@ export function describeEdit(fields: string[]): string {
 }
 
 export type PostRepository = {
-  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory): Promise<Post>;
-  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory, expectedVersionNumber: number): Promise<{ post: Post; versionNumber: number } | null>;
+  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory, options?: { billingActive: boolean; freeLimit: number }): Promise<Post>;
+  updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory, expectedVersionNumber: number, options?: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post; versionNumber: number } | null>;
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
@@ -61,11 +62,10 @@ export type PostRepository = {
   getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
 
-// Draft-free model: a workspace may keep up to this many published posts without
-// an active subscription, so new users can try the full publish loop.
-const FREE_PUBLISHED_LIMIT = 5;
+// Free blogs may publish this many posts without an active subscription.
+const FREE_PUBLISHED_LIMIT = FREE_TIER.publishedPosts;
 
-export async function createPost(repo: PostRepository, actor: Actor, input: unknown) {
+export async function createPost(repo: PostRepository, actor: Actor, input: unknown, billingStatus: BillingStatus = "none") {
   requireScope(actor, "posts:create");
   const data = createPostInput.parse(input);
   const postInput = {
@@ -89,7 +89,7 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     changeSummary: "Created post",
     activityAction: "post.created",
     activitySummary: `Created ${postInput.title}`,
-  });
+  }, { billingActive: hasActiveSubscription(billingStatus), freeLimit: FREE_TIER.drafts });
 }
 
 export async function updatePost(repo: PostRepository, actor: Actor, input: unknown) {
@@ -201,7 +201,7 @@ export async function archivePost(repo: PostRepository, actor: Actor, input: { s
   return after.post;
 }
 
-export async function unarchivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string }) {
+export async function unarchivePost(repo: PostRepository, actor: Actor, input: { siteId: string; postId: string; billingStatus?: BillingStatus }) {
   requireScope(actor, "posts:update");
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
@@ -211,7 +211,7 @@ export async function unarchivePost(repo: PostRepository, actor: Actor, input: {
     changeSummary: "Restored post to draft",
     activityAction: "post.unarchived",
     activitySummary: `Restored ${before.title} to draft`,
-  }, before.currentVersionNumber);
+  }, before.currentVersionNumber, { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_TIER.drafts });
   if (!after) throw new NotFoundError("Post not found");
   return after.post;
 }

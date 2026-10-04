@@ -1,4 +1,4 @@
-import { BRAND, MEDIA } from '@vc/config'
+import { BRAND, FREE_TIER, MEDIA } from '@vc/config'
 import { Activity, Bot, Check, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
@@ -116,7 +116,7 @@ function UsageMeter({ label, status }: { label: string; status: DashboardData['a
   )
 }
 
-function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiUsage']; tokenCount: number; canEdit: boolean }) {
+function AgentUsage({ usage, tokenCount, canEdit, paid }: { usage: DashboardData['apiUsage']; tokenCount: number; canEdit: boolean; paid: boolean }) {
   const keys = `${tokenCount} active ${tokenCount === 1 ? 'key' : 'keys'}`
   return (
     <Section
@@ -132,7 +132,12 @@ function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiU
         </Button>
       ) : <span className="text-sm text-muted-foreground">{keys}</span>}
     >
-      {usage.enforced ? (
+      {usage.enforced && paid ? (
+        <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
+          <p>Requests this month: {usage.calls.month.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
+          <p>Writes this month: {usage.writes.month.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
+        </div>
+      ) : usage.enforced ? (
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
           <UsageMeter label="Requests" status={usage.calls.month} />
           <UsageMeter label="Writes" status={usage.writes.month} />
@@ -277,7 +282,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const onlyDraft = firstRun && reviewQueue.length === 1 && data.recentPosts.length <= 1
     ? { id: reviewQueue[0]!.id, title: reviewQueue[0]!.title }
     : undefined
-  const freePlan = billingBadgeLabel === 'Free plan'
+  const entitled = data.billing.effective ?? data.billing.status === 'active'
+  const freePlan = !entitled && data.apiUsage.enforced
   // The guide already covers "no posts yet" (or the single first draft); don't repeat it in a list.
   const showRecentPosts = !(firstRun && data.recentPosts.length <= 1)
 
@@ -344,7 +350,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         <Stat
           label="Media"
           value={formatBytes(data.media.bytes)}
-          detail={freePlan ? 'Image uploads come with the paid plan' : `${images} of ${MEDIA.paidStorageLabel}`}
+          detail={data.billing.access === 'self_hosted' ? `${images} · Unlimited` : freePlan ? `${images} of ${FREE_TIER.images} images on the free plan` : `${images} of ${MEDIA.paidStorageLabel}`}
           to={canEdit ? '/dashboard/media' : undefined}
           search={emptyDashboardStatusSearch}
         />
@@ -483,7 +489,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         </Section>
       </div>
 
-      <AgentUsage usage={data.apiUsage} tokenCount={data.tokenCount} canEdit={canEdit} />
+      <AgentUsage usage={data.apiUsage} tokenCount={data.tokenCount} canEdit={canEdit} paid={entitled} />
     </>
   )
 }

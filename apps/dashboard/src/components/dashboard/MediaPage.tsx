@@ -1,9 +1,9 @@
-import { MEDIA } from '@vc/config'
+import { FREE_TIER, MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
-import { Image as ImageIcon, LockKeyhole, Search, Trash2, Upload, X } from 'lucide-react'
+import { Image as ImageIcon, Search, Trash2, Upload, X } from 'lucide-react'
 import { CopyButton, Field, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
@@ -313,7 +313,7 @@ export function MediaPage() {
     )
   }
 
-  const canUpload = data?.mediaGate == null ? true : data.mediaGate.effective || data.mediaGate.selfHosted
+  const freePlan = data?.mediaGate?.effective === false && !data.mediaGate.selfHosted
   const usedBytes = assets.reduce((total, asset) => total + asset.sizeBytes, 0)
   const usagePercent = MEDIA.paidStorageBytes > 0 ? Math.min(100, Math.round((usedBytes / MEDIA.paidStorageBytes) * 100)) : 0
   const nearLimit = usagePercent > 80
@@ -332,17 +332,12 @@ export function MediaPage() {
       <PageHeader
         title="Media"
         description={`Images for covers and posts. ${MEDIA.formatsLabel}, up to ${MEDIA.maxImageLabel} each.`}
-        action={
-          canUpload ? (
-            <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-              <Upload aria-hidden data-icon="inline-start" /> Upload images
-            </Button>
-          ) : undefined
-        }
+        action={<Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          <Upload aria-hidden data-icon="inline-start" /> Upload images
+        </Button>}
       />
 
-      {canUpload ? (
-        <div
+      <div
           onDragEnter={(event) => {
             event.preventDefault()
             dragDepth.current += 1
@@ -382,8 +377,8 @@ export function MediaPage() {
             )}
           </p>
           <p className={cn('tabular-nums', nearLimit ? 'text-warning' : 'text-muted-foreground')}>
-            {formatBytes(usedBytes)} of {MEDIA.paidStorageLabel} used
-            {nearLimit ? ' · almost full' : ''}
+            {freePlan ? `${assets.length} of ${FREE_TIER.images} images on the free plan` : `${formatBytes(usedBytes)} of ${MEDIA.paidStorageLabel} used`}
+            {!freePlan && nearLimit ? ' · almost full' : ''}
           </p>
           <input
             ref={fileInputRef}
@@ -394,20 +389,7 @@ export function MediaPage() {
             aria-label="Choose images to upload"
             onChange={(event) => void uploadFiles(Array.from(event.currentTarget.files ?? []))}
           />
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3.5" data-testid="media-upload-locked">
-          <LockKeyhole className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <p className="flex-1 text-sm text-muted-foreground">
-            Uploading new images is part of the paid plan. Images you already have keep working.
-          </p>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-              See plans
-            </Link>
-          </Button>
-        </div>
-      )}
+      </div>
 
       {uploadQueue.length ? (
         <ul className="grid gap-2" aria-label="Uploads">
@@ -440,14 +422,10 @@ export function MediaPage() {
         <EmptyState
           icon={<ImageIcon />}
           title="No images yet"
-          description={canUpload ? 'Upload a cover or an image for a post. Agents can upload here too.' : 'Covers and images from your posts appear here.'}
-          action={
-            canUpload ? (
-              <Button type="button" onClick={() => fileInputRef.current?.click()}>
-                <Upload aria-hidden data-icon="inline-start" /> Upload images
-              </Button>
-            ) : undefined
-          }
+          description="Upload a cover or an image for a post. Agents can upload here too."
+          action={<Button type="button" onClick={() => fileInputRef.current?.click()}>
+            <Upload aria-hidden data-icon="inline-start" /> Upload images
+          </Button>}
         />
       ) : (
         <div className="grid gap-4">

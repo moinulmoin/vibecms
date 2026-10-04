@@ -202,7 +202,7 @@ export function SetupPage() {
               Continue
             </PendingSubmitButton>
             <p className="text-sm text-muted-foreground">
-              Free for your first {FREE_TIER.publishedPosts} posts. No card.
+              {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, {FREE_TIER.images} images. No card.
             </p>
           </div>
         </form>

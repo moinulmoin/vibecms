@@ -12,7 +12,7 @@ export { RENDERER_VERSION };
  * presentationOptions so agents understand how to declare layout intent.
  */
 const PRESENTATION_NOTES =
-  "After saving, send your person the previewUrl. Ask the person before posts.schedule, naming the exact saved version and publish time. " +
+  "After saving, send your person the previewUrl. Free sites may keep 5 drafts, 5 published posts, and 10 images; paid sites have unlimited posts and 5 GB media. Ask the person before posts.schedule, naming the exact saved version and publish time. " +
   "Agents archive posts; people can permanently delete archived posts in the dashboard. " +
   "Declare layout intent via the typed `presentation` field on posts.create or posts.update - NOT in front-matter or body text. " +
   "Supported fields: `layout` (`standard`, `essay` for longform with a lead paragraph, `wide`, or `feature` for a full-width cover above the title); the active preset's `supportedLayouts` determines availability. Omitted layout uses `presentationOptions.default.layout` (editorial defaults to `essay`); omitted toc uses `presentationOptions.default.toc`. `toc` is boolean; the page-level outline appears once a post has 3+ H2/H3 headings. " +
