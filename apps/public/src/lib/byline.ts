@@ -4,13 +4,13 @@
  *
  * - `name`: the owner's chosen public name (`sites.byline_name`, trimmed), or
  *   the site name when unset. The account email is never a fallback.
- * - `agent`: true only when the owner keeps agent credit on AND the pinned
- *   published version was written by an agent (MCP / CLI / API key). Renders
- *   as "Written with an agent · Reviewed by {name}".
+ *
+ * Agent credit ("Agent-written · Reviewed by …") is off until agent profiles
+ * have a proper design; posts show the author only. The stored setting stays.
  */
 import { BYLINE_NAME_MAX_LENGTH } from "@vc/config";
 
-export type PublicByline = { name: string; agent: boolean };
+export type PublicByline = { name: string };
 
 export type BylineSiteInput = {
   name: string;
@@ -26,9 +26,6 @@ export function resolveBylineName(site: BylineSiteInput): string {
   return site.byline_name?.trim().slice(0, BYLINE_NAME_MAX_LENGTH) || site.name;
 }
 
-export function resolvePublicByline(site: BylineSiteInput, post: BylinePostInput | null): PublicByline {
-  return {
-    name: resolveBylineName(site),
-    agent: (site.show_agent_credit ?? true) && post?.published_by_agent === true,
-  };
+export function resolvePublicByline(site: BylineSiteInput, _post: BylinePostInput | null): PublicByline {
+  return { name: resolveBylineName(site) };
 }

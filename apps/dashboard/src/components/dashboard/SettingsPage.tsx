@@ -21,7 +21,6 @@ import { PageHeader, PageSkeleton, PageTabs, Section, StatusBadge } from '~/comp
 import { PlanAndBilling } from '~/components/dashboard/BillingPage'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { Checkbox } from '~/components/ui/checkbox'
-import { Switch } from '~/components/ui/switch'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
@@ -288,7 +287,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const [siteDirty, setSiteDirty] = useState(false)
   // The agent-credit switch is controlled (Radix), so its dirtiness is tracked
   // against the loaded value rather than read back from FormData.
-  const [agentCredit, setAgentCredit] = useState(true)
   const [siteFormRevision, setSiteFormRevision] = useState(0)
   const [siteBaseline, setSiteBaseline] = useState<SiteSettingsForm | null>(null)
   const [siteChangedElsewhere, setSiteChangedElsewhere] = useState(false)
@@ -350,13 +348,12 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     setSelectedFaviconAssetId(data.site.faviconAssetId ?? '')
     setNavLinks(data.site.navLinks)
     setSocialLinks(data.site.socialLinks)
-    setAgentCredit(data.site.showAgentCredit)
     seedVoice(data.voiceProfile)
   }, [data, seeded])
 
   useEffect(() => {
     if (!data || !siteBaseline || data.site.updatedAt === siteBaseline.updatedAt) return
-    if (siteDirty || agentCredit !== siteBaseline.showAgentCredit
+    if (siteDirty
       || JSON.stringify(navLinks) !== JSON.stringify(siteBaseline.navLinks)
       || JSON.stringify(socialLinks) !== JSON.stringify(siteBaseline.socialLinks)) {
       setSiteChangedElsewhere(true)
@@ -367,10 +364,9 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
       setSelectedFaviconAssetId(data.site.faviconAssetId ?? '')
       setNavLinks(data.site.navLinks)
       setSocialLinks(data.site.socialLinks)
-      setAgentCredit(data.site.showAgentCredit)
       setSiteFormRevision((revision) => revision + 1)
     }
-  }, [data, siteBaseline, siteDirty, agentCredit])
+  }, [data, siteBaseline, siteDirty])
 
   async function reload() {
     return narrowSettingsPageData(await queryClient.fetchQuery({ ...settingsQuery, staleTime: 0 }))
@@ -409,7 +405,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     setSelectedFaviconAssetId(latest?.faviconAssetId ?? '')
     setNavLinks(latest?.navLinks ?? [])
     setSocialLinks(latest?.socialLinks ?? [])
-    setAgentCredit(latest?.showAgentCredit ?? true)
     setSiteDirty(false)
     setSiteChangedElsewhere(false)
     setSiteFormRevision((revision) => revision + 1)
@@ -432,7 +427,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
       faviconAssetId: submitted.faviconAssetId || null,
       navLinks,
       socialLinks,
-      showAgentCredit: agentCredit,
     }
     setFormPending('site')
     try {
@@ -452,7 +446,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
           setSelectedFaviconAssetId(refreshed.site.faviconAssetId ?? '')
           setNavLinks(refreshed.site.navLinks)
           setSocialLinks(refreshed.site.socialLinks)
-          setAgentCredit(refreshed.site.showAgentCredit)
           setSiteDirty(false)
           setSiteFormRevision((revision) => revision + 1)
         }
@@ -583,7 +576,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const requested = search.tab === 'theme' ? undefined : (search.tab as SettingsTab | undefined)
   const activeTab: SettingsTab = requested && tabs.some((tab) => tab === requested) ? requested : 'site'
   const defaultAddress = data.publicBaseUrl
-  const siteFormDirty = siteDirty || agentCredit !== site.showAgentCredit
+  const siteFormDirty = siteDirty
     || JSON.stringify(navLinks) !== JSON.stringify(siteBaseline?.navLinks ?? [])
     || JSON.stringify(socialLinks) !== JSON.stringify(siteBaseline?.socialLinks ?? [])
 
@@ -708,20 +701,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                 />
                 <FieldHint id="site-byline-name-help">Shown as the author on your posts. Your email is never shown.</FieldHint>
               </Field>
-              <div className="flex items-start justify-between gap-4">
-                <div className="grid gap-1">
-                  <FieldLabel htmlFor="site-agent-credit">Credit your agent</FieldLabel>
-                  <FieldHint id="site-agent-credit-help">
-                    Agent-written posts show “Agent-written · Reviewed by {site.bylineName || site.name}”.
-                  </FieldHint>
-                </div>
-                <Switch
-                  id="site-agent-credit"
-                  checked={agentCredit}
-                  onCheckedChange={setAgentCredit}
-                  aria-describedby="site-agent-credit-help"
-                />
-              </div>
             </Section>
 
             <Section layout="aside" title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">

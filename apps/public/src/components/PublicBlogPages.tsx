@@ -257,7 +257,7 @@ function adjacent(basePath: string, post: PublicPostLoaderData["newer"]) {
   return post ? { title: post.title, href: `${basePath}/${post.slug}`, publishedAt: post.publishedAt ?? null } : null;
 }
 
-/** Public author line: the owner's public name, credited as reviewer of agent-written posts. */
+/** Public author line: the owner's public name. */
 function postAuthor(data: PublicPostLoaderData): ArticleAuthor {
   return data.byline;
 }

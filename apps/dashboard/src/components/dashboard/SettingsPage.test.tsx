@@ -295,7 +295,7 @@ describe('SettingsPage', () => {
     container.remove()
   })
 
-  it('saves the public byline and agent credit with the site form', async () => {
+  it('saves the public byline with the site form, without an agent credit switch', async () => {
     api.loadSettingsPage.mockResolvedValue(settings())
     api.updateSiteSettingsMutation.mockResolvedValue({ kind: 'ok', code: 'site_saved' })
     const container = document.createElement('div')
@@ -306,30 +306,26 @@ describe('SettingsPage', () => {
     await settle()
 
     const byline = container.querySelector<HTMLInputElement>('#site-byline-name')
-    const credit = container.querySelector<HTMLButtonElement>('#site-agent-credit')
     const siteForm = byline?.closest('form')
     expect(byline?.placeholder).toBe('Agent Journal')
     expect(container.textContent).toContain('Your email is never shown.')
-    expect(credit?.getAttribute('aria-checked')).toBe('true')
+    // Agent credit is off until agent profiles get a proper design.
+    expect(container.querySelector('#site-agent-credit')).toBeNull()
     const saveButton = () => [...(siteForm?.querySelectorAll('button') ?? [])].find((button) => /Save/.test(button.textContent ?? ''))
     expect(saveButton()).toBeUndefined()
 
-    await act(async () => credit?.click())
-    expect(credit?.getAttribute('aria-checked')).toBe('false')
-    expect(saveButton()?.disabled).toBe(false)
-
     await act(async () => {
       if (!byline) return
-      byline.value = '  Ada  '
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(byline, '  Ada  ')
+      byline.dispatchEvent(new Event('input', { bubbles: true }))
       byline.dispatchEvent(new Event('change', { bubbles: true }))
     })
+    expect(saveButton()?.disabled).toBe(false)
     await act(async () => siteForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     await settle()
 
-    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({
-      bylineName: 'Ada',
-      showAgentCredit: false,
-    }))
+    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ bylineName: 'Ada' }))
+    expect(api.updateSiteSettingsMutation).toHaveBeenCalledWith(expect.not.objectContaining({ showAgentCredit: expect.anything() }))
 
     await act(async () => root.unmount())
     container.remove()

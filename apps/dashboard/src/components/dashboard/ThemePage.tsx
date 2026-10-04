@@ -768,7 +768,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                     tags={article.tags}
                     basePath=""
                     theme={previewTheme}
-                    author={{ name: site.name, agent: true }}
+                    author={{ name: site.name }}
                   />
                 </PublicPageChrome>
               )}

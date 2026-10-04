@@ -257,15 +257,13 @@ describe("Accept: text/markdown after cached HTML", () => {
 
 describe("public byline", () => {
   it("falls back to the site name, never anything account-shaped", () => {
-    expect(resolvePublicByline(site, { published_by_agent: false })).toEqual({ name: "Demo", agent: false });
-    expect(resolvePublicByline({ ...site, byline_name: "   " }, null)).toEqual({ name: "Demo", agent: false });
+    expect(resolvePublicByline(site, { published_by_agent: false })).toEqual({ name: "Demo" });
+    expect(resolvePublicByline({ ...site, byline_name: "   " }, null)).toEqual({ name: "Demo" });
     expect(resolvePublicByline({ ...site, byline_name: "  Ada Lovelace " }, null).name).toBe("Ada Lovelace");
   });
 
-  it("credits the agent only for agent-written versions when the owner keeps credit on", () => {
-    expect(resolvePublicByline(site, { published_by_agent: true }).agent).toBe(true);
-    expect(resolvePublicByline({ ...site, show_agent_credit: false }, { published_by_agent: true }).agent).toBe(false);
-    expect(resolvePublicByline(site, { published_by_agent: false }).agent).toBe(false);
+  it("shows the author only, even for agent-written versions (agent credit is off for now)", () => {
+    expect(resolvePublicByline(site, { published_by_agent: true })).toEqual({ name: "Demo" });
   });
 });
 
