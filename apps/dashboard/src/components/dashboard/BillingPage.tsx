@@ -13,11 +13,11 @@ import { billingQuery } from '~/lib/queries'
 
 type Allowance = string | boolean
 
-/** One truth for what each plan includes. `∞` instead of limits on the paid plan. */
+/** One truth for what each plan includes, in words ("Unlimited") rather than symbols. */
 export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance }> = [
-  { label: 'Published posts', free: String(FREE_TIER.publishedPosts), paid: '∞' },
+  { label: 'Published posts', free: String(FREE_TIER.publishedPosts), paid: 'Unlimited' },
   { label: 'Drafts', free: `${FREE_TIER.drafts} at a time`, paid: 'Unlimited' },
-  { label: 'Versions', free: '∞', paid: '∞' },
+  { label: 'Versions', free: 'Unlimited', paid: 'Unlimited' },
   { label: 'Agent keys', free: true, paid: true },
   { label: 'Image uploads', free: `${FREE_TIER.images} images`, paid: MEDIA.paidStorageLabel },
   { label: 'Agent requests', free: 'Limited', paid: 'Unlimited (fair use)' },
