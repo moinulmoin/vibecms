@@ -27,7 +27,7 @@ export { OG_CARD_HEIGHT, OG_CARD_WIDTH, buildOgCardNode, ogCardFontFamilies } fr
 export type { OgCardModel, OgFontFamily, OgCardNode } from "@vc/content/og-card";
 
 /** Bump when the card design changes so every cached card re-renders. */
-export const OG_CARD_RENDER_VERSION = 1;
+export const OG_CARD_RENDER_VERSION = 2;
 
 /** Snake_case site subset (matches the public SiteRow). */
 export type OgCardSiteInput = {
@@ -89,7 +89,6 @@ export function ogCardVersion(site: OgCardSiteInput, post: OgCardPostInput | nul
     site.theme_mode ?? "",
     site.theme_radius ?? "",
     site.byline_name ?? "",
-    String(site.show_agent_credit ?? true),
   ];
   if (post) {
     parts.push(
@@ -98,7 +97,6 @@ export function ogCardVersion(site: OgCardSiteInput, post: OgCardPostInput | nul
       post.seo_description || post.excerpt || "",
       String(post.published_at ?? ""),
       String(post.updated_at ?? ""),
-      String(post.published_by_agent === true),
     );
   } else {
     parts.push("home", site.default_seo_description || site.description || "");
@@ -241,8 +239,7 @@ export function buildOgCardModel(site: OgCardSiteInput, post: OgCardPostInput | 
     const byline = resolvePublicByline(site, post);
     const parts: string[] = [];
     if (post.published_at) parts.push(formatCardDate(post.published_at));
-    if (byline.agent) parts.push(`Agent-written · reviewed by ${byline.name}`);
-    else if (byline.name !== site.name) parts.push(`By ${byline.name}`);
+    if (byline.name !== site.name) parts.push(`By ${byline.name}`);
     meta = parts.join(" · ") || null;
   }
 

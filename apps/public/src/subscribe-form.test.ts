@@ -272,7 +272,7 @@ describe("subscribe form rendered-control contract", () => {
           indexable: true,
           cacheTags: [],
           sidebar: { recent: [], tags: [] },
-          byline: { name: "Site One", agent: false },
+          byline: { name: "Site One" },
         } satisfies PublicPostLoaderData,
       }),
     );
@@ -306,7 +306,7 @@ describe("subscribe form rendered-control contract", () => {
           indexable: true,
           cacheTags: [],
           sidebar: { recent: [], tags: [] },
-          byline: { name: "Site One", agent: false },
+          byline: { name: "Site One" },
         } satisfies PublicPostLoaderData,
       }),
     );
@@ -346,7 +346,7 @@ describe("public editorial article rendering", () => {
     indexable: true,
     cacheTags: [],
     sidebar: { recent: [], tags: [] },
-    byline: { name: "Site One", agent: false },
+    byline: { name: "Site One" },
   } satisfies PublicPostLoaderData;
 
   let markup: string;
@@ -434,7 +434,7 @@ describe("article masthead navigation", () => {
         indexable: true,
         cacheTags: [],
         sidebar: { recent: [], tags: [] },
-        byline: { name: "Site One", agent: false },
+        byline: { name: "Site One" },
       } satisfies PublicPostLoaderData,
     }),
   );
@@ -466,7 +466,7 @@ describe("subscription callout copy and consent", () => {
         indexable: true,
         cacheTags: [],
         sidebar: { recent: [], tags: [] },
-        byline: { name: "Site One", agent: false },
+        byline: { name: "Site One" },
       } satisfies PublicPostLoaderData,
     }),
   );

@@ -58,16 +58,10 @@ describe("og card model", () => {
     expect(ogTitleSize("Short", true)).toBeLessThan(ogTitleSize("Short", false));
   });
 
-  it("credits the agent only when the byline says so", () => {
+  it("shows the author only, never an agent credit", () => {
     const agent = buildOgCardModel({ ...site, byline_name: "Ada" }, { ...post, published_by_agent: true }, "x.test");
-    expect(agent.meta).toContain("Agent-written · reviewed by Ada");
-    const off = buildOgCardModel(
-      { ...site, byline_name: "Ada", show_agent_credit: false },
-      { ...post, published_by_agent: true },
-      "x.test",
-    );
-    expect(off.meta).not.toContain("Agent-written");
-    expect(off.meta).toContain("By Ada");
+    expect(agent.meta).not.toContain("Agent-written");
+    expect(agent.meta).toContain("By Ada");
     const human = buildOgCardModel(site, { ...post, published_by_agent: false }, "x.test");
     expect(human.meta).toBe("Sep 24, 2025");
   });

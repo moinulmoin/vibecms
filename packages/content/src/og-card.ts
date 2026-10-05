@@ -16,7 +16,7 @@ export type OgCardModel = {
   titleSize: number;
   description: string | null;
   descriptionLines: number;
-  /** Bottom-left line: date, and the byline/agent credit when relevant. */
+  /** Bottom-left line: date, and the byline when it differs from the blog name. */
   meta: string | null;
 };
 

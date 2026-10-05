@@ -114,8 +114,6 @@ export interface AdjacentPostLink {
 export interface ArticleAuthor {
   /** Public name (never an email). */
   name: string;
-  /** Written by an agent and reviewed/published by `name`. */
-  agent?: boolean;
 }
 
 /** Reader actions under the post (public pages only). */
@@ -283,14 +281,7 @@ export function PresentedPostArticle({
             <div className={styles.bylineText}>
               {who ? (
                 <p className={styles.authorLine}>
-                  {who.agent ? (
-                    <>
-                      <span className={styles.agentBadge}>Agent-written</span>
-                      <span>Reviewed by {who.name}</span>
-                    </>
-                  ) : (
-                    <span>{who.name}</span>
-                  )}
+                  <span>{who.name}</span>
                 </p>
               ) : null}
               {metaParts.length > 0 ? <p className={styles.metaLine}>{metaParts}</p> : null}

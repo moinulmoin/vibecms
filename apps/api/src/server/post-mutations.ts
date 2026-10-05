@@ -1,6 +1,7 @@
 import {
   AppError,
   BillingRequiredError,
+  DraftLimitError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -27,6 +28,7 @@ function repository() {
 }
 
 export function postMutationErrorCode(error: unknown): string {
+  if (error instanceof DraftLimitError) return 'draft_limit'
   if (error instanceof BillingRequiredError) return 'billing_required'
   if (error instanceof NotFoundError) return 'not_found'
   if (error instanceof ForbiddenError) return 'owner_required'
@@ -82,7 +84,7 @@ export async function createPostForApp(app: AppUserContext, payload: PostFormPay
       seoDescription: payload.seoDescription ?? undefined,
       tags: payload.tags,
       presentation: payload.presentation ?? null,
-    })
+    }, await getCoreBillingStatusForSite(app.siteId))
     return { kind: 'ok', code: 'post_created', postId: post.id }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error) }
@@ -178,7 +180,7 @@ export async function archivePostForApp(app: AppUserContext, postId: string): Pr
 
 export async function unarchivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
   try {
-    await unarchivePost(repository(), app.actor, { siteId: app.siteId, postId })
+    await unarchivePost(repository(), app.actor, { siteId: app.siteId, postId, billingStatus: await getCoreBillingStatusForSite(app.siteId) })
     // No purge needed: restoring to draft keeps the post offline (archive
     // already removed it from the public blog).
     return { kind: 'ok', code: 'post_unarchived', postId }

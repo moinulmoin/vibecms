@@ -1,5 +1,5 @@
 import type { Asset } from '@vc/core'
-import { MEDIA } from '@vc/config'
+import { FORM_STATUS, MEDIA } from '@vc/config'
 import { DashboardApiError, dashboardMutationHeaders, dashboardMutationSignal, handleDashboardSiteChanged, loadMediaPage } from '~/lib/api-client'
 import { parseMutationResultJson } from '~/lib/mutation-result'
 import { altFromFileName } from './image-alt'
@@ -46,7 +46,7 @@ async function uploadOne(
   }
   const body = await response.json()
   const result = parseMutationResultJson(body)
-  if (result.kind !== 'ok') throw new Error(result.code === 'upload_too_large' ? `Images must be ${MEDIA.maxImageLabel} or smaller.` : 'The image could not be uploaded.')
+  if (result.kind !== 'ok') throw new Error(FORM_STATUS[result.code]?.message ?? (result.code === 'upload_too_large' ? `Images must be ${MEDIA.maxImageLabel} or smaller.` : 'The image could not be uploaded.'))
   const uploaded = (body as { asset?: Asset & { url: string } }).asset
   if (!uploaded?.id) throw new Error('The upload did not return an image.')
   const loaded = await loadMediaPage()

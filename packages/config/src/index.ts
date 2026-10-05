@@ -37,8 +37,9 @@ export const RESERVED_POST_SLUGS = [
 
 export const API_USAGE_LIMITS = {
   paid: {
-    calls: { minute: 120, day: 5_000, month: 25_000 },
-    writes: { day: 500, month: 2_000 },
+    // Monthly caps cannot bind before the daily fair-use guardrails.
+    calls: { minute: 120, day: 5_000, month: 155_000 },
+    writes: { day: 500, month: 15_500 },
     token: { minute: 60 },
   },
   free: {
@@ -99,8 +100,10 @@ export const LAUNCH_OFFER = {
 /** Hosted free boundary, disclosed on marketing prices/upgrades. */
 export const FREE_TIER = {
   publishedPosts: 5,
+  drafts: 5,
+  images: 10,
   marketingLine:
-    "Free to start - no card. Draft, connect your agent, and publish your first 5 posts. Upgrade for more publishing, media, analytics, and your own domain.",
+    "5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).",
 } as const;
 
 export const ENTITLEMENTS = [
@@ -166,7 +169,9 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
   media_quota_paid: { variant: "error", title: "Storage full", message: "You have reached the 5\u00a0GB media limit." },
-  billing_required: { variant: "error", title: "Subscription required", message: "Subscribe to publish more posts and to upload media. Your first 5 published posts are free." },
+  media_quota_free: { variant: "error", title: "Image limit reached", message: "Free plan: up to 10 images. Subscribe for 5 GB of media." },
+  draft_limit: { variant: "error", title: "Draft limit reached", message: "Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts." },
+  billing_required: { variant: "error", title: "Subscription required", message: "Free plan: up to 5 published posts. Subscribe for unlimited posts." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },

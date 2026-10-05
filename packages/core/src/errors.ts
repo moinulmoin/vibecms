@@ -27,6 +27,12 @@ export class ConflictError extends AppError {
 export class BillingRequiredError extends AppError {
   constructor(message = "Billing is required for this action") { super("BILLING_REQUIRED", message, 402); }
 }
+/** Free plan draft cap; same BILLING_REQUIRED code agents already handle, its own message. */
+export class DraftLimitError extends BillingRequiredError {
+  constructor(limit: number) {
+    super(`Free plan: up to ${limit} drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts.`);
+  }
+}
 export class RateLimitError extends AppError {
   constructor(message = "Rate limit exceeded") { super("RATE_LIMIT", message, 429); }
 }

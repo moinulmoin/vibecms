@@ -16,6 +16,7 @@ import { allowedImageMimeTypes } from "@vc/validators";
 import { env } from "cloudflare:workers";
 import {
   billingStatusForCore,
+  getCoreBillingStatusForSite,
   resolveEffectiveEntitlementForSite,
 } from "./effective-entitlement";
 import { deleteAssetTracked, uploadAsset } from "./media";
@@ -61,14 +62,6 @@ function postPublicUrl(base: string | null, post: { status: string; slug: string
 
 async function mapPostWithPreview(post: Parameters<typeof mapPost>[0], url: string | null) {
   return mapPost(post, url, await previewUrlForPost(post.siteId, post.id));
-}
-
-async function requireBillableSite(siteId: string) {
-  const entitlement = await resolveEffectiveEntitlementForSite(siteId);
-  if (!entitlement.effective) {
-    throw new AppError("BILLING_REQUIRED", "An active subscription is required for MCP writes", 402);
-  }
-  return entitlement;
 }
 
 // Cover asset ownership: an agent-supplied coverAssetId must reference an asset
@@ -306,7 +299,7 @@ export async function createPostOp(
       seoDescription: input.seoDescription,
       tags: input.tags,
       presentation: input.presentation,
-    }),
+    }, await getCoreBillingStatusForSite(ctx.siteId)),
     null,
   );
 }
@@ -426,7 +419,7 @@ export async function archivePostOp(ctx: OperationContext, input: { postId: stri
 }
 
 export async function unarchivePostOp(ctx: OperationContext, input: { postId: string }) {
-  const post = await unarchivePost(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId });
+  const post = await unarchivePost(repository(), ctx.actor, { siteId: ctx.siteId, postId: input.postId, billingStatus: await getCoreBillingStatusForSite(ctx.siteId) });
   return mapPost(post, null);
 }
 
@@ -434,7 +427,6 @@ export async function uploadAssetOp(
   ctx: OperationContext,
   input: { filename: string; mimeType: string; dataBase64: string; altText?: string },
 ) {
-  await requireBillableSite(ctx.siteId);
   const asset = await uploadAsset(appUser(ctx), base64File(input), input.altText);
   return mapAsset(asset, `/media-assets/${asset.id}`);
 }

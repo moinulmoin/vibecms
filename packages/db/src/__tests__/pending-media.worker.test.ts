@@ -30,6 +30,7 @@ import type { Actor } from "@vc/core";
 
 const WS = "pmo-ws";
 const SITE = "pmo-site";
+const FREE_SITE = "pmo-free-site";
 const ACTOR: Actor = { type: "human", id: "pmo-user", name: "PMO User", role: "owner" };
 const LIMIT = 10_000;
 
@@ -47,6 +48,9 @@ beforeAll(async () => {
   )
     .bind(SITE, WS, SITE, SITE, ts, ts)
     .run();
+  await env.DB.prepare(
+    "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).bind(FREE_SITE, WS, FREE_SITE, FREE_SITE, ts, ts).run();
 });
 
 function repo() {
@@ -54,6 +58,28 @@ function repo() {
 }
 
 describe("pending media operations (atomic D1)", () => {
+  it("allows ten free image reservations and refuses the eleventh", async () => {
+    const pending = repo();
+    await env.DB.prepare(`INSERT INTO assets (id, site_id, r2_key, filename, mime_type, size_bytes,
+      created_by_type, created_by_id, created_at, updated_at) VALUES (?, ?, ?, 'existing.png', 'image/png', 1, 'human', ?, 1, 1)`)
+      .bind('pmo-free-existing', FREE_SITE, `${FREE_SITE}/existing.png`, ACTOR.id).run();
+    for (let i = 0; i < 9; i++) {
+      await pending.reserveUpload({ opId: `pmo-free-${i}`, siteId: FREE_SITE,
+        storageKey: `${FREE_SITE}/${i}.png`, sizeBytes: 1, skipQuota: false,
+        quotaType: "images", limit: 10 });
+    }
+    await expect(pending.reserveUpload({ opId: "pmo-free-9", siteId: FREE_SITE,
+      storageKey: `${FREE_SITE}/9.png`, sizeBytes: 1, skipQuota: false,
+      quotaType: "images", limit: 10 })).rejects.toMatchObject({ code: "media_quota_free" });
+    expect(await pending.getOp("pmo-free-9")).toBeNull();
+    await env.DB.prepare('DELETE FROM assets WHERE id = ?').bind('pmo-free-existing').run();
+    await expect(pending.reserveUpload({ opId: 'pmo-free-9', siteId: FREE_SITE,
+      storageKey: `${FREE_SITE}/9.png`, sizeBytes: 1, skipQuota: false,
+      quotaType: 'images', limit: 10 })).resolves.toBeUndefined();
+    await expect(pending.reserveUpload({ opId: "pmo-paid-extra", siteId: FREE_SITE,
+      storageKey: `${FREE_SITE}/paid.png`, sizeBytes: 1, skipQuota: false,
+      quotaType: "bytes", limit: 100 })).resolves.toBeUndefined();
+  });
   it("reserveUpload inserts op and bumps media_pending_bytes atomically", async () => {
     const pending = repo();
     const opId = "pmo-reserve-1";

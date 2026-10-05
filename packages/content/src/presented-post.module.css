@@ -134,28 +134,6 @@
   line-height: 1.4;
 }
 
-.agentBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.05rem 0.45rem;
-  border: 1px solid color-mix(in oklch, var(--vc-accent) 35%, var(--vc-border));
-  border-radius: 999px;
-  color: var(--vc-accent);
-  font-family: var(--vc-font-mono);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  line-height: 1.6;
-}
-
-.agentBadge::before {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 2px;
-  background: currentColor;
-}
-
 /* ── Article header treatments (template: data-vc-header) ─────────────── */
 
 .article[data-vc-header="centered"] .articleHeader {

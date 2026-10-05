@@ -3,6 +3,7 @@ import { GHOST_CTA, GREEN_BG, GREEN_CTA, Glow } from "./primitives";
 import { HeaderNav, MobileNav } from "./header-nav";
 import { HeroDemo } from "./hero-demo";
 import { ArrowRight } from "./icons";
+import { startFreeUrl } from "../../lib/landing-links";
 
 const agents = [
   ["Claude", "claude.svg"],
@@ -51,7 +52,7 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
             <a
               className={`${GREEN_CTA} min-h-[44px] px-[18px] text-sm`}
               style={{ background: GREEN_BG }}
-              href={loginUrl}
+              href={startFreeUrl(loginUrl)}
             >
               Start free
             </a>
@@ -73,7 +74,7 @@ export function HeaderHero({ loginUrl }: { loginUrl: string }) {
             <a
               className={`${GREEN_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
               style={{ background: GREEN_BG }}
-              href={loginUrl}
+              href={startFreeUrl(loginUrl)}
             >
               Start free
             </a>

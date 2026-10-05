@@ -6,7 +6,6 @@ declare const styles: {
   readonly adjacentLink: string;
   readonly adjacentOlder: string;
   readonly adjacentTitle: string;
-  readonly agentBadge: string;
   readonly article: string;
   readonly articleBody: string;
   readonly articleDeck: string;

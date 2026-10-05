@@ -82,7 +82,8 @@ describe('social image metadata', () => {
     expect(url(base)).toBe(url({ ...base }))
     expect(url({ ...base, title: 'Renamed' })).not.toBe(url(base))
     expect(url({ ...base, updated_at: 1_700_000_200 })).not.toBe(url(base))
-    expect(url({ ...base, published_by_agent: true })).not.toBe(url(base))
+    // The card shows the author only, so who wrote the version doesn't change it.
+    expect(url({ ...base, published_by_agent: true })).toBe(url(base))
     expect(url(base, { ...site, theme_accent: 'rust' })).not.toBe(url(base))
     expect(url(base, { ...site, theme_mode: 'dark' })).not.toBe(url(base))
     expect(url(base, { ...site, byline_name: 'Ada' })).not.toBe(url(base))

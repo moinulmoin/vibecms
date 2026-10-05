@@ -1,6 +1,7 @@
 import { BRAND, LEGAL } from "@vc/config";
 import { ArrowRight } from "./icons";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, SectionLight, SectionShell } from "./primitives";
+import { startFreeUrl } from "../../lib/landing-links";
 
 const productLinks = [
   ["Features", "#features"],
@@ -36,7 +37,7 @@ export function CtaFooter({
   ] as const;
   const accountLinks = [
     ["Sign in", loginUrl],
-    ["Start free", loginUrl],
+    ["Start free", startFreeUrl(loginUrl)],
   ] as const;
 
   return (
@@ -63,7 +64,7 @@ export function CtaFooter({
             <a
               className={`${GREEN_CTA} min-h-[44px] px-[22px] py-3.5 text-[15px]`}
               style={{ background: GREEN_BG }}
-              href={loginUrl}
+              href={startFreeUrl(loginUrl)}
             >
               Start free
             </a>

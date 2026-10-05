@@ -1,4 +1,6 @@
 import { AppError, RateLimitError } from "@vc/core";
+import { FORM_STATUS } from "@vc/config";
+import { UploadError } from "@/server/media";
 import { apiReference } from "@scalar/hono-api-reference";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { env } from "cloudflare:workers";
@@ -335,6 +337,9 @@ apiV1App.openapi(previewPostRoute, async (c) => {
 });
 
 apiV1App.onError((err, c) => {
+  if (err instanceof UploadError) {
+    return c.json(errorEnvelope(err.code, FORM_STATUS[err.code]?.message ?? 'Upload failed.'), err.code === 'media_quota_free' ? 402 : 400);
+  }
   if (err instanceof RateLimitError) {
     return c.json(errorEnvelope("RATE_LIMIT", err.message), 429, apiRateLimitHeaders(err) as Record<string, string>);
   }

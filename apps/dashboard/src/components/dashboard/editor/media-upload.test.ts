@@ -21,6 +21,11 @@ afterEach(() => {
 })
 
 describe('uploadEditorMedia', () => {
+  it('shows the free image quota message from an upload response', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ kind: 'error', code: 'media_quota_free' }), { status: 402 })))
+    await expect(uploadEditorMedia(new File(['x'], 'x.png', { type: 'image/png' }), 'X', [], () => {}, async () => {}))
+      .rejects.toThrow('Free plan: up to 10 images. Subscribe for 5 GB of media.')
+  })
   it('gives each of two concurrent uploads its own asset', async () => {
     // The server stores each upload as soon as its request lands.
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {

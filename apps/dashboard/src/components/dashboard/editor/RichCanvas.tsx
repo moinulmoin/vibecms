@@ -74,6 +74,7 @@ function vcSlashItems(editor: AnyBlockNoteEditor): DefaultReactSuggestionItem[] 
  */
 export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile, onChange, onUnsafeSyntax, onUnsafeMarkdownPaste, className }: RichCanvasProps) {
   const [dropNotice, setDropNotice] = useState<string | null>(null)
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const sourceRef = useRef(source)
   sourceRef.current = source
@@ -89,9 +90,15 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
   const stableUpload = useCallback(async (file: File) => {
     const upload = uploadFileRef.current
     if (!upload) throw new Error('Image uploads are not available here.')
-    const url = await upload(file)
-    uploadedRef.current.set(url, { fileName: file.name, alt: altFromFileName(file.name) })
-    return url
+    try {
+      const url = await upload(file)
+      setUploadNotice(null)
+      uploadedRef.current.set(url, { fileName: file.name, alt: altFromFileName(file.name) })
+      return url
+    } catch (error) {
+      setUploadNotice(error instanceof Error ? error.message : 'Image upload failed. Try again.')
+      throw error
+    }
   }, [])
   const editor = useCreateBlockNote(
     {
@@ -191,6 +198,7 @@ export function RichCanvas({ source, presetId = 'minimal', siteTheme, uploadFile
         />
       </BlockNoteView>
       {dropNotice ? <p role="status" className="mt-2 font-mono text-xs text-muted-foreground">{dropNotice}</p> : null}
+      {uploadNotice ? <p role="status" className="mt-2 font-mono text-xs text-muted-foreground">{uploadNotice}</p> : null}
     </div>
   )
 }
