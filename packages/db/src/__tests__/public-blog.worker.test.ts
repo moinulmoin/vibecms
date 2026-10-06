@@ -356,14 +356,14 @@ describe("public blog feed + detail projections", () => {
     expect(defaults).toMatchObject({ themeRadius: null, themeWidth: null, bylineName: null, showAgentCredit: true });
 
     await exec(
-      "UPDATE sites SET theme_radius = 'lg', theme_width = 'wide', byline_name = 'Ada', show_agent_credit = 0 WHERE id = ?",
+      "UPDATE sites SET theme_radius = 'lg', theme_width = 'wide', theme_chrome = 'sidebar', theme_index = 'grid', theme_header = 'card', byline_name = 'Ada', show_agent_credit = 0 WHERE id = ?",
       "pb-site-a",
     );
     const site = await da.publicBlog.resolveSiteByHost("pb-a.example.test");
-    expect(site).toMatchObject({ themeRadius: "lg", themeWidth: "wide", bylineName: "Ada", showAgentCredit: false });
+    expect(site).toMatchObject({ themeRadius: "lg", themeWidth: "wide", themeChrome: "sidebar", themeIndex: "grid", themeHeader: "card", bylineName: "Ada", showAgentCredit: false });
     expect(Object.keys(site!).some((key) => /email/i.test(key))).toBe(false);
     await exec(
-      "UPDATE sites SET theme_radius = NULL, theme_width = NULL, byline_name = NULL, show_agent_credit = 1 WHERE id = ?",
+      "UPDATE sites SET theme_radius = NULL, theme_width = NULL, theme_chrome = NULL, theme_index = NULL, theme_header = NULL, byline_name = NULL, show_agent_credit = 1 WHERE id = ?",
       "pb-site-a",
     );
   });

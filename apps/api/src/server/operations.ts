@@ -1,5 +1,5 @@
 import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
-import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
+import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import { normalizeThemeChoice } from "@vc/api-contract";
@@ -129,11 +129,11 @@ export async function updateSiteOp(ctx: OperationContext, input: UpdateSiteReque
   return { ...site, settings: publicSettings };
 }
 
-type ThemeLook = Pick<SiteSettingsPayload, 'theme' | 'themeAccent' | 'themeFont' | 'themeRadius' | 'themeWidth' | 'themeMode'>;
+type ThemeLook = Pick<SiteSettingsPayload, 'theme' | 'themeAccent' | 'themeFont' | 'themeRadius' | 'themeWidth' | 'themeChrome' | 'themeIndex' | 'themeHeader' | 'themeMode'>;
 
 function rawLook(row: NonNullable<Awaited<ReturnType<ReturnType<typeof createDataAccess>['sites']['getSiteSettings']>>>) : ThemeLook {
   return { theme: row.theme ?? 'minimal', themeAccent: row.themeAccent, themeFont: row.themeFont,
-    themeRadius: row.themeRadius, themeWidth: row.themeWidth, themeMode: row.themeMode };
+    themeRadius: row.themeRadius, themeWidth: row.themeWidth, themeChrome: row.themeChrome, themeIndex: row.themeIndex, themeHeader: row.themeHeader, themeMode: row.themeMode };
 }
 
 async function previousLook(siteId: string) {
@@ -150,10 +150,13 @@ export async function getThemeOp(ctx: OperationContext) {
     accents: ACCENTS.map(({ id, name }) => ({ id, name })), fonts: FONTS.map(({ id, name }) => ({ id, name })),
     radii: THEME_RADII.map((id) => ({ id, name: ({ none: 'Square', sm: 'Soft', md: 'Round', lg: 'Rounder' })[id] })),
     widths: THEME_WIDTHS.map((id) => ({ id, name: ({ narrow: 'Narrow', normal: 'Normal', wide: 'Wide' })[id] })),
+    chromes: TEMPLATE_CHROMES.map((id) => ({ id, name: CHROME_LABELS[id] })),
+    indexes: TEMPLATE_INDEXES.map((id) => ({ id, name: INDEX_LABELS[id] })),
+    headers: TEMPLATE_HEADERS.map((id) => ({ id, name: HEADER_LABELS[id] })),
     modes: THEME_MODES.map((id) => ({ id, name: ({ light: 'Light', dark: 'Dark', system: 'System' })[id] })),
   };
   return { template: site.theme, accent: site.themeAccent, font: site.themeFont, radius: site.themeRadius,
-    width: site.themeWidth, mode: site.themeMode, updatedAt: site.updatedAt,
+    width: site.themeWidth, chrome: site.themeChrome, index: site.themeIndex, header: site.themeHeader, mode: site.themeMode, updatedAt: site.updatedAt,
     url: await siteBaseUrl(ctx.siteId), canRevert: saved?.savedAt === site.updatedAt, options };
 }
 
@@ -171,17 +174,20 @@ export async function updateThemeOp(ctx: OperationContext, input: UpdateThemeReq
     if (input.keepLook) {
       const resolved = await getSiteSettings(appUser(ctx));
       Object.assign(change, { themeAccent: resolved.themeAccent, themeFont: resolved.themeFont,
-        themeRadius: resolved.themeRadius, themeWidth: resolved.themeWidth, themeMode: resolved.themeMode });
+        themeRadius: resolved.themeRadius, themeWidth: resolved.themeWidth, themeChrome: null, themeIndex: null, themeHeader: null, themeMode: resolved.themeMode });
     } else {
       const defaults = THEME_PRESETS[resolvePresetId(input.template)].template.defaults;
       Object.assign(change, { themeAccent: defaults.accent, themeFont: defaults.font,
-        themeRadius: defaults.radius, themeWidth: defaults.width, themeMode: defaults.mode });
+        themeRadius: defaults.radius, themeWidth: defaults.width, themeChrome: null, themeIndex: null, themeHeader: null, themeMode: defaults.mode });
     }
   }
   if (input.accent !== undefined) change.themeAccent = input.accent;
   if (input.font !== undefined) change.themeFont = input.font;
   if (input.radius !== undefined) change.themeRadius = input.radius;
   if (input.width !== undefined) change.themeWidth = input.width;
+  if (input.chrome !== undefined) change.themeChrome = input.chrome;
+  if (input.index !== undefined) change.themeIndex = input.index;
+  if (input.header !== undefined) change.themeHeader = input.header;
   if (input.mode !== undefined) change.themeMode = input.mode;
   mutationResult(await updateSiteSettingsForApp(appUser(ctx), change, { previousLookJson: JSON.stringify(rawLook(current)) }));
   return getThemeOp(ctx);

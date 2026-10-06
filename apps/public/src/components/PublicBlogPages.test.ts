@@ -57,3 +57,17 @@ describe("listing pagination params", () => {
     expect(publicPageCanonicalPath("/tag/a%20b", 3)).toBe("/tag/a%20b?page=3");
   });
 });
+
+
+describe('structure choices', () => {
+  it('uses the resolved index for home, tag, and search listings', () => {
+    for (const listing of [{ kind: 'index' }, { kind: 'tag', tag: 'notes' }, { kind: 'search', query: 'notes' }] as const) {
+      const data = indexData(listing)
+      data.site.theme_index = 'grid'
+      data.posts = [{ id: 'p1', title: 'One', slug: 'one', excerpt: '', published_at: 1, tags_json: '[]' }] as typeof data.posts
+      const html = renderToStaticMarkup(createElement(PublicBlogIndexView, { data }))
+      expect(html).toContain('data-vc-index="grid"')
+      expect(html).toMatch(/<ol class="[^"]*grid/)
+    }
+  })
+})

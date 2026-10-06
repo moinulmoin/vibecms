@@ -78,6 +78,9 @@ type SiteSettingsForm = {
   themeMode: ThemeMode
   themeRadius: string
   themeWidth: string
+  themeChrome: string
+  themeIndex: string
+  themeHeader: string
   bylineName: string
   showAgentCredit: boolean
   updatedAt: number

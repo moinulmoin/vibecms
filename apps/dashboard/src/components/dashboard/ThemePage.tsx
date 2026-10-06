@@ -10,6 +10,18 @@ import {
   THEME_WIDTHS,
   resolveRadius,
   resolveWidth,
+  resolveChrome,
+  resolveIndex,
+  resolveHeader,
+  TEMPLATE_CHROMES,
+  TEMPLATE_INDEXES,
+  TEMPLATE_HEADERS,
+  CHROME_LABELS,
+  INDEX_LABELS,
+  HEADER_LABELS,
+  type TemplateChrome,
+  type TemplateIndex,
+  type TemplateHeader,
   type ThemeRadius,
   type ThemeWidth,
   type AccentId,
@@ -140,6 +152,9 @@ type ThemeSiteBaseline = {
   themeMode: ThemeMode
   themeRadius: ThemeRadius
   themeWidth: ThemeWidth
+  themeChrome: TemplateChrome
+  themeIndex: TemplateIndex
+  themeHeader: TemplateHeader
   updatedAt: number
   publicBaseUrl: string | null
   newsletter: SubscribeSettings | null
@@ -161,6 +176,9 @@ function themeBaselineFromSettings(loaded: Awaited<ReturnType<typeof loadSetting
     themeMode: isThemeMode(site.themeMode) ? site.themeMode : 'system',
     themeRadius: resolveRadius(site.themeRadius, site.theme),
     themeWidth: resolveWidth(site.themeWidth, site.theme),
+    themeChrome: resolveChrome(site.themeChrome, site.theme),
+    themeIndex: resolveIndex(site.themeIndex, site.theme),
+    themeHeader: resolveHeader(site.themeHeader, site.theme),
     updatedAt: site.updatedAt,
     publicBaseUrl: loaded.publicBaseUrl ?? null,
     newsletter: (site as { newsletterSettings?: SubscribeSettings | null }).newsletterSettings ?? null,
@@ -196,6 +214,9 @@ function MiniRender({ width = 1180, children }: { width?: number; children: Reac
     </div>
   )
 }
+
+// Label column + control column, so every segmented control starts on one line.
+const CONTROL_ROW = 'grid grid-cols-[6.25rem_minmax(0,1fr)] items-center gap-3 [&>*:last-child]:justify-self-start'
 
 function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
@@ -259,10 +280,13 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('system')
   const [selectedRadius, setSelectedRadius] = useState<ThemeRadius>('md')
   const [selectedWidth, setSelectedWidth] = useState<ThemeWidth>('normal')
+  const [selectedChrome, setSelectedChrome] = useState<TemplateChrome>('masthead')
+  const [selectedIndex, setSelectedIndex] = useState<TemplateIndex>('list')
+  const [selectedHeader, setSelectedHeader] = useState<TemplateHeader>('plain')
   // After picking a template, remember the previous look for one-click "keep my look".
   const [previousLook, setPreviousLook] = useState<{ accent: AccentId; font: FontId; radius: ThemeRadius; width: ThemeWidth } | null>(null)
-  const selectedRef = useRef({ theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth })
-  selectedRef.current = { theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth }
+  const selectedRef = useRef({ theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth, chrome: selectedChrome, index: selectedIndex, header: selectedHeader })
+  selectedRef.current = { theme: selectedTheme, accent: selectedAccent, font: selectedFont, mode: selectedMode, radius: selectedRadius, width: selectedWidth, chrome: selectedChrome, index: selectedIndex, header: selectedHeader }
 
   const [article, setArticle] = useState<PreviewArticle>(SAMPLE_ARTICLE)
   const [indexPosts, setIndexPosts] = useState<PublicPostListItem[] | null>(null)
@@ -287,6 +311,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
         setSelectedMode(baseline.themeMode)
         setSelectedRadius(baseline.themeRadius)
         setSelectedWidth(baseline.themeWidth)
+        setSelectedChrome(baseline.themeChrome)
+        setSelectedIndex(baseline.themeIndex)
+        setSelectedHeader(baseline.themeHeader)
         if (baseline.themeMode !== 'system') setPreviewScheme(baseline.themeMode)
       })
       .catch(() => {
@@ -361,7 +388,10 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
     selectedFont !== site.themeFont ||
     selectedMode !== site.themeMode ||
     selectedRadius !== site.themeRadius ||
-    selectedWidth !== site.themeWidth
+    selectedWidth !== site.themeWidth ||
+    selectedChrome !== site.themeChrome ||
+    selectedIndex !== site.themeIndex ||
+    selectedHeader !== site.themeHeader
 
 
   function discard() {
@@ -372,6 +402,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
     setSelectedMode(site.themeMode)
     setSelectedRadius(site.themeRadius)
     setSelectedWidth(site.themeWidth)
+    setSelectedChrome(site.themeChrome)
+    setSelectedIndex(site.themeIndex)
+    setSelectedHeader(site.themeHeader)
     setPreviousLook(null)
     setSaveError(null)
   }
@@ -392,6 +425,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
         themeMode: submitted.mode,
         themeRadius: submitted.radius,
         themeWidth: submitted.width,
+        themeChrome: submitted.chrome === THEME_PRESETS[submitted.theme].template.chrome ? null : submitted.chrome,
+        themeIndex: submitted.index === THEME_PRESETS[submitted.theme].template.index ? null : submitted.index,
+        themeHeader: submitted.header === THEME_PRESETS[submitted.theme].template.header ? null : submitted.header,
       })
       if (result.kind === 'ok') {
         settingsSaved = true
@@ -403,7 +439,10 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
           selectedRef.current.font === submitted.font &&
           selectedRef.current.mode === submitted.mode &&
           selectedRef.current.radius === submitted.radius &&
-          selectedRef.current.width === submitted.width
+          selectedRef.current.width === submitted.width &&
+          selectedRef.current.chrome === submitted.chrome &&
+          selectedRef.current.index === submitted.index &&
+          selectedRef.current.header === submitted.header
         ) {
           setSelectedTheme(refreshed.theme)
           setSelectedAccent(refreshed.themeAccent)
@@ -411,6 +450,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
           setSelectedMode(refreshed.themeMode)
           setSelectedRadius(refreshed.themeRadius)
           setSelectedWidth(refreshed.themeWidth)
+          setSelectedChrome(refreshed.themeChrome)
+          setSelectedIndex(refreshed.themeIndex)
+          setSelectedHeader(refreshed.themeHeader)
           setPreviousLook(null)
         }
         setJustSaved(true)
@@ -434,8 +476,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
   }
 
   const effectiveMode = selectedMode === 'system' ? previewScheme : selectedMode
-  const previewTheme = { accent: selectedAccent, font: selectedFont, mode: effectiveMode, radius: selectedRadius, width: selectedWidth }
-  const selectedTemplate = THEME_PRESETS[selectedTheme].template
+  const previewTheme = { accent: selectedAccent, font: selectedFont, mode: effectiveMode, radius: selectedRadius, width: selectedWidth, chrome: selectedChrome, index: selectedIndex, header: selectedHeader }
   const listedPosts = indexPosts ?? SAMPLE_INDEX
   const tagCounts = new Map<string, number>()
   for (const post of listedPosts) for (const tag of post.tags ?? []) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
@@ -453,6 +494,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
     setSelectedFont(look.font)
     setSelectedRadius(look.radius)
     setSelectedWidth(look.width)
+    setSelectedChrome(THEME_PRESETS[id].template.chrome)
+    setSelectedIndex(THEME_PRESETS[id].template.index)
+    setSelectedHeader(THEME_PRESETS[id].template.header)
   }
 
   function keepPreviousLook() {
@@ -626,9 +670,32 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
           </section>
 
           <section>
+            <SectionLabel>Layout</SectionLabel>
+            <div className="grid gap-3">
+              <div className={CONTROL_ROW}>
+                <span className="text-xs text-muted-foreground">Navigation</span>
+                <Segmented label="Navigation" disabled={!editable} value={selectedChrome} onChange={setSelectedChrome}
+                  options={TEMPLATE_CHROMES.map((value) => ({ value, label: CHROME_LABELS[value] }))} />
+              </div>
+              <div className={CONTROL_ROW}>
+                <span className="text-xs text-muted-foreground">Home page</span>
+                <Segmented label="Home page" disabled={!editable} value={selectedIndex}
+                  onChange={(value) => { setSelectedIndex(value); setPreviewPage('home') }}
+                  options={TEMPLATE_INDEXES.map((value) => ({ value, label: INDEX_LABELS[value] }))} />
+              </div>
+              <div className={CONTROL_ROW}>
+                <span className="text-xs text-muted-foreground">Article header</span>
+                <Segmented label="Article header" disabled={!editable} value={selectedHeader}
+                  onChange={(value) => { setSelectedHeader(value); setPreviewPage('article') }}
+                  options={TEMPLATE_HEADERS.map((value) => ({ value, label: HEADER_LABELS[value] }))} />
+              </div>
+            </div>
+          </section>
+
+          <section>
             <SectionLabel>Shape</SectionLabel>
             <div className="grid gap-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Corners</span>
                 <Segmented
                   label="Corner radius"
@@ -638,7 +705,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                   options={THEME_RADII.map((r) => ({ value: r, label: RADIUS_LABEL[r] }))}
                 />
               </div>
-              <div className="flex items-center justify-between gap-3">
+              <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Reading width</span>
                 <Segmented
                   label="Reading width"
@@ -736,7 +803,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                   subscribeSettings={site.newsletter}
                   sidebar={previewSidebar}
                 >
-                  <PublicPostList variant={selectedTemplate.index} posts={indexPosts ?? SAMPLE_INDEX} />
+                  <PublicPostList variant={selectedIndex} posts={indexPosts ?? SAMPLE_INDEX} />
                 </PublicPageChrome>
               ) : (
                 <PublicPageChrome

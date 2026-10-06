@@ -163,6 +163,9 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   invalid_byline_name: { variant: "error", title: "Public name too long", message: "Use 80 characters or fewer for your public name." },
   invalid_agent_credit: { variant: "error", title: "Setting not saved", message: "Turn agent credit on or off, then save again." },
   invalid_theme_radius: { variant: "error", title: "Corner style not saved", message: "Pick one of the listed corner styles." },
+  invalid_theme_chrome: { variant: "error", title: "Navigation not saved", message: "Pick one of the listed navigation layouts." },
+  invalid_theme_index: { variant: "error", title: "Home page not saved", message: "Pick one of the listed home page layouts." },
+  invalid_theme_header: { variant: "error", title: "Article header not saved", message: "Pick one of the listed article headers." },
   invalid_theme_width: { variant: "error", title: "Reading width not saved", message: "Pick one of the listed reading widths." },
   alt_required_in_use: { variant: "error", title: "Alt text required", message: "This image is in use. Replace it or keep a useful description." },
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
@@ -435,8 +438,8 @@ export interface ThemePreset {
 
 // ---------------------------------------------------------------------------
 // Templates: a preset IS a template. Structure (chrome, index, article header)
-// is fixed per template; the look starts from `defaults` and every value stays
-// owner-tunable (accent, font, radius, width, mode) on the Theme page.
+// starts from the template; owners can override each structural choice and
+// every look value (accent, font, radius, width, mode) on the Theme page.
 // ---------------------------------------------------------------------------
 
 export const TEMPLATE_CHROMES = ["masthead", "centered", "sidebar"] as const;
@@ -473,6 +476,25 @@ export interface TemplateDef {
     width: ThemeWidth;
     mode: ThemeMode;
   };
+}
+
+export const CHROME_LABELS: Record<TemplateChrome, string> = { masthead: "Top bar", centered: "Centered", sidebar: "Sidebar" };
+export const INDEX_LABELS: Record<TemplateIndex, string> = { list: "List", compact: "Compact", grid: "Grid" };
+export const HEADER_LABELS: Record<TemplateHeader, string> = { plain: "Plain", centered: "Centered", card: "Card" };
+
+export function resolveChrome(value: string | null | undefined, presetId?: string | null): TemplateChrome {
+  if (value != null && (TEMPLATE_CHROMES as readonly string[]).includes(value)) return value as TemplateChrome;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.chrome;
+}
+
+export function resolveIndex(value: string | null | undefined, presetId?: string | null): TemplateIndex {
+  if (value != null && (TEMPLATE_INDEXES as readonly string[]).includes(value)) return value as TemplateIndex;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.index;
+}
+
+export function resolveHeader(value: string | null | undefined, presetId?: string | null): TemplateHeader {
+  if (value != null && (TEMPLATE_HEADERS as readonly string[]).includes(value)) return value as TemplateHeader;
+  return THEME_PRESETS[resolvePresetId(presetId)].template.header;
 }
 
 export function resolveRadius(value: string | null | undefined, presetId?: string | null): ThemeRadius {

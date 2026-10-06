@@ -268,6 +268,9 @@ export const settingsPageDataSchema = z.object({
     // byline. Defaults keep older API payloads parseable during a deploy.
     themeRadius: z.string().default('md'),
     themeWidth: z.string().default('normal'),
+    themeChrome: z.string().default('masthead'),
+    themeIndex: z.string().default('list'),
+    themeHeader: z.string().default('plain'),
     bylineName: z.string().default(''),
     showAgentCredit: z.boolean().default(true),
     updatedAt: z.number(),

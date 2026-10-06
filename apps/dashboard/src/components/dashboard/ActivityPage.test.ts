@@ -41,6 +41,14 @@ describe('activityChanges', () => {
     })).toEqual(['Signup form: Off → On', 'Signup heading: Join → Subscribe', 'Signup description: Old copy → New copy', 'Signup button: Join → Notify me'])
   })
 
+  it('labels structural choices and template defaults', () => {
+    expect(activityChanges({ action: 'site.updated', summary: '', actor_type: 'human', actor_name: 'Ada', created_at: 1,
+      before: { themeChrome: null, themeIndex: 'list', themeHeader: 'plain' },
+      after: { themeChrome: 'sidebar', themeIndex: 'grid', themeHeader: 'card' },
+    })).toEqual(['Navigation: template default → Sidebar', 'Home page: List → Grid', 'Article header: Plain → Card'])
+    expect(parseChange('Home page “List” → “Grid”')).toEqual({ label: 'Home page', before: 'List', after: 'Grid' })
+  })
+
   it('uses existing post changes and leaves older site events at their summary', () => {
     expect(activityChanges({ action: 'post.updated', summary: '', actor_type: 'human', actor_name: 'Ada', created_at: 1, changes: ['Title “Old” → “New”'] })).toEqual(['Title “Old” → “New”'])
     expect(activityChanges({ action: 'site.updated', summary: 'Updated site', actor_type: 'human', actor_name: 'Ada', created_at: 1 })).toEqual([])
