@@ -110,3 +110,16 @@ describe('PublicPageChrome site identity', () => {
   });
 });
 
+
+
+describe('structural overrides', () => {
+  it('uses site choices on the page chrome', () => {
+    const html = renderToStaticMarkup(<PublicPageChrome siteName="Example" homeHref="/" presetId="minimal"
+      theme={{ accent: null, font: null, mode: null, chrome: 'sidebar', index: 'grid', header: 'card' }}>
+      <p>Posts</p>
+    </PublicPageChrome>)
+    expect(html).toContain('data-vc-chrome="sidebar"')
+    expect(html).toContain('data-vc-index="grid"')
+    expect(html).toContain('data-vc-header="card"')
+  })
+})

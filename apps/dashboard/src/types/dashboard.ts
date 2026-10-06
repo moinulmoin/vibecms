@@ -265,6 +265,9 @@ export type SiteSettingsForm = {
   themeRadius: string
   /** Resolved template reading width (THEME_WIDTHS). */
   themeWidth: string
+  themeChrome: string
+  themeIndex: string
+  themeHeader: string
   /** Public author name; '' means "use the site name". Never the email. */
   bylineName: string
   /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
@@ -333,6 +336,9 @@ export type EditorSiteInfo = {
   /** Template shape knobs (null = template default). */
   themeRadius?: string | null
   themeWidth?: string | null
+  themeChrome?: string | null
+  themeIndex?: string | null
+  themeHeader?: string | null
   /** Public author name (null = site name) and agent credit setting. */
   bylineName?: string | null
   showAgentCredit?: boolean

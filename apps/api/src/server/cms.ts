@@ -1,4 +1,4 @@
-import { ACCENTS, FONTS, THEME_PRESETS } from '@vc/config'
+import { ACCENTS, FONTS, THEME_PRESETS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS } from '@vc/config'
 import { listPosts, type Post } from '@vc/core'
 import { createD1PostRepository, createDataAccess } from '@vc/db'
 import { env } from 'cloudflare:workers'
@@ -53,7 +53,9 @@ const SITE_FIELD_LABELS: Record<string, string> = {
   defaultSeoTitle: 'Search title', defaultSeoDescription: 'Search description',
   theme: 'Template', template: 'Template', themeAccent: 'Accent', accent: 'Accent',
   themeFont: 'Font', font: 'Font', themeRadius: 'Corners', radius: 'Corners',
-  themeWidth: 'Reading width', width: 'Reading width', themeMode: 'Color mode', mode: 'Color mode',
+  themeWidth: 'Reading width', width: 'Reading width',
+  themeChrome: 'Navigation', chrome: 'Navigation', themeIndex: 'Home page', index: 'Home page',
+  themeHeader: 'Article header', header: 'Article header', themeMode: 'Color mode', mode: 'Color mode',
   enabled: 'Signup form', heading: 'Signup heading', subtext: 'Signup description', buttonLabel: 'Signup button',
   audience: 'Audience', voiceSummary: 'Voice summary',
 }
@@ -73,8 +75,11 @@ const DISPLAY_NAMES: Record<string, Record<string, string>> = {
   Template: Object.fromEntries(Object.values(THEME_PRESETS).map((p) => [p.id, p.name])),
   Font: Object.fromEntries(FONTS.map((f) => [f.id, f.name])),
   Accent: Object.fromEntries(ACCENTS.map((a) => [a.id, a.name])),
+  Navigation: CHROME_LABELS,
+  'Home page': INDEX_LABELS,
+  'Article header': HEADER_LABELS,
 }
-const THEME_LABELS = new Set(['Accent', 'Font', 'Corners', 'Reading width', 'Color mode'])
+const THEME_LABELS = new Set(['Accent', 'Font', 'Corners', 'Reading width', 'Navigation', 'Home page', 'Article header', 'Color mode'])
 
 function siteValue(label: string, value: unknown): string | null {
   if (value === null || value === undefined || value === '') return THEME_LABELS.has(label) ? 'template default' : 'empty'

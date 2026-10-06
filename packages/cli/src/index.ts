@@ -124,6 +124,9 @@ const VALUE_HINTS = {
   font: ["geist-sans (Geist)", "serif (Newsreader)", "grotesk (Space Grotesk)", "humanist (Hanken Grotesk)", "mono (Geist Mono)"],
   radius: ["none", "sm", "md", "lg"],
   width: ["narrow", "normal", "wide"],
+  chrome: ["masthead", "centered", "sidebar"],
+  index: ["list", "grid", "compact"],
+  header: ["plain", "centered", "card"],
   mode: ["light", "dark", "system"],
   layout: ["standard", "essay", "feature", "wide"],
 } as const;
@@ -135,7 +138,7 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   activity: { usage: "activity [--limit <n> --offset <n>]", flags: ["limit", "offset"] },
   "sites update": { usage: "sites update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { name: "string", description: "string|null", bylineName: "string|null", showAgentCredit: "boolean", defaultSeoTitle: "string", defaultSeoDescription: "string|null", defaultSocialAssetId: "string|null", logoAssetId: "string|null", faviconAssetId: "string|null", navLinks: "array", socialLinks: "array" } },
   "sites theme get": { usage: "sites theme get" },
-  "sites theme update": { usage: "sites theme update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { template: "string", keepLook: "boolean", accent: "string", font: "string", radius: "string", width: "string", mode: "string" }, values: [...hint("template", "accent", "font", "radius", "width", "mode"), "template and font also accept the display name (e.g. \"Magazine\", \"Newsreader\")"] },
+  "sites theme update": { usage: "sites theme update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { template: "string", keepLook: "boolean", accent: "string", font: "string", radius: "string|null", width: "string|null", chrome: "string|null", index: "string|null", header: "string|null", mode: "string" }, values: [...hint("template", "accent", "font", "radius", "width", "chrome", "index", "header", "mode"), "template and font also accept the display name (e.g. \"Magazine\", \"Newsreader\")"] },
   "sites theme revert": { usage: "sites theme revert --expected-updated-at <n>", flags: ["expected-updated-at"], revision: "--expected-updated-at: the updatedAt from `vibecms sites theme get`" },
   "sites voice update": { usage: "sites voice update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the voiceProfile.revision from `vibecms site` (0 if unconfigured)", fields: { audience: "string", tone: "string", doRules: "array", dontRules: "array", representativePostIds: "array" } },
   "sites signup-form get": { usage: "sites signup-form get" },

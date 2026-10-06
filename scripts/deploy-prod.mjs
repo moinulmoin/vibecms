@@ -10,7 +10,12 @@
 // A rerun after a partial failure never pins: by then the new API may be live
 // and a latest version can be a private draft. `--verify-pins` runs only the
 // read-only check.
+import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+
+// Secrets live in the gitignored .env.production.local (Cloudflare account and
+// preflight token, PRODUCTION_SMOKE_TOKEN). Values already in the shell win.
+if (existsSync(".env.production.local")) process.loadEnvFile(".env.production.local");
 
 const API = ["--filter", "@vc/api", "exec", "wrangler"];
 const REMOTE_PROD = ["--remote", "--env", "production"];
@@ -74,6 +79,10 @@ if (process.argv.includes("--verify-pins")) {
 // retarget other steps.
 delete process.env.CLOUDFLARE_ENV;
 
+// Refresh the wrangler login once up front: preflight runs several wrangler
+// calls at once, and an expired login makes them race to refresh it (only one
+// refresh succeeds; the rest fail with an authentication error).
+run("Refresh Cloudflare login", [...API, "whoami"], { capture: true });
 run("Production preflight", ["production:preflight"]);
 run("Backup production D1", ["production:backup"]);
 run("Build dashboard", ["--filter", "@vc/dashboard", "build"]);

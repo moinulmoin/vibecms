@@ -157,7 +157,7 @@ function PostMock() {
             Our agent drafts release notes from merged PRs. We review, then
             publish the exact version.<sup className="ml-0.5 text-[10px] text-vc-link">1</sup>
           </p>
-          <div className="mt-4 rounded-r-md border-l-2 border-vc-accent bg-vc-muted px-3.5 py-2.5 text-[12.5px] leading-[1.55]">
+          <div className="mt-4 rounded-md bg-vc-accent/10 px-3.5 py-2.5 text-[12.5px] leading-[1.55]">
             <span className="font-semibold text-vc-accent">Note</span>
             <span className="text-vc-fg/85"> Tokens are scoped per agent.</span>
           </div>
@@ -175,7 +175,7 @@ function PostMock() {
           </p>
         </article>
         <nav className="hidden border-l border-vc-border pl-4 text-[11.5px] leading-[1.9] md:block">
-          <p className="font-mono text-[10.5px] text-vc-muted-fg">On this page</p>
+          <p className="font-mono text-[11px] text-vc-muted-fg">On this page</p>
           <p className="mt-1 text-vc-accent">Why MCP</p>
           <p className="text-vc-muted-fg">The workflow</p>
           <p className="text-vc-muted-fg">Rolling back</p>

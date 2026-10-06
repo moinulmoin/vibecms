@@ -80,7 +80,7 @@ export function HeroDemo() {
         <div className="flex items-center gap-2.5 border-b border-[color:var(--hairline)] px-4 py-2.5">
           <Dots />
           <span className="ml-1 font-mono text-[11px] text-muted-foreground">you · claude</span>
-          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden /> vibecms connected
           </span>
         </div>
@@ -117,7 +117,7 @@ export function HeroDemo() {
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[11px] text-muted-foreground">version 3</span>
             <span
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10.5px] text-brand-bright ring-1 ring-brand-bright/35"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] text-brand-bright ring-1 ring-brand-bright/35"
               data-hero-badge
             >
               <span className="size-1.5 rounded-full bg-brand-bright" data-hero-badge-dot />

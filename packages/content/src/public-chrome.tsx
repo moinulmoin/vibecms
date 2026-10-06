@@ -253,7 +253,7 @@ export function PublicPageChrome({
   children,
 }: PublicPageChromeProps) {
   const themeAttrs = theme ? resolveSiteTheme(theme, presetId) : undefined;
-  const template = templateAttributes(presetId);
+  const template = templateAttributes(presetId, theme);
   const hasSidebar = template["data-vc-chrome"] === "sidebar";
   const subscribe = subscribeVariant ? (
     <SubscribeBlock siteSlug={subscribeSiteSlug} variant={subscribeVariant} settings={subscribeSettings} />

@@ -1012,6 +1012,15 @@
                         "themeWidth": {
                           "type": "string"
                         },
+                        "themeChrome": {
+                          "type": "string"
+                        },
+                        "themeIndex": {
+                          "type": "string"
+                        },
+                        "themeHeader": {
+                          "type": "string"
+                        },
                         "bylineName": {
                           "type": "string"
                         },
@@ -1039,6 +1048,9 @@
                         "themeMode",
                         "themeRadius",
                         "themeWidth",
+                        "themeChrome",
+                        "themeIndex",
+                        "themeHeader",
                         "bylineName",
                         "showAgentCredit",
                         "updatedAt"
@@ -1319,6 +1331,15 @@
                     "width": {
                       "type": "string"
                     },
+                    "chrome": {
+                      "type": "string"
+                    },
+                    "index": {
+                      "type": "string"
+                    },
+                    "header": {
+                      "type": "string"
+                    },
                     "mode": {
                       "type": "string"
                     },
@@ -1418,6 +1439,60 @@
                             ]
                           }
                         },
+                        "chromes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "indexes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "headers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
                         "modes": {
                           "type": "array",
                           "items": {
@@ -1443,6 +1518,9 @@
                         "fonts",
                         "radii",
                         "widths",
+                        "chromes",
+                        "indexes",
+                        "headers",
                         "modes"
                       ]
                     },
@@ -1462,6 +1540,9 @@
                     "font",
                     "radius",
                     "width",
+                    "chrome",
+                    "index",
+                    "header",
                     "mode",
                     "updatedAt",
                     "options",
@@ -1600,7 +1681,7 @@
       },
       "patch": {
         "operationId": "updateSiteTheme",
-        "description": "Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -1670,20 +1751,64 @@
                     ]
                   },
                   "radius": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "enum": [
                       "none",
                       "sm",
                       "md",
-                      "lg"
+                      "lg",
+                      null
                     ]
                   },
                   "width": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "enum": [
                       "narrow",
                       "normal",
-                      "wide"
+                      "wide",
+                      null
+                    ]
+                  },
+                  "chrome": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "masthead",
+                      "centered",
+                      "sidebar",
+                      null
+                    ]
+                  },
+                  "index": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "list",
+                      "grid",
+                      "compact",
+                      null
+                    ]
+                  },
+                  "header": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "plain",
+                      "centered",
+                      "card",
+                      null
                     ]
                   },
                   "mode": {
@@ -1724,6 +1849,15 @@
                       "type": "string"
                     },
                     "width": {
+                      "type": "string"
+                    },
+                    "chrome": {
+                      "type": "string"
+                    },
+                    "index": {
+                      "type": "string"
+                    },
+                    "header": {
                       "type": "string"
                     },
                     "mode": {
@@ -1825,6 +1959,60 @@
                             ]
                           }
                         },
+                        "chromes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "indexes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "headers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
                         "modes": {
                           "type": "array",
                           "items": {
@@ -1850,6 +2038,9 @@
                         "fonts",
                         "radii",
                         "widths",
+                        "chromes",
+                        "indexes",
+                        "headers",
                         "modes"
                       ]
                     },
@@ -1869,6 +2060,9 @@
                     "font",
                     "radius",
                     "width",
+                    "chrome",
+                    "index",
+                    "header",
                     "mode",
                     "updatedAt",
                     "options",
@@ -2151,6 +2345,15 @@
                     "width": {
                       "type": "string"
                     },
+                    "chrome": {
+                      "type": "string"
+                    },
+                    "index": {
+                      "type": "string"
+                    },
+                    "header": {
+                      "type": "string"
+                    },
                     "mode": {
                       "type": "string"
                     },
@@ -2250,6 +2453,60 @@
                             ]
                           }
                         },
+                        "chromes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "indexes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
+                        "headers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ]
+                          }
+                        },
                         "modes": {
                           "type": "array",
                           "items": {
@@ -2275,6 +2532,9 @@
                         "fonts",
                         "radii",
                         "widths",
+                        "chromes",
+                        "indexes",
+                        "headers",
                         "modes"
                       ]
                     },
@@ -2294,6 +2554,9 @@
                     "font",
                     "radius",
                     "width",
+                    "chrome",
+                    "index",
+                    "header",
                     "mode",
                     "updatedAt",
                     "options",

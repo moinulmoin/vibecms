@@ -229,7 +229,10 @@ describe('Manage key', () => {
   })
 
   it('applies curated template defaults, keeps the look on request, then restores the exact raw previous look', async () => {
-    const before = await env.DB.prepare('SELECT theme, theme_accent AS accent, theme_font AS font, theme_radius AS radius, theme_width AS width, theme_mode AS mode FROM sites WHERE id = ?')
+    const initial = await getThemeOp(ctx)
+    const mixed = await updateThemeOp(ctx, { expectedUpdatedAt: initial.updatedAt, chrome: 'sidebar', index: 'grid', header: 'card' })
+    expect(mixed).toMatchObject({ chrome: 'sidebar', index: 'grid', header: 'card' })
+    const before = await env.DB.prepare('SELECT theme, theme_accent AS accent, theme_font AS font, theme_radius AS radius, theme_width AS width, theme_chrome AS chrome, theme_index AS idx, theme_header AS header, theme_mode AS mode FROM sites WHERE id = ?')
       .bind(siteId).first()
     const current = await getThemeOp(ctx)
     const changed = await updateThemeOp(ctx, { expectedUpdatedAt: current.updatedAt, template: 'editorial' })
@@ -238,13 +241,16 @@ describe('Manage key', () => {
     expect(changed.canRevert).toBe(true)
     const reverted = await revertThemeOp(ctx, { expectedUpdatedAt: changed.updatedAt })
     expect(reverted.template).toBe(current.template)
-    const after = await env.DB.prepare('SELECT theme, theme_accent AS accent, theme_font AS font, theme_radius AS radius, theme_width AS width, theme_mode AS mode FROM sites WHERE id = ?')
+    const after = await env.DB.prepare('SELECT theme, theme_accent AS accent, theme_font AS font, theme_radius AS radius, theme_width AS width, theme_chrome AS chrome, theme_index AS idx, theme_header AS header, theme_mode AS mode FROM sites WHERE id = ?')
       .bind(siteId).first()
     expect(after).toEqual(before)
     expect(reverted.canRevert).toBe(false)
     const kept = await updateThemeOp(ctx, { expectedUpdatedAt: reverted.updatedAt, template: 'technical', keepLook: true })
     expect(kept.accent).toBe(current.accent)
     expect(kept.font).toBe(current.font)
+    expect(kept).toMatchObject({ chrome: 'sidebar', index: 'compact', header: 'plain' })
+    const reset = await updateThemeOp(ctx, { expectedUpdatedAt: kept.updatedAt, chrome: null, index: null, header: null })
+    expect(reset).toMatchObject({ chrome: 'sidebar', index: 'compact', header: 'plain' })
   })
 
   it('counts tags in use and saves voice and signup settings with the key as actor', async () => {

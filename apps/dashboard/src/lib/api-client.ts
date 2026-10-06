@@ -293,6 +293,9 @@ export function updateSiteSettingsMutation(data: {
   themeRadius?: string | null
   /** THEME_WIDTHS id; null resets to the template default. */
   themeWidth?: string | null
+  themeChrome?: string | null
+  themeIndex?: string | null
+  themeHeader?: string | null
   /** Public author name (max 80); ''/null falls back to the site name. */
   bylineName?: string | null
   /** Credit agent-written posts on the public blog. */
