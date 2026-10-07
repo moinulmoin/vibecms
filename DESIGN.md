@@ -135,9 +135,13 @@ Dashboard primitives live in `components/dashboard/blocks/`. The dashboard
 follows a docs-UI language (reference: Fumadocs): its own token overrides in
 `apps/dashboard/src/styles.css` (soft page tone, translucent `--border` /
 `--input` / `--accent`, the landing keeps the shared values); a grouped
-sidebar with section labels and a brand-tinted active item (`bg-brand-bright/15`
-+ `text-primary`); a Light/Dark/System segmented switch in the sidebar
-footer; flat `rounded-lg` controls (one filled primary per screen, no
+sidebar with section labels; one **selected** state from tokens
+(`bg-selected`, `text-selected-foreground`, `border-selected-border`) for the
+current page, chosen font, picked cover and chosen template; one
+`SegmentedControl` (`components/ui/segmented-control.tsx`) for every
+single-choice toggle (editor modes, preview width, date range, theme rows,
+the sidebar's Light/Dark/System switch). Never restyle these per page:
+change the token or the component; flat `rounded-lg` controls (one filled primary per screen, no
 gradient); status as a dot + word (`StatusBadge`), never a filled pill;
 list rows separated by space with a hover wash, not rules; code blocks on
 `bg-card` with an icon title and an icon-only copy button; no ambient glow
