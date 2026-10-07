@@ -1,3 +1,4 @@
+import { SegmentedControl } from '~/components/ui/segmented-control'
 import { BarChart3, LockKeyhole } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -75,22 +76,16 @@ export function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 
 
 function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (value: AnalyticsRange) => void }) {
   return (
-    <nav className="flex gap-0.5 overflow-x-auto rounded-lg border bg-secondary/50 p-0.5" aria-label="Date range">
-      {RANGE_OPTIONS.map((option) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={value === option}
-          onClick={() => onChange(option)}
-          className={cn(
-            'rounded-md px-3 py-1.5 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            value === option ? 'bg-background font-medium text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}
-        </button>
-      ))}
-    </nav>
+    <SegmentedControl
+      label="Date range"
+      className="max-w-full overflow-x-auto"
+      value={String(value)}
+      onChange={(next) => onChange(next === 'all' ? 'all' : (Number(next) as AnalyticsRange))}
+      options={RANGE_OPTIONS.map((option) => ({
+        value: String(option),
+        label: <span className="tabular-nums">{option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}</span>,
+      }))}
+    />
   )
 }
 

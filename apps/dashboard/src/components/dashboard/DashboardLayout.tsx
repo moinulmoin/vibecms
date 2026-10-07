@@ -47,6 +47,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { TooltipProvider } from '~/components/ui/tooltip'
+import { SegmentedControl } from '~/components/ui/segmented-control'
 import { AgentPresence } from '~/components/dashboard/AgentPresence'
 import { CommandPalette } from '~/components/dashboard/CommandPalette'
 import { setupAuthClient } from '~/lib/auth-client'
@@ -232,7 +233,7 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
 
 /** Fumadocs-style item: muted at rest, a faint fill on hover, tinted brand when it's the page you're on. */
 const NAV_ITEM =
-  'h-9 gap-2.5 rounded-lg px-2 text-[0.9375rem] font-normal text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-brand-bright/15 data-[active=true]:font-medium data-[active=true]:text-primary data-[active=true]:hover:bg-brand-bright/20 dark:data-[active=true]:bg-brand-bright/12 dark:data-[active=true]:hover:bg-brand-bright/16 [&>svg]:size-4'
+  'h-9 gap-2.5 rounded-lg px-2 text-[0.9375rem] font-normal text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-selected data-[active=true]:font-medium data-[active=true]:text-selected-foreground data-[active=true]:hover:bg-selected [&>svg]:size-4'
 
 function DashboardNavigation({ current, role }: { current: string; role?: 'owner' | 'editor' | 'viewer' }) {
   const { isMobile, setOpenMobile } = useSidebar()
@@ -274,26 +275,14 @@ function DashboardNavigation({ current, role }: { current: string; role?: 'owner
 function ThemeSwitch() {
   const { theme, setTheme } = useAppTheme()
   return (
-    <div
-      role="radiogroup"
-      aria-label="Appearance"
-      className="flex items-center rounded-lg border bg-secondary/50 p-0.5 group-data-[collapsible=icon]:hidden"
-    >
-      {themeOptions.map(({ value, label, Icon }) => (
-        <button
-          key={value}
-          type="button"
-          role="radio"
-          aria-checked={theme === value}
-          aria-label={label}
-          title={label}
-          onClick={() => setTheme(value)}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground aria-checked:bg-background aria-checked:text-foreground aria-checked:shadow-xs dark:aria-checked:bg-accent"
-        >
-          <Icon aria-hidden className="size-3.5" />
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label="Appearance"
+      size="icon"
+      className="group-data-[collapsible=icon]:hidden"
+      value={theme}
+      onChange={setTheme}
+      options={themeOptions.map(({ value, label, Icon }) => ({ value, label: <Icon aria-hidden />, title: label }))}
+    />
   )
 }
 

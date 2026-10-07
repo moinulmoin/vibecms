@@ -61,8 +61,8 @@ export function BlogPreview({ name, address }: { name: string; address: string }
             </span>
           </div>
           <p className="mt-5 text-xs font-medium text-muted-foreground">Latest</p>
-          <div className="mt-2 rounded-lg bg-brand-bright/15 px-3.5 py-3 dark:bg-brand-bright/12">
-            <p className="text-sm font-medium text-primary">Your first post</p>
+          <div className="mt-2 rounded-lg bg-selected px-3.5 py-3">
+            <p className="text-sm font-medium text-selected-foreground">Your first post</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Your agent drafts it and sends you a private preview. It goes live when you say yes.
             </p>

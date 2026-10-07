@@ -48,6 +48,23 @@
   --sidebar-border: oklch(1 0 0 / 0.08);
 }
 
+/* "Selected" is one decision, not a class string per component: the page you
+   are on, the chosen font, the picked cover all read the same. */
+:root {
+  --selected: oklch(0.7423 0.1585 154.53 / 0.15);
+  --selected-foreground: var(--primary);
+  --selected-border: oklch(0.7423 0.1585 154.53 / 0.7);
+}
+.dark {
+  --selected: oklch(0.8107 0.1705 152.72 / 0.12);
+  --selected-border: oklch(0.8107 0.1705 152.72 / 0.6);
+}
+@theme inline {
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-selected-border: var(--selected-border);
+}
+
 /* Reserve the scrollbar gutter so pages that scroll and pages that don't
    share one left edge (the centered shell otherwise shifts ~8px). */
 html {
