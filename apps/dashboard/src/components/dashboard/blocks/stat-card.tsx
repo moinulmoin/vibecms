@@ -18,14 +18,14 @@ export function StatCard({
     <div
       className={cn(
         'h-full px-4 py-5 sm:px-5 sm:py-6',
-        interactive && 'transition-colors duration-150 hover:bg-muted/35 active:bg-muted/50',
+        interactive && 'transition-colors duration-150 hover:bg-accent active:bg-accent',
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{label}</p>
         {Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : null}
       </div>
-      <p className="mt-2.5 font-display text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground">{value}</p>
+      <p className="mt-2 font-display text-[1.75rem] font-medium tabular-nums tracking-[-0.03em] text-foreground">{value}</p>
       {detail ? <p className="mt-1.5 font-sans text-sm leading-5 text-muted-foreground">{detail}</p> : null}
     </div>
   )
@@ -35,7 +35,7 @@ export function StatCardGrid({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        'grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-5',
+        'grid overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-5',
         '[&>*]:border-b [&>*]:border-border [&>*:last-child]:border-b-0',
         'sm:[&>*:nth-child(odd)]:border-r sm:[&>*:nth-child(n+3)]:border-b-0 sm:[&>*:last-child]:border-r-0',
         'xl:[&>*]:border-b-0 xl:[&>*:not(:last-child)]:border-r',

@@ -194,7 +194,7 @@ function CoverPicker({
           role="radio"
           aria-checked={!value}
           onClick={() => onChange('')}
-          className={`${tile} flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground ${!value ? 'border-foreground' : 'border-border hover:border-ring/50'}`}
+          className={`${tile} flex flex-col items-center justify-center gap-1 text-xs text-muted-foreground ${!value ? 'border-selected-border ring-2 ring-selected' : 'border-border hover:border-foreground/25'}`}
         >
           <ImageOff aria-hidden className="size-4" /> None
         </button>
@@ -206,7 +206,7 @@ function CoverPicker({
             aria-checked={asset.id === value}
             title={asset.altText || asset.filename}
             onClick={() => onChange(asset.id)}
-            className={`${tile} ${asset.id === value ? 'border-foreground ring-2 ring-foreground/20' : 'border-border hover:border-ring/50'}`}
+            className={`${tile} ${asset.id === value ? 'border-selected-border ring-2 ring-selected' : 'border-border hover:border-foreground/25'}`}
           >
             <img src={`/media-assets/${asset.id}?w=320`} alt={asset.altText || asset.filename} loading="lazy" className="size-full object-cover" />
           </button>

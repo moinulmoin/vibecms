@@ -1,3 +1,4 @@
+import { SegmentedControl } from '~/components/ui/segmented-control'
 import {
   readingTimeMinutes,
   renderRichContent,
@@ -98,7 +99,7 @@ function ToolbarButton({
       title={label}
       onClick={onClick}
       className={`inline-grid size-7 place-items-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+        active ? 'bg-background text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground'
       }`}
     >
       {children}
@@ -149,17 +150,17 @@ export function PreviewPane({
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Preview · matches your live blog</p>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0.5" role="group" aria-label="Preview width">
-              <ToolbarButton active={width === 'desktop'} label="Desktop width" onClick={() => setWidth('desktop')}>
-                <Monitor className="size-3.5" />
-              </ToolbarButton>
-              <ToolbarButton active={width === 'tablet'} label="Tablet width" onClick={() => setWidth('tablet')}>
-                <Tablet className="size-3.5" />
-              </ToolbarButton>
-              <ToolbarButton active={width === 'phone'} label="Phone width" onClick={() => setWidth('phone')}>
-                <Smartphone className="size-3.5" />
-              </ToolbarButton>
-            </div>
+            <SegmentedControl
+              label="Preview width"
+              size="icon"
+              value={width}
+              onChange={setWidth}
+              options={[
+                { value: 'desktop', label: <Monitor aria-hidden />, title: 'Desktop width' },
+                { value: 'tablet', label: <Tablet aria-hidden />, title: 'Tablet width' },
+                { value: 'phone', label: <Smartphone aria-hidden />, title: 'Phone width' },
+              ]}
+            />
             <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
             <ToolbarButton
               active={false}

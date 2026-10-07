@@ -14,7 +14,7 @@ function StepIndicator({ step }: { step: { current: number; total: number } }) {
               <span
                 className={[
                   'block h-1 rounded-full transition-[width,background-color] duration-300 ease-out',
-                  n === step.current ? 'w-8 bg-brand-bright' : n < step.current ? 'w-4 bg-brand-bright/60' : 'w-4 bg-foreground/15',
+                  n === step.current ? 'w-8 bg-primary' : n < step.current ? 'w-4 bg-primary/50' : 'w-4 bg-foreground/15',
                 ].join(' ')}
               />
               <span className="sr-only">{STEP_NAMES[index] ?? `Step ${n}`}</span>
@@ -30,7 +30,7 @@ function StepIndicator({ step }: { step: { current: number; total: number } }) {
 }
 
 /**
- * Frame for the two onboarding screens: no sidebar, a soft brand glow, a step
+ * Frame for the two onboarding screens: no sidebar, a calm surface, a step
  * indicator, and an optional side panel (live preview / live agent status).
  */
 export function OnboardingFrame({
@@ -48,11 +48,6 @@ export function OnboardingFrame({
 }) {
   return (
     <div className="relative isolate min-h-svh overflow-x-clip">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-280px] -z-10 h-[560px] w-[min(1100px,140vw)] -translate-x-1/2 rounded-full opacity-90"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-primary), transparent)' }}
-      />
       <main className={`mx-auto flex min-h-svh w-full flex-col px-5 py-8 sm:px-8 sm:py-10 ${aside ? 'max-w-5xl' : 'max-w-xl'}`}>
         <div className="flex items-center justify-between gap-3">
           <a
@@ -73,10 +68,10 @@ export function OnboardingFrame({
         >
           <div className="min-w-0">
             <header className="mb-8 space-y-2.5">
-              <h1 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[2.125rem]">
+              <h1 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-foreground">
                 {title}
               </h1>
-              {description ? <p className="max-w-[46ch] text-pretty text-base leading-7 text-muted-foreground">{description}</p> : null}
+              {description ? <p className="max-w-[46ch] text-pretty text-[1.0625rem] leading-7 text-muted-foreground">{description}</p> : null}
             </header>
             {children}
           </div>
