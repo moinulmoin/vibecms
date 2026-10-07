@@ -131,7 +131,17 @@ Landing primitives (`components/landing/primitives.tsx`):
 - **`GreenCard`** - green gradient surface. The rare deliberate green fill - reserve for the single highest-emphasis moment.
 - **`DotGrid`** / **`Glow`** - ambient background texture (radial dot mask, blurred brand glow).
 
-Dashboard primitives live in `components/dashboard/DashboardPrimitives.tsx`.
+Dashboard primitives live in `components/dashboard/blocks/`. The dashboard
+follows a docs-UI language (reference: Fumadocs): its own token overrides in
+`apps/dashboard/src/styles.css` (soft page tone, translucent `--border` /
+`--input` / `--accent`, the landing keeps the shared values); a grouped
+sidebar with section labels and a brand-tinted active item (`bg-brand-bright/15`
++ `text-primary`); a Light/Dark/System segmented switch in the sidebar
+footer; flat `rounded-lg` controls (one filled primary per screen, no
+gradient); status as a dot + word (`StatusBadge`), never a filled pill;
+list rows separated by space with a hover wash, not rules; code blocks on
+`bg-card` with an icon title and an icon-only copy button; no ambient glow
+inside the app or on sign-in/onboarding.
 Radius scale anchored at `--radius: 0.625rem` (10px; controls are never pill-shaped) (`radius-sm`…`radius-2xl`).
 Cards only wrap genuinely interactive/bounded things - no decorative cards, no
 nesting (per PRODUCT.md "just enough").
