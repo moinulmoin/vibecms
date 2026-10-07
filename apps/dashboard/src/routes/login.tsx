@@ -30,7 +30,7 @@ function HowItWorks() {
     { Icon: Globe, title: 'It’s live', detail: 'On your own blog, with every version kept.' },
   ]
   return (
-    <div className="rounded-2xl border border-border bg-card/70 p-6 shadow-sm backdrop-blur-sm">
+    <div className="rounded-xl border border-border bg-card p-6">
       <p className="text-sm font-medium text-muted-foreground">How it works</p>
       <ol className="mt-5 grid gap-5">
         {steps.map(({ Icon, title, detail }, index) => (
@@ -40,7 +40,7 @@ function HowItWorks() {
             ) : null}
             <span
               aria-hidden
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand-bright/35 bg-brand-bright/10 text-foreground"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background text-primary"
             >
               <Icon className="size-4" />
             </span>
@@ -67,12 +67,6 @@ function LoginPage() {
 
   return (
     <div className="relative isolate min-h-svh overflow-x-clip bg-background text-foreground">
-      {/* Same soft brand glow as onboarding, so sign-in → setup → first draft reads as one flow. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-300px] -z-10 h-[600px] w-[min(1100px,150vw)] -translate-x-1/2 rounded-full"
-        style={{ background: 'radial-gradient(closest-side, var(--glow-primary), transparent)' }}
-      />
       <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 py-8 sm:px-8">
         <a
           href={BRAND.marketingUrl}

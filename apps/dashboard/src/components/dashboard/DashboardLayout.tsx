@@ -26,6 +26,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -41,8 +42,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
@@ -58,18 +57,41 @@ import type { AppChoice } from '~/types/dashboard'
 
 type IconType = ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
 type NavItem = { label: string; to: string; Icon: IconType; editorsOnly?: boolean }
+type NavSection = { label?: string; items: NavItem[] }
 
-const navItems: NavItem[] = [
-  { label: 'Overview', to: '/dashboard', Icon: LayoutDashboard },
-  { label: 'Posts', to: '/dashboard/posts', Icon: FileText },
-  { label: 'Media', to: '/dashboard/media', Icon: Image, editorsOnly: true },
-  { label: 'Subscribers', to: '/dashboard/subscribers', Icon: Users, editorsOnly: true },
-  { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
-  { label: 'Activity', to: '/dashboard/activity', Icon: Activity },
-  { label: 'Connect', to: '/dashboard/connect', Icon: Link2, editorsOnly: true },
-  { label: 'Theme', to: '/dashboard/theme', Icon: Palette, editorsOnly: true },
-  { label: 'Settings', to: '/dashboard/settings', Icon: Settings, editorsOnly: true },
+/** Grouped like a docs sidebar: the writing loop first, then who reads it, who writes it, and how it looks. */
+const navSections: NavSection[] = [
+  {
+    items: [
+      { label: 'Overview', to: '/dashboard', Icon: LayoutDashboard },
+      { label: 'Posts', to: '/dashboard/posts', Icon: FileText },
+      { label: 'Media', to: '/dashboard/media', Icon: Image, editorsOnly: true },
+    ],
+  },
+  {
+    label: 'Readers',
+    items: [
+      { label: 'Subscribers', to: '/dashboard/subscribers', Icon: Users, editorsOnly: true },
+      { label: 'Analytics', to: '/dashboard/analytics', Icon: ChartNoAxesCombined },
+    ],
+  },
+  {
+    label: 'Agents',
+    items: [
+      { label: 'Connect', to: '/dashboard/connect', Icon: Link2, editorsOnly: true },
+      { label: 'Activity', to: '/dashboard/activity', Icon: Activity },
+    ],
+  },
+  {
+    label: 'Site',
+    items: [
+      { label: 'Theme', to: '/dashboard/theme', Icon: Palette, editorsOnly: true },
+      { label: 'Settings', to: '/dashboard/settings', Icon: Settings, editorsOnly: true },
+    ],
+  },
 ]
+
+const navItems: NavItem[] = navSections.flatMap((section) => section.items)
 
 const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
 const shortDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
@@ -146,7 +168,6 @@ const themeOptions: Array<{ value: AppTheme; label: string; Icon: IconType }> = 
 
 function UserMenu({ userEmail }: { userEmail?: string }) {
   const [isPending, startTransition] = useTransition()
-  const { theme, setTheme } = useAppTheme()
   const initials = (userEmail?.[0] ?? 'U').toUpperCase()
 
   const signOut = () => {
@@ -170,16 +191,15 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              size="lg"
               aria-label="Account menu"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="h-9 gap-2 rounded-lg px-1.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="size-8 rounded-lg">
-                <AvatarFallback className="rounded-lg bg-muted font-mono text-sm text-foreground">
+              <Avatar className="size-7 rounded-md">
+                <AvatarFallback className="rounded-md bg-secondary font-mono text-xs text-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{userEmail ?? 'Account'}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{userEmail ?? 'Account'}</span>
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
@@ -192,16 +212,6 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
             <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
               {userEmail ?? 'Account'}
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="pb-1 text-xs font-normal text-muted-foreground">Appearance</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as AppTheme)}>
-              {themeOptions.map(({ value, label, Icon }) => (
-                <DropdownMenuRadioItem key={value} value={value} onSelect={(event) => event.preventDefault()}>
-                  <Icon aria-hidden className="size-4 text-muted-foreground" />
-                  {label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={isPending}
@@ -220,27 +230,32 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
   )
 }
 
+/** Fumadocs-style item: muted at rest, a faint fill on hover, tinted brand when it's the page you're on. */
+const NAV_ITEM =
+  'h-9 gap-2.5 rounded-lg px-2 text-[0.9375rem] font-normal text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground data-[active=true]:bg-brand-bright/15 data-[active=true]:font-medium data-[active=true]:text-primary data-[active=true]:hover:bg-brand-bright/20 dark:data-[active=true]:bg-brand-bright/12 dark:data-[active=true]:hover:bg-brand-bright/16 [&>svg]:size-4'
+
 function DashboardNavigation({ current, role }: { current: string; role?: 'owner' | 'editor' | 'viewer' }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const closeMobileNavigation = () => {
     if (isMobile) setOpenMobile(false)
   }
 
-  return (
-    <SidebarGroup className="px-2 py-3">
-      <SidebarMenu className="gap-0.5">
-        {navItems
-          .filter((item) => role !== 'viewer' || !item.editorsOnly)
-          .map(({ label, to, Icon }) => {
+  return navSections.map((section, index) => {
+    const items = section.items.filter((item) => role !== 'viewer' || !item.editorsOnly)
+    if (items.length === 0) return null
+    return (
+      <SidebarGroup key={section.label ?? index} className={index === 0 ? 'px-3 pt-2 pb-0' : 'px-3 pt-4 pb-0'}>
+        {section.label ? (
+          <SidebarGroupLabel className="mb-0.5 h-7 px-2 text-[0.8125rem] font-medium text-muted-foreground/80">
+            {section.label}
+          </SidebarGroupLabel>
+        ) : null}
+        <SidebarMenu className="gap-0.5">
+          {items.map(({ label, to, Icon }) => {
             const active = current === to || (to !== '/dashboard' && current.startsWith(to))
             return (
               <SidebarMenuItem key={to}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={active}
-                  tooltip={label}
-                  className="h-9 px-2.5 text-[0.9375rem] font-normal text-muted-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:[&>svg]:text-primary [&>svg]:size-[1.05rem]"
-                >
+                <SidebarMenuButton asChild isActive={active} tooltip={label} className={NAV_ITEM}>
                   <Link to={to} onClick={closeMobileNavigation} aria-current={active ? 'page' : undefined}>
                     <Icon aria-hidden />
                     <span>{label}</span>
@@ -249,8 +264,36 @@ function DashboardNavigation({ current, role }: { current: string; role?: 'owner
               </SidebarMenuItem>
             )
           })}
-      </SidebarMenu>
-    </SidebarGroup>
+        </SidebarMenu>
+      </SidebarGroup>
+    )
+  })
+}
+
+/** Light / Dark / System as one segmented control, like the docs sidebar footer. */
+function ThemeSwitch() {
+  const { theme, setTheme } = useAppTheme()
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Appearance"
+      className="flex items-center rounded-lg border bg-secondary/50 p-0.5 group-data-[collapsible=icon]:hidden"
+    >
+      {themeOptions.map(({ value, label, Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={theme === value}
+          aria-label={label}
+          title={label}
+          onClick={() => setTheme(value)}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground aria-checked:bg-background aria-checked:text-foreground aria-checked:shadow-xs dark:aria-checked:bg-accent"
+        >
+          <Icon aria-hidden className="size-3.5" />
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -383,7 +426,7 @@ export function AppShell({
           Skip to content
         </a>
         <Sidebar collapsible="icon" role="complementary" aria-label="Dashboard sidebar">
-          <SidebarHeader>
+          <SidebarHeader className="px-3 pt-3 pb-1">
             <SidebarMenu>
               <SidebarMenuItem>
                 <SiteSwitcher
@@ -400,8 +443,13 @@ export function AppShell({
             <DashboardNavigation current={current} role={currentRole} />
           </SidebarContent>
 
-          <SidebarFooter>
-            <UserMenu userEmail={userEmail} />
+          <SidebarFooter className="gap-1 border-t border-sidebar-border p-3">
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <UserMenu userEmail={userEmail} />
+              </div>
+              <ThemeSwitch />
+            </div>
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>

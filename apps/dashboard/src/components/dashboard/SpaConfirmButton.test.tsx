@@ -57,7 +57,7 @@ describe('SpaConfirmButton two-step interaction', () => {
     )
 
     expect(button().textContent).toBe('Revoke token')
-    expect(button().className).toContain('bg-background')
+    expect(button().className).toContain('border-border')
     expect(button().className).not.toContain('bg-destructive')
     expect(helper()).toBeNull()
 

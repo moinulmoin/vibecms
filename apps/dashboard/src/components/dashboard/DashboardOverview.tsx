@@ -366,11 +366,12 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
             </Button>
           ) : undefined}
         >
-          <ul className="grid">
+          {/* The one bounded block on the page: the work that is waiting on you. */}
+          <ul className="grid gap-0.5 rounded-xl border bg-card p-1.5">
             {reviewQueue.map((post) => (
               <li
                 key={post.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]"
               >
                 <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
                   {isAgentActor(post.latestActorType) ? (

@@ -254,7 +254,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
 
       {posts.length ? (
         <div className={query.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-          <ul className="grid">
+          <ul className="grid gap-0.5">
             {posts.map((post) => (
               <PostRow
                 key={post.id}
@@ -383,20 +383,20 @@ function PostRow({
 
   return (
     // The title link stretches over the row (after:inset-0), so the whole row
-    // opens the editor; controls sit above it (relative z-10). The hairline is
-    // inset to the content edge while the hover wash bleeds past it.
-    <li className={`relative -mx-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-3 py-3.5 transition-colors after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-px after:bg-[color:var(--hairline)] last:after:hidden md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_10rem] ${canEdit ? 'hover:bg-muted/50 has-[a[data-row-link]:focus-visible]:bg-muted/50 has-[[aria-expanded=true]]:bg-muted/50' : ''}`}>
+    // opens the editor; controls sit above it (relative z-10). No rules between
+    // rows: spacing separates them and the hover wash bleeds past the edge.
+    <li className={`relative -mx-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-3 py-3 transition-colors md:grid-cols-[minmax(0,1fr)_11.5rem_11rem_10rem] ${canEdit ? 'hover:bg-accent has-[a[data-row-link]:focus-visible]:bg-accent has-[[aria-expanded=true]]:bg-accent' : ''}`}>
       <div className="col-span-2 min-w-0 md:col-span-1">
         {canEdit ? (
           <Link
             {...editorLink}
             data-row-link=""
-            className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground no-underline outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
+            className="block truncate font-display text-base font-medium tracking-[-0.01em] text-foreground no-underline outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
           >
             {title}
           </Link>
         ) : (
-          <strong className="block truncate font-display text-base font-semibold tracking-[-0.015em] text-foreground">{title}</strong>
+          <strong className="block truncate font-display text-base font-medium tracking-[-0.01em] text-foreground">{title}</strong>
         )}
         <p className="mt-0.5 truncate text-sm text-muted-foreground">
           {post.excerpt ? post.excerpt : <span className="font-mono text-xs">/{post.slug}</span>}

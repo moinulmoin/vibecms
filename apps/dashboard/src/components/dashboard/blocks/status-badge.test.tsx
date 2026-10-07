@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 describe('StatusBadge vocabulary', () => {
-  it('uses a glowing dot for successful states', () => {
+  it('marks successful states with a brand dot', () => {
     const { container, unmount } = renderStatus('connected')
     expect(container.querySelector('[class*="bg-brand-bright"]')).not.toBeNull()
     unmount()
@@ -33,12 +33,13 @@ describe('StatusBadge vocabulary', () => {
 
   it('keeps draft states neutral and unknown states muted-dashed', () => {
     const draft = renderStatus('unpublished')
-    expect(draft.container.firstElementChild?.className).toContain('bg-muted')
-    expect(draft.container.querySelector('[class*="rounded-full bg-brand-bright"]')).toBeNull()
+    expect(draft.container.firstElementChild?.getAttribute('data-tone')).toBe('draft')
+    expect(draft.container.firstElementChild?.className).toContain('text-muted-foreground')
+    expect(draft.container.querySelector('[class*="bg-brand-bright"]')).toBeNull()
     draft.unmount()
 
     const unknown = renderStatus('something_new')
-    expect(unknown.container.firstElementChild?.className).toContain('border-dashed')
+    expect(unknown.container.querySelector('[class*="border-dashed"]')).not.toBeNull()
     unknown.unmount()
   })
 })

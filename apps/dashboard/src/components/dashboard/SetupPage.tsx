@@ -33,39 +33,41 @@ export function BlogPreview({ name, address }: { name: string; address: string }
   const named = name.trim().length > 0
   return (
     <figure className="m-0">
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_24px_48px_-32px_oklch(0_0_0/0.45)]" aria-hidden="true">
+      <div className="overflow-hidden rounded-xl border border-border bg-card" aria-hidden="true">
         <div className="flex items-center gap-2 border-b border-[color:var(--hairline)] px-3.5 py-2.5">
           <span className="flex gap-1.5">
             <span className="size-2 rounded-full bg-foreground/15" />
             <span className="size-2 rounded-full bg-foreground/15" />
             <span className="size-2 rounded-full bg-foreground/15" />
           </span>
-          <span className="ml-1 min-w-0 truncate rounded-md bg-muted/70 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+          <span className="ml-1 min-w-0 truncate rounded-md border bg-background px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
             {address}
           </span>
         </div>
-        <div className="px-6 pb-7 pt-6">
-          <p
-            className={[
-              'truncate font-display text-[1.375rem] font-semibold tracking-[-0.03em] transition-colors duration-200',
-              named ? 'text-foreground' : 'text-muted-foreground/60',
-            ].join(' ')}
-          >
-            {named ? name.trim() : 'Your blog'}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Written with your agent</p>
-          <div className="mt-6 space-y-5">
-            <div className="rounded-lg border border-dashed border-brand-bright/45 bg-brand-bright/[0.06] px-3.5 py-3">
-              <p className="text-[13px] font-medium text-foreground">Your first post lands here</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Your agent drafts it. It goes live when you say yes.</p>
-            </div>
-            {[0.82, 0.64].map((width) => (
-              <div key={width} className="space-y-2">
-                <div className="h-2.5 rounded-full bg-foreground/10" style={{ width: `${width * 100}%` }} />
-                <div className="h-2 w-2/5 rounded-full bg-foreground/[0.06]" />
-              </div>
-            ))}
+        <div className="px-6 pb-8 pt-5">
+          <div className="flex items-center justify-between gap-4 border-b border-[color:var(--hairline)] pb-4">
+            <p
+              className={[
+                'min-w-0 truncate font-display text-[1.0625rem] font-semibold tracking-[-0.02em] transition-colors duration-200',
+                named ? 'text-foreground' : 'text-muted-foreground',
+              ].join(' ')}
+            >
+              {named ? name.trim() : 'Your blog'}
+            </p>
+            <span className="flex shrink-0 gap-3 text-xs text-muted-foreground">
+              <span>Posts</span>
+              <span>About</span>
+              <span>RSS</span>
+            </span>
           </div>
+          <p className="mt-5 text-xs font-medium text-muted-foreground">Latest</p>
+          <div className="mt-2 rounded-lg bg-brand-bright/15 px-3.5 py-3 dark:bg-brand-bright/12">
+            <p className="text-sm font-medium text-primary">Your first post</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Your agent drafts it and sends you a private preview. It goes live when you say yes.
+            </p>
+          </div>
+          <p className="mt-4 px-3.5 text-xs leading-5 text-muted-foreground">Every post you approve shows up here, newest first.</p>
         </div>
       </div>
       <figcaption className="mt-3 text-center text-xs text-muted-foreground">Live preview</figcaption>
