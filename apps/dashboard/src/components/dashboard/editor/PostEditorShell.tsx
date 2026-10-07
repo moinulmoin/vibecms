@@ -192,7 +192,7 @@ function SplitPane({ ratio, onRatio, left, right }: { ratio: number; onRatio: (r
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex items-center rounded-lg border border-border p-0.5">
+    <div role="radiogroup" aria-label={label} className="flex items-center rounded-lg border bg-secondary/50 p-0.5">
       {options.map((option) => (
         <button
           key={option.value}
@@ -200,7 +200,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
           role="radio"
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`rounded-md px-2.5 py-1 text-sm transition-colors ${value === option.value ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`rounded-md px-2.5 py-1 text-sm transition-colors ${value === option.value ? 'bg-background font-medium text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground'}`}
         >
           {option.label}
         </button>

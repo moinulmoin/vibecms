@@ -75,7 +75,7 @@ export function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 
 
 function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (value: AnalyticsRange) => void }) {
   return (
-    <nav className="flex gap-0.5 overflow-x-auto rounded-lg border border-border p-0.5" aria-label="Date range">
+    <nav className="flex gap-0.5 overflow-x-auto rounded-lg border bg-secondary/50 p-0.5" aria-label="Date range">
       {RANGE_OPTIONS.map((option) => (
         <button
           key={option}
@@ -84,7 +84,7 @@ function RangeControl({ value, onChange }: { value: AnalyticsRange; onChange: (v
           onClick={() => onChange(option)}
           className={cn(
             'rounded-md px-3 py-1.5 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            value === option ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+            value === option ? 'bg-background font-medium text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {option === 'all' ? 'All' : option === 365 ? '1y' : `${option}d`}

@@ -98,7 +98,7 @@ function ToolbarButton({
       title={label}
       onClick={onClick}
       className={`inline-grid size-7 place-items-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+        active ? 'bg-background text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground'
       }`}
     >
       {children}
@@ -149,7 +149,7 @@ export function PreviewPane({
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Preview · matches your live blog</p>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0.5" role="group" aria-label="Preview width">
+            <div className="flex items-center gap-0.5 rounded-lg border bg-secondary/50 p-0.5" role="group" aria-label="Preview width">
               <ToolbarButton active={width === 'desktop'} label="Desktop width" onClick={() => setWidth('desktop')}>
                 <Monitor className="size-3.5" />
               </ToolbarButton>

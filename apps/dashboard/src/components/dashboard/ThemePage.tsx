@@ -215,8 +215,8 @@ function MiniRender({ width = 1180, children }: { width?: number; children: Reac
   )
 }
 
-// Label column + control column, so every segmented control starts on one line.
-const CONTROL_ROW = 'grid grid-cols-[6.25rem_minmax(0,1fr)] items-center gap-3 [&>*:last-child]:justify-self-start'
+// Label above, control across the full column: every option fits on one line at any rail width.
+const CONTROL_ROW = 'grid gap-1.5'
 
 function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
@@ -233,15 +233,18 @@ function Segmented<T extends string>({
   onChange,
   label,
   disabled = false,
+  fill = false,
 }: {
   value: T
   options: { value: T; label: React.ReactNode; title?: string }[]
   onChange: (value: T) => void
   label: string
   disabled?: boolean
+  /** Stretch across the column with equal-width options (the labelled rows). */
+  fill?: boolean
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-lg border border-border p-0.5">
+    <div role="radiogroup" aria-label={label} className={cn('rounded-lg border bg-secondary/50 p-0.5', fill ? 'flex w-full' : 'inline-flex')}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -252,8 +255,9 @@ function Segmented<T extends string>({
           disabled={disabled}
           onClick={() => onChange(option.value)}
           className={cn(
-            'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-            value === option.value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+            'inline-flex h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+            fill && 'min-w-0 flex-1 px-2',
+            value === option.value ? 'bg-background font-medium text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {option.label}
@@ -549,7 +553,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                   // A button centers its content vertically; pin it to the top so cards
                   // with shorter descriptions line up with their neighbours.
                   'group flex flex-col justify-start overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                  isCurrent ? 'border-foreground/40 ring-1 ring-foreground/20' : 'border-border hover:border-foreground/25',
+                  isCurrent ? 'border-brand-bright/60 ring-1 ring-brand-bright/30' : 'border-border hover:border-foreground/25',
                 )}
               >
                 <div className="border-b border-border bg-muted/40">
@@ -580,7 +584,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                     </span>
                     <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{preset.designIntent}</span>
                   </span>
-                  {isCurrent ? <Check className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden /> : null}
+                  {isCurrent ? <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden /> : null}
                 </div>
               </button>
             )
@@ -651,7 +655,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                     onClick={() => setSelectedFont(font.id)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                      isCurrent ? 'border-foreground/25 bg-muted/60' : 'border-transparent hover:bg-muted/40',
+                      isCurrent ? 'border-transparent bg-brand-bright/15 dark:bg-brand-bright/12' : 'border-transparent hover:bg-accent',
                     )}
                   >
                     <span
@@ -662,7 +666,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                       Aa
                     </span>
                     <span className="flex-1 text-sm text-foreground">{font.name}</span>
-                    {isCurrent ? <Check className="size-4 shrink-0 text-foreground" aria-hidden /> : null}
+                    {isCurrent ? <Check className="size-4 shrink-0 text-primary" aria-hidden /> : null}
                   </button>
                 )
               })}
@@ -674,18 +678,18 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
             <div className="grid gap-3">
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Navigation</span>
-                <Segmented label="Navigation" disabled={!editable} value={selectedChrome} onChange={setSelectedChrome}
+                <Segmented fill label="Navigation" disabled={!editable} value={selectedChrome} onChange={setSelectedChrome}
                   options={TEMPLATE_CHROMES.map((value) => ({ value, label: CHROME_LABELS[value] }))} />
               </div>
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Home page</span>
-                <Segmented label="Home page" disabled={!editable} value={selectedIndex}
+                <Segmented fill label="Home page" disabled={!editable} value={selectedIndex}
                   onChange={(value) => { setSelectedIndex(value); setPreviewPage('home') }}
                   options={TEMPLATE_INDEXES.map((value) => ({ value, label: INDEX_LABELS[value] }))} />
               </div>
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Article header</span>
-                <Segmented label="Article header" disabled={!editable} value={selectedHeader}
+                <Segmented fill label="Article header" disabled={!editable} value={selectedHeader}
                   onChange={(value) => { setSelectedHeader(value); setPreviewPage('article') }}
                   options={TEMPLATE_HEADERS.map((value) => ({ value, label: HEADER_LABELS[value] }))} />
               </div>
@@ -697,7 +701,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
             <div className="grid gap-3">
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Corners</span>
-                <Segmented
+                <Segmented fill
                   label="Corner radius"
                   disabled={!editable}
                   value={selectedRadius}
@@ -707,7 +711,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
               </div>
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Reading width</span>
-                <Segmented
+                <Segmented fill
                   label="Reading width"
                   disabled={!editable}
                   value={selectedWidth}
