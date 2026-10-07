@@ -140,7 +140,11 @@ sidebar with section labels; one **selected** state from tokens
 current page, chosen font, picked cover and chosen template; one
 `SegmentedControl` (`components/ui/segmented-control.tsx`) for every
 single-choice toggle (editor modes, preview width, date range, theme rows,
-the sidebar's Light/Dark/System switch). Never restyle these per page:
+the sidebar's Light/Dark/System switch); one `Steps` / `Step` block
+(`blocks/steps.tsx`) for every ordered sequence (onboarding, the live agent
+checklist, the first-run guide, the sign-in explainer): numbered markers
+joined by a rail, states `done` / `current` / `upcoming` / `plain`, and
+the current step's button is the screen's one primary. Never restyle these per page:
 change the token or the component; flat `rounded-lg` controls (one filled primary per screen, no
 gradient); status as a dot + word (`StatusBadge`), never a filled pill;
 list rows separated by space with a hover wash, not rules; code blocks on

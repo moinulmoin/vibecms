@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { contextQuery, queryClient } from '~/lib/queries'
 import { BRAND, FREE_TIER, LEGAL } from '@vc/config'
-import { Bot, Check, Globe } from 'lucide-react'
 import { useEffect } from 'react'
 import { AuthForm, type AuthIntent } from '~/components/AuthForm'
+import { Step, Steps } from '~/components/dashboard/blocks'
 import { clearSessionSecrets } from '~/lib/token-flash'
 
 type LoginSearch = { intent?: AuthIntent }
@@ -25,32 +25,18 @@ export const Route = createFileRoute('/login')({
 /** The loop people are signing up for: agent drafts, you approve, it's live. */
 function HowItWorks() {
   const steps = [
-    { Icon: Bot, title: 'Your agent drafts', detail: 'From Claude Code, Codex, Cursor, or any MCP client.' },
-    { Icon: Check, title: 'You approve', detail: 'Read the private preview. Nothing goes live without you.' },
-    { Icon: Globe, title: 'It’s live', detail: 'On your own blog, with every version kept.' },
+    { title: 'Your agent drafts', detail: 'From Claude Code, Codex, Cursor, or any MCP client.' },
+    { title: 'You approve', detail: 'Read the private preview. Nothing goes live without you.' },
+    { title: 'It’s live', detail: 'On your own blog, with every version kept.' },
   ]
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <p className="text-sm font-medium text-muted-foreground">How it works</p>
-      <ol className="mt-5 grid gap-5">
-        {steps.map(({ Icon, title, detail }, index) => (
-          <li key={title} className="relative flex gap-3.5">
-            {index < steps.length - 1 ? (
-              <span aria-hidden className="absolute left-4 top-9 h-[calc(100%-0.75rem)] w-px bg-border" />
-            ) : null}
-            <span
-              aria-hidden
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background text-primary"
-            >
-              <Icon className="size-4" />
-            </span>
-            <span className="min-w-0 pt-0.5">
-              <span className="block text-[0.9375rem] font-medium text-foreground">{title}</span>
-              <span className="mt-0.5 block text-sm leading-6 text-muted-foreground">{detail}</span>
-            </span>
-          </li>
+      <Steps className="mt-5">
+        {steps.map(({ title, detail }, index) => (
+          <Step key={title} n={index + 1} state="plain" title={title} detail={detail} />
         ))}
-      </ol>
+      </Steps>
       <p className="mt-6 border-t border-[color:var(--hairline)] pt-4 text-sm text-muted-foreground">
         Free to try, no card. Your first {FREE_TIER.publishedPosts} posts are on us.
       </p>
