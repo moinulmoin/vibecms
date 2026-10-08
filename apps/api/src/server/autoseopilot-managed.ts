@@ -815,9 +815,6 @@ export async function provisionManagedSite(
     throw conflict('CONFLICT', 'Use revoke to revoke an active managed site.')
   }
 
-  // Every remaining path leaves the binding active, possibly after a write.
-  await assertActivePublicUrl(environment, current, db)
-
   if (currentIsRevoked) {
     classifyGeneration(current, request.credential.generation)
     if (request.credential.generation !== current.credentialGeneration + 1) {
@@ -826,6 +823,7 @@ export async function provisionManagedSite(
     if (current.apiKeyHash === tokenHash) {
       throw conflict('CREDENTIAL_CONFLICT', 'A new generation requires a new credential.')
     }
+    await assertActivePublicUrl(environment, current, db)
     const rotated = await rotateManagedCredential(
       db,
       externalWorkspaceId,
@@ -847,6 +845,7 @@ export async function provisionManagedSite(
     if (current.entitlementExpiresAt === requestedExpiry) {
       return managedMutationResult(environment, current, correlationId, 200)
     }
+    await assertActivePublicUrl(environment, current, db)
     const reconciled = await reconcileManagedEntitlement(
       db,
       externalWorkspaceId,
@@ -862,6 +861,7 @@ export async function provisionManagedSite(
   if (current.apiKeyHash === tokenHash) {
     throw conflict('CREDENTIAL_CONFLICT', 'A new generation requires a new credential.')
   }
+  await assertActivePublicUrl(environment, current, db)
   const rotated = await rotateManagedCredential(
     db,
     externalWorkspaceId,
