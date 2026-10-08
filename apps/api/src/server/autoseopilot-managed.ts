@@ -3,6 +3,7 @@ import {
   createDataAccess,
   evaluateEffectiveHostedEntitlement,
   normalizeManagedOwnerEmail,
+  type DataAccess,
   type ManagedSiteSnapshot,
 } from '@vc/db'
 import { isReservedSiteSlug, SITE_SLUG_MAX_LENGTH } from '@vc/validators'
@@ -122,25 +123,32 @@ export const managedRevokeRequestSchema = z
 export type ManagedProvisionRequest = z.infer<typeof managedProvisionRequestSchema>
 export type ManagedRevokeRequest = z.infer<typeof managedRevokeRequestSchema>
 
-export type ManagedReceipt = {
+type ManagedReceiptBase = {
   externalWorkspaceId: string
   workspaceId: string
   siteId: string
   siteName: string
   apiKeyId: string
   apiKeyPrefix: string
-  publicUrl: string | null
+  correlationId: string
+}
+
+type ManagedReceiptState<Status extends 'active' | 'revoked', PublicUrl> = {
+  publicUrl: PublicUrl
   entitlement: {
-    status: 'active' | 'revoked'
+    status: Status
     expiresAt: string | null
     effective: boolean
   }
   lifecycle: {
     revision: number
-    status: 'active' | 'revoked'
+    status: Status
   }
-  correlationId: string
 }
+
+// An active receipt always carries a usable public URL; only a revoked receipt may omit it.
+export type ManagedReceipt = ManagedReceiptBase &
+  (ManagedReceiptState<'active', string> | ManagedReceiptState<'revoked', string | null>)
 
 type ManagedEnvironment = Pick<
   Cloudflare.Env,
@@ -306,6 +314,10 @@ function assertOwnerAndCredential(
   }
 }
 
+function publicUrlUnavailable() {
+  return new ManagedInternalError('INTERNAL_ERROR', 'Managed public URL is unavailable.', 500)
+}
+
 async function publicUrl(
   environment: ManagedEnvironment,
   snapshot: ManagedSiteSnapshot,
@@ -330,6 +342,16 @@ async function publicUrl(
     }
   }
   return publicUrlForHostname(hostname)
+}
+
+// Checked before any write that leaves the binding active, so an unresolvable public URL
+// fails the provision without committing a rotation, reactivation, or reconciliation.
+async function assertActivePublicUrl(
+  environment: ManagedEnvironment,
+  snapshot: ManagedSiteSnapshot,
+  db: DataAccess,
+) {
+  if (!(await publicUrl(environment, snapshot, db, true))) throw publicUrlUnavailable()
 }
 
 async function resolveReceipt(
@@ -364,27 +386,31 @@ async function resolveReceipt(
     db,
     options.repairLocalHostname ?? true,
   )
-  if (snapshot.entitlementStatus === 'active' && !resolvedPublicUrl) {
-    throw new ManagedInternalError('INTERNAL_ERROR', 'Managed public URL is unavailable.', 500)
-  }
-  return {
+  const base: ManagedReceiptBase = {
     externalWorkspaceId: snapshot.externalWorkspaceId,
     workspaceId: snapshot.workspaceId,
     siteId: snapshot.siteId,
     siteName: snapshot.siteName,
     apiKeyId: snapshot.apiKeyId,
     apiKeyPrefix: snapshot.apiKeyPrefix,
-    publicUrl: resolvedPublicUrl,
-    entitlement: {
-      status: snapshot.entitlementStatus,
-      expiresAt: expiryIso(snapshot.entitlementExpiresAt),
-      effective: entitlement.effective,
-    },
-    lifecycle: {
-      revision: snapshot.lifecycleRevision,
-      status: snapshot.entitlementStatus,
-    },
     correlationId,
+  }
+  const expiresAt = expiryIso(snapshot.entitlementExpiresAt)
+  const revision = snapshot.lifecycleRevision
+  if (snapshot.entitlementStatus === 'active') {
+    if (!resolvedPublicUrl) throw publicUrlUnavailable()
+    return {
+      ...base,
+      publicUrl: resolvedPublicUrl,
+      entitlement: { status: 'active', expiresAt, effective: entitlement.effective },
+      lifecycle: { revision, status: 'active' },
+    }
+  }
+  return {
+    ...base,
+    publicUrl: resolvedPublicUrl,
+    entitlement: { status: 'revoked', expiresAt, effective: entitlement.effective },
+    lifecycle: { revision, status: 'revoked' },
   }
 }
 
@@ -650,9 +676,7 @@ export async function provisionManagedSite(
       throw conflict('SLUG_CONFLICT', 'The requested site slug is already in use.')
     }
     const publicHostname = defaultPublicHostname(siteSlug, environment.PUBLIC_BLOG_DOMAIN)
-    if (!publicHostname) {
-      throw new ManagedInternalError('INTERNAL_ERROR', 'Managed public URL is unavailable.', 500)
-    }
+    if (!publicHostname) throw publicUrlUnavailable()
     const ids = newProvisionIds(externalWorkspaceId, request.credential.generation)
     const snapshotInput = {
       timestamp,
@@ -708,6 +732,7 @@ export async function provisionManagedSite(
           throw conflict('CREDENTIAL_CONFLICT', 'The managed credential does not match.')
         }
         if (snapshot.entitlementExpiresAt !== expirySeconds(request.entitlement.expiresAt)) {
+          await assertActivePublicUrl(environment, snapshot, db)
           snapshot = await reconcileManagedEntitlement(
             db,
             externalWorkspaceId,
@@ -742,6 +767,9 @@ export async function provisionManagedSite(
           winner.apiKeyHash === tokenHash &&
           winner.entitlementStatus === 'active'
         ) {
+          if (winner.entitlementExpiresAt !== expirySeconds(request.entitlement.expiresAt)) {
+            await assertActivePublicUrl(environment, winner, db)
+          }
           const recovered =
             winner.entitlementExpiresAt === expirySeconds(request.entitlement.expiresAt)
               ? winner
@@ -786,6 +814,9 @@ export async function provisionManagedSite(
     }
     throw conflict('CONFLICT', 'Use revoke to revoke an active managed site.')
   }
+
+  // Every remaining path leaves the binding active, possibly after a write.
+  await assertActivePublicUrl(environment, current, db)
 
   if (currentIsRevoked) {
     classifyGeneration(current, request.credential.generation)

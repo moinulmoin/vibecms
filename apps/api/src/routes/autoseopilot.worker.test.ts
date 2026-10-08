@@ -110,6 +110,18 @@ describe('managed AutoSEOPilot internal routes', () => {
     )
     expect(missingPublicDomain.status).toBe(500)
     expect((await json(missingPublicDomain)).error.code).toBe('INTERNAL_ERROR')
+    const missingPublicDomainRows = await env.DB
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM sites WHERE id = ?) AS sites,
+           (SELECT COUNT(*) FROM autoseopilot_managed_sites WHERE external_workspace_id = ?) AS bindings`,
+      )
+      .bind(
+        'site_autoseopilot_00000000-0000-4000-8000-000000000906',
+        '00000000-0000-4000-8000-000000000906',
+      )
+      .first<{ sites: number; bindings: number }>()
+    expect(missingPublicDomainRows).toEqual({ sites: 0, bindings: 0 })
 
     const malformed = await request(
       `/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`,
@@ -792,5 +804,76 @@ describe('managed AutoSEOPilot internal routes', () => {
     const afterReconcileBody = await json(afterReconcile)
     expect(afterReconcileBody.lifecycle.revision).toBe(3)
     expect(afterReconcileBody.entitlement.expiresAt).toBe('2030-01-01T00:00:00.000Z')
+  })
+
+  it('fails active provisions without committing when no public URL resolves', async () => {
+    const externalWorkspaceId = '00000000-0000-4000-8000-000000000921'
+    const credentialId = '00000000-0000-4000-8000-000000000922'
+    const firstToken = ['vc', 'test', 'g'.repeat(32)].join('_') + '_'
+    const rotatedToken = ['vc', 'test', 'h'.repeat(32)].join('_') + '_'
+    const path = `/internal/autoseopilot/sites/${externalWorkspaceId}`
+    const body = (rawToken: string, generation: number, expiresAt: string | null = null) =>
+      JSON.stringify(
+        provisionBody({
+          ownerEmail: 'no-url-owner@example.test',
+          siteName: 'No URL Site',
+          credential: { rawToken, credentialId, generation },
+          entitlement: { status: 'active', expiresAt },
+        }),
+      )
+    const put = (payload: string) =>
+      request(path, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: payload })
+    const state = () =>
+      env.DB
+        .prepare(
+          `SELECT m.credential_generation AS generation, m.lifecycle_revision AS revision,
+                  m.entitlement_status AS status, m.entitlement_expires_at AS expiresAt,
+                  (SELECT COUNT(*) FROM api_keys k WHERE k.site_id = m.site_id) AS keys,
+                  (SELECT COUNT(*) FROM api_keys k WHERE k.site_id = m.site_id AND k.revoked_at IS NULL) AS activeKeys
+             FROM autoseopilot_managed_sites m WHERE m.external_workspace_id = ?`,
+        )
+        .bind(externalWorkspaceId)
+        .first()
+
+    const first = await put(body(firstToken, 1))
+    expect(first.status).toBe(201)
+    const { siteId } = await json(first)
+    await env.DB
+      .prepare("UPDATE domains SET status = 'disabled' WHERE site_id = ? AND type = 'default'")
+      .bind(siteId)
+      .run()
+    const before = await state()
+
+    const replay = await put(body(firstToken, 1))
+    expect(replay.status).toBe(500)
+    expect((await json(replay)).error.code).toBe('INTERNAL_ERROR')
+
+    const reconcile = await put(body(firstToken, 1, '2030-01-01T00:00:00Z'))
+    expect(reconcile.status).toBe(500)
+    expect((await json(reconcile)).error.code).toBe('INTERNAL_ERROR')
+
+    const rotation = await put(body(rotatedToken, 2))
+    expect(rotation.status).toBe(500)
+    expect((await json(rotation)).error.code).toBe('INTERNAL_ERROR')
+    expect(await state()).toEqual(before)
+
+    const get = await request(path)
+    expect(get.status).toBe(500)
+
+    const revoke = await request(`${path}/revoke`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ credentialId, generation: 1 }),
+    })
+    expect(revoke.status).toBe(200)
+    expect(await json(revoke)).toMatchObject({
+      publicUrl: null,
+      lifecycle: { status: 'revoked', revision: 2 },
+    })
+
+    const reactivation = await put(body(rotatedToken, 2))
+    expect(reactivation.status).toBe(500)
+    expect((await json(reactivation)).error.code).toBe('INTERNAL_ERROR')
+    expect(await state()).toMatchObject({ generation: 1, status: 'revoked', revision: 2, activeKeys: 0 })
   })
 })
