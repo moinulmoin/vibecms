@@ -844,6 +844,17 @@ describe('managed AutoSEOPilot internal routes', () => {
       .run()
     const before = await state()
 
+    // Deterministic rejections still win over the missing public URL.
+    const tokenConflict = await put(body(rotatedToken, 1))
+    expect(tokenConflict.status).toBe(409)
+    expect((await json(tokenConflict)).error.code).toBe('CREDENTIAL_CONFLICT')
+    const gap = await put(body(rotatedToken, 3))
+    expect(gap.status).toBe(409)
+    expect((await json(gap)).error.code).toBe('GENERATION_GAP')
+    const sameTokenRotation = await put(body(firstToken, 2))
+    expect(sameTokenRotation.status).toBe(409)
+    expect((await json(sameTokenRotation)).error.code).toBe('CREDENTIAL_CONFLICT')
+
     const replay = await put(body(firstToken, 1))
     expect(replay.status).toBe(500)
     expect((await json(replay)).error.code).toBe('INTERNAL_ERROR')
@@ -870,6 +881,16 @@ describe('managed AutoSEOPilot internal routes', () => {
       publicUrl: null,
       lifecycle: { status: 'revoked', revision: 2 },
     })
+
+    const staleAfterRevoke = await put(body(firstToken, 1))
+    expect(staleAfterRevoke.status).toBe(409)
+    expect((await json(staleAfterRevoke)).error.code).toBe('STALE_GENERATION')
+    const reusedTokenAfterRevoke = await put(body(firstToken, 2))
+    expect(reusedTokenAfterRevoke.status).toBe(409)
+    expect((await json(reusedTokenAfterRevoke)).error.code).toBe('CREDENTIAL_CONFLICT')
+    const gapAfterRevoke = await put(body(rotatedToken, 3))
+    expect(gapAfterRevoke.status).toBe(409)
+    expect((await json(gapAfterRevoke)).error.code).toBe('GENERATION_GAP')
 
     const reactivation = await put(body(rotatedToken, 2))
     expect(reactivation.status).toBe(500)
