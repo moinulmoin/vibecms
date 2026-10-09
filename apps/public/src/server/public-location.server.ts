@@ -24,7 +24,7 @@ function hostHeader(request: Request): string {
 export type PublicLocationIngress =
   | { kind: "direct" }
   | { kind: "proxied"; location: PublicLocation; path: string }
-  | { kind: "health"; siteId: string | null; proxyId: string | null }
+  | { kind: "health"; siteId: string | null; proxyFingerprint: string | null }
   | { kind: "not-found" };
 
 /**
@@ -53,6 +53,16 @@ async function hostedEntitled(
  * never render a page. Also handles `/_vc/health` in both modes (proxied
  * traffic arrives as `/_vc/p/<id>/_vc/health`).
  */
+/**
+ * The proxy id works like a credential (whoever knows it can call the
+ * ingress directly), so the health probe never echoes it. The setup check
+ * compares this short SHA-256 fingerprint against the one it computes.
+ */
+export async function proxyFingerprint(proxyId: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(proxyId));
+  return [...new Uint8Array(digest).slice(0, 6)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function resolvePublicLocationIngress(
   db: D1Database,
   request: Request,
@@ -65,7 +75,7 @@ export async function resolvePublicLocationIngress(
   if (!ingress) {
     if (pathname !== "/_vc/health") return { kind: "direct" };
     const site = host ? await data.publicBlog.resolveSiteByHost(host) : null;
-    return { kind: "health", siteId: site?.id ?? null, proxyId: null };
+    return { kind: "health", siteId: site?.id ?? null, proxyFingerprint: null };
   }
 
   const proxyId = ingress[1]!;
@@ -75,7 +85,7 @@ export async function resolvePublicLocationIngress(
   ]);
   if (!site || !subpath || subpath.siteId !== site.id) return { kind: "not-found" };
   const path = ingress[2] || "/";
-  if (path === "/_vc/health") return { kind: "health", siteId: site.id, proxyId };
+  if (path === "/_vc/health") return { kind: "health", siteId: site.id, proxyFingerprint: await proxyFingerprint(proxyId) };
   // The subpath mount is a paid location: once the site's entitlement lapses
   // it stops serving even though `resolveSiteByHost` still resolves the
   // default host (free reads stay allowed there).

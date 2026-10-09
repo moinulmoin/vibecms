@@ -63,7 +63,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
     if (ingress.kind === "health") {
       const response = Response.json(
-        { ok: true, siteId: ingress.siteId, proxyId: ingress.proxyId },
+        { ok: true, siteId: ingress.siteId, proxyFingerprint: ingress.proxyFingerprint },
         { headers: { "cache-control": "no-store" } },
       );
       applyPublicSecurityHeaders("/_vc/health", response.headers.get("content-type"), response.headers);

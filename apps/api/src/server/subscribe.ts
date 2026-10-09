@@ -14,7 +14,9 @@ export const RATE_LIMIT_WINDOW_SECONDS = 3600
 // someone calling /_vc/p/<id> directly only exhausts their own bucket, not the
 // one real visitors share through the customer's proxy. Direct traffic keys on
 // CF-Connecting-IP already and is not capped here. 300/hour leaves room for a
-// post that goes viral.
+// post that goes viral. Residual risk: whoever holds a site's proxy id (a
+// credential, see plans/022) can add up to this many junk signups per hour per
+// real IP they control; rotating the proxy id ends it. No emails are sent.
 export const PROXIED_SITE_RATE_LIMIT_MAX = 300
 const BODY_SIZE_LIMIT = 4096
 const EMAIL_MAX_LENGTH = 254

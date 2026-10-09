@@ -9,7 +9,7 @@ import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { parsePublicRuntimeEnv } from "./public-url";
 import { proxiedLocation, publicLocationRequest } from "./public-location";
-import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./public-location.server";
+import { ingressStateForPass, primaryLocationRedirect, proxyFingerprint, resolvePublicLocationIngress } from "./public-location.server";
 import {
   handlePublicPostByHostGet,
   loadPublicIndexByHost,
@@ -191,9 +191,11 @@ describe("proxy ingress", () => {
 
   it("serves _vc/health in both modes", async () => {
     const proxiedHealth = await resolvePublicLocationIngress(env.DB, request(`/_vc/p/${PROXY_ID}/_vc/health`), `/_vc/p/${PROXY_ID}/_vc/health`, runtimeEnv);
-    expect(proxiedHealth).toEqual({ kind: "health", siteId: "site-spl", proxyId: PROXY_ID });
+    expect(proxiedHealth).toEqual({ kind: "health", siteId: "site-spl", proxyFingerprint: await proxyFingerprint(PROXY_ID) });
+    // The probe never echoes the proxy id itself.
+    expect(JSON.stringify(proxiedHealth)).not.toContain(PROXY_ID);
     const directHealth = await resolvePublicLocationIngress(env.DB, request("/_vc/health"), "/_vc/health", runtimeEnv);
-    expect(directHealth).toEqual({ kind: "health", siteId: "site-spl", proxyId: null });
+    expect(directHealth).toEqual({ kind: "health", siteId: "site-spl", proxyFingerprint: null });
   });
 });
 

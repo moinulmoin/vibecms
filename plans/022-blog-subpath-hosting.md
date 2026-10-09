@@ -37,9 +37,11 @@ under the tenant's own host.
   (`default` | `custom` | `subpath`). New migration; never edit old ones.
   `base_path` is lowercase, starts with `/`, 1-3 segments, no trailing slash, and must not
   start with a vibecms-reserved segment (`/_vc`, `/api`, `/_astro`, `/media-assets`, `/og`).
-- `domains` gains `proxy_id`: a random, non-guessable id (24+ chars) used in the
-  proxy target URL. It isn't a secret: it identifies proxied traffic. Spoofing it only
-  renders our pages with the real customer canonical, so it's harmless. Rotatable.
+- `domains` gains `proxy_id`: a random 24-byte base64url id used in the proxy target URL.
+  **Treat it as a credential**: whoever knows it can call the ingress directly and send
+  forwarded-IP headers (see the subscribe rate limits). It lives only in the customer's proxy
+  config and our dashboard, is never rendered in public pages, and the health probe returns
+  only a short SHA-256 fingerprint of it. Rotatable (`rotateProxyId`) if it leaks.
 - A site has at most one `subpath` domain. Subpath hosting is a paid entitlement, like custom domains.
 - `validateCustomHostname` stays bare-host; a new `validateSubpathLocation(url)` parses
   `https://customer.com/blog` into hostname + base path. Refuse platform-zone and app hosts.
@@ -67,6 +69,8 @@ Middleware, before site resolution:
    belongs to the site resolved from the Host header.
 2. Build the proxied `PublicLocation` from that domain row and internally rewrite to `/<rest>`.
 3. Unknown or inactive id → 404 (never fall back to rendering).
+
+`/_vc/health` through the proxy returns `{ ok, siteId, proxyFingerprint }`, never the id.
 
 Putting the id in the path, not a header, means Vercel/Netlify rewrites (which can't add
 request headers) work unchanged. The customer's real host comes from our domain row, not
@@ -142,8 +146,11 @@ the root `robots.txt` lacks it. Our `/blog/robots.txt` is still served but only 
 
 - Page-view endpoint: the `Origin` check compares against `PublicLocation.origin`;
   referrer self-filter compares against the customer host.
-- Subscribe rate limit: proxied requests read the first `X-Forwarded-For` entry for the
-  IP hash (spoofable, but only affects the subscribe rate limit; keep the per-site cap).
+- Subscribe rate limit: proxied requests are marked (`x-vc-proxied`) and read the first
+  `X-Forwarded-For` entry for per-visitor fairness (client-influenced). The abuse bound is a
+  proxied cap of 300/hour per site per connecting edge IP. Residual risk: anyone holding the
+  proxy id can add up to 300 junk signups/hour per real IP they control (no emails are sent);
+  rotating the id ends it.
 - AI crawler counts today come from zone analytics per host; proxied crawler hits arrive
   at our default host only if the proxy forwards the UA. Snippets forward all request
   headers. The robust fix (count every request first-party, labelled human/agent) is 023.
@@ -155,8 +162,7 @@ the root `robots.txt` lacks it. Our `/blog/robots.txt` is still served but only 
   - Tabs give ready-to-paste snippets with the proxy URL filled in: **Cloudflare Worker**
     (code + route `customer.com/blog*`, a note on Free vs Paid limits), **Vercel / Next.js**
     (`rewrites`), **Netlify** (`_redirects` 200), **nginx**, **Caddy**.
-  - **Check setup** button: the API fetches `https://customer.com/blog/_vc/health` and expects
-    `{ siteId, proxyId }` back. It reports what's wrong in plain words: no response, wrong site,
+  - **Check setup** button: the API fetches `https://customer.com/blog/_vc/health` and expects `{ siteId, proxyFingerprint }` back and compares the fingerprint. It reports what's wrong in plain words: no response, wrong site,
     redirect loop, HTML cached by their CDN, missing sitemap line in root `robots.txt`.
   - Domain status uses the existing `pending/active/failed` vocabulary; the daily cron
     re-checks active subpath domains and flags breakage.
