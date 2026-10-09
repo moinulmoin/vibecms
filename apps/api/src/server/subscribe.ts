@@ -5,7 +5,14 @@ import { API_BINDING_HOSTNAME } from '@vc/config'
 import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from '@/lib/subscribe-consent'
 
 const RATE_LIMIT_MAX = 5
-const RATE_LIMIT_WINDOW_SECONDS = 3600
+export const RATE_LIMIT_WINDOW_SECONDS = 3600
+// Cap on accepted subscribes that carry a forwarded client IP (proxied subpath
+// blogs), per site per window. That IP is the client-controlled first
+// X-Forwarded-For hop, so the per-IP key can be gamed there; this is the abuse
+// bound for a flood rotating spoofed IPs. Direct traffic keys on
+// CF-Connecting-IP, which can't be spoofed, so it is not capped here. 300/hour
+// leaves room for a post that goes viral.
+export const PROXIED_SITE_RATE_LIMIT_MAX = 300
 const BODY_SIZE_LIMIT = 4096
 const EMAIL_MAX_LENGTH = 254
 const SITE_SLUG_MAX_LENGTH = 128
@@ -91,13 +98,18 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
   // HMAC-SHA256 hashes keyed by TOKEN_PEPPER; degrade to null when pepper absent
   const pepper = env.TOKEN_PEPPER ?? ''
-  // Only the public Worker forwards `x-vc-client-ip` (its X-Forwarded-For hop,
-  // set for proxied subpath blogs), and it always addresses the service
-  // binding at `https://<API_BINDING_HOSTNAME>`. Service bindings preserve the
-  // caller-supplied URL, and no zone can route internet traffic to that
-  // hostname — so hostname equality, not the caller-named `cf-worker` header
-  // (a zone name an attacker's own worker could match), is the trust signal.
-  // A client-spoofed header on a direct request is ignored.
+  // Only the public Worker forwards `x-vc-client-ip` (its first
+  // X-Forwarded-For hop, set for proxied subpath blogs), and it always
+  // addresses the service binding at `https://<API_BINDING_HOSTNAME>`.
+  // Service bindings preserve the caller-supplied URL, and no zone can route
+  // internet traffic to that hostname — so hostname equality, not the
+  // caller-named `cf-worker` header (a zone name an attacker's own worker
+  // could match), is the trust signal. A client-spoofed header on a direct
+  // request is ignored.
+  // The forwarded value itself is NOT trustworthy: X-Forwarded-For's first
+  // hop is client-controlled, so the per-IP bucket below only gives real
+  // visitors behind a proxy per-visitor fairness — the site-wide cap is the
+  // actual abuse bound.
   const viaBinding = new URL(request.url).hostname === API_BINDING_HOSTNAME
   const proxiedIp = viaBinding ? request.headers.get('x-vc-client-ip') ?? '' : ''
   const ip = proxiedIp || (request.headers.get('CF-Connecting-IP') ?? '')
@@ -105,12 +117,16 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
   const ipHash = ip && pepper ? await hmacBase64Url(pepper, ip) : null
   const uaHash = ua && pepper ? await hmacBase64Url(pepper, ua) : null
 
-  // Rate-limit keyed by canonical site id (not caller-supplied slug) + ip hash + window bucket.
-  // Fail closed on any error - this is an unauthenticated public endpoint.
+  // Two fixed-window buckets, both fail closed:
+  //  1. per-IP: keyed by site id + hashed client IP — fairness per visitor.
+  //     Spoofable via x-vc-client-ip on the binding path, so not a bound.
+  //  2. site-wide, proxied requests only: keyed by site id alone — the abuse
+  //     bound against floods that rotate spoofed forwarded IPs.
   const ts = Math.floor(Date.now() / 1000)
   const bucket = Math.floor(ts / RATE_LIMIT_WINDOW_SECONDS)
   const windowEnd = (bucket + 1) * RATE_LIMIT_WINDOW_SECONDS
   const rateLimitId = `subscribe:${siteId}:${ipHash ?? 'anon'}:${bucket}`
+  const siteRateLimitId = `subscribe-proxied:${siteId}:${bucket}`
 
   try {
     const rateLimits = createDataAccess(env.DB).rateLimits
@@ -127,6 +143,20 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
     if (!allowed) {
       return { status: 429, body: { ok: false, error: 'rate_limited' } }
+    }
+
+    // Proxied requests only, and only after the per-IP check passes so a
+    // blocked visitor does not spend the shared site budget.
+    if (proxiedIp) {
+      const siteWide = await rateLimits.increment({
+        id: siteRateLimitId,
+        windowExpiresAt: windowEnd,
+        max: PROXIED_SITE_RATE_LIMIT_MAX,
+        now: ts,
+      })
+      if (!siteWide.allowed) {
+        return { status: 429, body: { ok: false, error: 'rate_limited' } }
+      }
     }
   } catch (err) {
     // Fail closed - treat rate-limit check failure as rate_limited

@@ -7,6 +7,9 @@ import { apiBinding } from "../../server/runtime";
  * TOKEN_PEPPER on public). On proxied subpath blogs the client IP arrives as
  * X-Forwarded-For (CF-Connecting-IP is the proxy's edge); we hand the first
  * hop to the API on a dedicated header it only trusts from this binding.
+ * That first hop is client-influenced — a caller can send an arbitrary
+ * X-Forwarded-For — so the API uses it only for per-visitor rate-limit
+ * fairness; the API caps proxied subscribes per site, which is the actual abuse bound.
  * A client-spoofed x-vc-client-ip is always stripped.
  */
 export const POST: APIRoute = async (context) => {
