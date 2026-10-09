@@ -65,7 +65,7 @@ async function storedIpHash(email: string, siteId = 'site-sub-ip'): Promise<stri
 
 describe('handleSubscribe x-vc-client-ip trust', () => {
   it('uses the forwarded IP only on the service-binding hostname', async () => {
-    const forwarded = { 'x-vc-client-ip': '203.0.113.7', 'cf-connecting-ip': '198.51.100.2' }
+    const forwarded = { 'x-vc-client-ip': '203.0.113.7', 'x-vc-proxied': '1', 'cf-connecting-ip': '198.51.100.2' }
     const internal = await handleSubscribe(
       subscribeRequest('https://vibecms-api.internal/api/subscribe', 'via-binding@example.com', forwarded),
     )
@@ -107,6 +107,7 @@ describe('handleSubscribe x-vc-client-ip trust', () => {
     await handleSubscribe(
       subscribeRequest('https://vibecms-api.internal/api/subscribe', 'forged-ref@example.com', {
         'x-vc-client-ip': '203.0.113.99',
+        'x-vc-proxied': '1',
       }),
     )
     const bindingHash = await storedIpHash('forged-ref@example.com')
@@ -119,34 +120,68 @@ describe('handleSubscribe proxied site rate limit', () => {
   const BINDING_URL = 'https://vibecms-api.internal/api/subscribe'
   const DIRECT_URL = 'https://app.basedui.dev/api/subscribe'
 
-  it('bounds a flood rotating spoofed x-vc-client-ip at the proxied site cap', async () => {
-    // Fill the proxied site bucket to one below the cap, then rotate spoofed
-    // IPs: every per-IP bucket is fresh, so only the site bucket can stop it.
-    const now = Math.floor(Date.now() / 1000)
-    const bucket = Math.floor(now / RATE_LIMIT_WINDOW_SECONDS)
+  it('bounds a flood rotating spoofed x-vc-client-ip at the proxied cap', async () => {
+    // One proxy edge (the customer's proxy) carrying rotating spoofed forwarded
+    // IPs: every per-IP bucket is fresh, so only the proxied bucket stops it.
+    const proxy = { 'x-vc-proxied': '1', 'cf-connecting-ip': '198.51.100.10' }
+    const first = await handleSubscribe(
+      subscribeRequest(BINDING_URL, 'flood-0@example.com', { ...proxy, 'x-vc-client-ip': '203.0.113.0' }, 'sub-flood'),
+    )
+    expect(first.status).toBe(200)
+    // Fill that edge's proxied bucket to one below the cap.
     await env.DB
-      .prepare('INSERT INTO rate_limits (id, count, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-      .bind(`subscribe-proxied:site-sub-flood:${bucket}`, PROXIED_SITE_RATE_LIMIT_MAX - 1, (bucket + 1) * RATE_LIMIT_WINDOW_SECONDS, now, now)
+      .prepare("UPDATE rate_limits SET count = ? WHERE id LIKE 'subscribe-proxied:site-sub-flood:%'")
+      .bind(PROXIED_SITE_RATE_LIMIT_MAX - 1)
       .run()
     const last = await handleSubscribe(
-      subscribeRequest(BINDING_URL, 'flood-last@example.com', { 'x-vc-client-ip': '203.0.113.1' }, 'sub-flood'),
+      subscribeRequest(BINDING_URL, 'flood-last@example.com', { ...proxy, 'x-vc-client-ip': '203.0.113.1' }, 'sub-flood'),
     )
     expect(last.status).toBe(200)
     const over = await handleSubscribe(
-      subscribeRequest(BINDING_URL, 'flood-over@example.com', { 'x-vc-client-ip': '203.0.113.250' }, 'sub-flood'),
+      subscribeRequest(BINDING_URL, 'flood-over@example.com', { ...proxy, 'x-vc-client-ip': '203.0.113.250' }, 'sub-flood'),
     )
     expect(over.status).toBe(429)
-    // Denied request must not have written a subscriber row.
-    const row = await env.DB
-      .prepare('SELECT id FROM subscribers WHERE site_id = ? AND email = ?')
-      .bind('site-sub-flood', 'flood-over@example.com')
-      .first()
-    expect(row).toBeNull()
+    // Leaving out the forwarded IP can't skip the cap: still marked proxied.
+    const noIp = await handleSubscribe(
+      subscribeRequest(BINDING_URL, 'flood-noip@example.com', proxy, 'sub-flood'),
+    )
+    expect(noIp.status).toBe(429)
+    // Denied requests must not have written subscriber rows.
+    const rows = await env.DB
+      .prepare("SELECT id FROM subscribers WHERE site_id = ? AND email IN ('flood-over@example.com', 'flood-noip@example.com')")
+      .bind('site-sub-flood')
+      .all()
+    expect(rows.results).toHaveLength(0)
+    // Another edge (e.g. someone calling /_vc/p/<id> directly) has its own
+    // bucket, so the flood above can't lock out traffic arriving elsewhere.
+    const otherEdge = await handleSubscribe(
+      subscribeRequest(
+        BINDING_URL,
+        'flood-other-edge@example.com',
+        { 'x-vc-proxied': '1', 'cf-connecting-ip': '198.51.100.11', 'x-vc-client-ip': '192.0.2.44' },
+        'sub-flood',
+      ),
+    )
+    expect(otherEdge.status).toBe(200)
     // Direct traffic keys on CF-Connecting-IP and is not subject to the proxied cap.
     const direct = await handleSubscribe(
       subscribeRequest(DIRECT_URL, 'flood-direct@example.com', { 'cf-connecting-ip': '198.51.100.9' }, 'sub-flood'),
     )
     expect(direct.status).toBe(200)
+  })
+
+  it('ignores x-vc-client-ip on the binding unless the request is marked proxied', async () => {
+    const edge = { 'cf-connecting-ip': '198.51.100.30' }
+    await handleSubscribe(
+      subscribeRequest(BINDING_URL, 'unmarked-a@example.com', { ...edge, 'x-vc-client-ip': '203.0.113.31' }, 'sub-direct'),
+    )
+    await handleSubscribe(
+      subscribeRequest(BINDING_URL, 'unmarked-b@example.com', { ...edge, 'x-vc-client-ip': '203.0.113.32' }, 'sub-direct'),
+    )
+    // Both fell back to the same connecting IP, so they hash identically.
+    expect(await storedIpHash('unmarked-a@example.com', 'site-sub-direct')).toBe(
+      await storedIpHash('unmarked-b@example.com', 'site-sub-direct'),
+    )
   })
 
   it('still enforces the per-IP limit on direct requests', async () => {
@@ -168,7 +203,7 @@ describe('handleSubscribe proxied site rate limit', () => {
       subscribeRequest(
         BINDING_URL,
         'normal@example.com',
-        { 'x-vc-client-ip': '192.0.2.5' },
+        { 'x-vc-client-ip': '192.0.2.5', 'x-vc-proxied': '1', 'cf-connecting-ip': '198.51.100.200' },
         'sub-direct',
       ),
     )

@@ -113,10 +113,13 @@ describe("subscribe proxy POST handler", () => {
     // promoted (the API uses CF-Connecting-IP for direct traffic).
     const direct = await POST(makeContext(PAYLOAD, {
       "x-vc-client-ip": "9.9.9.9",
+      "x-vc-proxied": "1",
       "x-forwarded-for": "8.8.8.8",
     }));
     expect(direct.status).toBe(200);
     expect(forwarded[0]!.headers.get("x-vc-client-ip")).toBeNull();
+    // A client can't claim to be proxied either.
+    expect(forwarded[0]!.headers.get("x-vc-proxied")).toBeNull();
 
     // Proxied request: the first XFF hop is promoted to the trusted header.
     const context = makeContext(PAYLOAD, { "x-forwarded-for": "203.0.113.7, 10.0.0.1" });
@@ -128,5 +131,14 @@ describe("subscribe proxy POST handler", () => {
     };
     await POST(context);
     expect(forwarded[1]!.headers.get("x-vc-client-ip")).toBe("203.0.113.7");
+    expect(forwarded[1]!.headers.get("x-vc-proxied")).toBe("1");
+
+    // Proxied without X-Forwarded-For is still marked, so the API's proxied
+    // cap applies.
+    const bare = makeContext(PAYLOAD, {});
+    bare.locals.publicLocation = context.locals.publicLocation;
+    await POST(bare);
+    expect(forwarded[2]!.headers.get("x-vc-client-ip")).toBeNull();
+    expect(forwarded[2]!.headers.get("x-vc-proxied")).toBe("1");
   });
 });
