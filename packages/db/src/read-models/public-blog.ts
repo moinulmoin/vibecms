@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, ne, sql } from "drizzle-orm";
 import type { Presentation } from "@vc/config";
-import { firstParagraph } from "@vc/core";
+import { firstParagraph, type PrimaryPublicLocation, type SubpathDomainRow } from "@vc/core";
 import { createDbClient } from "../client";
 import { assets, billingCustomers, domains, postVersions, posts, sites } from "../schema";
 
@@ -22,6 +22,8 @@ export const PUBLIC_BLOG_LIMITS = {
    * Search is candidate-bound via a LIMIT subquery join (no ID bind list).
    */
   searchCandidates: 500,
+  /** Root-relative link candidates looked up per render (post body / feed). */
+  linkSlugCandidates: 200,
 } as const;
 
 /** Resolve only redirects whose target still has a live pinned version. */
@@ -73,6 +75,8 @@ export interface PublicSiteRow {
   currentPeriodEnd: number | null;
   publishedCount: number;
   resolvedDomainType?: "default" | "custom";
+  /** Canonical public mount (subpath > custom > default); drives primary-host redirects. */
+  primaryLocation: PrimaryPublicLocation | null;
 }
 
 // Summary projection for index/tag/search/sitemap/llms — no Markdown body.
@@ -172,6 +176,30 @@ function clampLimit(limit: number): number {
 }
 
 // Site projection shared by host/slug resolution: billing fields come from the LEFT JOIN (nullable).
+// Correlated primary-location projection (same precedence as the domain
+// repository's getPrimaryPublicLocation: subpath > custom > default, oldest
+// first). Carried as JSON so the site row stays one query.
+const primaryLocationJson = sql<string | null>`(
+  select json_object('type', d.type, 'hostname', d.hostname, 'basePath', coalesce(d.base_path, ''))
+  from domains d
+  where d.site_id = ${sites.id} and d.status = 'active'
+  order by case d.type when 'subpath' then 0 when 'custom' then 1 else 2 end, d.created_at asc, d.id asc
+  limit 1
+)`;
+
+function parsePrimaryLocation(json: string | null): PrimaryPublicLocation | null {
+  if (!json) return null;
+  try {
+    const value: unknown = JSON.parse(json);
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Record<string, unknown>;
+    const type = candidate.type === "subpath" || candidate.type === "custom" ? candidate.type : "default";
+    if (typeof candidate.hostname !== "string" || !candidate.hostname) return null;
+    return { type, hostname: candidate.hostname, basePath: typeof candidate.basePath === "string" ? candidate.basePath : "" };
+  } catch {
+    return null;
+  }
+}
 const siteResolveColumns = {
   id: sites.id,
   workspaceId: sites.workspaceId,
@@ -216,11 +244,14 @@ const siteResolveColumns = {
   billingStatus: billingCustomers.status,
   currentPeriodEnd: billingCustomers.currentPeriodEnd,
   publishedCount: sql<number>`(select count(*) from ${posts} where ${posts.siteId} = ${sites.id} and ${posts.status} = 'published')`.mapWith(Number),
+  primaryLocationJson,
 };
 
 export interface PublicBlogReadModel {
   resolveSiteByHost(host: string): Promise<PublicSiteRow | null>;
   resolveSingleSite(): Promise<PublicSiteRow | null>;
+  /** Active `subpath` row addressed by proxy id, on an active site (proxy ingress). */
+  resolveSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
   getPublishedPost(siteId: string, slug: string, now: number): Promise<PublicPostDetailRow | null>;
   listPublishedPostSummaries(siteId: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
   listPublishedPostSummariesByTag(siteId: string, tag: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
@@ -233,6 +264,8 @@ export interface PublicBlogReadModel {
     candidateLimit?: number,
   ): Promise<PublicPostSummaryRow[]>;
   listPublishedPostsForFeed(siteId: string, now: number, limit: number): Promise<PublicPostBodyRow[]>;
+  /** Which of the candidate link segments are published post slugs of this site. */
+  listPublishedPostSlugsIn(siteId: string, slugs: string[], now: number): Promise<string[]>;
 }
 
 // Escape LIKE pattern metacharacters (\, %, _) so user input matches literally under ESCAPE '\'.
@@ -292,13 +325,17 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
     async resolveSiteByHost(host: string) {
       // domains INNER JOIN sites LEFT JOIN billing_customers; active domain + active site filters.
       const rows = await client
-        .select({ ...siteResolveColumns, resolvedDomainType: domains.type })
+        .select({ ...siteResolveColumns, resolvedDomainType: sql<"default" | "custom">`${domains.type}` })
         .from(domains)
         .innerJoin(sites, eq(sites.id, domains.siteId))
         .leftJoin(billingCustomers, eq(billingCustomers.workspaceId, sites.workspaceId))
-        .where(and(eq(domains.hostname, host), eq(domains.status, "active"), eq(sites.status, "active")))
+        // Subpath rows are proxied locations (customer.com/blog), never host
+        // routing keys: the host must resolve to a default or custom row only.
+        .where(and(eq(domains.hostname, host), ne(domains.type, "subpath"), eq(domains.status, "active"), eq(sites.status, "active")))
         .limit(1);
-      return rows[0] ?? null;
+      const { primaryLocationJson: primaryJson, ...site } = rows[0] ?? {};
+      if (!site.id) return null;
+      return { ...site, primaryLocation: parsePrimaryLocation(primaryJson ?? null) } as PublicSiteRow;
     },
 
     async resolveSingleSite() {
@@ -308,7 +345,33 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .leftJoin(billingCustomers, eq(billingCustomers.workspaceId, sites.workspaceId))
         .where(eq(sites.status, "active"))
         .limit(2);
-      return rows.length === 1 ? rows[0] ?? null : null;
+      if (rows.length !== 1) return null;
+      const { primaryLocationJson: primaryJson, ...site } = rows[0]!;
+      return { ...site, primaryLocation: parsePrimaryLocation(primaryJson ?? null) } as PublicSiteRow;
+    },
+
+    async resolveSubpathByProxyId(proxyId) {
+      const rows = await client
+        .select({
+          id: domains.id,
+          siteId: domains.siteId,
+          hostname: domains.hostname,
+          basePath: domains.basePath,
+          proxyId: domains.proxyId,
+        })
+        .from(domains)
+        .innerJoin(sites, eq(sites.id, domains.siteId))
+        .where(
+          and(
+            eq(domains.proxyId, proxyId),
+            eq(domains.type, "subpath"),
+            eq(domains.status, "active"),
+            eq(sites.status, "active"),
+          ),
+        )
+        .limit(1);
+      const row = rows[0];
+      return row ? ({ ...row } satisfies SubpathDomainRow) : null;
     },
 
     async getPublishedPost(siteId: string, slug: string, now: number) {
@@ -452,6 +515,23 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .orderBy(desc(posts.publishedAt))
         .limit(capped);
       return fillMissingExcerpts(siteId, rows);
+    },
+
+    async listPublishedPostSlugsIn(siteId, slugs, now) {
+      // Candidates arrive already deduped and capped (linkSlugCandidates); the
+      // 50-row inArray chunks keep total binds under D1's 100-variable limit
+      // (publishedWhere itself binds siteId/status/now params).
+      const candidates = slugs.slice(0, PUBLIC_BLOG_LIMITS.linkSlugCandidates);
+      const found = new Set<string>();
+      for (let i = 0; i < candidates.length; i += 50) {
+        const rows = await client
+          .select({ slug: postVersions.slug })
+          .from(posts)
+          .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
+          .where(and(publishedWhere(siteId, now), inArray(postVersions.slug, candidates.slice(i, i + 50))));
+        for (const row of rows) found.add(row.slug);
+      }
+      return candidates.filter((slug) => found.has(slug));
     },
   };
 }

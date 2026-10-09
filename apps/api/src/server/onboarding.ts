@@ -1,5 +1,4 @@
 import { can, type Actor } from '@vc/core'
-import { listCustomDomains } from '@vc/core'
 import {
   BYLINE_NAME_MAX_LENGTH,
   resolveAccent,
@@ -388,12 +387,14 @@ export async function updateNewsletterSettingsForApp(
       timestamp,
       PUBLIC_BLOG_LIMITS.sitemapSummaries,
     )
-    const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
+    const domainRows = await createD1DomainRepository(env.DB).listBySite(app.siteId)
     scheduleSitePurge(
       app.siteId,
       currentSite.slug,
       published.map((row) => row.slug),
-      domainRows.map((domain) => domain.hostname).filter(Boolean),
+      domainRows
+        .filter((domain) => domain.type !== 'default')
+        .map((domain) => ({ hostname: domain.hostname, basePath: domain.basePath ?? '' })),
     )
   }
   return { kind: 'ok', code: 'newsletter_saved',
@@ -637,9 +638,11 @@ export async function updateSiteSettingsForApp(
     timestamp,
     PUBLIC_BLOG_LIMITS.sitemapSummaries,
   )
-  const domainRows = await listCustomDomains(createD1DomainRepository(env.DB), app.siteId)
-  const customHosts = domainRows.map((domain) => domain.hostname).filter(Boolean)
-  scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), customHosts)
+  const domainRows = await createD1DomainRepository(env.DB).listBySite(app.siteId)
+  const locations = domainRows
+    .filter((domain) => domain.type !== 'default')
+    .map((domain) => ({ hostname: domain.hostname, basePath: domain.basePath ?? '' }))
+  scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), locations)
 
   return { kind: 'ok', code: 'site_saved' }
 }

@@ -82,12 +82,16 @@ export const domains = sqliteTable("domains", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
   hostname: text("hostname").notNull().unique(),
-  type: text("type", { enum: ["default", "custom"] }).notNull(),
+  type: text("type", { enum: ["default", "custom", "subpath"] }).notNull(),
   status: text("status", { enum: ["pending", "active", "failed", "disabled"] }).notNull().default("pending"),
   cloudflareCustomHostnameId: text("cloudflare_custom_hostname_id"),
+  // Subpath hosting only: the public base path ("/blog") and the rotatable
+  // non-guessable id embedded in the proxy target URL. NULL on default/custom.
+  basePath: text("base_path"),
+  proxyId: text("proxy_id"),
   verificationErrorsJson: text("verification_errors_json"),
   ...timestamps,
-}, (table) => [index("idx_domains_site_id").on(table.siteId), index("idx_domains_hostname").on(table.hostname)]);
+}, (table) => [index("idx_domains_site_id").on(table.siteId), index("idx_domains_hostname").on(table.hostname), uniqueIndex("idx_domains_proxy_id").on(table.proxyId)]);
 
 export const posts = sqliteTable("posts", {
   id: text("id").primaryKey(),

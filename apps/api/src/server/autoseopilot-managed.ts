@@ -318,13 +318,28 @@ function publicUrlUnavailable() {
   return new ManagedInternalError('INTERNAL_ERROR', 'Managed public URL is unavailable.', 500)
 }
 
+// Public URL for the managed receipt: the site's primary location while its
+// effective entitlement is active — the same rule getSitePublicBaseUrl and
+// the public worker apply. A lapsed site falls back to its active default
+// host (the only location that still serves), never the rejected paid mount.
 async function publicUrl(
   environment: ManagedEnvironment,
   snapshot: ManagedSiteSnapshot,
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   repairLocalHostname: boolean,
+  entitled: boolean,
 ) {
-  let hostname = await db.sites.getActiveDefaultHostname(snapshot.siteId)
+  const primary = await db.domains.getPrimaryPublicLocation(snapshot.siteId)
+  // Non-default primaries (subpath/custom) need no repair: they are already
+  // the real customer-facing location (basePath non-empty only for subpath) —
+  // but only while the entitlement is effective.
+  if (primary && primary.type !== 'default' && entitled) {
+    const base = publicUrlForHostname(primary.hostname)
+    return base ? `${base}${primary.basePath}` : null
+  }
+  let hostname = primary?.type === 'default'
+    ? primary.hostname
+    : await db.sites.getActiveDefaultHostname(snapshot.siteId)
   if (
     hostname &&
     (hostname === 'localhost' || hostname.endsWith('.localhost')) &&
@@ -346,12 +361,14 @@ async function publicUrl(
 
 // Checked before any write that leaves the binding active, so an unresolvable public URL
 // fails the provision without committing a rotation, reactivation, or reconciliation.
+// Checks the default host (entitled = false): it is the fallback every receipt can land
+// on, while an entitled custom/subpath primary always resolves from its own hostname.
 async function assertActivePublicUrl(
   environment: ManagedEnvironment,
   snapshot: ManagedSiteSnapshot,
   db: DataAccess,
 ) {
-  if (!(await publicUrl(environment, snapshot, db, true))) throw publicUrlUnavailable()
+  if (!(await publicUrl(environment, snapshot, db, true, false))) throw publicUrlUnavailable()
 }
 
 async function resolveReceipt(
@@ -385,6 +402,7 @@ async function resolveReceipt(
     snapshot,
     db,
     options.repairLocalHostname ?? true,
+    entitlement.effective,
   )
   const base: ManagedReceiptBase = {
     externalWorkspaceId: snapshot.externalWorkspaceId,
@@ -509,7 +527,7 @@ function classifyRotationSnapshot(
 }
 
 async function rotateManagedCredential(
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   externalWorkspaceId: string,
   request: ManagedProvisionRequest,
   tokenHash: string,
@@ -580,7 +598,7 @@ async function rotateManagedCredential(
 }
 
 async function reconcileManagedEntitlement(
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   externalWorkspaceId: string,
   credentialId: string,
   current: ManagedSiteSnapshot,

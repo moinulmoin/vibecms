@@ -1746,18 +1746,103 @@ function absolutize(value: string, base: string): string {
   }
 }
 
-function rehypeAbsoluteUrls(opts: { baseUrl: string }): (tree: UnistNode) => void {
+/**
+ * Subpath hosting (plan 022): map same-site root-relative links onto the
+ * customer base path and `/media-assets/*` onto the asset origin. Any other
+ * root-relative link keeps its normal meaning — the customer site's root.
+ * Absolute `srcSet` values (already prefixed here) are skipped via `isAbs`.
+ */
+interface LocationLinkOpts {
+  readonly postBasePath?: string;
+  readonly postSlugs?: ReadonlySet<string>;
+  readonly assetOrigin?: string;
+}
+
+const MEDIA_ASSETS_PREFIX = "/media-assets/";
+
+function relocateRootUrl(value: string, opts: LocationLinkOpts): string {
+  if (!value.startsWith("/") || value.startsWith("//")) return value;
+  if (opts.assetOrigin && value.startsWith(MEDIA_ASSETS_PREFIX)) return opts.assetOrigin + value;
+  if (!opts.postBasePath || !opts.postSlugs?.size) return value;
+  const firstSegment = value.slice(1).split(/[/?#]/, 1)[0]!;
+  return opts.postSlugs.has(firstSegment) ? opts.postBasePath + value : value;
+}
+
+/**
+ * First path segments of every root-relative link target in `markdown` — the
+ * same candidates `relocateRootUrl` checks against `postSlugs` when deciding
+ * which `/…` links get the customer base path. Candidates come from the
+ * parsed hast (Markdown links plus raw `<a>`/`<img>` the sanitizer keeps), so
+ * detection agrees with the rendering path: `[![c](i.png)](/post)` and
+ * `<a href=/post>` both count. Callers look these up against the site's
+ * published slugs; the result is deduped and capped so the lookup stays
+ * bounded. `//host/…`, `/media-assets/…`, non-root-relative targets, and
+ * empty segments never produce candidates.
+ */
+export function collectRootLinkSlugs(markdown: string, cap = 200): string[] {
+  const slugs = new Set<string>();
+  const collect = (value: string | undefined) => {
+    if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith(MEDIA_ASSETS_PREFIX)) return;
+    const segment = value.slice(1).split(/[/?#]/, 1)[0];
+    if (segment) slugs.add(segment);
+  };
+  // Same parse the renderer applies (raw HTML re-parsed only when present);
+  // sanitize/output plugins can't add link targets, so the tree stops here.
+  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype, { allowDangerousHtml: true });
+  if (/<[A-Za-z!/?]/.test(markdown)) processor.use(rehypeRaw);
+  const tree = processor.runSync(processor.parse(markdown)) as unknown as HRoot;
+  walkEl(tree.children, (el) => {
+    if (slugs.size >= cap) return;
+    const p = el.properties;
+    if (typeof p.href === "string") collect(p.href);
+    if (typeof p.src === "string") collect(p.src);
+    if (typeof p.srcSet === "string") {
+      for (const part of p.srcSet.split(",")) collect(part.trim().split(/\s+/)[0]);
+    }
+  });
+  return [...slugs].slice(0, cap);
+}
+
+function rehypeLocationLinks(opts: LocationLinkOpts): (tree: UnistNode) => void {
+  const isAbs = (value: string) => /^[a-z][a-z0-9+.-]*:/i.test(value);
   return (tree) => {
     walkEl((tree as unknown as HRoot).children, (el) => {
       const p = el.properties;
-      if (typeof p.href === "string") p.href = absolutize(p.href, opts.baseUrl);
-      if (typeof p.src === "string") p.src = absolutize(p.src, opts.baseUrl);
+      if (typeof p.href === "string") p.href = relocateRootUrl(p.href, opts);
+      if (typeof p.src === "string" && !isAbs(p.src)) p.src = relocateRootUrl(p.src, opts);
       if (typeof p.srcSet === "string") {
         p.srcSet = p.srcSet
           .split(",")
           .map((part) => {
             const [url, ...desc] = part.trim().split(/\s+/);
-            return [absolutize(url ?? "", opts.baseUrl), ...desc].join(" ");
+            if (!url || isAbs(url)) return part;
+            return [relocateRootUrl(url, opts), ...desc].join(" ");
+          })
+          .join(", ");
+      }
+    });
+  };
+}
+
+function rehypeAbsoluteUrls(opts: { baseUrl: string; mediaBaseUrl?: string } & LocationLinkOpts): (tree: UnistNode) => void {
+  return (tree) => {
+    walkEl((tree as unknown as HRoot).children, (el) => {
+      const p = el.properties;
+      // Slug links go to the customer base path; media goes to the asset host.
+      if (typeof p.href === "string") p.href = absolutize(relocateRootUrl(p.href, { ...opts, assetOrigin: opts.mediaBaseUrl }), opts.baseUrl);
+      if (typeof p.src === "string") {
+        // Always absolutize: relocateRootUrl only rewrites /media-assets/* and
+        // slug links; other relative sources (images/a.png) must still resolve
+        // against the post's baseUrl or feed readers see a dead src.
+        p.src = absolutize(relocateRootUrl(p.src, { assetOrigin: opts.mediaBaseUrl }), opts.baseUrl);
+      }
+      if (typeof p.srcSet === "string") {
+        p.srcSet = p.srcSet
+          .split(",")
+          .map((part) => {
+            const [url, ...desc] = part.trim().split(/\s+/);
+            const base = url?.startsWith(MEDIA_ASSETS_PREFIX) && opts.mediaBaseUrl ? opts.mediaBaseUrl : opts.baseUrl;
+            return [absolutize(url ?? "", base), ...desc].join(" ");
           })
           .join(", ");
       }
@@ -1874,8 +1959,9 @@ export function renderRichContent(markdown: string, opts?: RenderOpts): RenderRe
     .use(rehypeBlocks, { target })
     .use(rehypeTables, { target })
     .use(rehypeImagePolish, { zoom: target === "web", target });
+  if (target === "web" && (opts?.postBasePath || opts?.assetOrigin)) pipeline.use(rehypeLocationLinks, opts);
   if (target === "web") pipeline.use(rehypeEmbeds);
-  if (target === "feed" && opts?.baseUrl) pipeline.use(rehypeAbsoluteUrls, { baseUrl: opts.baseUrl });
+  if (target === "feed" && opts?.baseUrl) pipeline.use(rehypeAbsoluteUrls, { baseUrl: opts.baseUrl, mediaBaseUrl: opts.assetOrigin, postBasePath: opts.postBasePath, postSlugs: opts.postSlugs });
 
   // Generated blocks (math, code, embeds) are injected after the early guards.
   pipeline.use(rehypeDepthGuard());

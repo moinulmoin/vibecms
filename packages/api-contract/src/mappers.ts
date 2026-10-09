@@ -63,16 +63,20 @@ export function mapSiteRow(
   row: SiteMapperRow | null,
   url: string | null,
   voiceProfile: SiteVoiceProfileMapper | null = null,
+  // Media stays on the platform default host even when `url` points at a
+  // custom/subpath location, so logos/favicons derive from this base instead.
+  assetUrl: string | null = url,
 ): SiteDto | null {
   if (!row) return null;
+  const assetOrigin = assetUrl ? new URL(assetUrl).origin : "";
   return {
     id: row.id,
     name: row.name,
     slug: row.slug,
     description: row.description,
     url,
-    logoUrl: row.logoAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.logoAssetId)}` : null,
-    faviconUrl: row.faviconAssetId ? `${url ? new URL(url).origin : ""}/media-assets/${encodeURIComponent(row.faviconAssetId)}` : null,
+    logoUrl: row.logoAssetId ? `${assetOrigin}/media-assets/${encodeURIComponent(row.logoAssetId)}` : null,
+    faviconUrl: row.faviconAssetId ? `${assetOrigin}/media-assets/${encodeURIComponent(row.faviconAssetId)}` : null,
     navLinks: parseSiteLinks(row.navLinksJson, navLinksSchema),
     socialLinks: parseSiteLinks(row.socialLinksJson, socialLinksSchema),
     voiceSeedUrls: parseVoiceSeedJson(row.voiceSeedJson),

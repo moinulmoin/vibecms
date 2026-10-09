@@ -81,6 +81,19 @@ export interface RenderOpts {
    * uses this for bounded responsive media variants; previews may omit it.
    */
   readonly resolveImage?: (src: string) => RenderedImageAttributes | null;
+  /**
+   * Subpath hosting (plan 022): root-relative links whose first path segment
+   * is one of `postSlugs` get this prefix ("/blog"); other root-relative links
+   * keep their normal meaning (the customer site's root).
+   */
+  readonly postBasePath?: string;
+  /** Published slugs of the blog; used with `postBasePath`. */
+  readonly postSlugs?: ReadonlySet<string>;
+  /**
+   * Origin/media base for `/media-assets/*` URLs. On a proxied blog this is
+   * the asset host (our domain), so media loads straight from it.
+   */
+  readonly assetOrigin?: string;
 }
 
 export interface RichContentFrameProps {

@@ -524,6 +524,8 @@ describe("DomainRepository (Drizzle) — conflict + reclaim contracts", () => {
         status: "pending",
         cloudflareCustomHostnameId: null,
         verificationErrorsJson: null,
+        basePath: null,
+        proxyId: null,
         createdAt: T_BASE,
         updatedAt: T_BASE,
       });

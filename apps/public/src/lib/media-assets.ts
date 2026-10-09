@@ -19,8 +19,8 @@ export function parseMediaWidthParam(raw: string | null | undefined): MediaRespo
   return width;
 }
 
-export function mediaAssetPath(assetId: string, width?: MediaResponsiveWidth): string {
-  const base = `/media-assets/${assetId}`;
+export function mediaAssetPath(assetId: string, width?: MediaResponsiveWidth, origin = ""): string {
+  const base = `${origin}/media-assets/${assetId}`;
   return width == null ? base : `${base}?w=${width}`;
 }
 
@@ -34,9 +34,9 @@ export type ResponsiveMediaUrls = {
  * Deterministic original src plus srcSet variant URLs for an asset id.
  * Consumers supply their own `sizes` attribute for layout context.
  */
-export function buildResponsiveMediaUrls(assetId: string): ResponsiveMediaUrls {
-  const src = mediaAssetPath(assetId);
-  const srcSet = MEDIA_RESPONSIVE_WIDTHS.map((width) => `${mediaAssetPath(assetId, width)} ${width}w`).join(", ");
+export function buildResponsiveMediaUrls(assetId: string, origin = ""): ResponsiveMediaUrls {
+  const src = mediaAssetPath(assetId, undefined, origin);
+  const srcSet = MEDIA_RESPONSIVE_WIDTHS.map((width) => `${mediaAssetPath(assetId, width, origin)} ${width}w`).join(", ");
   return {
     src,
     srcSet,
@@ -57,9 +57,10 @@ export type ResponsiveMediaAttributes = {
 export function resolveResponsiveMediaSource(
   source: string,
   sizes = "(max-width: 720px) calc(100vw - 32px), 720px",
+  origin = "",
 ): ResponsiveMediaAttributes | null {
   const match = /^\/media-assets\/([^/?#]+)$/.exec(source);
   if (!match?.[1]) return null;
-  const urls = buildResponsiveMediaUrls(match[1]);
+  const urls = buildResponsiveMediaUrls(match[1], origin);
   return { src: urls.src, srcSet: urls.srcSet, sizes };
 }

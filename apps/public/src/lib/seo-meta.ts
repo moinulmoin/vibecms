@@ -58,6 +58,8 @@ export interface SeoSiteInput {
   default_social_asset_width?: number | null;
   default_social_asset_height?: number | null;
   default_social_asset_alt_text?: string | null;
+  /** Canonical public mount; the OG card's footer label and version use it. */
+  primary_location?: { hostname: string; basePath: string } | null;
 }
 
 /** Resolve `path` against `origin` and return the absolute href. */
@@ -75,7 +77,10 @@ export type ResolvedSocialImage = {
 };
 
 function generatedCard(origin: string, post: SeoPostInput | null, site: SeoSiteInput): ResolvedSocialImage {
-  const version = ogCardVersion(site, post, new URL(origin).host);
+  // Must match og-route's version host exactly or every card renders twice:
+  // the card labels itself with the primary public mount (customer.com/blog).
+  const cardHost = site.primary_location ? `${site.primary_location.hostname}${site.primary_location.basePath}` : new URL(origin).host;
+  const version = ogCardVersion(site, post, cardHost);
   return {
     url: absoluteUrlPath(origin, `${ogImagePath(post?.slug)}?v=${version}`),
     alt: post ? post.title : site.name,
@@ -221,6 +226,10 @@ export interface PostHeadInput {
   canonicalUrl: string;
   origin: string;
   indexable: boolean;
+  /** Location base path for the markdown-twin URL ("/blog" or ""). */
+  basePath?: string;
+  /** Origin for media/OG image URLs; defaults to `origin`. */
+  assetOrigin?: string;
   generatedCards: boolean;
 }
 
@@ -234,12 +243,13 @@ export function buildPostHeadContent(input: PostHeadInput): {
   scripts: Array<{ type: string; children: string }>;
 } {
   const { post, site, canonicalUrl, origin, indexable } = input;
+  const assetOrigin = input.assetOrigin ?? origin;
 
   const seoTitle = post.seo_title || `${post.title} - ${site.name}`;
   const seoDescription = post.seo_description || post.excerpt || undefined;
   const effectiveCanonical = post.canonical_url || canonicalUrl;
   const absoluteCanonical = absoluteUrlPath(origin, effectiveCanonical);
-  const socialImage = resolveSocialImage(origin, post, site, input.generatedCards);
+  const socialImage = resolveSocialImage(assetOrigin, post, site, input.generatedCards);
 
   const meta: Array<Record<string, unknown>> = [{ title: seoTitle }];
   if (seoDescription) {
@@ -275,7 +285,7 @@ export function buildPostHeadContent(input: PostHeadInput): {
   }
 
   const servingSlug = post.slug ?? new URL(canonicalUrl, origin).pathname.replace(/^\//, "");
-  const markdownAlternate = new URL(`/${servingSlug}.md`, origin).href;
+  const markdownAlternate = new URL(`${input.basePath ?? ""}/${servingSlug}.md`, origin).href;
   const links: Array<Record<string, unknown>> = [
     { rel: 'canonical', href: absoluteCanonical },
     { rel: 'alternate', type: 'text/markdown', href: markdownAlternate },

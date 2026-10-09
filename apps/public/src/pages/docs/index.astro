@@ -18,28 +18,36 @@ import {
   publicPostRedirect,
 } from "../../server/public-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
+import { publicLocationRequest, publicUrl, type PublicLocation } from "../../server/public-location";
 import pageViewScriptUrl from "../../scripts/page-view.js?url";
 
 const env = publicRuntimeEnv(Astro);
 const marketing = !env.selfHosted && isMarketingHost(Astro.request, env);
 let blog: Awaited<ReturnType<typeof loadPublicPostForSite>> = null;
+const location: PublicLocation = Astro.locals.publicLocation ?? {
+  origin: new URL(Astro.request.url).origin,
+  basePath: "",
+  assetOrigin: new URL(Astro.request.url).origin,
+  proxied: false,
+};
+const pubRequest = publicLocationRequest(Astro.request, location, Astro.locals.publicPath ?? Astro.url.pathname);
 if (!marketing) {
   const db = publicDb(Astro);
-  const early = await handlePublicPostByHostGet(db, Astro.request, "docs", env);
+  const early = await handlePublicPostByHostGet(db, pubRequest, "docs", env, location);
   if (early) return early;
   const site = await resolveSite(Astro.request, db, env);
   if (!site) return new Response("Not found", { status: 404 });
   if (site.effective_entitlement.effective) {
-    const cachedHtml = await matchCachedPublicPostHtml(Astro.request, site.id);
+    const cachedHtml = await matchCachedPublicPostHtml(pubRequest, site.id);
     if (cachedHtml) return cachedHtml;
   }
-  blog = await loadPublicPostForSite(db, Astro.request.url, site, "docs", env);
+  blog = await loadPublicPostForSite(db, location, site, "docs", env);
   if (!blog) {
     // A legacy post that used to live at /docs may have moved.
-    return (await publicPostRedirect(db, site, "docs", Astro.request, env)) ?? new Response("Not found", { status: 404 });
+    return (await publicPostRedirect(db, site, "docs", pubRequest, env, location.basePath)) ?? new Response("Not found", { status: 404 });
   }
   for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
-    markdownAlternateHref: new URL("/docs.md", blog.origin).href,
+    markdownAlternateHref: publicUrl(location, "/docs.md"),
   }))) Astro.response.headers.set(key, value);
 }
 
@@ -57,13 +65,15 @@ const head = blog ? buildPostHeadContent({
   canonicalUrl: blog.canonicalUrl,
   origin: blog.origin,
   indexable: blog.indexable,
+  basePath: blog.basePath,
+  assetOrigin: blog.assetOrigin,
   generatedCards: env.generatedCards,
 }) : null;
 const documentProps = blog ? siteDocumentProps(blog.site) : null;
 const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown) : null;
 ---
 {blog && head && documentProps ? (
-  <Base themeAttrs={documentProps.themeAttrs} fontId={documentProps.fontId} feedHref="/feed.xml" feedTitle={blog.site.name}>
+  <Base themeAttrs={documentProps.themeAttrs} fontId={documentProps.fontId} feedHref={`${location.basePath}/feed.xml`} feedTitle={blog.site.name}>
     <Fragment slot="head">
       {head.meta.map((entry) => {
         if ("title" in entry) return <title>{String(entry.title)}</title>;

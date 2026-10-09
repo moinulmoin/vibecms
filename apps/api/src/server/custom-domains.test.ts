@@ -47,6 +47,22 @@ describe('custom hostname provisioning retry state', () => {
           updatedAt: state.row.updatedAt + 1,
         }
       },
+      async insertSubpath() {
+        return state.row
+      },
+      async getActiveSubpathByProxyId() {
+        return null
+      },
+      async rotateProxyId() {
+        return 'rotated-proxy-id'
+      },
+      async deleteSubpathForSite() {
+        return 0
+      },
+      async setSubpathStatus() {},
+      async getPrimaryPublicLocation() {
+        return null
+      },
     }
   }
 
@@ -58,6 +74,8 @@ describe('custom hostname provisioning retry state', () => {
     status: 'pending',
     cloudflareCustomHostnameId: null,
     verificationErrorsJson: null,
+    basePath: null,
+    proxyId: null,
     createdAt: 1_700_000_000,
     updatedAt: 1_700_000_000,
   })

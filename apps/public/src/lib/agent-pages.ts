@@ -12,7 +12,7 @@ export function marketingJsonLd(canonical: string): string {
   }).replace(/</g, "\\u003c");
 }
 
-export function listingMarkdown(data: PublicIndexLoaderData, origin: string): string {
+export function listingMarkdown(data: PublicIndexLoaderData, homeBase: string): string {
   const description = data.site.description || data.site.default_seo_description || "";
   const lines = [`# ${sanitizeLlmsField(data.site.name)}`, ...(description.trim() ? [`> ${sanitizeLlmsField(description)}`] : []), "", "## Posts", ""];
   const page = data.page ?? 1;
@@ -20,11 +20,11 @@ export function listingMarkdown(data: PublicIndexLoaderData, origin: string): st
   for (const post of visible) {
     const date = post.published_at ? new Date(post.published_at * 1000).toISOString().slice(0, 10) : "";
     const excerpt = sanitizeLlmsField(post.excerpt || post.seo_description || "");
-    lines.push(`- [${sanitizeLlmsField(post.title)}](${origin}/${post.slug}.md)${date ? ` — ${date}` : ""}${excerpt ? ` — ${excerpt}` : ""}`);
+    lines.push(`- [${sanitizeLlmsField(post.title)}](${homeBase}/${post.slug}.md)${date ? ` — ${date}` : ""}${excerpt ? ` — ${excerpt}` : ""}`);
   }
   if (visible.length === 0) lines.push("No published posts yet.");
   const pageCount = Math.max(1, Math.ceil((data.totalPosts ?? data.posts.length) / 20));
-  const base = data.listing.kind === "tag" ? `/tag/${encodeURIComponent(data.listing.tag)}` : "/";
+  const base = data.listing.kind === "tag" ? `${data.basePath}/tag/${encodeURIComponent(data.listing.tag)}` : (data.basePath || "/");
   if (page > 1) lines.push(`\n[Newer](${base}${page - 1 > 1 ? `?page=${page - 1}` : ""})`);
   if (page < pageCount) lines.push(`\n[Older](${base}?page=${page + 1})`);
   return `${lines.join("\n")}\n`;

@@ -20,6 +20,38 @@ export type DomainRepository = {
     siteId: string,
     patch: { cloudflareCustomHostnameId: string | null; status: DomainRecord["status"]; verificationErrorsJson: string | null },
   ): Promise<void>;
+  /**
+   * Create or replace a site's subpath location (`customer.com/blog`). One
+   * subpath row per site: any existing row is removed in the same batch.
+   * Returns the created record with its fresh proxyId.
+   */
+  insertSubpath(input: { siteId: string; hostname: string; basePath: string }): Promise<DomainRecord>;
+  /** Active `subpath` row addressed by proxy id, on an active site. */
+  getActiveSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
+  /** Replace a subpath row's proxy id; returns the new id. */
+  rotateProxyId(id: string, siteId: string): Promise<string>;
+  /** Delete a site's subpath row. Returns rows removed. */
+  deleteSubpathForSite(siteId: string): Promise<number>;
+  /** Persist subpath verification state; `verificationErrorsJson` clears when omitted. */
+  setSubpathStatus(id: string, siteId: string, status: DomainRecord["status"], verificationErrorsJson?: string): Promise<void>;
+  /** The public location served for this site: active subpath > custom > default. */
+  getPrimaryPublicLocation(siteId: string): Promise<PrimaryPublicLocation | null>;
+};
+
+/** The fields a proxied request needs to rebuild the customer-facing location. */
+export type SubpathDomainRow = {
+  id: string;
+  siteId: string;
+  hostname: string;
+  basePath: string | null;
+  proxyId: string | null;
+};
+
+/** The primary public mount for a site; basePath is "" unless type is "subpath". */
+export type PrimaryPublicLocation = {
+  type: DomainRecord["type"];
+  hostname: string;
+  basePath: string;
 };
 
 // A never-verified row older than this is treated as abandoned and may be reclaimed by
@@ -57,8 +89,14 @@ export async function addCustomDomain(
 
   const existing = await repo.getByHostname(hostname);
   if (existing) {
-    // idempotent: already connected to this site
-    if (existing.siteId === input.siteId) {
+    // A subpath row is a proxied location (customer.com/blog), not a connectable
+    // domain: it must be removed via the subpath flow, never returned as an
+    // idempotent custom add or silently reclaimed.
+    if (existing.type === "subpath") {
+      throw new ConflictError("That domain is set up to host the blog at a path. Remove that first.");
+    }
+    // idempotent: a custom domain already connected to this site
+    if (existing.type === "custom" && existing.siteId === input.siteId) {
       return { record: existing, reclaimedCfHostnameId: null, reclaimedSiteId: null };
     }
     const reclaimable =
@@ -80,6 +118,8 @@ export async function addCustomDomain(
     status: "pending",
     cloudflareCustomHostnameId: null,
     verificationErrorsJson: null,
+    basePath: null,
+    proxyId: null,
     createdAt: now,
     updatedAt: now,
   };

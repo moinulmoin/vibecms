@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { createDataAccess, createD1SubscriberRepository } from '@vc/db'
+import { API_BINDING_HOSTNAME } from '@vc/config'
 
 import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from '@/lib/subscribe-consent'
 
@@ -90,7 +91,16 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
   // HMAC-SHA256 hashes keyed by TOKEN_PEPPER; degrade to null when pepper absent
   const pepper = env.TOKEN_PEPPER ?? ''
-  const ip = request.headers.get('CF-Connecting-IP') ?? ''
+  // Only the public Worker forwards `x-vc-client-ip` (its X-Forwarded-For hop,
+  // set for proxied subpath blogs), and it always addresses the service
+  // binding at `https://<API_BINDING_HOSTNAME>`. Service bindings preserve the
+  // caller-supplied URL, and no zone can route internet traffic to that
+  // hostname — so hostname equality, not the caller-named `cf-worker` header
+  // (a zone name an attacker's own worker could match), is the trust signal.
+  // A client-spoofed header on a direct request is ignored.
+  const viaBinding = new URL(request.url).hostname === API_BINDING_HOSTNAME
+  const proxiedIp = viaBinding ? request.headers.get('x-vc-client-ip') ?? '' : ''
+  const ip = proxiedIp || (request.headers.get('CF-Connecting-IP') ?? '')
   const ua = request.headers.get('user-agent') ?? ''
   const ipHash = ip && pepper ? await hmacBase64Url(pepper, ip) : null
   const uaHash = ua && pepper ? await hmacBase64Url(pepper, ua) : null

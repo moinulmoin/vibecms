@@ -9,7 +9,9 @@ import {
   isMarketingHost,
   stripMarkdownSuffix,
 } from "./server/public-blog";
-import { conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
+import { articleResponseForClientAndCache, conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
+import { directLocation, type PublicLocation } from "./server/public-location";
+import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./server/public-location.server";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
 import { markdownErrorForRequest, marketingTrustRedirect, varyAgentRepresentation } from "./lib/agent-discovery";
@@ -24,7 +26,14 @@ function articleSlugCandidate(pathname: string): string | undefined {
 export const onRequest = defineMiddleware(async (context, next) => {
   const publicEnv = parsePublicRuntimeEnv(env);
   context.locals.publicEnv = publicEnv;
-  const pathname = new URL(context.request.url).pathname;
+  const request = context.request;
+  const requestUrl = new URL(request.url);
+  // `pathname` is the blog-relative path: after proxy ingress it is the
+  // stripped `/…` remainder, never the `/_vc/p/…` envelope.
+  let pathname = requestUrl.pathname;
+  let location: PublicLocation = directLocation(request);
+  let rewrite: URL | null = null;
+
   if (pathname === "/__vc-health") {
     const response = Response.json(
       { ok: true, worker: "public" },
@@ -34,6 +43,43 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return response;
   }
 
+  // `pages/index.astro` rewrites `/` to `/internal/*`, which reruns this
+  // middleware on the rewritten request. Locals survive the pass: reuse the
+  // first pass's location and public path so the internal target is never
+  // re-ingress resolved, canonical-redirected, or treated as an article.
+  const ingressState = ingressStateForPass(context.locals);
+  if (ingressState) {
+    location = ingressState.location;
+    pathname = ingressState.publicPath;
+  } else {
+    const ingress = await resolvePublicLocationIngress(env.DB, request, pathname, publicEnv);
+    if (ingress.kind === "not-found") {
+      // Unknown/inactive proxy id, or a valid id quoted on the wrong host:
+      // plain 404, never render a page.
+      return new Response("Not found", {
+        status: 404,
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+    if (ingress.kind === "health") {
+      const response = Response.json(
+        { ok: true, siteId: ingress.siteId, proxyId: ingress.proxyId },
+        { headers: { "cache-control": "no-store" } },
+      );
+      applyPublicSecurityHeaders("/_vc/health", response.headers.get("content-type"), response.headers);
+      return response;
+    }
+    if (ingress.kind === "proxied") {
+      location = ingress.location;
+      pathname = ingress.path;
+      // Internal rewrite to the stripped path; producers read location/publicPath
+      // off locals and still see our Host header on context.request.
+      rewrite = new URL(request.url);
+      rewrite.pathname = pathname;
+    }
+    context.locals.publicLocation = location;
+    context.locals.publicPath = pathname;
+  }
 
   const redirect = canonicalHostRedirect(context.request, publicEnv);
   if (redirect) {
@@ -46,7 +92,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (trustRedirect) return trustRedirect;
   }
 
-  const response = await next();
+  // Primary-location canonicalization (plan 022 §4): non-primary hosted GETs
+  // 301 to the same path at the site's canonical mount. Rewrite passes keep
+  // their already-resolved state; /internal/* targets are exempt anyway.
+  if (!ingressState) {
+    const primaryRedirect = await primaryLocationRedirect(env.DB, request, pathname, publicEnv, location);
+    if (primaryRedirect) return primaryRedirect;
+  }
+
+  const response = rewrite ? await next(rewrite) : await next();
   // Agents probing /api/* here get a JSON pointer to the real API, not a page.
   if (response.status === 404 && pathname.startsWith("/api/")) {
     const apiMissing = Response.json(
@@ -81,10 +135,34 @@ export const onRequest = defineMiddleware(async (context, next) => {
   );
   if (isArticleHtml) headers.delete("last-modified");
 
-  let body: BodyInit | null = response.body;
-  if (isArticleHtml && !articleHtmlCacheHit) {
-    body = await response.arrayBuffer();
-    headers.set("etag", await contentEtag(body));
+  const buffered = isArticleHtml && !articleHtmlCacheHit ? await response.arrayBuffer() : null;
+  const body: BodyInit | null = buffered ?? response.body;
+  if (buffered) headers.set("etag", await contentEtag(buffered));
+
+  // Uncached article HTML splits here: the Workers-Cache copy keeps the real
+  // edge TTL while the customer-facing copy revalidates every time (see
+  // articleResponseForClientAndCache). Cache hits stream straight through.
+  if (isArticleHtml && buffered) {
+    const split = articleResponseForClientAndCache(response, headers, buffered, location.proxied);
+    // Non-indexable default-domain pages must remain readable but should not
+    // poison the shared article cache with noindex metadata. Entitlement is
+    // resolved on every uncached public read; paid/self-hosted responses are
+    // the only article variants persisted here.
+    if (!headers.has("x-robots-tag")) {
+      const waitUntil = context.locals.cfContext?.waitUntil.bind(context.locals.cfContext);
+      // Cache key = customer-facing location URL, so proxied and direct views
+      // of the same post can never collide on our shared host.
+      const cacheUrl = location.origin + location.basePath + pathname + requestUrl.search;
+      await cachePublicPostHtmlResponse(cacheUrl, split.cacheable ?? split.client, waitUntil);
+    }
+    return conditionalCachedArticleResponse(context.request, split.client);
+  }
+
+  // Proxied responses must never sit stale in the customer's CDN: revalidate
+  // every time (our own edge cache — keyed on the location URL — still serves
+  // it fast). Private/no-store responses (previews) keep their stronger cap.
+  if (location.proxied && !/(?:no-store|private)/i.test(headers.get("cache-control") ?? "")) {
+    headers.set("cache-control", "public, max-age=0, must-revalidate");
   }
 
   const outbound = new Response(body, {
@@ -94,14 +172,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   });
 
   if (isArticleHtml) {
-    // Non-indexable default-domain pages must remain readable but should not
-    // poison the shared article cache with noindex metadata. Entitlement is
-    // resolved on every uncached public read; paid/self-hosted responses are
-    // the only article variants persisted here.
-    if (!articleHtmlCacheHit && !headers.has("x-robots-tag")) {
-      const waitUntil = context.locals.cfContext?.waitUntil.bind(context.locals.cfContext);
-      await cachePublicPostHtmlResponse(context.request.url, outbound, waitUntil);
-    }
     return conditionalCachedArticleResponse(context.request, outbound);
   }
 

@@ -22,7 +22,7 @@ import {
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
-import { getSitePublicBaseUrl } from "./site-public-url";
+import { getSiteAssetBaseUrl, getSitePublicBaseUrl } from "./site-public-url";
 import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
@@ -102,8 +102,10 @@ export async function getSiteOp(ctx: OperationContext) {
     getVoiceProfileForSite(ctx.siteId),
     getNewsletterSettingsForApp(appUser(ctx)),
   ]);
-  const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
-  const site = mapSiteRow(row, url, voiceProfile);
+  const [url, assetUrl] = row
+    ? await Promise.all([getSitePublicBaseUrl(ctx.siteId, row.slug), getSiteAssetBaseUrl(ctx.siteId, row.slug)])
+    : [null, null];
+  const site = mapSiteRow(row, url, voiceProfile, assetUrl);
   return site && { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
     description: form.subtext, button: form.buttonLabel } };
 }
@@ -123,7 +125,8 @@ export async function updateSiteOp(ctx: OperationContext, input: UpdateSiteReque
     createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId), getVoiceProfileForSite(ctx.siteId), getSiteSettings(appUser(ctx)),
   ]);
   if (!row) throw new NotFoundError('Site not found');
-  const site = mapSiteRow(row, await getSitePublicBaseUrl(ctx.siteId, row.slug), voiceProfile);
+  const [url, assetUrl] = await Promise.all([getSitePublicBaseUrl(ctx.siteId, row.slug), getSiteAssetBaseUrl(ctx.siteId, row.slug)]);
+  const site = mapSiteRow(row, url, voiceProfile, assetUrl);
   if (!site) throw new NotFoundError('Site not found');
   const { newsletterSettings: _newsletterSettings, ...publicSettings } = settings;
   return { ...site, settings: publicSettings };

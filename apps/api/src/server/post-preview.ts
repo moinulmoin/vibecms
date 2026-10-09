@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers'
 import { getPreviewTokenRecord, hashPreviewToken, putPreviewTokenRecord } from '@vc/db'
 import { NotFoundError } from '@vc/core'
-import { getSitePublicBaseUrl } from './site-public-url'
+import { getSiteAssetBaseUrl } from './site-public-url'
 import { createDataAccess } from '@vc/db'
 
 async function deriveToken(siteId: string, postId: string, nonce: string): Promise<string> {
@@ -23,7 +23,7 @@ export async function previewUrlForPost(siteId: string, postId: string, rotate =
     record = saved ? { nonce, tokenHash: await hashPreviewToken(token) } : await getPreviewTokenRecord(env.DB, siteId, postId)
   }
   if (!record) throw new NotFoundError('Post not found')
-  const base = siteSlug ? await getSitePublicBaseUrl(siteId, siteSlug) : null
+  const base = siteSlug ? await getSiteAssetBaseUrl(siteId, siteSlug) : null
   if (!base) return null
   return `${base}/preview/${await deriveToken(siteId, postId, record.nonce)}`
 }

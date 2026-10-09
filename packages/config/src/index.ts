@@ -11,6 +11,15 @@ export const BRAND = {
 /** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
 export const AGENT_TOOL_COUNT = 32;
 
+/**
+ * Service-binding hostname the public Worker uses to reach the API Worker
+ * (`apps/public` `API` binding). No zone owns it: requests from the internet
+ * can never arrive at the API with this hostname, so the API treats
+ * `request.url`'s hostname matching this value as proof the call came through
+ * the binding — the only source it trusts for `x-vc-client-ip`.
+ */
+export const API_BINDING_HOSTNAME = "vibecms-api.internal";
+
 /** Legal/support routes served on the marketing origin (apps/public, `/legal/*`). */
 export const LEGAL = {
   privacy: "/legal/privacy",

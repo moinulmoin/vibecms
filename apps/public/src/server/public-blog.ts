@@ -6,6 +6,7 @@ import {
   listPublishedPostPage,
   searchPublishedPostSummaries,
   resolveSite,
+  resolvePublishedLinkSlugs,
   type PostDetailRow,
   type PostSummaryRow,
   type SiteRow,
@@ -24,6 +25,7 @@ import {
   siteCacheTag,
 } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
+import type { PublicLocation } from "./public-location";
 import { resolvePublicByline, type PublicByline } from "../lib/byline";
 import { markdownNotFound } from "../lib/agent-discovery";
 
@@ -52,7 +54,7 @@ export function isReadableTenantPostSlug(slug: string | undefined): slug is stri
   return !!slug && (!RESERVED_ROOT_SLUGS.has(slug) || slug === "docs" || slug === "internal");
 }
 
-export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv): Promise<Response | null> {
+export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv, basePath = ""): Promise<Response | null> {
   const target = await getPublishedSlugRedirect(db, site.id, slug);
   if (!target) return null;
   const url = new URL(request.url);
@@ -60,7 +62,7 @@ export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: st
   // other query parameters.
   const markdown = url.pathname.endsWith(".md") || url.searchParams.get("format") === "md";
   url.searchParams.delete("format");
-  url.pathname = `/${target}${markdown ? ".md" : ""}`;
+  url.pathname = `${basePath}/${target}${markdown ? ".md" : ""}`;
   const headers = new Headers(publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]));
   headers.set("location", url.href);
   // Browsers must recheck: a remembered 301 would loop once a rename is
@@ -166,7 +168,7 @@ async function publicPostMarkdownResponse(
   env: PublicRuntimeEnv,
 ) {
   const post = await getPublishedPost(db, site.id, slug);
-  if (!post) return await publicPostRedirect(db, site, slug, request, env) ?? markdownNotFound();
+  if (!post) return await publicPostRedirect(db, site, slug, request, env, basePath) ?? markdownNotFound();
   const origin = publicOrigin(request.url);
   const canonicalUrl = new URL(post.canonical_url || `${basePath}/${slug}`, origin).href;
   const markdownHref = new URL(`${basePath}/${slug}.md`, origin).href;
@@ -228,7 +230,9 @@ export async function handlePublicPostByHostGet(
   request: Request,
   slug: string | undefined,
   env: PublicRuntimeEnv,
+  location?: PublicLocation,
 ) {
+  const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   const { slug: stripped } = stripMarkdownSuffix(slug);
   if (!isReadableTenantPostSlug(stripped)) return null;
 
@@ -237,7 +241,7 @@ export async function handlePublicPostByHostGet(
 
   const site = await resolveSite(request, db, env);
   if (!site) return markdownNotFound();
-  return tryPublicPostMarkdownResponse(db, request, site, "", slug, env);
+  return tryPublicPostMarkdownResponse(db, request, site, loc.basePath, slug, env);
 }
 
 export const ARTICLE_HTML_CACHE_HIT_HEADER = "x-vc-article-html-cache-hit";
@@ -325,6 +329,11 @@ export type PublicPostLoaderData = {
   /** Recent posts + tag counts for sidebar templates. */
   sidebar: PublicSidebarData;
   basePath: string;
+  assetOrigin?: string;
+  /** True when served through a subpath proxy (customer.com/blog). */
+  proxied?: boolean;
+  /** Published slugs of this site — body links to these get basePath prefixed. */
+  postSlugs?: ReadonlySet<string>;
   canonicalUrl: string;
   origin: string;
   indexable: boolean;
@@ -340,7 +349,7 @@ export type PublicPostLoaderData = {
 
 export async function loadPublicPostForSite(
   db: D1Database,
-  requestUrl: string,
+  location: PublicLocation,
   site: SiteRow,
   slug: string | undefined,
   env: PublicRuntimeEnv,
@@ -352,7 +361,9 @@ export async function loadPublicPostForSite(
     listPublishedPostSummaries(db, site.id).catch(() => [] as PostSummaryRow[]),
   ]);
   if (!post) return null;
-  const origin = publicOrigin(requestUrl);
+  // Link slugs come from the body, not the summary window: a post can link to
+  // a published sibling outside the newest-200 sidebar set.
+  const postSlugs = await resolvePublishedLinkSlugs(db, site.id, [post.content_markdown]);
   const index = summaries.findIndex((summary) => summary.id === post.id);
   const neighbour = (summary: PostSummaryRow | undefined): AdjacentPostSummary | null =>
     summary ? { title: summary.title, slug: summary.slug, publishedAt: summary.published_at } : null;
@@ -362,9 +373,12 @@ export async function loadPublicPostForSite(
     newer: index > 0 ? neighbour(summaries[index - 1]) : null,
     older: index >= 0 ? neighbour(summaries[index + 1]) : null,
     sidebar: buildPublicSidebar(summaries, post.id),
-    basePath: "",
-    canonicalUrl: post.canonical_url || `/${post.slug}`,
-    origin,
+    basePath: location.basePath,
+    assetOrigin: location.assetOrigin,
+    proxied: location.proxied,
+    postSlugs,
+    canonicalUrl: post.canonical_url || `${location.basePath}/${post.slug}`,
+    origin: location.origin,
     indexable: isPublicBlogIndexable(site, env),
     cacheTags: articleCacheTags(site.id, post.slug),
     byline: resolvePublicByline(site, post),
@@ -376,10 +390,12 @@ export async function loadPublicPostByHost(
   request: Request,
   slug: string | undefined,
   env: PublicRuntimeEnv,
+  location?: PublicLocation,
 ): Promise<PublicPostLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
-  return loadPublicPostForSite(db, request.url, site, slug, env);
+  const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
+  return loadPublicPostForSite(db, loc, site, slug, env);
 }
 
 export type PublicListingContext =
@@ -393,6 +409,9 @@ export type PublicIndexLoaderData = {
   totalPosts?: number;
   page?: number;
   basePath: string;
+  assetOrigin?: string;
+  /** True when served through a subpath proxy (customer.com/blog). */
+  proxied?: boolean;
   indexable: boolean;
   listing: PublicListingContext;
   /** Recent posts + tag counts for sidebar templates (always site-wide). */
@@ -405,9 +424,11 @@ export async function loadPublicIndexByHost(
   env: PublicRuntimeEnv,
   query?: string,
   requestedPage = 1,
+  location?: PublicLocation,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
+  const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   if (query !== undefined) {
     const [posts, all] = await Promise.all([
       searchPublishedPostSummaries(db, site.id, query),
@@ -416,7 +437,9 @@ export async function loadPublicIndexByHost(
     return {
       site,
       posts,
-      basePath: "",
+      basePath: loc.basePath,
+      assetOrigin: loc.assetOrigin,
+      proxied: loc.proxied,
       indexable: false,
       listing: { kind: "search", query },
       sidebar: buildPublicSidebar(all),
@@ -431,7 +454,9 @@ export async function loadPublicIndexByHost(
     posts: result.posts,
     totalPosts: result.total,
     page: result.page,
-    basePath: "",
+    basePath: loc.basePath,
+    assetOrigin: loc.assetOrigin,
+    proxied: loc.proxied,
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "index" },
     sidebar: buildPublicSidebar(all),
@@ -444,9 +469,11 @@ export async function loadPublicTagByHost(
   tag: string,
   env: PublicRuntimeEnv,
   requestedPage = 1,
+  location?: PublicLocation,
 ): Promise<PublicIndexLoaderData | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
+  const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   // Sidebar stays site-wide (all tags, newest posts), not just this tag's posts.
   const [result, all] = await Promise.all([
     listPublishedPostPage(db, site.id, requestedPage, 20, tag),
@@ -458,7 +485,9 @@ export async function loadPublicTagByHost(
     posts: result.posts,
     totalPosts: result.total,
     page: result.page,
-    basePath: "",
+    basePath: loc.basePath,
+    assetOrigin: loc.assetOrigin,
+    proxied: loc.proxied,
     indexable: isPublicBlogIndexable(site, env),
     listing: { kind: "tag", tag },
     sidebar: buildPublicSidebar(all),

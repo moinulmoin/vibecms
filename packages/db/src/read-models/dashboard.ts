@@ -101,7 +101,7 @@ export type ActivationPost =
   | { state: "draft"; post: ActivationDraftPost }
   | { state: "live"; post: ActivationLivePost; actorName: string };
 
-// DB-derived dashboard aggregate. Env/request-derived fields (publicUrl, publicUrlLocal, billing status, apiUsage) and the local-default-hostname repair stay in the app layer; this returns the active default-domain row exactly like the original SELECT did.
+// DB-derived dashboard aggregate. Env/request-derived fields (publicUrl, publicUrlLocal, billing status, apiUsage) stay in the app layer (site-public-url.ts owns the primary location and the local-default-hostname repair); this returns the active default-domain row exactly like the original SELECT did.
 export interface DashboardAggregate {
   site: { name: string; slug: string } | null;
   counts: { published: number; draft: number; archived: number };

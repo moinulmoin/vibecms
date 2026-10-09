@@ -1,6 +1,7 @@
 export {
   RENDERER_VERSION,
   MISSING_IMAGE_ALT_WARNING,
+  collectRootLinkSlugs,
   renderRichContent,
   renderRichContentToHtml,
   renderRichContentResultToHtml,

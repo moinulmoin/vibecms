@@ -12,6 +12,7 @@ import {
 import { buildPostHeadContent } from "../lib/seo-meta";
 import { resolveSite } from "../server/public-blog-data";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
+import { publicLocationRequest, publicUrl, type PublicLocation } from "../server/public-location";
 import pageViewScriptUrl from "../scripts/page-view.js?url";
 import { markdownNotFound } from "../lib/agent-discovery";
 
@@ -21,8 +22,19 @@ if (Astro.params.postSlug === "about" && !env.selfHosted && isMarketingHost(Astr
 }
 const db = publicDb(Astro);
 const postSlug = Astro.params.postSlug;
+// Customer-facing location for this request (direct = request origin; proxied
+// subpath = customer origin + /blog). publicPath is the stripped blog path.
+const location: PublicLocation = Astro.locals.publicLocation ?? {
+  origin: new URL(Astro.request.url).origin,
+  basePath: "",
+  assetOrigin: new URL(Astro.request.url).origin,
+  proxied: false,
+};
+const publicPath = Astro.locals.publicPath ?? Astro.url.pathname;
+// Producers see a request whose URL is the customer-facing location URL.
+const pubRequest = publicLocationRequest(Astro.request, location, publicPath);
 // Markdown Accept/.md/?format=md runs before any HTML page-cache lookup.
-const early = await handlePublicPostByHostGet(db, Astro.request, postSlug, env);
+const early = await handlePublicPostByHostGet(db, pubRequest, postSlug, env, location);
 if (early) return early;
 
 // Resolve the current site entitlement before serving an HTML cache hit. This
@@ -33,15 +45,15 @@ if (!cacheSite) {
   return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 if (cacheSite.effective_entitlement.effective) {
-  const cachedHtml = await matchCachedPublicPostHtml(Astro.request, cacheSite.id);
+  const cachedHtml = await matchCachedPublicPostHtml(pubRequest, cacheSite.id);
   if (cachedHtml) return cachedHtml;
 }
 
-const blog = await loadPublicPostForSite(db, Astro.request.url, cacheSite, postSlug, env);
+const blog = await loadPublicPostForSite(db, location, cacheSite, postSlug, env);
 const { themeAttrs: siteThemeAttrs, fontId } = siteDocumentProps(cacheSite);
 if (!blog) {
   if (postSlug) {
-    const redirect = await publicPostRedirect(db, cacheSite, postSlug, Astro.request, env);
+    const redirect = await publicPostRedirect(db, cacheSite, postSlug, pubRequest, env, location.basePath);
     if (redirect) return redirect;
   }
   Astro.response.status = 404;
@@ -49,7 +61,7 @@ if (!blog) {
 }
 
 if (blog) {
-  const markdownAlternateHref = new URL(`/${blog.post.slug}.md`, blog.origin).href;
+  const markdownAlternateHref = publicUrl(location, `/${blog.post.slug}.md`);
   for (const [key, value] of Object.entries(
     publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
       markdownAlternateHref,
@@ -65,6 +77,8 @@ const head = blog
       site: blog.site,
       canonicalUrl: blog.canonicalUrl,
       origin: blog.origin,
+      basePath: blog.basePath,
+      assetOrigin: blog.assetOrigin,
       indexable: blog.indexable,
       generatedCards: env.generatedCards,
     })
@@ -74,11 +88,11 @@ const metaEntries = head.meta.filter((entry) => "name" in entry || "property" in
 const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown) : null;
 ---
 {!blog ? (
-<Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={cacheSite.name} faviconAssetId={cacheSite.favicon_asset_id}>
-  <PublicNotFoundView site={cacheSite} />
+<Base title={`Not found · ${cacheSite.name}`} robots="noindex" themeAttrs={siteThemeAttrs} fontId={fontId} feedHref={`${location.basePath}/feed.xml`} feedTitle={cacheSite.name} faviconAssetId={cacheSite.favicon_asset_id}>
+  <PublicNotFoundView site={cacheSite} basePath={location.basePath} assetOrigin={location.proxied ? location.assetOrigin : ""} />
 </Base>
 ) : (
-<Base themeAttrs={siteThemeAttrs} fontId={fontId} feedHref="/feed.xml" feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}>
+<Base themeAttrs={siteThemeAttrs} fontId={fontId} feedHref={`${location.basePath}/feed.xml`} feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}>
   <Fragment slot="head">
     {titleEntry && "title" in titleEntry ? <title>{String(titleEntry.title)}</title> : null}
     {metaEntries.map((entry) => {

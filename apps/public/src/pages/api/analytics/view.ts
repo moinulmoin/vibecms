@@ -22,7 +22,10 @@ export const POST: APIRoute = async (context) => {
   if (runtime.selfHosted || privacySignalEnabled(context.request)) return emptyResponse();
 
   const requestUrl = new URL(context.request.url);
-  if (context.request.headers.get("origin") !== requestUrl.origin) {
+  // Proxied blogs run on the customer origin; the beacon posts same-origin
+  // there, so the Origin check compares against the location, not our host.
+  const expectedOrigin = context.locals.publicLocation?.origin ?? requestUrl.origin;
+  if (context.request.headers.get("origin") !== expectedOrigin) {
     return new Response("Forbidden", { status: 403, headers: { "cache-control": "no-store" } });
   }
 
@@ -44,7 +47,7 @@ export const POST: APIRoute = async (context) => {
     return new Response("Invalid request", { status: 400, headers: { "cache-control": "no-store" } });
   }
 
-  const blog = await loadPublicPostByHost(publicDb(context), context.request, body.slug, runtime);
+  const blog = await loadPublicPostByHost(publicDb(context), context.request, body.slug, runtime, context.locals.publicLocation);
   if (!blog) return emptyResponse();
   if (!blog.indexable) return emptyResponse();
 
@@ -52,7 +55,7 @@ export const POST: APIRoute = async (context) => {
     siteId: blog.site.id,
     postId: blog.post.id,
     postSlug: blog.post.slug,
-    referrerHost: normalizeReferrerHost(body.referrerHost, requestUrl.hostname),
+    referrerHost: normalizeReferrerHost(body.referrerHost, new URL(expectedOrigin).hostname),
   });
   return emptyResponse();
 };

@@ -367,12 +367,53 @@ describe("public blog feed + detail projections", () => {
       "pb-site-a",
     );
   });
+  it("never resolves a site through a subpath domain row", async () => {
+    // A subpath row is a proxied location (customer.com/blog), not a routing
+    // host: host-based resolution must not match it, even when active.
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, 'subpath', 'active', '/blog', 'sub-proxy-id', ?, ?)",
+      "pb-dom-sub",
+      "pb-site-a",
+      "pb-customer.example.test",
+      T,
+      T,
+    );
+    expect(await da.publicBlog.resolveSiteByHost("pb-customer.example.test")).toBeNull();
+    // The default host for the same site still resolves.
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)",
+      "pb-dom-sub-default",
+      "pb-site-a",
+      "pb-a-subtest.example.test",
+      T,
+      T,
+    );
+    expect(await da.publicBlog.resolveSiteByHost("pb-a-subtest.example.test")).not.toBeNull();
+  });
 
   it("summary listings preserve canonical URL overrides", async () => {
     const rows = await da.publicBlog.listPublishedPostSummaries("pb-site-b", NOW, 10);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.canonicalUrl).toBe("https://elsewhere.example/b");
     assertSummaryShape(rows[0]!);
+  });
+});
+
+describe("published slug lookup for link rewriting", () => {
+  it("returns only slugs that are live pinned versions of the site", async () => {
+    const slugs = await da.publicBlog.listPublishedPostSlugsIn(
+      "pb-site-a",
+      ["a-post-1", "a-post-5", "draft-post", "future-post", "b-post", "missing"],
+      NOW,
+    );
+    // Drafts, future-dated, other-site, and unknown candidates all excluded.
+    expect(slugs.sort()).toEqual(["a-post-1", "a-post-5"]);
+  });
+
+  it("stays under bind limits when given the full 200-candidate window", async () => {
+    const candidates = ["a-post-2", ...Array.from({ length: 210 }, (_, i) => `ghost-${i}`)];
+    const slugs = await da.publicBlog.listPublishedPostSlugsIn("pb-site-a", candidates, NOW);
+    expect(slugs).toEqual(["a-post-2"]);
   });
 });
 

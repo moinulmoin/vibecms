@@ -52,15 +52,66 @@ export function validateCustomHostname(input: string, opts: HostnameValidationOp
   return { ok: true, hostname };
 }
 
+export type SubpathLocationValidationResult =
+  | { ok: true; hostname: string; basePath: string }
+  | { ok: false; error: string };
+
+// Path segment: lowercase label — must start alnum, hyphens allowed inside.
+const PATH_SEGMENT = /^[a-z0-9][a-z0-9-]{0,62}$/;
+// First path segments owned by the public worker's own surface (ingress,
+// assets, API, OG images, previews); a customer blog may never mount there.
+const RESERVED_PATH_SEGMENTS = new Set(["_vc", "api", "_astro", "media-assets", "og", "preview"]);
+
+/**
+ * Validate + normalize a user-supplied subpath location (`customer.com/blog`)
+ * into hostname + base path. The hostname is validated by the same rules as a
+ * custom hostname; the base path must be 1-3 lowercase segments that don't
+ * collide with the worker's own routes.
+ */
+export function validateSubpathLocation(
+  input: string,
+  opts: HostnameValidationOptions,
+): SubpathLocationValidationResult {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return { ok: false, error: "Enter a domain and path, for example example.com/blog." };
+  if (trimmed.startsWith("http://"))
+    return { ok: false, error: "Use https:// — http:// is not supported." };
+  if (trimmed.includes("?") || trimmed.includes("#"))
+    return { ok: false, error: "Remove the query or fragment from the URL." };
+
+  const withoutScheme = trimmed.startsWith("https://") ? trimmed.slice("https://".length) : trimmed;
+  const slash = withoutScheme.indexOf("/");
+  const host = slash === -1 ? withoutScheme : withoutScheme.slice(0, slash);
+  const path = slash === -1 ? "" : withoutScheme.slice(slash).replace(/\/+$/, "");
+
+  if (!path || path === "/")
+    return { ok: false, error: "Enter the path, for example example.com/blog." };
+
+  const segments = path.slice(1).split("/");
+  if (segments.length > 3) return { ok: false, error: "Use at most 3 path segments, for example example.com/blog." };
+  if (!segments.every((segment) => PATH_SEGMENT.test(segment)))
+    return { ok: false, error: "The path contains invalid characters." };
+  if (RESERVED_PATH_SEGMENTS.has(segments[0]!))
+    return { ok: false, error: "That path is reserved. Choose a different first segment." };
+
+  const validation = validateCustomHostname(host, opts);
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  return { ok: true, hostname: validation.hostname, basePath: path };
+}
+
 /** A row in the `domains` table (camelCase domain entity). */
 export type DomainRecord = {
   id: string;
   siteId: string;
   hostname: string;
-  type: "default" | "custom";
+  type: "default" | "custom" | "subpath";
   status: CustomDomainStatus;
   cloudflareCustomHostnameId: string | null;
   verificationErrorsJson: string | null;
+  // Subpath hosting only; NULL on default/custom rows.
+  basePath: string | null;
+  proxyId: string | null;
   createdAt: number;
   updatedAt: number;
 };

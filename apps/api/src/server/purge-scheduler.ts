@@ -1,18 +1,33 @@
+import { env } from 'cloudflare:workers'
 import { scheduleBackground } from '@/server/execution-scope'
-import { createDataAccess, PUBLIC_BLOG_LIMITS } from '@vc/db'
-import { purgeArticleCache, purgeHostnameCache, purgeSiteCache } from "./public-blog-cache";
+import { createDataAccess, PUBLIC_BLOG_LIMITS, type DataAccess } from '@vc/db'
+import { purgeArticleCache, purgeHostnameCache, purgeSiteCache, type PublicMountLocation } from "./public-blog-cache";
+
+// Non-default domains are cache mounts: custom domains at the host root,
+// subpath mounts under their base path. Any status counts — a just-disabled
+// mount still holds stale entries until the URL purge clears them.
+async function mountedLocations(data: DataAccess, siteId: string): Promise<PublicMountLocation[]> {
+  return (await data.domains.listBySite(siteId))
+    .filter((domain) => domain.type !== 'default')
+    .map((domain) => ({ hostname: domain.hostname, basePath: domain.basePath ?? '' }))
+}
 
 export function scheduleArticlePurge(siteId: string, siteSlug: string, postSlug: string) {
-  scheduleBackground(purgeArticleCache(siteId, siteSlug, postSlug))
+  scheduleBackground(
+    (async () => {
+      const data = createDataAccess(env.DB)
+      await purgeArticleCache(siteId, siteSlug, postSlug, await mountedLocations(data, siteId))
+    })(),
+  )
 }
 
 export function scheduleSitePurge(
   siteId: string,
   siteSlug: string,
   postSlugs: readonly string[] = [],
-  customHosts: readonly string[] = [],
+  locations: readonly PublicMountLocation[] = [],
 ) {
-  scheduleBackground(purgeSiteCache(siteId, siteSlug, postSlugs, customHosts));
+  scheduleBackground(purgeSiteCache(siteId, siteSlug, postSlugs, locations));
 }
 
 export function scheduleManagedSitePurge(
@@ -24,21 +39,19 @@ export function scheduleManagedSitePurge(
     (async () => {
       try {
         const data = createDataAccess(database)
-        const [posts, domains] = await Promise.all([
+        const [posts, locations] = await Promise.all([
           data.publicBlog.listPublishedPostSummaries(
             siteId,
             Math.floor(Date.now() / 1000),
             PUBLIC_BLOG_LIMITS.sitemapSummaries,
           ),
-          data.domains.listBySite(siteId),
+          mountedLocations(data, siteId),
         ])
         await purgeSiteCache(
           siteId,
           siteSlug,
           posts.map((post) => post.slug),
-          domains
-            .filter((domain) => domain.type === 'custom')
-            .map((domain) => domain.hostname),
+          locations,
         )
       } catch (error) {
         console.warn('managed public cache purge failed', error)
@@ -46,7 +59,6 @@ export function scheduleManagedSitePurge(
     })(),
   )
 }
-
 export function scheduleHostnamePurge(hostname: string, siteId?: string | null) {
   scheduleBackground(purgeHostnameCache(hostname, siteId));
 }
