@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { ConflictError } from '@vc/core'
 import { seoCheckPostRequestSchema } from '@vc/api-contract'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
+import { isAnalyticsPostId } from '@/server/analytics'
 import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
   addCustomDomainForApp,
@@ -374,7 +375,9 @@ dashboardRoutes.get('/analytics', async (c) => {
         : requestedRange === 'all'
           ? 'all'
           : 30
-  return c.json(await loadAnalyticsPage(auth.app, rangeDays, c.req.query('postId') || undefined))
+  const postId = c.req.query('postId') || undefined
+  if (postId !== undefined && !isAnalyticsPostId(postId)) return c.json({ kind: 'error', code: 'validation_error' }, 400)
+  return c.json(await loadAnalyticsPage(auth.app, rangeDays, postId))
 })
 
 dashboardRoutes.get('/connect', async (c) => {

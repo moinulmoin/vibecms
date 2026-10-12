@@ -7,6 +7,7 @@ import {
   AI_AGENTS,
   type AgentCategory,
 } from '@vc/config/agents'
+import { ValidationError } from '@vc/core'
 import { isSelfHosted } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
@@ -59,8 +60,16 @@ function sqlIdentifier(value: string): string | null {
   return /^[A-Za-z0-9_]+$/.test(value) ? value : null
 }
 
+// Analytics Engine SQL is ClickHouse-flavoured: a backslash escapes the next
+// character inside a string literal, so escape backslashes as well as quotes.
+// Callers still validate ids (`isAnalyticsPostId`) before they reach a query.
 function sqlString(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`
+  return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "''")}'`
+}
+
+/** Post ids are opaque but never contain quotes, backslashes or spaces. */
+export function isAnalyticsPostId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{1,128}$/.test(value)
 }
 
 function numberValue(value: unknown): number {
@@ -243,6 +252,8 @@ export async function loadAnalyticsForApp(
 ): Promise<AnalyticsPageData> {
   const fetcher = options.fetcher ?? fetch
   const postId = options.postId
+  // postId reaches Analytics Engine SQL, which has no bind parameters.
+  if (postId !== undefined && !isAnalyticsPostId(postId)) throw new ValidationError('postId is not a valid post id.')
   const selfHosted = isSelfHosted()
   if (!selfHosted) {
     const entitlement = await resolveEffectiveEntitlementForWorkspace(app.workspaceId)

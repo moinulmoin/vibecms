@@ -3711,7 +3711,7 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
             },
             "required": false,
             "name": "postId",

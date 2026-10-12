@@ -181,6 +181,19 @@ describe('loadAnalyticsForApp agents section', () => {
     expect(byDate[threeDaysAgo]).toBe(7) // crawler-only day falls back
   })
 
+  it('rejects a postId that could escape the Analytics Engine SQL string before any query', async () => {
+    const seed = await seedSite('inject', { paid: true })
+    let queried = false
+    const fetcher = (async () => {
+      queried = true
+      return new Response(JSON.stringify({ data: [] }))
+    }) as unknown as typeof fetch
+    for (const postId of ["\\' OR 1=1 --", "x' OR index1 != '", 'has space']) {
+      await expect(loadAnalyticsForApp(appFor(seed), 7, { fetcher, postId })).rejects.toThrow('postId is not a valid post id.')
+    }
+    expect(queried).toBe(false)
+  })
+
   it('scopes per-post numbers with postId and empties site-grain sections', async () => {
     configureAnalytics()
     const seed = await seedSite('scoped')

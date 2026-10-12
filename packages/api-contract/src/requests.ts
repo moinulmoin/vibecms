@@ -107,7 +107,7 @@ export const removeSiteLocationRequestSchema = z.object({}).strict();
 export const getAnalyticsRequestSchema = z.object({
   range: z.enum(['7', '30', '90', '365', 'all']).default('30'),
   /** Scope every per-post number (views, trend, agent fetches) to one post. */
-  postId: z.string().min(1).optional(),
+  postId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, 'postId is not a valid post id.').optional(),
 }).strict();
 
 export const listPostsRequestSchema = z.object({
