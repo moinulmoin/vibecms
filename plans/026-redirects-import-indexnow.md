@@ -1,6 +1,6 @@
 # 026 - Redirects, import, and IndexNow
 
-Status: TODO. Depends on 022 (base path aware URLs). Migration slot: `0036`.
+Status: ON HOLD (owner, 2026-10-12). Depends on 022 (base path aware URLs). Migration slot: `0036`.
 
 ## Why
 

@@ -52,8 +52,11 @@ console. Self-host: optional, documented.
 
 ### 3. Blog pages (read-only, small)
 
-`apps/public/src/scripts/webmcp.js` (external file; CSP `script-src 'self'` + asset origin
-from 022 phase 2) registers on tenant pages when available:
+Folded into a script tenant pages already load (no extra request for readers; CSP
+`script-src 'self'` + asset origin from 022 phase 2). Registers only when
+`document.modelContext` exists, so it costs nothing elsewhere. Custom domains and
+`customer.com/blog` can't carry our origin-trial token, so until WebMCP ships in stable Chrome
+these tools only appear for people who enabled it; that's fine, they're a small extra:
 - `blog_search_posts` ({query}) → titles + URLs from the existing search index.
 - `blog_get_post_markdown` ({url or slug}) → fetches the `.md` twin through `data-vc-base`.
 No subscribe tool (consent must come from the person typing their email).
