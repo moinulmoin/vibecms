@@ -28,7 +28,6 @@ import { describe, it, expect, beforeAll, inject } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { createD1DomainRepository, createDataAccess } from "@vc/db";
-import { ConflictError } from "@vc/core";
 
 const WORKSPACE_ID = "ws-sub";
 const T = 1_700_000_000;
@@ -41,11 +40,13 @@ async function insertDomain(fields: {
   status: string;
   basePath?: string;
   proxyId?: string;
+  activatedAt?: number | null;
   verificationErrorsJson?: string;
   createdAt?: number;
+  updatedAt?: number;
 }) {
   await env.DB.prepare(
-    "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, verification_errors_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, activated_at, verification_errors_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   )
     .bind(
       fields.id,
@@ -55,9 +56,10 @@ async function insertDomain(fields: {
       fields.status,
       fields.basePath ?? null,
       fields.proxyId ?? null,
+      fields.activatedAt ?? null,
       fields.verificationErrorsJson ?? null,
       fields.createdAt ?? T,
-      T,
+      fields.updatedAt ?? T,
     )
     .run();
 }
@@ -96,8 +98,9 @@ beforeAll(async () => {
   }
   await env.DB.prepare("UPDATE sites SET status = 'archived' WHERE id = ?").bind("site-sub-archived").run();
 
-  // Another site owns this hostname as a custom domain; a subpath insert must
-  // not be able to take it over.
+  // Another site owns this hostname as a custom domain; a pending subpath
+  // claim may coexist with it now (0036) — the custom row keeps exclusive
+  // ownership of the hostname itself.
   await insertDomain({
     id: "dom-sub-b",
     siteId: "site-sub-b",
@@ -145,11 +148,25 @@ describe("insertSubpath", () => {
     expect(await repo.getSubpathByProxyId(first.proxyId!)).toBeNull();
   });
 
-  it("rejects a hostname already connected to another site", async () => {
+  it("lets pending claims for the same hostname coexist across sites and alongside custom rows", async () => {
     const repo = createD1DomainRepository(env.DB);
-    await expect(
-      repo.insertSubpath({ siteId: "site-sub-a", hostname: "taken.example.test", basePath: "/blog" }),
-    ).rejects.toBeInstanceOf(ConflictError);
+    // The hostname is already claimed by a custom row (site-b): a subpath
+    // claim is scoped to a base path and must NOT be rejected.
+    const onCustom = await repo.insertSubpath({
+      siteId: "site-sub-a",
+      hostname: "taken.example.test",
+      basePath: "/blog",
+    });
+    expect(onCustom.status).toBe("pending");
+
+    // Two sites can each hold a pending claim on the same hostname — only a
+    // verified location owns it.
+    await repo.insertSubpath({ siteId: "site-sub-a", hostname: "shared.example.test", basePath: "/blog" });
+    const claimB = await repo.insertSubpath({ siteId: "site-sub-b", hostname: "shared.example.test", basePath: "/news" });
+    const rows = (await repo.listBySite("site-sub-b")).filter((row) => row.hostname === "shared.example.test");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ type: "subpath", status: "pending", basePath: "/news" });
+    expect(claimB.proxyId).toMatch(/^[A-Za-z0-9_-]{32}$/);
   });
 });
 
@@ -260,7 +277,7 @@ describe("recordSubpathCheck", () => {
       checkPassed: true,
       verificationErrorsJson: resultJson,
     });
-    expect(stale).toBe(0);
+    expect(stale).toEqual({ applied: 0, demoted: [] });
     expect(await repo.getByHostname("conditional.example.test")).toMatchObject({ status: "pending" });
 
     // Against the current proxy id the result lands and activates the row.
@@ -270,11 +287,15 @@ describe("recordSubpathCheck", () => {
       checkPassed: true,
       verificationErrorsJson: resultJson,
     });
-    expect(applied).toBe(1);
+    expect(applied.applied).toBe(1);
+    expect(applied.demoted).toEqual([]);
     expect(await repo.getByHostname("conditional.example.test")).toMatchObject({
       status: "active",
       verificationErrorsJson: resultJson,
     });
+    // The first activation is stamped so stale-claim pruning never eats a
+    // once-live row.
+    expect((await repo.getByHostname("conditional.example.test"))!.activatedAt).not.toBeNull();
   });
 
   it("a failed check never demotes an active row (status logic lives in SQL)", async () => {
@@ -292,7 +313,8 @@ describe("recordSubpathCheck", () => {
       checkPassed: false,
       verificationErrorsJson: failJson,
     });
-    expect(applied).toBe(1);
+    expect(applied.applied).toBe(1);
+    expect(applied.demoted).toEqual([]);
     expect(await repo.getByHostname("nodemote.example.test")).toMatchObject({
       status: "active",
       verificationErrorsJson: failJson,
@@ -309,8 +331,89 @@ describe("recordSubpathCheck", () => {
       checkPassed: false,
       verificationErrorsJson: failJson,
     });
-    expect(applied2).toBe(1);
+    expect(applied2.applied).toBe(1);
     expect(await repo.getByHostname("willfail.example.test")).toMatchObject({ status: "failed" });
+  });
+
+  it("a passing check demotes other sites' active rows on the hostname in the same batch", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    // site-b serves move.example.test/blog today.
+    const live = await repo.insertSubpath({ siteId: "site-sub-b", hostname: "move.example.test", basePath: "/blog" });
+    await repo.setSubpathStatus(live.id, "site-sub-b", "active");
+    // site-a re-points the mount at itself and its check passes.
+    const claim = await repo.insertSubpath({ siteId: "site-sub-a", hostname: "move.example.test", basePath: "/blog" });
+
+    const passJson = JSON.stringify({ ok: true, errors: [], warnings: [], checkedAt: T });
+    const result = await repo.recordSubpathCheck(claim.id, "site-sub-a", {
+      proxyId: claim.proxyId!,
+      checkPassed: true,
+      verificationErrorsJson: passJson,
+    });
+    expect(result.applied).toBe(1);
+    expect(result.demoted).toHaveLength(1);
+    expect(result.demoted[0]).toMatchObject({ id: live.id, siteId: "site-sub-b", hostname: "move.example.test" });
+
+    const loser = (await repo.listBySite("site-sub-b")).find((row) => row.id === live.id)!;
+    expect(loser.status).toBe("failed");
+    expect(JSON.parse(loser.verificationErrorsJson!).errors[0].code).toBe("superseded");
+    const winner = (await repo.listBySite("site-sub-a")).find((row) => row.id === claim.id)!;
+    expect(winner.status).toBe("active");
+    expect(winner.activatedAt).not.toBeNull();
+
+    // The partial index enforces one active row per hostname: re-activating
+    // the loser directly must violate it.
+    await expect(
+      env.DB.prepare("UPDATE domains SET status = 'active' WHERE id = ?").bind(live.id).run(),
+    ).rejects.toThrow(/UNIQUE/i);
+  });
+
+  it("a failed check never demotes another site's live row either", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const live = await repo.insertSubpath({ siteId: "site-sub-b", hostname: "safe.example.test", basePath: "/blog" });
+    await repo.setSubpathStatus(live.id, "site-sub-b", "active");
+    const claim = await repo.insertSubpath({ siteId: "site-sub-a", hostname: "safe.example.test", basePath: "/blog" });
+
+    const failJson = JSON.stringify({ ok: false, errors: [{ code: "no_response", message: "down" }], warnings: [], checkedAt: T });
+    const result = await repo.recordSubpathCheck(claim.id, "site-sub-a", {
+      proxyId: claim.proxyId!,
+      checkPassed: false,
+      verificationErrorsJson: failJson,
+    });
+    expect(result.applied).toBe(1);
+    expect(result.demoted).toEqual([]);
+    expect((await repo.listBySite("site-sub-b")).find((row) => row.id === live.id)!.status).toBe("active");
+  });
+
+  it("only reports demotions its own batch actually applied (raced demotion)", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const live = await repo.insertSubpath({ siteId: "site-sub-b", hostname: "raced.example.test", basePath: "/blog" });
+    await repo.setSubpathStatus(live.id, "site-sub-b", "active");
+    const claim = await repo.insertSubpath({ siteId: "site-sub-a", hostname: "raced.example.test", basePath: "/blog" });
+
+    // Simulate the second of two racing checks for the same claimant: both
+    // select site-b's active row, but a rival write flips it to failed in the
+    // gap between this batch's demotable SELECT and its execution. The demote
+    // statement then changes 0 rows and must not be reported in `demoted`.
+    const racedDb = new Proxy(env.DB, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (prop !== "batch" || typeof value !== "function") {
+          return typeof value === "function" ? value.bind(target) : value;
+        }
+        return async (stmts: D1PreparedStatement[]) => {
+          await env.DB.prepare("UPDATE domains SET status = 'failed' WHERE id = ?").bind(live.id).run();
+          return value.call(target, stmts);
+        };
+      },
+    });
+    const raced = await createD1DomainRepository(racedDb).recordSubpathCheck(claim.id, "site-sub-a", {
+      proxyId: claim.proxyId!,
+      checkPassed: true,
+      verificationErrorsJson: JSON.stringify({ ok: true, errors: [], warnings: [], checkedAt: T }),
+    });
+    expect(raced.applied).toBe(1);
+    expect(raced.demoted).toEqual([]);
+    expect((await repo.listBySite("site-sub-a")).find((row) => row.id === claim.id)!.status).toBe("active");
   });
 });
 
@@ -471,5 +574,48 @@ describe("read-model subpath lookups (slice B)", () => {
     // site-sub-a's subpath (activated above) wins over the default host.
     expect(site?.primaryLocation).toMatchObject({ type: "subpath", hostname: "rm.example.test", basePath: "/blog" });
     expect(await readModel.resolveSiteByHost("rm.example.test")).toBeNull();
+  });
+});
+
+describe("deleteStaleSubpathClaims", () => {
+  it("prunes only old never-active claims, bounded, leaving live and fresh rows", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const STALE = T - 31 * 24 * 60 * 60; // older than the 30-day claim TTL
+    const cutoff = T - 30 * 24 * 60 * 60;
+
+    await insertSite("site-sub-prune");
+    // Prunable: pending + failed, never activated, untouched for a month.
+    await insertDomain({ id: "dom-prune-p", siteId: "site-sub-prune", hostname: "prune-p.example.test", type: "subpath", status: "pending", updatedAt: STALE });
+    await insertDomain({ id: "dom-prune-f", siteId: "site-sub-prune", hostname: "prune-f.example.test", type: "subpath", status: "failed", updatedAt: STALE });
+    // Kept: fresh claim, a once-live row (activated_at set), and a custom row.
+    await insertDomain({ id: "dom-prune-fresh", siteId: "site-sub-prune", hostname: "prune-fresh.example.test", type: "subpath", status: "pending", updatedAt: T });
+    await insertDomain({ id: "dom-prune-live", siteId: "site-sub-prune", hostname: "prune-live.example.test", type: "subpath", status: "failed", activatedAt: STALE, updatedAt: STALE });
+    await insertDomain({ id: "dom-prune-custom", siteId: "site-sub-prune", hostname: "prune-c.example.test", type: "custom", status: "pending", updatedAt: STALE });
+
+    expect(await repo.deleteStaleSubpathClaims(cutoff, 500)).toBe(2);
+
+    const remaining = (await repo.listBySite("site-sub-prune")).map((row) => row.id).sort();
+    expect(remaining).toEqual(["dom-prune-custom", "dom-prune-fresh", "dom-prune-live"]);
+    // Idempotent: nothing left to prune.
+    expect(await repo.deleteStaleSubpathClaims(cutoff, 500)).toBe(0);
+  });
+
+  it("honours the per-run limit", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const STALE = T - 31 * 24 * 60 * 60;
+    const cutoff = T - 30 * 24 * 60 * 60;
+    await insertSite("site-sub-prune-cap");
+    for (let i = 0; i < 3; i++) {
+      await insertDomain({
+        id: `dom-prune-cap-${i}`,
+        siteId: "site-sub-prune-cap",
+        hostname: `prune-cap-${i}.example.test`,
+        type: "subpath",
+        status: "pending",
+        updatedAt: STALE,
+      });
+    }
+    expect(await repo.deleteStaleSubpathClaims(cutoff, 2)).toBe(2);
+    expect(await repo.deleteStaleSubpathClaims(cutoff, 2)).toBe(1);
   });
 });

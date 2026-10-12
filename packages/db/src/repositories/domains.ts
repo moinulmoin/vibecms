@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import {
   ConflictError,
   type DomainRecord,
@@ -20,6 +20,7 @@ function mapDomain(row: DomainRow): DomainRecord {
     verificationErrorsJson: row.verificationErrorsJson,
     basePath: row.basePath,
     proxyId: row.proxyId,
+    activatedAt: row.activatedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -61,6 +62,14 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
       const rows = await client.select().from(domains).where(eq(domains.hostname, hostname)).limit(1);
       return rows[0] ? mapDomain(rows[0]) : null;
     },
+    async getExclusiveByHostname(hostname) {
+      const rows = await client
+        .select()
+        .from(domains)
+        .where(and(eq(domains.hostname, hostname), ne(domains.type, "subpath")))
+        .limit(1);
+      return rows[0] ? mapDomain(rows[0]) : null;
+    },
     async insert(record) {
       try {
         await client.insert(domains).values({
@@ -73,6 +82,7 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
           verificationErrorsJson: record.verificationErrorsJson,
           basePath: record.basePath,
           proxyId: record.proxyId,
+          activatedAt: record.activatedAt,
           createdAt: record.createdAt,
           updatedAt: record.updatedAt,
         });
@@ -128,12 +138,14 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
         verificationErrorsJson: null,
         basePath,
         proxyId: newProxyId(),
+        activatedAt: null,
         createdAt: now,
         updatedAt: now,
       };
       try {
         // One subpath row per site: delete-then-insert in a single batch keeps
-        // the replace atomic and releases the hostname UNIQUE first.
+        // the replace atomic. Pending claims on the same hostname coexist —
+        // hostname uniqueness now lives in the partial claim indexes (0036).
         await client.batch([
           client.delete(domains).where(and(eq(domains.siteId, siteId), eq(domains.type, "subpath"))),
           client.insert(domains).values({
@@ -146,6 +158,7 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
             verificationErrorsJson: record.verificationErrorsJson,
             basePath: record.basePath,
             proxyId: record.proxyId,
+            activatedAt: record.activatedAt,
             createdAt: record.createdAt,
             updatedAt: record.updatedAt,
           }),
@@ -214,33 +227,123 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
         .run();
       return result.meta.changes ?? 0;
     },
+    async deleteStaleSubpathClaims(staleBeforeUpdatedAt, limit) {
+      const result = await client.run(sql`
+        DELETE FROM domains
+        WHERE id IN (
+          SELECT id FROM domains
+          WHERE type = 'subpath'
+            AND status IN ('pending', 'failed')
+            AND activated_at IS NULL
+            AND updated_at <= ${staleBeforeUpdatedAt}
+          LIMIT ${limit}
+        )`);
+      return result.meta.changes ?? 0;
+    },
     async setSubpathStatus(id, siteId, status, verificationErrorsJson) {
+      const now = Math.floor(Date.now() / 1000);
       await client
         .update(domains)
-        .set({ status, verificationErrorsJson: verificationErrorsJson ?? null, updatedAt: Math.floor(Date.now() / 1000) })
+        .set({
+          status,
+          // An active row is live by definition: backfill activated_at so the
+          // stale-claim sweep never treats a once-live row as never-active.
+          activatedAt: status === "active" ? sql`COALESCE(${domains.activatedAt}, ${now})` : undefined,
+          verificationErrorsJson: verificationErrorsJson ?? null,
+          updatedAt: now,
+        })
         .where(and(eq(domains.id, id), eq(domains.siteId, siteId), eq(domains.type, "subpath")))
         .run();
     },
     async recordSubpathCheck(id, siteId, input) {
-      const result = await client
-        .update(domains)
-        .set({
-          // A passing check activates; a failing one demotes only a never-active
-          // row (an active row keeps serving — only the owner removes a mount).
-          status: sql`CASE WHEN ${input.checkPassed ? 1 : 0} = 1 OR ${domains.status} = 'active' THEN 'active' ELSE 'failed' END`,
-          verificationErrorsJson: input.verificationErrorsJson,
-          updatedAt: Math.floor(Date.now() / 1000),
-        })
-        .where(
-          and(
-            eq(domains.id, id),
-            eq(domains.siteId, siteId),
-            eq(domains.type, "subpath"),
-            eq(domains.proxyId, input.proxyId),
-          ),
-        )
-        .run();
-      return result.meta.changes ?? 0;
+      const now = Math.floor(Date.now() / 1000);
+      // Rows the activation supersedes. The demote statements carry the same
+      // row guard (hostname of the row still matching id+site+proxy id), so a
+      // checked row that was rotated/removed mid-probe demotes nothing.
+      const demotable = input.checkPassed
+        ? await client
+            .select({
+              id: domains.id,
+              siteId: domains.siteId,
+              hostname: domains.hostname,
+              basePath: domains.basePath,
+              proxyId: domains.proxyId,
+              status: domains.status,
+            })
+            .from(domains)
+            .where(
+              and(
+                eq(domains.hostname, sql`(SELECT hostname FROM domains WHERE id = ${id})`),
+                ne(domains.id, id),
+                eq(domains.type, "subpath"),
+                eq(domains.status, "active"),
+              ),
+            )
+        : [];
+      const supersededJson = JSON.stringify({
+        ok: false,
+        errors: [{ code: "superseded", message: "This hostname now points at another blog." }],
+        warnings: [],
+        checkedAt: now,
+      });
+      // One D1 batch = one transaction: demote the losers BEFORE activating
+      // the winner so idx_domains_subpath_active cannot trip inside it.
+      const statements = [
+        ...demotable.map((row) =>
+          client
+            .update(domains)
+            .set({ status: "failed" as const, verificationErrorsJson: supersededJson, updatedAt: now })
+            .where(
+              and(
+                eq(domains.id, row.id),
+                eq(domains.type, "subpath"),
+                eq(domains.status, "active"),
+                eq(domains.hostname, sql`(SELECT hostname FROM domains WHERE id = ${id} AND site_id = ${siteId} AND type = 'subpath' AND proxy_id = ${input.proxyId})`),
+              ),
+            )
+            .toSQL(),
+        ),
+        client
+          .update(domains)
+          .set({
+            // A passing check activates; a failing one demotes only a
+            // never-active row (an active row keeps serving — only the owner
+            // removes a mount).
+            status: sql`CASE WHEN ${input.checkPassed ? 1 : 0} = 1 OR ${domains.status} = 'active' THEN 'active' ELSE 'failed' END`,
+            activatedAt: input.checkPassed ? sql`COALESCE(${domains.activatedAt}, ${now})` : undefined,
+            verificationErrorsJson: input.verificationErrorsJson,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(domains.id, id),
+              eq(domains.siteId, siteId),
+              eq(domains.type, "subpath"),
+              eq(domains.proxyId, input.proxyId),
+            ),
+          )
+          .toSQL(),
+      ];
+      try {
+        const prepared = statements.map((q) => db.prepare(q.sql).bind(...q.params));
+        const results = await db.batch(prepared);
+        const applied = results[results.length - 1]?.meta.changes ?? 0;
+        // Only rows THIS batch actually demoted: a racing check can demote a
+        // selected loser first, making its statement a 0-change no-op here.
+        // Report it anyway and callers would write duplicate
+        // site.location.superseded activity and purge an unchanged site.
+        const demoted = demotable
+          .filter((_, index) => (results[index]?.meta.changes ?? 0) > 0)
+          .map((row) => ({ ...row } satisfies SubpathDomainRow));
+        return { applied, demoted };
+      } catch (error) {
+        // Another claim activated on this hostname mid-batch: nothing was
+        // applied (the batch is atomic), so the caller re-runs the check.
+        if (isUniqueViolation(error)) {
+          throw new ConflictError("That hostname was just claimed by another blog. Run the check again.");
+        }
+        throw error;
+      }
     },
     async getPrimaryPublicLocation(siteId) {
       // Few rows per site: fetch the active domains and pick by precedence.

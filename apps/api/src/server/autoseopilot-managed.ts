@@ -1,4 +1,10 @@
-import { AGENT_TOKEN_PRESETS, ConflictError, validateSubpathLocation, type Actor } from '@vc/core'
+import {
+  AGENT_TOKEN_PRESETS,
+  ConflictError,
+  validateSubpathLocation,
+  type Actor,
+  type SubpathCheckWriteResult,
+} from '@vc/core'
 import {
   createDataAccess,
   evaluateEffectiveHostedEntitlement,
@@ -7,7 +13,7 @@ import {
   type ManagedSiteSnapshot,
 } from '@vc/db'
 import { isReservedSiteSlug, SITE_SLUG_MAX_LENGTH } from '@vc/validators'
-import { scheduleManagedSitePurge } from '@/server/purge-scheduler'
+import { isPurgeableMount, scheduleManagedSitePurge } from '@/server/purge-scheduler'
 import { getSiteLocation } from '@/server/subpath-locations'
 import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
 import { checkSubpathSetup } from '@/server/subpath-setup'
@@ -660,6 +666,10 @@ async function readExisting(
 
 // --- Subpath location (plans/022 phase 3) ------------------------------------
 
+// Demoted rows are a platform-driven outcome on the losing site, not an action
+// its users took — the activity entry is attributed to System.
+const SYSTEM_ACTOR: Actor = { type: 'system', id: 'system', name: 'System' }
+
 export const managedLocationRequestSchema = z
   .discriminatedUnion('type', [
     z.object({ type: z.literal('subpath'), url: z.string().trim().min(1).max(2048) }).strict(),
@@ -729,7 +739,16 @@ export async function setManagedSiteLocation(
     const existing = (await db.domains.listBySite(snapshot.siteId)).find((row) => row.type === 'subpath')
     if (existing) {
       await db.domains.deleteSubpathForSite(snapshot.siteId)
-      scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
+      // A mount that actually served purges its hostname; a never-verified
+      // claim owned nothing on that host and purges nothing extra.
+      scheduleManagedSitePurge(
+        environment.DB,
+        snapshot.siteId,
+        snapshot.siteSlug,
+        isPurgeableMount(existing)
+          ? [{ hostname: existing.hostname, basePath: existing.basePath ?? '' }]
+          : [],
+      )
     }
     return { location: await managedLocationView(environment, snapshot) }
   }
@@ -742,6 +761,9 @@ export async function setManagedSiteLocation(
   if (!validation.ok) {
     throw new ManagedInternalError('VALIDATION_ERROR', validation.error, 400)
   }
+  // insertSubpath replaces any existing row in one batch; capture it first so
+  // a mount that WAS live still gets its hostname purged below.
+  const existing = (await db.domains.listBySite(snapshot.siteId)).find((row) => row.type === 'subpath')
   try {
     await db.domains.insertSubpath({
       siteId: snapshot.siteId,
@@ -753,6 +775,14 @@ export async function setManagedSiteLocation(
       throw conflict('CONFLICT', 'That domain is already connected to another blog.')
     }
     throw error
+  }
+  if (existing && isPurgeableMount(existing)) {
+    scheduleManagedSitePurge(
+      environment.DB,
+      snapshot.siteId,
+      snapshot.siteSlug,
+      [{ hostname: existing.hostname, basePath: existing.basePath ?? '' }],
+    )
   }
   return { location: await managedLocationView(environment, snapshot) }
 }
@@ -770,14 +800,40 @@ export async function checkManagedSiteLocation(
   const check = await checkSubpathSetup(row, { id: snapshot.siteId })
   // Conditional write: applies only while the row still carries the proxy id
   // that was checked (rotate/remove mid-probe → conflict, re-check to retry),
-  // and a failing check never demotes an already-active row.
-  const applied = await db.domains.recordSubpathCheck(row.id, snapshot.siteId, {
-    proxyId: row.proxyId ?? '',
-    checkPassed: check.ok,
-    verificationErrorsJson: JSON.stringify(check),
-  })
+  // and a failing check never demotes an already-active row. A passing check
+  // also demotes any other site's active row on the hostname — the pass is
+  // the proof of hostname control.
+  let checkResult: SubpathCheckWriteResult
+  try {
+    checkResult = await db.domains.recordSubpathCheck(row.id, snapshot.siteId, {
+      proxyId: row.proxyId ?? '',
+      checkPassed: check.ok,
+      verificationErrorsJson: JSON.stringify(check),
+    })
+  } catch (error) {
+    // Another claim won this hostname mid-check: the batch applied nothing,
+    // so the caller just re-runs the probe.
+    if (error instanceof ConflictError) {
+      throw conflict('CONFLICT', error.message)
+    }
+    throw error
+  }
+  const { applied, demoted } = checkResult
   if (!applied) {
     throw conflict('CONFLICT', 'The proxy link changed while the check ran. Run the check again.')
+  }
+  for (const loser of demoted) {
+    const loserSnapshot = await db.managedSites.getSnapshotBySiteId(loser.siteId)
+    const loserSlug = loserSnapshot?.siteSlug ?? (await db.sites.getSiteSlug(loser.siteId))
+    if (loserSlug) scheduleManagedSitePurge(environment.DB, loser.siteId, loserSlug)
+    await db.activity.create({
+      siteId: loser.siteId,
+      actor: SYSTEM_ACTOR,
+      action: 'site.location.superseded',
+      entityType: 'site',
+      entityId: loser.siteId,
+      summary: `The blog location at ${loser.hostname}${loser.basePath ?? ''} now points at another blog.`,
+    })
   }
   if (check.ok) scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
   return { check, location: await managedLocationView(environment, snapshot) }

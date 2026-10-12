@@ -29,6 +29,9 @@ describe('custom hostname provisioning retry state', () => {
       async getByHostname(hostname) {
         return state.row.hostname === hostname ? state.row : null
       },
+      async getExclusiveByHostname(hostname) {
+        return state.row.hostname === hostname && state.row.type !== 'subpath' ? state.row : null
+      },
       async insert() {},
       async reclaimStale() {
         return 0
@@ -64,7 +67,10 @@ describe('custom hostname provisioning retry state', () => {
       },
       async setSubpathStatus() {},
       async recordSubpathCheck() {
-        return 0;
+        return { applied: 0, demoted: [] }
+      },
+      async deleteStaleSubpathClaims() {
+        return 0
       },
       async getPrimaryPublicLocation() {
         return null
@@ -82,6 +88,7 @@ describe('custom hostname provisioning retry state', () => {
     verificationErrorsJson: null,
     basePath: null,
     proxyId: null,
+    activatedAt: null,
     createdAt: 1_700_000_000,
     updatedAt: 1_700_000_000,
   })

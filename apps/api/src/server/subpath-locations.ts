@@ -16,7 +16,7 @@ import {
 import { createDataAccess, type DataAccess } from '@vc/db'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
-import { scheduleSitePurge } from '@/server/purge-scheduler'
+import { isPurgeableMount, scheduleSitePurge } from '@/server/purge-scheduler'
 import { appHost, publicBlogBaseDomain } from '@/server/public-url'
 import { checkSubpathSetup, type SubpathCheckResult } from '@/server/subpath-setup'
 import { defaultHostBaseUrl } from '@/server/site-public-url'
@@ -55,6 +55,10 @@ function errorCode(error: AppError): string {
 function isOwner(actor: Actor): boolean {
   return actor.type === 'human' && actor.role === 'owner'
 }
+
+// Demoted rows are a platform-driven outcome on the losing site, not an action
+// its users took — the activity entry is attributed to System.
+const SYSTEM_ACTOR: Actor = { type: 'system', id: 'system', name: 'System' }
 
 // Setup details (proxy target + snippets embed the proxy id credential) are
 // owner-only: a key with site:write could rotate the id anyway, so it may
@@ -159,11 +163,17 @@ export async function setSubpathLocationForApp(app: AppUserContext, url: string)
     const data = createDataAccess(env.DB)
     const slug = await data.sites.getSiteSlug(app.siteId)
     if (!slug) throw new NotFoundError('Site not found')
+    // insertSubpath replaces any existing row in one batch; capture it first
+    // so a mount that WAS live still gets its hostname purged below.
+    const previous = (await data.domains.listBySite(app.siteId)).find((domain) => domain.type === 'subpath')
     const record = await data.domains.insertSubpath({
       siteId: app.siteId,
       hostname: validation.hostname,
       basePath: validation.basePath,
     })
+    if (previous && isPurgeableMount(previous)) {
+      purgeAfterChange(app.siteId, slug, previous.hostname, previous.basePath)
+    }
     return { ok: true, location: subpathView(record, slug, true) }
   } catch (error) {
     if (error instanceof AppError) return { ok: false, code: errorCode(error) }
@@ -186,14 +196,28 @@ export async function checkSubpathLocationForApp(app: AppUserContext): Promise<C
     const check = await checkSubpathSetup(row, { id: app.siteId })
     // Conditional write: applies only if the row still carries the proxy id we
     // checked (a rotate/remove mid-probe makes it a no-op), and a failing check
-    // can never demote a row that is already active.
-    const applied = await data.domains.recordSubpathCheck(row.id, app.siteId, {
+    // can never demote a row that is already active. A passing check also
+    // demotes any OTHER site's active row on the hostname in the same batch —
+    // the pass is the proof the hostname moved.
+    const { applied, demoted } = await data.domains.recordSubpathCheck(row.id, app.siteId, {
       proxyId: row.proxyId ?? '',
       checkPassed: check.ok,
       verificationErrorsJson: JSON.stringify(check),
     })
     if (!applied) {
       throw new ConflictError('The proxy link changed while the check ran. Run the check again.')
+    }
+    for (const loser of demoted) {
+      const loserSlug = await data.sites.getSiteSlug(loser.siteId)
+      if (loserSlug) purgeAfterChange(loser.siteId, loserSlug, loser.hostname, loser.basePath)
+      await data.activity.create({
+        siteId: loser.siteId,
+        actor: SYSTEM_ACTOR,
+        action: 'site.location.superseded',
+        entityType: 'site',
+        entityId: loser.siteId,
+        summary: `The blog location at ${loser.hostname}${loser.basePath ?? ''} now points at another blog.`,
+      })
     }
     if (check.ok && row.status !== 'active') {
       purgeAfterChange(app.siteId, slug, row.hostname, row.basePath)
@@ -246,7 +270,9 @@ export async function removeSubpathLocationForApp(app: AppUserContext): Promise<
     const row = (await data.domains.listBySite(app.siteId)).find((domain) => domain.type === 'subpath')
     if (row) {
       await data.domains.deleteSubpathForSite(app.siteId)
-      purgeAfterChange(app.siteId, slug, row.hostname, row.basePath)
+      // Only a mount that actually served gets a hostname purge: a
+      // never-verified claim owned nothing on that host.
+      purgeAfterChange(app.siteId, slug, isPurgeableMount(row) ? row.hostname : null, row.basePath)
     }
     return { ok: true, location: await getSiteLocation(data, app.siteId, slug, app.actor) }
   } catch (error) {

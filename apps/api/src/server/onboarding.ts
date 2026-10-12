@@ -23,7 +23,7 @@ import { isReservedSiteSlug, newsletterSettingsSchema, navLinksSchema, socialLin
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
 import { defaultHostname } from './public-url'
-import { scheduleSitePurge } from './purge-scheduler'
+import { isPurgeableMount, scheduleSitePurge } from './purge-scheduler'
 
 type AuthSessionUser = { id: string; name: string; email: string }
 
@@ -393,7 +393,7 @@ export async function updateNewsletterSettingsForApp(
       currentSite.slug,
       published.map((row) => row.slug),
       domainRows
-        .filter((domain) => domain.type !== 'default')
+        .filter(isPurgeableMount)
         .map((domain) => ({ hostname: domain.hostname, basePath: domain.basePath ?? '' })),
     )
   }
@@ -640,7 +640,7 @@ export async function updateSiteSettingsForApp(
   )
   const domainRows = await createD1DomainRepository(env.DB).listBySite(app.siteId)
   const locations = domainRows
-    .filter((domain) => domain.type !== 'default')
+    .filter(isPurgeableMount)
     .map((domain) => ({ hostname: domain.hostname, basePath: domain.basePath ?? '' }))
   scheduleSitePurge(app.siteId, currentSite.slug, published.map((row) => row.slug), locations)
 

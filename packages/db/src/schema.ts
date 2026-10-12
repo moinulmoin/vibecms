@@ -81,7 +81,7 @@ export const siteVoiceProfiles = sqliteTable("site_voice_profiles", {
 export const domains = sqliteTable("domains", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
-  hostname: text("hostname").notNull().unique(),
+  hostname: text("hostname").notNull(),
   type: text("type", { enum: ["default", "custom", "subpath"] }).notNull(),
   status: text("status", { enum: ["pending", "active", "failed", "disabled"] }).notNull().default("pending"),
   cloudflareCustomHostnameId: text("cloudflare_custom_hostname_id"),
@@ -89,9 +89,20 @@ export const domains = sqliteTable("domains", {
   // non-guessable id embedded in the proxy target URL. NULL on default/custom.
   basePath: text("base_path"),
   proxyId: text("proxy_id"),
+  // First time a subpath row verified live; NULL = never-active claim.
+  activatedAt: integer("activated_at"),
   verificationErrorsJson: text("verification_errors_json"),
   ...timestamps,
-}, (table) => [index("idx_domains_site_id").on(table.siteId), index("idx_domains_hostname").on(table.hostname), uniqueIndex("idx_domains_proxy_id").on(table.proxyId)]);
+}, (table) => [
+  index("idx_domains_site_id").on(table.siteId),
+  index("idx_domains_hostname").on(table.hostname),
+  uniqueIndex("idx_domains_proxy_id").on(table.proxyId),
+  // default/custom rows still own a hostname exclusively; subpath claims do
+  // not (a pending claim proves nothing — see migration 0036).
+  uniqueIndex("idx_domains_hostname_exclusive").on(table.hostname).where(sql`type != 'subpath'`),
+  // At most one VERIFIED subpath location per hostname.
+  uniqueIndex("idx_domains_subpath_active").on(table.hostname).where(sql`type = 'subpath' AND status = 'active'`),
+]);
 
 export const posts = sqliteTable("posts", {
   id: text("id").primaryKey(),

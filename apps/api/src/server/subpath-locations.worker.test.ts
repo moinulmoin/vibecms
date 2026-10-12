@@ -21,6 +21,7 @@ import {
   setSubpathLocationForApp,
 } from '@/server/subpath-locations'
 import { recheckActiveSubpathLocations } from '@/server/subpath-recheck'
+import { runWithExecutionContext } from '@/server/execution-scope'
 import { dispatchOperation } from '@/server/mcp-dispatch'
 import type { OperationContext } from '@/server/operations'
 import type { AppUserContext } from '@/server/onboarding'
@@ -37,6 +38,8 @@ const WS = 'ws-sloc'
 const SITE = 'site-sloc'
 const SLUG = 'sloc'
 const FREE_SITE = 'site-sloc-free'
+const WS2 = 'ws-sloc-2'
+const SITE2 = 'site-sloc-2'
 
 const ownerActor: Actor = { type: 'human', id: 'user-sloc-owner', name: 'Owner', role: 'owner' }
 const editorActor: Actor = { type: 'human', id: 'user-sloc-editor', name: 'Editor', role: 'editor' }
@@ -99,6 +102,9 @@ beforeAll(async () => {
   await exec('INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', 'ws-sloc-free', 'Free', 'ws-sloc-free', T, T)
   await exec('INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', SITE, WS, 'Sloc Blog', SLUG, T, T)
   await exec('INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', FREE_SITE, 'ws-sloc-free', 'Free Blog', 'sloc-free', T, T)
+  await exec('INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', WS2, 'Sloc 2', WS2, T, T)
+  await exec('INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', SITE2, WS2, 'Sloc Blog 2', 'sloc-2', T, T)
+  await exec("INSERT INTO billing_customers (id, workspace_id, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)", 'bc-sloc-2', WS2, T, T)
   await exec("INSERT INTO billing_customers (id, workspace_id, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)", 'bc-sloc', WS, T, T)
   await exec(
     "INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)",
@@ -394,12 +400,120 @@ describe('operations dispatch (REST + MCP)', () => {
   })
 })
 
+describe('hostname claims (squatting fix)', () => {
+  it("a squatter's pending claim blocks nothing: the owner claims, verifies, activates", async () => {
+    const data = createDataAccess(env.DB)
+    // Squatter (SITE) parks a claim on the victim hostname.
+    const squatter = await setSubpathLocationForApp(appFor(ownerActor), 'https://victim.sloc.test/blog')
+    expect(squatter.ok).toBe(true)
+    // The real owner (SITE2) claims the same hostname — pending claims coexist.
+    const owner = await setSubpathLocationForApp(appFor(ownerActor, SITE2, WS2), 'https://victim.sloc.test/blog')
+    expect(owner.ok).toBe(true)
+    if (!owner.ok) return
+    expect(owner.location.status).toBe('pending')
+    const ownerProxyId = owner.location.proxyTarget!.split('/_vc/p/')[1]!
+
+    // The owner's check passes (the hostname proxies to SITE2's proxy id).
+    // Fresh Responses per fetch: the owner AND squatter checks each read the
+    // health body, so the fixtures can't be shared Response instances.
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url.endsWith('/_vc/health')) return jsonResponse(await healthBody(SITE2, ownerProxyId))
+      if (url.endsWith('/robots.txt')) return new Response('Sitemap: https://victim.sloc.test/blog/sitemap.xml', { status: 200 })
+      return new Response('<html></html>', { status: 200 })
+    }))
+    const check = await checkSubpathLocationForApp(appFor(ownerActor, SITE2, WS2))
+    expect(check.ok).toBe(true)
+    if (!check.ok) return
+    expect(check.location.status).toBe('active')
+
+    // The squatter's check then proves nothing: the hostname answers SITE2.
+    const squatterCheck = await checkSubpathLocationForApp(appFor(ownerActor))
+    expect(squatterCheck.ok).toBe(true)
+    if (!squatterCheck.ok) return
+    expect(squatterCheck.check.ok).toBe(false)
+    expect(squatterCheck.check.errors[0]!.code).toBe('wrong_site')
+    const squatterRow = (await data.domains.listBySite(SITE)).find((row) => row.type === 'subpath')!
+    expect(squatterRow.status).toBe('failed')
+    // The squatter's failed check never demotes the verified row.
+    const ownerRow = (await data.domains.listBySite(SITE2)).find((row) => row.type === 'subpath')!
+    expect(ownerRow.status).toBe('active')
+  })
+
+  it("a passing check moves the hostname: the loser's active row is demoted and told", async () => {
+    const data = createDataAccess(env.DB)
+    // SITE serves move.sloc.test/blog today.
+    const live = await data.domains.insertSubpath({ siteId: SITE, hostname: 'move.sloc.test', basePath: '/blog' })
+    await data.domains.setSubpathStatus(live.id, SITE, 'active')
+    // SITE2's owner sets the same location and passes the check.
+    const owner = await setSubpathLocationForApp(appFor(ownerActor, SITE2, WS2), 'https://move.sloc.test/blog')
+    expect(owner.ok).toBe(true)
+    if (!owner.ok) return
+    const ownerProxyId = owner.location.proxyTarget!.split('/_vc/p/')[1]!
+    vi.stubGlobal('fetch', proxyFetch({
+      health: jsonResponse(await healthBody(SITE2, ownerProxyId)),
+      page: new Response('<html></html>', { status: 200 }),
+      robots: new Response('Sitemap: https://move.sloc.test/blog/sitemap.xml', { status: 200 }),
+    }))
+    const check = await checkSubpathLocationForApp(appFor(ownerActor, SITE2, WS2))
+    expect(check.ok).toBe(true)
+    if (!check.ok) return
+    expect(check.location.status).toBe('active')
+
+    // SITE's row is failed with the superseded marker, and both sites got an
+    // activity entry.
+    const loser = (await data.domains.listBySite(SITE)).find((row) => row.id === live.id)!
+    expect(loser.status).toBe('failed')
+    expect(JSON.parse(loser.verificationErrorsJson!).errors[0].code).toBe('superseded')
+    const superseded = await env.DB
+      .prepare("SELECT actor_type, action FROM activity_events WHERE site_id = ? AND action = 'site.location.superseded'")
+      .bind(SITE)
+      .first<{ actor_type: string; action: string }>()
+    expect(superseded).toMatchObject({ actor_type: 'system', action: 'site.location.superseded' })
+    const verified = await env.DB
+      .prepare("SELECT action FROM activity_events WHERE site_id = ? AND action = 'site.location.verified'")
+      .bind(SITE2)
+      .first<{ action: string }>()
+    expect(verified?.action).toBe('site.location.verified')
+
+    // Exactly one active subpath row remains on the hostname.
+    const active = await env.DB
+      .prepare("SELECT COUNT(*) AS count FROM domains WHERE hostname = 'move.sloc.test' AND type = 'subpath' AND status = 'active'")
+      .first<{ count: number }>()
+    expect(active!.count).toBe(1)
+  })
+
+  it('the cron prunes never-active claims older than 30 days, bounded', async () => {
+    const data = createDataAccess(env.DB)
+    const exec = (sql: string, ...binds: unknown[]) => env.DB.prepare(sql).bind(...binds).run()
+    const stale = Math.floor(Date.now() / 1000) - 40 * 24 * 60 * 60
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, updated_at, created_at) VALUES (?, ?, ?, 'subpath', 'pending', '/blog', 'stale-proxy-1', ?, ?)",
+      'dom-sloc-stale-1', SITE2, 'stale-1.sloc.test', stale, stale,
+    )
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, activated_at, updated_at, created_at) VALUES (?, ?, ?, 'subpath', 'failed', '/blog', 'stale-proxy-2', ?, ?, ?)",
+      'dom-sloc-stale-2', SITE2, 'stale-2.sloc.test', stale, stale, stale,
+    )
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down') }))
+    const { pruned } = await recheckActiveSubpathLocations(env.DB)
+    // stale-1 is never-active → pruned; stale-2 was live once → kept (SITE2's
+    // other subpath rows from earlier tests are unaffected either way).
+    expect(pruned).toBeGreaterThanOrEqual(1)
+    const rows = (await data.domains.listBySite(SITE2)).filter((row) => row.type === 'subpath').map((row) => row.id)
+    expect(rows).not.toContain('dom-sloc-stale-1')
+    expect(rows).toContain('dom-sloc-stale-2')
+  })
+})
+
+
 describe('daily re-check', () => {
   it('records results on active rows but never demotes them', async () => {
     await seedSubpath('active')
     vi.stubGlobal('fetch', proxyFetch({})) // probe fails today
     const { checked } = await recheckActiveSubpathLocations(env.DB)
-    expect(checked).toBe(1)
+    // SITE's row plus SITE2's still-active claim from the earlier suite.
+    expect(checked).toBeGreaterThanOrEqual(1)
     const stored = (await createDataAccess(env.DB).domains.listBySite(SITE)).find((row) => row.type === 'subpath')!
     expect(stored.status).toBe('active')
     expect(JSON.parse(stored.verificationErrorsJson!)).toMatchObject({ ok: false })
@@ -411,7 +525,8 @@ describe('daily re-check', () => {
     const { checked } = await recheckActiveSubpathLocations(env.DB)
     const stored = (await createDataAccess(env.DB).domains.listBySite(SITE)).find((row) => row.type === 'subpath')!
     expect(stored.status).toBe('pending')
-    expect(checked).toBe(0)
+    // SITE2's still-active claim gets checked; the pending row does not.
+    expect(checked).toBe(1)
   })
 
   it('stops starting new checks at the wall-clock budget, leaving the rest for tomorrow', async () => {
@@ -438,5 +553,102 @@ describe('daily re-check', () => {
       .prepare("SELECT COUNT(*) AS count FROM domains WHERE type = 'subpath' AND verification_errors_json IS NULL")
       .first<{ count: number }>()
     expect(unprobed!.count).toBeGreaterThan(0)
+  })
+})
+
+describe('hostname purge gates (never-verified claims)', () => {
+  function collectPurgeBodies() {
+    const bodies: Record<string, unknown>[] = []
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body ?? '{}')))
+      return new Response('{"success":true}', { status: 200 })
+    }))
+    return bodies
+  }
+
+  function fakeExecutionContext(tasks: Promise<unknown>[]) {
+    return { waitUntil: (task: Promise<unknown>) => tasks.push(task) } as unknown as ExecutionContext
+  }
+
+  function hostnamesPurged(bodies: Record<string, unknown>[]) {
+    return bodies.filter((body) => Array.isArray(body.hosts)).flatMap((body) => body.hosts as string[])
+  }
+
+  it('a never-verified claim purges nothing on the claimed hostname', async () => {
+    const data = createDataAccess(env.DB)
+    const victim = 'squat-purge.sloc.test'
+    // The victim's real owner serves this hostname today.
+    const live = await data.domains.insertSubpath({ siteId: SITE2, hostname: victim, basePath: '/blog' })
+    await data.domains.setSubpathStatus(live.id, SITE2, 'active')
+
+    const previousZone = env.CLOUDFLARE_ZONE_ID
+    const previousToken = env.CACHE_PURGE_API_TOKEN
+    env.CLOUDFLARE_ZONE_ID = 'zone-purge-test'
+    env.CACHE_PURGE_API_TOKEN = 'token-purge-test'
+    const bodies = collectPurgeBodies()
+    const tasks: Promise<unknown>[] = []
+    try {
+      // Squatter parks a claim on the victim's hostname, then removes it. The
+      // claim never passed a check, so it owns no mount: no hosts purge.
+      const set = await setSubpathLocationForApp(appFor(ownerActor), `https://${victim}/blog`)
+      expect(set.ok).toBe(true)
+      await runWithExecutionContext(fakeExecutionContext(tasks), () => removeSubpathLocationForApp(appFor(ownerActor)))
+      await Promise.all(tasks)
+    } finally {
+      vi.unstubAllGlobals()
+      env.CLOUDFLARE_ZONE_ID = previousZone
+      env.CACHE_PURGE_API_TOKEN = previousToken
+    }
+    expect(hostnamesPurged(bodies)).not.toContain(victim)
+    // The squatter's own site tag still purges — only the hostname is spared.
+    expect(bodies).toContainEqual({ tags: [`vc-site:${SITE}`] })
+  })
+
+  it('removing a previously active location still purges its old mount', async () => {
+    const repo = createDataAccess(env.DB).domains
+    const record = await repo.insertSubpath({ siteId: SITE, hostname: 'purge-live.sloc.test', basePath: '/blog' })
+    await repo.setSubpathStatus(record.id, SITE, 'active')
+
+    const previousZone = env.CLOUDFLARE_ZONE_ID
+    const previousToken = env.CACHE_PURGE_API_TOKEN
+    env.CLOUDFLARE_ZONE_ID = 'zone-purge-test'
+    env.CACHE_PURGE_API_TOKEN = 'token-purge-test'
+    const bodies = collectPurgeBodies()
+    const tasks: Promise<unknown>[] = []
+    try {
+      await runWithExecutionContext(fakeExecutionContext(tasks), () => removeSubpathLocationForApp(appFor(ownerActor)))
+      await Promise.all(tasks)
+    } finally {
+      vi.unstubAllGlobals()
+      env.CLOUDFLARE_ZONE_ID = previousZone
+      env.CACHE_PURGE_API_TOKEN = previousToken
+    }
+    expect(bodies).toContainEqual({ hosts: ['purge-live.sloc.test'] })
+    expect(bodies).toContainEqual({ tags: [`vc-site:${SITE}`] })
+  })
+
+  it('replacing a live location with a new claim purges the old mount', async () => {
+    const repo = createDataAccess(env.DB).domains
+    const live = await repo.insertSubpath({ siteId: SITE, hostname: 'purge-swap.sloc.test', basePath: '/blog' })
+    await repo.setSubpathStatus(live.id, SITE, 'active')
+
+    const previousZone = env.CLOUDFLARE_ZONE_ID
+    const previousToken = env.CACHE_PURGE_API_TOKEN
+    env.CLOUDFLARE_ZONE_ID = 'zone-purge-test'
+    env.CACHE_PURGE_API_TOKEN = 'token-purge-test'
+    const bodies = collectPurgeBodies()
+    const tasks: Promise<unknown>[] = []
+    try {
+      const set = await runWithExecutionContext(fakeExecutionContext(tasks), () =>
+        setSubpathLocationForApp(appFor(ownerActor), 'https://elsewhere.sloc.test/blog'),
+      )
+      expect(set.ok).toBe(true)
+      await Promise.all(tasks)
+    } finally {
+      vi.unstubAllGlobals()
+      env.CLOUDFLARE_ZONE_ID = previousZone
+      env.CACHE_PURGE_API_TOKEN = previousToken
+    }
+    expect(bodies).toContainEqual({ hosts: ['purge-swap.sloc.test'] })
   })
 })

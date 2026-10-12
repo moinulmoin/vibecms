@@ -109,9 +109,12 @@ export type DomainRecord = {
   status: CustomDomainStatus;
   cloudflareCustomHostnameId: string | null;
   verificationErrorsJson: string | null;
-  // Subpath hosting only; NULL on default/custom rows.
+  // Subpath hosting only: the public base path ("/blog") and the rotatable
+  // non-guessable id embedded in the proxy target URL. NULL on default/custom.
   basePath: string | null;
   proxyId: string | null;
+  /** First time a subpath row verified live; NULL means the row never served. */
+  activatedAt: number | null;
   createdAt: number;
   updatedAt: number;
 };

@@ -11,7 +11,7 @@ import {
 } from './public-blog-cache'
 import { env } from 'cloudflare:workers'
 import { runWithExecutionContext } from './execution-scope'
-import { scheduleArticlePurge, scheduleHostnamePurge } from './purge-scheduler'
+import { scheduleArticlePurge, scheduleHostnamePurge, scheduleManagedSitePurge } from './purge-scheduler'
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -177,6 +177,60 @@ describe('public article cache invalidation', () => {
     await Promise.all(tasks)
 
     for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('scheduled purges ignore never-verified subpath claims but keep retired mounts', async () => {
+    // A pending claim that never passed its check owns no mount: it must not
+    // pull the claimed hostname into site/article purges. A row that WAS live
+    // (activated_at set) still purges — its cached copies exist.
+    const stamp = 1_700_000_101
+    await env.DB.prepare(
+      "INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind('ws-cache-claims', 'Cache Claims', 'ws-cache-claims', stamp, stamp)
+      .run()
+    await env.DB.prepare(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+      .bind('site-cache-claims', 'ws-cache-claims', 'Cache Claims', 'site-cache-claims', stamp, stamp)
+      .run()
+    for (const [id, host, status, activatedAt] of [
+      ['dom-claims-pending', 'never-verified.claims.example', 'pending', null],
+      ['dom-claims-retired', 'retired.claims.example', 'failed', stamp],
+    ] as const) {
+      await env.DB.prepare(
+        "INSERT INTO domains (id, site_id, hostname, type, status, base_path, activated_at, created_at, updated_at) VALUES (?, ?, ?, 'subpath', ?, '/blog', ?, ?, ?)",
+      )
+        .bind(id, 'site-cache-claims', host, status, activatedAt, stamp, stamp)
+        .run()
+    }
+
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const neverVerified = hostnameCacheUrls('never-verified.claims.example', '/blog')
+    const retired = hostnameCacheUrls('retired.claims.example', '/blog')
+    for (const url of [...neverVerified, ...retired]) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    const tasks: Promise<unknown>[] = []
+    runWithExecutionContext(
+      { waitUntil: (task: Promise<unknown>) => tasks.push(task) } as unknown as ExecutionContext,
+      () => scheduleManagedSitePurge(env.DB, 'site-cache-claims', 'site-cache-claims'),
+    )
+    await Promise.all(tasks)
+
+    // The never-verified claim's hostname was never touched…
+    for (const url of neverVerified) {
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+    // …but the retired mount's cache entries were cleared.
+    for (const url of retired) {
       expect(await cache.match(new Request(url))).toBeUndefined()
     }
   })
