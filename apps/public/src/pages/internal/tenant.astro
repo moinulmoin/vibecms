@@ -14,7 +14,9 @@ import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 // proxied subpath blogs). Direct hits 404 so the path stays non-indexable and
 // never becomes a public canonical URL.
 if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404 });
+  const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (missing) return missing;
+  return new Response("Not found", { status: 404 });
 }
 
 const env = publicRuntimeEnv(Astro);
@@ -30,7 +32,9 @@ const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
 const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query, requestedPublicPage(Astro.url.searchParams.get("page")), location);
 
 if (!blog) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", {
+  const markdownMissing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (markdownMissing) return markdownMissing;
+  return new Response("Not found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
@@ -38,7 +42,8 @@ if (!blog) {
 
 const page = blog.page ?? resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
-  return new Response(listingMarkdown({ ...blog, page }, homeBase), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: tenantHomeLinks(location.origin, location.basePath) } });
+  const markdown = new Response(listingMarkdown({ ...blog, page }, homeBase), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: tenantHomeLinks(location.origin, location.basePath) } });
+  if (markdown) return markdown;
 }
 Astro.response.headers.set("Link", tenantHomeLinks(location.origin, location.basePath));
 

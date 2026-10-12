@@ -19,10 +19,13 @@ const location: PublicLocation = Astro.locals.publicLocation ?? {
 const tag = Astro.params.tag ?? "";
 const blog = await loadPublicTagByHost(publicDb(Astro), Astro.request, tag, env, requestedPublicPage(Astro.url.searchParams.get("page")), location);
 if (!blog) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+  const markdownMissing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (markdownMissing) return markdownMissing;
+  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
-  return new Response(listingMarkdown(blog, publicBaseUrl(location)), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept" } });
+  const markdown = new Response(listingMarkdown(blog, publicBaseUrl(location)), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept" } });
+  if (markdown) return markdown;
 }
 for (const [key, value] of Object.entries(publicListingResponseHeaders(blog.site, env))) {
   Astro.response.headers.set(key, value);

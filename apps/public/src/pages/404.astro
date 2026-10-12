@@ -1,6 +1,7 @@
 ---
 import { markdownNotFound } from "../lib/agent-discovery";
-if (Astro.request.headers.get("accept")?.includes("text/markdown")) return markdownNotFound();
+const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+if (missing) return missing;
 Astro.response.status = 404;
 Astro.response.headers.set("Vary", "Accept");
 const basePath = Astro.locals.publicLocation?.basePath ?? "";

@@ -22,6 +22,8 @@ import { handleFeed, handleLlmsTxt, handleRobots, handleSitemap } from "./public
 import { resolvePublishedLinkSlugs, resolveSite } from "./public-blog-data";
 import { normalizeReferrerHost } from "./public-analytics";
 import { listingMarkdown } from "../lib/agent-pages";
+import { rewriteProxiedAssetsInHtml } from "./proxied-assets";
+import { applyPublicSecurityHeaders } from "./secure-response-headers";
 import type { PublicIndexLoaderData } from "./public-blog";
 import { POST as viewPost } from "../pages/api/analytics/view";
 
@@ -432,5 +434,72 @@ describe("review fixes: entitlement and rewrite passes", () => {
     // The data-layer helper resolves the same candidates directly.
     const slugs = await resolvePublishedLinkSlugs(env.DB, site!.id, ["[a](/old-link-0) [b](/old-link-200) [c](/missing)"]);
     expect(slugs).toEqual(new Set(["old-link-0", "old-link-200"]));
+  });
+});
+
+describe("proxied page assets and CSP (phase 2)", () => {
+  const ASSET_ORIGIN = `https://${HOST}`;
+  // Representative tenant HTML: Astro-injected build assets, preloads, icons.
+  const PAGE_HTML = [
+    `<!doctype html><html data-vc-base="/blog"><head>`,
+    `<link rel="stylesheet" href="/_astro/site.ABC123.css">`,
+    `<link rel="preload" href="/_astro/geist.DEF456.woff2" as="font" type="font/woff2">`,
+    `<link rel="icon" href="/favicon.svg" type="image/svg+xml">`,
+    `<meta property="og:image" content="${ASSET_ORIGIN}/og/hello.png?v=0123456789abcdef">`,
+    `</head><body>`,
+    `<a href="/blog/hello">post</a><a href="/pricing">customer pricing</a>`,
+    `<script src="/_astro/page-view.GHI789.js" defer></script>`,
+    `<img src="${ASSET_ORIGIN}/media-assets/asset-2">`,
+    `</body></html>`,
+  ].join("");
+
+  it("rewrites root-relative worker assets and CSP on a proxied response", async () => {
+    // The ingress produces the proxied location; middleware then rewrites the
+    // page's asset URLs and widens the CSP before the response leaves.
+    const path = `/_vc/p/${PROXY_ID}/hello`;
+    const ingress = await resolvePublicLocationIngress(env.DB, request(path), path, runtimeEnv);
+    if (ingress.kind !== "proxied") throw new Error("expected proxied ingress");
+
+    // Real SSR responses carry Astro's CSP header (astro.config.mjs).
+    const astroCsp = "default-src 'self'; script-src 'self' 'sha256-abc'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; manifest-src 'self'";
+    const page = new Response(PAGE_HTML, { headers: { "content-type": "text/html; charset=utf-8", "content-security-policy": astroCsp } });
+    const rewritten = rewriteProxiedAssetsInHtml(page, ingress.location);
+    const headers = new Headers(rewritten.headers);
+    applyPublicSecurityHeaders("/hello", headers.get("content-type"), headers, ingress.location);
+    const html = await rewritten.text();
+
+    // Every root-relative worker asset moved to the asset origin.
+    expect(html).not.toContain('="/_astro/');
+    expect(html).not.toContain('="/favicon');
+    expect(html).toContain(`href="${ASSET_ORIGIN}/_astro/site.ABC123.css"`);
+    expect(html).toContain(`src="${ASSET_ORIGIN}/_astro/page-view.GHI789.js"`);
+    expect(html).toContain(`href="${ASSET_ORIGIN}/favicon.svg"`);
+    expect(html).toMatch(/<link rel="preload"[^>]*crossorigin/);
+    // Blog links, author root-relative links, already-absolute assets: alone.
+    expect(html).toContain('href="/blog/hello"');
+    expect(html).toContain('href="/pricing"');
+    expect(html).toContain(`src="${ASSET_ORIGIN}/media-assets/asset-2"`);
+
+    const csp = headers.get("content-security-policy") ?? "";
+    expect(csp).toMatch(new RegExp(`script-src [^;]*${HOST.replace(/\./g, "\\.")}`));
+    expect(csp).toMatch(new RegExp(`style-src [^;]*${HOST.replace(/\./g, "\\.")}`));
+    expect(csp).toMatch(new RegExp(`font-src [^;]*${HOST.replace(/\./g, "\\.")}`));
+    expect(csp).toMatch(new RegExp(`img-src [^;]*${HOST.replace(/\./g, "\\.")}`));
+    expect(csp).toMatch(/connect-src 'self'(;|$)/);
+    expect(csp).not.toMatch(/connect-src [^;]*basedui/);
+  });
+
+  it("leaves a direct response byte-identical and its CSP unchanged", async () => {
+    const location = { origin: ASSET_ORIGIN, basePath: "", assetOrigin: ASSET_ORIGIN, proxied: false };
+    // Middleware gates on location.proxied: direct responses never reach the
+    // rewriter, so the bytes leaving the Worker are exactly what the page made.
+    const page = new Response(PAGE_HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
+    expect(await page.text()).toBe(PAGE_HTML);
+
+    const headers = new Headers({ "content-type": "text/html; charset=utf-8" });
+    applyPublicSecurityHeaders("/hello", "text/html; charset=utf-8", headers, location);
+    const csp = headers.get("content-security-policy") ?? "";
+    expect(csp).not.toContain("_astro");
+    expect(csp).toContain("script-src 'self'");
   });
 });

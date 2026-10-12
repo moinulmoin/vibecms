@@ -19,13 +19,16 @@ import marketingInteractionsUrl from "../../scripts/marketing-interactions.js?ur
 // Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
 // path stays non-indexable and never becomes a public canonical URL.
 if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404 });
+  const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (missing) return missing;
+  return new Response("Not found", { status: 404 });
 }
 
 const env = publicRuntimeEnv(Astro);
 const origin = publicOrigin(Astro.request.url);
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
-  return new Response(marketingMarkdown(env.appUrl), { headers: { "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: marketingHomeLinks(origin, env.appUrl) } });
+  const markdown = new Response(marketingMarkdown(env.appUrl), { headers: { "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: marketingHomeLinks(origin, env.appUrl) } });
+  if (markdown) return markdown;
 }
 Astro.response.headers.set("Vary", "Accept");
 Astro.response.headers.set("Link", marketingHomeLinks(origin, env.appUrl));

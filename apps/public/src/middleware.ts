@@ -12,6 +12,7 @@ import {
 import { articleResponseForClientAndCache, conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
 import { directLocation, type PublicLocation } from "./server/public-location";
 import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./server/public-location.server";
+import { rewriteProxiedAssetsInHtml } from "./server/proxied-assets";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
 import { markdownErrorForRequest, marketingTrustRedirect, varyAgentRepresentation } from "./lib/agent-discovery";
@@ -39,7 +40,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       { ok: true, worker: "public" },
       { headers: { "cache-control": "no-store" } },
     );
-    applyPublicSecurityHeaders(pathname, response.headers.get("content-type"), response.headers);
+    applyPublicSecurityHeaders(pathname, response.headers.get("content-type"), response.headers, location);
     return response;
   }
 
@@ -66,7 +67,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         { ok: true, siteId: ingress.siteId, proxyFingerprint: ingress.proxyFingerprint },
         { headers: { "cache-control": "no-store" } },
       );
-      applyPublicSecurityHeaders("/_vc/health", response.headers.get("content-type"), response.headers);
+      applyPublicSecurityHeaders("/_vc/health", response.headers.get("content-type"), response.headers, location);
       return response;
     }
     if (ingress.kind === "proxied") {
@@ -83,7 +84,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const redirect = canonicalHostRedirect(context.request, publicEnv);
   if (redirect) {
-    applyPublicSecurityHeaders(new URL(context.request.url).pathname, null, redirect.headers);
+    applyPublicSecurityHeaders(new URL(context.request.url).pathname, null, redirect.headers, location);
     return redirect;
   }
 
@@ -107,19 +108,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
       { error: { code: "NOT_FOUND", message: "No API here. The vibecms API lives on the app host.", docs: `${publicEnv.appUrl.replace(/\/$/, "")}/openapi.json` } },
       { status: 404, headers: { "cache-control": "no-store" } },
     );
-    applyPublicSecurityHeaders(pathname, "application/json", apiMissing.headers);
+    applyPublicSecurityHeaders(pathname, "application/json", apiMissing.headers, location);
     return apiMissing;
   }
   const missing = markdownErrorForRequest(context.request, response);
   if (missing) {
-    applyPublicSecurityHeaders(pathname, missing.headers.get("content-type"), missing.headers);
+    applyPublicSecurityHeaders(pathname, missing.headers.get("content-type"), missing.headers, location);
     return missing;
   }
   const headers = new Headers(response.headers);
   varyAgentRepresentation(headers);
   const articleHtmlCacheHit = headers.has(ARTICLE_HTML_CACHE_HIT_HEADER);
   headers.delete(ARTICLE_HTML_CACHE_HIT_HEADER);
-  applyPublicSecurityHeaders(pathname, headers.get("content-type"), headers);
+  applyPublicSecurityHeaders(pathname, headers.get("content-type"), headers, location);
 
   const slug = articleSlugCandidate(pathname);
   const article = slug ? stripMarkdownSuffix(slug) : null;
@@ -135,9 +136,21 @@ export const onRequest = defineMiddleware(async (context, next) => {
   );
   if (isArticleHtml) headers.delete("last-modified");
 
-  const buffered = isArticleHtml && !articleHtmlCacheHit ? await response.arrayBuffer() : null;
-  const body: BodyInit | null = buffered ?? response.body;
-  if (buffered) headers.set("etag", await contentEtag(buffered));
+  // Proxied HTML names our root-relative assets (/_astro, media, OG, icons):
+  // rewrite them to the asset origin BEFORE buffering so the Workers-Cache
+  // copy and the etag cover the rewritten bytes. Cache hits stream the
+  // already-rewritten stored copy, so they are never re-transformed.
+  const rewriteProxiedHtml =
+    location.proxied && (headers.get("content-type") ?? "").toLowerCase().includes("text/html");
+  const buffered = isArticleHtml && !articleHtmlCacheHit
+    ? await (rewriteProxiedHtml ? rewriteProxiedAssetsInHtml(response, location) : response).arrayBuffer()
+    : null;
+  let body: BodyInit | null = buffered ?? response.body;
+  if (buffered) {
+    headers.set("etag", await contentEtag(buffered));
+    // A rewritten buffer no longer matches any Content-Length the page sent.
+    if (rewriteProxiedHtml) headers.delete("content-length");
+  }
 
   // Uncached article HTML splits here: the Workers-Cache copy keeps the real
   // edge TTL while the customer-facing copy revalidates every time (see
@@ -163,6 +176,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // it fast). Private/no-store responses (previews) keep their stronger cap.
   if (location.proxied && !/(?:no-store|private)/i.test(headers.get("cache-control") ?? "")) {
     headers.set("cache-control", "public, max-age=0, must-revalidate");
+  }
+  // Non-article proxied HTML (index, tag, 404, listings) streams through the
+  // same rewriter. Proxied article cache hits are already rewritten: the
+  // stored copy was transformed before it entered the Workers Cache.
+  if (rewriteProxiedHtml && !buffered && !articleHtmlCacheHit) {
+    body = rewriteProxiedAssetsInHtml(new Response(response.body, response), location).body;
+    headers.delete("content-length");
   }
 
   const outbound = new Response(body, {

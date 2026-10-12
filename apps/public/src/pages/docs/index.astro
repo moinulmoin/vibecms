@@ -44,7 +44,9 @@ if (!marketing) {
   blog = await loadPublicPostForSite(db, location, site, "docs", env);
   if (!blog) {
     // A legacy post that used to live at /docs may have moved.
-    return (await publicPostRedirect(db, site, "docs", pubRequest, env, location.basePath)) ?? new Response("Not found", { status: 404 });
+    const redirect = await publicPostRedirect(db, site, "docs", pubRequest, env, location.basePath);
+    if (redirect) return redirect;
+    return new Response("Not found", { status: 404 });
   }
   for (const [key, value] of Object.entries(publicHtmlResponseHeaders(blog.site, env, blog.cacheTags, {
     markdownAlternateHref: publicUrl(location, "/docs.md"),

@@ -1,0 +1,5 @@
+# Proxied subpath blogs (plan 022 §5) load hashed build assets — fonts,
+# module scripts, styles — straight from our host while the page lives on
+# customer.com, so these must allow cross-origin reads.
+/_astro/*
+  Access-Control-Allow-Origin: *
