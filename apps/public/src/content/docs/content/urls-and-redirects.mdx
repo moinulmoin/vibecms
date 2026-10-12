@@ -7,6 +7,10 @@ A post slug uses lowercase letters and numbers separated by hyphens. It is at mo
 
 Changing the slug of a published post changes its private draft first. The public URL stays at the pinned published version until you publish the new version. Then the old URL redirects to the new one with HTTP 301. The redirect also works for `/<old-slug>.md` and `/<old-slug>?format=md`, leading to the new Markdown URL. A slug used only as an old redirect can be reused; a current post at that URL takes precedence over the redirect.
 
+## Primary address redirects
+
+A blog has one primary address: a path of your site wins over a custom domain, which wins over the default vibecms host. Pages fetched on a non-primary address redirect to the same path at the primary one with HTTP 301, so old links keep working after you connect a domain or path. System paths — assets, media, share-card images, previews, and the API — are never redirected.
+
 ## Archive or delete
 
 `posts.archive` removes a post from public output but keeps the post, versions, and activity history. While archived, its public URL and old redirects do not resolve to a live article. `posts.unarchive` restores it as a draft; publish again to make it public. Archiving and restoring each save a new version, so use the `currentVersionNumber` they return (or re-read the post) before the next edit. A previous live slug can redirect to the newly published slug after a rename and republish.

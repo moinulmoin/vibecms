@@ -1,0 +1,91 @@
+---
+title: SEO checks
+description: Deterministic SEO checks and an optional AI review before you publish.
+---
+
+Every post is checked for the things search engines and AI answer engines look for: titles and descriptions, heading structure, links, duplicates, and more. Findings have a stable `code`, a `severity` of `error`, `warn`, or `info`, the `field` they attach to, a plain-language `message`, and a `fix` hint. They come back sorted by severity.
+
+## Where they show
+
+- `posts.preview` returns the findings in its `seo` field next to `warnings`, so the existing preview flow sees them for free.
+- `posts.seo_check({postId, focusKeyword?, ai?})` checks a saved post's current tip and returns `{versionNumber, findings, ai?, warnings?}`. REST mirrors it at `GET /api/v1/posts/{postId}/seo?focusKeyword=&ai=1`.
+- The editor's SEO section lists findings grouped by severity, with a focus keyword field saved per browser and one-click jumps to the SEO fields a finding attaches to.
+- The publish dialog lists open `error` findings. It informs, it does not block.
+
+Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) runs only body-level checks — metadata checks need a saved post's title, slug, and fields.
+
+## Finding codes
+
+### Title, description, slug
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `title-length` | warn | Effective SEO title is outside 15-60 characters — write a more descriptive title or shorten it. |
+| `description-missing` | warn | No SEO description or excerpt — write a 50-160 character description. |
+| `description-length` | warn | Description is outside 50-160 characters — expand or shorten it. |
+| `slug-long` | warn | Slug is over 75 characters — keep the essential words. |
+| `slug-format` | warn | Slug has uppercase letters, underscores, or a date — use lowercase hyphenated words. |
+
+### Headings
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `h1-in-body` | warn | Body contains an H1 — the post title is already the page H1, so demote body `#` headings to `##`. |
+| `heading-skip` | warn | A heading level jumps (H2 to H4) — use the next level so the outline stays intact. |
+| `heading-empty` | warn | A heading has no text — fill it or remove it. |
+| `heading-duplicate` | warn | The same heading text appears twice — rename it so each section is unique. |
+
+### Links
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `link-internal-broken` | error | A root-relative or same-host link points to a slug with no published post — publish or fix the target. |
+| `link-insecure` | warn | A link uses `http://` — switch it to `https://`. |
+| `link-anchor-generic` | warn | Link text like "click here" doesn't describe the destination — use descriptive text. |
+| `link-none-internal` | info | The post links to no other published post — link at least one related post. |
+
+### Content
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `content-thin` | warn | Body is under 300 words — add substance or consolidate with a related post. |
+| `paragraph-long` | info | A paragraph runs over 150 words — split it for readability. |
+
+### Images and sharing
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `image-alt-missing` | warn | An image has no alt text — describe it for accessibility and image search. |
+| `social-image-default` | info | No cover image — pick one, or the generated social card is used. |
+
+### Site and duplicates
+
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `duplicate-title` | warn | Another published post uses this title — differentiate it. |
+| `duplicate-description` | warn | Another published post uses this description — write a distinct one. |
+| `canonical-external` | info | The canonical URL points off-site — remove it unless the post is syndicated from there. |
+| `site-not-indexable` | info | The site isn't indexable (search engines are told to skip it) — upgrade or enable indexing. |
+
+### Focus keyword
+
+Pass `focusKeyword` to `posts.seo_check` (or fill the editor field) to add five `warn` findings, one for each place the keyword should appear: `keyword-title`, `keyword-slug`, `keyword-intro` (first 100 words), `keyword-heading`, and `keyword-description`. Hyphens and underscores in a keyword match like spaces.
+
+## AI review
+
+`posts.seo_check` with `ai: true` (or the editor's **Ask AI review** button) runs one opt-in Workers AI pass over the post. It returns:
+
+- `intent` — the searcher intent the post best serves
+- `titleIdeas` — two alternative SEO titles (one-click apply in the editor)
+- `descriptionIdea` — one meta description
+- `missingSubtopics` — up to five subtopics a searcher would expect
+- `unclearPassages` — up to three verbatim quotes and why they confuse or overreach
+- `claimsNeedingSources` — up to three verbatim quotes for claims that need a citation
+
+The post is sent to the model as untrusted data — instructions inside the post are ignored. Results are cached per post version and model, so checking the same version again is free; changing the focus keyword does not regenerate a cached review.
+
+Limits: hosted free sites get 3 reviews a day, paid sites 100 a day, and self-hosted installs have no cap — they spend their own Workers AI allocation (about 140 reviews a day on the free 10,000-neuron tier). Over the limit returns `RATE_LIMIT` with `retryAfterSeconds`. If the deployment has no Workers AI binding, `ai: true` returns `AI_UNAVAILABLE`; a failed or unparseable model response returns `ai: null` with a warning — the deterministic findings still apply.
+
+## Agent guidance
+
+Fix `error` and `warn` findings before asking for publish approval. `error` findings are broken promises — a link to a post that doesn't exist yet; `warn` findings are things readers and crawlers will notice. `info` findings are optional improvements.

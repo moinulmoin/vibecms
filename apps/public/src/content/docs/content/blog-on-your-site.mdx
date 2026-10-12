@@ -1,0 +1,141 @@
+---
+title: Your blog at example.com/blog
+description: Serve your vibecms blog at a path of your own site with a small proxy.
+---
+
+Hosting your blog at `example.com/blog` keeps the posts on the same site that sells your product. Search engines treat the blog as part of your main site, so every post builds authority for the domain you care about. A subdomain works for crawlers too, but a subpath is the arrangement most SEO-focused teams ask for.
+
+Your site keeps serving everything else. A small proxy on your side sends `/blog` and everything under it to vibecms; vibecms renders the pages and the proxy passes them back on your domain.
+
+## Requirements
+
+- A paid plan on hosted vibecms (self-hosted installs can always use it)
+- The ability to add one route, rewrite, or reverse-proxy rule on your site's platform
+- `https` on your site (`http://` is not accepted)
+
+The path must be 1-3 lowercase segments, like `/blog` or `/news/tech`, with letters, numbers, and hyphens. Paths starting with `_vc`, `api`, `_astro`, `media-assets`, `og`, or `preview` are reserved for the platform.
+
+## Connect the path
+
+1. In **Dashboard > Settings > Domain**, under **On a path of your site**, enter the full URL (for example `https://example.com/blog`) and choose **Connect**. An agent with a `site:write` key can do the same with `sites.location.set_subpath`.
+2. Add the proxy for your platform (below). The settings page shows the same snippets with your values already filled in.
+3. Choose **Check setup** (or call `sites.location.check`). The check fetches `example.com/blog/_vc/health` through your proxy and confirms it reaches this blog. A pass marks the location **active**.
+
+The status moves `pending` -> `active` on the first passing check. A failing check keeps `failed` and lists what to fix. Once a day, vibecms re-checks every active location and flags breakage.
+
+## Add the proxy
+
+Every snippet sends `example.com/blog` and its subpaths to this blog's proxy target, which looks like `https://<your-blog>.<zone>/_vc/p/<proxy-id>`. The proxy id is embedded in that URL. Copy the snippet from the settings page; the versions below show the shape with placeholders.
+
+### Cloudflare Worker
+
+```js
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    // The route matches /blog* but only /blog and its /-descendants are the blog;
+    // everything else (e.g. /blogx) belongs to this site's own origin.
+    if (url.pathname !== "/blog" && !url.pathname.startsWith("/blog/")) {
+      return fetch(request);
+    }
+    const rest = url.pathname.slice("/blog".length) || "/";
+    return fetch(new Request("https://<your-blog>.<zone>/_vc/p/<proxy-id>" + rest + url.search, request));
+  },
+};
+```
+
+Add a route of `example.com/blog*` to the Worker. Workers Free covers 100,000 requests a day, then returns Error 1027 — enough for most blogs; use Workers Paid for busy blogs.
+
+### Vercel
+
+```json
+{
+  "rewrites": [
+    { "source": "/blog", "destination": "https://<your-blog>.<zone>/_vc/p/<proxy-id>/" },
+    { "source": "/blog/:path*", "destination": "https://<your-blog>.<zone>/_vc/p/<proxy-id>/:path*" }
+  ]
+}
+```
+
+Add this to `vercel.json` and redeploy.
+
+### Next.js
+
+```js
+// next.config.js
+module.exports = {
+  async rewrites() {
+    return [
+      { source: "/blog", destination: "https://<your-blog>.<zone>/_vc/p/<proxy-id>/" },
+      { source: "/blog/:path*", destination: "https://<your-blog>.<zone>/_vc/p/<proxy-id>/:path*" },
+    ];
+  },
+};
+```
+
+### Netlify
+
+```txt
+# public/_redirects (or _redirects at the site root)
+/blog  https://<your-blog>.<zone>/_vc/p/<proxy-id>/  200!
+/blog/*  https://<your-blog>.<zone>/_vc/p/<proxy-id>/:splat  200!
+```
+
+### nginx
+
+```nginx
+location = /blog {
+  proxy_pass https://<your-blog>.<zone>/_vc/p/<proxy-id>/;
+  proxy_set_header Host <your-blog>.<zone>;
+  proxy_ssl_server_name on;
+}
+location ^~ /blog/ {
+  proxy_pass https://<your-blog>.<zone>/_vc/p/<proxy-id>/;
+  proxy_set_header Host <your-blog>.<zone>;
+  proxy_ssl_server_name on;
+}
+```
+
+### Caddy
+
+```caddy
+@vcblog path /blog /blog/*
+handle @vcblog {
+  uri strip_prefix /blog
+  rewrite * /_vc/p/<proxy-id>{uri}
+  reverse_proxy https://<your-blog>.<zone> {
+    header_up Host <your-blog>.<zone>
+  }
+}
+```
+
+## Tell search engines
+
+Crawlers read your site's root files, not the blog's. After the check passes:
+
+- Add `Sitemap: https://example.com/blog/sitemap.xml` to `example.com/robots.txt`. The dashboard shows the exact line; the setup check warns while it is missing.
+- Link to `/blog/llms.txt` from your root `llms.txt` if you publish one, so agents find the blog's Markdown index.
+
+## What the check reports
+
+| Code | What it means | Fix |
+| --- | --- | --- |
+| `no_response` | `example.com/blog/_vc/health` could not be reached. | Save and deploy the route or rewrite, then check again. |
+| `redirects` | The path redirects somewhere instead of proxying. | Use a rewrite/proxy rule that serves the response in place, not a 3xx. |
+| `http_error` | The path answered with an HTTP error status. | Check that the rule is deployed and matches `/blog` and its subpaths. |
+| `not_proxied` | Your own site answered the health path, not vibecms. | The rule is not matching; verify the path pattern and deployment. |
+| `wrong_site` | The path proxies to a different vibecms blog. | Update the proxy target to this blog's current link. |
+| `old_proxy_link` | The path uses an older proxy link. | Copy the current snippet and update your proxy config. |
+| `cdn_caching` (warning) | Your CDN served a cached page. | Exclude the blog path from full-page caching so publishes appear at once. |
+| `robots_missing_sitemap` (warning) | The root `robots.txt` does not list the blog sitemap. | Add the `Sitemap:` line shown above. |
+
+## Keep the proxy link secret
+
+The proxy link (`/_vc/p/<proxy-id>`) works like a credential: whoever knows it can call the blog's ingress directly. It lives only in your proxy config and the settings page — it never appears in public pages, and the health check returns only a short fingerprint. If it leaks, choose **New proxy link** in the settings page: the old link stops working at once, so update your proxy config right after.
+
+## After the path is live
+
+- The path becomes the blog's primary address. It wins over a custom domain, which in turn wins over the default `<slug>.<zone>` host.
+- Pages fetched on a non-primary host redirect to the primary location with HTTP 301, so old links keep working.
+- Media files, share-card images, and private preview links stay on the vibecms host — they do not count against your proxy's request quota.
+- Disconnecting in the settings page (or `sites.location.remove`) returns the blog to its default address; remember to remove your proxy rule too.

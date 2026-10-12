@@ -1,0 +1,61 @@
+---
+title: Analytics for people and agents
+description: See how people and AI agents read your blog, in one dashboard view.
+---
+
+Analytics counts two different readers. **People** are counted by a small JavaScript beacon on post pages. **Agents** — AI assistants, AI crawlers, search engines, and other bots — are counted on the server, because most of them never run JavaScript.
+
+Analytics is part of the paid plan on hosted vibecms. Self-hosted installs turn it on by configuring the Analytics Engine binding and query vars (below).
+
+## What counts as a page view
+
+A script on each published post page sends one beacon per view. It never sends when the browser asks not to be tracked (Do Not Track or Global Privacy Control), when the post page is not indexable, or when the visitor's user agent matches a known bot — so crawlers that do run JavaScript don't inflate your view count.
+
+## What counts as an agent read
+
+Each GET request to your blog is checked server-side. A request counts as an agent read when any of these is true:
+
+- The user agent matches a known agent — AI assistants fetching for a person (ChatGPT, Claude, Perplexity, Le Chat, DuckAssist, Meta's fetcher), AI search crawlers (OpenAI Search, Claude Search, PerplexityBot), AI training crawlers (GPTBot, ClaudeBot, Common Crawl, Bytespider, Meta, Vertex AI, Amazonbot, Applebot Extended), search engines (Googlebot, Bingbot, Applebot, DuckDuckBot, YandexBot, Baiduspider), or generic bots and HTTP clients (curl, python-requests, Go, anything matching `bot|crawler|spider|fetch`).
+- The client asked for the Markdown representation — `/<slug>.md`, `?format=md`, or `Accept: text/markdown` — even with an unrecognized user agent.
+- The request is for an agent surface: `llms.txt`, `feed.xml`, `sitemap.xml`, or `robots.txt`.
+- The request carries a `Signature-Agent` header (signed agents; the signature is counted, not verified).
+
+Ordinary browser page loads write nothing. Reads on a subpath-hosted blog count against your blog with your customer host, and reads on your custom domain count too.
+
+## The Agents tab
+
+The dashboard Analytics page has two tabs on the same range picker. The **People** tab shows views, trend, top posts, and referrers (AI referrals flagged). The **Agents** tab shows:
+
+- Total agent reads and a daily trend split by category (AI assistant, AI search, AI crawler, search engine, other bot, unknown)
+- Top agents by name and operator
+- Top posts read by agents
+- **Markdown share** — the percentage of agent reads that used the Markdown representation
+- **llms.txt reads** and **signed share** — reads that carried a `Signature-Agent` header
+
+Numbers for the current day update as requests arrive; the stored history is rolled up once a day. Each post's editor shows the last 30 days of views and agent reads.
+
+## Reading analytics from an agent
+
+`analytics.get` returns the same data. It takes `{"range": "7" | "30" | "90" | "365" | "all"}` (default `30`) and an optional `postId` to scope every per-post number to one post:
+
+```json
+{"range": "30", "postId": "post_..."}
+```
+
+The response's `agents` object carries `total`, `byCategory`, `topAgents`, `topPosts`, `markdownShare`, `signedShare`, and `llmsReads`. Per-site numbers that have no per-post source come back empty when you pass `postId`. Free-plan sites get `ANALYTICS_PAID_PLAN`. REST mirrors this at `GET /api/v1/analytics?postId=`.
+
+## Privacy
+
+No cookies, no IP addresses, and no full user-agent strings are stored — only the matched agent id and category. The beacon honours Do Not Track and Global Privacy Control.
+
+## Self-host setup
+
+Collection and the dashboard turn on when the public Worker has an `analytics_engine_datasets` binding named `ANALYTICS` and both Workers get three vars:
+
+```txt
+ANALYTICS_ACCOUNT_ID=<your Cloudflare account id>
+ANALYTICS_DATASET=<your dataset name>
+ANALYTICS_API_TOKEN=<API token with Analytics Engine read>
+```
+
+The Workers Free plan allows about 100,000 events written per day — enough for most blogs. Without the binding trio, analytics silently collects nothing and the dashboard explains what to add.
