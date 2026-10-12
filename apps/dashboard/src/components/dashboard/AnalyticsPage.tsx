@@ -3,15 +3,19 @@ import { BarChart3, LockKeyhole } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Button, cn } from '@vc/ui'
+import { AGENT_CATEGORY_LABELS } from '@vc/config/agents'
 import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
-import { EmptyState, ListRow, PageHeader, PageSkeleton, Panel } from '~/components/dashboard/blocks'
+import { EmptyState, PageHeader, PageSkeleton, PageTabs, Panel } from '~/components/dashboard/blocks'
 import { analyticsQuery } from '~/lib/queries'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
-import type { AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
+import type { AgentCategory, AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
 import { MetricStrip as SharedMetricStrip } from '~/components/dashboard/blocks'
+import { Tabs, TabsContent } from '~/components/ui/tabs'
+
+export type AnalyticsTab = 'people' | 'agents'
 
 const RANGE_OPTIONS: AnalyticsRange[] = [7, 30, 90, 365, 'all']
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
@@ -35,8 +39,32 @@ function trendLabel(value: number | null) {
 
 const trafficChartConfig = {
   views: { label: 'Views', color: 'var(--chart-1)' },
-  aiCrawlerRequests: { label: 'AI crawlers', color: 'var(--chart-2)' },
 } satisfies ChartConfig
+
+const agentChartConfig = {
+  agentReads: { label: 'Agent reads', color: 'var(--chart-2)' },
+} satisfies ChartConfig
+
+/** Display order for agent categories: human-serving agents first, then
+ *  crawlers, then generic/unmatched traffic. Independent of the palette. */
+const AGENT_CATEGORY_ORDER: AgentCategory[] = [
+  'ai-assistant',
+  'ai-search',
+  'ai-training',
+  'search-engine',
+  'other-bot',
+  'unknown-agent',
+]
+
+const AGENT_CATEGORY_COLORS: Record<AgentCategory, string> = {
+  'ai-assistant': 'var(--chart-2)',
+  'ai-search': 'var(--chart-3)',
+  'ai-training': 'var(--chart-5)',
+  'search-engine': 'var(--chart-1)',
+  'other-bot': 'var(--chart-4)',
+  'unknown-agent': 'var(--muted-foreground)',
+}
+
 export function TopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
   return (
     <Panel title="Top posts" meta="Views">
@@ -101,14 +129,12 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
           ? 'Nothing earlier to compare with'
           : `${trendLabel(data.trendPercent)} (${compactNumber.format(data.previousViews)})`,
     },
-    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Visits sent by AI assistants' },
     {
-      label: 'AI crawler requests',
-      value: data.aiCrawlers.status === 'available' ? compactNumber.format(data.aiCrawlers.requests) : '—',
-      detail: data.aiCrawlers.status === 'available'
-        ? allTime ? 'Since collection began' : `Last ${data.aiCrawlers.lookbackDays} days`
-        : 'Crawler feed is not configured',
+      label: 'Agent reads',
+      value: compactNumber.format(data.agents.total),
+      detail: 'Fetches by AI assistants, crawlers, and bots',
     },
+    { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Visits sent by AI assistants' },
   ]
 
   return <SharedMetricStrip metrics={metrics} columns={3} />
@@ -118,20 +144,11 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
   const chartData = data.series.map((point) => ({
     date: formatDate(point.date),
     views: point.views,
-    aiCrawlerRequests: point.aiCrawlerRequests,
   }))
 
   return (
-    <Panel
-      title="Traffic over time"
-      meta={
-        <div className="flex flex-wrap items-center gap-4 font-mono text-xs text-muted-foreground">
-          <span className="flex items-center gap-2"><span className="size-2 rounded-full bg-foreground" />Views</span>
-          <span className="flex items-center gap-2"><span className="size-2 rounded-full bg-brand-bright" />AI crawlers · {data.rangeDays === 'all' ? 'all time' : `${data.aiCrawlers.lookbackDays}d`}</span>
-        </div>
-      }
-    >
-      {data.views === 0 && data.aiCrawlers.requests === 0 ? (
+    <Panel title="Traffic over time">
+      {data.views === 0 ? (
         <EmptyState
           icon={<BarChart3 />}
           title="No traffic recorded yet"
@@ -165,13 +182,218 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
               content={<ChartTooltipContent indicator="line" />}
             />
             <Line dataKey="views" type="monotone" stroke="var(--color-views)" strokeWidth={2} dot={false} />
-            {data.aiCrawlers.status === 'available' ? (
-              <Line dataKey="aiCrawlerRequests" type="monotone" stroke="var(--color-aiCrawlerRequests)" strokeWidth={2} dot={false} />
-            ) : null}
           </LineChart>
         </ChartContainer>
       )}
     </Panel>
+  )
+}
+
+/** Daily agent reads. The API merges legacy crawler counts into this series so
+ *  days before agent classification shipped still show traffic. */
+function AgentReadsChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  const chartData = data.series.map((point) => ({
+    date: formatDate(point.date),
+    agentReads: point.aiCrawlerRequests,
+  }))
+  const hasLegacy = data.aiCrawlers.requests > 0
+
+  return (
+    <Panel
+      title="Agent reads over time"
+      description={
+        hasLegacy
+          ? 'Agent reads per day. Days before agent classification shipped keep counts collected by the crawler feed.'
+          : 'Agent reads per day.'
+      }
+    >
+      <ChartContainer config={agentChartConfig} className="h-56 w-full">
+        <LineChart accessibilityLayer data={chartData}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={32}
+            tickFormatter={(value) => value}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={40}
+            allowDecimals={false}
+          />
+          <ChartTooltip
+            content={<ChartTooltipContent indicator="line" />}
+          />
+          <Line dataKey="agentReads" type="monotone" stroke="var(--color-agentReads)" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ChartContainer>
+    </Panel>
+  )
+}
+
+/** Period totals per category. Per-day category splits are not stored, so the
+ *  split is a bar for the selected range, not a stacked trend. */
+function ReadsByCategory({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  const rows = AGENT_CATEGORY_ORDER
+    .map((category) => ({
+      category,
+      fetches: data.agents.byCategory.find((row) => row.category === category)?.fetches ?? 0,
+    }))
+    .filter((row) => row.fetches > 0)
+
+  return (
+    <Panel title="Reads by category" description="What kind of agent fetched this site in the selected range.">
+      {rows.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No agent reads"
+          description="No agent reads in this range."
+        />
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((row) => {
+            const share = Math.max(1, Math.round((row.fetches / data.agents.total) * 100))
+            return (
+              <li key={row.category} className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
+                    <span aria-hidden className="size-2 flex-none rounded-full" style={{ background: AGENT_CATEGORY_COLORS[row.category] }} />
+                    {AGENT_CATEGORY_LABELS[row.category]}
+                  </span>
+                  <span className="font-mono text-sm tabular-nums text-foreground">{row.fetches.toLocaleString()}</span>
+                </div>
+                <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full" style={{ width: `${share}%`, background: AGENT_CATEGORY_COLORS[row.category] }} />
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Panel>
+  )
+}
+
+function TopAgents({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  return (
+    <Panel title="Top agents" meta="Reads">
+      {data.agents.topAgents.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No agent reads"
+          description="No agent reads in this range."
+        />
+      ) : (
+        <div>
+          {data.agents.topAgents.map((agent, index) => (
+            <RankedRow
+              key={agent.id}
+              index={index}
+              count={agent.fetches}
+              label={<span className="block truncate text-sm font-medium text-foreground">{agent.label}</span>}
+              detail={<>{agent.operator} · {AGENT_CATEGORY_LABELS[agent.category] ?? agent.category}</>}
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function AgentTopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  return (
+    <Panel title="Posts agents read most" meta="Reads">
+      {data.agents.topPosts.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<BarChart3 />}
+          title="No posts read"
+          description="No agent reads on posts in this range."
+        />
+      ) : (
+        <div>
+          {data.agents.topPosts.map((post, index) => (
+            <RankedRow
+              key={post.postId}
+              index={index}
+              count={post.fetches}
+              label={
+                <Link
+                  to="/dashboard/posts/$postId/edit"
+                  params={{ postId: post.postId }}
+                  search={emptyPostEditorSearch}
+                  className="block break-words text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {post.title}
+                </Link>
+              }
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function AgentStats({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  const none = data.agents.total === 0
+  return (
+    <SharedMetricStrip
+      variant="inset"
+      columns={3}
+      metrics={[
+        {
+          label: 'Markdown requests',
+          value: none ? '—' : `${data.agents.markdownShare}%`,
+          detail: 'Share of agent reads that asked for Markdown',
+        },
+        {
+          label: 'llms.txt reads',
+          value: compactNumber.format(data.agents.llmsReads),
+          detail: 'Fetches of llms.txt and llms-full.txt',
+        },
+        {
+          label: 'Signed requests',
+          value: none ? '—' : `${data.agents.signedShare}%`,
+          detail: 'Share carrying a Signature-Agent header',
+        },
+      ]}
+    />
+  )
+}
+
+function AgentsTab({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+  if (data.agents.total === 0 && data.aiCrawlers.requests === 0) {
+    return (
+      <Panel title="Agent reads">
+        <EmptyState
+          icon={<BarChart3 />}
+          title="No agent reads yet"
+          description="An agent read is any request to your site that isn't a person in a browser — AI assistants and search crawlers, plus fetches of Markdown, feeds, or llms.txt. Numbers update daily."
+        />
+      </Panel>
+    )
+  }
+
+  return (
+    <>
+      <AgentReadsChart data={data} />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <TopAgents data={data} />
+        <ReadsByCategory data={data} />
+      </div>
+      <AgentTopPosts data={data} />
+      <AgentStats data={data} />
+      <p className="text-sm leading-6 text-muted-foreground">
+        Agent identity comes from the user agent or the representation requested; request signatures are counted, not verified. Numbers update daily.
+      </p>
+    </>
   )
 }
 
@@ -225,46 +447,6 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
   )
 }
 
-function AiCrawlerPanel({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
-  return (
-    <Panel title="AI crawlers">
-      <div className="mb-5 max-w-3xl space-y-2">
-        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
-          Requests from known AI crawlers {data.rangeDays === 'all' ? 'since collection began' : `over the last ${data.aiCrawlers.lookbackDays} days`}, including ChatGPT, Claude, Perplexity, and other major operators.
-        </p>
-        <p className="text-sm leading-5 text-muted-foreground">
-          Identity is matched from Cloudflare request analytics using official user-agent tokens. User agents can be spoofed.
-        </p>
-      </div>
-      {data.aiCrawlers.status === 'unavailable' ? (
-        <EmptyState
-          compact
-          icon={<BarChart3 />}
-          title="Crawler reporting unavailable"
-          description="Human page views and AI referrals are still tracked."
-        />
-      ) : data.aiCrawlers.agents.length === 0 ? (
-        <EmptyState
-          compact
-          icon={<BarChart3 />}
-          title="No crawler requests"
-          description={data.rangeDays === 'all' ? 'None since collection began.' : `None in the last ${data.aiCrawlers.lookbackDays} days.`}
-        />
-      ) : (
-        <div className="grid gap-x-8 md:grid-cols-2">
-          {data.aiCrawlers.agents.map((crawler) => (
-            <ListRow
-              key={crawler.agent}
-              title={<span className="truncate font-sans text-sm font-medium text-foreground">{crawler.agent}</span>}
-              description={<span>{crawler.operator} · {crawler.category}</span>}
-              actions={<span className="font-mono text-sm tabular-nums text-foreground">{crawler.requests.toLocaleString()}</span>}
-            />
-          ))}
-        </div>
-      )}
-    </Panel>
-  )
-}
 
 function LockedAnalytics() {
   return (
@@ -289,12 +471,22 @@ function LockedAnalytics() {
   )
 }
 
-export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
+export function AnalyticsPage({ range = 30, tab = 'people' }: { range?: AnalyticsRange; tab?: AnalyticsTab }) {
   const navigate = useNavigate()
   const query = useQuery({ ...analyticsQuery(range), placeholderData: keepPreviousData })
   const data = query.data
   const setRange = (next: AnalyticsRange) =>
-    void navigate({ to: '/dashboard/analytics', search: { range: next === 30 ? undefined : next }, replace: true })
+    void navigate({
+      to: '/dashboard/analytics',
+      search: { range: next === 30 ? undefined : next, tab: tab === 'people' ? undefined : tab },
+      replace: true,
+    })
+  const setTab = (next: AnalyticsTab) =>
+    void navigate({
+      to: '/dashboard/analytics',
+      search: { range: range === 30 ? undefined : range, tab: next === 'people' ? undefined : next },
+      replace: true,
+    })
   const headerAction = <RangeControl value={range} onChange={setRange} />
 
   if (query.isError && !data) {
@@ -324,18 +516,33 @@ export function AnalyticsPage({ range = 30 }: { range?: AnalyticsRange }) {
         </div>
       ) : null}
       {data.status === 'available' ? (
-        <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value === 'agents' ? 'agents' : 'people')}
+          className={cn('gap-6 transition-opacity', query.isPlaceholderData && 'opacity-60')}
+        >
+          <PageTabs
+            label="Analytics audience"
+            tabs={[
+              { value: 'people', label: 'People' },
+              { value: 'agents', label: 'Agents' },
+            ]}
+          />
           <MetricStrip data={data} />
-          <TrafficChart data={data} />
-          <div className="grid gap-6 xl:grid-cols-2">
-            <TopPosts data={data} />
-            <Referrers data={data} />
-          </div>
-          <AiCrawlerPanel data={data} />
-          <p className="text-sm leading-6 text-muted-foreground">
-            Daily detail for a year, monthly after that. Do Not Track and Global Privacy Control are respected.
-          </p>
-        </div>
+          <TabsContent value="people" className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <TrafficChart data={data} />
+            <div className="grid gap-6 xl:grid-cols-2">
+              <TopPosts data={data} />
+              <Referrers data={data} />
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Daily detail for a year, monthly after that. Do Not Track and Global Privacy Control are respected.
+            </p>
+          </TabsContent>
+          <TabsContent value="agents" className="grid grid-cols-[minmax(0,1fr)] gap-6">
+            <AgentsTab data={data} />
+          </TabsContent>
+        </Tabs>
       ) : null}
     </>
   )

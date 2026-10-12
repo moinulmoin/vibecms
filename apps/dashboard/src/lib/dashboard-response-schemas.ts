@@ -229,6 +229,30 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
         z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() }),
       ),
     }),
+    agents: z.object({
+      total: z.number(),
+      byCategory: z.array(
+        z.object({
+          category: z.enum(['ai-assistant', 'ai-search', 'ai-training', 'search-engine', 'other-bot', 'unknown-agent']),
+          fetches: z.number(),
+        }),
+      ),
+      topAgents: z.array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          operator: z.string(),
+          category: z.enum(['ai-assistant', 'ai-search', 'ai-training', 'search-engine', 'other-bot', 'unknown-agent']),
+          fetches: z.number(),
+        }),
+      ),
+      topPosts: z.array(
+        z.object({ postId: z.string(), slug: z.string(), title: z.string(), fetches: z.number() }),
+      ),
+      markdownShare: z.number(),
+      signedShare: z.number(),
+      llmsReads: z.number(),
+    }),
   }),
 ])
 

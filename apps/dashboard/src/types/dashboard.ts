@@ -108,6 +108,20 @@ export type DashboardData = {
   }
 }
 
+export type AgentCategory = 'ai-assistant' | 'ai-search' | 'ai-training' | 'search-engine' | 'other-bot' | 'unknown-agent'
+
+export type AgentAnalytics = {
+  total: number
+  byCategory: Array<{ category: AgentCategory; fetches: number }>
+  topAgents: Array<{ id: string; label: string; operator: string; category: AgentCategory; fetches: number }>
+  topPosts: Array<{ postId: string; slug: string; title: string; fetches: number }>
+  /** Whole percent of agent reads that asked for the Markdown representation. */
+  markdownShare: number
+  /** Whole percent of agent reads carrying a `Signature-Agent` header. */
+  signedShare: number
+  llmsReads: number
+}
+
 export type AnalyticsRange = 7 | 30 | 90 | 365 | 'all'
 
 export type AnalyticsPageData =
@@ -131,6 +145,8 @@ export type AnalyticsPageData =
         requests: number
         agents: Array<{ agent: string; operator: string; category: string; requests: number }>
       }
+      agents: AgentAnalytics
+
     }
 
 export type BillingSnapshot = {
