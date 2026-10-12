@@ -196,7 +196,7 @@ export function SeoSection({ postId, postStatus, versionNumber, onApplySeo }: Se
       const result = await checkPostSeo({ postId, ...(focusKeyword.trim() ? { focusKeyword: focusKeyword.trim() } : {}), ai: true })
       setAiReview(result.ai ?? null)
       setAiWarnings(result.warnings ?? [])
-      if (!result.ai) setAiMessage('The review came back empty. Try again after your next save.')
+      if (!result.ai) setAiMessage('The AI review didn’t return usable suggestions. Try again in a moment.')
     } catch (error) {
       if (error instanceof DashboardApiError && error.code === 'RATE_LIMIT') setAiMessage(rateLimitMessage(error))
       else if (error instanceof DashboardApiError && error.code === 'AI_UNAVAILABLE') setAiMessage("AI review isn't set up on this server.")

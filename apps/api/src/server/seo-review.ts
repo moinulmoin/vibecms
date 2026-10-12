@@ -167,6 +167,20 @@ function rawModelPayload(output: unknown): unknown {
   return output
 }
 
+// Models overshoot list sizes (three title ideas when asked for two) even with
+// a JSON schema; trim to the contract's limits instead of discarding a good review.
+function trimToLimits(candidate: unknown): unknown {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return candidate
+  const record = candidate as Record<string, unknown>
+  const limits: Record<string, number> = { titleIdeas: 2, missingSubtopics: 5, unclearPassages: 3, claimsNeedingSources: 3 }
+  const trimmed: Record<string, unknown> = { ...record }
+  for (const [key, max] of Object.entries(limits)) {
+    const value = record[key]
+    if (Array.isArray(value)) trimmed[key] = value.slice(0, max)
+  }
+  return trimmed
+}
+
 function parseReviewPayload(payload: unknown): SeoAiReview | null {
   let candidate = payload
   if (typeof candidate === 'string') {
@@ -178,7 +192,7 @@ function parseReviewPayload(payload: unknown): SeoAiReview | null {
       return null
     }
   }
-  const parsed = seoAiReviewSchema.safeParse(candidate)
+  const parsed = seoAiReviewSchema.safeParse(trimToLimits(candidate))
   return parsed.success ? parsed.data : null
 }
 
@@ -186,6 +200,8 @@ function estimateNeurons(output: unknown): number | null {
   if (!output || typeof output !== 'object' || !('usage' in output)) return null
   const usage = output.usage
   if (!usage || typeof usage !== 'object') return null
+  // Workers AI reports the billed neurons directly on current chat models.
+  if ('neurons' in usage && typeof usage.neurons === 'number') return Math.round(usage.neurons)
   const input = 'prompt_tokens' in usage && typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
   const completion = 'completion_tokens' in usage && typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
   if (!input && !completion) return null
@@ -250,12 +266,16 @@ export async function reviewPostSeo(input: ReviewPostSeoInput): Promise<ReviewPo
     // model-keyed overloads can't apply; the input fields are typed loosely.
     // max_completion_tokens is the documented cap for current chat models
     // (max_tokens is deprecated upstream).
-    const aiInput: AiTextGenerationInput & { max_completion_tokens?: number } = {
+    const aiInput: AiTextGenerationInput & { max_completion_tokens?: number; chat_template_kwargs?: { enable_thinking: boolean } } = {
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildUserPrompt(input) },
       ],
       max_completion_tokens: MAX_OUTPUT_TOKENS,
+      // gemma-4 thinks by default and spends the whole token budget on
+      // reasoning_content, leaving `content` empty (finish_reason "length").
+      // The review needs the answer, not the reasoning.
+      chat_template_kwargs: { enable_thinking: false },
       response_format: { type: 'json_schema', json_schema: { name: 'seo_review', schema: SEO_REVIEW_JSON_SCHEMA } },
     }
     output = await env.AI.run(model as keyof AiModels, aiInput)

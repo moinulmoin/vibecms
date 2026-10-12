@@ -673,7 +673,7 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
       );
     }
     if (!model.headings.some((h) => has(h.text))) {
-      add("keyword-heading", "warn", "content", `Focus keyword "${keyword}" doesn't appear in any heading.`, "Use the focus keyword in at least one heading.");
+      add("keyword-heading", "warn", "content", `Focus keyword "${keyword}" doesn't appear in any subheading.`, "Use the focus keyword in at least one subheading (H2–H4); the title doesn't count.");
     }
     if (metadataKnown && (!effectiveDescription || !has(effectiveDescription))) {
       add(

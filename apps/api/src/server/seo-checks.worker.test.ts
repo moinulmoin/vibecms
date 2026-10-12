@@ -258,11 +258,23 @@ describe('saved-post SEO checks', () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(run.mock.calls[0]?.[1]).toMatchObject({
       max_completion_tokens: 700,
+      chat_template_kwargs: { enable_thinking: false },
       response_format: { type: 'json_schema' },
     });
     const cached = await seoCheckPostOp(freeCtx, { postId: post.id, ai: true });
     expect(cached.ai).toEqual(review);
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('trims over-long model lists to the contract instead of discarding the review', async () => {
+    const post = await createDraft('seo-ai-overlong');
+    run.mockResolvedValueOnce({
+      choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ ...review, titleIdeas: ['One', 'Two', 'Three'] }) } }],
+      usage: { prompt_tokens: 62, completion_tokens: 93, neurons: 3.1 },
+    });
+    const result = await seoCheckPostOp(freeCtx, { postId: post.id, ai: true });
+    expect(result.ai?.titleIdeas).toEqual(['One', 'Two']);
+    expect(result.warnings ?? []).not.toContain('AI SEO review did not return a valid review; using deterministic checks only.');
   });
 
   it('keeps deterministic findings and returns ai:null with a warning for invalid model JSON', async () => {
