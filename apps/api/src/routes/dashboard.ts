@@ -43,6 +43,13 @@ import {
   updateVoiceProfileForApp,
   voiceProfileSettingsInputSchema,
 } from '@/server/dashboard-api'
+import {
+  checkSubpathLocationForApp,
+  getSiteLocationForApp,
+  removeSubpathLocationForApp,
+  rotateSubpathProxyLinkForApp,
+  setSubpathLocationForApp,
+} from '@/server/subpath-locations'
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
 import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
@@ -296,6 +303,45 @@ dashboardRoutes.post('/domains/remove', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ domainId: string }>()
   return c.json(await removeCustomDomainForApp(auth.app, body.domainId))
+})
+
+dashboardRoutes.get('/location', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await getSiteLocationForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/subpath', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ url: string }>()
+  return c.json(await setSubpathLocationForApp(auth.app, body.url))
+})
+
+dashboardRoutes.post('/location/check', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await checkSubpathLocationForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/rotate', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await rotateSubpathProxyLinkForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/remove', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await removeSubpathLocationForApp(auth.app))
 })
 
 dashboardRoutes.get('/media', async (c) => {

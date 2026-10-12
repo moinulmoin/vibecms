@@ -31,6 +31,7 @@ import {
   uploadAssetRequestSchema,
   updateSiteRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, getAnalyticsRequestSchema,
+  setSubpathLocationRequestSchema, siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
@@ -100,6 +101,10 @@ const restorePostVersionOpDef = operationsByToolName["posts.versions.restore"];
 const getFormatGuideOpDef = operationsByToolName["posts.format_guide"];
 const previewPostOpDef = operationsByToolName["posts.preview"];
 
+const getSiteLocationOpDef = operationsByToolName["sites.location.get"];
+const setSubpathLocationOpDef = operationsByToolName["sites.location.set_subpath"];
+const checkSiteLocationOpDef = operationsByToolName["sites.location.check"];
+const removeSiteLocationOpDef = operationsByToolName["sites.location.remove"];
 
 const listPostsResponseSchema = z.object({
   posts: z.array(postSummaryDtoSchema),
@@ -180,6 +185,28 @@ export const getAnalyticsRoute = createRoute({
   description: operationsByToolName['analytics.get'].description, security: bearerSecurity,
   request: { query: getAnalyticsRequestSchema },
   responses: { 200: { description: 'Aggregate analytics', content: { 'application/json': { schema: analyticsDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 429, 500) },
+});
+
+export const getSiteLocationRoute = createRoute({
+  method: 'get', path: '/site/location', operationId: getSiteLocationOpDef.operationId,
+  description: getSiteLocationOpDef.description, security: bearerSecurity,
+  responses: { 200: { description: 'Current public location', content: { 'application/json': { schema: siteLocationDtoSchema } } }, ...routeErrors(401, 403, 429, 500) },
+});
+export const setSubpathLocationRoute = createRoute({
+  method: 'put', path: '/site/location', operationId: setSubpathLocationOpDef.operationId,
+  description: setSubpathLocationOpDef.description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: setSubpathLocationRequestSchema } } } },
+  responses: { 200: { description: 'Subpath location with proxy target and snippets', content: { 'application/json': { schema: siteLocationDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 404, 409, 429, 500) },
+});
+export const checkSiteLocationRoute = createRoute({
+  method: 'post', path: '/site/location/check', operationId: checkSiteLocationOpDef.operationId,
+  description: checkSiteLocationOpDef.description, security: bearerSecurity,
+  responses: { 200: { description: 'Setup check result and location', content: { 'application/json': { schema: siteLocationCheckDtoSchema } } }, ...routeErrors(401, 402, 403, 404, 429, 500) },
+});
+export const removeSiteLocationRoute = createRoute({
+  method: 'delete', path: '/site/location', operationId: removeSiteLocationOpDef.operationId,
+  description: removeSiteLocationOpDef.description, security: bearerSecurity,
+  responses: { 200: { description: 'Resulting location', content: { 'application/json': { schema: siteLocationDtoSchema } } }, ...routeErrors(401, 402, 403, 404, 429, 500) },
 });
 
 export const listPostsRoute = createRoute({
@@ -562,6 +589,7 @@ export const previewPostRoute = createRoute({
 export const apiV1OperationRoutes = [
   getSiteRoute,
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
+  getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
   listPostsRoute,
   getPostBySlugRoute,
   getPostRoute,

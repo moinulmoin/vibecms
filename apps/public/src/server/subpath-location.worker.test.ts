@@ -181,11 +181,13 @@ describe("proxy ingress", () => {
     expect(await resolvePublicLocationIngress(env.DB, request("/hello"), "/hello", runtimeEnv)).toEqual({ kind: "direct" });
   });
 
-  it("404s unknown, inactive, and wrong-site proxy ids", async () => {
+  it("404s unknown and wrong-site proxy ids; pending rows are not-connected", async () => {
     const bad = `/_vc/p/${"x".repeat(24)}/hello`;
     expect(await resolvePublicLocationIngress(env.DB, request(bad), bad, runtimeEnv)).toEqual({ kind: "not-found" });
+    // A saved-but-unverified row answers health (the setup check needs it) and
+    // its pages get the "not connected" 404 — never a rendered page.
     const inactive = `/_vc/p/${INACTIVE_PROXY_ID}/hello`;
-    expect(await resolvePublicLocationIngress(env.DB, request(inactive), inactive, runtimeEnv)).toEqual({ kind: "not-found" });
+    expect(await resolvePublicLocationIngress(env.DB, request(inactive), inactive, runtimeEnv)).toEqual({ kind: "not-connected" });
     // site-spl-other's id quoted on site-spl's host must not mint traffic.
     const wrongSite = `/_vc/p/${OTHER_PROXY_ID}/hello`;
     expect(await resolvePublicLocationIngress(env.DB, request(wrongSite), wrongSite, runtimeEnv)).toEqual({ kind: "not-found" });
@@ -196,6 +198,10 @@ describe("proxy ingress", () => {
     expect(proxiedHealth).toEqual({ kind: "health", siteId: "site-spl", proxyFingerprint: await proxyFingerprint(PROXY_ID) });
     // The probe never echoes the proxy id itself.
     expect(JSON.stringify(proxiedHealth)).not.toContain(PROXY_ID);
+    // Pending/failed rows answer health too — that is how "Check setup"
+    // verifies the proxy before the row can serve pages.
+    const pendingHealth = await resolvePublicLocationIngress(env.DB, request(`/_vc/p/${INACTIVE_PROXY_ID}/_vc/health`), `/_vc/p/${INACTIVE_PROXY_ID}/_vc/health`, runtimeEnv);
+    expect(pendingHealth).toEqual({ kind: "health", siteId: "site-spl", proxyFingerprint: await proxyFingerprint(INACTIVE_PROXY_ID) });
     const directHealth = await resolvePublicLocationIngress(env.DB, request("/_vc/health"), "/_vc/health", runtimeEnv);
     expect(directHealth).toEqual({ kind: "health", siteId: "site-spl", proxyFingerprint: null });
   });

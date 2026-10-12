@@ -10,7 +10,7 @@ import { resolveEffectiveEntitlementForSite } from './effective-entitlement'
 // Active default host (slug.<zone>) with one-time local->slug.zone repair.
 // Assets and preview links stay on our host: media/preview paths are not
 // proxied through customer domains.
-async function defaultHostBaseUrl(
+export async function defaultHostBaseUrl(
   db: DataAccess,
   siteId: string,
   siteSlug: string,

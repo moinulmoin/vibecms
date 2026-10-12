@@ -7,7 +7,7 @@
   "scripts": {
     "typecheck": "tsc",
     "lint": "tsc",
-    "test": "tsx --test src/domains.test.ts src/first-paragraph.test.mjs"
+    "test": "tsx --test src/domains.test.ts src/subpath.test.ts src/first-paragraph.test.mjs"
   },
   "dependencies": {
     "@vc/config": "workspace:*",

@@ -10,6 +10,7 @@ import {
   postVersionSummaryDtoSchema,
   previewPostDtoSchema,
   siteWithSignupFormDtoSchema,
+  siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
   signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema,
 } from "./dto";
@@ -40,6 +41,7 @@ import {
   uploadAssetRequestSchema,
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
+  getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
 } from "./requests";
 
 export type OperationAnnotations = {
@@ -114,6 +116,26 @@ export const operations = [
     toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
     description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.location.get', operationId: 'getSiteLocation', requiredScope: 'sites:read',
+    description: opDescription('Read where this blog is served: the default host, a custom domain, or a path on the owner\'s site. Subpath rows include status and the last setup check; proxyTarget and snippets only appear for keys that may manage the location. Example: {}.', 'sites:read', readErrors),
+    requestSchema: getSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'sites.location.set_subpath', operationId: 'setSubpathLocation', requiredScope: 'site:write',
+    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; the owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
+    requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.location.check', operationId: 'checkSiteLocation', requiredScope: 'site:write',
+    description: opDescription('Verify the subpath proxy is live: probes https://<hostname><basePath>/_vc/health and compares site id and proxy fingerprint. A pass activates the location; a failure records plain-language errors. Call after the owner saves a snippet. Example: {}.', 'site:write', readErrors),
+    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.location.remove', operationId: 'removeSiteLocation', requiredScope: 'site:write',
+    description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}.', 'site:write', writeErrors),
+    requestSchema: removeSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
   },
   {
     toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',

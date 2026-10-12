@@ -99,6 +99,11 @@ export const updateSignupFormRequestSchema = z.object({
   (value) => Object.keys(value).length > 1, 'Send at least one signup form field',
 );
 export const listTagsRequestSchema = z.object({}).strict();
+export const getSiteLocationRequestSchema = z.object({}).strict();
+// The full public location (https://customer.com/blog); validation lives server-side.
+export const setSubpathLocationRequestSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
+export const checkSiteLocationRequestSchema = z.object({}).strict();
+export const removeSiteLocationRequestSchema = z.object({}).strict();
 export const getAnalyticsRequestSchema = z.object({ range: z.enum(['7', '30', '90', '365', 'all']).default('30') }).strict();
 
 export const listPostsRequestSchema = z.object({

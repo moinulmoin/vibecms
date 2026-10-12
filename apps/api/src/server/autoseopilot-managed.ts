@@ -1,4 +1,4 @@
-import { AGENT_TOKEN_PRESETS } from '@vc/core'
+import { AGENT_TOKEN_PRESETS, ConflictError, validateSubpathLocation, type Actor } from '@vc/core'
 import {
   createDataAccess,
   evaluateEffectiveHostedEntitlement,
@@ -7,8 +7,10 @@ import {
   type ManagedSiteSnapshot,
 } from '@vc/db'
 import { isReservedSiteSlug, SITE_SLUG_MAX_LENGTH } from '@vc/validators'
-import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
 import { scheduleManagedSitePurge } from '@/server/purge-scheduler'
+import { getSiteLocation } from '@/server/subpath-locations'
+import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
+import { checkSubpathSetup } from '@/server/subpath-setup'
 import { z } from 'zod'
 
 export const MANAGED_BODY_LIMIT = 64 * 1024
@@ -34,6 +36,7 @@ export type ManagedInternalErrorCode =
   | 'SLUG_CONFLICT'
   | 'CONFLICT'
   | 'REQUEST_TOO_LARGE'
+  | 'BILLING_REQUIRED'
   | 'INTERNAL_ERROR'
 
 export class ManagedInternalError extends Error {
@@ -152,7 +155,7 @@ export type ManagedReceipt = ManagedReceiptBase &
 
 type ManagedEnvironment = Pick<
   Cloudflare.Env,
-  'DB' | 'APP_ENV' | 'SELF_HOSTED' | 'PUBLIC_BLOG_DOMAIN' | 'TOKEN_PEPPER'
+  'DB' | 'APP_ENV' | 'APP_URL' | 'SELF_HOSTED' | 'PUBLIC_BLOG_DOMAIN' | 'TOKEN_PEPPER'
 >
 
 function now() {
@@ -653,6 +656,131 @@ async function readExisting(
   externalWorkspaceId: string,
 ) {
   return createDataAccess(environment.DB).managedSites.getSnapshotByExternalWorkspaceId(externalWorkspaceId)
+}
+
+// --- Subpath location (plans/022 phase 3) ------------------------------------
+
+export const managedLocationRequestSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('subpath'), url: z.string().trim().min(1).max(2048) }).strict(),
+    z.object({ type: z.literal('default') }).strict(),
+  ])
+
+export type ManagedLocationRequest = z.infer<typeof managedLocationRequestSchema>
+
+function managedAppHost(environment: ManagedEnvironment): string {
+  try {
+    return new URL(environment.APP_URL).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function managedPlatformZone(environment: ManagedEnvironment): string {
+  const raw = environment.PUBLIC_BLOG_DOMAIN?.trim() ?? ''
+  if (!raw) return ''
+  try {
+    return (raw.includes('://') ? new URL(raw).hostname : raw).toLowerCase().replace(/\.$/, '')
+  } catch {
+    return ''
+  }
+}
+
+async function requireActiveManagedSite(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+): Promise<ManagedSiteSnapshot> {
+  const snapshot = await readExisting(environment, canonicalExternalWorkspaceId(externalWorkspaceId))
+  if (!snapshot) throw new ManagedInternalError('NOT_FOUND', 'Managed site not found.', 404)
+  if (snapshot.siteStatus !== 'active') {
+    throw conflict('CONFLICT', 'The managed site is archived.')
+  }
+  return snapshot
+}
+
+async function assertManagedEntitled(environment: ManagedEnvironment, snapshot: ManagedSiteSnapshot) {
+  const selfHosted = String(environment.SELF_HOSTED) === 'true'
+  const entitlement = await createDataAccess(environment.DB).managedSites.resolveSite(snapshot.siteId, {
+    selfHosted,
+    now: now(),
+  })
+  if (!entitlement?.effective) {
+    throw conflict('BILLING_REQUIRED', 'Subpath hosting requires an active entitlement.')
+  }
+}
+
+// The managed caller IS the site owner: setup details (proxy target, snippets)
+// always ship in managed responses. Actor is synthesized owner so the shared
+// view builder treats this as owner-level.
+async function managedLocationView(environment: ManagedEnvironment, snapshot: ManagedSiteSnapshot) {
+  const actor: Actor = { type: 'human', id: snapshot.ownerUserId, name: 'AutoSEOPilot', role: 'owner' }
+  return getSiteLocation(createDataAccess(environment.DB), snapshot.siteId, snapshot.siteSlug, actor)
+}
+
+export async function setManagedSiteLocation(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+  request: ManagedLocationRequest,
+) {
+  const snapshot = await requireActiveManagedSite(environment, externalWorkspaceId)
+  const db = createDataAccess(environment.DB)
+
+  if (request.type === 'default') {
+    const existing = (await db.domains.listBySite(snapshot.siteId)).find((row) => row.type === 'subpath')
+    if (existing) {
+      await db.domains.deleteSubpathForSite(snapshot.siteId)
+      scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
+    }
+    return { location: await managedLocationView(environment, snapshot) }
+  }
+
+  await assertManagedEntitled(environment, snapshot)
+  const validation = validateSubpathLocation(request.url, {
+    appHost: managedAppHost(environment),
+    platformZone: managedPlatformZone(environment),
+  })
+  if (!validation.ok) {
+    throw new ManagedInternalError('VALIDATION_ERROR', validation.error, 400)
+  }
+  try {
+    await db.domains.insertSubpath({
+      siteId: snapshot.siteId,
+      hostname: validation.hostname,
+      basePath: validation.basePath,
+    })
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      throw conflict('CONFLICT', 'That domain is already connected to another blog.')
+    }
+    throw error
+  }
+  return { location: await managedLocationView(environment, snapshot) }
+}
+
+export async function checkManagedSiteLocation(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+) {
+  const snapshot = await requireActiveManagedSite(environment, externalWorkspaceId)
+  const db = createDataAccess(environment.DB)
+  const row = (await db.domains.listBySite(snapshot.siteId)).find((domain) => domain.type === 'subpath')
+  if (!row) {
+    throw new ManagedInternalError('NOT_FOUND', 'No subpath location is set up for this site.', 404)
+  }
+  const check = await checkSubpathSetup(row, { id: snapshot.siteId })
+  // Conditional write: applies only while the row still carries the proxy id
+  // that was checked (rotate/remove mid-probe → conflict, re-check to retry),
+  // and a failing check never demotes an already-active row.
+  const applied = await db.domains.recordSubpathCheck(row.id, snapshot.siteId, {
+    proxyId: row.proxyId ?? '',
+    checkPassed: check.ok,
+    verificationErrorsJson: JSON.stringify(check),
+  })
+  if (!applied) {
+    throw conflict('CONFLICT', 'The proxy link changed while the check ran. Run the check again.')
+  }
+  if (check.ok) scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
+  return { check, location: await managedLocationView(environment, snapshot) }
 }
 
 export async function getManagedSite(

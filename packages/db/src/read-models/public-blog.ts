@@ -250,7 +250,7 @@ const siteResolveColumns = {
 export interface PublicBlogReadModel {
   resolveSiteByHost(host: string): Promise<PublicSiteRow | null>;
   resolveSingleSite(): Promise<PublicSiteRow | null>;
-  /** Active `subpath` row addressed by proxy id, on an active site (proxy ingress). */
+  /** `subpath` row addressed by proxy id, on an active site — any status; the ingress gates serving by it. */
   resolveSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
   getPublishedPost(siteId: string, slug: string, now: number): Promise<PublicPostDetailRow | null>;
   listPublishedPostSummaries(siteId: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
@@ -358,17 +358,11 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
           hostname: domains.hostname,
           basePath: domains.basePath,
           proxyId: domains.proxyId,
+          status: domains.status,
         })
         .from(domains)
         .innerJoin(sites, eq(sites.id, domains.siteId))
-        .where(
-          and(
-            eq(domains.proxyId, proxyId),
-            eq(domains.type, "subpath"),
-            eq(domains.status, "active"),
-            eq(sites.status, "active"),
-          ),
-        )
+        .where(and(eq(domains.proxyId, proxyId), eq(domains.type, "subpath"), eq(sites.status, "active")))
         .limit(1);
       const row = rows[0];
       return row ? ({ ...row } satisfies SubpathDomainRow) : null;

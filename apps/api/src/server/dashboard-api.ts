@@ -36,6 +36,7 @@ import {
 import { getSitePublicBaseUrl } from '@/server/site-public-url'
 import { previewUrlForPost } from '@/server/post-preview'
 import { addCustomDomainForApp, listCustomDomainsForApp, removeCustomDomainForApp } from '@/server/custom-domains'
+import { getSiteLocationForApp } from '@/server/subpath-locations'
 import { newsletterSettingsSchema, voiceProfileSettingsInputSchema, type VoiceProfileSettingsInput } from '@vc/validators'
 import { clearVoiceProfileForApp, getVoiceProfileForSite, getVoiceProfileSettings, updateVoiceProfileForApp } from '@/server/voice-profile'
 import type { AppUserContext } from '@/server/onboarding'
@@ -228,13 +229,14 @@ export async function loadSetupPage(app: AppUserContext) {
 }
 
 export async function loadSettingsPage(app: AppUserContext) {
-  const [site, voiceProfile, billing, entitlement, managedSnapshot, customDomains, assets] = await Promise.all([
+  const [site, voiceProfile, billing, entitlement, managedSnapshot, customDomains, location, assets] = await Promise.all([
     getSiteSettings(app),
     getVoiceProfileSettings(app),
     getBilling(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
     createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
     listCustomDomainsForApp(app),
+    getSiteLocationForApp(app),
     getMedia(app),
   ])
   const selfHosted = isSelfHosted()
@@ -245,6 +247,7 @@ export async function loadSettingsPage(app: AppUserContext) {
     site,
     voiceProfile,
     customDomains,
+    location,
     assets,
     billingStatus: billing.status,
     polarBillingStatus: entitlement.rawPolarStatus,

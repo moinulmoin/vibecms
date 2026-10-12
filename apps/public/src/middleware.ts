@@ -62,6 +62,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
       });
     }
+    if (ingress.kind === "not-connected") {
+      // The location is saved but never verified: tell the owner's visitors
+      // setup is unfinished without redirecting them off the customer domain.
+      return new Response("This blog isn't connected yet. Finish setup in vibecms.", {
+        status: 404,
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
     if (ingress.kind === "health") {
       const response = Response.json(
         { ok: true, siteId: ingress.siteId, proxyFingerprint: ingress.proxyFingerprint },

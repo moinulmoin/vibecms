@@ -3,12 +3,12 @@ title: Scopes and MCP tools
 description: See every agent tool and the scope required to call it.
 ---
 
-Each key belongs to one site. The server checks the key's scopes for every MCP or REST operation. The current contract defines 32 tools.
+Each key belongs to one site. The server checks the key's scopes for every MCP or REST operation. The current contract defines 36 tools.
 
 | Scope | Tools |
 | --- | --- |
-| `sites:read` | `sites.get` |
-| `site:write` | `sites.update`, `sites.theme.get`, `sites.theme.update`, `sites.theme.revert`, `sites.voice.update`, `sites.signup_form.update`, `tags.list` |
+| `sites:read` | `sites.get`, `sites.location.get` |
+| `site:write` | `sites.update`, `sites.theme.get`, `sites.theme.update`, `sites.theme.revert`, `sites.voice.update`, `sites.signup_form.update`, `sites.location.set_subpath`, `sites.location.check`, `sites.location.remove`, `tags.list` |
 | `analytics:read` | `analytics.get` |
 | `posts:read` | `posts.list`, `posts.search`, `posts.get`, `posts.get_by_slug`, `posts.versions.list`, `posts.versions.get`, `posts.format_guide`, `posts.preview` |
 | `posts:create` | `posts.create` |

@@ -27,10 +27,26 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete", "sites.update", "sites.theme.update", "sites.theme.revert", "sites.voice.update", "sites.signup_form.update"]);
+const writeTools: Record<string, true> = {
+  "posts.create": true,
+  "posts.update": true,
+  "posts.publish": true,
+  "posts.archive": true,
+  "posts.versions.restore": true,
+  "assets.upload": true,
+  "assets.delete": true,
+  "sites.update": true,
+  "sites.theme.update": true,
+  "sites.theme.revert": true,
+  "sites.voice.update": true,
+  "sites.signup_form.update": true,
+  "sites.location.set_subpath": true,
+  "sites.location.check": true,
+  "sites.location.remove": true,
+};
 
-function apiUsageKind(toolName: string): ApiUsageKind {
-  return writeTools.has(toolName) ? "write" : "read";
+export function apiUsageKind(toolName: string): ApiUsageKind {
+  return writeTools[toolName] ? "write" : "read";
 }
 
 function forceQuotaForSmoke(request: Request) {

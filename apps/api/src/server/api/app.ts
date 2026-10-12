@@ -32,6 +32,7 @@ import {
   uploadAssetOp,
   type OperationContext,
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
+  getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import {
@@ -61,6 +62,7 @@ import {
   updatePostRoute,
   uploadAssetRoute,
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
+  getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
 } from "@/server/api/routes";
 
 type ApiEnv = {
@@ -199,6 +201,10 @@ apiV1App.openapi(updateSignupFormRoute, async (c) => c.json(await updateSignupFo
 apiV1App.openapi(listTagsRoute, async (c) => c.json(await listTagsOp(c.get('ctx')), 200));
 apiV1App.openapi(getAnalyticsRoute, async (c) => c.json(await getAnalyticsOp(c.get('ctx'), c.req.valid('query')), 200));
 
+apiV1App.openapi(getSiteLocationRoute, async (c) => c.json(await getSiteLocationOp(c.get('ctx')), 200));
+apiV1App.openapi(setSubpathLocationRoute, async (c) => c.json(await setSubpathLocationOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(checkSiteLocationRoute, async (c) => c.json(await checkSiteLocationOp(c.get('ctx')), 200));
+apiV1App.openapi(removeSiteLocationRoute, async (c) => c.json(await removeSiteLocationOp(c.get('ctx')), 200));
 apiV1App.openapi(listPostsRoute, async (c) => {
   const query = c.req.valid("query");
   const posts = await listPostsOp(c.get("ctx"), query);

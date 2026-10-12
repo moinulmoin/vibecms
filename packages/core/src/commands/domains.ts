@@ -26,8 +26,21 @@ export type DomainRepository = {
    * Returns the created record with its fresh proxyId.
    */
   insertSubpath(input: { siteId: string; hostname: string; basePath: string }): Promise<DomainRecord>;
-  /** Active `subpath` row addressed by proxy id, on an active site. */
-  getActiveSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
+  /** `subpath` row addressed by proxy id, on an active site (any status — the ingress gates serving). */
+  getSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
+  /** Every ACTIVE subpath row, least-recently-checked first (never-checked first) — the daily re-check walks these. */
+  listActiveSubpaths(limit: number): Promise<SubpathDomainRow[]>;
+  /**
+   * Record a setup-check result in ONE conditional UPDATE: the row must still
+   * carry the proxy id that was checked (a rotate/remove makes the write a
+   * no-op, returns 0), and an already-active row is never demoted (a passing
+   * check still re-marks it active). Returns rows changed.
+   */
+  recordSubpathCheck(
+    id: string,
+    siteId: string,
+    input: { proxyId: string; checkPassed: boolean; verificationErrorsJson: string },
+  ): Promise<number>;
   /** Replace a subpath row's proxy id; returns the new id. */
   rotateProxyId(id: string, siteId: string): Promise<string>;
   /** Delete a site's subpath row. Returns rows removed. */
@@ -45,6 +58,8 @@ export type SubpathDomainRow = {
   hostname: string;
   basePath: string | null;
   proxyId: string | null;
+  /** `pending`/`failed` rows still resolve: health answers, pages 404 "not connected". */
+  status: DomainRecord["status"];
 };
 
 /** The primary public mount for a site; basePath is "" unless type is "subpath". */

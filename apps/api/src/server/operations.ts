@@ -1,4 +1,4 @@
-import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, BillingRequiredError, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
 import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
@@ -31,6 +31,12 @@ import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsF
 import { getVoiceProfileSettings, updateVoiceProfileForApp } from "./voice-profile";
 import { loadAnalyticsForApp, type AnalyticsRange } from "./analytics";
 
+import {
+  checkSubpathLocationForApp,
+  getSiteLocationForApp,
+  removeSubpathLocationForApp,
+  setSubpathLocationForApp,
+} from "./subpath-locations";
 export type OperationContext = {
   actor: Actor;
   siteId: string;
@@ -237,6 +243,45 @@ export async function listTagsOp(ctx: OperationContext) {
     GROUP BY json_each.value ORDER BY postCount DESC, name COLLATE NOCASE`).bind(ctx.siteId)
     .all<{ name: string; postCount: number }>();
   return rows.results;
+}
+
+// Location results carry FORM_STATUS-style codes; map them to the AppError
+// family REST/MCP already translate (billing, owner, conflicts, validation).
+function locationMutationResult<T extends { ok: boolean; code?: string }>(result: T): asserts result is Extract<T, { ok: true }> {
+  if (result.ok) return;
+  if (result.code === 'billing_required') throw new BillingRequiredError('Hosting the blog on your site requires an active subscription.');
+  if (result.code === 'owner_required') throw new AppError('FORBIDDEN', 'Owner access required', 403);
+  if (result.code === 'domain_conflict') throw new ConflictError('That domain is already connected to another blog.');
+  if (result.code === 'not_found') throw new NotFoundError('No subpath location is set up for this blog.');
+  throw new ValidationError('That location is not valid. Use https://customer.com/blog — no platform or app host.');
+}
+
+export async function getSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'sites:read');
+  const location = await getSiteLocationForApp(appUser(ctx));
+  if (!location) throw new NotFoundError('Site not found');
+  return location;
+}
+
+export async function setSubpathLocationOp(ctx: OperationContext, input: { url: string }) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await setSubpathLocationForApp(appUser(ctx), input.url);
+  locationMutationResult(result);
+  return result.location;
+}
+
+export async function checkSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await checkSubpathLocationForApp(appUser(ctx));
+  locationMutationResult(result);
+  return { check: result.check, location: result.location };
+}
+
+export async function removeSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await removeSubpathLocationForApp(appUser(ctx));
+  locationMutationResult(result);
+  return result.location;
 }
 
 export async function getAnalyticsOp(ctx: OperationContext, input: { range: string }) {

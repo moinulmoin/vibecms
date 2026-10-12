@@ -15,7 +15,7 @@
 import { publicOrigin } from "./public-url";
 
 // Minimal projection the ingress needs; matches @vc/core's SubpathDomainRow
-// (kept inline because @vc/public does not depend on @vc/core).
+// (status is consumed by the resolver, which lives in the server module).
 interface ProxiedDomain {
   hostname: string;
   basePath: string | null;

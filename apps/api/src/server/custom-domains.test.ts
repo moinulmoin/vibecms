@@ -50,8 +50,11 @@ describe('custom hostname provisioning retry state', () => {
       async insertSubpath() {
         return state.row
       },
-      async getActiveSubpathByProxyId() {
+      async getSubpathByProxyId() {
         return null
+      },
+      async listActiveSubpaths() {
+        return []
       },
       async rotateProxyId() {
         return 'rotated-proxy-id'
@@ -60,6 +63,9 @@ describe('custom hostname provisioning retry state', () => {
         return 0
       },
       async setSubpathStatus() {},
+      async recordSubpathCheck() {
+        return 0;
+      },
       async getPrimaryPublicLocation() {
         return null
       },

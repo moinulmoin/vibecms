@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
 import {
   ConflictError,
   type DomainRecord,
@@ -158,7 +158,7 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
       }
       return record;
     },
-    async getActiveSubpathByProxyId(proxyId) {
+    async getSubpathByProxyId(proxyId) {
       const rows = await client
         .select({
           id: domains.id,
@@ -166,20 +166,37 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
           hostname: domains.hostname,
           basePath: domains.basePath,
           proxyId: domains.proxyId,
+          status: domains.status,
         })
         .from(domains)
         .innerJoin(sites, eq(sites.id, domains.siteId))
-        .where(
-          and(
-            eq(domains.proxyId, proxyId),
-            eq(domains.type, "subpath"),
-            eq(domains.status, "active"),
-            eq(sites.status, "active"),
-          ),
-        )
+        .where(and(eq(domains.proxyId, proxyId), eq(domains.type, "subpath"), eq(sites.status, "active")))
         .limit(1);
       const row = rows[0];
       return row ? ({ ...row } satisfies SubpathDomainRow) : null;
+    },
+    async listActiveSubpaths(limit) {
+      const rows = await client
+        .select({
+          id: domains.id,
+          siteId: domains.siteId,
+          hostname: domains.hostname,
+          basePath: domains.basePath,
+          proxyId: domains.proxyId,
+          status: domains.status,
+        })
+        .from(domains)
+        .innerJoin(sites, eq(sites.id, domains.siteId))
+        .where(and(eq(domains.type, "subpath"), eq(domains.status, "active"), eq(sites.status, "active")))
+        // Least-recently-checked first: rows skipped by a previous run's time
+        // budget lead the next sweep; never-checked rows (NULL) sort first.
+        .orderBy(
+          sql`COALESCE(json_extract(${domains.verificationErrorsJson}, '$.checkedAt'), 0)`,
+          asc(domains.createdAt),
+          asc(domains.id),
+        )
+        .limit(limit);
+      return rows.map((row) => ({ ...row } satisfies SubpathDomainRow));
     },
     async rotateProxyId(id, siteId) {
       const proxyId = newProxyId();
@@ -203,6 +220,27 @@ export function createD1DomainRepository(db: D1Database): DomainRepository {
         .set({ status, verificationErrorsJson: verificationErrorsJson ?? null, updatedAt: Math.floor(Date.now() / 1000) })
         .where(and(eq(domains.id, id), eq(domains.siteId, siteId), eq(domains.type, "subpath")))
         .run();
+    },
+    async recordSubpathCheck(id, siteId, input) {
+      const result = await client
+        .update(domains)
+        .set({
+          // A passing check activates; a failing one demotes only a never-active
+          // row (an active row keeps serving — only the owner removes a mount).
+          status: sql`CASE WHEN ${input.checkPassed ? 1 : 0} = 1 OR ${domains.status} = 'active' THEN 'active' ELSE 'failed' END`,
+          verificationErrorsJson: input.verificationErrorsJson,
+          updatedAt: Math.floor(Date.now() / 1000),
+        })
+        .where(
+          and(
+            eq(domains.id, id),
+            eq(domains.siteId, siteId),
+            eq(domains.type, "subpath"),
+            eq(domains.proxyId, input.proxyId),
+          ),
+        )
+        .run();
+      return result.meta.changes ?? 0;
     },
     async getPrimaryPublicLocation(siteId) {
       // Few rows per site: fetch the active domains and pick by precedence.

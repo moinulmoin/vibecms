@@ -307,6 +307,37 @@ or credential ID returns HTTP 409 with `STALE_GENERATION` or
 posts, versions, media, activity, users, workspaces, sites, domains, or
 public content.
 
+### PUT location
+
+`PUT /internal/autoseopilot/sites/{externalWorkspaceId}/location` sets where
+the managed blog is served. Body is a discriminated union:
+
+```json
+{ "type": "subpath", "url": "https://customer.com/blog" }
+{ "type": "default" }
+```
+
+`subpath` validates the URL (`validateSubpathLocation`: https host, 1–3 path
+segments, never a platform or app host), creates or replaces the site's
+`subpath` domain row, and returns `{ location }` — the same view the
+dashboard location API returns, including `proxyTarget` and ready-to-paste
+`snippets` (Cloudflare Worker, Vercel, Next.js, Netlify, nginx, Caddy) for
+the customer's proxy. A `409 BILLING_REQUIRED` means the effective
+entitlement is off. `default` removes the subpath mount so the site serves
+its `slug.<zone>` host again.
+
+### POST location check
+
+`POST /internal/autoseopilot/sites/{externalWorkspaceId}/location/check`
+runs the same "Check setup" probe the dashboard uses: it fetches
+`https://<hostname><basePath>/_vc/health`, compares `siteId` and the
+SHA-256 fingerprint of the proxy id, and warns on CDN caching or a missing
+`Sitemap:` line in the customer root `robots.txt`. Returns
+`{ check, location }`. A pass flips the row to `active`; a failed check on a
+never-verified row records `failed`; an already-active row stays `active`
+(a flaky probe never demotes it — the daily cron re-checks and records the
+result the same way). Without a subpath row it returns 404 `NOT_FOUND`.
+
 ### Error envelope and status semantics
 
 Every handled error uses:

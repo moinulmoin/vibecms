@@ -104,6 +104,32 @@ export const signupFormDtoSchema = z.object({
 export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema });
 /** sites.signup_form.update echoes the new site revision for follow-up edits. */
 export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
+const subpathCheckIssueDtoSchema = z.object({ code: z.string(), message: z.string() });
+const subpathCheckDtoSchema = z.object({
+  ok: z.boolean(),
+  checkedAt: z.number().int(),
+  errors: z.array(subpathCheckIssueDtoSchema),
+  warnings: z.array(subpathCheckIssueDtoSchema),
+});
+const subpathSnippetsDtoSchema = z.object({
+  cloudflareWorker: z.object({ code: z.string(), route: z.string() }),
+  vercel: z.string(),
+  nextjs: z.string(),
+  netlify: z.string(),
+  nginx: z.string(),
+  caddy: z.string(),
+});
+/** Where this blog is served. `proxyTarget`/`snippets` are owner-level setup secrets. */
+export const siteLocationDtoSchema = z.object({
+  type: z.enum(['default', 'custom', 'subpath']),
+  url: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'failed', 'disabled']).nullable(),
+  proxyTarget: z.string().optional(),
+  snippets: subpathSnippetsDtoSchema.optional(),
+  lastCheck: subpathCheckDtoSchema.optional(),
+});
+export const siteLocationCheckDtoSchema = z.object({ check: subpathCheckDtoSchema, location: siteLocationDtoSchema });
+export type SiteLocationDto = z.infer<typeof siteLocationDtoSchema>;
 export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
 export const analyticsDtoSchema = z.object({
   status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),

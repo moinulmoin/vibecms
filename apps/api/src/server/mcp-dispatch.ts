@@ -26,6 +26,7 @@ import {
   uploadAssetRequestSchema,
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
+  getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
 } from "@vc/api-contract";
 import type { OperationContext } from "./operations";
 import {
@@ -54,6 +55,7 @@ import {
   updatePostOp,
   uploadAssetOp,
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
+  getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
 } from "./operations";
 
 export async function dispatchOperation(toolName: McpToolName, ctx: OperationContext, rawArguments: unknown) {
@@ -74,6 +76,17 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return updateVoiceOp(ctx, updateVoiceRequestSchema.parse(rawArguments ?? {}));
     case 'sites.signup_form.update':
       return updateSignupFormOp(ctx, updateSignupFormRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.location.get':
+      getSiteLocationRequestSchema.parse(rawArguments ?? {});
+      return getSiteLocationOp(ctx);
+    case 'sites.location.set_subpath':
+      return setSubpathLocationOp(ctx, setSubpathLocationRequestSchema.parse(rawArguments ?? {}));
+    case 'sites.location.check':
+      checkSiteLocationRequestSchema.parse(rawArguments ?? {});
+      return checkSiteLocationOp(ctx);
+    case 'sites.location.remove':
+      removeSiteLocationRequestSchema.parse(rawArguments ?? {});
+      return removeSiteLocationOp(ctx);
     case 'tags.list':
       listTagsRequestSchema.parse(rawArguments ?? {});
       return listTagsOp(ctx);

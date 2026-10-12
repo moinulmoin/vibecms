@@ -4,7 +4,8 @@
  * Covers the `subpath` row lifecycle the proxy ingress depends on:
  *   - insertSubpath creates a pending row with a fresh proxyId and replaces
  *     the site's previous subpath row in one batch (one per site)
- *   - getActiveSubpathByProxyId only resolves active rows on active sites
+ *   - getSubpathByProxyId resolves rows of any status on active sites (the
+ *     ingress gates serving on status); listActiveSubpaths feeds the cron
  *   - rotateProxyId / deleteSubpathForSite / setSubpathStatus scope to subpath rows
  *   - getPrimaryPublicLocation precedence: active subpath > custom > default
  *
@@ -40,10 +41,11 @@ async function insertDomain(fields: {
   status: string;
   basePath?: string;
   proxyId?: string;
+  verificationErrorsJson?: string;
   createdAt?: number;
 }) {
   await env.DB.prepare(
-    "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, verification_errors_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   )
     .bind(
       fields.id,
@@ -53,9 +55,18 @@ async function insertDomain(fields: {
       fields.status,
       fields.basePath ?? null,
       fields.proxyId ?? null,
+      fields.verificationErrorsJson ?? null,
       fields.createdAt ?? T,
       T,
     )
+    .run();
+}
+
+async function insertSite(siteId: string, status = "active") {
+  await env.DB.prepare(
+    "INSERT INTO sites (id, workspace_id, name, slug, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  )
+    .bind(siteId, WORKSPACE_ID, siteId, siteId, status, T, T)
     .run();
 }
 
@@ -131,7 +142,7 @@ describe("insertSubpath", () => {
     expect(subpaths).toHaveLength(1);
     expect(subpaths[0]).toMatchObject({ hostname: "a3.example.test", basePath: "/blog", proxyId: second.proxyId });
     // The replaced row's proxy id is gone entirely.
-    expect(await repo.getActiveSubpathByProxyId(first.proxyId!)).toBeNull();
+    expect(await repo.getSubpathByProxyId(first.proxyId!)).toBeNull();
   });
 
   it("rejects a hostname already connected to another site", async () => {
@@ -142,25 +153,30 @@ describe("insertSubpath", () => {
   });
 });
 
-describe("getActiveSubpathByProxyId", () => {
-  it("resolves only active subpath rows on active sites", async () => {
+describe("getSubpathByProxyId", () => {
+  it("resolves subpath rows of any status on active sites", async () => {
     const repo = createD1DomainRepository(env.DB);
     const record = await repo.insertSubpath({
       siteId: "site-sub-a",
       hostname: "active.example.test",
       basePath: "/blog",
     });
-    // Pending rows are invisible to the proxy.
-    expect(await repo.getActiveSubpathByProxyId(record.proxyId!)).toBeNull();
+    // Pending rows resolve too: the ingress needs them for `/_vc/health` and
+    // the "not connected" page state — serving is gated on `status` upstream.
+    expect(await repo.getSubpathByProxyId(record.proxyId!)).toMatchObject({
+      siteId: "site-sub-a",
+      status: "pending",
+    });
 
     await repo.setSubpathStatus(record.id, "site-sub-a", "active");
-    const hit = await repo.getActiveSubpathByProxyId(record.proxyId!);
+    const hit = await repo.getSubpathByProxyId(record.proxyId!);
     expect(hit).toEqual({
       id: record.id,
       siteId: "site-sub-a",
       hostname: "active.example.test",
       basePath: "/blog",
       proxyId: record.proxyId,
+      status: "active",
     });
 
     // An active row on an archived site is not servable.
@@ -170,7 +186,131 @@ describe("getActiveSubpathByProxyId", () => {
       basePath: "/blog",
     });
     await repo.setSubpathStatus(archived.id, "site-sub-archived", "active");
-    expect(await repo.getActiveSubpathByProxyId(archived.proxyId!)).toBeNull();
+    expect(await repo.getSubpathByProxyId(archived.proxyId!)).toBeNull();
+  });
+});
+
+describe("listActiveSubpaths", () => {
+  it("returns only active subpath rows on active sites, capped", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const rows = await repo.listActiveSubpaths(200);
+    // Suites share the D1 instance: assert invariants, not exact membership —
+    // every row is active on an active site, and ours is among them.
+    expect(rows.every((row) => row.status === "active")).toBe(true);
+    expect(rows.some((row) => row.siteId === "site-sub-a" && row.hostname === "active.example.test")).toBe(true);
+    expect(rows.some((row) => row.siteId === "site-sub-archived")).toBe(false);
+    expect((await repo.listActiveSubpaths(1)).length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("listActiveSubpaths ordering", () => {
+  it("serves least-recently-checked rows first so skipped rows lead the next sweep", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    await insertSite("site-sub-recheck");
+    await insertDomain({
+      id: "dom-recheck-old",
+      siteId: "site-sub-recheck",
+      hostname: "recheck-old.example.test",
+      type: "subpath",
+      status: "active",
+      basePath: "/blog",
+      proxyId: "recheck-old-proxy-0000001",
+      verificationErrorsJson: JSON.stringify({ ok: true, errors: [], warnings: [], checkedAt: 100 }),
+    });
+    await insertDomain({
+      id: "dom-recheck-new",
+      siteId: "site-sub-recheck",
+      hostname: "recheck-new.example.test",
+      type: "subpath",
+      status: "active",
+      basePath: "/blog",
+      proxyId: "recheck-new-proxy-0000001",
+      verificationErrorsJson: JSON.stringify({ ok: true, errors: [], warnings: [], checkedAt: 200 }),
+    });
+    await insertDomain({
+      id: "dom-recheck-never",
+      siteId: "site-sub-recheck",
+      hostname: "recheck-never.example.test",
+      type: "subpath",
+      status: "active",
+      basePath: "/blog",
+      proxyId: "recheck-never-proxy-00001",
+    });
+
+    const mine = (await repo.listActiveSubpaths(200)).map((row) => row.id).filter((id) => id.startsWith("dom-recheck-"));
+    // Never-checked first, then oldest checkedAt, then newer.
+    expect(mine).toEqual(["dom-recheck-never", "dom-recheck-old", "dom-recheck-new"]);
+  });
+});
+
+describe("recordSubpathCheck", () => {
+  it("applies only while the row still carries the checked proxy id", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const record = await repo.insertSubpath({
+      siteId: "site-sub-a",
+      hostname: "conditional.example.test",
+      basePath: "/blog",
+    });
+    const resultJson = JSON.stringify({ ok: true, errors: [], warnings: [], checkedAt: T });
+
+    // A check that finished after the link rotated changes nothing.
+    await repo.rotateProxyId(record.id, "site-sub-a");
+    const stale = await repo.recordSubpathCheck(record.id, "site-sub-a", {
+      proxyId: record.proxyId!,
+      checkPassed: true,
+      verificationErrorsJson: resultJson,
+    });
+    expect(stale).toBe(0);
+    expect(await repo.getByHostname("conditional.example.test")).toMatchObject({ status: "pending" });
+
+    // Against the current proxy id the result lands and activates the row.
+    const rotated = (await repo.getByHostname("conditional.example.test"))!.proxyId!;
+    const applied = await repo.recordSubpathCheck(record.id, "site-sub-a", {
+      proxyId: rotated,
+      checkPassed: true,
+      verificationErrorsJson: resultJson,
+    });
+    expect(applied).toBe(1);
+    expect(await repo.getByHostname("conditional.example.test")).toMatchObject({
+      status: "active",
+      verificationErrorsJson: resultJson,
+    });
+  });
+
+  it("a failed check never demotes an active row (status logic lives in SQL)", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const record = await repo.insertSubpath({
+      siteId: "site-sub-a",
+      hostname: "nodemote.example.test",
+      basePath: "/blog",
+    });
+    await repo.setSubpathStatus(record.id, "site-sub-a", "active");
+
+    const failJson = JSON.stringify({ ok: false, errors: [{ code: "no_response", message: "down" }], warnings: [], checkedAt: T });
+    const applied = await repo.recordSubpathCheck(record.id, "site-sub-a", {
+      proxyId: record.proxyId!,
+      checkPassed: false,
+      verificationErrorsJson: failJson,
+    });
+    expect(applied).toBe(1);
+    expect(await repo.getByHostname("nodemote.example.test")).toMatchObject({
+      status: "active",
+      verificationErrorsJson: failJson,
+    });
+
+    // Pending rows DO flip to failed.
+    const pending = await repo.insertSubpath({
+      siteId: "site-sub-a",
+      hostname: "willfail.example.test",
+      basePath: "/blog",
+    });
+    const applied2 = await repo.recordSubpathCheck(pending.id, "site-sub-a", {
+      proxyId: pending.proxyId!,
+      checkPassed: false,
+      verificationErrorsJson: failJson,
+    });
+    expect(applied2).toBe(1);
+    expect(await repo.getByHostname("willfail.example.test")).toMatchObject({ status: "failed" });
   });
 });
 
@@ -303,7 +443,7 @@ describe("getPrimaryPublicLocation", () => {
 });
 
 describe("read-model subpath lookups (slice B)", () => {
-  it("resolveSubpathByProxyId returns only active subpath rows on active sites", async () => {
+  it("resolveSubpathByProxyId returns rows of any status on active sites", async () => {
     const readModel = createDataAccess(env.DB).publicBlog;
     const repo = createD1DomainRepository(env.DB);
     const record = await repo.insertSubpath({ siteId: "site-sub-a", hostname: "rm.example.test", basePath: "/blog" });
@@ -313,6 +453,7 @@ describe("read-model subpath lookups (slice B)", () => {
       siteId: "site-sub-a",
       hostname: "rm.example.test",
       basePath: "/blog",
+      status: "active",
     });
     expect(await readModel.resolveSubpathByProxyId("missing-proxy-id")).toBeNull();
   });

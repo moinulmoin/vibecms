@@ -261,6 +261,9 @@ importers:
       '@vc/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@vc/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@vc/db':
         specifier: workspace:*
         version: link:../../packages/db
