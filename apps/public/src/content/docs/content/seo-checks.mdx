@@ -76,11 +76,13 @@ Pass `focusKeyword` to `posts.seo_check` (or fill the editor field) to add five 
 `posts.seo_check` with `ai: true` (or the editor's **Ask AI review** button) runs one opt-in Workers AI pass over the post. It returns:
 
 - `intent` — the searcher intent the post best serves
-- `titleIdeas` — two alternative SEO titles (one-click apply in the editor)
+- `titleIdeas` — two alternative SEO titles
 - `descriptionIdea` — one meta description
 - `missingSubtopics` — up to five subtopics a searcher would expect
 - `unclearPassages` — up to three verbatim quotes and why they confuse or overreach
 - `claimsNeedingSources` — up to three verbatim quotes for claims that need a citation
+
+In the editor, **Use this** puts a title or description idea into the SEO field. Like any edit, the editor then saves a new draft version; nothing goes live until you publish.
 
 The post is sent to the model as untrusted data — instructions inside the post are ignored. Results are cached per post version and model, so checking the same version again is free; changing the focus keyword does not regenerate a cached review.
 
