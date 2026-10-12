@@ -1,6 +1,6 @@
 # 025 - WebMCP: agents in the browser drive the dashboard
 
-Status: TODO. Best after 024 (exposes the SEO check too). No migration.
+Status: ON HOLD (owner, 2026-10-13). Best after 024 (exposes the SEO check too). No migration.
 
 ## Why
 
