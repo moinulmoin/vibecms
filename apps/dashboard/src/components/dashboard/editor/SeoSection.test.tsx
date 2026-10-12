@@ -50,6 +50,14 @@ async function renderSection(props: Partial<Parameters<typeof SeoSection>[0]> = 
     ))
   })
   for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
+  // The check is debounced and its response is schema-parsed, so a fixed
+  // number of microtask flushes is timing-dependent. With real timers, wait
+  // until the check has settled (bounded); fake-timer tests drive time themselves.
+  if (!vi.isFakeTimers()) {
+    for (let i = 0; i < 200 && (host.textContent ?? '').includes('Checking…'); i++) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
+    }
+  }
   return host
 }
 
