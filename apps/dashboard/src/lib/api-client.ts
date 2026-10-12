@@ -1,6 +1,7 @@
 import { pinDashboardSiteOnce, pinnedDashboardSiteId, repinDashboardSite } from '~/lib/site-pin'
 import type {
   AddCustomDomainResult,
+  CheckSiteLocationResult,
   AnalyticsPageData,
   AnalyticsRange,
   ActivityPageLoad,
@@ -17,6 +18,8 @@ import type {
   OnboardingConnectStatus,
   RemoveCustomDomainResult,
   SettingsPageData,
+  SiteLocationResult,
+  RotateSiteLocationResult,
   SitePersonalization,
   SubscribersPageLoad,
   NewsletterSettings,
@@ -373,6 +376,22 @@ export function addCustomDomainMutation(data: { hostname: string }) {
 
 export function removeCustomDomainMutation(data: { domainId: string }) {
   return dashboardPost<RemoveCustomDomainResult>('/api/dashboard/domains/remove', data)
+}
+
+export function setSubpathLocationMutation(data: { url: string }) {
+  return dashboardPost<SiteLocationResult>('/api/dashboard/location/subpath', data)
+}
+
+export function checkSubpathLocationMutation() {
+  return dashboardPost<CheckSiteLocationResult>('/api/dashboard/location/check', {})
+}
+
+export function rotateSubpathLocationMutation() {
+  return dashboardPost<RotateSiteLocationResult>('/api/dashboard/location/rotate', {})
+}
+
+export function removeSubpathLocationMutation() {
+  return dashboardPost<SiteLocationResult>('/api/dashboard/location/remove', {})
 }
 
 export function loadMediaPage(signal?: AbortSignal) {

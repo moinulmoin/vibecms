@@ -233,6 +233,40 @@ export type CustomDomainsPanel = {
   cnameTarget: string | null
 }
 
+/** Mirror of the API's SubpathSnippets (`packages/core/src/subpath.ts`). */
+export type SubpathSnippets = {
+  cloudflareWorker: { code: string; route: string }
+  vercel: string
+  nextjs: string
+  netlify: string
+  nginx: string
+  caddy: string
+}
+
+export type SiteLocationIssue = { code: string; message: string }
+
+export type SiteLocationCheck = {
+  ok: boolean
+  errors: SiteLocationIssue[]
+  warnings: SiteLocationIssue[]
+  checkedAt: number
+}
+
+/** GET /api/dashboard/location — the site's public address (plans/022). */
+export type SiteLocationView = {
+  type: 'default' | 'custom' | 'subpath'
+  url: string | null
+  status: 'pending' | 'active' | 'failed' | 'disabled' | null
+  /** Proxy target and snippets carry the proxy credential: owner (or site:write keys) only. */
+  proxyTarget?: string
+  snippets?: SubpathSnippets
+  lastCheck?: SiteLocationCheck
+}
+
+export type SiteLocationResult = { ok: true; location: SiteLocationView } | { ok: false; code: string }
+export type CheckSiteLocationResult = { ok: true; check: SiteLocationCheck; location: SiteLocationView } | { ok: false; code: string }
+export type RotateSiteLocationResult = { ok: true; location: SiteLocationView; warning: string } | { ok: false; code: string }
+
 export type VoiceProfileSettings = {
   configured: boolean
   audience: string
@@ -280,6 +314,7 @@ export type SettingsPageData = {
   site: SiteSettingsForm
   assets: Asset[]
   customDomains: CustomDomainsPanel
+  location: SiteLocationView | null
   billingStatus: string
   polarBillingStatus?: BillingStatus
   effectiveEntitlement?: {

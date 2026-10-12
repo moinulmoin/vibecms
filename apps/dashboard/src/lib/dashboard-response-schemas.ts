@@ -60,6 +60,31 @@ export const mutationResultSchema = z.object({
   versionNumber: z.number().optional(),
 })
 
+export const siteLocationSchema = z.object({
+  type: z.enum(['default', 'custom', 'subpath']),
+  url: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'failed', 'disabled']).nullable(),
+  proxyTarget: z.string().optional(),
+  snippets: z
+    .object({
+      cloudflareWorker: z.object({ code: z.string(), route: z.string() }),
+      vercel: z.string(),
+      nextjs: z.string(),
+      netlify: z.string(),
+      nginx: z.string(),
+      caddy: z.string(),
+    })
+    .optional(),
+  lastCheck: z
+    .object({
+      ok: z.boolean(),
+      checkedAt: z.number(),
+      errors: z.array(z.object({ code: z.string(), message: z.string() })),
+      warnings: z.array(z.object({ code: z.string(), message: z.string() })),
+    })
+    .optional(),
+})
+
 const billingStatusSchema = z.enum(['active', 'past_due', 'canceled', 'unpaid', 'none'])
 const entitlementAccessSchema = z.enum(['self_hosted', 'hosted_paid', 'hosted_free'])
 const entitlementSourceSchema = z.enum(['self_hosted', 'polar', 'managed_sponsorship', 'none'])
@@ -327,6 +352,7 @@ export const settingsPageDataSchema = z.object({
     ),
     cnameTarget: z.string().nullable(),
   }),
+  location: siteLocationSchema.nullable(),
   billingStatus: z.string(),
   polarBillingStatus: billingStatusSchema.optional(),
   effectiveEntitlement: z.object({

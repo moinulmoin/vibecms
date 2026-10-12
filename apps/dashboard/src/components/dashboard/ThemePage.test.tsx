@@ -71,6 +71,7 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
     },
     assets: [],
     customDomains: { domains: [], cnameTarget: null },
+    location: null,
     billingStatus: 'active',
     selfHosted: false,
     isOwner: true,
