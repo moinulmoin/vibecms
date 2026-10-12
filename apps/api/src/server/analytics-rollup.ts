@@ -1,10 +1,9 @@
 import { createDataAccess, type AnalyticsRollupValue } from '@vc/db'
 import { env } from 'cloudflare:workers'
-import { queryAiCrawlersForPeriod, queryAnalyticsEngine } from '@/server/analytics'
+import { agentRollupValues, queryAnalyticsEngine, type AgentFetchSourceRow } from '@/server/analytics'
 
 const SOURCE_RETENTION_DAYS = 90
 const DETAILED_RETENTION_DAYS = 365
-const CRAWLER_SOURCE_DAYS = 7
 
 type AnalyticsSourceRow = {
   date?: unknown
@@ -14,15 +13,14 @@ type AnalyticsSourceRow = {
   views?: unknown
 }
 
+
 type RollupEnv = Pick<
   Cloudflare.Env,
   | 'DB'
   | 'SELF_HOSTED'
-  | 'PUBLIC_BLOG_DOMAIN'
   | 'ANALYTICS_ACCOUNT_ID'
   | 'ANALYTICS_DATASET'
   | 'ANALYTICS_API_TOKEN'
-  | 'CLOUDFLARE_ZONE_ID'
 >
 
 function utcDate(offsetDays: number, now = new Date()): string {
@@ -92,10 +90,6 @@ function rollupValues(rows: AnalyticsSourceRow[]): AnalyticsRollupValue[] {
   ]
 }
 
-function defaultHostname(slug: string, domain: string | undefined): string | null {
-  const normalized = domain?.trim().toLowerCase().replace(/^\.+|\.+$/g, '')
-  return normalized ? `${slug}.${normalized}` : null
-}
 
 async function rollupSite(
   workerEnv: RollupEnv,
@@ -110,18 +104,33 @@ async function rollupSite(
   const token = workerEnv.ANALYTICS_API_TOKEN?.trim()
   if (!accountId || !dataset || !token) throw new Error('analytics_rollup_not_configured')
 
-  const rows = await queryAnalyticsEngine(
-    `SELECT toDate(timestamp) AS date, blob2 AS post_id, blob3 AS post_slug, blob4 AS referrer, SUM(_sample_interval) AS views
-     FROM ${dataset}
-     WHERE index1 = '${site.id.replaceAll("'", "''")}'
-       AND blob1 = 'page_view'
-       AND timestamp >= toDateTime('${sourceFrom} 00:00:00')
-       AND timestamp < toDateTime('${sourceTo} 00:00:00') + INTERVAL '1' DAY
-     GROUP BY date, post_id, post_slug, referrer
-     ORDER BY date ASC`,
-    { accountId, token },
-    fetcher,
-  ) as AnalyticsSourceRow[]
+  const escapedSite = site.id.replaceAll("'", "''")
+  const [rows, agentRows] = await Promise.all([
+    queryAnalyticsEngine(
+      `SELECT toDate(timestamp) AS date, blob2 AS post_id, blob3 AS post_slug, blob4 AS referrer, SUM(_sample_interval) AS views
+       FROM ${dataset}
+       WHERE index1 = '${escapedSite}'
+         AND blob1 = 'page_view'
+         AND timestamp >= toDateTime('${sourceFrom} 00:00:00')
+         AND timestamp < toDateTime('${sourceTo} 00:00:00') + INTERVAL '1' DAY
+       GROUP BY date, post_id, post_slug, referrer
+       ORDER BY date ASC`,
+      { accountId, token },
+      fetcher,
+    ) as Promise<AnalyticsSourceRow[]>,
+    queryAnalyticsEngine(
+      `SELECT toDate(timestamp) AS date, blob2 AS post_id, blob3 AS resource, blob4 AS agent_id, blob5 AS category, blob6 AS representation, blob7 AS signed, SUM(_sample_interval) AS fetches
+       FROM ${dataset}
+       WHERE index1 = '${escapedSite}'
+         AND blob1 = 'agent_fetch'
+         AND timestamp >= toDateTime('${sourceFrom} 00:00:00')
+         AND timestamp < toDateTime('${sourceTo} 00:00:00') + INTERVAL '1' DAY
+       GROUP BY date, post_id, resource, agent_id, category, representation, signed
+       ORDER BY date ASC`,
+      { accountId, token },
+      fetcher,
+    ) as Promise<AgentFetchSourceRow[]>,
+  ])
 
   const byDate = new Map<string, AnalyticsSourceRow[]>()
   for (const row of rows) {
@@ -131,52 +140,44 @@ async function rollupSite(
     if (current) current.push(row)
     else byDate.set(date, [row])
   }
+  const agentByDate = new Map<string, AgentFetchSourceRow[]>()
+  for (const row of agentRows) {
+    const date = sourceDate(row.date)
+    if (!date) continue
+    const current = agentByDate.get(date)
+    if (current) current.push(row)
+    else agentByDate.set(date, [row])
+  }
 
-  const dates = daysBetween(sourceFrom, sourceTo)
-  const crawlerStart = utcDate(-CRAWLER_SOURCE_DAYS)
-  const zoneId = workerEnv.CLOUDFLARE_ZONE_ID?.trim()
-  const customHosts = await data.analytics.listActiveCustomHosts(site.id)
-  const primaryHost = defaultHostname(site.slug, workerEnv.PUBLIC_BLOG_DOMAIN)
-  const hosts = [...new Set([primaryHost, ...customHosts].filter((host): host is string => Boolean(host)))]
-
-  for (const date of dates) {
-    const values = rollupValues(byDate.get(date) ?? [])
-    let crawlerLoaded = false
-    if (zoneId && hosts.length > 0 && date >= crawlerStart) {
-      try {
-        const crawler = await queryAiCrawlersForPeriod(
-          hosts,
-          `${date}T00:00:00.000Z`,
-          `${addDays(date, 1)}T00:00:00.000Z`,
-          { zoneId, token },
-          fetcher,
-        )
-        crawlerLoaded = true
-        values.push(...crawler.agents.map((agent) => ({
-          kind: 'crawler' as const,
-          dimension: agent.agent,
-          label: agent.operator,
-          value: agent.requests,
-        })))
-      } catch (error) {
-        console.warn(JSON.stringify({ level: 'warn', event: 'analytics_crawler_rollup_failed', siteId: site.id, date, error: String(error) }))
-      }
-    }
-    if (!crawlerLoaded) {
-      const existing = await data.analytics.listDaily(site.id, date, date)
-      values.push(...existing
-        .filter((row) => row.kind === 'crawler')
-        .map(({ kind, dimension, label, value }) => ({ kind, dimension, label, value })))
-    }
+  for (const date of daysBetween(sourceFrom, sourceTo)) {
+    const values = [
+      ...rollupValues(byDate.get(date) ?? []),
+      ...agentRollupValues(agentByDate.get(date) ?? []),
+    ]
+    // Zone-GraphQL crawler counting stopped when agent_fetch shipped
+    // (plans/023 §4). Carried-forward `crawler` rows only fill days with no
+    // agent data — a day with both would double-count the same requests.
+    const existing = await data.analytics.listDaily(site.id, date, date)
+    const hasAgentData = values.some((value) => value.kind === 'agent')
+    values.push(...existing
+      .filter((row) => row.kind === 'crawler' && !hasAgentData)
+      .map(({ kind, dimension, label, value }) => ({ kind, dimension, label, value })))
     await data.analytics.replaceDaily(site.id, date, values)
   }
 }
 
 export async function runAnalyticsRollup(workerEnv: RollupEnv = env, fetcher: typeof fetch = fetch) {
-  if (String(workerEnv.SELF_HOSTED) === 'true') return { sites: 0, compactedMonths: 0 }
+  const selfHosted = String(workerEnv.SELF_HOSTED) === 'true'
+  // Self-host rolls up only when the AE query env is configured; without it
+  // nothing collects anyway and the loader reports unavailable.
+  const configured =
+    Boolean(workerEnv.ANALYTICS_ACCOUNT_ID?.trim()) &&
+    safeIdentifier(workerEnv.ANALYTICS_DATASET?.trim()) !== null &&
+    Boolean(workerEnv.ANALYTICS_API_TOKEN?.trim())
+  if (selfHosted && !configured) return { sites: 0, compactedMonths: 0 }
   const data = createDataAccess(workerEnv.DB)
   const sites = await data.managedSites.listEffectiveEntitledActiveSites({
-    selfHosted: false,
+    selfHosted,
     now: Math.floor(Date.now() / 1000),
   })
   const yesterday = utcDate(-1)

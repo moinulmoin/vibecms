@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
+import { agentForUserAgent } from "@vc/config/agents";
 import { loadPublicPostByHost } from "../../../server/public-blog";
 import {
+  analyticsConfigured,
   normalizeReferrerHost,
   privacySignalEnabled,
   writePageView,
@@ -19,8 +21,15 @@ function emptyResponse(): Response {
 
 export const POST: APIRoute = async (context) => {
   const runtime = publicRuntimeEnv(context);
-  if (runtime.selfHosted || privacySignalEnabled(context.request)) return emptyResponse();
-
+  const worker = workerEnv(context);
+  // Self-host records only when the full analytics env is configured
+  // (ANALYTICS binding + account/dataset/token query vars, plans/023 §5);
+  // otherwise the beacon silently drops views like today.
+  if ((runtime.selfHosted && !analyticsConfigured(worker)) || privacySignalEnabled(context.request)) {
+    return emptyResponse();
+  }
+  // server-side agent_fetch point already counts them.
+  if (agentForUserAgent(context.request.headers.get("user-agent"))) return emptyResponse();
   const requestUrl = new URL(context.request.url);
   // Proxied blogs run on the customer origin; the beacon posts same-origin
   // there, so the Origin check compares against the location, not our host.
@@ -51,7 +60,7 @@ export const POST: APIRoute = async (context) => {
   if (!blog) return emptyResponse();
   if (!blog.indexable) return emptyResponse();
 
-  writePageView(workerEnv(context).ANALYTICS, {
+  writePageView(worker.ANALYTICS, {
     siteId: blog.site.id,
     postId: blog.post.id,
     postSlug: blog.post.slug,

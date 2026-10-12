@@ -139,6 +139,13 @@ export const analyticsDtoSchema = z.object({
   topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() })).optional(),
   referrers: z.array(z.object({ domain: z.string(), views: z.number(), ai: z.boolean(), operator: z.string().nullable() })).optional(),
   aiCrawlers: z.object({ status: z.enum(['available', 'unavailable']), lookbackDays: z.number(), requests: z.number(), agents: z.array(z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() })) }).optional(),
+  agents: z.object({
+    total: z.number(),
+    byCategory: z.array(z.object({ category: z.string(), fetches: z.number() })),
+    topAgents: z.array(z.object({ id: z.string(), label: z.string(), operator: z.string(), category: z.string(), fetches: z.number() })),
+    topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), fetches: z.number() })),
+    markdownShare: z.number(), signedShare: z.number(), llmsReads: z.number(),
+  }).optional(),
   reason: z.enum(['self_hosted', 'not_configured', 'query_failed']).optional(),
 });
 

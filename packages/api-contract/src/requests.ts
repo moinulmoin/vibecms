@@ -104,7 +104,11 @@ export const getSiteLocationRequestSchema = z.object({}).strict();
 export const setSubpathLocationRequestSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
 export const checkSiteLocationRequestSchema = z.object({}).strict();
 export const removeSiteLocationRequestSchema = z.object({}).strict();
-export const getAnalyticsRequestSchema = z.object({ range: z.enum(['7', '30', '90', '365', 'all']).default('30') }).strict();
+export const getAnalyticsRequestSchema = z.object({
+  range: z.enum(['7', '30', '90', '365', 'all']).default('30'),
+  /** Scope every per-post number (views, trend, agent fetches) to one post. */
+  postId: z.string().min(1).optional(),
+}).strict();
 
 export const listPostsRequestSchema = z.object({
   status: postStatus.optional(),

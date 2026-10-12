@@ -289,8 +289,8 @@ export async function loadActivityPage(app: AppUserContext, offset = 0, actor?: 
   return { events: hasMore ? fetched.slice(0, ACTIVITY_PAGE_SIZE) : fetched, hasMore }
 }
 
-export async function loadAnalyticsPage(app: AppUserContext, rangeDays: AnalyticsRange) {
-  return loadAnalyticsForApp(app, rangeDays)
+export async function loadAnalyticsPage(app: AppUserContext, rangeDays: AnalyticsRange, postId?: string) {
+  return loadAnalyticsForApp(app, rangeDays, { postId })
 }
 
 export async function loadConnectPage(app: AppUserContext): Promise<ConnectPageData> {

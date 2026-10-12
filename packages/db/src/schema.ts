@@ -243,7 +243,7 @@ export const analyticsRollups = sqliteTable("analytics_rollups", {
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
   granularity: text("granularity", { enum: ["day", "month"] }).notNull(),
   periodStart: text("period_start").notNull(),
-  kind: text("kind", { enum: ["page", "post", "referrer", "crawler"] }).notNull(),
+  kind: text("kind", { enum: ["page", "post", "referrer", "crawler", "agent", "agent_category", "agent_post", "agent_resource"] }).notNull(),
   dimension: text("dimension").notNull().default(""),
   label: text("label"),
   value: integer("value").notNull().default(0),

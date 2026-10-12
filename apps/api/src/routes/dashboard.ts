@@ -372,7 +372,7 @@ dashboardRoutes.get('/analytics', async (c) => {
         : requestedRange === 'all'
           ? 'all'
           : 30
-  return c.json(await loadAnalyticsPage(auth.app, rangeDays))
+  return c.json(await loadAnalyticsPage(auth.app, rangeDays, c.req.query('postId') || undefined))
 })
 
 dashboardRoutes.get('/connect', async (c) => {

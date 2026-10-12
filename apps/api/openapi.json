@@ -3513,7 +3513,7 @@
     "/api/v1/analytics": {
       "get": {
         "operationId": "getAnalytics",
-        "description": "Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {\"range\":\"30\"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN. Requires scope: analytics:read.",
+        "description": "Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {\"range\":\"30\"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN. Requires scope: analytics:read.",
         "security": [
           {
             "bearerAuth": []
@@ -3534,6 +3534,15 @@
             },
             "required": false,
             "name": "range",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "postId",
             "in": "query"
           }
         ],
@@ -3739,6 +3748,106 @@
                         "lookbackDays",
                         "requests",
                         "agents"
+                      ]
+                    },
+                    "agents": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "number"
+                        },
+                        "byCategory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "category": {
+                                "type": "string"
+                              },
+                              "fetches": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "category",
+                              "fetches"
+                            ]
+                          }
+                        },
+                        "topAgents": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "operator": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "fetches": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "operator",
+                              "category",
+                              "fetches"
+                            ]
+                          }
+                        },
+                        "topPosts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "postId": {
+                                "type": "string"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "fetches": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "postId",
+                              "slug",
+                              "title",
+                              "fetches"
+                            ]
+                          }
+                        },
+                        "markdownShare": {
+                          "type": "number"
+                        },
+                        "signedShare": {
+                          "type": "number"
+                        },
+                        "llmsReads": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "byCategory",
+                        "topAgents",
+                        "topPosts",
+                        "markdownShare",
+                        "signedShare",
+                        "llmsReads"
                       ]
                     },
                     "reason": {

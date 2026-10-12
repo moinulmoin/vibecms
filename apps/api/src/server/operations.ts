@@ -284,10 +284,10 @@ export async function removeSiteLocationOp(ctx: OperationContext) {
   return result.location;
 }
 
-export async function getAnalyticsOp(ctx: OperationContext, input: { range: string }) {
+export async function getAnalyticsOp(ctx: OperationContext, input: { range: string; postId?: string }) {
   requireScope(ctx.actor, 'analytics:read');
   const range = input.range === 'all' ? 'all' : Number(input.range) as AnalyticsRange;
-  const result = await loadAnalyticsForApp(appUser(ctx), range);
+  const result = await loadAnalyticsForApp(appUser(ctx), range, { postId: input.postId });
   if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', 'Analytics are on the paid plan.', 402);
   return result;
 }

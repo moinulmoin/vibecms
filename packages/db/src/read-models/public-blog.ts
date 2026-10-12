@@ -253,6 +253,8 @@ export interface PublicBlogReadModel {
   /** `subpath` row addressed by proxy id, on an active site — any status; the ingress gates serving by it. */
   resolveSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
   getPublishedPost(siteId: string, slug: string, now: number): Promise<PublicPostDetailRow | null>;
+  /** Just the post id — analytics index blobs need no body/excerpt backfill. */
+  getPublishedPostId(siteId: string, slug: string, now: number): Promise<string | null>;
   listPublishedPostSummaries(siteId: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
   listPublishedPostSummariesByTag(siteId: string, tag: string, now: number, limit: number): Promise<PublicPostSummaryRow[]>;
   listPublishedPostPage(siteId: string, now: number, limit: number, requestedPage: number, tag?: string): Promise<{ posts: PublicPostSummaryRow[]; total: number; page: number }>;
@@ -397,6 +399,16 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
       };
     },
 
+    async getPublishedPostId(siteId: string, slug: string, now: number) {
+      const rows = await client
+        .select({ id: posts.id })
+        .from(posts)
+        .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
+        .where(and(publishedWhere(siteId, now), eq(postVersions.slug, slug)))
+        .orderBy(posts.id)
+        .limit(1);
+      return rows[0]?.id ?? null;
+    },
     async listPublishedPostSummaries(siteId: string, now: number, limit: number) {
       const capped = clampLimit(limit);
       if (capped === 0) return [];

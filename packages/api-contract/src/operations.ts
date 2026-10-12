@@ -144,7 +144,7 @@ export const operations = [
   },
   {
     toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
-    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
+    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
     requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
   },
   {

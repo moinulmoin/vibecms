@@ -1,5 +1,13 @@
 export type AnalyticsGranularity = "day" | "month";
-export type AnalyticsRollupKind = "page" | "post" | "referrer" | "crawler";
+export type AnalyticsRollupKind =
+  | "page"
+  | "post"
+  | "referrer"
+  | "crawler"
+  | "agent"
+  | "agent_category"
+  | "agent_post"
+  | "agent_resource";
 
 export type AnalyticsRollupValue = {
   kind: AnalyticsRollupKind;

@@ -16,6 +16,7 @@ import { rewriteProxiedAssetsInHtml } from "./server/proxied-assets";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
 import { markdownErrorForRequest, marketingTrustRedirect, varyAgentRepresentation } from "./lib/agent-discovery";
+import { recordAgentFetch } from "./server/public-agent-analytics";
 
 function articleSlugCandidate(pathname: string): string | undefined {
   if (pathname === "/" || pathname.length < 2) return undefined;
@@ -24,7 +25,7 @@ function articleSlugCandidate(pathname: string): string | undefined {
   return segment;
 }
 
-export const onRequest = defineMiddleware(async (context, next) => {
+const handleRequest = defineMiddleware(async (context, next) => {
   const publicEnv = parsePublicRuntimeEnv(env);
   context.locals.publicEnv = publicEnv;
   const request = context.request;
@@ -204,4 +205,26 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   return outbound;
+});
+
+// After the response is decided, record agent fetches via waitUntil. The
+// `agentFetchRecorded` locals flag prevents a double write: `/` rewrites to
+// `/internal/*` rerun this middleware with the same locals.
+export const onRequest = defineMiddleware(async (context, next) => {
+  // `handleRequest` always resolves a Response; Astro's void-arm is unused here.
+  const response = await handleRequest(context, next) as Response;
+  if (!context.locals.agentFetchRecorded) {
+    context.locals.agentFetchRecorded = true;
+    const publicEnv = context.locals.publicEnv ?? parsePublicRuntimeEnv(env);
+    recordAgentFetch({
+      request: context.request,
+      response,
+      publicPath: context.locals.publicPath ?? new URL(context.request.url).pathname,
+      location: context.locals.publicLocation ?? directLocation(context.request),
+      env,
+      runtime: publicEnv,
+      waitUntil: context.locals.cfContext?.waitUntil.bind(context.locals.cfContext),
+    });
+  }
+  return response;
 });
