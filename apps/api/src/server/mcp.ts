@@ -241,8 +241,18 @@ function rateLimitMessage(error: unknown): string {
 }
 
 function rateLimitRetryAfterSeconds(error: RateLimitError): number | undefined {
-  const status = (error as RateLimitError & { usageStatus?: { resetsAt: number } }).usageStatus;
-  return status ? Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000)) : undefined;
+  const usageStatus = "usageStatus" in error ? error.usageStatus : undefined;
+  const resetsAt =
+    usageStatus && typeof usageStatus === "object" && "resetsAt" in usageStatus
+      ? usageStatus.resetsAt
+      : undefined;
+  if (typeof resetsAt === "number" && Number.isFinite(resetsAt)) {
+    return Math.max(1, resetsAt - Math.floor(Date.now() / 1000));
+  }
+  const retryAfter = "retryAfterSeconds" in error ? error.retryAfterSeconds : undefined;
+  return typeof retryAfter === "number" && Number.isFinite(retryAfter)
+    ? Math.max(1, Math.ceil(retryAfter))
+    : undefined;
 }
 
 function toolError(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {

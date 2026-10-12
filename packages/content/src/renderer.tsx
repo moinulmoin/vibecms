@@ -23,6 +23,7 @@ import type {
   RenderResult,
   RenderedImageAttributes,
   RichContentFrameProps,
+  SeoMarkdownTree,
   ValidateRichContentOpts,
 } from "./types.js";
 
@@ -152,21 +153,43 @@ function normalizeTitle(value: string): string {
     .trim();
 }
 
+/**
+ * The leading-title rule shared by `rehypeRemoveTitleH1` and the SEO
+ * analysis path (`seoMarkdownTreeWithoutTitleH1`): only the first meaningful
+ * root child (leading blank text aside) is considered, and only when it is
+ * an H1 matching `pageTitle` under `normalizeTitle`.
+ */
+function dropTitleH1(children: HNode[], normalizedTitle: string): void {
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (isBlankTxt(child)) continue;
+    if (isElTag(child, "h1") && normalizeTitle(hastToText(child)) === normalizedTitle) {
+      children.splice(i, 1);
+    }
+    break;
+  }
+}
+
 function rehypeRemoveTitleH1(opts: TitleH1PluginOpts): (tree: UnistNode) => void {
   const title = normalizeTitle(opts.pageTitle);
   return (tree) => {
     if (!title) return;
-    const root = tree as unknown as HRoot;
-    const children = root.children;
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (isBlankTxt(child)) continue;
-      if (isElTag(child, "h1") && normalizeTitle(hastToText(child)) === title) {
-        children.splice(i, 1);
-      }
-      break;
-    }
+    dropTitleH1((tree as unknown as HRoot).children, title);
   };
+}
+
+/**
+ * `rehypeRemoveTitleH1` as a non-mutating operation on an SEO tree: a body
+ * that starts with `# <post title>` renders without that heading, so SEO
+ * checks must not analyze it either. The returned tree shares every node
+ * except the root's children array.
+ */
+export function seoMarkdownTreeWithoutTitleH1(tree: SeoMarkdownTree, pageTitle: string): SeoMarkdownTree {
+  const title = normalizeTitle(pageTitle);
+  if (!title) return tree;
+  const children = [...tree.children] as unknown as HNode[];
+  dropTitleH1(children, title);
+  return children.length === tree.children.length ? tree : { type: "root", children: children as unknown as SeoMarkdownTree["children"] };
 }
 
 function rehypeDowngradeH1(): (tree: UnistNode) => void {
@@ -1769,6 +1792,40 @@ function relocateRootUrl(value: string, opts: LocationLinkOpts): string {
 }
 
 /**
+ * The parse half of the render pipeline used by SEO checks and link
+ * collection (plan 024): remark-parse + GFM + remark-rehype, with raw HTML
+ * re-parsed only when the Markdown could contain tags. Sanitize/output
+ * plugins can't add link targets, so checks run on this tree see every link
+ * the renderer would emit while code fences stay opaque text.
+ */
+export function parseSeoMarkdown(markdown: string): SeoMarkdownTree {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeDepthGuard());
+  // Same bound as the render pipeline: raw re-parsing can deepen the tree.
+  if (/<[A-Za-z!/?]/.test(markdown)) processor.use(rehypeRaw).use(rehypeDepthGuard());
+  return processor.runSync(processor.parse(markdown)) as unknown as SeoMarkdownTree;
+}
+
+/**
+ * `parseSeoMarkdown` with the render pipeline's failure contract: deep
+ * nesting that hits the depth guard, or overflows a recursive parser step
+ * before the guard can run, returns `null` instead of throwing — matching
+ * `renderRichContent`'s degrade-to-plain-code fallback. Callers treat `null`
+ * as "no analyzable content", never as an error.
+ */
+export function tryParseSeoMarkdown(markdown: string): SeoMarkdownTree | null {
+  try {
+    return parseSeoMarkdown(markdown);
+  } catch (error) {
+    if (error instanceof NestingLimitError || (error instanceof RangeError && /stack|recursion/i.test(error.message))) return null;
+    throw error;
+  }
+}
+
+/**
  * First path segments of every root-relative link target in `markdown` — the
  * same candidates `relocateRootUrl` checks against `postSlugs` when deciding
  * which `/…` links get the customer base path. Candidates come from the
@@ -1786,11 +1843,7 @@ export function collectRootLinkSlugs(markdown: string, cap = 200): string[] {
     const segment = value.slice(1).split(/[/?#]/, 1)[0];
     if (segment) slugs.add(segment);
   };
-  // Same parse the renderer applies (raw HTML re-parsed only when present);
-  // sanitize/output plugins can't add link targets, so the tree stops here.
-  const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype, { allowDangerousHtml: true });
-  if (/<[A-Za-z!/?]/.test(markdown)) processor.use(rehypeRaw);
-  const tree = processor.runSync(processor.parse(markdown)) as unknown as HRoot;
+  const tree = parseSeoMarkdown(markdown) as unknown as HRoot;
   walkEl(tree.children, (el) => {
     if (slugs.size >= cap) return;
     const p = el.properties;

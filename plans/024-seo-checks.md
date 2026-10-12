@@ -1,6 +1,6 @@
 # 024 - SEO checks: deterministic rules plus a cheap AI review
 
-Status: TODO. Independent of 023. Migration slot: `0035`.
+Status: Phases 1–2 implemented; dashboard API route available, editor UI (phase 3) remains out of scope. Format guide/MCP instructions and root docs updated; public-app docs unchanged by slice constraint. Independent of 023. Migration slot: `0035`.
 
 ## Why
 
@@ -89,5 +89,6 @@ No score. A short list sorted by severity is easier to act on, for people and ag
   heading findings; findings stable order.
 - Worker tests: `posts.seo_check` scope, caching by version, limits per plan, AI parse
   failure → `ai: null` with a warning, not an error.
+- Local live Worker smoke: REST draft creation, deterministic SEO with focus keyword, preview SEO, MCP read-only tool listing, and missing-binding `AI_UNAVAILABLE` exercised against isolated D1 with migration 0035. No remote model invocation or neuron-usage verification.
 - Dev: run on a real draft via MCP on basedui.dev; check neurons used in the Workers AI
   dashboard.

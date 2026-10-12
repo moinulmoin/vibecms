@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { ConflictError } from '@vc/core'
+import { seoCheckPostRequestSchema } from '@vc/api-contract'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
 import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
@@ -53,6 +54,7 @@ import {
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
 import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
+import { seoCheckPostOp, type OperationContext } from '@/server/operations'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -516,6 +518,21 @@ dashboardRoutes.post('/posts/versions/restore', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ postId: string; versionNumber: number; expectedVersionNumber: number }>()
   return c.json(await restorePostVersionForApp(auth.app, body.postId, body.versionNumber, body.expectedVersionNumber))
+})
+
+dashboardRoutes.post('/posts/seo', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const input = seoCheckPostRequestSchema.parse(await c.req.json())
+  const ctx: OperationContext = {
+    actor: auth.app.actor,
+    siteId: auth.app.siteId,
+    workspaceId: auth.app.workspaceId,
+    tokenId: 'dashboard',
+  }
+  return c.json(await seoCheckPostOp(ctx, input))
 })
 
 dashboardRoutes.get('/billing', async (c) => {

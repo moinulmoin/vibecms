@@ -30,6 +30,12 @@ import { RENDERER_VERSION } from "@vc/content/constants";
 import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsForApp, updateSiteSettingsForApp, type SiteSettingsPayload } from "./onboarding";
 import { getVoiceProfileSettings, updateVoiceProfileForApp } from "./voice-profile";
 import { loadAnalyticsForApp, type AnalyticsRange } from "./analytics";
+import type { Post } from "@vc/core";
+import type { SeoCheckPostRequest, SeoCheckPostDto } from "@vc/api-contract";
+import { createSeoReadModel } from "@vc/db";
+import { reviewPostSeo } from "./seo-review";
+import { seoChecks, tryParseSeoMarkdown, collectSeoLinkSlugs, renderRichContent as renderSeoContent, renderRichContentResultToHtml, validateRichContent } from "@vc/content";
+import { createMathRenderer } from "@vc/content/math";
 
 import {
   checkSubpathLocationForApp,
@@ -579,6 +585,73 @@ function renderPresentedPreviewHtml(
     : "";
   return `<article data-vc-layout="${escapePreviewText(presentation.layout)}">${compactToc}<div data-vc-article-body>${contentHtml}${railToc}</div></article>`;
 }
+
+async function deterministicPostSeo(
+  siteId: string,
+  post: Pick<Post, "id" | "title" | "slug" | "seoTitle" | "seoDescription" | "excerpt" | "canonicalUrl" | "coverAssetId"> | null,
+  contentMarkdown: string,
+  renderWarnings: readonly string[],
+  focusKeyword?: string,
+) {
+  // The SEO pass can never fail the request: an unparseable or too-deep body
+  // yields no findings (the render fallback already warned), and any
+  // unexpected error logs a warning and degrades to an empty list.
+  try {
+    const tree = tryParseSeoMarkdown(contentMarkdown);
+    const site = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
+    const siteName = site?.name ?? "";
+    if (!tree) return { siteName, findings: [] };
+    const [entitlement, primaryBaseUrl] = await Promise.all([
+      resolveEffectiveEntitlementForSite(siteId),
+      site ? getSitePublicBaseUrl(siteId, site.slug) : Promise.resolve(null),
+    ]);
+    const reads = createSeoReadModel(env.DB);
+    const [publishedSlugs, otherPosts] = await Promise.all([
+      reads.getPublishedSlugs(siteId, collectSeoLinkSlugs(tree, primaryBaseUrl)),
+      // Without saved metadata the duplicate inputs don't exist; skip the read.
+      post ? reads.listPublishedSeoFields(siteId, post.id) : Promise.resolve([]),
+    ]);
+    return {
+      siteName,
+      findings: seoChecks({
+        title: post?.title ?? "",
+        slug: post?.slug ?? "",
+        seoTitle: post?.seoTitle,
+        seoDescription: post?.seoDescription,
+        excerpt: post?.excerpt,
+        canonicalUrl: post?.canonicalUrl,
+        coverAssetId: post?.coverAssetId,
+        tree,
+        site: { indexable: entitlement.effective, primaryBaseUrl },
+        publishedSlugs,
+        otherPosts,
+        metadataKnown: post !== null,
+        renderWarnings,
+        focusKeyword,
+      }),
+    };
+  } catch (error) {
+    console.warn(`posts.preview SEO checks failed; returning no findings (${error instanceof Error ? error.message : String(error)})`);
+    return { siteName: "", findings: [] };
+  }
+}
+
+export async function seoCheckPostOp(ctx: OperationContext, input: SeoCheckPostRequest): Promise<SeoCheckPostDto> {
+  const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
+  const rendered = renderSeoContent(post.contentMarkdown);
+  const { findings, siteName } = await deterministicPostSeo(ctx.siteId, post, post.contentMarkdown, rendered.warnings, input.focusKeyword);
+  const result = { versionNumber: post.currentVersionNumber, findings };
+  if (!input.ai) return result;
+  return {
+    ...result,
+    ...await reviewPostSeo({
+      siteId: ctx.siteId, postId: post.id, versionNumber: post.currentVersionNumber,
+      title: post.seoTitle?.trim() || post.title,
+      description: post.seoDescription?.trim() || post.excerpt || "",
+      contentMarkdown: post.contentMarkdown, siteName, focusKeyword: input.focusKeyword,
+    }),
+  };
+}
 export async function previewPostOp(
   ctx: OperationContext,
   input: { contentMarkdown?: string; postId?: string; presetId?: string; presentation?: Presentation | null },
@@ -597,10 +670,7 @@ export async function previewPostOp(
     resolvedPresetId = resolvePresetId(theme);
   }
 
-  // Loaded on first preview so Worker startup doesn't pay for the Markdown pipeline.
-  const [{ renderRichContent, renderRichContentResultToHtml, validateRichContent }, { createMathRenderer }] =
-    await Promise.all([import("@vc/content"), import("@vc/content/math")]);
-  const renderResult = renderRichContent(contentMarkdown, {
+  const renderResult = renderSeoContent(contentMarkdown, {
     presetId: resolvedPresetId,
     math: createMathRenderer(),
   });
@@ -617,12 +687,14 @@ export async function previewPostOp(
   const contentHtml = renderRichContentResultToHtml(renderResult, { presetId: resolvedPresetId });
 
   const warnings = [...new Set([...renderWarnings, ...validateWarnings, ...dupTocWarnings])];
+  const { findings: seo } = await deterministicPostSeo(ctx.siteId, saved, contentMarkdown, renderWarnings);
 
   return {
     previewUrl: input.postId ? await previewUrlForPost(ctx.siteId, input.postId) : null,
     html: renderPresentedPreviewHtml(contentHtml, outline, r.resolved),
     outline,
     warnings,
+    seo,
     rendererVersion: RENDERER_VERSION,
     requestedPresentation: r.requested,
     resolvedPresentation: r.resolved,

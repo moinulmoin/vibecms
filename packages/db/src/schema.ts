@@ -179,6 +179,18 @@ export const postSlugRedirects = sqliteTable("post_slug_redirects", {
   index("idx_post_slug_redirects_post_id").on(table.postId),
 ]);
 
+export const postSeoReviews = sqliteTable("post_seo_reviews", {
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  postId: text("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  model: text("model").notNull(),
+  resultJson: text("result_json").notNull(),
+  neuronsEstimate: integer("neurons_estimate"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_post_seo_reviews_post_version_model").on(table.postId, table.versionNumber, table.model),
+]);
+
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -444,5 +456,7 @@ export type PendingMediaOperationRow = typeof pendingMediaOperations.$inferSelec
 export type PendingMediaOperationInsert = typeof pendingMediaOperations.$inferInsert;
 export type SubscriberRow = typeof subscribers.$inferSelect;
 export type SubscriberInsert = typeof subscribers.$inferInsert;
+export type PostSeoReviewRow = typeof postSeoReviews.$inferSelect;
+export type PostSeoReviewInsert = typeof postSeoReviews.$inferInsert;
 export type AutoseopilotManagedSiteRow = typeof autoseopilotManagedSites.$inferSelect;
 export type AutoseopilotManagedSiteInsert = typeof autoseopilotManagedSites.$inferInsert;

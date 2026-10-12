@@ -232,6 +232,14 @@ export const getFormatGuideRequestSchema = z.object({
   presetId: z.string().optional(),
 }).strict();
 
+export const seoCheckPostRequestSchema = z.object({
+  postId: z.string().min(1),
+  /** Optional focus keyword checked against title, slug, intro, headings, and description. */
+  focusKeyword: z.string().trim().min(1).max(80).optional(),
+  /** When true, also run the opt-in AI review; counts against the site's review limit. */
+  ai: z.boolean().optional(),
+}).strict();
+
 
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type UpdateSiteRequest = z.infer<typeof updateSiteRequestSchema>;
@@ -255,6 +263,7 @@ export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
 export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;
 export type GetFormatGuideRequest = z.infer<typeof getFormatGuideRequestSchema>;
 export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;
+export type SeoCheckPostRequest = z.infer<typeof seoCheckPostRequestSchema>;
 export type ListAssetsRequest = z.infer<typeof listAssetsRequestSchema>;
 export type GetAssetRequest = z.infer<typeof getAssetRequestSchema>;
 export type DeleteAssetRequest = z.infer<typeof deleteAssetRequestSchema>;

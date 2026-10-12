@@ -30,11 +30,12 @@ import {
   searchPostsOp,
   updatePostOp,
   uploadAssetOp,
+  seoCheckPostOp,
   type OperationContext,
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
 } from "@/server/operations";
-import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
+import { apiRateLimitHeaders, apiRetryAfterSeconds, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import {
   archivePostRoute,
   unarchivePostRoute,
@@ -63,6 +64,7 @@ import {
   uploadAssetRoute,
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
   getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
+  seoCheckPostRoute,
 } from "@/server/api/routes";
 
 type ApiEnv = {
@@ -89,8 +91,15 @@ function zodValidationMessage(error: unknown) {
     .join("; ");
 }
 
-function errorEnvelope(code: string, message: string, details?: unknown) {
-  return { error: { code, message, ...(details !== undefined ? { details } : {}) } };
+function errorEnvelope(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {
+  return {
+    error: {
+      code,
+      message,
+      ...(details !== undefined ? { details } : {}),
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+    },
+  };
 }
 
 function statusForAppError(error: AppError) {
@@ -125,6 +134,7 @@ function publicAppErrorCode(error: AppError) {
     "RATE_LIMIT",
     "VALIDATION_ERROR",
     "ANALYTICS_PAID_PLAN",
+    "AI_UNAVAILABLE",
   ].includes(error.code)
     ? error.code
     : "INTERNAL_ERROR";
@@ -342,18 +352,40 @@ apiV1App.openapi(previewPostRoute, async (c) => {
   return c.json(result, 200);
 });
 
+apiV1App.openapi(seoCheckPostRoute, async (c) => {
+  const { postId } = c.req.valid("param");
+  const { focusKeyword, ai } = c.req.valid("query");
+  return c.json(
+    await seoCheckPostOp(c.get("ctx"), { postId, focusKeyword, ai: ai === "1" || ai === "true" }),
+    200,
+  );
+});
+
 apiV1App.onError((err, c) => {
   if (err instanceof UploadError) {
     return c.json(errorEnvelope(err.code, FORM_STATUS[err.code]?.message ?? 'Upload failed.'), err.code === 'media_quota_free' ? 402 : 400);
   }
   if (err instanceof RateLimitError) {
-    return c.json(errorEnvelope("RATE_LIMIT", err.message), 429, apiRateLimitHeaders(err) as Record<string, string>);
+    const retryAfterSeconds = apiRetryAfterSeconds(err);
+    return c.json(
+      errorEnvelope("RATE_LIMIT", err.message, undefined, retryAfterSeconds),
+      429,
+      {
+        ...(apiRateLimitHeaders(err) as Record<string, string> | undefined),
+        ...(retryAfterSeconds !== undefined ? { "Retry-After": String(retryAfterSeconds) } : {}),
+      },
+    );
   }
   if (err instanceof AppError) {
     const status = statusForAppError(err);
     const code = publicAppErrorCode(err);
     const message = code === "INTERNAL_ERROR" ? "Request failed" : err.message;
-    return c.json(errorEnvelope(code, message), status as 401);
+    const retryAfterSeconds = code === "RATE_LIMIT" ? apiRetryAfterSeconds(err) : undefined;
+    return c.json(
+      errorEnvelope(code, message, undefined, retryAfterSeconds),
+      status as 401,
+      retryAfterSeconds !== undefined ? { "Retry-After": String(retryAfterSeconds) } : undefined,
+    );
   }
   const zodMessage = zodValidationMessage(err);
   if (zodMessage) {

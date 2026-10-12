@@ -7,6 +7,7 @@ export const apiErrorCodes = [
   "NOT_FOUND",
   "CONFLICT",
   "RATE_LIMIT",
+  "AI_UNAVAILABLE",
   "VALIDATION_ERROR",
 ] as const;
 
@@ -17,6 +18,7 @@ export const apiErrorEnvelopeSchema = z.object({
     code: z.string(),
     message: z.string(),
     details: z.unknown().optional(),
+    retryAfterSeconds: z.number().int().positive().optional(),
   }),
 });
 

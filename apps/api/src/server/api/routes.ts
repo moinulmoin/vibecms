@@ -33,6 +33,7 @@ import {
   updateVoiceRequestSchema, updateSignupFormRequestSchema, getAnalyticsRequestSchema,
   setSubpathLocationRequestSchema, siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  seoCheckPostRequestSchema, seoCheckPostDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
@@ -66,6 +67,7 @@ export const errorResponses = {
   409: errorResponse("Conflict"),
   429: errorResponse("Rate limit exceeded"),
   500: errorResponse("Internal server error"),
+  503: errorResponse("AI review unavailable"),
 } as const;
 
 type ErrorStatus = keyof typeof errorResponses;
@@ -100,6 +102,7 @@ const getPostVersionOpDef = operationsByToolName["posts.versions.get"];
 const restorePostVersionOpDef = operationsByToolName["posts.versions.restore"];
 const getFormatGuideOpDef = operationsByToolName["posts.format_guide"];
 const previewPostOpDef = operationsByToolName["posts.preview"];
+const seoCheckPostOpDef = operationsByToolName["posts.seo_check"];
 
 const getSiteLocationOpDef = operationsByToolName["sites.location.get"];
 const setSubpathLocationOpDef = operationsByToolName["sites.location.set_subpath"];
@@ -585,6 +588,30 @@ export const previewPostRoute = createRoute({
   },
 });
 
+// Query params arrive as strings; "ai" is opt-in and only truthy values enable it.
+const seoCheckQuerySchema = seoCheckPostRequestSchema.omit({ postId: true, ai: true }).extend({
+  ai: z.string().optional(),
+});
+
+export const seoCheckPostRoute = createRoute({
+  method: "get",
+  path: "/posts/{postId}/seo",
+  operationId: seoCheckPostOpDef.operationId,
+  description: seoCheckPostOpDef.description,
+  security: bearerSecurity,
+  request: {
+    params: postIdParamsSchema,
+    query: seoCheckQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "SEO findings for the post's current tip",
+      content: { "application/json": { schema: seoCheckPostDtoSchema } },
+    },
+    ...routeErrors(400, 401, 403, 404, 429, 500, 503),
+  },
+});
+
 /** All REST operation route definitions (order is stable for spec generation). */
 export const apiV1OperationRoutes = [
   getSiteRoute,
@@ -612,6 +639,7 @@ export const apiV1OperationRoutes = [
   restorePostVersionRoute,
   getFormatGuideRoute,
   previewPostRoute,
+  seoCheckPostRoute,
 ] as const;
 
 const noopHandler = async (c: { json: (body: unknown, status: number) => Response }) => c.json({}, 501);

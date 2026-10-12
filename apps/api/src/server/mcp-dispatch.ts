@@ -27,6 +27,7 @@ import {
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
+  seoCheckPostRequestSchema,
 } from "@vc/api-contract";
 import type { OperationContext } from "./operations";
 import {
@@ -56,6 +57,7 @@ import {
   uploadAssetOp,
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
+  seoCheckPostOp,
 } from "./operations";
 
 export async function dispatchOperation(toolName: McpToolName, ctx: OperationContext, rawArguments: unknown) {
@@ -139,6 +141,8 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
       return await getFormatGuideOp(ctx, getFormatGuideRequestSchema.parse(rawArguments ?? {}));
     case "posts.preview":
       return await previewPostOp(ctx, previewPostRequestSchema.parse(rawArguments ?? {}));
+    case "posts.seo_check":
+      return await seoCheckPostOp(ctx, seoCheckPostRequestSchema.parse(rawArguments ?? {}));
     default:
       throw new Error(`Unknown tool: ${String(toolName)}`);
   }

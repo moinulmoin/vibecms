@@ -108,3 +108,37 @@ export interface ValidateRichContentOpts {
   readonly renderWarnings?: string[];
   readonly hasPageToc?: boolean;
 }
+
+/** Best-effort source position carried through remark-parse into hast. */
+export interface SeoMarkdownPosition {
+  readonly start?: { readonly offset?: number };
+}
+
+/**
+ * Structural hast types for the tree `parseSeoMarkdown` returns (plan 024):
+ * remark-parse + GFM + remark-rehype, with raw HTML re-parsed only when the
+ * Markdown contains tags. SEO checks and link collection walk this shape;
+ * code fences never reach it as elements.
+ */
+export interface SeoMarkdownElement {
+  readonly type: "element";
+  readonly tagName: string;
+  readonly properties: Readonly<Record<string, unknown>>;
+  readonly children: readonly SeoMarkdownNode[];
+  readonly position?: SeoMarkdownPosition;
+}
+
+export interface SeoMarkdownText {
+  readonly type: "text";
+  readonly value: string;
+}
+
+export type SeoMarkdownNode =
+  | SeoMarkdownElement
+  | SeoMarkdownText
+  | { readonly type: string; readonly value?: string };
+
+export interface SeoMarkdownTree {
+  readonly type: "root";
+  readonly children: readonly SeoMarkdownNode[];
+}

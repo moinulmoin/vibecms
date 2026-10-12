@@ -13,6 +13,7 @@ import {
   siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
   signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  seoCheckPostDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
@@ -42,6 +43,7 @@ import {
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
+  seoCheckPostRequestSchema,
 } from "./requests";
 
 export type OperationAnnotations = {
@@ -427,6 +429,19 @@ export const operations = [
     ),
     requestSchema: previewPostRequestSchema,
     responseSchema: previewPostDtoSchema,
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.seo_check",
+    operationId: "seoCheckPost",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Check a saved post's SEO and AI-answer readiness on the current tip. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same deterministic findings in its seo field. Optional focusKeyword adds keyword checks; ai: true runs an opt-in AI review that counts against the site's daily review limit (over the limit returns RATE_LIMIT with retryAfterSeconds; AI_UNAVAILABLE when no AI binding is configured). Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
+      "posts:read",
+      `${readErrors} AI_UNAVAILABLE when the AI review is requested but not configured on this deployment.`,
+    ),
+    requestSchema: seoCheckPostRequestSchema,
+    responseSchema: seoCheckPostDtoSchema,
     annotations: { readOnly: true },
   },
 ] as const satisfies readonly OperationDefinition[];

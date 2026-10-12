@@ -9,7 +9,7 @@ export const BRAND = {
 } as const;
 
 /** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
-export const AGENT_TOOL_COUNT = 36;
+export const AGENT_TOOL_COUNT = 37;
 
 /**
  * Service-binding hostname the public Worker uses to reach the API Worker

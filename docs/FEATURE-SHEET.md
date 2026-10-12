@@ -16,7 +16,7 @@ Last updated: 2026-09-03
 Three things make it worth paying for:
 
 1. **A genuinely nice blog, done for you.** Markdown-native (no block-canonical page-builder bloat), 4 designed themes, full SEO/RSS/`llms.txt` hygiene, your own domain, fast managed hosting on Cloudflare.
-2. **Your AI agent is a first-class operator.** A real MCP server (19 tools), a typed REST API (OpenAPI + live docs), a CLI, and scoped reveal-once tokens. An agent can run the whole blog safely.
+2. **Your AI agent is a first-class operator.** A real MCP server (33 tools), a typed REST API (OpenAPI + live docs), a CLI, and scoped reveal-once tokens. An agent can run the whole blog safely.
 3. **The trust boundary that avoids slop.** The platform never generates content; your agent is the intelligence, and the platform validates and nudges (`posts.format_guide`, `posts.preview`) while keeping an audit trail. You can export everything and walk away (no lock-in).
 
 ---
@@ -80,6 +80,8 @@ Three things make it worth paying for:
 
 ### SEO and machine-readable output
 - Per-post OG/Twitter/meta/canonical tags (cover image becomes OG image, brand fallback).
+- Deterministic SEO findings in `posts.preview` and `posts.seo_check`: metadata, headings, links, content, duplicates, indexing, and optional focus-keyword checks. No score; fix error/warn findings before requesting publication approval.
+- Opt-in Workers AI SEO review, cached by post/version/model: intent, title/description ideas, missing subtopics, unclear passages, and claims needing sources. Hosted free 3/site/day, effective paid 100/site/day, self-host unlimited by the application.
 - RSS feed, sitemap.xml, robots.txt, all per-site.
 - `llms.txt` (per-site index of clean-markdown post URLs, plus a product variant) and `content-signal` AI headers (`ai-train/search/ai-input`).
 - Clean-markdown delivery of any post via `.md`, `?format=md`, or `Accept: text/markdown`, with YAML frontmatter (output only).
@@ -103,8 +105,8 @@ Three things make it worth paying for:
 - Cloudflare-for-SaaS provisioning + automatic SSL (activates at the production cutover).
 
 ### Agent and API surfaces (the differentiator)
-- MCP server at `POST /mcp`, 19 tools: `sites.get`, `posts.list/search/get/get_by_slug/create/update/publish/archive`, `posts.versions.list/get/restore`, `posts.format_guide`, `posts.preview`, `assets.upload/list/get/delete`, `activity.list`. JSON-RPC, 3 protocol versions, per-tool scope + read/destructive/idempotent hints.
-- REST API `/api/v1`, 18 OpenAPI operations covering the same capabilities (`posts.search` is the posts-list search query), plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
+- MCP server at `POST /mcp`, 33 tools including `posts.seo_check`. JSON-RPC, 3 protocol versions, per-tool scope + read/destructive/idempotent hints.
+- REST API `/api/v1` mirrors the MCP capabilities (`posts.search` is the posts-list search query), including `GET /posts/{postId}/seo`, plus public `GET /api/v1/openapi.json` (OpenAPI 3.1) and a Scalar docs UI at `/api/v1/docs`.
 - CLI `@vibecms/cli` (`vibecms`): login, whoami, site, activity, schema introspection, posts (list/get/get-by-slug/create/update/publish/archive), assets (list/get/upload/delete); `--json`/`--ndjson`/`--dry-run`; typed exit codes.
 - Scoped bearer tokens `vc_live_...`: HMAC-hashed + peppered, reveal-once, 9 scopes, 3 presets (Drafter=default / Publisher / Full publisher), max 10 active, last-used tracking, owner-only management. Media deletion has its own Full-only scope.
 - `posts.preview` + `posts.format_guide` give agents theme-aware guidance before they write.
