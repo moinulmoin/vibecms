@@ -1,4 +1,5 @@
 import { Button, Input } from '@vc/ui'
+import type { SeoFinding } from '~/types/dashboard'
 import { AlertTriangle, CalendarClock, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
@@ -11,6 +12,10 @@ export type PublishDialogProps = {
   liveVersionNumber: number | null
   liveUrl: string | null
   warnings: string[]
+  /** Open error-severity findings from the SEO check; listed, never blocking. */
+  seoFindings?: SeoFinding[]
+  /** Jump back to the SEO section in the settings rail. */
+  onReviewSeo?: () => void
   pending: boolean
   error: string | null
   onConfirm: () => void
@@ -60,7 +65,8 @@ const OPTION =
   'flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-brand-bright/50 has-[[data-state=checked]]:bg-brand-bright/[0.04]'
 
 /** Final human approval: names the exact version, what it replaces, and when it goes live. */
-export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNumber, liveUrl, warnings, pending, error, onConfirm, onSchedule }: PublishDialogProps) {
+export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNumber, liveUrl, warnings, seoFindings, onReviewSeo, pending, error, onConfirm, onSchedule }: PublishDialogProps) {
+  const seoErrors = (seoFindings ?? []).filter((finding) => finding.severity === 'error')
   const label = versionNumber ? `v${versionNumber}` : 'this version'
   const [mode, setMode] = useState<Mode>('now')
   const picks = quickPicks()
@@ -171,6 +177,21 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
             <ul className="list-disc space-y-0.5 ps-5 text-muted-foreground">
               {warnings.map((warning) => <li key={warning}>{warning}</li>)}
             </ul>
+          </div>
+        ) : null}
+        {seoErrors.length > 0 ? (
+          <div className="grid gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm">
+            <p className="flex items-center gap-2 font-medium text-foreground">
+              <AlertTriangle aria-hidden className="size-4 text-destructive" /> SEO {seoErrors.length === 1 ? 'issue' : 'issues'} to fix
+            </p>
+            <ul className="list-disc space-y-0.5 ps-5 text-muted-foreground">
+              {seoErrors.map((finding, index) => <li key={`${finding.code}:${finding.position ?? index}`}>{finding.message}</li>)}
+            </ul>
+            {onReviewSeo ? (
+              <div>
+                <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={onReviewSeo}>Review</Button>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}

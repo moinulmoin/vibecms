@@ -32,6 +32,7 @@ import type { EditorSiteInfo, PostEditorPageLoad } from '~/types/dashboard'
 import type { PostSnapshot } from './DiffView'
 import { PostActionError, postErrorMessage } from './editor-errors'
 import { PostMetadataRail, type EditorMetadata } from './PostMetadataRail'
+import { readFocusKeyword, usePostSeoCheck } from './SeoSection'
 import { parseTags } from './post-fields'
 import { PreviewPane } from './PreviewPane'
 import { PublishDialog } from './PublishDialog'
@@ -416,6 +417,10 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     onError: (error) => void captureConflict(error),
   })
 
+  // Deterministic SEO check for the saved tip; feeds the rail section and the
+  // publish dialog's error list. Debounced inside the hook.
+  const seoCheck = usePostSeoCheck(activePostId, currentVersionNumber, activePostId ? readFocusKeyword(activePostId) : '')
+
   const shouldBlockNavigation = useCallback(
     () => loadedRef.current && serializedRef.current !== dirtyBaselineRef.current,
     [],
@@ -799,6 +804,22 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     })
   }
 
+  /** From the publish dialog's SEO list: open the rail and land on the SEO section. */
+  function reviewSeoFindings() {
+    setPublishOpen(false)
+    if (isDesktop) {
+      const key = view === 'split' ? 'split' : 'normal'
+      setRailPrefs((current) => {
+        if (current[key]) return current
+        writeStored(key === 'split' ? `${RAIL_STORAGE_KEY}-split` : RAIL_STORAGE_KEY, 'open')
+        return { ...current, [key]: true }
+      })
+    } else {
+      setMobileSettings(true)
+    }
+    requestAnimationFrame(() => document.getElementById('post-seo-title')?.focus())
+  }
+
   const updateSplit = useCallback((ratio: number) => {
     setSplitRatio(ratio)
     writeStored(SPLIT_STORAGE_KEY, ratio.toFixed(3))
@@ -979,6 +1000,8 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         liveVersionNumber={post?.status === 'published' ? post.publishedVersionNumber : null}
         liveUrl={liveUrl}
         warnings={notes}
+        seoFindings={seoCheck.data?.findings}
+        onReviewSeo={reviewSeoFindings}
         pending={publishPending}
         error={publishError}
         onConfirm={() => void handlePublish()}
@@ -1121,6 +1144,9 @@ export function PostEditorShell({ postId }: { postId?: string }) {
               supportedLayouts={capability.supportedLayouts}
               supportsToc={capability.supportsToc}
               contentMarkdown={deferredContent}
+              postId={activePostId}
+              postStatus={post?.status ?? null}
+              versionNumber={currentVersionNumber}
               onChange={updateMetadata}
               onUploadCover={coverUpload}
             />

@@ -149,6 +149,36 @@ export type AnalyticsPageData =
 
     }
 
+/** One deterministic SEO finding, as returned by POST /api/dashboard/posts/seo. */
+export type SeoFinding = {
+  code: string
+  severity: 'error' | 'warn' | 'info'
+  field: string
+  message: string
+  fix: string
+  position?: number
+}
+
+/** Opt-in AI review payload; anything that doesn't validate server-side is dropped to null. */
+export type SeoAiReview = {
+  intent: string
+  titleIdeas: [string, string]
+  descriptionIdea: string
+  missingSubtopics: string[]
+  unclearPassages: Array<{ quote: string; why: string }>
+  claimsNeedingSources: Array<{ quote: string }>
+}
+
+export type SeoCheckResult = {
+  versionNumber: number
+  findings: SeoFinding[]
+  ai?: SeoAiReview | null
+  warnings?: string[]
+}
+
+/** Per-post analytics for the editor rail; null when locked or unavailable. */
+export type PostAnalytics = { views: number; agentReads: number } | null
+
 export type BillingSnapshot = {
   status: BillingStatus
   currentPeriodEnd: number | null

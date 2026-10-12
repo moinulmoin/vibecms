@@ -5,12 +5,14 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Post } from '@vc/core'
 import type { PostEditorPageLoad } from '~/types/dashboard'
-
+import { withQueryClient } from '~/test/query'
 const api = vi.hoisted(() => ({
   archivePostMutation: vi.fn(),
   unarchivePostMutation: vi.fn(),
   createPostMutation: vi.fn(),
+  checkPostSeo: vi.fn(async () => ({ versionNumber: 1, findings: [] })),
   deleteArchivedPostMutation: vi.fn(),
+  loadPostAnalytics: vi.fn(async () => null),
   loadPostEditorPage: vi.fn(),
   publishPostMutation: vi.fn(),
   restorePostVersionFn: vi.fn(),
@@ -46,7 +48,9 @@ vi.mock('~/lib/api-client', () => ({
   archivePostMutation: api.archivePostMutation,
   unarchivePostMutation: api.unarchivePostMutation,
   createPostMutation: api.createPostMutation,
+  checkPostSeo: api.checkPostSeo,
   deleteArchivedPostMutation: api.deleteArchivedPostMutation,
+  loadPostAnalytics: api.loadPostAnalytics,
   loadPostEditorPage: api.loadPostEditorPage,
   publishPostMutation: api.publishPostMutation,
   restorePostVersionFn: api.restorePostVersionFn,
@@ -136,7 +140,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     const copy = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Copy preview link'))
     expect(copy).toBeDefined()
@@ -156,7 +160,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     const settings = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Settings'))
     await act(async () => settings?.click())
@@ -179,7 +183,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     expect(container.textContent).toContain('Restoring brings it back as a draft')
     expect(container.textContent).not.toContain('Copy preview link')
@@ -198,7 +202,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="paste-unsafe-markdown"]')?.click())
     await settle()
@@ -222,7 +226,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
 
     const form = container.querySelector('form')
@@ -260,7 +264,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell postId="post-1" />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     expect(container.querySelector('[data-testid="review-view"]')).toBeTruthy()
     await act(async () => root.unmount())
@@ -281,7 +285,7 @@ describe('PostEditorShell', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)
-    await act(async () => root.render(<PostEditorShell />))
+    await act(async () => root.render(withQueryClient(<PostEditorShell />)))
     await settle()
 
     const setTitle = async (value: string) => {

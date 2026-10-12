@@ -12,8 +12,10 @@ import type {
   CheckoutInterval,
   ConnectPageData,
   DashboardData,
+  PostAnalytics,
   PostEditorPageLoad,
   PostsPageLoad,
+  SeoCheckResult,
   MutationResult,
   OnboardingConnectStatus,
   RemoveCustomDomainResult,
@@ -29,12 +31,14 @@ import type {
 import type { Asset, Post, PostVersion, PostVersionSummary } from '@vc/core'
 import { z } from 'zod'
 import {
-  appRouterContextSchema,
   analyticsPageDataSchema,
+  appRouterContextSchema,
   dashboardDataSchema,
   mutationResultSchema,
   newsletterSettingsSchema,
   onboardingConnectStatusSchema,
+  postAnalyticsSchema,
+  seoCheckResultSchema,
   settingsPageDataSchema,
   subscribersPageLoadSchema,
 } from '~/lib/dashboard-response-schemas'
@@ -43,28 +47,34 @@ export class DashboardApiError extends Error {
   readonly status: number
   readonly code: string
   readonly details?: unknown
+  /** Seconds until a RATE_LIMIT error can be retried, when the server sends it. */
+  readonly retryAfterSeconds?: number
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(status: number, code: string, message: string, details?: unknown, retryAfterSeconds?: number) {
     super(message)
     this.name = 'DashboardApiError'
     this.status = status
     this.code = code
     this.details = details
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
-type ApiErrorEnvelope = { error: { code: string; message: string; details?: unknown } }
+type ApiErrorEnvelope = { error: { code: string; message: string; details?: unknown; retryAfterSeconds?: unknown } }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function parseApiErrorBody(body: unknown): { code: string; message: string; details?: unknown } {
+function parseApiErrorBody(body: unknown): { code: string; message: string; details?: unknown; retryAfterSeconds?: number } {
   if (isRecord(body) && isRecord(body.error)) {
     const err = body.error
     const code = typeof err.code === 'string' ? err.code : 'unknown'
     const message = typeof err.message === 'string' ? err.message : 'Request failed'
-    return { code, message, details: err.details }
+    const retryAfterSeconds = typeof err.retryAfterSeconds === 'number' && Number.isFinite(err.retryAfterSeconds)
+      ? err.retryAfterSeconds
+      : undefined
+    return { code, message, details: err.details, retryAfterSeconds }
   }
   return { code: 'unknown', message: 'Request failed' }
 }
@@ -187,7 +197,7 @@ async function dashboardRequest<T>(
 
   if (!response.ok) {
     const parsed = parseApiErrorBody(body)
-    throw new DashboardApiError(response.status, parsed.code, parsed.message, parsed.details)
+    throw new DashboardApiError(response.status, parsed.code, parsed.message, parsed.details, parsed.retryAfterSeconds)
   }
 
   if (schema) {
@@ -245,6 +255,24 @@ export function loadAnalyticsPage(range: AnalyticsRange, signal?: AbortSignal) {
     { method: 'GET', signal },
     analyticsPageDataSchema,
   )
+}
+
+/** Per-post views + agent reads for the editor rail; null when analytics is off for this site. */
+export async function loadPostAnalytics(postId: string, signal?: AbortSignal): Promise<PostAnalytics> {
+  const data = await dashboardFetch(
+    `/api/dashboard/analytics?range=30&postId=${encodeURIComponent(postId)}`,
+    { method: 'GET', signal },
+    postAnalyticsSchema,
+  )
+  return data.status === 'available' ? { views: data.views, agentReads: data.agents.total } : null
+}
+
+/** Deterministic SEO checks on the last saved version; `ai` also runs the opt-in review. */
+export function checkPostSeo(
+  data: { postId: string; focusKeyword?: string; ai?: boolean },
+  signal?: AbortSignal,
+) {
+  return dashboardPost<SeoCheckResult>('/api/dashboard/posts/seo', data, signal, seoCheckResultSchema)
 }
 
 export function loadSetupPage(signal?: AbortSignal) {

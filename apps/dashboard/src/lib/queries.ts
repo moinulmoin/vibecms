@@ -1,6 +1,7 @@
 import { QueryCache, QueryClient, infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import {
   DashboardApiError,
+  checkPostSeo,
   loadActivityPage,
   loadAnalyticsPage,
   loadAppRouterContext,
@@ -11,6 +12,7 @@ import {
   loadOnboardingStatus,
   loadNewsletterSettings,
   loadPersonalization,
+  loadPostAnalytics,
   loadPostEditorPage,
   loadPostsPage,
   loadSettingsPage,
@@ -117,6 +119,8 @@ export const queryKeys = {
   get personalization() { return tenantKey('personalization') },
   get setup() { return tenantKey('setup') },
   onboardingStatus: (keyId: string | null) => tenantKey('onboarding-status', keyId),
+  postSeo: (postId: string, version: number | null, focusKeyword: string) => tenantKey('post-seo', postId, version ?? 'unsaved', focusKeyword),
+  postAnalytics: (postId: string) => tenantKey('post-analytics', postId),
   palette: (term: string) => tenantKey('palette', term),
 }
 
@@ -198,6 +202,26 @@ export function analyticsQuery(range: AnalyticsRange) {
   return queryOptions({
     queryKey: queryKeys.analytics(range),
     queryFn: ({ signal }) => loadAnalyticsPage(range, signal),
+    staleTime: 5 * 60_000,
+  })
+}
+
+/** Deterministic SEO check for one saved post version; cached per version + keyword. */
+export function postSeoQuery(postId: string | undefined, versionNumber: number | null, focusKeyword: string) {
+  return queryOptions({
+    queryKey: queryKeys.postSeo(postId ?? '', versionNumber, focusKeyword),
+    queryFn: ({ signal }) => checkPostSeo({ postId: postId!, ...(focusKeyword ? { focusKeyword } : {}) }, signal),
+    enabled: Boolean(postId),
+    staleTime: 5 * 60_000,
+  })
+}
+
+/** 30-day views + agent reads for one published post in the editor rail. */
+export function postAnalyticsQuery(postId: string | undefined) {
+  return queryOptions({
+    queryKey: queryKeys.postAnalytics(postId ?? ''),
+    queryFn: ({ signal }) => loadPostAnalytics(postId!, signal),
+    enabled: Boolean(postId),
     staleTime: 5 * 60_000,
   })
 }

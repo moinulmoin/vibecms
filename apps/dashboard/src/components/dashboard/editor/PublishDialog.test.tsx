@@ -2,6 +2,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
+import type { SeoFinding } from '~/types/dashboard'
 import { PublishDialog, quickPicks, timezoneLabel } from './PublishDialog'
 
 function setValue(input: HTMLInputElement, value: string) {
@@ -12,12 +13,12 @@ function setValue(input: HTMLInputElement, value: string) {
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-async function renderDialog(onSchedule = vi.fn(), onConfirm = vi.fn()) {
+async function renderDialog(onSchedule = vi.fn(), onConfirm = vi.fn(), extra: { seoFindings?: SeoFinding[]; onReviewSeo?: () => void } = {}) {
   const host = document.createElement('div')
   document.body.appendChild(host)
   const root = createRoot(host)
   await act(async () => root.render(<PublishDialog open onOpenChange={() => {}} versionNumber={3}
-    liveVersionNumber={null} liveUrl={null} warnings={[]} pending={false} error={null}
+    liveVersionNumber={null} liveUrl={null} warnings={[]} seoFindings={extra.seoFindings} onReviewSeo={extra.onReviewSeo} pending={false} error={null}
     onConfirm={onConfirm} onSchedule={onSchedule} />))
   return { onSchedule, onConfirm, cleanup: async () => { await act(async () => root.unmount()); host.remove() } }
 }
@@ -57,5 +58,32 @@ describe('PublishDialog', () => {
     expect(picks[2]!.at.getDay()).toBe(1)
     expect(timezoneLabel('Asia/Nicosia')).toBe('Nicosia time')
     expect(timezoneLabel('America/New_York')).toBe('New York time')
+  })
+
+  it('lists only error-severity SEO findings and offers a way back to the rail', async () => {
+    const onReviewSeo = vi.fn()
+    const view = await renderDialog(vi.fn(), vi.fn(), {
+      onReviewSeo,
+      seoFindings: [
+        { code: 'link-internal-broken', severity: 'error', field: 'content', message: 'Broken internal link', fix: 'fix' },
+        { code: 'title-length', severity: 'warn', field: 'seoTitle', message: 'Title too short', fix: 'fix' },
+        { code: 'site-not-indexable', severity: 'info', field: 'site', message: 'Site not indexable', fix: 'fix' },
+      ],
+    })
+    expect(document.body.textContent).toContain('SEO issue to fix')
+    expect(document.body.textContent).toContain('Broken internal link')
+    expect(document.body.textContent).not.toContain('Title too short')
+    expect(document.body.textContent).not.toContain('Site not indexable')
+    await act(async () => button('Review')?.click())
+    expect(onReviewSeo).toHaveBeenCalled()
+    await view.cleanup()
+  })
+
+  it('shows no SEO block when there are no error findings', async () => {
+    const view = await renderDialog(vi.fn(), vi.fn(), {
+      seoFindings: [{ code: 'title-length', severity: 'warn', field: 'seoTitle', message: 'Title too short', fix: 'fix' }],
+    })
+    expect(document.body.textContent).not.toContain('SEO issue')
+    await view.cleanup()
   })
 })
