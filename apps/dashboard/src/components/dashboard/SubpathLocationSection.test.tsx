@@ -53,8 +53,8 @@ vi.mock('~/components/dashboard/PendingSubmitButton', () => ({
 }))
 
 vi.mock('~/components/dashboard/SpaConfirmButton', () => ({
-  SpaConfirmButton: ({ children, onConfirm }: { children?: ReactNode; onConfirm: () => void }) => (
-    <button type="button" onClick={onConfirm}>{children}</button>
+  SpaConfirmButton: ({ children, disabled, onConfirm }: { children?: ReactNode; disabled?: boolean; onConfirm: () => void }) => (
+    <button type="button" disabled={disabled} onClick={onConfirm}>{children}</button>
   ),
 }))
 
@@ -239,6 +239,32 @@ describe('SubpathLocationSection', () => {
     expect(container.textContent).toContain('the old link stops working at once')
     await click(container, 'Disconnect')
     expect(api.removeSubpathLocationMutation).toHaveBeenCalled()
+    expect(feedback).toHaveBeenCalledWith({ ok: 'location_removed' })
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('keeps the connected location and Disconnect reachable when the plan locks', async () => {
+    api.removeSubpathLocationMutation.mockResolvedValue({ ok: true, location: { type: 'default', url: 'https://agent-journal.vibecms.test', status: 'active' } })
+    const { container, root, feedback } = await render({ location: subpathLocation(), locked: true })
+    const text = container.textContent ?? ''
+    expect(text).toContain('part of the paid plan')
+    expect(text).toContain('See plans')
+    // The existing location still renders instead of being hidden behind the upsell.
+    expect(text).toContain('customer.example.com/blog')
+    expect(text).toContain('Waiting for the proxy')
+    expect(container.querySelector('#location-url')).toBeNull()
+
+    const button = (label: string) => [...container.querySelectorAll('button')].find((item) => item.textContent?.trim() === label)
+    // Paid operations are locked; removal is authorization-only and stays live.
+    expect(button('Check setup')?.disabled).toBe(true)
+    expect(button('New proxy link')?.disabled).toBe(true)
+    expect(button('Disconnect')?.disabled).toBe(false)
+
+    await click(container, 'Disconnect')
+    expect(api.removeSubpathLocationMutation).toHaveBeenCalled()
+    expect(api.checkSubpathLocationMutation).not.toHaveBeenCalled()
+    expect(api.rotateSubpathLocationMutation).not.toHaveBeenCalled()
     expect(feedback).toHaveBeenCalledWith({ ok: 'location_removed' })
     await act(async () => root.unmount())
     container.remove()

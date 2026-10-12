@@ -64,8 +64,12 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  * the publish dialog. `versionNumber` re-keys the check after every save.
  */
 export function usePostSeoCheck(postId: string | undefined, versionNumber: number | null, focusKeyword: string) {
-  const params = useDebouncedValue({ versionNumber, focusKeyword }, 500)
-  return useQuery(postSeoQuery(postId, params.versionNumber, params.focusKeyword.trim()))
+  // Debounce the scalars, not a fresh object: an inline `{ versionNumber,
+  // focusKeyword }` changes identity every render, rescheduling the timer
+  // forever. Scalar effects stop once the values settle.
+  const version = useDebouncedValue(versionNumber, 500)
+  const keyword = useDebouncedValue(focusKeyword, 500)
+  return useQuery(postSeoQuery(postId, version, keyword.trim()))
 }
 
 function rateLimitMessage(error: DashboardApiError) {

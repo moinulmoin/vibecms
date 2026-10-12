@@ -194,4 +194,27 @@ describe('AnalyticsPage', () => {
     expect(text).toContain('See plans')
     expect(container.querySelector('[role="tablist"]')).toBeNull()
   })
+
+  it('keeps the People tab and metric strip when the payload has no agents block', async () => {
+    const data = availableData()
+    delete data.agents
+    mocks.loadAnalyticsPage.mockResolvedValue(data)
+    const { container } = await render()
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('Analytics didn’t load')
+    expect(text).toContain('Page views')
+    expect(text).toContain('Top posts')
+    expect(text).toContain('Agent reads')
+  })
+
+  it('notes that agent details are not available on the Agents tab', async () => {
+    const data = availableData()
+    delete data.agents
+    mocks.loadAnalyticsPage.mockResolvedValue(data)
+    const { container } = await render({ tab: 'agents' })
+    const text = container.textContent ?? ''
+    expect(text).toContain('Agent details aren’t available yet')
+    expect(text).toContain('Agent reads over time')
+    expect(text).not.toContain('Analytics didn’t load')
+  })
 })

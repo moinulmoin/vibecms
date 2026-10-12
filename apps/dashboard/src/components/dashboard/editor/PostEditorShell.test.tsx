@@ -4,13 +4,13 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Post } from '@vc/core'
-import type { PostEditorPageLoad } from '~/types/dashboard'
+import type { PostEditorPageLoad, SeoCheckResult } from '~/types/dashboard'
 import { withQueryClient } from '~/test/query'
 const api = vi.hoisted(() => ({
   archivePostMutation: vi.fn(),
   unarchivePostMutation: vi.fn(),
   createPostMutation: vi.fn(),
-  checkPostSeo: vi.fn(async () => ({ versionNumber: 1, findings: [] })),
+  checkPostSeo: vi.fn(async (): Promise<SeoCheckResult> => ({ versionNumber: 1, findings: [] })),
   deleteArchivedPostMutation: vi.fn(),
   loadPostAnalytics: vi.fn(async () => null),
   loadPostEditorPage: vi.fn(),
@@ -67,10 +67,12 @@ vi.mock('./RichCanvas', () => ({
   ),
 }))
 vi.mock('./MarkdownSource', () => ({ MarkdownSource: ({ value }: { value: string }) => <textarea data-testid="markdown-source" value={value} readOnly /> }))
-vi.mock('./PostMetadataRail', () => ({ PostMetadataRail: () => null }))
+vi.mock('./PostMetadataRail', () => ({ PostMetadataRail: () => <input id="post-seo-title" data-testid="post-metadata-rail" /> }))
 vi.mock('./PreviewPane', () => ({ PreviewPane: () => null }))
 vi.mock('./VersionHistory', () => ({ VersionHistory: () => null }))
-vi.mock('./ReviewView', () => ({ ReviewView: () => <div data-testid="review-view" /> }))
+vi.mock('./ReviewView', () => ({ ReviewView: ({ onPublish }: { onPublish?: () => void }) => (
+  <div data-testid="review-view"><button type="button" onClick={onPublish}>Review publish</button></div>
+) }))
 
 import { PostEditorShell } from './PostEditorShell'
 
@@ -128,7 +130,9 @@ async function settle(rounds = 3) {
 describe('PostEditorShell', () => {
   afterEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
     document.body.innerHTML = ''
+    window.localStorage.clear()
   })
 
   it('offers copy and open links for a saved draft', async () => {
@@ -267,6 +271,47 @@ describe('PostEditorShell', () => {
     await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
     await settle()
     expect(container.querySelector('[data-testid="review-view"]')).toBeTruthy()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('leaves Review mode and opens the rail when the SEO Review action fires on desktop', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 1024px)',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    window.localStorage.setItem('vc-editor-view', 'edit')
+    const page = editorPage('agent Markdown', 3)
+    page.latestVersion = { ...page.latestVersion!, actorType: 'api_key', actorName: 'Claude' }
+    api.loadPostEditorPage.mockResolvedValueOnce(page)
+    api.checkPostSeo.mockResolvedValue({
+      versionNumber: 3,
+      findings: [{ code: 'title-length', severity: 'error' as const, field: 'seoTitle', message: 'Title too short', fix: 'Lengthen it' }],
+    })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(withQueryClient(<PostEditorShell postId="post-1" />)))
+    await settle()
+    expect(container.querySelector('[data-testid="review-view"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="post-metadata-rail"]')).toBeNull()
+    // The debounced SEO check must settle before the dialog lists findings.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)) })
+    const publish = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Review publish')
+    await act(async () => publish?.click())
+    await settle()
+    const review = [...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === 'Review')
+    expect(review).toBeTruthy()
+    await act(async () => (review as HTMLButtonElement).click())
+    await settle()
+    // Review mode is gone and the rail mounted, so the focus target exists.
+    expect(container.querySelector('[data-testid="review-view"]')).toBeNull()
+    expect(container.querySelector('[data-testid="post-metadata-rail"]')).toBeTruthy()
+    for (let i = 0; i < 20 && document.activeElement?.id !== 'post-seo-title'; i++) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    }
+    expect(document.activeElement?.id).toBe('post-seo-title')
     await act(async () => root.unmount())
     container.remove()
   })

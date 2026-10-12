@@ -166,6 +166,8 @@ export function SubpathLocationSection({
       title="On a path of your site"
       description="Serve the blog at a path of the site you already run, like example.com/blog. Search engines treat it as part of your main site."
     >
+      {/* Paid-plan gate: connects/checks/rotates only. Disconnect stays reachable
+          because removing a location is authorization-only, not a paid op. */}
       {locked ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
           <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -176,32 +178,35 @@ export function SubpathLocationSection({
             </Link>
           </Button>
         </div>
-      ) : !subpath ? (
-        <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleConnect(event)}>
-          <Field className="min-w-0 flex-1">
-            <FieldLabel htmlFor="location-url">Blog URL</FieldLabel>
-            <Input
-              id="location-url"
-              name="url"
-              type="url"
-              placeholder="https://example.com/blog"
-              autoComplete="off"
-              spellCheck={false}
-              required
-              aria-invalid={!!connectError}
-              aria-describedby={connectError ? 'location-url-error' : undefined}
-              onChange={() => setConnectError(null)}
-            />
-            {connectError ? (
-              <p id="location-url-error" className="text-sm text-destructive">
-                {connectError}
-              </p>
-            ) : null}
-          </Field>
-          <PendingSubmitButton pending={pending === 'connect'} pendingText="Connecting…">
-            Connect
-          </PendingSubmitButton>
-        </form>
+      ) : null}
+      {!subpath ? (
+        locked ? null : (
+          <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleConnect(event)}>
+            <Field className="min-w-0 flex-1">
+              <FieldLabel htmlFor="location-url">Blog URL</FieldLabel>
+              <Input
+                id="location-url"
+                name="url"
+                type="url"
+                placeholder="https://example.com/blog"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-invalid={!!connectError}
+                aria-describedby={connectError ? 'location-url-error' : undefined}
+                onChange={() => setConnectError(null)}
+              />
+              {connectError ? (
+                <p id="location-url-error" className="text-sm text-destructive">
+                  {connectError}
+                </p>
+              ) : null}
+            </Field>
+            <PendingSubmitButton pending={pending === 'connect'} pendingText="Connecting…">
+              Connect
+            </PendingSubmitButton>
+          </form>
+        )
       ) : (
         <>
           <div className="grid gap-3">
@@ -255,7 +260,7 @@ export function SubpathLocationSection({
               detail="We fetch your path’s health address through the proxy and compare it with this blog."
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" size="sm" disabled={pending === 'check'} onClick={() => void handleCheck()}>
+                <Button type="button" variant="outline" size="sm" disabled={locked || pending === 'check'} onClick={() => void handleCheck()}>
                   {pending === 'check' ? <LoaderCircle aria-hidden data-icon="inline-start" className="animate-spin" /> : null}
                   {pending === 'check' ? 'Checking…' : 'Check setup'}
                 </Button>
@@ -313,7 +318,7 @@ export function SubpathLocationSection({
               variant="ghost"
               confirmLabel="Rotate the link"
               helperText="The old link stops working at once. Update your proxy right after."
-              disabled={pending !== null}
+              disabled={locked || pending !== null}
               onConfirm={handleRotate}
               className="text-muted-foreground"
             >

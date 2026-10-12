@@ -61,12 +61,18 @@ function relative(at: Date, now = new Date()) {
   return rtf.format(Math.round(hours / 24), 'day')
 }
 
+const MAX_SEO_ERRORS_SHOWN = 5
+
 const OPTION =
   'flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-brand-bright/50 has-[[data-state=checked]]:bg-brand-bright/[0.04]'
 
 /** Final human approval: names the exact version, what it replaces, and when it goes live. */
 export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNumber, liveUrl, warnings, seoFindings, onReviewSeo, pending, error, onConfirm, onSchedule }: PublishDialogProps) {
   const seoErrors = (seoFindings ?? []).filter((finding) => finding.severity === 'error')
+  // Long findings lists (dozens of broken links) used to push the footer off
+  // the viewport; cap the visible rows and point the rest at the rail.
+  const visibleSeoErrors = seoErrors.slice(0, MAX_SEO_ERRORS_SHOWN)
+  const hiddenSeoErrors = seoErrors.length - visibleSeoErrors.length
   const label = versionNumber ? `v${versionNumber}` : 'this version'
   const [mode, setMode] = useState<Mode>('now')
   const picks = quickPicks()
@@ -99,7 +105,7 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next) }}>
-      <DialogContent className="gap-5 sm:max-w-[30rem]">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto sm:max-w-[30rem]">
         <DialogHeader>
           <DialogTitle>Publish {label}</DialogTitle>
           <DialogDescription>
@@ -185,12 +191,17 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
               <AlertTriangle aria-hidden className="size-4 text-destructive" /> SEO {seoErrors.length === 1 ? 'issue' : 'issues'} to fix
             </p>
             <ul className="list-disc space-y-0.5 ps-5 text-muted-foreground">
-              {seoErrors.map((finding, index) => <li key={`${finding.code}:${finding.position ?? index}`}>{finding.message}</li>)}
+              {visibleSeoErrors.map((finding, index) => <li key={`${finding.code}:${finding.position ?? index}`}>{finding.message}</li>)}
             </ul>
-            {onReviewSeo ? (
-              <div>
-                <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={onReviewSeo}>Review</Button>
-              </div>
+            {hiddenSeoErrors > 0 || onReviewSeo ? (
+              <p className="flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-muted-foreground">
+                {hiddenSeoErrors > 0 ? <span>and {hiddenSeoErrors} more.</span> : null}
+                {onReviewSeo ? (
+                  <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={onReviewSeo}>
+                    {hiddenSeoErrors > 0 ? 'Review all in the SEO section' : 'Review'}
+                  </Button>
+                ) : null}
+              </p>
             ) : null}
           </div>
         ) : null}

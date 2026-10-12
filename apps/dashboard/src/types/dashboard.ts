@@ -145,7 +145,8 @@ export type AnalyticsPageData =
         requests: number
         agents: Array<{ agent: string; operator: string; category: string; requests: number }>
       }
-      agents: AgentAnalytics
+      /** Absent on payloads from before the agents breakdown shipped: treated as "agents unavailable". */
+      agents?: AgentAnalytics
 
     }
 

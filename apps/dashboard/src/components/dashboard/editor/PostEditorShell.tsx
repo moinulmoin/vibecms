@@ -807,8 +807,14 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   /** From the publish dialog's SEO list: open the rail and land on the SEO section. */
   function reviewSeoFindings() {
     setPublishOpen(false)
+    // The rail never mounts in Review mode, so leave it first — landing in the
+    // view the editor would open with (the stored preference, Write by default).
+    const nextView: EditorView = view === 'review'
+      ? readStored(VIEW_STORAGE_KEY, ['edit', 'split', 'preview'] as const, 'edit')
+      : view
+    if (nextView !== view) selectView(nextView)
     if (isDesktop) {
-      const key = view === 'split' ? 'split' : 'normal'
+      const key = nextView === 'split' ? 'split' : 'normal'
       setRailPrefs((current) => {
         if (current[key]) return current
         writeStored(key === 'split' ? `${RAIL_STORAGE_KEY}-split` : RAIL_STORAGE_KEY, 'open')

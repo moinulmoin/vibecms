@@ -264,7 +264,7 @@ export async function loadPostAnalytics(postId: string, signal?: AbortSignal): P
     { method: 'GET', signal },
     postAnalyticsSchema,
   )
-  return data.status === 'available' ? { views: data.views, agentReads: data.agents.total } : null
+  return data.status === 'available' ? { views: data.views, agentReads: data.agents?.total ?? 0 } : null
 }
 
 /** Deterministic SEO checks on the last saved version; `ai` also runs the opt-in review. */

@@ -86,4 +86,34 @@ describe('PublishDialog', () => {
     expect(document.body.textContent).not.toContain('SEO issue')
     await view.cleanup()
   })
+
+  it('caps a long SEO findings list and keeps publish controls reachable', async () => {
+    const onReviewSeo = vi.fn()
+    const view = await renderDialog(vi.fn(), vi.fn(), {
+      onReviewSeo,
+      seoFindings: Array.from({ length: 30 }, (_, index) => ({
+        code: 'link-internal-broken',
+        severity: 'error' as const,
+        field: 'content',
+        message: `Broken link ${index + 1}`,
+        fix: 'fix',
+      })),
+    })
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('SEO issues to fix')
+    expect(text).toContain('Broken link 1')
+    expect(text).toContain('Broken link 5')
+    expect(text).not.toContain('Broken link 6')
+    expect(text).not.toContain('Broken link 30')
+    expect(text).toContain('and 25 more')
+    const content = document.querySelector('[data-slot="dialog-content"]')
+    expect(content?.className).toContain('overflow-y-auto')
+    expect(content?.className).toContain('max-h-')
+    await act(async () => button('Review all in the SEO section')?.click())
+    expect(onReviewSeo).toHaveBeenCalled()
+    await act(async () => button('Publish v3 now')?.click())
+    expect(view.onConfirm).toHaveBeenCalled()
+    expect(button('Not yet')).toBeTruthy()
+    await view.cleanup()
+  })
 })

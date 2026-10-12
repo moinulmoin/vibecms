@@ -17,7 +17,7 @@ vi.mock('~/lib/api-client', async (importOriginal) => ({
   loadPostAnalytics: api.loadPostAnalytics,
 }))
 
-import { SeoSection } from './SeoSection'
+import { SeoSection, usePostSeoCheck } from './SeoSection'
 
 const finding = (over: Partial<SeoCheckResult['findings'][number]>) => ({
   code: 'x',
@@ -202,5 +202,33 @@ describe('SeoSection', () => {
     const unavailable = await renderSection({ postStatus: 'published' })
     expect(api.loadPostAnalytics).toHaveBeenCalledTimes(1)
     expect(unavailable.textContent).not.toContain('Last 30 days')
+  })
+
+  it('stops re-rendering once the debounced SEO inputs settle', async () => {
+    vi.useFakeTimers()
+    try {
+      host = document.createElement('div')
+      document.body.append(host)
+      root = createRoot(host)
+      let renders = 0
+      function Probe() {
+        renders += 1
+        usePostSeoCheck('post-1', 1, 'markdown cms')
+        return null
+      }
+      await act(async () => {
+        root!.render(withQueryClient(<Probe />))
+      })
+      // One debounce period: the check fires and the params settle.
+      await act(async () => { vi.advanceTimersByTime(600) })
+      const settled = renders
+      // Several more periods must not schedule new timers or renders.
+      await act(async () => { vi.advanceTimersByTime(4000) })
+      expect(renders).toBe(settled)
+      expect(api.checkPostSeo).toHaveBeenCalledTimes(1)
+      expect(api.checkPostSeo).toHaveBeenCalledWith({ postId: 'post-1', focusKeyword: 'markdown cms' }, expect.anything())
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

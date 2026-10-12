@@ -10,7 +10,7 @@ import { LoadError } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, PageTabs, Panel } from '~/components/dashboard/blocks'
 import { analyticsQuery } from '~/lib/queries'
 import { emptyPostEditorSearch } from '~/lib/dashboard-search'
-import type { AgentCategory, AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
+import type { AgentAnalytics, AgentCategory, AnalyticsPageData, AnalyticsRange } from '~/types/dashboard'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '~/components/ui/chart'
 import { MetricStrip as SharedMetricStrip } from '~/components/dashboard/blocks'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
@@ -131,7 +131,7 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
     },
     {
       label: 'Agent reads',
-      value: compactNumber.format(data.agents.total),
+      value: data.agents ? compactNumber.format(data.agents.total) : '—',
       detail: 'Fetches by AI assistants, crawlers, and bots',
     },
     { label: 'AI referrals', value: compactNumber.format(data.aiReferralViews), detail: 'Visits sent by AI assistants' },
@@ -237,11 +237,11 @@ function AgentReadsChart({ data }: { data: Extract<AnalyticsPageData, { status: 
 
 /** Period totals per category. Per-day category splits are not stored, so the
  *  split is a bar for the selected range, not a stacked trend. */
-function ReadsByCategory({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+function ReadsByCategory({ agents }: { agents: AgentAnalytics }) {
   const rows = AGENT_CATEGORY_ORDER
     .map((category) => ({
       category,
-      fetches: data.agents.byCategory.find((row) => row.category === category)?.fetches ?? 0,
+      fetches: agents.byCategory.find((row) => row.category === category)?.fetches ?? 0,
     }))
     .filter((row) => row.fetches > 0)
 
@@ -257,7 +257,7 @@ function ReadsByCategory({ data }: { data: Extract<AnalyticsPageData, { status: 
       ) : (
         <ul className="space-y-3">
           {rows.map((row) => {
-            const share = Math.max(1, Math.round((row.fetches / data.agents.total) * 100))
+            const share = Math.max(1, Math.round((row.fetches / agents.total) * 100))
             return (
               <li key={row.category} className="space-y-1.5">
                 <div className="flex items-baseline justify-between gap-3">
@@ -279,10 +279,10 @@ function ReadsByCategory({ data }: { data: Extract<AnalyticsPageData, { status: 
   )
 }
 
-function TopAgents({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+function TopAgents({ agents }: { agents: AgentAnalytics }) {
   return (
     <Panel title="Top agents" meta="Reads">
-      {data.agents.topAgents.length === 0 ? (
+      {agents.topAgents.length === 0 ? (
         <EmptyState
           compact
           icon={<BarChart3 />}
@@ -291,7 +291,7 @@ function TopAgents({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
         />
       ) : (
         <div>
-          {data.agents.topAgents.map((agent, index) => (
+          {agents.topAgents.map((agent, index) => (
             <RankedRow
               key={agent.id}
               index={index}
@@ -306,10 +306,10 @@ function TopAgents({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
   )
 }
 
-function AgentTopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+function AgentTopPosts({ agents }: { agents: AgentAnalytics }) {
   return (
     <Panel title="Posts agents read most" meta="Reads">
-      {data.agents.topPosts.length === 0 ? (
+      {agents.topPosts.length === 0 ? (
         <EmptyState
           compact
           icon={<BarChart3 />}
@@ -318,7 +318,7 @@ function AgentTopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'a
         />
       ) : (
         <div>
-          {data.agents.topPosts.map((post, index) => (
+          {agents.topPosts.map((post, index) => (
             <RankedRow
               key={post.postId}
               index={index}
@@ -341,8 +341,8 @@ function AgentTopPosts({ data }: { data: Extract<AnalyticsPageData, { status: 'a
   )
 }
 
-function AgentStats({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
-  const none = data.agents.total === 0
+function AgentStats({ agents }: { agents: AgentAnalytics }) {
+  const none = agents.total === 0
   return (
     <SharedMetricStrip
       variant="inset"
@@ -350,17 +350,17 @@ function AgentStats({ data }: { data: Extract<AnalyticsPageData, { status: 'avai
       metrics={[
         {
           label: 'Markdown requests',
-          value: none ? '—' : `${data.agents.markdownShare}%`,
+          value: none ? '—' : `${agents.markdownShare}%`,
           detail: 'Share of agent reads that asked for Markdown',
         },
         {
           label: 'llms.txt reads',
-          value: compactNumber.format(data.agents.llmsReads),
+          value: compactNumber.format(agents.llmsReads),
           detail: 'Fetches of llms.txt and llms-full.txt',
         },
         {
           label: 'Signed requests',
-          value: none ? '—' : `${data.agents.signedShare}%`,
+          value: none ? '—' : `${agents.signedShare}%`,
           detail: 'Share carrying a Signature-Agent header',
         },
       ]}
@@ -368,8 +368,26 @@ function AgentStats({ data }: { data: Extract<AnalyticsPageData, { status: 'avai
   )
 }
 
+
 function AgentsTab({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
-  if (data.agents.total === 0 && data.aiCrawlers.requests === 0) {
+  const agents = data.agents
+  // Older API payloads predate the agents breakdown; the crawler trend still
+  // renders, and the rest shows a short note instead of missing panels.
+  if (!agents) {
+    return (
+      <>
+        <AgentReadsChart data={data} />
+        <Panel title="Agent reads">
+          <EmptyState
+            icon={<BarChart3 />}
+            title="Agent details aren’t available yet"
+            description="This breakdown needs a newer API. The daily trend above still shows agent traffic."
+          />
+        </Panel>
+      </>
+    )
+  }
+  if (agents.total === 0 && data.aiCrawlers.requests === 0) {
     return (
       <Panel title="Agent reads">
         <EmptyState
@@ -385,11 +403,11 @@ function AgentsTab({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
     <>
       <AgentReadsChart data={data} />
       <div className="grid gap-6 xl:grid-cols-2">
-        <TopAgents data={data} />
-        <ReadsByCategory data={data} />
+        <TopAgents agents={agents} />
+        <ReadsByCategory agents={agents} />
       </div>
-      <AgentTopPosts data={data} />
-      <AgentStats data={data} />
+      <AgentTopPosts agents={agents} />
+      <AgentStats agents={agents} />
       <p className="text-sm leading-6 text-muted-foreground">
         Agent identity comes from the user agent or the representation requested; request signatures are counted, not verified. Numbers update daily.
       </p>

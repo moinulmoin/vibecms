@@ -229,6 +229,8 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
         z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() }),
       ),
     }),
+    // Optional: payloads from before the agents breakdown shipped still carry
+    // full people data. Missing means "agents unavailable", not a failure.
     agents: z.object({
       total: z.number(),
       byCategory: z.array(
@@ -252,7 +254,7 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
       markdownShare: z.number(),
       signedShare: z.number(),
       llmsReads: z.number(),
-    }),
+    }).optional(),
   }),
 ])
 
@@ -287,7 +289,7 @@ export const postAnalyticsSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('available'),
     views: z.number(),
-    agents: z.object({ total: z.number() }),
+    agents: z.object({ total: z.number() }).optional(),
   }),
 ])
 
