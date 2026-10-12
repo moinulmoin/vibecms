@@ -722,9 +722,12 @@ async function assertManagedEntitled(environment: ManagedEnvironment, snapshot: 
 // The managed caller IS the site owner: setup details (proxy target, snippets)
 // always ship in managed responses. Actor is synthesized owner so the shared
 // view builder treats this as owner-level.
+function managedOwnerActor(snapshot: ManagedSiteSnapshot): Actor {
+  return { type: 'human', id: snapshot.ownerUserId, name: 'AutoSEOPilot', role: 'owner' }
+}
+
 async function managedLocationView(environment: ManagedEnvironment, snapshot: ManagedSiteSnapshot) {
-  const actor: Actor = { type: 'human', id: snapshot.ownerUserId, name: 'AutoSEOPilot', role: 'owner' }
-  return getSiteLocation(createDataAccess(environment.DB), snapshot.siteId, snapshot.siteSlug, actor)
+  return getSiteLocation(createDataAccess(environment.DB), snapshot.siteId, snapshot.siteSlug, managedOwnerActor(snapshot))
 }
 
 export async function setManagedSiteLocation(
@@ -792,6 +795,9 @@ export async function checkManagedSiteLocation(
   externalWorkspaceId: string,
 ) {
   const snapshot = await requireActiveManagedSite(environment, externalWorkspaceId)
+  // Same gate as the dashboard/MCP check: a check can activate the location
+  // (and supersede another site's), which is the paid operation.
+  await assertManagedEntitled(environment, snapshot)
   const db = createDataAccess(environment.DB)
   const row = (await db.domains.listBySite(snapshot.siteId)).find((domain) => domain.type === 'subpath')
   if (!row) {
@@ -836,6 +842,16 @@ export async function checkManagedSiteLocation(
     })
   }
   if (check.ok) scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
+  if (check.ok && row.status !== 'active') {
+    await db.activity.create({
+      siteId: snapshot.siteId,
+      actor: managedOwnerActor(snapshot),
+      action: 'site.location.verified',
+      entityType: 'site',
+      entityId: snapshot.siteId,
+      summary: `Verified the blog location at ${row.hostname}${row.basePath ?? ''}.`,
+    })
+  }
   return { check, location: await managedLocationView(environment, snapshot) }
 }
 

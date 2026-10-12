@@ -121,6 +121,37 @@ describe('managed location routes', () => {
     expect(body.location.snippets.vercel).toContain('rewrites')
   })
 
+  it('check needs an effective entitlement, like the dashboard and MCP checks', async () => {
+    const row = await env.DB
+      .prepare("SELECT site_id, proxy_id FROM domains WHERE type = 'subpath'")
+      .first<{ site_id: string; proxy_id: string }>()
+    expect(row).toBeTruthy()
+    const probe = vi.fn(async () => healthResponse(row!.site_id, row!.proxy_id))
+    vi.stubGlobal('fetch', probe)
+
+    // Sponsorship lapsed after the claim was saved; the proxy still answers.
+    await env.DB
+      .prepare('UPDATE autoseopilot_managed_sites SET entitlement_expires_at = 1 WHERE external_workspace_id = ?')
+      .bind(EXTERNAL_WORKSPACE_ID)
+      .run()
+    try {
+      const response = await request(`/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}/location/check`, { method: 'POST' })
+      expect(response.status).toBe(409)
+      expect((await json(response)).error.code).toBe('BILLING_REQUIRED')
+      expect(probe).not.toHaveBeenCalled()
+      const stored = await env.DB
+        .prepare("SELECT status FROM domains WHERE type = 'subpath' AND site_id = ?")
+        .bind(row!.site_id)
+        .first<{ status: string }>()
+      expect(stored?.status).toBe('pending')
+    } finally {
+      await env.DB
+        .prepare('UPDATE autoseopilot_managed_sites SET entitlement_expires_at = NULL WHERE external_workspace_id = ?')
+        .bind(EXTERNAL_WORKSPACE_ID)
+        .run()
+    }
+  })
+
   it('check activates the location once the proxy answers health', async () => {
     const row = await env.DB
       .prepare("SELECT site_id, proxy_id FROM domains WHERE type = 'subpath'")
@@ -141,6 +172,23 @@ describe('managed location routes', () => {
     const body = await json(response)
     expect(body.check.ok).toBe(true)
     expect(body.location.status).toBe('active')
+
+    // The activation is in the customer's activity history, as it is for
+    // dashboard/MCP checks.
+    const verified = await env.DB
+      .prepare("SELECT actor_type, actor_name FROM activity_events WHERE site_id = ? AND action = 'site.location.verified'")
+      .bind(row!.site_id)
+      .all<{ actor_type: string; actor_name: string }>()
+    expect(verified.results).toEqual([{ actor_type: 'human', actor_name: 'AutoSEOPilot' }])
+
+    // Re-checking an already active location records nothing new.
+    const again = await request(`/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}/location/check`, { method: 'POST' })
+    expect(again.status).toBe(200)
+    const count = await env.DB
+      .prepare("SELECT COUNT(*) AS count FROM activity_events WHERE site_id = ? AND action = 'site.location.verified'")
+      .bind(row!.site_id)
+      .first<{ count: number }>()
+    expect(count?.count).toBe(1)
   })
 
   it('type default removes the subpath location', async () => {
