@@ -170,13 +170,13 @@ export const updateVoiceRoute = createRoute({
   method: 'put', path: '/site/voice', operationId: operationsByToolName['sites.voice.update'].operationId,
   description: operationsByToolName['sites.voice.update'].description, security: bearerSecurity,
   request: { body: { required: true, content: { 'application/json': { schema: updateVoiceRequestSchema } } } },
-  responses: { 200: { description: 'Updated voice', content: { 'application/json': { schema: voiceSettingsDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+  responses: { 200: { description: 'Updated voice', content: { 'application/json': { schema: voiceSettingsDtoSchema } } }, ...routeErrors(400, 401, 403, 409, 429, 500) },
 });
 export const updateSignupFormRoute = createRoute({
   method: 'patch', path: '/site/signup-form', operationId: operationsByToolName['sites.signup_form.update'].operationId,
   description: operationsByToolName['sites.signup_form.update'].description, security: bearerSecurity,
   request: { body: { required: true, content: { 'application/json': { schema: updateSignupFormRequestSchema } } } },
-  responses: { 200: { description: 'Updated signup form', content: { 'application/json': { schema: signupFormDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+  responses: { 200: { description: 'Updated signup form', content: { 'application/json': { schema: signupFormDtoSchema } } }, ...routeErrors(400, 401, 403, 409, 429, 500) },
 });
 export const listTagsRoute = createRoute({
   method: 'get', path: '/tags', operationId: operationsByToolName['tags.list'].operationId,
