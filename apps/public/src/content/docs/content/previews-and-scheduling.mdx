@@ -13,10 +13,10 @@ The preview shows the current saved tip, even when an older version is live. It 
 
 ## Schedule an approved version
 
-`posts.schedule` requires `posts:publish`. Ask the person to approve the exact saved version and UTC time. Send `postId`, `versionNumber` (a positive integer), and `publishAt` (a Unix epoch second that must be in the future — the API rejects past times):
+`posts.schedule` requires `posts:publish`. Ask the person to approve the exact saved version and UTC time. Send `postId`, `versionNumber` (a positive integer), and `publishAt` (a Unix epoch second that must be in the future — the API rejects past times). This example schedules 2027-01-15 09:00 UTC:
 
 ```json
-{"postId":"post_...","versionNumber":4,"publishAt":<future epoch seconds>}
+{"postId":"post_...","versionNumber":4,"publishAt":1800003600}
 ```
 
 The scheduler runs every minute, so publication should usually follow the target time within about a minute. Later edits do not change the scheduled version. You can reschedule by calling `posts.schedule` again with another saved version or future time. `posts.unschedule` cancels a pending or failed schedule. Once a schedule is processing, scheduling returns `CONFLICT` with "Schedule is already publishing" and unscheduling returns `CONFLICT` with "Already publishing" — HTTP `409` over REST, an error tool result over MCP (see [error shapes](/docs/agent-workflows/conflicts-and-recovery)).
