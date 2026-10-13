@@ -1,5 +1,5 @@
 import { BRAND, FREE_TIER, MEDIA } from '@vc/config'
-import { Activity, Bot, Check, FileText, Pencil, Plus, Rocket } from 'lucide-react'
+import { Activity, Bot, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -56,6 +56,8 @@ import {
   StatCard,
   StatCardGrid,
   StatusBadge,
+  Step,
+  Steps,
 } from '~/components/dashboard/blocks'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch, emptyPostsListSearch, postsListSearch } from '~/lib/dashboard-search'
 
@@ -216,36 +218,23 @@ function GetStarted({ data, canEdit, onlyDraft }: { data: DashboardData; canEdit
       description="Three steps to a live blog your agents can write for."
       action={<span className="text-sm tabular-nums text-muted-foreground">{steps.filter((step) => step.done && !step.optional).length} of 3 done</span>}
     >
-      <ol className="grid">
+      <Steps>
         {steps.map((step, index) => (
-          <li
+          <Step
             key={step.title}
-            className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0"
-          >
-            <span
-              aria-hidden
-              className={step.done
-                ? 'flex size-6 items-center justify-center rounded-full bg-brand-bright text-brand-bright-foreground'
-                : 'flex size-6 items-center justify-center rounded-full border border-border text-xs font-medium tabular-nums text-muted-foreground'}
-            >
-              {step.done ? <Check className="size-3.5" strokeWidth={3} /> : index + 1}
-            </span>
-            <span className="min-w-0">
-              <span className={step.done ? 'block text-muted-foreground' : 'flex flex-wrap items-center gap-x-2 font-medium text-foreground'}>
-                {step.title}
-                {step.optional && !step.done ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-normal text-muted-foreground">Optional</span> : null}
-                <span className="sr-only">{step.done ? ' (done)' : ''}</span>
-              </span>
-              <span className="block text-sm text-muted-foreground">{step.detail}</span>
-            </span>
-            {step.action && canEdit ? (
+            n={index + 1}
+            state={step.done ? 'done' : index === nextIndex ? 'current' : 'upcoming'}
+            title={step.title}
+            detail={step.detail}
+            optional={step.optional}
+            action={step.action && canEdit ? (
               <Button asChild variant={index === nextIndex ? 'default' : 'outline'} size="sm">
                 <Link to={step.action.to} params={step.action.params as never} search={step.action.search as never}>{step.action.label}</Link>
               </Button>
-            ) : <span />}
-          </li>
+            ) : undefined}
+          />
         ))}
-      </ol>
+      </Steps>
     </Section>
   )
 }
@@ -315,7 +304,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
           </span>
         }
         action={canEdit ? (
-          <Button asChild>
+          // During first run the guide's next step is the one primary action.
+          <Button asChild variant={firstRun ? 'outline' : 'default'}>
             <Link to="/dashboard/posts/new" search={emptyPostEditorSearch}>
               <Plus aria-hidden data-icon="inline-start" /> New post
             </Link>
@@ -366,11 +356,12 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
             </Button>
           ) : undefined}
         >
-          <ul className="grid">
+          {/* The one bounded block on the page: the work that is waiting on you. */}
+          <ul className="grid gap-0.5 rounded-xl border bg-card p-1.5">
             {reviewQueue.map((post) => (
               <li
                 key={post.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b border-[color:var(--hairline)] py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent sm:grid-cols-[minmax(0,1fr)_auto_6rem_auto]"
               >
                 <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
                   {isAgentActor(post.latestActorType) ? (

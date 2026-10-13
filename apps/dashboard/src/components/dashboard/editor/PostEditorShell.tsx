@@ -1,3 +1,4 @@
+import { SegmentedControl } from '~/components/ui/segmented-control'
 import type { Asset, Post, PostVersionSummary } from '@vc/core'
 import { THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { renderRichContent } from '@vc/content'
@@ -190,24 +191,6 @@ function SplitPane({ ratio, onRatio, left, right }: { ratio: number; onRatio: (r
   )
 }
 
-function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; label: string }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex items-center rounded-lg border border-border p-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={`rounded-md px-2.5 py-1 text-sm transition-colors ${value === option.value ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 export function PostEditorShell({ postId }: { postId?: string }) {
   const navigate = useNavigate()
@@ -913,7 +896,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       {/* Writing mode sits above the title, where a writer looks first; any
           notice about switching modes reads next to it. */}
       <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
-        <Segmented
+        <SegmentedControl
           label="Editor"
           value={surface}
           onChange={(next) => void selectSurface(next)}
@@ -1028,7 +1011,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           ) : null}
           {post?.scheduledPublish && ['pending', 'failed'].includes(post.scheduledPublish.status) ?
             <Button type="button" variant="ghost" size="sm" disabled={publishPending} onClick={() => void handleUnschedule()}>Unschedule</Button> : null}
-          <Segmented label="View" value={effectiveView} onChange={selectView} options={viewOptions} />
+          <SegmentedControl label="View" value={effectiveView} onChange={selectView} options={viewOptions} />
           {post?.status === 'published' && liveUrl ? (
             <Button asChild variant="ghost" size="sm">
               <a href={liveUrl} target="_blank" rel="noreferrer" title="Open the live post">

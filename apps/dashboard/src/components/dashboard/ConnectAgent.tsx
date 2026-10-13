@@ -1,5 +1,6 @@
 import { CopyButton, cn } from '@vc/ui'
 import type { ReactNode } from 'react'
+import { FileText, SquareTerminal } from 'lucide-react'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { PageTabs } from '~/components/dashboard/blocks'
 import type { AgentPreference } from '~/types/dashboard'
@@ -114,11 +115,14 @@ export function CodeBlock({
   copyLabel?: string
   className?: string
 }) {
+  // Terminal commands get a prompt icon; config files and prompts get a file icon.
+  const Icon = /command|terminal/i.test(label) ? SquareTerminal : FileText
   return (
-    <div className={cn('min-w-0 overflow-hidden rounded-lg border border-border bg-muted/40', className)}>
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--hairline)] py-1.5 pl-3.5 pr-1.5">
-        <span className="truncate font-mono text-xs text-muted-foreground">{label}</span>
-        <CopyButton value={code} label={copyLabel} copiedLabel="Copied" className="h-8 shrink-0" />
+    <div className={cn('min-w-0 overflow-hidden rounded-xl border border-border bg-card', className)}>
+      <div className="flex items-center gap-2 border-b border-[color:var(--hairline)] py-1.5 pl-3.5 pr-1.5 text-muted-foreground">
+        <Icon aria-hidden className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">{label}</span>
+        <CopyButton value={code} label={copyLabel} copiedLabel="Copied" iconOnly variant="ghost" className="size-8 shrink-0 text-muted-foreground hover:text-foreground" />
       </div>
       <pre
         role="region"

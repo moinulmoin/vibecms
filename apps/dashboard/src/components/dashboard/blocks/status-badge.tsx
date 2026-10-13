@@ -1,4 +1,4 @@
-import { Badge, cn } from '@vc/ui'
+import { cn } from '@vc/ui'
 
 type Status = string
 type StatusTone = 'success' | 'warning' | 'error' | 'draft' | 'muted'
@@ -36,6 +36,18 @@ function statusLabel(status: string) {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+const TONE_STYLES: Record<StatusTone, { text: string; dot: string }> = {
+  success: { text: 'text-foreground/85', dot: 'bg-brand-bright' },
+  warning: { text: 'text-warning', dot: 'bg-warning' },
+  error: { text: 'text-destructive', dot: 'bg-destructive' },
+  draft: { text: 'text-muted-foreground', dot: 'border border-muted-foreground/70 bg-transparent' },
+  muted: { text: 'text-muted-foreground', dot: 'border border-dashed border-muted-foreground/60 bg-transparent' },
+}
+
+/**
+ * Status as a dot and a word, not a pill. Lists stay quiet; color only shows
+ * up where it means something (live, needs you, broken).
+ */
 export function StatusBadge({
   status,
   className,
@@ -45,58 +57,16 @@ export function StatusBadge({
   className?: string
   label?: string
 }) {
-  const normalized = status.trim().toLowerCase()
-  const tone = STATUS_TONES[normalized] ?? 'muted'
-  const displayLabel = label ?? statusLabel(status)
-
-  if (tone === 'success') {
-    return (
-      <Badge
-        className={cn(
-          'gap-1.5 border-brand-bright/30 bg-brand-bright/10 text-primary',
-          className,
-        )}
-      >
-        <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_8px_var(--brand-bright)]" />
-        {displayLabel}
-      </Badge>
-    )
-  }
-
-  if (tone === 'warning') {
-    return (
-      <Badge
-        className={cn(
-          'border-warning/35 bg-warning/10 text-warning',
-          className,
-        )}
-      >
-        {displayLabel}
-      </Badge>
-    )
-  }
-
-  if (tone === 'error') {
-    return (
-      <Badge
-        className={cn('border-destructive/30 bg-destructive/10 text-destructive', className)}
-      >
-        {displayLabel}
-      </Badge>
-    )
-  }
-
-  if (tone === 'draft') {
-    return (
-      <Badge className={cn('border-border bg-muted text-foreground', className)}>
-        {displayLabel}
-      </Badge>
-    )
-  }
-
+  const tone = STATUS_TONES[status.trim().toLowerCase()] ?? 'muted'
+  const styles = TONE_STYLES[tone]
   return (
-    <Badge variant="outline" className={cn('border-dashed text-muted-foreground', className)}>
-      {displayLabel}
-    </Badge>
+    <span
+      data-slot="status"
+      data-tone={tone}
+      className={cn('inline-flex w-fit shrink-0 items-center gap-1.5 text-[0.8125rem] font-medium whitespace-nowrap', styles.text, className)}
+    >
+      <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', styles.dot)} />
+      {label ?? statusLabel(status)}
+    </span>
   )
 }

@@ -6,6 +6,7 @@ import { ArrowRight, Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
+import { Step, Steps, type StepState } from '~/components/dashboard/blocks'
 import { AgentSetup, CodeBlock, clientFromPreference, type AgentClient } from '~/components/dashboard/ConnectAgent'
 import { createApiKeyMutation, savePersonalizationMutation } from '~/lib/api-client'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch } from '~/lib/dashboard-search'
@@ -15,45 +16,6 @@ import type { OnboardingConnectStatus } from '~/types/dashboard'
 
 const STEP = { current: 2, total: 2 }
 const FIRST_DRAFT_PROMPT = 'Use vibecms to write a short first post for my blog: a friendly hello that says what this blog will be about. Save it as a draft and send me the private preview link. Don’t publish until I say so.'
-
-type StepState = 'done' | 'active' | 'upcoming'
-
-function StepIcon({ state, n }: { state: StepState; n: number }) {
-  if (state === 'done') {
-    return (
-      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-bright text-brand-bright-foreground">
-        <Check aria-hidden className="size-3.5" strokeWidth={3} />
-      </span>
-    )
-  }
-  if (state === 'active') {
-    return (
-      <span className="relative grid size-6 shrink-0 place-items-center">
-        <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand-bright/25 motion-reduce:animate-none" />
-        <span className="relative grid size-6 place-items-center rounded-full border-2 border-brand-bright bg-card text-[11px] font-semibold text-foreground">
-          {n}
-        </span>
-      </span>
-    )
-  }
-  return (
-    <span className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-[11px] font-medium text-muted-foreground">
-      {n}
-    </span>
-  )
-}
-
-function LiveStep({ n, state, title, detail }: { n: number; state: StepState; title: string; detail: string }) {
-  return (
-    <li className="flex gap-3">
-      <StepIcon state={state} n={n} />
-      <div className="min-w-0 pt-0.5">
-        <p className={state === 'upcoming' ? 'text-sm text-muted-foreground' : 'text-sm font-medium text-foreground'}>{title}</p>
-        <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">{detail}</p>
-      </div>
-    </li>
-  )
-}
 
 /**
  * The live side of onboarding: key → agent connected → first draft, updated
@@ -72,7 +34,7 @@ export function FirstPostStatus({
   const first = status?.firstPost
   if (first?.state === 'live') {
     return (
-      <div className="overflow-hidden rounded-xl border border-brand-bright/40 bg-card shadow-[0_0_0_4px_var(--glow-primary)]">
+      <div className="overflow-hidden rounded-xl border border-selected-border bg-card">
         <div className="px-5 pb-5 pt-5">
           <p className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Check aria-hidden className="size-4 text-brand-bright" strokeWidth={3} /> Your latest post is live.
@@ -103,9 +65,9 @@ export function FirstPostStatus({
 
   if (first?.state === 'draft') {
     return (
-      <div className="overflow-hidden rounded-xl border border-brand-bright/40 bg-card shadow-[0_0_0_4px_var(--glow-primary)] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-300">
+      <div className="overflow-hidden rounded-xl border border-selected-border bg-card motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-300">
         <div className="px-5 pb-5 pt-5">
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-bright/12 px-2.5 py-1 text-xs font-medium text-foreground">
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-selected px-2 py-1 text-xs font-medium text-selected-foreground">
             <span aria-hidden className="size-1.5 rounded-full bg-brand-bright" /> Your first post is here
           </p>
           <p className="mt-4 font-display text-xl font-semibold leading-snug tracking-[-0.025em] text-foreground">{first.post.title}</p>
@@ -132,17 +94,17 @@ export function FirstPostStatus({
     {
       title: 'Key created',
       detail: keyReady ? `${keyName ?? 'My agent'} · can write drafts` : 'Making a key for your agent…',
-      state: keyReady ? 'done' : 'active',
+      state: keyReady ? 'done' : 'current',
     },
     {
       title: connected ? 'Agent connected' : 'Connect your agent',
       detail: connected ? 'It can reach your blog.' : 'Run the command, then start your agent.',
-      state: connected ? 'done' : keyReady ? 'active' : 'upcoming',
+      state: connected ? 'done' : keyReady ? 'current' : 'upcoming',
     },
     {
       title: 'First draft',
       detail: connected ? 'Paste the prompt. The draft shows up here.' : 'Ask for your first post.',
-      state: connected ? 'active' : 'upcoming',
+      state: connected ? 'current' : 'upcoming',
     },
   ]
 
@@ -161,22 +123,13 @@ export function FirstPostStatus({
       {revoked ? (
         <p className="px-5 py-5 text-sm text-muted-foreground">This key was revoked. Create a new one in Connect to continue.</p>
       ) : (
-        <ol className="grid gap-5 px-5 py-5">
+        <Steps className="px-5 py-5">
           {steps.map((step, index) => (
-            <LiveStep key={step.title} n={index + 1} {...step} />
+            <Step key={step.title} size="sm" n={index + 1} state={step.state} title={step.title} detail={step.detail} />
           ))}
-        </ol>
+        </Steps>
       )}
     </div>
-  )
-}
-
-function SectionHeading({ n, id, children }: { n: number; id: string; children: string }) {
-  return (
-    <h2 id={id} className="flex items-center gap-2.5 text-base font-semibold text-foreground">
-      <span className="grid size-6 place-items-center rounded-full bg-foreground/[0.07] text-xs font-semibold tabular-nums text-foreground">{n}</span>
-      {children}
-    </h2>
   )
 }
 
@@ -258,6 +211,7 @@ export function PersonalizePage() {
   }
 
   const draft = status.data?.firstPost.state === 'draft'
+  const connected = status.data?.connection === 'connected'
   const keyName = flash?.name ?? status.data?.key?.name ?? undefined
   const panel = connect.data ? (
     <div className="grid gap-4">
@@ -303,8 +257,8 @@ export function PersonalizePage() {
         </div>
       ) : live ? null : (
         <div className="grid gap-10">
-          <section className="grid gap-4" aria-labelledby="onboarding-add">
-            <SectionHeading n={1} id="onboarding-add">Add vibecms to your agent</SectionHeading>
+          <Steps>
+          <Step n={1} state={connected ? 'done' : 'current'} titleAs="h2" titleId="onboarding-add" title="Add vibecms to your agent">
             {flash ? (
               <AgentSetup mcpUrl={connect.data.mcpUrl} token={flash.token} client={activeClient} onClientChange={chooseClient} />
             ) : creating ? (
@@ -328,15 +282,14 @@ export function PersonalizePage() {
                 Your key is inside the command and won’t be shown again. Keep this tab open until you’ve pasted it.
               </p>
             ) : null}
-          </section>
-
-          <section className="grid gap-4" aria-labelledby="onboarding-try">
-            <SectionHeading n={2} id="onboarding-try">Ask for your first post</SectionHeading>
+          </Step>
+          <Step n={2} state={connected ? 'current' : 'upcoming'} titleAs="h2" titleId="onboarding-try" title="Ask for your first post">
             <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
             <p className="text-sm leading-6 text-muted-foreground">
               This key can save drafts. You approve and publish, or give an agent publishing access later in Connect.
             </p>
-          </section>
+          </Step>
+          </Steps>
 
           {!draft ? (
             <div>

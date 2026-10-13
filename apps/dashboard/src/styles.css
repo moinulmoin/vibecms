@@ -13,6 +13,58 @@
   --text-sm--line-height: 1.5rem;
 }
 
+/* Dashboard surfaces. Calmer than the landing: a soft page tone, translucent
+   lines that recede, and hover fills that tint instead of flooding. Overrides
+   the shared app tokens for the dashboard only; the landing keeps its own. */
+:root {
+  --background: oklch(0.972 0 0);
+  --card: oklch(0.957 0 0);
+  --popover: oklch(0.99 0 0);
+  --secondary: oklch(0.945 0 0);
+  --muted: oklch(0.945 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0 0 0 / 0.05);
+  --border: oklch(0 0 0 / 0.1);
+  --input: oklch(0 0 0 / 0.16);
+  --hairline: oklch(0 0 0 / 0.07);
+  --sidebar: oklch(0.957 0 0);
+  --sidebar-accent: oklch(0 0 0 / 0.05);
+  --sidebar-border: oklch(0 0 0 / 0.08);
+}
+
+.dark {
+  --background: oklch(0.135 0.005 240);
+  --card: oklch(0.162 0.006 220);
+  --popover: oklch(0.172 0.007 220);
+  --secondary: oklch(0.19 0.007 210);
+  --muted: oklch(0.19 0.007 210);
+  --accent: oklch(1 0 0 / 0.06);
+  --accent-foreground: oklch(0.95 0.008 155);
+  --border: oklch(1 0 0 / 0.09);
+  --input: oklch(1 0 0 / 0.14);
+  --hairline: oklch(1 0 0 / 0.07);
+  --sidebar: oklch(0.155 0.006 230);
+  --sidebar-accent: oklch(1 0 0 / 0.06);
+  --sidebar-border: oklch(1 0 0 / 0.08);
+}
+
+/* "Selected" is one decision, not a class string per component: the page you
+   are on, the chosen font, the picked cover all read the same. */
+:root {
+  --selected: oklch(0.7423 0.1585 154.53 / 0.15);
+  --selected-foreground: var(--primary);
+  --selected-border: oklch(0.7423 0.1585 154.53 / 0.7);
+}
+.dark {
+  --selected: oklch(0.8107 0.1705 152.72 / 0.12);
+  --selected-border: oklch(0.8107 0.1705 152.72 / 0.6);
+}
+@theme inline {
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-selected-border: var(--selected-border);
+}
+
 /* Reserve the scrollbar gutter so pages that scroll and pages that don't
    share one left edge (the centered shell otherwise shifts ~8px). */
 html {

@@ -138,7 +138,7 @@ export function ReviewView({
               role="tab"
               aria-selected={tab === value}
               onClick={() => setTab(value)}
-              className={`-mb-px border-b-2 pb-2 text-[0.9375rem] transition-colors ${tab === value ? 'border-foreground font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              className={`-mb-px border-b-2 pb-2 text-[0.9375rem] transition-colors ${tab === value ? 'border-brand-bright font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             >
               {value === 'changes' ? 'Changes' : 'Preview'}
             </button>

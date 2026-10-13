@@ -92,15 +92,19 @@ export function CommandPalette({ role }: { role: Role }) {
         <button
           type="button"
           onClick={() => { returnFocus.current = null }}
-          className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-56"
+          className="inline-flex h-8 items-center gap-2 rounded-lg border bg-secondary/50 px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:w-60"
           aria-label="Search and jump to"
           aria-keyshortcuts="Meta+K Control+K"
         >
           <Search aria-hidden className="size-4" />
           <span className="hidden sm:inline">Search…</span>
-          <kbd className="ml-auto hidden rounded border border-border px-1.5 font-sans text-[11px] leading-5 text-muted-foreground sm:inline">
-            {SHORTCUT}
-          </kbd>
+          <span aria-hidden className="ml-auto hidden gap-0.5 sm:inline-flex">
+            {SHORTCUT.split(/(?<=⌘)|\s/).map((key) => (
+              <kbd key={key} className="rounded-md border bg-background px-1.5 font-sans text-[11px] leading-5 text-muted-foreground">
+                {key}
+              </kbd>
+            ))}
+          </span>
         </button>
       </DialogTrigger>
       <DialogContent

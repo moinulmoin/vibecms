@@ -36,7 +36,7 @@ export function MetricStrip({
           )}
         >
           <p className="text-sm text-muted-foreground">{metric.label}</p>
-          <p className="mt-2.5 font-display text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground sm:text-4xl">
+          <p className="mt-2 font-display text-[1.75rem] font-medium tabular-nums tracking-[-0.03em] text-foreground sm:text-[2rem]">
             {metric.value}
           </p>
           {metric.detail ? <p className="mt-1.5 text-sm leading-5 text-muted-foreground">{metric.detail}</p> : null}
