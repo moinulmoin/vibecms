@@ -17,7 +17,7 @@ Create a **Manage** key in **Dashboard > Connect** when you want your agent to c
 | `sites.location.get` | Returns where the blog is served — default host, custom domain, or a path of the owner's site — with status and the last setup check. The proxy target and snippets appear only for keys that may manage the location. |
 | `sites.location.set_subpath` | Serves the blog at a path of the owner's site (`https://customer.com/blog`). Returns the proxy target and ready-to-paste snippets for Cloudflare, Vercel, Next.js, Netlify, nginx, and Caddy. Needs explicit owner approval first; the owner must save a snippet, then call `sites.location.check`. |
 | `sites.location.check` | Probes the path's health address and compares it with this blog. A pass activates the location; a failure returns plain-language errors. |
-| `sites.location.remove` | Removes the subpath location and returns the blog to its default address. Needs explicit owner approval first. |
+| `sites.location.remove` | Removes the subpath location. The blog's address falls back to the custom domain if one is active, otherwise the default host. Needs explicit owner approval first. |
 | `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and agent reads (AI assistants, crawlers, and search engines seen server-side) with Markdown and llms.txt shares. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Pass `postId` to scope per-post numbers to one post. Analytics requires a paid plan. |
 
 ## Avoid overwriting a newer change
@@ -30,9 +30,11 @@ A theme update looks like this:
 {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true, "mode": "dark"}
 ```
 
-For `sites.theme.update`, `template`, `keepLook`, `accent`, `font`, `radius`, `width`, and `mode` are optional. Get allowed values from `sites.theme.get`. For `sites.theme.revert`, send only `expectedUpdatedAt`. A stale value returns HTTP `409` with `CONFLICT`; a revert without a current saved look also returns `CONFLICT`. Read the current site or theme and discuss the change before retrying.
+For `sites.theme.update`, `template`, `keepLook`, `accent`, `font`, `radius`, `width`, `chrome`, `index`, `header`, and `mode` are optional. `radius`, `width`, `chrome`, `index`, and `header` accept `null` to reset the field to the template default. Changing `template` resets `chrome`, `index`, and `header` to the new template's defaults even when `keepLook` is `true`, unless you explicitly supply those fields in the same request — explicit values are applied after the reset and win. Get allowed values from `sites.theme.get`. For `sites.theme.revert`, send only `expectedUpdatedAt`. A stale value returns `CONFLICT` — HTTP `409` over REST, an error tool result over MCP (see [error shapes](/docs/agent-workflows/conflicts-and-recovery)); a revert without a current saved look also returns `CONFLICT`. Read the current site or theme and discuss the change before retrying.
 
-`sites.voice.update` sends the complete `audience`, `tone`, `doRules`, `dontRules`, and `representativePostIds` object. It does not take `expectedUpdatedAt`. `tags.list` takes `{}`; `analytics.get` takes `{"range":"30"}` or another listed range.
+The `template` choices are `minimal`, `editorial`, `technical`, and `product` — shown in the dashboard as Minimal, Editorial, Notebook, and Magazine. Each template carries its own defaults for accent, font, radius, width, mode, and the structural `chrome`, `index`, and `header` fields.
+
+`sites.voice.update` requires `expectedUpdatedAt`, but it is the voice profile's own `revision` from `sites.get` → `voiceProfile.revision`, not the site settings `updatedAt`. Send `0` only for a profile that was never configured; a reset profile keeps a nonzero revision. The call also sends the complete `audience`, `tone`, `doRules`, `dontRules`, and `representativePostIds` object. `tags.list` takes `{}`; `analytics.get` takes `{"range":"30"}` or another listed range.
 
 ## Example conversation
 

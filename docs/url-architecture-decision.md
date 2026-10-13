@@ -3,12 +3,16 @@
 Status: **IMPLEMENTED** (updated 2026-07-14).
 Supersedes path-mode references in older plans and archived launch material.
 
+Addendum (2026-10-13): plan 022 shipped customer-owned subpath hosting
+(`customer.com/blog`). That is a different feature from the platform
+`/blog/<siteSlug>` path-mode removed here: the blog lives under the tenant's
+own host, so tenant identity stays host-based and the tenant keeps the SEO
+authority. A site's primary location can now be host + base path, not always
+the host root.
+
 ## Decision
 
-VibeCMS uses a **host-only** URL model for public blogs. Tenant identity is always the **host**; content structure (posts, tags, feed, sitemap, robots, llms.txt) is the **path under that host**. Multi-tenant path-mode (`/blog/<siteSlug>/<postSlug>`) is **removed**.
-
-- **Cloud**: `<slug>.vibecms.dev` (free subdomain) or custom domain (paid, Cloudflare for SaaS), with the dashboard/API on `app.vibecms.dev`.
-- **Self-hosted**: single-tenant and host-based, with separate API/dashboard and public Astro Worker hosts.
+VibeCMS uses a **host-based** URL model for public blogs. Tenant identity is always the **host**; content structure (posts, tags, feed, sitemap, robots, llms.txt) is the **path under that host**. Multi-tenant path-mode (`/blog/<siteSlug>/<postSlug>`) is **removed**.
 
 ## Rationale
 
@@ -18,7 +22,7 @@ VibeCMS uses a **host-only** URL model for public blogs. Tenant identity is alwa
 
 ## No migration
 
-VibeCMS is **unreleased**. There are no live users or existing `/blog/<slug>` links, and self-host has not shipped. Removal is clean, with no redirects or compatibility layer needed.
+VibeCMS was **unreleased** when this decision was made (July 2026): there were no live users or existing `/blog/<slug>` links, and self-host had not shipped. Removal was clean, with no redirects or compatibility layer needed. (Hosted production has since launched; this remains the record of the July removal rationale.)
 
 ## What's removed (code)
 
@@ -29,8 +33,8 @@ VibeCMS is **unreleased**. There are no live users or existing `/blog/<slug>` li
 
 ## What stays (host-mode)
 
-- Routes: `$postSlug.tsx`, `tag/$tag.tsx`, `feed[.]xml.ts`, `sitemap[.]xml.ts`, `robots[.]txt.ts`, `llms[.]txt.ts`, root `index.tsx`.
-- Loaders: `loadPublic*ByHost`, `resolveSite(request)` (host-based), `isPublicBlogIndexable()`.
+- Pages/endpoints (current Astro surface): `apps/public/src/pages/*.astro` (index, post, tag) plus feed/sitemap/robots/llms `*.ts` endpoints, dispatched host-first by middleware. (Originally TanStack route files; names updated 2026-10-13.)
+- Loaders: `resolveSiteByHost`, `resolveSite(request)` (host-based), `isPublicBlogIndexable()`.
 - `defaultHostname(slug)`, `publicBlogBaseDomain()`, `isLocalDefaultHostname()` (default-subdomain creation).
 - `site.slug` (still used for onboarding, default subdomain, reserved-slug validation, subscribe API).
 
@@ -38,7 +42,7 @@ VibeCMS is **unreleased**. There are no live users or existing `/blog/<slug>` li
 
 - Development uses `app.basedui.dev` for API/dashboard and `basedui.dev` plus `*.basedui.dev` for public blogs.
 - Production uses `app.vibecms.dev` for API/dashboard and `vibecms.dev` plus `*.vibecms.dev` for public blogs.
-- Self-hosting mirrors the two-Worker split; root `wrangler.jsonc` and `wrangler.public.jsonc` share D1/R2 and connect through a service binding.
+- Self-hosting mirrors the production split plus an optional OG Worker; the root `wrangler.jsonc`, `wrangler.public.jsonc`, and optional `wrangler.og.jsonc` configs connect through service bindings. Only API and public share D1/R2 — OG binds neither (the `apps/*` Wrangler configs target the hosted dev/prod resources instead).
 
 ## Verification (post-removal)
 

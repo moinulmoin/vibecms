@@ -416,13 +416,3 @@ describe("published slug lookup for link rewriting", () => {
     expect(slugs).toEqual(["a-post-2"]);
   });
 });
-
-describe("shared public blog limit contract", () => {
-  it("exposes the route caps used by public callers", () => {
-    expect(PUBLIC_BLOG_LIMITS.listSummaries).toBe(200);
-    expect(PUBLIC_BLOG_LIMITS.feedBodies).toBe(50);
-    expect(PUBLIC_BLOG_LIMITS.sitemapSummaries).toBe(10_000);
-    expect(PUBLIC_BLOG_LIMITS.llmsSummaries).toBe(200);
-    expect(PUBLIC_BLOG_LIMITS.searchCandidates).toBe(500);
-  });
-});

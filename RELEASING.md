@@ -1,25 +1,31 @@
 # Releasing to production
 
-`pnpm deploy:prod` runs `scripts/deploy-prod.mjs`. It stops at the first failed
-step and prints which one. Nothing after that step runs.
+Hosted production is promoted by the reviewed-commit workflow, a thin wrapper
+around `pnpm deploy:prod` (`scripts/deploy-prod.mjs`):
 
-## Routine deploys
+```sh
+gh workflow run deploy-production.yml --ref main -f release_sha=<full 40-char sha> -f smoke_mode=authenticated
+```
 
-The script loads the gitignored `.env.production.local` itself (values already
-in your shell win) and refreshes the wrangler login before preflight. It needs:
+`release_sha` must be the full SHA of the reviewed release commit;
+`authenticated` smoke mode requires the `PRODUCTION_SMOKE_TOKEN` environment
+secret. `pnpm deploy:prod` stops at the first failed step and prints which
+one. Nothing after that step runs.
+
+## Break-glass local deploy
+
+`pnpm deploy:prod` is the same script the workflow invokes. Run it locally
+only when GitHub Actions is unavailable, from a clean checkout of the
+reviewed `main` commit. It loads the gitignored `.env.production.local`
+itself (values already in your shell win) and refreshes the wrangler login
+before preflight. It needs:
 
 - `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_PREFLIGHT_API_TOKEN`
-- `PRODUCTION_SMOKE_TOKEN`: a read-only (Drafts) agent key from the production
-  dashboard, used by the post-deploy smoke test
+- `PRODUCTION_SMOKE_TOKEN`: the workflow keeps this as a GitHub secret; a
+  local run supplies the equivalent read-only (Drafts) agent key from the
+  production dashboard, used by the post-deploy smoke test
 
-Then `pnpm deploy:prod`. The write freeze below applied to the first cutover only.
-
-## Before the first release of the revamp
-
-Production still runs `main`. This release moves posts to pinned, versioned
-public content (migration 0018 onward), so the first deploy is a cutover.
-
-### 1. Launch pricing in Polar (production)
+## Launch pricing in Polar (production)
 
 Dev uses the Polar **sandbox** with the same setup; its ids are already in the
 dev vars of `apps/api/wrangler.jsonc`.
@@ -43,14 +49,22 @@ dev vars of `apps/api/wrangler.jsonc`.
 To end launch pricing later: remove the two vars and update `LAUNCH_OFFER` in
 `packages/config`. Existing subscribers keep their discount.
 
-### 2. Legacy data
+## Legacy data (every deploy)
 
 Preflight lists posts that migration 0021 would convert (scheduled posts,
 published posts without version history) and blocks until you acknowledge the
 exact set with the hashes it prints (`ACK_LEGACY_SCHEDULED_POSTS=<hash>`, `ACK_LEGACY_UNVERSIONED_POSTS=<hash>`). If the affected posts
-change, the acknowledgement stops matching.
+change, the acknowledgement stops matching. These checks run on every
+preflight, independent of the 0018 cutover below.
 
-### 3. Write freeze
+## When migration 0018 is still pending
+
+This section applies only to a deploy where `d1 migrations list` still shows
+`0018_post_published_version` pending — the one-time cutover that moves posts
+to pinned, versioned public content. Once that migration has been applied,
+the write freeze and pin steps below never re-trigger and the script skips them.
+
+### 1. Write freeze
 
 The old API can't be paused from the new code. For the ~2 minutes between the
 migrations and the new API deploy (and across any failed attempts until the
@@ -58,7 +72,7 @@ cutover completes), **no one may publish or edit on production**: pause agents t
 dashboard. For this one-time upgrade the deploy asks you to confirm with
 `CONFIRM_WRITE_FREEZE=1`; routine deploys afterwards don't ask.
 
-### 4. Deploy
+### 2. Deploy
 
 ```sh
 CONFIRM_WRITE_FREEZE=1 pnpm deploy:prod
@@ -75,16 +89,18 @@ have a pinned version. If it fails, it lists the posts. Pin each to the version
 that was live, then run `pnpm deploy:prod -- --verify-pins` and
 `pnpm production:smoke`. Don't rerun the pin SQL by hand after the new API is live.
 
-### 5. After
+### 3. After
 
 Reopen writes, then check a published post, a private preview link, a
 scheduled post, and a checkout on both plans (the first charge should be $9 / $75).
 
 ## Known limits
 
-- The write freeze is manual (see above).
+- The write freeze is manual, and applies only when migration 0018 is
+  pending (see above).
 - A checkout retried before the first one completes can leave an extra open
   checkout link. Polar expires unused checkouts; no charge is made.
-- Neither Worker keeps Cloudflare invocation logs (they record raw URLs, and
-  preview links carry their token in the path). Our own API request and error
-  logs redact `/preview/…`.
+- The API and public Workers keep Cloudflare invocation logs disabled (they
+  would record raw URLs, and preview links carry their token in the path).
+  The OG Worker enables them — it has no public route. Our own API request
+  and error logs redact `/preview/…`.

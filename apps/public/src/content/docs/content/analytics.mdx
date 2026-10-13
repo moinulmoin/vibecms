@@ -9,11 +9,11 @@ Analytics is part of the paid plan on hosted vibecms. Self-hosted installs turn 
 
 ## What counts as a page view
 
-A script on each published post page sends one beacon per view. It never sends when the browser asks not to be tracked (Do Not Track or Global Privacy Control), when the post page is not indexable, or when the visitor's user agent matches a known bot — so crawlers that do run JavaScript don't inflate your view count.
+A script on each published post page sends one beacon per view. It does not send when the browser asks not to be tracked (Do Not Track or Global Privacy Control). Beacons from known bots and non-indexable pages may still be sent, but the server drops them — they are not counted.
 
 ## What counts as an agent read
 
-Each GET request to your blog is checked server-side. A request counts as an agent read when any of these is true:
+Each GET or HEAD request to your blog is checked server-side, and only `200` and `304` responses count — redirects, errors, API, media, preview, and health paths are excluded. A request counts as an agent read when any of these is true:
 
 - The user agent matches a known agent — AI assistants fetching for a person (ChatGPT, Claude, Perplexity, Le Chat, DuckAssist, Meta's fetcher), AI search crawlers (OpenAI Search, Claude Search, PerplexityBot), AI training crawlers (GPTBot, ClaudeBot, Common Crawl, Bytespider, Meta, Vertex AI, Amazonbot, Applebot Extended), search engines (Googlebot, Bingbot, Applebot, DuckDuckBot, YandexBot, Baiduspider), or generic bots and HTTP clients (curl, python-requests, Go, anything matching `bot|crawler|spider|fetch`).
 - The client asked for the Markdown representation — `/<slug>.md`, `?format=md`, or `Accept: text/markdown` — even with an unrecognized user agent.
@@ -26,13 +26,13 @@ Ordinary browser page loads write nothing. Reads on a subpath-hosted blog count 
 
 The dashboard Analytics page has two tabs on the same range picker. The **People** tab shows views, trend, top posts, and referrers (AI referrals flagged). The **Agents** tab shows:
 
-- Total agent reads and a daily trend split by category (AI assistant, AI search, AI crawler, search engine, other bot, unknown)
+- Total agent reads and a daily trend line, plus per-category totals for the selected range (AI assistant, AI search, AI crawler, search engine, other bot, unknown)
 - Top agents by name and operator
 - Top posts read by agents
 - **Markdown share** — the percentage of agent reads that used the Markdown representation
 - **llms.txt reads** and **signed share** — reads that carried a `Signature-Agent` header
 
-Numbers for the current day update as requests arrive; the stored history is rolled up once a day. Each post's editor shows the last 30 days of views and agent reads.
+Numbers for the current day update as requests arrive; the stored history is rolled up once a day. For published posts, the editor's SEO section also shows the last 30 days of views and agent reads.
 
 ## Reading analytics from an agent
 
@@ -57,5 +57,6 @@ ANALYTICS_ACCOUNT_ID=<your Cloudflare account id>
 ANALYTICS_DATASET=<your dataset name>
 ANALYTICS_API_TOKEN=<API token with Analytics Engine read>
 ```
-
 The Workers Free plan allows about 100,000 events written per day — enough for most blogs. Without the binding trio, analytics silently collects nothing and the dashboard explains what to add.
+
+Daily rollups and the subpath re-check need the daily cron trigger `17 2 * * *` on the API Worker, alongside the 15-minute media recovery trigger `*/15 * * * *` and the every-minute scheduled-publishing trigger `* * * * *`. The stock `wrangler.jsonc` in this repository includes all three — that is three of the five cron triggers a Workers Free account allows. If you trimmed them, collection still works but history never rolls up.

@@ -1,0 +1,27 @@
+---
+title: Custom domains
+description: Serve your blog on a domain you own with a CNAME record and managed HTTPS.
+---
+
+A custom domain serves your blog at an address you control, like `blog.example.com`, instead of `<slug>.vibecms.dev`. On hosted vibecms it requires the paid plan; self-hosted installs always can. Only the owner can add or remove a domain — the **Settings > Domain** tab is hidden from editors.
+
+## Connect a domain
+
+1. In **Dashboard > Settings > Domain**, under **Your own domain**, enter the hostname (for example `blog.example.com`) and choose **Add domain**.
+2. At your DNS provider, create a **CNAME** record: name is your hostname, target is `cname.vibecms.dev` on hosted vibecms. On Cloudflare, set the record to *DNS only* (grey cloud). For a root domain like `example.com`, use your provider's CNAME flattening or ALIAS record.
+3. Choose **Check again**. vibecms verifies the record and provisions the certificate — HTTPS is set up for you, usually within minutes, sometimes up to an hour.
+
+## Statuses
+
+| Status | Meaning |
+| --- | --- |
+| **Pending** | Waiting for the DNS record. |
+| **Active** | Live, with HTTPS. |
+| **Failed** | Verification failed; the page lists the errors. Fix the record and choose **Check again**. |
+| **Disabled** | Paused because paid access ended; it returns when the plan is active again. |
+
+Verification errors appear under the domain so you can see exactly what failed. **Remove** detaches the domain; if an active subpath location remains it stays the blog's primary address, otherwise the blog goes back to its default `<slug>.<zone>` address.
+
+## How it relates to `/blog` hosting
+
+A custom domain and a [subpath location](/docs/content/blog-on-your-site) are two ways to put the blog on your own address. If both are set, the subpath wins: `example.com/blog` is the blog's primary address, the custom domain is next, and `<slug>.vibecms.dev` last. Requests to a non-primary address redirect to the primary one with a 301, so old links keep working.

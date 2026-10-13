@@ -1,6 +1,15 @@
 # VibeCMS Phase C — tenant identity & newsletter config
 
-Status: SPEC — build after Phase B lands (touches the same components).
+Status: PARTIALLY SHIPPED (2026-10-13). §1 shipped: logo + favicons render in
+the blog header/head and the dashboard Settings has upload selectors; an absent
+favicon falls back to `/favicon.svg` (the spec's "no tag" was not the chosen
+behavior). §2 shipped differently: newsletter copy is a per-site JSON settings
+object (`newsletterSettings`: enabled/heading/subtext/buttonLabel) edited in
+Subscribers → Signup form (owner only), not four standalone fields; the
+consent line and success text stay platform-controlled. §3 (`{{newsletter}}`
+in-body placeholder) is NOT built -
+no transform exists; it remains an open, deferred requirement. Kept as a
+design record.
 Origin: theme audit 2026-07-04. Scope: three small features, all additive.
 
 ## §1 Wire logo + favicon into the rendered blog

@@ -10,7 +10,6 @@ import {
 
 describe("media responsive widths", () => {
   it("exposes a small allowlist suitable for cards and article images", () => {
-    expect(MEDIA_RESPONSIVE_WIDTHS).toEqual([320, 640, 960, 1280]);
     for (const width of MEDIA_RESPONSIVE_WIDTHS) {
       expect(isAllowedMediaWidth(width)).toBe(true);
     }

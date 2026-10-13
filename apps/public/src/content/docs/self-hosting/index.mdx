@@ -13,10 +13,10 @@ Self-host mode disables hosted Polar gates and workspace API quotas while preser
 
 ## Topology
 
-1. The API and dashboard Worker runs Hono, Better Auth, REST, MCP, media writes, and the static dashboard SPA.
-2. The public Worker runs Astro SSR for blog pages, feeds, search, Markdown responses, and media reads.
-3. Both Workers share one D1 database and one R2 bucket.
-4. The public Worker calls the API Worker through the `API` service binding.
+1. The API and dashboard Worker (`wrangler.jsonc`) runs Hono, Better Auth, REST, MCP, media writes, and the static dashboard SPA.
+2. The OG Worker (`wrangler.og.jsonc`, name `vibecms-og`) renders share-card images.
+3. The public Worker (`wrangler.public.jsonc`) runs Astro SSR for blog pages, feeds, search, Markdown responses, and media reads. It reaches the API through the `API` service binding and the OG Worker through the `OG` service binding pointing at `vibecms-og`.
+4. The API and public Workers share one D1 database and one R2 bucket. The OG Worker binds neither; the public Worker reaches it only through the `OG` service binding.
 
 ## Required secrets
 
@@ -32,6 +32,10 @@ openssl rand -hex 32
 ```
 
 Production OTP delivery also requires a configured `EMAIL` binding and sender domain.
+
+## Scheduled jobs
+
+The API Worker's `wrangler.jsonc` declares three cron triggers — three of the five a Workers Free account allows: `17 2 * * *` runs the daily analytics rollup and the subpath location re-check, `*/15 * * * *` runs media reconciliation, and `* * * * *` publishes due scheduled posts. Removing the daily trigger stops history rollups and location re-checks; scheduled publishing depends on the every-minute trigger.
 
 ## Optional analytics and AI
 
@@ -51,6 +55,6 @@ pnpm build:self-host
 pnpm deploy
 ```
 
-The deployment applies D1 migrations, deploys the API Worker, then deploys the public Worker.
+`pnpm deploy` builds all three Workers, applies D1 migrations, then deploys them in order: API, OG, public. The public Worker's `OG` service binding targets the OG Worker by name (`vibecms-og` by default) — keep that name in sync if you rename it in `wrangler.og.jsonc`.
 
 For the full operator contract, resource list, email setup, and deployment caveats, see [`docs/self-hosting.md`](https://github.com/moinulmoin/vibecms/blob/dev/docs/self-hosting.md).

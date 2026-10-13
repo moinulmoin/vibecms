@@ -19,6 +19,19 @@ Tokens are created in **Dashboard > Connect**, belong to one site, and are shown
 
 MCP and REST calls count against the same hosted workspace budget.
 
+## Limits
+
+Hosted workspaces share these budgets across all keys and calls:
+
+| | Free | Paid |
+| --- | --- | --- |
+| Calls | 30/minute, 300/day, 1,000/month | 120/minute, 5,000/day, 155,000/month |
+| Writes | 50/day, 200/month | 500/day, 15,500/month |
+
+Each key also has its own per-minute cap: 20 calls on free, 60 on paid. A workspace can have at most 10 active keys; only the owner can create or revoke them. Self-hosted installs do not enforce these budgets.
+
+Over REST, an over-limit response is HTTP `429` with `RATE_LIMIT`, a `retryAfterSeconds` field in the error body, and `Retry-After` plus `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` / `X-RateLimit-Metric` / `X-RateLimit-Period` headers. Over MCP, a quota failure inside `tools/call` returns an error tool result with `code: "RATE_LIMIT"` and `retryAfterSeconds` — no headers; a quota failure on `tools/list` is an HTTP `429` JSON-RPC error. See [error shapes](/docs/agent-workflows/conflicts-and-recovery) for both MCP shapes.
+
 ## Storage
 
 Store the token in a secret manager, environment variable, or a local credential file with restricted permissions. Do not embed it in browser code or commit it to a repository.

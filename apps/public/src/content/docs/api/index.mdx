@@ -11,7 +11,7 @@ https://app.vibecms.dev
 
 Self-hosted installations use their API and dashboard Worker origin.
 
-All current integration routes are under `/api/v1`. REST and MCP expose the same 32 operations for site settings and theme, voice and signup form, tags, analytics, posts and versions, private preview links, scheduling, formatting guidance, assets, and activity. See [scopes and tools](/docs/agent-workflows/scopes-and-tools) for the required scope of each operation.
+All current integration routes are under `/api/v1`. MCP exposes 37 tools and REST exposes 36 operations for site settings and theme, voice and signup form, tags, analytics, posts and versions, private preview links, scheduling, formatting guidance, assets, and activity — `posts.search` shares the `GET /api/v1/posts?search=` list route rather than having its own endpoint. See [scopes and tools](/docs/agent-workflows/scopes-and-tools) for the required scope of each operation.
 
 ## Example
 
@@ -26,3 +26,16 @@ curl https://app.vibecms.dev/api/v1/site \
 - [Interactive Scalar reference](https://app.vibecms.dev/api/v1/docs)
 
 Use this guide for authentication, concurrency, and workflow semantics. Use the generated reference for request and response fields.
+
+## MCP transport
+
+The MCP endpoint is `POST /mcp` on the same origin — stateless JSON-RPC 2.0 over HTTP, no session handshake. Legacy clients can still send `initialize`; newer clients should use `server/discover` with protocol version `2026-07-28`.
+
+Modern-protocol requests must mirror the request into headers or they fail even with a valid key:
+
+- `MCP-Protocol-Version: 2026-07-28` must match `_meta["io.modelcontextprotocol/protocolVersion"]`
+- `Mcp-Method` must match the JSON-RPC `method`
+- `Mcp-Name` must match the tool name for `tools/call`
+- `_meta["io.modelcontextprotocol/clientCapabilities"]` must be present
+
+Errors come in two shapes — a top-level JSON-RPC `error` for protocol and authentication failures, and a tool result with `isError: true` for operation failures. See [conflicts and recovery](/docs/agent-workflows/conflicts-and-recovery).

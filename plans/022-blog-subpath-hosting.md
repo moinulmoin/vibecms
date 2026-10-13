@@ -1,7 +1,7 @@
 # 022 - Serve a blog at a path on the customer's own site (customer.com/blog)
 
-Status: IN PROGRESS. Phase 1 (location core) done 2026-10-10: data layer, PublicLocation + `/_vc/p/` ingress, primary-location URLs + entitled redirects, cache keys + purge, link rewriting; built by omp task agents, reviewed by omp reviewer (3 rounds). Next: phase 2 (assets, CSP, fonts). Priority P1, effort L. Depends on: nothing; pairs with
-023 (human/agent analytics) and 024 (SEO checks).
+Status: DONE — shipped to production 2026-10-13. Location core, `/_vc/p/` ingress, primary-location URLs + entitled redirects, proxied assets/CSP/fonts, cache keys + purge, link rewriting, the `sites.location.*` tool family, and the dashboard check flow all ship. Health probes accept a valid matching proxy id on a pending/failed row so setup cannot deadlock; page serving still requires `active` status + entitlement. Migration used slot `0036`.
+Depends on: nothing; pairs with 023 (human/agent analytics) and 024 (SEO checks).
 
 ## Why
 

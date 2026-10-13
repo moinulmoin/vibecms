@@ -3,7 +3,7 @@ title: Connect an agent
 description: Create a scoped key, configure MCP, and verify access.
 ---
 
-Open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once.
+Open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once. Only the workspace owner can create or revoke keys.
 
 | Level | What your agent can do |
 | --- | --- |
@@ -21,6 +21,34 @@ claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
 ```
 
 Self-hosters should replace `https://app.vibecms.dev` with their API and dashboard Worker origin.
+
+
+## Codex
+
+Add to `~/.codex/config.toml`, then restart Codex:
+
+```toml
+[mcp_servers.vibecms]
+url = "https://app.vibecms.dev/mcp"
+http_headers = { "Authorization" = "Bearer vc_..." }
+```
+
+## Cursor
+
+Add to `~/.cursor/mcp.json` (or a project's `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "vibecms": {
+      "url": "https://app.vibecms.dev/mcp",
+      "headers": { "Authorization": "Bearer vc_..." }
+    }
+  }
+}
+```
+
+The Connect page also offers a one-click Cursor install link once a key exists.
 
 ## Generic Streamable HTTP client
 

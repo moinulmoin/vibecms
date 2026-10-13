@@ -2,6 +2,8 @@
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the STOP conditions occurs, stop and report. When done, update the status row for this plan in `plans/README.md`.
 >
+> **RETIRED (2026-10-13)**: this plan's scripts (`test:smoke:launch`, `smoke-launch.*`) and the password-signup/`/app` routes it targets no longer exist. Coverage today lives in the package vitest/node test suites, the five CI test matrix groups, and `scripts/production-smoke.ts` (`pnpm production:smoke`). The audit observations below are June 2026 history; keep the coverage rationale, don't re-run this recipe.
+>
 > **Drift check (run first)**: `git diff --stat c95b816..HEAD -- package.json .github/workflows/ci.yml scripts/smoke-local.sh scripts`
 > If any in-scope file changed since this plan was written, compare the Current state excerpts against live code before proceeding; on mismatch, stop.
 
@@ -128,7 +130,7 @@ Leave existing `test:smoke` as an alias to the launch smoke or hosted smoke, but
 
 ### Step 3: Wire smoke into CI carefully
 
-Add a CI smoke step only if it can start the app and local D1/R2 reliably without remote resources. If Cloudflare local dev cannot be made stable in CI in this plan, do not add the CI step yet. Instead, update `docs/launch-rehearsal.md` to require the new smoke command until a future CI plan wires it.
+Add a CI smoke step only if it can start the app and local D1/R2 reliably without remote resources. If Cloudflare local dev cannot be made stable in CI in this plan, do not add the CI step yet. Instead, update `docs/deploy.md` to require the new smoke command until a future CI plan wires it.
 
 If adding CI, run the app in background with the existing local env/example setup and wait for `/` before running the smoke. Ensure the job terminates the dev server.
 

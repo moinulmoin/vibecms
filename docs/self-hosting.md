@@ -28,6 +28,12 @@ Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 
+The root `wrangler.jsonc` runs three cron triggers on the API Worker — a daily
+`17 2 * * *` analytics rollup plus subpath re-check and media reconcile, a
+`*/15 * * * *` media-recovery sweep, and a `* * * * *` run that publishes due
+scheduled posts. Workers Free allows five cron triggers per account; keep them
+all.
+
 Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in the root Wrangler configs before deploying.
 
 ## Variables and secrets

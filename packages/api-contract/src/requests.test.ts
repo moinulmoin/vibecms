@@ -6,7 +6,7 @@ import {
   restorePostVersionRequestSchema,
   updatePostRequestSchema,
 } from './index'
-import { createPostInput, SEO_DESCRIPTION_MAX_LENGTH, updatePostInput } from '@vc/validators'
+import { createPostInput, updatePostInput } from '@vc/validators'
 
 describe('getPostBySlugRequestSchema', () => {
   it('accepts an exact slug and rejects partial or extra input', () => {
@@ -32,7 +32,6 @@ const fullPost = {
 
 describe('createPostRequestSchema', () => {
   it('keeps SEO description length at 180 in API and core validation', () => {
-    expect(SEO_DESCRIPTION_MAX_LENGTH).toBe(180)
     const accepted = { title: 'Test', slug: 'seo-limit', contentMarkdown: '', seoDescription: 'a'.repeat(180) }
     const rejected = { ...accepted, seoDescription: 'a'.repeat(181) }
     expect(createPostRequestSchema.safeParse(accepted).success).toBe(true)

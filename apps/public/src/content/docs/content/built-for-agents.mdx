@@ -8,7 +8,7 @@ Your published blog serves both HTML and Markdown. Drafts and private previews a
 | URL or response | What an agent gets |
 | --- | --- |
 | `/llms.txt` | The blog name, summary, and links to published posts as Markdown. The list is bounded to 200 posts. |
-| `/<slug>.md` | The published version's Markdown with title, description, date, tags, and canonical URL in frontmatter. |
+| `/<slug>.md` | The published version's Markdown with `title` and `canonical` always in frontmatter; `description`, `date`, and `tags` appear only when set, and a `vibecms` key carries presentation metadata when present. |
 | `/<slug>` with `Accept: text/markdown` | The same Markdown representation. `?format=md` also requests Markdown. |
 | `/robots.txt` | `Content-Signal: search=yes, ai-input=yes, ai-train=no` for tenant blogs. |
 | `/sitemap.xml` | Published post URLs when the blog is indexable. |
@@ -25,6 +25,15 @@ curl https://your-blog.example/feed.xml
 ```
 
 On a free default-domain blog, public pages remain readable but carry `noindex`; the sitemap is unavailable. A paid or self-hosted blog can be indexed.
+
+## Index, tags, and search
+
+- Index pages and tag pages (`/tag/<name>`) list 20 posts per page, newest first; use `?page=<n>` for older posts.
+- `/?q=<query>` searches published posts by title and body. Search only considers the newest 500 published posts.
+
+## Feeds and sitemap
+
+`sitemap.xml` covers up to 10,000 published posts plus the blog home page, each `<url>` carrying a `<lastmod>` from the post's latest publish/update time (the home entry uses the newest post date). `feed.xml` is bounded to 50 items and carries the full sanitized article HTML in `<content:encoded>`, the excerpt in `<description>`, a channel `<lastBuildDate>`, and an `<atom:link rel="self">` back to the feed URL.
 
 ## Product discovery
 

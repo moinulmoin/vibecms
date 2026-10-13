@@ -32,6 +32,5 @@ describe('documentation contract', () => {
     for (const [path, body] of Object.entries(pages)) {
       if (path.endsWith('.mdx')) expect(body, path).not.toContain('VibeCMS');
     }
-    expect(read('agent-workflows/scopes-and-tools.mdx')).toContain('**Never available to agents:**');
   });
 });

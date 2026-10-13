@@ -78,8 +78,7 @@ Repo conventions: server modules read Cloudflare env through `cloudflare:workers
 - `apps/web/src/app/pages/dashboard.tsx` only if public URL rendering needs copy tweaks
 - `README.md`
 - `docs/self-hosting.md`
-- `docs/launch-rehearsal.md`
-
+- `docs/deploy.md`
 **Out of scope**:
 - Custom domain verification/provisioning UI.
 - Wildcard DNS automation outside source.
@@ -134,8 +133,7 @@ Update:
 
 - `README.md` self-host section.
 - `docs/self-hosting.md` required variables and deploy notes.
-- `docs/launch-rehearsal.md` to include a public blog URL smoke: create post, publish it, open `https://<siteSlug>.<PUBLIC_BLOG_DOMAIN>/<post-slug>`.
-
+- `docs/deploy.md` to include a public blog URL smoke: create post, publish it, open `https://<siteSlug>.<PUBLIC_BLOG_DOMAIN>/<post-slug>`.
 **Verify**: `pnpm public:audit` -> exit 0.
 
 ### Step 4: Add migration or compatibility note for existing `localhost` rows

@@ -41,9 +41,9 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # Tests run one package group per runner. The API suite alone is ~2 minutes,
-  # so the rest share a runner, and timing-sensitive tests don't compete with
-  # other packages for the same CPUs.
+  # Tests run one package group per runner so timing-sensitive tests don't
+  # compete for the same CPUs. api, public, db, and dashboard each get their
+  # own runner; the remaining packages plus the preflight test share "rest".
   test:
     name: test (${{ matrix.group }})
     runs-on: ubuntu-latest

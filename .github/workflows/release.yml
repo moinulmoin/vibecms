@@ -31,9 +31,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Opens/updates a "Version Packages" PR from pending changesets, and
-      # publishes @vibecms/cli to npm when that PR merges. Dormant until the
-      # NPM_TOKEN secret is set. Private @vc/* packages are skipped automatically.
+      # Opens/updates a "Version Packages" PR from pending changesets with
+      # GITHUB_TOKEN (always active), and publishes @vibecms/cli to npm when
+      # that PR merges — publishing needs the NPM_TOKEN secret. Private @vc/*
+      # packages are skipped automatically.
       - name: Changesets release
         uses: changesets/action@v1
         with:

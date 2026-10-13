@@ -107,14 +107,14 @@ describe('public article cache invalidation', () => {
       expect(await cache.match(new Request(url))).toBeDefined()
     }
 
+    const root = `https://${location.hostname}/mounted-post`
+    await cache.put(new Request(root), new Response('root-owner', { headers: { 'cache-control': 'public, max-age=60' } }))
     await purgeSiteCache('site-mount', 'mount-fixture', ['mounted-post'], [location])
 
     for (const url of urls) {
       expect(await cache.match(new Request(url))).toBeUndefined()
     }
     // The host root stays cached: only the mounted base path was purged.
-    const root = `https://${location.hostname}/mounted-post`
-    await cache.put(new Request(root), new Response('root-owner', { headers: { 'cache-control': 'public, max-age=60' } }))
     expect(await cache.match(new Request(root))).toBeDefined()
   })
 

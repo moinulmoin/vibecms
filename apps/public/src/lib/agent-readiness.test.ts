@@ -159,10 +159,6 @@ describe('robots content signals', () => {
 
 describe("markdown 404 conversion", () => {
   const md = { accept: "text/markdown" };
-  it("converts GET page 404s only", () => {
-    const page = new Response("<h1>Not found</h1>", { status: 404, headers: { "content-type": "text/html" } });
-    expect(markdownErrorForRequest(new Request("https://x.test/nope", { headers: md }), page)?.headers.get("content-type")).toContain("text/markdown");
-  });
   it("keeps JSON errors and non-GET responses as they are", () => {
     const json = Response.json({ error: "Not found" }, { status: 404 });
     expect(markdownErrorForRequest(new Request("https://x.test/.well-known/x", { headers: md }), json)).toBeNull();

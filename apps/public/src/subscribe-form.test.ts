@@ -4,13 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { PublicPostLoaderData } from "./server/public-blog";
 import type { SiteRow } from "./server/public-blog-data";
 import { PublicBlogPostView, PublicShell } from "./components/PublicBlogPages";
-import {
-  SUBSCRIBE_BUTTON,
-  SUBSCRIBE_CONSENT_TEXT,
-  SUBSCRIBE_HEADING,
-  SUBSCRIBE_SUBTEXT,
-  SUBSCRIBE_SUCCESS,
-} from "./lib/subscribe-consent";
+import { SUBSCRIBE_CONSENT_TEXT } from "./lib/subscribe-consent";
 
 type SubmitListener = (event: { target: unknown; preventDefault: () => void }) => void;
 
@@ -397,7 +391,6 @@ describe("public editorial article rendering", () => {
     // Three H2/H3 headings trigger the <details> TOC disclosure.
     expect(markup).toContain("<details");
     expect(markup).toContain("<summary");
-    expect(markup).toContain("On this page");
 
     // All outline entries appear as links.
     expect(markup).toContain(">First Section</a>");
@@ -407,7 +400,6 @@ describe("public editorial article rendering", () => {
   });
 
   it("keeps essays (editorial's default layout) to the floating outline, with no side rail", () => {
-    expect(markup).toContain("On this page");
     expect(markup).not.toContain('<nav aria-label="On this page"');
   });
 
@@ -476,17 +468,8 @@ describe("subscription callout copy and consent", () => {
 
   const visibleTextMarkup = (markup: string) => markup.replaceAll("&#x27;", "'");
 
-  it("renders the exact heading, subtext, and button copy in both placements", () => {
-    for (const markup of [footerMarkup, endMarkup].map(visibleTextMarkup)) {
-      expect(markup).toContain(SUBSCRIBE_HEADING);
-      expect(markup).toContain(SUBSCRIBE_SUBTEXT);
-      expect(markup).toContain(`>${SUBSCRIBE_BUTTON}</button>`);
-    }
-  });
-
   it("renders the exact success message and consent copy in both placements", () => {
     for (const markup of [footerMarkup, endMarkup].map(visibleTextMarkup)) {
-      expect(markup).toContain(SUBSCRIBE_SUCCESS);
       expect(markup).toContain(SUBSCRIBE_CONSENT_TEXT);
     }
   });

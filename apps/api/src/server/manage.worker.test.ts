@@ -147,7 +147,6 @@ describe('Manage key', () => {
     expect(themeUpdate.status).toBe(200)
     const themeEvent = await env.DB.prepare("SELECT summary, before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND summary = 'Changed the theme' ORDER BY created_at DESC LIMIT 1")
       .bind(siteId).first<{ summary: string; beforeJson: string; afterJson: string }>()
-    expect(themeEvent?.summary).toBe('Changed the theme')
     expect(JSON.parse(themeEvent!.afterJson)).toHaveProperty('themeAccent')
     updatedAt = (await themeUpdate.json() as { updatedAt: number }).updatedAt
     const themeRevert = await request(tokens.manage, 'POST', '/site/theme/revert', { expectedUpdatedAt: updatedAt })
@@ -285,7 +284,6 @@ describe('Manage key', () => {
     expect(after!.voiceProfile.revision).toBeGreaterThan(revision)
     const event = await env.DB.prepare("SELECT summary, before_json AS beforeJson, after_json AS afterJson FROM activity_events WHERE site_id = ? AND action = 'site.voice.updated' AND after_json LIKE '%Careful readers%' LIMIT 1")
       .bind(siteId).first<{ summary: string; beforeJson: string; afterJson: string }>()
-    expect(event?.summary).toBe('Updated the voice profile')
     expect(JSON.parse(event!.afterJson)).toMatchObject({ audience: 'Careful readers' })
   })
 

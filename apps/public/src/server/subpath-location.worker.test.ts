@@ -497,11 +497,6 @@ describe("proxied page assets and CSP (phase 2)", () => {
 
   it("leaves a direct response byte-identical and its CSP unchanged", async () => {
     const location = { origin: ASSET_ORIGIN, basePath: "", assetOrigin: ASSET_ORIGIN, proxied: false };
-    // Middleware gates on location.proxied: direct responses never reach the
-    // rewriter, so the bytes leaving the Worker are exactly what the page made.
-    const page = new Response(PAGE_HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
-    expect(await page.text()).toBe(PAGE_HTML);
-
     const headers = new Headers({ "content-type": "text/html; charset=utf-8" });
     applyPublicSecurityHeaders("/hello", "text/html; charset=utf-8", headers, location);
     const csp = headers.get("content-security-policy") ?? "";

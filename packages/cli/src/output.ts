@@ -39,8 +39,13 @@ export function withIsoTimes(value: unknown): unknown {
 // All machine output goes to stdout as JSON; no color, no spinners.
 export function printData(raw: unknown, fmt: OutputFormat): void {
   const data = withIsoTimes(raw);
-  if (fmt.ndjson && Array.isArray(data)) {
-    for (const item of data) process.stdout.write(`${JSON.stringify(item)}\n`);
+  // posts list/search answer {posts, pagination}; --ndjson means one item per
+  // line, so unwrap the items array from that envelope.
+  const items = fmt.ndjson && !Array.isArray(data) && data && typeof data === "object" && "posts" in data
+    ? data.posts
+    : data;
+  if (fmt.ndjson && Array.isArray(items)) {
+    for (const item of items) process.stdout.write(`${JSON.stringify(item)}\n`);
     return;
   }
   process.stdout.write(`${JSON.stringify(data, null, fmt.json ? 0 : 2)}\n`);

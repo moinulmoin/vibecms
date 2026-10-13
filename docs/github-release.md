@@ -23,7 +23,7 @@ Then verify:
 - any secret exposed in chat, logs, screenshots, or old commits has been rotated
 - the production workflow will receive the full 40-character SHA of this reviewed commit, not a branch or short SHA
 - a first-deploy bootstrap uses a temporary `PRODUCTION_BOOTSTRAP_SHA` production environment secret equal to that commit, removed immediately after the deploy
-- the credentialed production checklist in `docs/launch-runbook.md` has passed for the same release commit
+- the credentialed production checklist in `docs/deploy.md` has passed for the same release commit
 
 ## Tag the reviewed release
 
@@ -41,7 +41,7 @@ First public V1 of vibecms: the publishing control plane for AI agents, with hum
 
 ### Included
 
-- Hono API/dashboard Worker + Astro public-blog Worker on Cloudflare
+- Hono API/dashboard Worker, Astro public-blog Worker, and internal OG share-card Worker on Cloudflare
 - D1 database and R2 media
 - Better Auth passwordless email OTP sign-in
 - Exact Markdown editing, immutable versions, approval-bound publishing, activity history, and rollback
@@ -56,7 +56,7 @@ First public V1 of vibecms: the publishing control plane for AI agents, with hum
 
 - Newsletter capture stores and exports pending subscribers; double opt-in and email delivery are not included yet
 - Google and GitHub sign-in appear only when their OAuth credentials are configured; email OTP is the default
-- Single blog per workspace; no teams, scheduled publishing, comments, or generic page builder
+- Single blog per workspace; no teams, comments, or generic page builder
 
 ### Evidence required before making launch claims
 

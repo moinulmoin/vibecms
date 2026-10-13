@@ -25,4 +25,4 @@ A create or update conflict may also indicate a slug collision. Inspect existing
 | `RATE_LIMIT` | Wait until reset, then retry only the still-requested action. |
 | `BILLING_REQUIRED` | Leave the draft intact and explain the subscription blocker. |
 
-REST returns structured HTTP errors. MCP returns corresponding JSON-RPC errors with machine-readable details.
+REST returns structured HTTP errors: a status code plus a JSON body `{"error": {"code", "message", ...}}`. MCP surfaces the same failures differently. A failed tool call comes back as a normal JSON-RPC result (usually HTTP 200) with `result.isError: true` and the machine-readable error object in `result.structuredContent` (also JSON-encoded in `result.content[0].text`). Authentication failures, malformed requests, and protocol-level problems instead use a top-level JSON-RPC `error` object. Handle both shapes.

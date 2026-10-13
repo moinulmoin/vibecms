@@ -21,7 +21,7 @@ The path must be 1-3 lowercase segments, like `/blog` or `/news/tech`, with lett
 2. Add the proxy for your platform (below). The settings page shows the same snippets with your values already filled in.
 3. Choose **Check setup** (or call `sites.location.check`). The check fetches `example.com/blog/_vc/health` through your proxy and confirms it reaches this blog. A pass marks the location **active**.
 
-The status moves `pending` -> `active` on the first passing check. A failing check keeps `failed` and lists what to fix. Once a day, vibecms re-checks every active location and flags breakage.
+The status moves `pending` -> `active` on the first passing check. A failing check on a location that never went live marks it `failed` and lists what to fix; a failing check on an already `active` location keeps it `active` and records the errors — a flaky probe must not flip canonical URLs. Where the daily cron runs (hosted, and self-hosts that keep the daily trigger), vibecms re-checks active locations once a day, oldest check first and bounded per sweep, and flags breakage.
 
 ## Add the proxy
 
@@ -140,6 +140,7 @@ Crawlers read your site's root files, not the blog's. After the check passes:
 | `not_proxied` | Your own site answered the health path, not vibecms. | The rule is not matching; verify the path pattern and deployment. |
 | `wrong_site` | The path proxies to a different vibecms blog. | Update the proxy target to this blog's current link. |
 | `old_proxy_link` | The path uses an older proxy link. | Copy the current snippet and update your proxy config. |
+| `superseded` | Another vibecms blog verified a mount on the same hostname, so this location was demoted to `failed`. Ownership is hostname-wide — a different path on the same host cannot coexist. | If the hostname should point here, re-run the check after the other blog disconnects or its proxy changes; to keep both blogs live, use a different hostname. |
 | `cdn_caching` (warning) | Your CDN served a cached page. | Exclude the blog path from full-page caching so publishes appear at once. |
 | `robots_missing_sitemap` (warning) | The root `robots.txt` does not list the blog sitemap. | Add the `Sitemap:` line shown above. |
 
@@ -154,4 +155,4 @@ The Worker and nginx snippets set `X-Forwarded-For` to the visitor's IP so per-v
 - The path becomes the blog's primary address. It wins over a custom domain, which in turn wins over the default `<slug>.<zone>` host.
 - Pages fetched on a non-primary host redirect to the primary location with HTTP 301, so old links keep working.
 - Media files, share-card images, and private preview links stay on the vibecms host — they do not count against your proxy's request quota.
-- Disconnecting in the settings page (or `sites.location.remove`) returns the blog to its default address; remember to remove your proxy rule too.
+- Disconnecting in the settings page (or `sites.location.remove`) returns the blog to the custom domain if one is active, otherwise its default `<slug>.<zone>` address; remember to remove your proxy rule too.

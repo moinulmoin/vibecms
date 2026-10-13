@@ -45,7 +45,7 @@ placement, not from flooding color.
 | `--muted-foreground` | `oklch(0.72 0.014 155)` | Secondary text - verify ≥4.5:1 |
 | `--accent` | `oklch(0.28 0.055 152)` | Hover / active green-tinted fill |
 | `--border` | `oklch(0.3 0.018 168)` | Borders (component boundaries) |
-| `--destructive` | `oklch(0.54 0.2 25)` | Errors / danger |
+| `--destructive` | `oklch(0.68 0.19 25)` | Errors / danger (lighter on dark for AA; buttons use dark ink `--destructive-foreground`) |
 | `--sidebar` | `oklch(0.165 0.008 244)` | Dashboard sidebar |
 
 **Two-tier line rule:** `--border` (near-surface, ~0.3L on dark — a quiet but
@@ -84,11 +84,15 @@ a product feature, not app chrome. Source: `packages/content/src/styles/`.
   `--vc-accent-dark`, `--vc-font-body`, `--vc-font-heading`. Accents (9, incl.
   Graphite) and font pairings (Geist, Newsreader, Space Grotesk, Hanken Grotesk,
   Geist Mono headings) live in `packages/config`.
-- **Presets are voices** (`presets.css`): minimal / editorial / technical / product
-  only re-voice type + rhythm tokens (`--vc-prose-size`, `--vc-prose-measure`,
-  leading, gaps, heading scale/weight/tracking, radius), with matching chrome
-  rules in the CSS modules. Every preset supports every layout
-  (`standard`, `essay`, `feature`) and the page-level ToC.
+- **Presets are templates** (`presets.css` + `packages/config` `THEME_PRESETS`):
+  each preset ships a structural template (chrome: masthead/centered/sidebar;
+  index: list/grid/compact; article header: plain/centered/card) plus curated
+  default look values (accent, font, radius, width, mode), and re-voices type +
+  rhythm tokens (`--vc-prose-size`, `--vc-prose-measure`, leading, gaps, heading
+  scale/weight/tracking) with matching chrome rules in the CSS modules. Owners
+  can override each structural choice on the Theme page. Display labels:
+  Minimal / Editorial / Notebook / Magazine. Every preset supports every layout
+  (`standard`, `essay`, `feature`, `wide`) and the page-level ToC.
 - **The theme owns the document**: public pages stamp the theme on `<html>`
   (`siteThemeRootAttributes`), so canvas, overscroll, scrollbars, and selection
   follow the blog, not vibecms. `tenant.css` imports fonts only, never app chrome.
@@ -122,16 +126,15 @@ on dark gets extra line-height. Cap prose at 65–75ch.
 
 ## Components
 
-Landing primitives (`components/landing/primitives.tsx`):
+Landing primitives (`apps/public/src/components/landing/primitives.tsx`):
 
-- **`SectionShell`** - `max-w-[1200px]`, `px-5 sm:px-7`, `py-16 md:py-[110px]`. Section rhythm.
-- **`MonoEyebrow`** - mono uppercase `// label` kicker. A **deliberate, named brand system** (terminal comment), not the banned generic eyebrow - keep this intentional, don't sprinkle it on every section by reflex.
+- **`SectionShell`** - `max-w-[1200px]`, `px-5 sm:px-7`, `py-16 md:py-24`. Section rhythm.
 - **`Pill`** - rounded mono micro-label with optional pulsing brand dot (LIVE/status).
 - **`GlassCard`** - subtle glass surface (inset hairline + deep shadow + glass gradient). Use sparingly; glass is purposeful, not default.
-- **`GreenCard`** - green gradient surface. The rare deliberate green fill - reserve for the single highest-emphasis moment.
-- **`DotGrid`** / **`Glow`** - ambient background texture (radial dot mask, blurred brand glow).
+- **`DotGrid`** / **`Glow`** / **`SectionLight`** - ambient background texture (radial dot mask, blurred brand glow, anchored light pool).
+- **`GREEN_CTA` / `GHOST_CTA` / `PANEL` / `H2` / `LEAD`** - shared CTA, panel, and type class strings.
 
-Dashboard primitives live in `components/dashboard/blocks/`. The dashboard
+Dashboard primitives live in `apps/dashboard/src/components/dashboard/blocks/`. The dashboard
 follows a docs-UI language (reference: Fumadocs): its own token overrides in
 `apps/dashboard/src/styles.css` (soft page tone, translucent `--border` /
 `--input` / `--accent`, the landing keeps the shared values); a grouped
@@ -157,7 +160,7 @@ nesting (per PRODUCT.md "just enough").
 ## Layout
 
 Centered `max-w-[1200px]` shell, fluid horizontal padding, generous vertical
-section rhythm (`py-16` → `~110px` on desktop). Landing scroll anchors:
+section rhythm (`py-16` → `md:py-24` (96px) on desktop). Landing scroll anchors:
 `#features`, `#agents`, `#pricing`, `#faq` with `scroll-margin-top`. Flexbox for
 1D, Grid for 2D; responsive grids via `repeat(auto-fit, minmax(…, 1fr))`.
 

@@ -1,6 +1,15 @@
 # VibeCMS Phase B — default theme to "clean, minimum, a joy to read"
 
-Status: SPEC — awaiting founder strike/bless on the two marked options, then build.
+Status: SHIPPED/SUPERSEDED (2026-10-13). The shared-layer work below shipped:
+reading time, the quiet masthead/meta line, tag links, the ToC rail/details
+fallback, divider purge, and AA contrast tuning live in
+`packages/content` (`presented-post.tsx`, `reading-time.ts`, `public-chrome.tsx`,
+styles). Later template work (plans 018 + presets-v2) superseded the
+"token-sheet only" model: presets now carry structural templates
+(chrome/index/header), Notebook has a sidebar/compact index, and Magazine a
+grid index, so §4's "uniform list only" and §9's "token values only" describe
+the original proposal, not current behavior. Kept as a design record; do not
+treat as build instructions.
 Origin: theme audit 2026-07-04 (file:line refs verified against main @ cc76477).
 North star (founder): minimum, clean, good enough for a human to ENJOY reading.
 Nothing clever, nothing complex. Whitespace does the work.
