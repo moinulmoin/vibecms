@@ -1,12 +1,13 @@
 import { AppError, RateLimitError } from '@vc/core'
-import { apiRateLimitHeaders } from '@/server/usage'
+import { apiRateLimitHeaders, apiRetryAfterSeconds } from '@/server/usage'
 
-export function errorEnvelope(code: string, message: string, details?: unknown, requestId?: string) {
+export function errorEnvelope(code: string, message: string, details?: unknown, requestId?: string, retryAfterSeconds?: number) {
   return {
     error: {
       code,
       message,
       ...(details !== undefined ? { details } : {}),
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
       ...(requestId ? { requestId } : {}),
     },
   }
@@ -33,11 +34,31 @@ export function statusForAppError(error: AppError) {
   }
 }
 
+// Route request schemas throw ZodError; surface them as input errors, not 500s.
+function zodIssueMessage(error: unknown): string | null {
+  if (!(error instanceof Error) || error.name !== 'ZodError' || !('issues' in error)) return null
+  const issues = error.issues
+  if (!Array.isArray(issues) || issues.length === 0) return 'Invalid request'
+  return issues
+    .slice(0, 5)
+    .map((issue) => {
+      if (!issue || typeof issue !== 'object') return 'input: Invalid value'
+      const path = 'path' in issue && Array.isArray(issue.path) ? issue.path.join('.') : 'input'
+      const message = 'message' in issue && typeof issue.message === 'string' ? issue.message : 'Invalid value'
+      return `${path || 'input'}: ${message}`
+    })
+    .join('; ')
+}
+
 export function jsonAppError(error: unknown, requestId?: string): Response {
   if (error instanceof RateLimitError) {
-    return Response.json(errorEnvelope('RATE_LIMIT', error.message, undefined, requestId), {
+    const retryAfterSeconds = apiRetryAfterSeconds(error)
+    return Response.json(errorEnvelope('RATE_LIMIT', error.message, undefined, requestId, retryAfterSeconds), {
       status: 429,
-      headers: apiRateLimitHeaders(error) as Record<string, string>,
+      headers: {
+        ...(apiRateLimitHeaders(error) as Record<string, string> | undefined),
+        ...(retryAfterSeconds !== undefined ? { 'Retry-After': String(retryAfterSeconds) } : {}),
+      },
     })
   }
   if (error instanceof AppError) {
@@ -50,10 +71,19 @@ export function jsonAppError(error: unknown, requestId?: string): Response {
       'CONFLICT',
       'RATE_LIMIT',
       'VALIDATION_ERROR',
+      'AI_UNAVAILABLE',
     ].includes(error.code)
       ? error.code
       : 'INTERNAL_ERROR'
-    return Response.json(errorEnvelope(code, error.message, undefined, requestId), { status })
+    const retryAfterSeconds = code === 'RATE_LIMIT' ? apiRetryAfterSeconds(error) : undefined
+    return Response.json(errorEnvelope(code, error.message, undefined, requestId, retryAfterSeconds), {
+      status,
+      headers: retryAfterSeconds !== undefined ? { 'Retry-After': String(retryAfterSeconds) } : undefined,
+    })
+  }
+  const validationMessage = zodIssueMessage(error)
+  if (validationMessage) {
+    return Response.json(errorEnvelope('VALIDATION_ERROR', validationMessage, undefined, requestId), { status: 400 })
   }
   return Response.json(errorEnvelope('INTERNAL_ERROR', 'Request failed', undefined, requestId), { status: 500 })
 }

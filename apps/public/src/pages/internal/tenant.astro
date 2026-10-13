@@ -7,35 +7,45 @@ import { listingMarkdown, tenantBlogJsonLd } from "../../lib/agent-pages";
 import { resolveSocialImage } from "../../lib/seo-meta";
 import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
 import { publicOrigin } from "../../server/public-url";
+import { publicBaseUrl, publicUrl, type PublicLocation } from "../../server/public-location";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 
-// Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
-// path stays non-indexable and never becomes a public canonical URL.
+// Internal entry only — reachable via rewrite from `/` (or `/_vc/p/<id>/` for
+// proxied subpath blogs). Direct hits 404 so the path stays non-indexable and
+// never becomes a public canonical URL.
 if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname)) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", { status: 404 });
+  const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (missing) return missing;
+  return new Response("Not found", { status: 404 });
 }
 
 const env = publicRuntimeEnv(Astro);
+const location: PublicLocation = Astro.locals.publicLocation ?? {
+  origin: publicOrigin(Astro.request.url),
+  basePath: "",
+  assetOrigin: publicOrigin(Astro.request.url),
+  proxied: false,
+};
+const homeBase = publicBaseUrl(location);
 const rawQ = Astro.url.searchParams.get("q")?.trim().slice(0, 100);
 const query = rawQ && rawQ.length > 0 ? rawQ : undefined;
-// Host resolution still uses the preserved Host header after rewrite; origin
-// for SEO/canonical comes from the external `/` path (originPathname).
-const originUrl = new URL(Astro.originPathname + Astro.url.search, Astro.url);
-const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query, requestedPublicPage(Astro.url.searchParams.get("page")));
+const blog = await loadPublicIndexByHost(publicDb(Astro), Astro.request, env, query, requestedPublicPage(Astro.url.searchParams.get("page")), location);
 
 if (!blog) {
-  return Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : new Response("Not found", {
+  const markdownMissing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+  if (markdownMissing) return markdownMissing;
+  return new Response("Not found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 }
 
-const origin = publicOrigin(originUrl);
 const page = blog.page ?? resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
-  return new Response(listingMarkdown({ ...blog, page }, origin), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: tenantHomeLinks(origin) } });
+  const markdown = new Response(listingMarkdown({ ...blog, page }, homeBase), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept", link: tenantHomeLinks(location.origin, location.basePath) } });
+  if (markdown) return markdown;
 }
-Astro.response.headers.set("Link", tenantHomeLinks(origin));
+Astro.response.headers.set("Link", tenantHomeLinks(location.origin, location.basePath));
 
 const headers =
   blog.listing.kind === "search"
@@ -47,8 +57,8 @@ for (const [key, value] of Object.entries(headers)) {
 
 const title = blog.site.default_seo_title || blog.site.name;
 const description = blog.site.default_seo_description || blog.site.description || undefined;
-const socialImage = resolveSocialImage(origin, null, blog.site, env.generatedCards);
-const canonical = new URL(publicPageCanonicalPath("/", page), origin).href;
+const socialImage = resolveSocialImage(location.assetOrigin, null, blog.site, env.generatedCards);
+const canonical = publicUrl(location, publicPageCanonicalPath("/", page));
 const { themeAttrs, fontId } = siteDocumentProps(blog.site);
 ---
 <Base
@@ -58,9 +68,9 @@ const { themeAttrs, fontId } = siteDocumentProps(blog.site);
   canonical={canonical}
   socialImage={socialImage}
   themeAttrs={themeAttrs} fontId={fontId}
-  feedHref="/feed.xml"
+  feedHref={`${location.basePath}/feed.xml`}
   feedTitle={blog.site.name} faviconAssetId={blog.site.favicon_asset_id}
 >
-  <Fragment slot="head"><script is:inline type="application/ld+json" set:html={tenantBlogJsonLd(blog.site.name, origin, blog.site.description || "")} /></Fragment>
+  <Fragment slot="head"><script is:inline type="application/ld+json" set:html={tenantBlogJsonLd(blog.site.name, publicUrl(location, "/"), blog.site.description || "")} /></Fragment>
   <PublicBlogIndexView data={blog} page={page} />
 </Base>

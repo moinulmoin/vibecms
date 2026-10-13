@@ -70,6 +70,17 @@ sites.get -> posts.format_guide -> draft -> posts.preview
   -> posts.publish(postId, expectedVersionNumber) -> returned URL
 ```
 
+Fix `error` and `warn` SEO findings before asking for publication approval.
+`posts.preview` includes deterministic `seo` findings. For a saved post, use
+`posts.seo_check({postId, focusKeyword?, ai?})` or
+`GET /api/v1/posts/{postId}/seo?focusKeyword=deployment&ai=1`.
+AI review is opt-in and cached by post version and model; changing the keyword
+does not regenerate a cached review. Hosted sites get 3 reviews/day free or
+100/day with an effective paid entitlement; self-hosted sites have no application
+cap. `RATE_LIMIT` includes `retryAfterSeconds`; without a Workers AI binding,
+AI requests return `AI_UNAVAILABLE`. Invalid AI output returns `ai: null` with a
+warning, leaving deterministic findings available.
+
 The REST `/api/v1` API mirrors the MCP tools with full read/write parity. Post lists return summaries without full Markdown, so fetch a single post body through REST or MCP `posts.get`:
 
 ```sh

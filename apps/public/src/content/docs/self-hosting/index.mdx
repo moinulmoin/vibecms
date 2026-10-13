@@ -33,6 +33,12 @@ openssl rand -hex 32
 
 Production OTP delivery also requires a configured `EMAIL` binding and sender domain.
 
+## Optional analytics and AI
+
+Blog analytics turn on when the public Worker has an `analytics_engine_datasets` binding named `ANALYTICS` and both Workers set `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` (see [`docs/self-hosting.md`](https://github.com/moinulmoin/vibecms/blob/dev/docs/self-hosting.md)). Without them, analytics collects nothing.
+
+AI SEO reviews need a Workers AI binding named `AI` on the API Worker; `SEO_REVIEW_MODEL` picks the model. Without the binding, AI review requests return `AI_UNAVAILABLE` and deterministic SEO checks still work.
+
 ## Deploy
 
 After replacing the placeholder resource IDs, names, service target, and hosts in the root Wrangler files:

@@ -53,6 +53,22 @@ describe("analytics rollup repository", () => {
     expect(await data.analytics.getLastRolledDate(siteId)).toBe("2026-07-20");
   });
 
+  it("accepts the 0034 agent kinds and keeps legacy crawler rows", async () => {
+    const { siteId } = await seedSite("agent-kinds");
+    await data.analytics.replaceDaily(siteId, "2026-10-10", [
+      { kind: "agent" as const, dimension: "GPTBot", label: "GPTBot", value: 5 },
+      { kind: "agent_category" as const, dimension: "ai-training", label: null, value: 5 },
+      { kind: "agent_post" as const, dimension: "post-a", label: null, value: 3 },
+      { kind: "agent_resource" as const, dimension: "repr_markdown", label: null, value: 2 },
+      { kind: "crawler" as const, dimension: "ClaudeBot", label: "Anthropic", value: 7 },
+    ]);
+
+    const rows = await data.analytics.listDaily(siteId, "2026-10-10", "2026-10-10");
+    expect(rows.map((row) => row.kind).sort()).toEqual([
+      "agent", "agent_category", "agent_post", "agent_resource", "crawler",
+    ]);
+  });
+
   it("compacts eligible daily rows per site without deleting another site's monthly history", async () => {
     const first = await seedSite("compact-a");
     const second = await seedSite("compact-b");

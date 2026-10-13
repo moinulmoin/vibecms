@@ -15,7 +15,9 @@ document.addEventListener("submit", async (event) => {
     errorEl.textContent = "";
   }
   try {
-    const res = await fetch("/api/subscribe", {
+    // Proxied blogs mount under a base path; the form posts through the proxy.
+    const apiBase = document.documentElement?.dataset?.vcBase || "";
+    const res = await fetch(`${apiBase}/api/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, siteSlug, company }),

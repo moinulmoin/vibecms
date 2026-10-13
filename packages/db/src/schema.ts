@@ -81,13 +81,28 @@ export const siteVoiceProfiles = sqliteTable("site_voice_profiles", {
 export const domains = sqliteTable("domains", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
-  hostname: text("hostname").notNull().unique(),
-  type: text("type", { enum: ["default", "custom"] }).notNull(),
+  hostname: text("hostname").notNull(),
+  type: text("type", { enum: ["default", "custom", "subpath"] }).notNull(),
   status: text("status", { enum: ["pending", "active", "failed", "disabled"] }).notNull().default("pending"),
   cloudflareCustomHostnameId: text("cloudflare_custom_hostname_id"),
+  // Subpath hosting only: the public base path ("/blog") and the rotatable
+  // non-guessable id embedded in the proxy target URL. NULL on default/custom.
+  basePath: text("base_path"),
+  proxyId: text("proxy_id"),
+  // First time a subpath row verified live; NULL = never-active claim.
+  activatedAt: integer("activated_at"),
   verificationErrorsJson: text("verification_errors_json"),
   ...timestamps,
-}, (table) => [index("idx_domains_site_id").on(table.siteId), index("idx_domains_hostname").on(table.hostname)]);
+}, (table) => [
+  index("idx_domains_site_id").on(table.siteId),
+  index("idx_domains_hostname").on(table.hostname),
+  uniqueIndex("idx_domains_proxy_id").on(table.proxyId),
+  // default/custom rows still own a hostname exclusively; subpath claims do
+  // not (a pending claim proves nothing — see migration 0036).
+  uniqueIndex("idx_domains_hostname_exclusive").on(table.hostname).where(sql`type != 'subpath'`),
+  // At most one VERIFIED subpath location per hostname.
+  uniqueIndex("idx_domains_subpath_active").on(table.hostname).where(sql`type = 'subpath' AND status = 'active'`),
+]);
 
 export const posts = sqliteTable("posts", {
   id: text("id").primaryKey(),
@@ -175,6 +190,18 @@ export const postSlugRedirects = sqliteTable("post_slug_redirects", {
   index("idx_post_slug_redirects_post_id").on(table.postId),
 ]);
 
+export const postSeoReviews = sqliteTable("post_seo_reviews", {
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  postId: text("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  model: text("model").notNull(),
+  resultJson: text("result_json").notNull(),
+  neuronsEstimate: integer("neurons_estimate"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_post_seo_reviews_post_version_model").on(table.postId, table.versionNumber, table.model),
+]);
+
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -239,7 +266,7 @@ export const analyticsRollups = sqliteTable("analytics_rollups", {
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
   granularity: text("granularity", { enum: ["day", "month"] }).notNull(),
   periodStart: text("period_start").notNull(),
-  kind: text("kind", { enum: ["page", "post", "referrer", "crawler"] }).notNull(),
+  kind: text("kind", { enum: ["page", "post", "referrer", "crawler", "agent", "agent_category", "agent_post", "agent_resource"] }).notNull(),
   dimension: text("dimension").notNull().default(""),
   label: text("label"),
   value: integer("value").notNull().default(0),
@@ -440,5 +467,7 @@ export type PendingMediaOperationRow = typeof pendingMediaOperations.$inferSelec
 export type PendingMediaOperationInsert = typeof pendingMediaOperations.$inferInsert;
 export type SubscriberRow = typeof subscribers.$inferSelect;
 export type SubscriberInsert = typeof subscribers.$inferInsert;
+export type PostSeoReviewRow = typeof postSeoReviews.$inferSelect;
+export type PostSeoReviewInsert = typeof postSeoReviews.$inferInsert;
 export type AutoseopilotManagedSiteRow = typeof autoseopilotManagedSites.$inferSelect;
 export type AutoseopilotManagedSiteInsert = typeof autoseopilotManagedSites.$inferInsert;

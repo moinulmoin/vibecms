@@ -3,8 +3,11 @@ import { BillingRequiredError, ConflictError, ForbiddenError, NotFoundError, Val
 
 export type DomainRepository = {
   listBySite(siteId: string): Promise<DomainRecord[]>;
+  /** Any row on this hostname (subpath claims included); several may share one hostname. */
   getByHostname(hostname: string): Promise<DomainRecord | null>;
-  /** Insert a domain row. MUST throw ConflictError if the hostname UNIQUE constraint fails. */
+  /** The hostname's exclusive owner, if any: default/custom rows only — a subpath claim never owns a hostname. */
+  getExclusiveByHostname(hostname: string): Promise<DomainRecord | null>;
+  /** Insert a domain row. MUST throw ConflictError if an exclusive-claim UNIQUE constraint fails. */
   insert(record: DomainRecord): Promise<void>;
   /**
    * Conditionally delete an abandoned row for `hostname`: only when it is still
@@ -20,6 +23,78 @@ export type DomainRepository = {
     siteId: string,
     patch: { cloudflareCustomHostnameId: string | null; status: DomainRecord["status"]; verificationErrorsJson: string | null },
   ): Promise<void>;
+  /**
+   * Create or replace a site's subpath location (`customer.com/blog`). One
+   * subpath row per site: any existing row is removed in the same batch.
+   * Returns the created record with its fresh proxyId.
+   */
+  insertSubpath(input: { siteId: string; hostname: string; basePath: string }): Promise<DomainRecord>;
+  /** `subpath` row addressed by proxy id, on an active site (any status — the ingress gates serving). */
+  getSubpathByProxyId(proxyId: string): Promise<SubpathDomainRow | null>;
+  /** Every ACTIVE subpath row, least-recently-checked first (never-checked first) — the daily re-check walks these. */
+  listActiveSubpaths(limit: number): Promise<SubpathDomainRow[]>;
+  /**
+   * Record a setup-check result in ONE atomic batch: the row must still carry
+   * the proxy id that was checked (a rotate/remove makes the write a no-op,
+   * `applied` = 0), and a failing check never demotes an already-active row.
+   *
+   * When the check PASSES, the hostname's other sites' active subpath rows are
+   * demoted to `failed` (marked superseded) in the same transaction — the pass
+   * is the only proof of hostname control, so it owns the hostname from that
+   * point on (`idx_domains_subpath_active` allows just one). `demoted` lists
+   * only the rows this batch actually demoted (a raced loser already demoted
+   * by a rival batch is excluded), so callers can log activity and purge.
+   * MUST throw ConflictError if the activation still hits the active-subpath
+   * UNIQUE index (another claim raced in) — the caller re-runs the check.
+   */
+  recordSubpathCheck(
+    id: string,
+    siteId: string,
+    input: { proxyId: string; checkPassed: boolean; verificationErrorsJson: string },
+  ): Promise<SubpathCheckWriteResult>;
+  /** Replace a subpath row's proxy id; returns the new id. */
+  rotateProxyId(id: string, siteId: string): Promise<string>;
+  /** Delete a site's subpath row. Returns rows removed. */
+  deleteSubpathForSite(siteId: string): Promise<number>;
+  /**
+   * Delete stale never-active subpath claims (pending/failed, `activated_at`
+   * NULL) untouched since `staleBeforeUpdatedAt`, at most `limit` rows.
+   * Returns rows removed. Squatter cleanup: pending claims hold nothing, but
+   * abandoned rows should not pile up forever.
+   */
+  deleteStaleSubpathClaims(staleBeforeUpdatedAt: number, limit: number): Promise<number>;
+  /** Persist subpath verification state; `verificationErrorsJson` clears when omitted. */
+  setSubpathStatus(id: string, siteId: string, status: DomainRecord["status"], verificationErrorsJson?: string): Promise<void>;
+  /** The public location served for this site: active subpath > custom > default. */
+  getPrimaryPublicLocation(siteId: string): Promise<PrimaryPublicLocation | null>;
+};
+
+/** The fields a proxied request needs to rebuild the customer-facing location. */
+export type SubpathDomainRow = {
+  id: string;
+  siteId: string;
+  hostname: string;
+  basePath: string | null;
+  proxyId: string | null;
+  /** `pending`/`failed` rows still resolve: health answers, pages 404 "not connected". */
+  status: DomainRecord["status"];
+};
+
+/**
+ * `recordSubpathCheck` outcome: `applied` is the activation write's row count
+ * (0 = the checked proxy id rotated/removed mid-probe), `demoted` only the
+ * losing rows this batch actually flipped to `failed`.
+ */
+export type SubpathCheckWriteResult = {
+  applied: number;
+  demoted: SubpathDomainRow[];
+};
+
+/** The primary public mount for a site; basePath is "" unless type is "subpath". */
+export type PrimaryPublicLocation = {
+  type: DomainRecord["type"];
+  hostname: string;
+  basePath: string;
 };
 
 // A never-verified row older than this is treated as abandoned and may be reclaimed by
@@ -55,10 +130,13 @@ export async function addCustomDomain(
   let reclaimedCfHostnameId: string | null = null;
   let reclaimedSiteId: string | null = null;
 
-  const existing = await repo.getByHostname(hostname);
+  // Only an exclusive claim (default/custom) blocks a custom-domain add.
+  // Subpath claims are scoped to a base path, prove nothing until verified,
+  // and never block — a squatter cannot hold a hostname with a pending claim.
+  const existing = await repo.getExclusiveByHostname(hostname);
   if (existing) {
-    // idempotent: already connected to this site
-    if (existing.siteId === input.siteId) {
+    // idempotent: a custom domain already connected to this site
+    if (existing.type === "custom" && existing.siteId === input.siteId) {
       return { record: existing, reclaimedCfHostnameId: null, reclaimedSiteId: null };
     }
     const reclaimable =
@@ -80,6 +158,9 @@ export async function addCustomDomain(
     status: "pending",
     cloudflareCustomHostnameId: null,
     verificationErrorsJson: null,
+    basePath: null,
+    proxyId: null,
+    activatedAt: null,
     createdAt: now,
     updatedAt: now,
   };

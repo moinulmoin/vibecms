@@ -104,6 +104,32 @@ export const signupFormDtoSchema = z.object({
 export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema });
 /** sites.signup_form.update echoes the new site revision for follow-up edits. */
 export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
+const subpathCheckIssueDtoSchema = z.object({ code: z.string(), message: z.string() });
+const subpathCheckDtoSchema = z.object({
+  ok: z.boolean(),
+  checkedAt: z.number().int(),
+  errors: z.array(subpathCheckIssueDtoSchema),
+  warnings: z.array(subpathCheckIssueDtoSchema),
+});
+const subpathSnippetsDtoSchema = z.object({
+  cloudflareWorker: z.object({ code: z.string(), route: z.string() }),
+  vercel: z.string(),
+  nextjs: z.string(),
+  netlify: z.string(),
+  nginx: z.string(),
+  caddy: z.string(),
+});
+/** Where this blog is served. `proxyTarget`/`snippets` are owner-level setup secrets. */
+export const siteLocationDtoSchema = z.object({
+  type: z.enum(['default', 'custom', 'subpath']),
+  url: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'failed', 'disabled']).nullable(),
+  proxyTarget: z.string().optional(),
+  snippets: subpathSnippetsDtoSchema.optional(),
+  lastCheck: subpathCheckDtoSchema.optional(),
+});
+export const siteLocationCheckDtoSchema = z.object({ check: subpathCheckDtoSchema, location: siteLocationDtoSchema });
+export type SiteLocationDto = z.infer<typeof siteLocationDtoSchema>;
 export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
 export const analyticsDtoSchema = z.object({
   status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
@@ -113,6 +139,13 @@ export const analyticsDtoSchema = z.object({
   topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() })).optional(),
   referrers: z.array(z.object({ domain: z.string(), views: z.number(), ai: z.boolean(), operator: z.string().nullable() })).optional(),
   aiCrawlers: z.object({ status: z.enum(['available', 'unavailable']), lookbackDays: z.number(), requests: z.number(), agents: z.array(z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() })) }).optional(),
+  agents: z.object({
+    total: z.number(),
+    byCategory: z.array(z.object({ category: z.string(), fetches: z.number() })),
+    topAgents: z.array(z.object({ id: z.string(), label: z.string(), operator: z.string(), category: z.string(), fetches: z.number() })),
+    topPosts: z.array(z.object({ postId: z.string(), slug: z.string(), title: z.string(), fetches: z.number() })),
+    markdownShare: z.number(), signedShare: z.number(), llmsReads: z.number(),
+  }).optional(),
   reason: z.enum(['self_hosted', 'not_configured', 'query_failed']).optional(),
 });
 
@@ -228,6 +261,37 @@ export const formatGuideDtoSchema = z.object({
 
 export type FormatGuideDto = z.infer<typeof formatGuideDtoSchema>;
 
+/** One deterministic SEO finding; codes are stable API surface. */
+export const seoFindingSchema = z.object({
+  code: z.string(),
+  severity: z.enum(["error", "warn", "info"]),
+  field: z.string(),
+  message: z.string(),
+  fix: z.string(),
+  position: z.number().optional(),
+});
+
+/** Strict shape the Workers AI review must satisfy; anything else is dropped. */
+export const seoAiReviewSchema = z
+  .object({
+    intent: z.string(),
+    titleIdeas: z.tuple([z.string(), z.string()]),
+    descriptionIdea: z.string(),
+    missingSubtopics: z.array(z.string()).max(5),
+    unclearPassages: z
+      .array(z.object({ quote: z.string(), why: z.string() }).strict())
+      .max(3),
+    claimsNeedingSources: z.array(z.object({ quote: z.string() }).strict()).max(3),
+  })
+  .strict();
+
+export const seoCheckPostDtoSchema = z.object({
+  versionNumber: z.number().int(),
+  findings: z.array(seoFindingSchema),
+  ai: seoAiReviewSchema.nullable().optional(),
+  warnings: z.array(z.string()).optional(),
+});
+
 export const previewPostDtoSchema = z.object({
   previewUrl: z.url().nullable(),
   html: z.string(),
@@ -237,6 +301,7 @@ export const previewPostDtoSchema = z.object({
     id: z.string(),
   })),
   warnings: z.array(z.string()),
+  seo: z.array(seoFindingSchema),
   rendererVersion: z.string(),
   requestedPresentation: presentationSchema,
   resolvedPresentation: z.object({ layout: z.enum(PRESENTATION_LAYOUTS), toc: z.boolean() }),
@@ -244,3 +309,7 @@ export const previewPostDtoSchema = z.object({
 });
 
 export type PreviewPostDto = z.infer<typeof previewPostDtoSchema>;
+
+export type SeoFinding = z.infer<typeof seoFindingSchema>;
+export type SeoAiReview = z.infer<typeof seoAiReviewSchema>;
+export type SeoCheckPostDto = z.infer<typeof seoCheckPostDtoSchema>;

@@ -9,6 +9,11 @@ import {
   provisionManagedSite,
   revokeManagedSite,
 } from '@/server/autoseopilot-managed'
+import {
+  checkManagedSiteLocation,
+  managedLocationRequestSchema,
+  setManagedSiteLocation,
+} from '@/server/autoseopilot-managed'
 
 type ManagedRouteEnv = {
   Bindings: Cloudflare.Env
@@ -52,7 +57,7 @@ function safeExternalWorkspaceId(value: string) {
 }
 
 function logManagedLifecycle(input: {
-  operation: 'provision' | 'status' | 'revoke'
+  operation: 'provision' | 'status' | 'revoke' | 'location' | 'location_check'
   outcome: 'success' | 'conflict' | 'failure'
   correlationId: string
   externalWorkspaceId: string
@@ -232,13 +237,66 @@ autoseopilotRoutes.post('/sites/:externalWorkspaceId/revoke', async (c) => {
   }
 })
 
+autoseopilotRoutes.put('/sites/:externalWorkspaceId/location', async (c) => {
+  const id = c.get('correlationId')
+  const externalWorkspaceId = c.req.param('externalWorkspaceId')
+  if (!c.req.header('content-type')?.toLowerCase().includes('application/json')) {
+    return c.json(errorBody('VALIDATION_ERROR', 'JSON body required.', id), 400)
+  }
+  if (!safeExternalWorkspaceId(externalWorkspaceId)) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid external workspace ID', id), 400)
+  }
+  const body = await parseJson<unknown>(c.req.raw)
+  if ('error' in body) return c.json(errorBody('VALIDATION_ERROR', body.error ?? 'Invalid JSON body.', id), 400)
+  const result = managedLocationRequestSchema.safeParse(body.value)
+  if (!result.success) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid request.', id), 400)
+  }
+  try {
+    const response = await setManagedSiteLocation(c.env, externalWorkspaceId, result.data)
+    logManagedLifecycle({
+      operation: 'location',
+      outcome: 'success',
+      correlationId: id,
+      externalWorkspaceId,
+      status: 200,
+      code: 'LOCATION_SET',
+    })
+    return c.json(response, 200)
+  } catch (error) {
+    return handleManagedError(c, error, id, 'location', externalWorkspaceId)
+  }
+})
+
+autoseopilotRoutes.post('/sites/:externalWorkspaceId/location/check', async (c) => {
+  const id = c.get('correlationId')
+  const externalWorkspaceId = c.req.param('externalWorkspaceId')
+  if (!safeExternalWorkspaceId(externalWorkspaceId)) {
+    return c.json(errorBody('VALIDATION_ERROR', 'Invalid external workspace ID', id), 400)
+  }
+  try {
+    const response = await checkManagedSiteLocation(c.env, externalWorkspaceId)
+    logManagedLifecycle({
+      operation: 'location_check',
+      outcome: 'success',
+      correlationId: id,
+      externalWorkspaceId,
+      status: 200,
+      code: 'LOCATION_CHECKED',
+    })
+    return c.json(response, 200)
+  } catch (error) {
+    return handleManagedError(c, error, id, 'location_check', externalWorkspaceId)
+  }
+})
+
 function handleManagedError(
   c: {
     json: (body: unknown, status: 400 | 401 | 404 | 409 | 413 | 500) => Response
   },
   error: unknown,
   id: string,
-  operation: 'provision' | 'status' | 'revoke',
+  operation: 'provision' | 'status' | 'revoke' | 'location' | 'location_check',
   externalWorkspaceId: string,
 ) {
   if (error instanceof ManagedInternalError) {

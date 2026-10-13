@@ -3,6 +3,16 @@ title: Troubleshooting
 description: Diagnose connection, scope, version, media, billing, and deployment failures.
 ---
 
+## A blog path location fails its setup check
+
+The three most common `Check setup` errors and their causes:
+
+- `no_response` or `http_error` — the path does not reach vibecms. Save and deploy the route or rewrite, then check that it matches `/blog` and everything under it.
+- `redirects` — the rule redirects instead of proxying. Rewrites must serve the response in place.
+- `not_proxied` or `old_proxy_link` — your own site answered the health path, or the proxy uses a stale link. Copy the current snippet from Settings > Domain.
+
+See [Your blog at example.com/blog](/docs/content/blog-on-your-site) for every check code.
+
 ## The client lists tools but cannot read the site
 
 Tool discovery is not an authentication check. Call `sites.get`. Confirm the bearer header is attached to the MCP server request and the token has `sites:read`.

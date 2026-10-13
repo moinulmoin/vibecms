@@ -35,6 +35,22 @@
   font-family: var(--font-mono);
 }
 
+/* Fumadocs' prose styles every `code` as an inline chip. Our MDX code blocks
+   render as plain <pre><code>, so reset the chip inside blocks; otherwise each
+   wrapped line gets its own border and padding. */
+.vc-docs-page pre:has(> code) {
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+}
+
+.vc-docs-page pre > code {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: inherit;
+}
+
 .vc-docs-page :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

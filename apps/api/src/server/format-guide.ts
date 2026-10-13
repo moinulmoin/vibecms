@@ -256,7 +256,7 @@ export function formatGuideForPreset(presetId: PresetId): FormatGuideDto {
     rendererVersion: RENDERER_VERSION,
     recommendedComponents: preset.recommendedComponents,
     presetGuidance: preset.formatGuide,
-    examples: `${V1_EXAMPLES}\n\n=== Managing the site ===\nThese changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval. After a theme change, give them the blog URL and offer to revert the theme if they do not like it.`,
+    examples: `${V1_EXAMPLES}\n\n=== Before publishing ===\nposts.preview returns seo findings alongside warnings; posts.seo_check re-runs them on the saved tip. Resolve every error finding and fix warn findings where you can before asking for publication approval; each finding's fix text says how. ai: true on posts.seo_check runs an opt-in AI review that counts against the site's daily limit - use it only when asked.\n\n=== Managing the site ===\nThese changes affect the live site. Get explicit owner approval for the specific change before calling. Having the scope is not approval. After a theme change, give them the blog URL and offer to revert the theme if they do not like it.`,
     syntax: SYNTAX,
     presentationOptions: {
       supportedLayouts: [...layoutCap.supportedLayouts],

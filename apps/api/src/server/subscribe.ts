@@ -1,10 +1,23 @@
 import { env } from 'cloudflare:workers'
 import { createDataAccess, createD1SubscriberRepository } from '@vc/db'
+import { API_BINDING_HOSTNAME } from '@vc/config'
 
 import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from '@/lib/subscribe-consent'
 
 const RATE_LIMIT_MAX = 5
-const RATE_LIMIT_WINDOW_SECONDS = 3600
+export const RATE_LIMIT_WINDOW_SECONDS = 3600
+// Cap on accepted subscribes that came through a customer's subpath proxy, per
+// site AND per connecting edge IP, per window. The forwarded client IP there is
+// the client-controlled first X-Forwarded-For hop, so the per-IP key can be
+// gamed; this bounds a flood rotating spoofed IPs. Keying on the connecting IP
+// (CF-Connecting-IP of the hop that reached us, which can't be spoofed) means
+// someone calling /_vc/p/<id> directly only exhausts their own bucket, not the
+// one real visitors share through the customer's proxy. Direct traffic keys on
+// CF-Connecting-IP already and is not capped here. 300/hour leaves room for a
+// post that goes viral. Residual risk: whoever holds a site's proxy id (a
+// credential, see plans/022) can add up to this many junk signups per hour per
+// real IP they control; rotating the proxy id ends it. No emails are sent.
+export const PROXIED_SITE_RATE_LIMIT_MAX = 300
 const BODY_SIZE_LIMIT = 4096
 const EMAIL_MAX_LENGTH = 254
 const SITE_SLUG_MAX_LENGTH = 128
@@ -90,17 +103,39 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
   // HMAC-SHA256 hashes keyed by TOKEN_PEPPER; degrade to null when pepper absent
   const pepper = env.TOKEN_PEPPER ?? ''
-  const ip = request.headers.get('CF-Connecting-IP') ?? ''
+  // Only the public Worker forwards `x-vc-client-ip` (its first
+  // X-Forwarded-For hop, set for proxied subpath blogs), and it always
+  // addresses the service binding at `https://<API_BINDING_HOSTNAME>`.
+  // Service bindings preserve the caller-supplied URL, and no zone can route
+  // internet traffic to that hostname — so hostname equality, not the
+  // caller-named `cf-worker` header (a zone name an attacker's own worker
+  // could match), is the trust signal. A client-spoofed header on a direct
+  // request is ignored.
+  // The forwarded value itself is NOT trustworthy: X-Forwarded-For's first
+  // hop is client-controlled, so the per-IP bucket below only gives real
+  // visitors behind a proxy per-visitor fairness — the proxied cap is the
+  // actual abuse bound. `x-vc-proxied` marks every proxied request (with or
+  // without a forwarded IP), so omitting X-Forwarded-For can't skip the cap.
+  const viaBinding = new URL(request.url).hostname === API_BINDING_HOSTNAME
+  const proxied = viaBinding && request.headers.get('x-vc-proxied') === '1'
+  const proxiedIp = proxied ? request.headers.get('x-vc-client-ip') ?? '' : ''
+  const edgeIp = request.headers.get('CF-Connecting-IP') ?? ''
+  const ip = proxiedIp || edgeIp
   const ua = request.headers.get('user-agent') ?? ''
   const ipHash = ip && pepper ? await hmacBase64Url(pepper, ip) : null
+  const edgeIpHash = edgeIp && pepper ? await hmacBase64Url(pepper, edgeIp) : null
   const uaHash = ua && pepper ? await hmacBase64Url(pepper, ua) : null
 
-  // Rate-limit keyed by canonical site id (not caller-supplied slug) + ip hash + window bucket.
-  // Fail closed on any error - this is an unauthenticated public endpoint.
+  // Two fixed-window buckets, both fail closed:
+  //  1. per-IP: keyed by site id + hashed client IP — fairness per visitor.
+  //     Spoofable via x-vc-client-ip on the binding path, so not a bound.
+  //  2. proxied requests only: keyed by site id + hashed connecting edge IP —
+  //     the abuse bound against floods that rotate spoofed forwarded IPs.
   const ts = Math.floor(Date.now() / 1000)
   const bucket = Math.floor(ts / RATE_LIMIT_WINDOW_SECONDS)
   const windowEnd = (bucket + 1) * RATE_LIMIT_WINDOW_SECONDS
   const rateLimitId = `subscribe:${siteId}:${ipHash ?? 'anon'}:${bucket}`
+  const siteRateLimitId = `subscribe-proxied:${siteId}:${edgeIpHash ?? 'anon'}:${bucket}`
 
   try {
     const rateLimits = createDataAccess(env.DB).rateLimits
@@ -117,6 +152,20 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
 
     if (!allowed) {
       return { status: 429, body: { ok: false, error: 'rate_limited' } }
+    }
+
+    // Proxied requests only, and only after the per-IP check passes so a
+    // blocked visitor does not spend the shared site budget.
+    if (proxied) {
+      const siteWide = await rateLimits.increment({
+        id: siteRateLimitId,
+        windowExpiresAt: windowEnd,
+        max: PROXIED_SITE_RATE_LIMIT_MAX,
+        now: ts,
+      })
+      if (!siteWide.allowed) {
+        return { status: 429, body: { ok: false, error: 'rate_limited' } }
+      }
     }
   } catch (err) {
     // Fail closed - treat rate-limit check failure as rate_limited

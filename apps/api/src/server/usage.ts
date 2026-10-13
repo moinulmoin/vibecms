@@ -154,6 +154,27 @@ export function apiRateLimitHeaders(error: unknown): HeadersInit | undefined {
   };
 }
 
+/**
+ * Seconds until retry for any rate-limit-shaped error: workspace quota errors
+ * carry usageStatus.resetsAt; plan-defined limit errors set retryAfterSeconds.
+ */
+export function apiRetryAfterSeconds(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const usageStatus = "usageStatus" in error ? error.usageStatus : undefined;
+  const resetsAt =
+    usageStatus && typeof usageStatus === "object" && "resetsAt" in usageStatus
+      ? usageStatus.resetsAt
+      : undefined;
+  if (typeof resetsAt === "number" && Number.isFinite(resetsAt)) {
+    return Math.max(1, Math.ceil(resetsAt - now()));
+  }
+  const retryAfter = "retryAfterSeconds" in error ? error.retryAfterSeconds : undefined;
+  if (typeof retryAfter === "number" && Number.isFinite(retryAfter)) {
+    return Math.max(1, Math.ceil(retryAfter));
+  }
+  return undefined;
+}
+
 export async function enforceApiBudget(input: { workspaceId: string; siteId: string; tokenId: string; kind: ApiUsageKind; force?: boolean }): Promise<void> {
   if (isSelfHosted() && !input.force) return;
   const entitlement = await resolveEffectiveEntitlementForWorkspace(input.workspaceId);

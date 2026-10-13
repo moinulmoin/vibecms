@@ -4,12 +4,8 @@ import { env } from 'cloudflare:workers'
 import { getBillingStatus } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
-import {
-  defaultHostname,
-  isLocalDefaultHostname,
-  publicBlogBaseDomain,
-  publicUrlForHostname,
-} from './public-url'
+import { isLocalDefaultHostname } from './public-url'
+import { getSitePublicBaseUrl } from './site-public-url'
 import { getApiUsageSummary, type ApiUsageSummary } from '@/server/usage'
 
 type ActivityRow = { action: string; summary: string; actor_name: string; created_at: number }
@@ -91,19 +87,7 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
     db.dashboard.getActivationPost(app.siteId),
   ])
 
-  // One-time repair of a stale local default hostname to the configured slug zone; mirrors site-public-url.ts.
-  let hostname = agg.activeDefaultHostname
-  if (agg.site && hostname && isLocalDefaultHostname(hostname) && publicBlogBaseDomain()) {
-    hostname = await db.sites.repairDefaultHostname({
-      siteId: app.siteId,
-      currentHostname: hostname,
-      newHostname: defaultHostname(agg.site.slug),
-    })
-  } else if (!agg.site) {
-    hostname = null
-  }
-
-  const publicBaseUrl = agg.site ? publicUrlForHostname(hostname) : null
+  const publicBaseUrl = agg.site ? await getSitePublicBaseUrl(app.siteId, agg.site.slug) : null
   // activationPost surfaces the durable live agent proof on Overview; the URL is
   // derived from the same live proof and the active public base URL (never fabricated).
   const activationPost = toActivationPost(proof, publicBaseUrl)
@@ -111,7 +95,11 @@ export async function getDashboardData(app: AppUserContext): Promise<DashboardDa
   return {
     site: agg.site,
     publicUrl: publicBaseUrl,
-    publicUrlLocal: hostname ? isLocalDefaultHostname(hostname) : false,
+    // Locality follows the RESOLVED public URL (primary location), not the default
+    // hostname: a custom/subpath primary on a local dev default is still live.
+    publicUrlLocal: publicBaseUrl
+      ? isLocalDefaultHostname(new URL(publicBaseUrl).hostname)
+      : false,
     billing: {
       status: billingStatus,
       polarStatus: entitlement.rawPolarStatus,

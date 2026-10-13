@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { AnalyticsPage } from '~/components/dashboard/AnalyticsPage'
+import { AnalyticsPage, type AnalyticsTab } from '~/components/dashboard/AnalyticsPage'
 import { analyticsQuery, queryClient, warm } from '~/lib/queries'
 import type { AnalyticsRange } from '~/types/dashboard'
 
@@ -10,9 +10,13 @@ function parseRange(value: unknown): AnalyticsRange | undefined {
 }
 
 export const Route = createFileRoute('/dashboard/analytics')({
-  validateSearch: (search: Record<string, unknown>): { range?: AnalyticsRange } => {
+  validateSearch: (search: Record<string, unknown>): { range?: AnalyticsRange; tab?: AnalyticsTab } => {
     const range = parseRange(search.range)
-    return range === undefined ? {} : { range }
+    const tab = search.tab === 'agents' ? 'agents' : undefined
+    return {
+      ...(range === undefined ? {} : { range }),
+      ...(tab === undefined ? {} : { tab }),
+    }
   },
   loaderDeps: ({ search }) => ({ range: search.range ?? 30 }),
   loader: ({ deps }) => warm(queryClient.prefetchQuery(analyticsQuery(deps.range))),
@@ -20,6 +24,6 @@ export const Route = createFileRoute('/dashboard/analytics')({
 })
 
 function AnalyticsRoute() {
-  const { range } = Route.useSearch()
-  return <AnalyticsPage range={range ?? 30} />
+  const { range, tab } = Route.useSearch()
+  return <AnalyticsPage range={range ?? 30} tab={tab ?? 'people'} />
 }

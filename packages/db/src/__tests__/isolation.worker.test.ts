@@ -447,4 +447,62 @@ describe("e. custom domains", () => {
     expect(reclaimedCfHostnameId).toBe("cf-stale-xyz");
     expect(reclaimedSiteId).toBe("site-a");
   });
+
+  it("addCustomDomain is never blocked by subpath claims on the same hostname", async () => {
+    const repo = createD1DomainRepository(env.DB);
+    const staleTtlSeconds = 72 * 60 * 60;
+    const claimedAt = 1_000_000_200;
+
+    // A pending subpath claim on another site: it proves nothing and must not
+    // hold the hostname against the exclusive (custom) claim.
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, 'subpath', 'pending', '/blog', 'p3', ?, ?)",
+    )
+      .bind("dom-sub-stale", "site-b", "stalesubpath.example.com", claimedAt, claimedAt)
+      .run();
+    const { record } = await addCustomDomain(repo, {
+      siteId: "site-a",
+      hostname: "stalesubpath.example.com",
+      isOwner: true,
+      isPaid: true,
+      ...ENV,
+      now: claimedAt + 60,
+      staleTtlSeconds,
+    });
+    expect(record).toMatchObject({ type: "custom", siteId: "site-a", hostname: "stalesubpath.example.com" });
+    // Both rows coexist — the pending subpath claim was not reclaimed away.
+    expect((await repo.listBySite("site-b")).some((d) => d.hostname === "stalesubpath.example.com" && d.type === "subpath")).toBe(true);
+
+    // Even an ACTIVE subpath row does not own the hostname for custom adds:
+    // it serves only base_path-scoped traffic, while a custom row claims the
+    // whole host. Both may exist (different sites, different scopes).
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, activated_at, created_at, updated_at) VALUES (?, ?, ?, 'subpath', 'active', '/notes', 'p2', ?, ?, ?)",
+    )
+      .bind("dom-sub-theirs", "site-b", "theirsubpath.example.com", claimedAt, claimedAt, claimedAt)
+      .run();
+    const { record: alongsideActive } = await addCustomDomain(repo, {
+      siteId: "site-a",
+      hostname: "theirsubpath.example.com",
+      isOwner: true,
+      isPaid: true,
+      ...ENV,
+      now: claimedAt + 60,
+      staleTtlSeconds,
+    });
+    expect(alongsideActive.hostname).toBe("theirsubpath.example.com");
+
+    // But a second CUSTOM claim on an owned hostname is still rejected.
+    await expect(
+      addCustomDomain(repo, {
+        siteId: "site-b",
+        hostname: "theirsubpath.example.com",
+        isOwner: true,
+        isPaid: true,
+        ...ENV,
+        now: claimedAt + 60,
+        staleTtlSeconds,
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
 });

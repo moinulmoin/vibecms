@@ -1,7 +1,7 @@
 import { createD1PostRepository, resolvePreviewToken } from '@vc/db';
 import { resolvePublicByline } from '../lib/byline';
 import { buildPublicSidebar } from './public-blog';
-import { listPublishedPostSummaries, resolveSite } from './public-blog-data';
+import { listPublishedPostSummaries, resolvePublishedLinkSlugs, resolveSite } from './public-blog-data';
 import type { PublicPostLoaderData } from './public-blog';
 import type { PublicRuntimeEnv } from '../env';
 
@@ -61,6 +61,9 @@ export async function loadPrivatePreview(db: D1Database, request: Request, token
       post: detail,
       sidebar: buildPublicSidebar(summaries, post.id),
       basePath: '',
+      assetOrigin: '',
+      proxied: false,
+      postSlugs: await resolvePublishedLinkSlugs(db, site.id, [version.contentMarkdown]),
       canonicalUrl: `/preview/${token}`,
       origin: new URL(request.url).origin,
       indexable: false,

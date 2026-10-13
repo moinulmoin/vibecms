@@ -14,7 +14,11 @@ Create a **Manage** key in **Dashboard > Connect** when you want your agent to c
 | `sites.voice.update` | Saves audience, tone, do and don't rules, and up to three published representative posts. |
 | `sites.signup_form.update` | Changes only the sent email signup form fields. Changes go live immediately. |
 | `tags.list` | Lists tags used by non-archived posts with post counts. |
-| `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and crawler requests. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Analytics requires a paid plan. |
+| `sites.location.get` | Returns where the blog is served — default host, custom domain, or a path of the owner's site — with status and the last setup check. The proxy target and snippets appear only for keys that may manage the location. |
+| `sites.location.set_subpath` | Serves the blog at a path of the owner's site (`https://customer.com/blog`). Returns the proxy target and ready-to-paste snippets for Cloudflare, Vercel, Next.js, Netlify, nginx, and Caddy. Needs explicit owner approval first; the owner must save a snippet, then call `sites.location.check`. |
+| `sites.location.check` | Probes the path's health address and compares it with this blog. A pass activates the location; a failure returns plain-language errors. |
+| `sites.location.remove` | Removes the subpath location and returns the blog to its default address. Needs explicit owner approval first. |
+| `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and agent reads (AI assistants, crawlers, and search engines seen server-side) with Markdown and llms.txt shares. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Pass `postId` to scope per-post numbers to one post. Analytics requires a paid plan. |
 
 ## Avoid overwriting a newer change
 

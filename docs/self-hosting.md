@@ -23,6 +23,8 @@ Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public
 - Optional service binding named `OG` from public to the default `OgWorker` entrypoint. Remove this binding from `wrangler.public.jsonc` if you skip the OG Worker. Without it, generated `/og*.png` cards return 404; post covers and site default share images continue to work, and pages without either omit image metadata.
 - A native `send_email` binding named `EMAIL` on the API Worker for real OTP delivery
 - Images binding named `IMAGES` on the public Worker (already declared)
+- Optional Workers AI binding named `AI` on the API Worker (already declared in root `wrangler.jsonc`) for `posts.seo_check` AI reviews; without it, `ai: true` requests return `AI_UNAVAILABLE` and deterministic checks still work. Remove the binding to disable AI reviews entirely.
+- Optional Analytics Engine dataset bound as `ANALYTICS` on the public Worker, plus `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` vars on both Workers, for people + agent analytics. Without the binding trio, analytics collects nothing and the dashboard explains what to add; the Workers Free plan allows ~100,000 events/day.
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 
@@ -39,9 +41,12 @@ BETTER_AUTH_URL=https://vibecms.<your-subdomain>.workers.dev
 PUBLIC_BLOG_DOMAIN=vibecms-public.<your-subdomain>.workers.dev
 SELF_HOSTED=true
 EMAIL_FROM=vibecms <login@your-domain.com>
+SEO_REVIEW_MODEL=@cf/google/gemma-4-26b-a4b-it
 ```
 
-The public Worker uses the same `APP_URL`, `PUBLIC_BLOG_DOMAIN`, and `SELF_HOSTED=true` values.
+`SEO_REVIEW_MODEL` picks the Workers AI model used for SEO reviews; the default works on the Workers Free allocation.
+
+The public Worker uses the same `APP_URL`, `PUBLIC_BLOG_DOMAIN`, and `SELF_HOSTED=true` values. For analytics, give it the `ANALYTICS` dataset binding and set `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` (the API token needs Analytics Engine read) on both Workers.
 
 Set API Worker secrets from the repository root:
 

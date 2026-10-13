@@ -15,15 +15,28 @@ export function siteCacheTag(siteId: string) {
   return `vc-site:${siteId}`;
 }
 
+/** A mounted public location (custom domain, subpath) whose responses cache under `https://<host><basePath>`. */
+export interface PublicMountLocation {
+  hostname: string;
+  basePath?: string | null;
+}
+
 export function articleCacheUrls(siteSlug: string, postSlug: string): string[] {
   if (!publicBlogBaseDomain()) return [];
   return articleCacheUrlsForHost(defaultHostname(siteSlug), postSlug);
 }
 
-/** Article cache URLs for a specific host — custom domains key their cache by their own hostname. */
-export function articleCacheUrlsForHost(hostname: string, postSlug: string): string[] {
-  const base = `https://${hostname}`;
+/**
+ * Article cache URLs for a mounted host — custom domains key their cache by
+ * their own hostname; subpath mounts additionally carry the base path.
+ */
+export function articleCacheUrlsForHost(hostname: string, postSlug: string, basePath = ""): string[] {
+  const base = `https://${hostname}${basePath}`;
   return [`${base}/${postSlug}`, `${base}/${postSlug}.md`];
+}
+
+function articleCacheUrlsForLocations(locations: readonly PublicMountLocation[], postSlug: string): string[] {
+  return locations.flatMap((loc) => articleCacheUrlsForHost(loc.hostname, postSlug, loc.basePath ?? ""));
 }
 
 export function siteCacheUrls(siteSlug: string): string[] {
@@ -40,11 +53,11 @@ export function siteCacheUrls(siteSlug: string): string[] {
   ];
 }
 
-/** Best-effort Cache API keys for a custom hostname (CF `hosts` purge is authoritative). */
-export function hostnameCacheUrls(hostname: string): string[] {
+/** Best-effort Cache API keys for a mounted hostname + base path. */
+export function hostnameCacheUrls(hostname: string, basePath = ""): string[] {
   const host = hostname.trim().toLowerCase().replace(/\.$/, "");
   if (!host) return [];
-  const base = `https://${host}`;
+  const base = `https://${host}${basePath}`;
   return [
     base,
     `${base}/feed.xml`,
@@ -102,32 +115,44 @@ async function purgeCache(tags: string[], urls: string[], hosts: string[] = []):
  * llms.txt — and every published article. The zone tag purge covers articles
  * on plans with tag purging; the URL fallback must enumerate them, so callers
  * pass the site's published slugs (settings/theme saves change every article's
- * render but no article mutation fires its own purge). Custom hostnames key
- * their cache by their own host, so they need explicit URL variants plus the
- * authoritative `hosts` purge.
+ * render but no article mutation fires its own purge). Mounted locations —
+ * custom domains and subpath mounts — key their cache by `host + basePath`,
+ * so they need explicit URL variants plus the authoritative `hosts` purge.
  */
 export async function purgeSiteCache(
   siteId: string,
   siteSlug: string,
   postSlugs: readonly string[] = [],
-  customHosts: readonly string[] = [],
+  locations: readonly PublicMountLocation[] = [],
 ): Promise<void> {
   const articleUrls = [
     ...postSlugs.flatMap((postSlug) => articleCacheUrls(siteSlug, postSlug)),
-    ...customHosts.flatMap((host) => postSlugs.flatMap((postSlug) => articleCacheUrlsForHost(host, postSlug))),
+    ...postSlugs.flatMap((postSlug) => articleCacheUrlsForLocations(locations, postSlug)),
   ];
-  const hostSiteUrls = customHosts.flatMap((host) => hostnameCacheUrls(host));
+  const mountedSiteUrls = locations.flatMap((loc) => hostnameCacheUrls(loc.hostname, loc.basePath ?? ""));
   await purgeCache(
     [siteCacheTag(siteId)],
-    [...siteCacheUrls(siteSlug), ...articleUrls, ...hostSiteUrls],
-    [...customHosts],
+    [...siteCacheUrls(siteSlug), ...articleUrls, ...mountedSiteUrls],
+    [...new Set(locations.map((loc) => loc.hostname))],
   );
 }
 
-export async function purgeArticleCache(siteId: string, siteSlug: string, postSlug: string): Promise<void> {
+export async function purgeArticleCache(
+  siteId: string,
+  siteSlug: string,
+  postSlug: string,
+  locations: readonly PublicMountLocation[] = [],
+): Promise<void> {
   await purgeCache(
     [siteCacheTag(siteId), articleCacheTag(siteId, postSlug)],
-    [...siteCacheUrls(siteSlug), ...articleCacheUrls(siteSlug, postSlug)],
+    [
+      ...siteCacheUrls(siteSlug),
+      ...articleCacheUrls(siteSlug, postSlug),
+      ...articleCacheUrlsForLocations(locations, postSlug),
+      // An article mutation also changes the mounted index/feed/llms copies,
+      // mirroring the site-level URLs already purged on the default host.
+      ...locations.flatMap((loc) => hostnameCacheUrls(loc.hostname, loc.basePath ?? "")),
+    ],
   );
 }
 

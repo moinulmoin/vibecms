@@ -11,6 +11,7 @@ import {
 } from "./public-blog";
 import {
   articleCacheTag,
+  articleResponseForClientAndCache,
   articleCacheTags,
   cachedArticleResponseBelongsToSite,
   contentEtag,
@@ -306,5 +307,37 @@ describe("public sidebar", () => {
     const { tags } = buildPublicSidebar(rows);
     expect(tags[0]).toEqual({ name: "ai", count: 2 });
     expect(tags).toHaveLength(16);
+  });
+});
+
+describe("articleResponseForClientAndCache", () => {
+  const article = () =>
+    new Response("<html>post</html>", {
+      headers: { "cache-control": "public, max-age=300", etag: 'W/"vc2-sha256-abc"' },
+    });
+
+  it("keeps the positive TTL on the cacheable copy while the client copy revalidates", async () => {
+    const source = article();
+    const body = await source.arrayBuffer();
+    const split = articleResponseForClientAndCache(source, new Headers(source.headers), body, true);
+    expect(split.client.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(split.cacheable!.headers.get("cache-control")).toBe("public, max-age=300");
+    // The stored copy keeps validators and payload.
+    expect(split.cacheable!.headers.get("etag")).toBe('W/"vc2-sha256-abc"');
+    expect(await split.cacheable!.text()).toBe("<html>post</html>");
+    expect(await split.client.text()).toBe("<html>post</html>");
+  });
+
+  it("direct articles return an untouched client copy and no cacheable clone", () => {
+    const source = article();
+    const split = articleResponseForClientAndCache(source, new Headers(source.headers), null, false);
+    expect(split.cacheable).toBeUndefined();
+    expect(split.client.headers.get("cache-control")).toBe("public, max-age=300");
+  });
+
+  it("never weakens a no-store/private cap even when proxied", () => {
+    const source = new Response("x", { headers: { "cache-control": "private, no-store" } });
+    const split = articleResponseForClientAndCache(source, new Headers(source.headers), null, true);
+    expect(split.client.headers.get("cache-control")).toBe("private, no-store");
   });
 });

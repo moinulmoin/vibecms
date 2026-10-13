@@ -65,7 +65,12 @@ export async function handleOgCardRequest(context: APIContext, slug: string | un
   if (slug !== undefined && !post) return notFound();
 
   const url = new URL(request.url);
-  const version = ogCardVersion(site, post, url.host);
+  // The card's footer label shows the blog's primary public mount
+  // (custom.com/blog for subpath, custom host, else this host).
+  const labelHost = site.primary_location
+    ? `${site.primary_location.hostname}${site.primary_location.basePath}`
+    : url.host;
+  const version = ogCardVersion(site, post, labelHost);
   const cacheKey = new Request(
     `${url.origin}${url.pathname}?v=${version}&site=${encodeURIComponent(site.id)}`,
     { method: "GET" },
@@ -97,7 +102,7 @@ export async function handleOgCardRequest(context: APIContext, slug: string | un
 
   if (!png) {
     try {
-      png = await og.render(buildOgCardModel(site, post, url.host));
+      png = await og.render(buildOgCardModel(site, post, labelHost));
     } catch (error) {
       console.error("og card render failed", error);
       return new Response("Share image unavailable", {

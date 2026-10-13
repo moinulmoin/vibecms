@@ -27,10 +27,26 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-const writeTools = new Set(["posts.create", "posts.update", "posts.publish", "posts.archive", "posts.versions.restore", "assets.upload", "assets.delete", "sites.update", "sites.theme.update", "sites.theme.revert", "sites.voice.update", "sites.signup_form.update"]);
+const writeTools: Record<string, true> = {
+  "posts.create": true,
+  "posts.update": true,
+  "posts.publish": true,
+  "posts.archive": true,
+  "posts.versions.restore": true,
+  "assets.upload": true,
+  "assets.delete": true,
+  "sites.update": true,
+  "sites.theme.update": true,
+  "sites.theme.revert": true,
+  "sites.voice.update": true,
+  "sites.signup_form.update": true,
+  "sites.location.set_subpath": true,
+  "sites.location.check": true,
+  "sites.location.remove": true,
+};
 
-function apiUsageKind(toolName: string): ApiUsageKind {
-  return writeTools.has(toolName) ? "write" : "read";
+export function apiUsageKind(toolName: string): ApiUsageKind {
+  return writeTools[toolName] ? "write" : "read";
 }
 
 function forceQuotaForSmoke(request: Request) {
@@ -225,8 +241,18 @@ function rateLimitMessage(error: unknown): string {
 }
 
 function rateLimitRetryAfterSeconds(error: RateLimitError): number | undefined {
-  const status = (error as RateLimitError & { usageStatus?: { resetsAt: number } }).usageStatus;
-  return status ? Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000)) : undefined;
+  const usageStatus = "usageStatus" in error ? error.usageStatus : undefined;
+  const resetsAt =
+    usageStatus && typeof usageStatus === "object" && "resetsAt" in usageStatus
+      ? usageStatus.resetsAt
+      : undefined;
+  if (typeof resetsAt === "number" && Number.isFinite(resetsAt)) {
+    return Math.max(1, resetsAt - Math.floor(Date.now() / 1000));
+  }
+  const retryAfter = "retryAfterSeconds" in error ? error.retryAfterSeconds : undefined;
+  return typeof retryAfter === "number" && Number.isFinite(retryAfter)
+    ? Math.max(1, Math.ceil(retryAfter))
+    : undefined;
 }
 
 function toolError(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {

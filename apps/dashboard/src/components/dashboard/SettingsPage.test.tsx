@@ -146,6 +146,7 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
     },
     assets: [],
     customDomains: { domains: [], cnameTarget: null },
+    location: null,
     billingStatus: 'none',
     selfHosted: false,
     isOwner: true,

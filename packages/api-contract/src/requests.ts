@@ -99,7 +99,16 @@ export const updateSignupFormRequestSchema = z.object({
   (value) => Object.keys(value).length > 1, 'Send at least one signup form field',
 );
 export const listTagsRequestSchema = z.object({}).strict();
-export const getAnalyticsRequestSchema = z.object({ range: z.enum(['7', '30', '90', '365', 'all']).default('30') }).strict();
+export const getSiteLocationRequestSchema = z.object({}).strict();
+// The full public location (https://customer.com/blog); validation lives server-side.
+export const setSubpathLocationRequestSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
+export const checkSiteLocationRequestSchema = z.object({}).strict();
+export const removeSiteLocationRequestSchema = z.object({}).strict();
+export const getAnalyticsRequestSchema = z.object({
+  range: z.enum(['7', '30', '90', '365', 'all']).default('30'),
+  /** Scope every per-post number (views, trend, agent fetches) to one post. */
+  postId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, 'postId is not a valid post id.').optional(),
+}).strict();
 
 export const listPostsRequestSchema = z.object({
   status: postStatus.optional(),
@@ -223,6 +232,14 @@ export const getFormatGuideRequestSchema = z.object({
   presetId: z.string().optional(),
 }).strict();
 
+export const seoCheckPostRequestSchema = z.object({
+  postId: z.string().min(1),
+  /** Optional focus keyword checked against title, slug, intro, headings, and description. */
+  focusKeyword: z.string().trim().min(1).max(80).optional(),
+  /** When true, also run the opt-in AI review; counts against the site's review limit. */
+  ai: z.boolean().optional(),
+}).strict();
+
 
 export type GetSiteRequest = z.infer<typeof getSiteRequestSchema>;
 export type UpdateSiteRequest = z.infer<typeof updateSiteRequestSchema>;
@@ -246,6 +263,7 @@ export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
 export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;
 export type GetFormatGuideRequest = z.infer<typeof getFormatGuideRequestSchema>;
 export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;
+export type SeoCheckPostRequest = z.infer<typeof seoCheckPostRequestSchema>;
 export type ListAssetsRequest = z.infer<typeof listAssetsRequestSchema>;
 export type GetAssetRequest = z.infer<typeof getAssetRequestSchema>;
 export type DeleteAssetRequest = z.infer<typeof deleteAssetRequestSchema>;

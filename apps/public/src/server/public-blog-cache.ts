@@ -97,6 +97,37 @@ export async function putArticleResponseCache(
   else await put;
 }
 
+/**
+ * Proxied article responses need different Cache-Control for the customer CDN
+ * vs our Workers Cache: the client-facing copy revalidates every time, but a
+ * stored copy must keep its positive edge TTL — the Cache API honors the
+ * stored response's Cache-Control, and `max-age=0, must-revalidate` entries
+ * can't be served without revalidation the Worker never performs.
+ *
+ * Call this only on a cache-miss path where `body` is the buffered payload
+ * (an ArrayBuffer can back both Responses; a stream cannot). `preparedHeaders`
+ * is the middleware's post-processing header set (security headers, etag…);
+ * `cacheable` gets a copy before the zero-age rewrite, `client` after.
+ */
+export function articleResponseForClientAndCache(
+  response: Response,
+  preparedHeaders: Headers,
+  body: ArrayBuffer | null,
+  proxied: boolean,
+): { client: Response; cacheable?: Response } {
+  const clientHeaders = new Headers(preparedHeaders);
+  if (proxied && !/(?:no-store|private)/i.test(clientHeaders.get("cache-control") ?? "")) {
+    clientHeaders.set("cache-control", "public, max-age=0, must-revalidate");
+  }
+  const base = { status: response.status, statusText: response.statusText };
+  return {
+    client: new Response(body, { ...base, headers: clientHeaders }),
+    cacheable: proxied
+      ? new Response(body, { ...base, headers: new Headers(preparedHeaders) })
+      : undefined,
+  };
+}
+
 export type ArticleCacheValidators = { etag?: string };
 
 export async function contentEtag(content: string | ArrayBuffer): Promise<string> {

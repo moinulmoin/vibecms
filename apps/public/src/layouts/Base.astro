@@ -38,20 +38,22 @@ interface Props {
   faviconAssetId?: string | null;
 }
 const { title, description, robots, canonical, socialImage, faviconAssetId, themeAttrs, feedHref, feedTitle, fontId } = Astro.props;
+const location = Astro.locals.publicLocation;
+const assetBase = location?.proxied ? location.assetOrigin : "";
 const preloadFonts = themeAttrs ? FONT_PRELOADS[fontId ?? "geist-sans"] ?? [] : [];
 ---
 <!doctype html>
-<html lang="en" {...themeAttrs}>
+<html lang="en" {...themeAttrs} data-vc-base={location?.basePath || undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     {themeAttrs ? <script is:inline src={modeInitScriptUrl}></script> : null}
-    {preloadFonts.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
+    {preloadFonts.map((href) => <link rel="preload" href={assetBase + href} as="font" type="font/woff2" crossorigin />)}
     {title ? <title>{title}</title> : null}
     {description ? <meta name="description" content={description} /> : null}
     {robots ? <meta name="robots" content={robots} /> : null}
     {canonical ? <link rel="canonical" href={canonical} /> : null}
-    <link rel="icon" href={faviconAssetId ? `/media-assets/${encodeURIComponent(faviconAssetId)}` : "/favicon.svg"} type={faviconAssetId ? undefined : "image/svg+xml"} />
+    <link rel="icon" href={faviconAssetId ? `${assetBase}/media-assets/${encodeURIComponent(faviconAssetId)}` : `${assetBase}/favicon.svg`} type={faviconAssetId ? undefined : "image/svg+xml"} />
     {feedHref ? <link rel="alternate" type="application/rss+xml" title={feedTitle ?? "RSS"} href={feedHref} /> : null}
     {title && socialImage ? <meta property="og:title" content={title} /> : null}
     {description && socialImage ? <meta property="og:description" content={description} /> : null}

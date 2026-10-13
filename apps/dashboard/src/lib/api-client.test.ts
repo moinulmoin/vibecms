@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DashboardApiError, dashboardFetch, dashboardPost, loadOnboardingStatus } from '~/lib/api-client'
+import { DashboardApiError, dashboardFetch, dashboardPost, loadAnalyticsPage, loadOnboardingStatus } from '~/lib/api-client'
 import { mutationResultSchema } from '~/lib/dashboard-response-schemas'
 
 afterEach(() => {
@@ -57,6 +57,35 @@ describe('dashboardFetch', () => {
     await expect(dashboardFetch('/api/dashboard/overview', { method: 'GET' })).rejects.toBeInstanceOf(
       DashboardApiError,
     )
+  })
+})
+
+describe('loadAnalyticsPage', () => {
+  it('accepts an available payload without an agents block', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({
+          status: 'available',
+          retentionDays: 365,
+          rangeDays: 30,
+          views: 42,
+          previousViews: 40,
+          trendPercent: 5,
+          seriesGranularity: 'day',
+          aiReferralViews: 3,
+          series: [{ date: '2026-10-01', views: 4, aiCrawlerRequests: 2 }],
+          topPosts: [],
+          referrers: [],
+          aiCrawlers: { status: 'available', lookbackDays: 30, requests: 2, agents: [] },
+        }), { status: 200, headers: { 'content-type': 'application/json' } }),
+      ),
+    )
+    const data = await loadAnalyticsPage(30)
+    expect(data.status).toBe('available')
+    if (data.status !== 'available') throw new Error('expected available')
+    expect(data.agents).toBeUndefined()
+    expect(data.views).toBe(42)
   })
 })
 

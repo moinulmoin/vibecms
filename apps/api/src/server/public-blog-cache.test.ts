@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, inject, it, vi } from 'vitest'
+import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import {
   articleCacheTag,
   articleCacheUrls,
@@ -10,7 +11,17 @@ import {
 } from './public-blog-cache'
 import { env } from 'cloudflare:workers'
 import { runWithExecutionContext } from './execution-scope'
-import { scheduleArticlePurge, scheduleHostnamePurge } from './purge-scheduler'
+import { scheduleArticlePurge, scheduleHostnamePurge, scheduleManagedSitePurge } from './purge-scheduler'
+
+declare module 'vitest' {
+  interface ProvidedContext {
+    migrations: D1Migration[]
+  }
+}
+
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, inject('migrations') as D1Migration[])
+})
 
 describe('public article cache invalidation', () => {
   it('uses stable article tags and host-only public URLs', () => {
@@ -73,9 +84,153 @@ describe('public article cache invalidation', () => {
       expect(await cache.match(new Request(url))).toBeDefined()
     }
 
-    await purgeSiteCache('site-theme-save', 'site-purge-fixture', ['themed-post'], ['blog.customer.example'])
+    await purgeSiteCache('site-theme-save', 'site-purge-fixture', ['themed-post'], [{ hostname: 'blog.customer.example' }])
 
     for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('site purge covers subpath-mounted article and site URLs (host + base path)', async () => {
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const location = { hostname: 'customer.mount.example', basePath: '/blog' }
+    const urls = [
+      ...articleCacheUrlsForHost(location.hostname, 'mounted-post', location.basePath),
+      ...hostnameCacheUrls(location.hostname, location.basePath),
+    ]
+
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    await purgeSiteCache('site-mount', 'mount-fixture', ['mounted-post'], [location])
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+    // The host root stays cached: only the mounted base path was purged.
+    const root = `https://${location.hostname}/mounted-post`
+    await cache.put(new Request(root), new Response('root-owner', { headers: { 'cache-control': 'public, max-age=60' } }))
+    expect(await cache.match(new Request(root))).toBeDefined()
+  })
+
+  it('article purge clears mounted HTML, Markdown, and site-level URLs', async () => {
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const location = { hostname: 'customer.article.example', basePath: '/blog' }
+    const urls = [
+      ...articleCacheUrlsForHost(location.hostname, 'mount-post', location.basePath),
+      `${hostnameCacheUrls(location.hostname, location.basePath)[1]!}`, // mounted feed.xml
+    ]
+
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+    }
+
+    await purgeArticleCache('site-mount-article', 'mount-article-fixture', 'mount-post', [location])
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('scheduled article purge resolves the site mounts from the database', async () => {
+    // Self-host / missing-purge-token fallback: the Cache API path must clear
+    // the mounted copy too, or an update stays stale until TTL expiry.
+    const stamp = 1_700_000_100
+    await env.DB.prepare(
+      "INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind('ws-cache-mount', 'Cache Mount', 'ws-cache-mount', stamp, stamp)
+      .run()
+    await env.DB.prepare(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+      .bind('site-cache-mount', 'ws-cache-mount', 'Cache Mount', 'site-cache-mount', stamp, stamp)
+      .run()
+    await env.DB.prepare(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, 'subpath', 'active', '/blog', 'cache-mount-proxy', ?, ?)",
+    )
+      .bind('dom-cache-mount', 'site-cache-mount', 'scheduled.mount.example', stamp, stamp)
+      .run()
+
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const urls = articleCacheUrlsForHost('scheduled.mount.example', 'mounted-post', '/blog')
+    for (const url of urls) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+    }
+
+    const tasks: Promise<unknown>[] = []
+    runWithExecutionContext(
+      { waitUntil: (task: Promise<unknown>) => tasks.push(task) } as unknown as ExecutionContext,
+      () => scheduleArticlePurge('site-cache-mount', 'site-cache-mount', 'mounted-post'),
+    )
+    await Promise.all(tasks)
+
+    for (const url of urls) {
+      expect(await cache.match(new Request(url))).toBeUndefined()
+    }
+  })
+
+  it('scheduled purges ignore never-verified subpath claims but keep retired mounts', async () => {
+    // A pending claim that never passed its check owns no mount: it must not
+    // pull the claimed hostname into site/article purges. A row that WAS live
+    // (activated_at set) still purges — its cached copies exist.
+    const stamp = 1_700_000_101
+    await env.DB.prepare(
+      "INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind('ws-cache-claims', 'Cache Claims', 'ws-cache-claims', stamp, stamp)
+      .run()
+    await env.DB.prepare(
+      "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+      .bind('site-cache-claims', 'ws-cache-claims', 'Cache Claims', 'site-cache-claims', stamp, stamp)
+      .run()
+    for (const [id, host, status, activatedAt] of [
+      ['dom-claims-pending', 'never-verified.claims.example', 'pending', null],
+      ['dom-claims-retired', 'retired.claims.example', 'failed', stamp],
+    ] as const) {
+      await env.DB.prepare(
+        "INSERT INTO domains (id, site_id, hostname, type, status, base_path, activated_at, created_at, updated_at) VALUES (?, ?, ?, 'subpath', ?, '/blog', ?, ?, ?)",
+      )
+        .bind(id, 'site-cache-claims', host, status, activatedAt, stamp, stamp)
+        .run()
+    }
+
+    const cache = (caches as CacheStorage & { default: Cache }).default
+    const neverVerified = hostnameCacheUrls('never-verified.claims.example', '/blog')
+    const retired = hostnameCacheUrls('retired.claims.example', '/blog')
+    for (const url of [...neverVerified, ...retired]) {
+      await cache.put(
+        new Request(url),
+        new Response('stale', { headers: { 'cache-control': 'public, max-age=60' } }),
+      )
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+
+    const tasks: Promise<unknown>[] = []
+    runWithExecutionContext(
+      { waitUntil: (task: Promise<unknown>) => tasks.push(task) } as unknown as ExecutionContext,
+      () => scheduleManagedSitePurge(env.DB, 'site-cache-claims', 'site-cache-claims'),
+    )
+    await Promise.all(tasks)
+
+    // The never-verified claim's hostname was never touched…
+    for (const url of neverVerified) {
+      expect(await cache.match(new Request(url))).toBeDefined()
+    }
+    // …but the retired mount's cache entries were cleared.
+    for (const url of retired) {
       expect(await cache.match(new Request(url))).toBeUndefined()
     }
   })

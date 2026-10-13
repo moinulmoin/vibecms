@@ -109,11 +109,14 @@ function pageHref(base: string, page: number, query?: string) {
 export function PublicShell({
   site,
   basePath,
+  assetOrigin = "",
   homeHeading = false,
   children,
 }: {
   site: PublicIndexLoaderData["site"];
   basePath: string;
+  /** Asset host prefix for logo/media URLs (proxied subpath blogs). */
+  assetOrigin?: string;
   indexable?: boolean;
   homeHeading?: boolean;
   children: React.ReactNode;
@@ -121,7 +124,7 @@ export function PublicShell({
   const indexHref = publicIndexHref(basePath);
   return (
     <PublicPageChrome
-      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      logoUrl={site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null}
       navLinks={site.nav_links}
       socialLinks={site.social_links}
       siteName={site.name}
@@ -148,6 +151,7 @@ export function PublicBlogIndexView({
   page?: number;
 }) {
   const { site, posts, basePath } = data;
+  const assetOrigin = data.proxied ? data.assetOrigin : "";
   const listing: PublicListingContext = data.listing ?? DEFAULT_LISTING;
   const searchQuery = listing.kind === "search" ? listing.query : "";
   const indexHref = publicIndexHref(basePath);
@@ -160,7 +164,7 @@ export function PublicBlogIndexView({
 
   return (
     <PublicPageChrome
-      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      logoUrl={site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null}
       navLinks={site.nav_links}
       socialLinks={site.social_links}
       siteName={site.name}
@@ -199,7 +203,7 @@ export function PublicBlogIndexView({
         <PublicPostList
           variant={resolveIndex(site.theme_index, site.theme)}
           posts={visible.map((post) => {
-            const coverMedia = post.cover_asset_id ? buildResponsiveMediaUrls(post.cover_asset_id) : undefined;
+            const coverMedia = post.cover_asset_id ? buildResponsiveMediaUrls(post.cover_asset_id, assetOrigin) : undefined;
             return {
               id: post.id,
               title: post.title,
@@ -264,6 +268,7 @@ function postAuthor(data: PublicPostLoaderData): ArticleAuthor {
 export function PublicBlogPostView({ data, highlighter = null }: { data: PublicPostLoaderData; highlighter?: CodeHighlighter | null }) {
   const { site, post, basePath } = data;
   const indexHref = publicIndexHref(basePath);
+  const assetOrigin = data.proxied ? data.assetOrigin : "";
   const presetId = resolvePresetId(site.theme);
   const theme = siteTheme(site);
   const { resolved } = resolvePresentation(presetId, post.presentation);
@@ -272,15 +277,18 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
     pageTitle: post.title,
     resolveImage: resolveResponsiveMediaSource,
     highlighter,
+    postBasePath: basePath || undefined,
+    postSlugs: data.postSlugs,
+    assetOrigin: assetOrigin || undefined,
   });
   const coverMedia = post.cover_asset_id
-    ? buildResponsiveMediaUrls(post.cover_asset_id)
+    ? buildResponsiveMediaUrls(post.cover_asset_id, assetOrigin)
     : undefined;
   const showUpdated = shouldShowUpdatedDate(post.published_at, post.updated_at);
 
   return (
     <PublicPageChrome
-      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      logoUrl={site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null}
       navLinks={site.nav_links}
       socialLinks={site.social_links}
       siteName={site.name}
@@ -336,27 +344,32 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
 
 export function PublicNotFoundView({
   site,
+  basePath = "",
+  assetOrigin = "",
 }: {
   site: PublicIndexLoaderData["site"];
+  basePath?: string;
+  assetOrigin?: string;
 }) {
+  const indexHref = publicIndexHref(basePath);
   return (
     <PublicPageChrome
-      logoUrl={site.logo_asset_id ? `/media-assets/${site.logo_asset_id}` : null}
+      logoUrl={site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null}
       navLinks={site.nav_links}
       socialLinks={site.social_links}
       siteName={site.name}
-      homeHref="/"
-      allPostsHref="/"
+      homeHref={indexHref}
+      allPostsHref={indexHref}
       presetId={site.theme}
       theme={siteTheme(site)}
-      feedHref="/feed.xml"
+      feedHref={`${basePath}/feed.xml`}
       modeToggle
     >
       <div className={styles.notFound}>
         <p className={styles.listingEyebrow}>404</p>
         <h1 className={styles.listingHeading}>This page doesn’t exist</h1>
         <p className={styles.notFoundText}>It may have been moved, unpublished, or never existed.</p>
-        <a href="/" className={styles.emptyLink}>
+        <a href={indexHref} className={styles.emptyLink}>
           Back to all posts
         </a>
       </div>

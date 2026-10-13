@@ -28,3 +28,12 @@ export function publicUrlForHostname(hostname: string | null) {
   if (!hostname) return null
   return `${isLocalDefaultHostname(hostname) ? 'http' : 'https'}://${hostname}`
 }
+
+/** The dashboard/app host (e.g. `app.vibecms.dev`) — reserved from user locations. */
+export function appHost() {
+  try {
+    return new URL(env.APP_URL).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}

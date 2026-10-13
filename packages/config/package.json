@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime": "./src/runtime-env.ts",
-    "./agent-discovery": "./src/agent/discovery.ts"
+    "./agent-discovery": "./src/agent/discovery.ts",
+    "./agents": "./src/agents.ts"
   },
   "scripts": {
     "typecheck": "tsc",

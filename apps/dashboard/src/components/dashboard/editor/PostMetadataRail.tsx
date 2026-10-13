@@ -7,6 +7,7 @@ import { Switch } from '~/components/ui/switch'
 import { loadPostsPage } from '~/lib/api-client'
 import { queryKeys } from '~/lib/queries'
 import { altFromFileName } from './image-alt'
+import { SeoSection } from './SeoSection'
 import { firstParagraph, parseTags } from './post-fields'
 
 export { firstParagraph, parseTags }
@@ -32,6 +33,11 @@ export type PostMetadataRailProps = {
   supportsToc: boolean
   /** Body Markdown, used for the excerpt and description fallbacks. */
   contentMarkdown?: string
+  /** Saved post; SEO checks and per-post stats only exist once the post does. */
+  postId?: string
+  postStatus?: 'draft' | 'published' | 'archived' | null
+  /** Saved version the SEO check runs against; bumps re-check after each save. */
+  versionNumber?: number | null
   onChange: (field: keyof EditorMetadata, value: string | boolean) => void
   onUploadCover?: (file: File, altText: string) => Promise<Asset | undefined>
 }
@@ -297,6 +303,9 @@ export function PostMetadataRail({
   supportedLayouts,
   supportsToc,
   contentMarkdown = '',
+  postId,
+  postStatus,
+  versionNumber,
   onChange,
   onUploadCover,
 }: PostMetadataRailProps) {
@@ -408,6 +417,13 @@ export function PostMetadataRail({
           />
         </Field>
       </section>
+
+      {postId ? (
+        <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 border-t border-[color:var(--hairline)] pt-6">
+          <SectionTitle>SEO</SectionTitle>
+          <SeoSection postId={postId} postStatus={postStatus ?? null} versionNumber={versionNumber ?? null} onApplySeo={onChange} />
+        </section>
+      ) : null}
     </aside>
   )
 }

@@ -108,6 +108,20 @@ export type DashboardData = {
   }
 }
 
+export type AgentCategory = 'ai-assistant' | 'ai-search' | 'ai-training' | 'search-engine' | 'other-bot' | 'unknown-agent'
+
+export type AgentAnalytics = {
+  total: number
+  byCategory: Array<{ category: AgentCategory; fetches: number }>
+  topAgents: Array<{ id: string; label: string; operator: string; category: AgentCategory; fetches: number }>
+  topPosts: Array<{ postId: string; slug: string; title: string; fetches: number }>
+  /** Whole percent of agent reads that asked for the Markdown representation. */
+  markdownShare: number
+  /** Whole percent of agent reads carrying a `Signature-Agent` header. */
+  signedShare: number
+  llmsReads: number
+}
+
 export type AnalyticsRange = 7 | 30 | 90 | 365 | 'all'
 
 export type AnalyticsPageData =
@@ -131,7 +145,40 @@ export type AnalyticsPageData =
         requests: number
         agents: Array<{ agent: string; operator: string; category: string; requests: number }>
       }
+      /** Absent on payloads from before the agents breakdown shipped: treated as "agents unavailable". */
+      agents?: AgentAnalytics
+
     }
+
+/** One deterministic SEO finding, as returned by POST /api/dashboard/posts/seo. */
+export type SeoFinding = {
+  code: string
+  severity: 'error' | 'warn' | 'info'
+  field: string
+  message: string
+  fix: string
+  position?: number
+}
+
+/** Opt-in AI review payload; anything that doesn't validate server-side is dropped to null. */
+export type SeoAiReview = {
+  intent: string
+  titleIdeas: [string, string]
+  descriptionIdea: string
+  missingSubtopics: string[]
+  unclearPassages: Array<{ quote: string; why: string }>
+  claimsNeedingSources: Array<{ quote: string }>
+}
+
+export type SeoCheckResult = {
+  versionNumber: number
+  findings: SeoFinding[]
+  ai?: SeoAiReview | null
+  warnings?: string[]
+}
+
+/** Per-post analytics for the editor rail; null when locked or unavailable. */
+export type PostAnalytics = { views: number; agentReads: number } | null
 
 export type BillingSnapshot = {
   status: BillingStatus
@@ -233,6 +280,40 @@ export type CustomDomainsPanel = {
   cnameTarget: string | null
 }
 
+/** Mirror of the API's SubpathSnippets (`packages/core/src/subpath.ts`). */
+export type SubpathSnippets = {
+  cloudflareWorker: { code: string; route: string }
+  vercel: string
+  nextjs: string
+  netlify: string
+  nginx: string
+  caddy: string
+}
+
+export type SiteLocationIssue = { code: string; message: string }
+
+export type SiteLocationCheck = {
+  ok: boolean
+  errors: SiteLocationIssue[]
+  warnings: SiteLocationIssue[]
+  checkedAt: number
+}
+
+/** GET /api/dashboard/location — the site's public address (plans/022). */
+export type SiteLocationView = {
+  type: 'default' | 'custom' | 'subpath'
+  url: string | null
+  status: 'pending' | 'active' | 'failed' | 'disabled' | null
+  /** Proxy target and snippets carry the proxy credential: owner (or site:write keys) only. */
+  proxyTarget?: string
+  snippets?: SubpathSnippets
+  lastCheck?: SiteLocationCheck
+}
+
+export type SiteLocationResult = { ok: true; location: SiteLocationView } | { ok: false; code: string }
+export type CheckSiteLocationResult = { ok: true; check: SiteLocationCheck; location: SiteLocationView } | { ok: false; code: string }
+export type RotateSiteLocationResult = { ok: true; location: SiteLocationView; warning: string } | { ok: false; code: string }
+
 export type VoiceProfileSettings = {
   configured: boolean
   audience: string
@@ -280,6 +361,7 @@ export type SettingsPageData = {
   site: SiteSettingsForm
   assets: Asset[]
   customDomains: CustomDomainsPanel
+  location: SiteLocationView | null
   billingStatus: string
   polarBillingStatus?: BillingStatus
   effectiveEntitlement?: {

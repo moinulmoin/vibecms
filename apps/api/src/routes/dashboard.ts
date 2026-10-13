@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { ConflictError } from '@vc/core'
+import { seoCheckPostRequestSchema } from '@vc/api-contract'
 import { rejectCrossOriginBrowserPost } from '@/server/csrf'
+import { isAnalyticsPostId } from '@/server/analytics'
 import { rejectChangedSite, requireAppFromRequest, resolveAppSessionContext } from '@/server/session-context'
 import {
   addCustomDomainForApp,
@@ -43,9 +45,17 @@ import {
   updateVoiceProfileForApp,
   voiceProfileSettingsInputSchema,
 } from '@/server/dashboard-api'
+import {
+  checkSubpathLocationForApp,
+  getSiteLocationForApp,
+  removeSubpathLocationForApp,
+  rotateSubpathProxyLinkForApp,
+  setSubpathLocationForApp,
+} from '@/server/subpath-locations'
 import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
 import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
+import { seoCheckPostOp, type OperationContext } from '@/server/operations'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -298,6 +308,45 @@ dashboardRoutes.post('/domains/remove', async (c) => {
   return c.json(await removeCustomDomainForApp(auth.app, body.domainId))
 })
 
+dashboardRoutes.get('/location', async (c) => {
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await getSiteLocationForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/subpath', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const body = await c.req.json<{ url: string }>()
+  return c.json(await setSubpathLocationForApp(auth.app, body.url))
+})
+
+dashboardRoutes.post('/location/check', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await checkSubpathLocationForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/rotate', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await rotateSubpathProxyLinkForApp(auth.app))
+})
+
+dashboardRoutes.post('/location/remove', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  return c.json(await removeSubpathLocationForApp(auth.app))
+})
+
 dashboardRoutes.get('/media', async (c) => {
   const auth = await requireAppFromRequest(c.req.raw)
   if ('error' in auth) return auth.error
@@ -326,7 +375,9 @@ dashboardRoutes.get('/analytics', async (c) => {
         : requestedRange === 'all'
           ? 'all'
           : 30
-  return c.json(await loadAnalyticsPage(auth.app, rangeDays))
+  const postId = c.req.query('postId') || undefined
+  if (postId !== undefined && !isAnalyticsPostId(postId)) return c.json({ kind: 'error', code: 'validation_error' }, 400)
+  return c.json(await loadAnalyticsPage(auth.app, rangeDays, postId))
 })
 
 dashboardRoutes.get('/connect', async (c) => {
@@ -470,6 +521,21 @@ dashboardRoutes.post('/posts/versions/restore', async (c) => {
   if ('error' in auth) return auth.error
   const body = await c.req.json<{ postId: string; versionNumber: number; expectedVersionNumber: number }>()
   return c.json(await restorePostVersionForApp(auth.app, body.postId, body.versionNumber, body.expectedVersionNumber))
+})
+
+dashboardRoutes.post('/posts/seo', async (c) => {
+  const blocked = guardDashboardPost(c.req.raw)
+  if (blocked) return blocked
+  const auth = await requireAppFromRequest(c.req.raw)
+  if ('error' in auth) return auth.error
+  const input = seoCheckPostRequestSchema.parse(await c.req.json())
+  const ctx: OperationContext = {
+    actor: auth.app.actor,
+    siteId: auth.app.siteId,
+    workspaceId: auth.app.workspaceId,
+    tokenId: 'dashboard',
+  }
+  return c.json(await seoCheckPostOp(ctx, input))
 })
 
 dashboardRoutes.get('/billing', async (c) => {

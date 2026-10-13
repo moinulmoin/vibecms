@@ -10,6 +10,7 @@ import {
   type PublicSiteRow,
 } from "@vc/db";
 import type { SubscribeSettings } from "@vc/content/public-chrome";
+import { collectRootLinkSlugs } from "@vc/content";
 import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
 
@@ -52,6 +53,8 @@ export type SiteRow = {
   published_count: number | null;
   effective_entitlement: EffectiveHostedEntitlement;
   resolved_domain_type?: "default" | "custom" | null;
+  /** Canonical public mount (subpath > custom > default); null when no active domain. */
+  primary_location?: { type: string; hostname: string; basePath: string } | null;
 };
 
 /** List/card/sitemap/llms summary — no Markdown body. */
@@ -143,6 +146,7 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     published_count: row.publishedCount,
     effective_entitlement: effectiveEntitlement,
     resolved_domain_type: row.resolvedDomainType ?? null,
+    primary_location: row.primaryLocation ?? null,
   };
 }
 
@@ -264,6 +268,31 @@ export async function listPublishedPostsForFeed(
   const now = Math.floor(Date.now() / 1000);
   const rows = await createDataAccess(db).publicBlog.listPublishedPostsForFeed(siteId, now, limit);
   return rows.map(toPostBodyRow);
+}
+
+/**
+ * The renderer's `postSlugs` set: which root-relative link targets in the
+ * given bodies are published slugs of this site. Candidates come from the
+ * bodies themselves (not a summary window), so linking to a post outside the
+ * sidebar/feed display limits still gets the customer base path.
+ */
+export async function resolvePublishedLinkSlugs(
+  db: D1Database,
+  siteId: string,
+  bodies: readonly string[],
+): Promise<ReadonlySet<string>> {
+  const candidates = new Set<string>();
+  for (const body of bodies) {
+    for (const slug of collectRootLinkSlugs(body)) candidates.add(slug);
+    if (candidates.size >= PUBLIC_BLOG_LIMITS.linkSlugCandidates) break;
+  }
+  if (candidates.size === 0) return new Set();
+  const slugs = await createDataAccess(db).publicBlog.listPublishedPostSlugsIn(
+    siteId,
+    [...candidates],
+    Math.floor(Date.now() / 1000),
+  );
+  return new Set(slugs);
 }
 
 export function isPublicBlogIndexable(site: SiteRow, _env: PublicRuntimeEnv) {

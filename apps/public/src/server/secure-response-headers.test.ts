@@ -119,4 +119,36 @@ describe("mergeHtmlContentSecurityPolicy", () => {
     expect(merged).toContain("script-src 'self'");
     expect(merged).toContain("frame-ancestors 'none'");
   });
+
+  it("adds the asset origin to resource directives for proxied pages", () => {
+    // Astro's real SSR policy (astro.config.mjs) arrives as the response CSP.
+    const astro = "default-src 'self'; script-src 'self' 'sha256-abc'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; manifest-src 'self'";
+    const assetOrigin = "https://spl.basedui.dev";
+    const merged = mergeHtmlContentSecurityPolicy(astro, { proxied: true, assetOrigin });
+    for (const name of ["script-src", "style-src", "font-src", "img-src", "manifest-src"]) {
+      expect(merged).toMatch(new RegExp(`${name} [^;]*${assetOrigin.replace(/\./g, "\\.")}`));
+    }
+    // Same-origin channels (beacons, subscribe, markdown) go through the proxy.
+    expect(merged).toMatch(/connect-src 'self';/);
+    expect(merged).toMatch(/form-action 'self'/);
+    expect(merged).not.toMatch(/connect-src [^;]*basedui/);
+  });
+
+  it("seeds missing asset directives from default-src when present", () => {
+    const merged = mergeHtmlContentSecurityPolicy("default-src 'self'", { proxied: true, assetOrigin: "https://spl.basedui.dev" });
+    expect(merged).toContain("img-src 'self' https://spl.basedui.dev");
+    expect(merged).toContain("font-src 'self' https://spl.basedui.dev");
+    expect(merged).toContain("script-src 'self' https://spl.basedui.dev");
+    // Without default-src there is nothing to widen from.
+    expect(mergeHtmlContentSecurityPolicy("script-src 'self'", { proxied: true, assetOrigin: "https://spl.basedui.dev" })).not.toContain("img-src");
+  });
+
+  it("keeps the policy identical for direct locations", () => {
+    const astro = "script-src 'self' 'sha256-abc'; base-uri 'self'";
+    const direct = { proxied: false, assetOrigin: "https://spl.basedui.dev" };
+    expect(mergeHtmlContentSecurityPolicy(astro, direct)).toBe(mergeHtmlContentSecurityPolicy(astro));
+    const headers = new Headers({ "content-type": "text/html; charset=utf-8", "content-security-policy": astro });
+    applyPublicSecurityHeaders("/", "text/html; charset=utf-8", headers, direct);
+    expect(headers.get("Content-Security-Policy")).not.toContain("basedui.dev");
+  });
 });

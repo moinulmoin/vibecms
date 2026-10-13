@@ -8,6 +8,7 @@ import {
   listPublishedPostsForFeed,
   PUBLIC_BLOG_LIMITS,
   resolveSite,
+  resolvePublishedLinkSlugs,
   type PostSummaryRow,
   type SiteRow,
 } from "./public-blog-data";
@@ -15,6 +16,7 @@ import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
 import { sanitizeLlmsField } from "./llms-text";
 import { publicCacheControlForEntitlement, siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
+import { publicBaseUrl, type PublicLocation } from "./public-location";
 import { resolveResponsiveMediaSource } from "../lib/media-assets";
 
 const cacheControl = "public, max-age=300, s-maxage=300, stale-while-revalidate=86400";
@@ -58,17 +60,26 @@ function productLlmsTxt(origin: string, env: PublicRuntimeEnv): Response {
   });
 }
 
-export async function handleFeed(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
+export async function handleFeed(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
   const requestUrl = new URL(request.url);
-  const origin = publicOrigin(requestUrl);
+  const loc = location ?? { origin: publicOrigin(requestUrl), basePath: "", assetOrigin: publicOrigin(requestUrl), proxied: false };
+  const homeBase = publicBaseUrl(loc);
   const posts = await listPublishedPostsForFeed(db, site.id, PUBLIC_BLOG_LIMITS.feedBodies);
-  const xml = buildRssXml(site, origin, posts, new URL(`${requestUrl.pathname}${requestUrl.search}`, origin).href, (post) =>
+  // The feed self link is this request's customer-facing URL. The caller's
+  // request may already be synthesized to the location (pathname then carries
+  // the base path), so prefix the origin only — never homeBase + pathname.
+  const selfUrl = `${loc.origin}${requestUrl.pathname}${requestUrl.search}`;
+  const postSlugs = await resolvePublishedLinkSlugs(db, site.id, posts.map((post) => post.content_markdown));
+  const xml = buildRssXml(site, homeBase, posts, selfUrl, (post) =>
     renderRichContentToHtml(post.content_markdown, {
       target: "feed",
       pageTitle: post.title,
-      baseUrl: new URL(`/${post.slug}`, origin).href,
+      baseUrl: `${homeBase}/${post.slug}`,
+      assetOrigin: loc.assetOrigin,
+      postBasePath: loc.basePath || undefined,
+      postSlugs,
       resolveImage: resolveResponsiveMediaSource,
     }),
   );
@@ -82,11 +93,11 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
   });
 }
 
-export async function handleSitemap(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
+export async function handleSitemap(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return isMarketingHost(request, env) ? productSitemap(publicOrigin(request.url)) : notFound();
   if (!isPublicBlogIndexable(site, env)) return notFound();
-  const origin = publicOrigin(request.url);
+  const origin = location ? publicBaseUrl(location) : publicOrigin(request.url);
   const posts = await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.sitemapSummaries);
   const xml = buildSitemapXml(origin, posts);
   return new Response(xml, {
@@ -98,16 +109,16 @@ export async function handleSitemap(db: D1Database, request: Request, env: Publi
   });
 }
 
-export async function handleRobots(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
+export async function handleRobots(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
-  const origin = publicOrigin(request.url);
+  const sitemapBase = location ? publicBaseUrl(location) : publicOrigin(request.url);
   const indexable = (site ? isPublicBlogIndexable(site, env) : false) || isMarketingHost(request, env);
   // A tenant's writing belongs to its owner, so AI training is disabled by default.
   const contentSignal = site || !isMarketingHost(request, env)
     ? "search=yes, ai-input=yes, ai-train=no"
     : "search=yes, ai-input=yes, ai-train=yes";
   const body = indexable
-    ? `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\nSitemap: ${origin}/sitemap.xml\n`
+    ? `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\nSitemap: ${sitemapBase}/sitemap.xml\n`
     : `User-agent: *\nAllow: /\nContent-Signal: ${contentSignal}\n`;
   return new Response(body, {
     headers: {
@@ -143,13 +154,14 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
   });
 }
 
-export async function handleLlmsTxt(db: D1Database, request: Request, env: PublicRuntimeEnv): Promise<Response> {
+export async function handleLlmsTxt(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return isMarketingHost(request, env) ? productLlmsTxt(publicOrigin(request.url), env) : notFound();
+  const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   return renderLlmsTxt(
     site,
-    publicOrigin(request.url),
-    "",
+    loc.origin,
+    loc.basePath,
     await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.llmsSummaries),
     env,
   );

@@ -1,4 +1,4 @@
-import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
+import { AppError, archivePost, BillingRequiredError, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
 import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
@@ -22,7 +22,7 @@ import {
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
-import { getSitePublicBaseUrl } from "./site-public-url";
+import { getSiteAssetBaseUrl, getSitePublicBaseUrl } from "./site-public-url";
 import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
@@ -30,7 +30,19 @@ import { RENDERER_VERSION } from "@vc/content/constants";
 import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsForApp, updateSiteSettingsForApp, type SiteSettingsPayload } from "./onboarding";
 import { getVoiceProfileSettings, updateVoiceProfileForApp } from "./voice-profile";
 import { loadAnalyticsForApp, type AnalyticsRange } from "./analytics";
+import type { Post } from "@vc/core";
+import type { SeoCheckPostRequest, SeoCheckPostDto } from "@vc/api-contract";
+import { createSeoReadModel } from "@vc/db";
+import { reviewPostSeo } from "./seo-review";
+import { seoChecks, tryParseSeoMarkdown, collectSeoLinkSlugs, renderRichContent as renderSeoContent, renderRichContentResultToHtml, validateRichContent } from "@vc/content";
+import { createMathRenderer } from "@vc/content/math";
 
+import {
+  checkSubpathLocationForApp,
+  getSiteLocationForApp,
+  removeSubpathLocationForApp,
+  setSubpathLocationForApp,
+} from "./subpath-locations";
 export type OperationContext = {
   actor: Actor;
   siteId: string;
@@ -102,8 +114,10 @@ export async function getSiteOp(ctx: OperationContext) {
     getVoiceProfileForSite(ctx.siteId),
     getNewsletterSettingsForApp(appUser(ctx)),
   ]);
-  const url = row ? await getSitePublicBaseUrl(ctx.siteId, row.slug) : null;
-  const site = mapSiteRow(row, url, voiceProfile);
+  const [url, assetUrl] = row
+    ? await Promise.all([getSitePublicBaseUrl(ctx.siteId, row.slug), getSiteAssetBaseUrl(ctx.siteId, row.slug)])
+    : [null, null];
+  const site = mapSiteRow(row, url, voiceProfile, assetUrl);
   return site && { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
     description: form.subtext, button: form.buttonLabel } };
 }
@@ -123,7 +137,8 @@ export async function updateSiteOp(ctx: OperationContext, input: UpdateSiteReque
     createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId), getVoiceProfileForSite(ctx.siteId), getSiteSettings(appUser(ctx)),
   ]);
   if (!row) throw new NotFoundError('Site not found');
-  const site = mapSiteRow(row, await getSitePublicBaseUrl(ctx.siteId, row.slug), voiceProfile);
+  const [url, assetUrl] = await Promise.all([getSitePublicBaseUrl(ctx.siteId, row.slug), getSiteAssetBaseUrl(ctx.siteId, row.slug)]);
+  const site = mapSiteRow(row, url, voiceProfile, assetUrl);
   if (!site) throw new NotFoundError('Site not found');
   const { newsletterSettings: _newsletterSettings, ...publicSettings } = settings;
   return { ...site, settings: publicSettings };
@@ -236,10 +251,49 @@ export async function listTagsOp(ctx: OperationContext) {
   return rows.results;
 }
 
-export async function getAnalyticsOp(ctx: OperationContext, input: { range: string }) {
+// Location results carry FORM_STATUS-style codes; map them to the AppError
+// family REST/MCP already translate (billing, owner, conflicts, validation).
+function locationMutationResult<T extends { ok: boolean; code?: string }>(result: T): asserts result is Extract<T, { ok: true }> {
+  if (result.ok) return;
+  if (result.code === 'billing_required') throw new BillingRequiredError('Hosting the blog on your site requires an active subscription.');
+  if (result.code === 'owner_required') throw new AppError('FORBIDDEN', 'Owner access required', 403);
+  if (result.code === 'domain_conflict') throw new ConflictError('That domain is already connected to another blog.');
+  if (result.code === 'not_found') throw new NotFoundError('No subpath location is set up for this blog.');
+  throw new ValidationError('That location is not valid. Use https://customer.com/blog — no platform or app host.');
+}
+
+export async function getSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'sites:read');
+  const location = await getSiteLocationForApp(appUser(ctx));
+  if (!location) throw new NotFoundError('Site not found');
+  return location;
+}
+
+export async function setSubpathLocationOp(ctx: OperationContext, input: { url: string }) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await setSubpathLocationForApp(appUser(ctx), input.url);
+  locationMutationResult(result);
+  return result.location;
+}
+
+export async function checkSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await checkSubpathLocationForApp(appUser(ctx));
+  locationMutationResult(result);
+  return { check: result.check, location: result.location };
+}
+
+export async function removeSiteLocationOp(ctx: OperationContext) {
+  requireScope(ctx.actor, 'site:write');
+  const result = await removeSubpathLocationForApp(appUser(ctx));
+  locationMutationResult(result);
+  return result.location;
+}
+
+export async function getAnalyticsOp(ctx: OperationContext, input: { range: string; postId?: string }) {
   requireScope(ctx.actor, 'analytics:read');
   const range = input.range === 'all' ? 'all' : Number(input.range) as AnalyticsRange;
-  const result = await loadAnalyticsForApp(appUser(ctx), range);
+  const result = await loadAnalyticsForApp(appUser(ctx), range, { postId: input.postId });
   if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', 'Analytics are on the paid plan.', 402);
   return result;
 }
@@ -531,6 +585,73 @@ function renderPresentedPreviewHtml(
     : "";
   return `<article data-vc-layout="${escapePreviewText(presentation.layout)}">${compactToc}<div data-vc-article-body>${contentHtml}${railToc}</div></article>`;
 }
+
+async function deterministicPostSeo(
+  siteId: string,
+  post: Pick<Post, "id" | "title" | "slug" | "seoTitle" | "seoDescription" | "excerpt" | "canonicalUrl" | "coverAssetId"> | null,
+  contentMarkdown: string,
+  renderWarnings: readonly string[],
+  focusKeyword?: string,
+) {
+  // The SEO pass can never fail the request: an unparseable or too-deep body
+  // yields no findings (the render fallback already warned), and any
+  // unexpected error logs a warning and degrades to an empty list.
+  try {
+    const tree = tryParseSeoMarkdown(contentMarkdown);
+    const site = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
+    const siteName = site?.name ?? "";
+    if (!tree) return { siteName, findings: [] };
+    const [entitlement, primaryBaseUrl] = await Promise.all([
+      resolveEffectiveEntitlementForSite(siteId),
+      site ? getSitePublicBaseUrl(siteId, site.slug) : Promise.resolve(null),
+    ]);
+    const reads = createSeoReadModel(env.DB);
+    const [publishedSlugs, otherPosts] = await Promise.all([
+      reads.getPublishedSlugs(siteId, collectSeoLinkSlugs(tree, primaryBaseUrl)),
+      // Without saved metadata the duplicate inputs don't exist; skip the read.
+      post ? reads.listPublishedSeoFields(siteId, post.id) : Promise.resolve([]),
+    ]);
+    return {
+      siteName,
+      findings: seoChecks({
+        title: post?.title ?? "",
+        slug: post?.slug ?? "",
+        seoTitle: post?.seoTitle,
+        seoDescription: post?.seoDescription,
+        excerpt: post?.excerpt,
+        canonicalUrl: post?.canonicalUrl,
+        coverAssetId: post?.coverAssetId,
+        tree,
+        site: { indexable: entitlement.effective, primaryBaseUrl },
+        publishedSlugs,
+        otherPosts,
+        metadataKnown: post !== null,
+        renderWarnings,
+        focusKeyword,
+      }),
+    };
+  } catch (error) {
+    console.warn(`posts.preview SEO checks failed; returning no findings (${error instanceof Error ? error.message : String(error)})`);
+    return { siteName: "", findings: [] };
+  }
+}
+
+export async function seoCheckPostOp(ctx: OperationContext, input: SeoCheckPostRequest): Promise<SeoCheckPostDto> {
+  const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
+  const rendered = renderSeoContent(post.contentMarkdown);
+  const { findings, siteName } = await deterministicPostSeo(ctx.siteId, post, post.contentMarkdown, rendered.warnings, input.focusKeyword);
+  const result = { versionNumber: post.currentVersionNumber, findings };
+  if (!input.ai) return result;
+  return {
+    ...result,
+    ...await reviewPostSeo({
+      siteId: ctx.siteId, postId: post.id, versionNumber: post.currentVersionNumber,
+      title: post.seoTitle?.trim() || post.title,
+      description: post.seoDescription?.trim() || post.excerpt || "",
+      contentMarkdown: post.contentMarkdown, siteName, focusKeyword: input.focusKeyword,
+    }),
+  };
+}
 export async function previewPostOp(
   ctx: OperationContext,
   input: { contentMarkdown?: string; postId?: string; presetId?: string; presentation?: Presentation | null },
@@ -549,10 +670,7 @@ export async function previewPostOp(
     resolvedPresetId = resolvePresetId(theme);
   }
 
-  // Loaded on first preview so Worker startup doesn't pay for the Markdown pipeline.
-  const [{ renderRichContent, renderRichContentResultToHtml, validateRichContent }, { createMathRenderer }] =
-    await Promise.all([import("@vc/content"), import("@vc/content/math")]);
-  const renderResult = renderRichContent(contentMarkdown, {
+  const renderResult = renderSeoContent(contentMarkdown, {
     presetId: resolvedPresetId,
     math: createMathRenderer(),
   });
@@ -569,12 +687,14 @@ export async function previewPostOp(
   const contentHtml = renderRichContentResultToHtml(renderResult, { presetId: resolvedPresetId });
 
   const warnings = [...new Set([...renderWarnings, ...validateWarnings, ...dupTocWarnings])];
+  const { findings: seo } = await deterministicPostSeo(ctx.siteId, saved, contentMarkdown, renderWarnings);
 
   return {
     previewUrl: input.postId ? await previewUrlForPost(ctx.siteId, input.postId) : null,
     html: renderPresentedPreviewHtml(contentHtml, outline, r.resolved),
     outline,
     warnings,
+    seo,
     rendererVersion: RENDERER_VERSION,
     requestedPresentation: r.requested,
     resolvedPresentation: r.resolved,

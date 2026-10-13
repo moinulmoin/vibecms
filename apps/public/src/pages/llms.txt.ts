@@ -4,6 +4,7 @@ import { docsSource } from "../lib/docs-source";
 import { marketingLlmsTxt } from "../lib/agent-discovery";
 import { handleLlmsTxt } from "../server/public-feeds";
 import { isMarketingHost } from "../server/public-blog";
+import { publicLocationRequest } from "../server/public-location";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
 
 export const GET: APIRoute = async (context) => {
@@ -14,5 +15,7 @@ export const GET: APIRoute = async (context) => {
     });
   }
 
-  return handleLlmsTxt(publicDb(context), context.request, env);
+  const location = context.locals.publicLocation;
+  const request = publicLocationRequest(context.request, location, context.locals.publicPath ?? context.url.pathname);
+  return handleLlmsTxt(publicDb(context), request, env, location);
 };

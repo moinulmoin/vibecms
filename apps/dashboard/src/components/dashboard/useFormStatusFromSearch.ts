@@ -12,6 +12,16 @@ const EXTRA_OK: Record<string, FormStatus> = {
     title: 'Version restored',
     message: 'The post has been rolled back to the selected version.',
   },
+  location_connected: {
+    variant: 'success',
+    title: 'Location connected',
+    message: 'Add the proxy snippet shown below, then check the setup.',
+  },
+  location_removed: {
+    variant: 'success',
+    title: 'Location disconnected',
+    message: 'Your blog moved back to its default address.',
+  },
 }
 
 const EXTRA_ERROR: Record<string, FormStatus> = {
@@ -19,6 +29,11 @@ const EXTRA_ERROR: Record<string, FormStatus> = {
     variant: 'error',
     title: 'Settings changed elsewhere',
     message: 'Your local values were kept against the latest saved version. Review them, then save again.',
+  },
+  location_invalid: {
+    variant: 'error',
+    title: 'Invalid location',
+    message: 'Enter a full https URL with a path, for example https://example.com/blog.',
   },
 }
 

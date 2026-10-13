@@ -10,8 +10,10 @@ import {
   postVersionSummaryDtoSchema,
   previewPostDtoSchema,
   siteWithSignupFormDtoSchema,
+  siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
   signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  seoCheckPostDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
@@ -40,6 +42,8 @@ import {
   uploadAssetRequestSchema,
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
+  getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
+  seoCheckPostRequestSchema,
 } from "./requests";
 
 export type OperationAnnotations = {
@@ -116,13 +120,33 @@ export const operations = [
     requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: {},
   },
   {
+    toolName: 'sites.location.get', operationId: 'getSiteLocation', requiredScope: 'sites:read',
+    description: opDescription('Read where this blog is served: the default host, a custom domain, or a path on the owner\'s site. Subpath rows include status and the last setup check; proxyTarget and snippets only appear for keys that may manage the location. Example: {}.', 'sites:read', readErrors),
+    requestSchema: getSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'sites.location.set_subpath', operationId: 'setSubpathLocation', requiredScope: 'site:write',
+    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; the owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
+    requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.location.check', operationId: 'checkSiteLocation', requiredScope: 'site:write',
+    description: opDescription('Verify the subpath proxy is live: probes https://<hostname><basePath>/_vc/health and compares site id and proxy fingerprint. A pass activates the location; a failure records plain-language errors. Call after the owner saves a snippet. Example: {}.', 'site:write', readErrors),
+    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: {},
+  },
+  {
+    toolName: 'sites.location.remove', operationId: 'removeSiteLocation', requiredScope: 'site:write',
+    description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}.', 'site:write', writeErrors),
+    requestSchema: removeSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
+  },
+  {
     toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',
     description: opDescription('List tags currently used by non-archived posts and their post counts. Reuse these spellings when tagging a post. Example: {}.', 'site:write', readErrors),
     requestSchema: listTagsRequestSchema, responseSchema: z.array(tagDtoSchema), annotations: { readOnly: true },
   },
   {
     toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
-    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and crawler requests. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
+    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
     requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
   },
   {
@@ -405,6 +429,19 @@ export const operations = [
     ),
     requestSchema: previewPostRequestSchema,
     responseSchema: previewPostDtoSchema,
+    annotations: { readOnly: true },
+  },
+  {
+    toolName: "posts.seo_check",
+    operationId: "seoCheckPost",
+    requiredScope: "posts:read",
+    description: opDescription(
+      "Check a saved post's SEO and AI-answer readiness on the current tip. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same deterministic findings in its seo field. Optional focusKeyword adds keyword checks; ai: true runs an opt-in AI review that counts against the site's daily review limit (over the limit returns RATE_LIMIT with retryAfterSeconds; AI_UNAVAILABLE when no AI binding is configured). Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
+      "posts:read",
+      `${readErrors} AI_UNAVAILABLE when the AI review is requested but not configured on this deployment.`,
+    ),
+    requestSchema: seoCheckPostRequestSchema,
+    responseSchema: seoCheckPostDtoSchema,
     annotations: { readOnly: true },
   },
 ] as const satisfies readonly OperationDefinition[];

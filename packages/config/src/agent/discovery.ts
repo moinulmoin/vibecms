@@ -49,8 +49,9 @@ export function marketingHomeLinks(origin: string, appUrl: string): string {
   return [`<${origin}/llms.txt>; rel="describedby"`, `<${origin}/sitemap.xml>; rel="sitemap"`, `<${origin}/.well-known/api-catalog>; rel="api-catalog"`, `<${origin}/.well-known/mcp/server-card.json>; rel="service-desc"`, `<${app}/openapi.json>; rel="service-desc"`].join(", ");
 }
 
-export function tenantHomeLinks(origin: string): string {
-  return [`<${origin}/llms.txt>; rel="describedby"`, `<${origin}/sitemap.xml>; rel="sitemap"`, `<${origin}/feed.xml>; rel="alternate"; type="application/rss+xml"`].join(", ");
+export function tenantHomeLinks(origin: string, basePath = ""): string {
+  const base = `${origin}${basePath}`;
+  return [`<${base}/llms.txt>; rel="describedby"`, `<${base}/sitemap.xml>; rel="sitemap"`, `<${base}/feed.xml>; rel="alternate"; type="application/rss+xml"`].join(", ");
 }
 
 export function markdownNotFound(): Response {

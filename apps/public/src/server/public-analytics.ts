@@ -1,5 +1,25 @@
 export const ANALYTICS_RETENTION_DAYS = 90;
 
+/**
+ * Self-host analytics gate (plans/023 §5): collection + rollup turn on when
+ * the install provides the ANALYTICS binding and the three query vars the API
+ * Worker needs to read the dataset back.
+ */
+export function analyticsConfigured(raw: Env): boolean {
+  const vars = raw as unknown as {
+    ANALYTICS?: AnalyticsEngineDataset;
+    ANALYTICS_ACCOUNT_ID?: string;
+    ANALYTICS_DATASET?: string;
+    ANALYTICS_API_TOKEN?: string;
+  };
+  return Boolean(
+    vars.ANALYTICS &&
+      vars.ANALYTICS_ACCOUNT_ID?.trim() &&
+      vars.ANALYTICS_DATASET?.trim() &&
+      vars.ANALYTICS_API_TOKEN?.trim(),
+  );
+}
+
 export type PageViewEvent = {
   siteId: string;
   postId: string;

@@ -11,7 +11,7 @@ import {
 } from '@vc/config'
 import { ArrowDown, ArrowUp, Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
 import type { Asset, BillingStatus } from '@vc/core'
-import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, VoiceProfileSettings } from '~/types/dashboard'
+import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, SiteLocationView, VoiceProfileSettings } from '~/types/dashboard'
 import { Alert, CopyButton, Field, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
@@ -22,6 +22,7 @@ import { PlanAndBilling } from '~/components/dashboard/BillingPage'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { Checkbox } from '~/components/ui/checkbox'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { SubpathLocationSection } from '~/components/dashboard/SubpathLocationSection'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { FloatingSaveBar } from '~/components/dashboard/FloatingSaveBar'
@@ -43,6 +44,7 @@ type SettingsPageData = {
   site: SiteSettingsForm
   assets: Asset[]
   customDomains: CustomDomainsPanel
+  location: SiteLocationView | null
   billingStatus: string
   polarBillingStatus?: BillingStatus
   effectiveEntitlement?: {
@@ -993,6 +995,14 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                 <p className="text-sm text-muted-foreground">Your address appears here once your blog is set up.</p>
               )}
             </Section>
+
+            <SubpathLocationSection
+              location={data.location}
+              locked={domainLocked}
+              customDomainActive={customDomains.domains.some((domain) => domain.status === 'active')}
+              feedback={feedback}
+              refresh={reload}
+            />
 
             <Section
               layout="aside"

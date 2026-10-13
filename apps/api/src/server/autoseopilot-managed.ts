@@ -1,4 +1,10 @@
-import { AGENT_TOKEN_PRESETS } from '@vc/core'
+import {
+  AGENT_TOKEN_PRESETS,
+  ConflictError,
+  validateSubpathLocation,
+  type Actor,
+  type SubpathCheckWriteResult,
+} from '@vc/core'
 import {
   createDataAccess,
   evaluateEffectiveHostedEntitlement,
@@ -7,8 +13,10 @@ import {
   type ManagedSiteSnapshot,
 } from '@vc/db'
 import { isReservedSiteSlug, SITE_SLUG_MAX_LENGTH } from '@vc/validators'
+import { isPurgeableMount, scheduleManagedSitePurge } from '@/server/purge-scheduler'
+import { getSiteLocation } from '@/server/subpath-locations'
 import { apiTokenPrefix, hashApiToken } from '@/server/api-keys'
-import { scheduleManagedSitePurge } from '@/server/purge-scheduler'
+import { checkSubpathSetup } from '@/server/subpath-setup'
 import { z } from 'zod'
 
 export const MANAGED_BODY_LIMIT = 64 * 1024
@@ -34,6 +42,7 @@ export type ManagedInternalErrorCode =
   | 'SLUG_CONFLICT'
   | 'CONFLICT'
   | 'REQUEST_TOO_LARGE'
+  | 'BILLING_REQUIRED'
   | 'INTERNAL_ERROR'
 
 export class ManagedInternalError extends Error {
@@ -152,7 +161,7 @@ export type ManagedReceipt = ManagedReceiptBase &
 
 type ManagedEnvironment = Pick<
   Cloudflare.Env,
-  'DB' | 'APP_ENV' | 'SELF_HOSTED' | 'PUBLIC_BLOG_DOMAIN' | 'TOKEN_PEPPER'
+  'DB' | 'APP_ENV' | 'APP_URL' | 'SELF_HOSTED' | 'PUBLIC_BLOG_DOMAIN' | 'TOKEN_PEPPER'
 >
 
 function now() {
@@ -318,13 +327,28 @@ function publicUrlUnavailable() {
   return new ManagedInternalError('INTERNAL_ERROR', 'Managed public URL is unavailable.', 500)
 }
 
+// Public URL for the managed receipt: the site's primary location while its
+// effective entitlement is active — the same rule getSitePublicBaseUrl and
+// the public worker apply. A lapsed site falls back to its active default
+// host (the only location that still serves), never the rejected paid mount.
 async function publicUrl(
   environment: ManagedEnvironment,
   snapshot: ManagedSiteSnapshot,
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   repairLocalHostname: boolean,
+  entitled: boolean,
 ) {
-  let hostname = await db.sites.getActiveDefaultHostname(snapshot.siteId)
+  const primary = await db.domains.getPrimaryPublicLocation(snapshot.siteId)
+  // Non-default primaries (subpath/custom) need no repair: they are already
+  // the real customer-facing location (basePath non-empty only for subpath) —
+  // but only while the entitlement is effective.
+  if (primary && primary.type !== 'default' && entitled) {
+    const base = publicUrlForHostname(primary.hostname)
+    return base ? `${base}${primary.basePath}` : null
+  }
+  let hostname = primary?.type === 'default'
+    ? primary.hostname
+    : await db.sites.getActiveDefaultHostname(snapshot.siteId)
   if (
     hostname &&
     (hostname === 'localhost' || hostname.endsWith('.localhost')) &&
@@ -346,12 +370,14 @@ async function publicUrl(
 
 // Checked before any write that leaves the binding active, so an unresolvable public URL
 // fails the provision without committing a rotation, reactivation, or reconciliation.
+// Checks the default host (entitled = false): it is the fallback every receipt can land
+// on, while an entitled custom/subpath primary always resolves from its own hostname.
 async function assertActivePublicUrl(
   environment: ManagedEnvironment,
   snapshot: ManagedSiteSnapshot,
   db: DataAccess,
 ) {
-  if (!(await publicUrl(environment, snapshot, db, true))) throw publicUrlUnavailable()
+  if (!(await publicUrl(environment, snapshot, db, true, false))) throw publicUrlUnavailable()
 }
 
 async function resolveReceipt(
@@ -385,6 +411,7 @@ async function resolveReceipt(
     snapshot,
     db,
     options.repairLocalHostname ?? true,
+    entitlement.effective,
   )
   const base: ManagedReceiptBase = {
     externalWorkspaceId: snapshot.externalWorkspaceId,
@@ -509,7 +536,7 @@ function classifyRotationSnapshot(
 }
 
 async function rotateManagedCredential(
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   externalWorkspaceId: string,
   request: ManagedProvisionRequest,
   tokenHash: string,
@@ -580,7 +607,7 @@ async function rotateManagedCredential(
 }
 
 async function reconcileManagedEntitlement(
-  db: ReturnType<typeof createDataAccess>,
+  db: DataAccess,
   externalWorkspaceId: string,
   credentialId: string,
   current: ManagedSiteSnapshot,
@@ -635,6 +662,197 @@ async function readExisting(
   externalWorkspaceId: string,
 ) {
   return createDataAccess(environment.DB).managedSites.getSnapshotByExternalWorkspaceId(externalWorkspaceId)
+}
+
+// --- Subpath location (plans/022 phase 3) ------------------------------------
+
+// Demoted rows are a platform-driven outcome on the losing site, not an action
+// its users took — the activity entry is attributed to System.
+const SYSTEM_ACTOR: Actor = { type: 'system', id: 'system', name: 'System' }
+
+export const managedLocationRequestSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('subpath'), url: z.string().trim().min(1).max(2048) }).strict(),
+    z.object({ type: z.literal('default') }).strict(),
+  ])
+
+export type ManagedLocationRequest = z.infer<typeof managedLocationRequestSchema>
+
+function managedAppHost(environment: ManagedEnvironment): string {
+  try {
+    return new URL(environment.APP_URL).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function managedPlatformZone(environment: ManagedEnvironment): string {
+  const raw = environment.PUBLIC_BLOG_DOMAIN?.trim() ?? ''
+  if (!raw) return ''
+  try {
+    return (raw.includes('://') ? new URL(raw).hostname : raw).toLowerCase().replace(/\.$/, '')
+  } catch {
+    return ''
+  }
+}
+
+async function requireActiveManagedSite(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+): Promise<ManagedSiteSnapshot> {
+  const snapshot = await readExisting(environment, canonicalExternalWorkspaceId(externalWorkspaceId))
+  if (!snapshot) throw new ManagedInternalError('NOT_FOUND', 'Managed site not found.', 404)
+  if (snapshot.siteStatus !== 'active') {
+    throw conflict('CONFLICT', 'The managed site is archived.')
+  }
+  return snapshot
+}
+
+async function assertManagedEntitled(environment: ManagedEnvironment, snapshot: ManagedSiteSnapshot) {
+  const selfHosted = String(environment.SELF_HOSTED) === 'true'
+  const entitlement = await createDataAccess(environment.DB).managedSites.resolveSite(snapshot.siteId, {
+    selfHosted,
+    now: now(),
+  })
+  if (!entitlement?.effective) {
+    throw conflict('BILLING_REQUIRED', 'Subpath hosting requires an active entitlement.')
+  }
+}
+
+// The managed caller IS the site owner: setup details (proxy target, snippets)
+// always ship in managed responses. Actor is synthesized owner so the shared
+// view builder treats this as owner-level.
+function managedOwnerActor(snapshot: ManagedSiteSnapshot): Actor {
+  return { type: 'human', id: snapshot.ownerUserId, name: 'AutoSEOPilot', role: 'owner' }
+}
+
+async function managedLocationView(environment: ManagedEnvironment, snapshot: ManagedSiteSnapshot) {
+  return getSiteLocation(createDataAccess(environment.DB), snapshot.siteId, snapshot.siteSlug, managedOwnerActor(snapshot))
+}
+
+export async function setManagedSiteLocation(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+  request: ManagedLocationRequest,
+) {
+  const snapshot = await requireActiveManagedSite(environment, externalWorkspaceId)
+  const db = createDataAccess(environment.DB)
+
+  if (request.type === 'default') {
+    const existing = (await db.domains.listBySite(snapshot.siteId)).find((row) => row.type === 'subpath')
+    if (existing) {
+      await db.domains.deleteSubpathForSite(snapshot.siteId)
+      // A mount that actually served purges its hostname; a never-verified
+      // claim owned nothing on that host and purges nothing extra.
+      scheduleManagedSitePurge(
+        environment.DB,
+        snapshot.siteId,
+        snapshot.siteSlug,
+        isPurgeableMount(existing)
+          ? [{ hostname: existing.hostname, basePath: existing.basePath ?? '' }]
+          : [],
+      )
+    }
+    return { location: await managedLocationView(environment, snapshot) }
+  }
+
+  await assertManagedEntitled(environment, snapshot)
+  const validation = validateSubpathLocation(request.url, {
+    appHost: managedAppHost(environment),
+    platformZone: managedPlatformZone(environment),
+  })
+  if (!validation.ok) {
+    throw new ManagedInternalError('VALIDATION_ERROR', validation.error, 400)
+  }
+  // insertSubpath replaces any existing row in one batch; capture it first so
+  // a mount that WAS live still gets its hostname purged below.
+  const existing = (await db.domains.listBySite(snapshot.siteId)).find((row) => row.type === 'subpath')
+  try {
+    await db.domains.insertSubpath({
+      siteId: snapshot.siteId,
+      hostname: validation.hostname,
+      basePath: validation.basePath,
+    })
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      throw conflict('CONFLICT', 'That domain is already connected to another blog.')
+    }
+    throw error
+  }
+  if (existing && isPurgeableMount(existing)) {
+    scheduleManagedSitePurge(
+      environment.DB,
+      snapshot.siteId,
+      snapshot.siteSlug,
+      [{ hostname: existing.hostname, basePath: existing.basePath ?? '' }],
+    )
+  }
+  return { location: await managedLocationView(environment, snapshot) }
+}
+
+export async function checkManagedSiteLocation(
+  environment: ManagedEnvironment,
+  externalWorkspaceId: string,
+) {
+  const snapshot = await requireActiveManagedSite(environment, externalWorkspaceId)
+  // Same gate as the dashboard/MCP check: a check can activate the location
+  // (and supersede another site's), which is the paid operation.
+  await assertManagedEntitled(environment, snapshot)
+  const db = createDataAccess(environment.DB)
+  const row = (await db.domains.listBySite(snapshot.siteId)).find((domain) => domain.type === 'subpath')
+  if (!row) {
+    throw new ManagedInternalError('NOT_FOUND', 'No subpath location is set up for this site.', 404)
+  }
+  const check = await checkSubpathSetup(row, { id: snapshot.siteId })
+  // Conditional write: applies only while the row still carries the proxy id
+  // that was checked (rotate/remove mid-probe → conflict, re-check to retry),
+  // and a failing check never demotes an already-active row. A passing check
+  // also demotes any other site's active row on the hostname — the pass is
+  // the proof of hostname control.
+  let checkResult: SubpathCheckWriteResult
+  try {
+    checkResult = await db.domains.recordSubpathCheck(row.id, snapshot.siteId, {
+      proxyId: row.proxyId ?? '',
+      checkPassed: check.ok,
+      verificationErrorsJson: JSON.stringify(check),
+    })
+  } catch (error) {
+    // Another claim won this hostname mid-check: the batch applied nothing,
+    // so the caller just re-runs the probe.
+    if (error instanceof ConflictError) {
+      throw conflict('CONFLICT', error.message)
+    }
+    throw error
+  }
+  const { applied, demoted } = checkResult
+  if (!applied) {
+    throw conflict('CONFLICT', 'The proxy link changed while the check ran. Run the check again.')
+  }
+  for (const loser of demoted) {
+    const loserSnapshot = await db.managedSites.getSnapshotBySiteId(loser.siteId)
+    const loserSlug = loserSnapshot?.siteSlug ?? (await db.sites.getSiteSlug(loser.siteId))
+    if (loserSlug) scheduleManagedSitePurge(environment.DB, loser.siteId, loserSlug)
+    await db.activity.create({
+      siteId: loser.siteId,
+      actor: SYSTEM_ACTOR,
+      action: 'site.location.superseded',
+      entityType: 'site',
+      entityId: loser.siteId,
+      summary: `The blog location at ${loser.hostname}${loser.basePath ?? ''} now points at another blog.`,
+    })
+  }
+  if (check.ok) scheduleManagedSitePurge(environment.DB, snapshot.siteId, snapshot.siteSlug)
+  if (check.ok && row.status !== 'active') {
+    await db.activity.create({
+      siteId: snapshot.siteId,
+      actor: managedOwnerActor(snapshot),
+      action: 'site.location.verified',
+      entityType: 'site',
+      entityId: snapshot.siteId,
+      summary: `Verified the blog location at ${row.hostname}${row.basePath ?? ''}.`,
+    })
+  }
+  return { check, location: await managedLocationView(environment, snapshot) }
 }
 
 export async function getManagedSite(

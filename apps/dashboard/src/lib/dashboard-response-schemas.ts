@@ -60,6 +60,31 @@ export const mutationResultSchema = z.object({
   versionNumber: z.number().optional(),
 })
 
+export const siteLocationSchema = z.object({
+  type: z.enum(['default', 'custom', 'subpath']),
+  url: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'failed', 'disabled']).nullable(),
+  proxyTarget: z.string().optional(),
+  snippets: z
+    .object({
+      cloudflareWorker: z.object({ code: z.string(), route: z.string() }),
+      vercel: z.string(),
+      nextjs: z.string(),
+      netlify: z.string(),
+      nginx: z.string(),
+      caddy: z.string(),
+    })
+    .optional(),
+  lastCheck: z
+    .object({
+      ok: z.boolean(),
+      checkedAt: z.number(),
+      errors: z.array(z.object({ code: z.string(), message: z.string() })),
+      warnings: z.array(z.object({ code: z.string(), message: z.string() })),
+    })
+    .optional(),
+})
+
 const billingStatusSchema = z.enum(['active', 'past_due', 'canceled', 'unpaid', 'none'])
 const entitlementAccessSchema = z.enum(['self_hosted', 'hosted_paid', 'hosted_free'])
 const entitlementSourceSchema = z.enum(['self_hosted', 'polar', 'managed_sponsorship', 'none'])
@@ -204,6 +229,67 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
         z.object({ agent: z.string(), operator: z.string(), category: z.string(), requests: z.number() }),
       ),
     }),
+    // Optional: payloads from before the agents breakdown shipped still carry
+    // full people data. Missing means "agents unavailable", not a failure.
+    agents: z.object({
+      total: z.number(),
+      byCategory: z.array(
+        z.object({
+          category: z.enum(['ai-assistant', 'ai-search', 'ai-training', 'search-engine', 'other-bot', 'unknown-agent']),
+          fetches: z.number(),
+        }),
+      ),
+      topAgents: z.array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          operator: z.string(),
+          category: z.enum(['ai-assistant', 'ai-search', 'ai-training', 'search-engine', 'other-bot', 'unknown-agent']),
+          fetches: z.number(),
+        }),
+      ),
+      topPosts: z.array(
+        z.object({ postId: z.string(), slug: z.string(), title: z.string(), fetches: z.number() }),
+      ),
+      markdownShare: z.number(),
+      signedShare: z.number(),
+      llmsReads: z.number(),
+    }).optional(),
+  }),
+])
+
+export const seoFindingSchema = z.object({
+  code: z.string(),
+  severity: z.enum(['error', 'warn', 'info']),
+  field: z.string(),
+  message: z.string(),
+  fix: z.string(),
+  position: z.number().optional(),
+})
+
+export const seoAiReviewSchema = z.object({
+  intent: z.string(),
+  titleIdeas: z.tuple([z.string(), z.string()]),
+  descriptionIdea: z.string(),
+  missingSubtopics: z.array(z.string()).max(5),
+  unclearPassages: z.array(z.object({ quote: z.string(), why: z.string() })).max(3),
+  claimsNeedingSources: z.array(z.object({ quote: z.string() })).max(3),
+})
+
+export const seoCheckResultSchema = z.object({
+  versionNumber: z.number().int(),
+  findings: z.array(seoFindingSchema),
+  ai: seoAiReviewSchema.nullable().optional(),
+  warnings: z.array(z.string()).optional(),
+})
+
+/** Slim read of /api/dashboard/analytics?postId=… — just what the editor rail line needs. */
+export const postAnalyticsSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.enum(['locked', 'unavailable']) }),
+  z.object({
+    status: z.literal('available'),
+    views: z.number(),
+    agents: z.object({ total: z.number() }).optional(),
   }),
 ])
 
@@ -327,6 +413,7 @@ export const settingsPageDataSchema = z.object({
     ),
     cnameTarget: z.string().nullable(),
   }),
+  location: siteLocationSchema.nullable(),
   billingStatus: z.string(),
   polarBillingStatus: billingStatusSchema.optional(),
   effectiveEntitlement: z.object({
