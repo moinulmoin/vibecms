@@ -1,0 +1,30 @@
+---
+title: Editing posts
+description: The dashboard editor's views, surfaces, autosave, and conflict recovery.
+---
+
+The post editor has up to four views, chosen at the top of the page: **Write**, **Split** (desktop only — your text next to a live preview), **Preview**, and **Review** (appears only when a post needs your attention, like an agent's draft or unpublished changes to a live post).
+
+## Two writing surfaces
+
+Within Write, an **Editor** switch chooses between **Visual** and **Markdown**. Visual is a block editor for everyday writing; Markdown is the raw source. Dropping in an image uploads it and inserts a `/media-assets/<id>` reference. Pasting Markdown that Visual cannot represent (HTML, custom blocks) opens it in Markdown mode instead — the source stays exactly as written, and the editor says so. The same check applies when you switch back: if the Markdown needs it, Visual stays unavailable while the post still previews and publishes normally.
+
+## Saving
+
+The editor autosaves once the post has a title. `Cmd+S` / `Ctrl+S` saves immediately. The header shows the state — **Saving…**, **Saved · vN**, or a **Retry** link when a save fails. A save that changes something creates the next numbered version; a save with no changes creates none, and your own edits within ten minutes can fold into the current unpublished version. [Posts and versions](/docs/content/posts-and-versions) explains how versions relate to the live page.
+
+## Preview
+
+**Preview** renders the post with your live blog's theme, exactly as readers will see it. Toolbar controls switch the width between desktop, tablet, and phone, and toggle light and dark mode. Preview also reports renderer warnings — missing image alt text, removed HTML — in the editor's notes area.
+
+## Review
+
+**Review** opens when a draft's newest saved version came from an agent, or when unpublished changes sit on top of a live post. It names the author and compares against the version that matters: the live version for a published post, or the newest earlier version from the other side of the human/agent boundary — an agent-written tip compares against a human version, a human tip against an agent one. With a comparison, the **Changes** tab shows detail and body diffs and **Preview** shows the rendered result; with no qualifying baseline, Review shows only the preview. From here you can **Edit**, **Discard changes** (or **Revert to vN** for a draft, shown only when a baseline exists), or **Publish vN**.
+
+## When two people edit at once
+
+If the post changed since your copy loaded, saving pauses and the editor shows **A newer version was saved elsewhere**, naming the author and version. Three buttons resolve it:
+
+- **Keep mine** — your text goes on top of the latest version and saves as the next version.
+- **Use theirs** — loads the latest version and discards yours (the editor asks you to confirm).
+- **Copy my Markdown** — copies your version to the clipboard before you decide.

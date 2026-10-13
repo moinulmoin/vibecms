@@ -1,6 +1,6 @@
 # 024 - SEO checks: deterministic rules plus a cheap AI review
 
-Status: Phases 1–2 implemented; dashboard API route available, editor UI (phase 3) remains out of scope. Format guide/MCP instructions and root docs updated; public-app docs unchanged by slice constraint. Independent of 023. Migration slot: `0035`.
+Status: DONE — shipped to production 2026-10-13 (migration `0035`). Deterministic checks, `posts.seo_check`, the dashboard API route, the editor SEO rail, AI review UI, and publish-dialog findings all ship. The local smoke noted below remains historical; a remote Workers AI call was not separately re-verified.
 
 ## Why
 

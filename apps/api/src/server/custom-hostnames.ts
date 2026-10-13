@@ -3,7 +3,7 @@
  *
  * Inert until CLOUDFLARE_ZONE_ID + CUSTOM_HOSTNAME_API_TOKEN are set (a CF token scoped
  * to SSL and Certificates: Edit). On dev these are absent, so every call returns null/no-op
- * and the add flow simply leaves the domain `pending`. See plans/PROD-LAUNCH.md for the
+ * and the add flow simply leaves the domain `pending`. See docs/deploy.md for the
  * full Cloudflare for SaaS setup (enable SaaS on the zone, fallback origin, CNAME target).
  *
  * SSL method `http`: once the customer creates a DNS-only CNAME from their hostname to

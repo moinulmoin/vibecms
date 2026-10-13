@@ -10,7 +10,7 @@ vibecms generates an OpenAPI 3.1 schema from the canonical operation definitions
 - [OpenAPI JSON](https://app.vibecms.dev/api/v1/openapi.json)
 - [Scalar API explorer](https://app.vibecms.dev/api/v1/docs)
 
-The explorer is the best place to inspect every field, response schema, required scope, and operation-specific error. This documentation site focuses on task-oriented workflows and safety semantics rather than duplicating the generated schema.
+The explorer is the best place to inspect every field, response schema, and required scope. Error responses are documented per operation but use a generic error code schema, and they may not enumerate every status a runtime can return — treat the HTTP status and the `error.code` body as the contract. This documentation site focuses on task-oriented workflows and safety semantics rather than duplicating the generated schema.
 
 ## Regenerate locally
 

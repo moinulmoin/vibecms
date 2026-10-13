@@ -1,0 +1,24 @@
+---
+title: Export your posts
+description: Download every post — drafts, published, and archived — as one JSON file.
+---
+
+Your writing is yours. Under **Dashboard > Settings > Export posts**, choose **Download posts** to get a `vibecms-export-<date>.json` file containing the whole blog. The tab is owner-only; editors don't see it.
+
+## What's in the file
+
+The JSON carries `schemaVersion: 2`, the site identity (id, name, slug, description, default SEO fields), and a `posts` array. Each post includes:
+
+- Its status (`draft`, `published`, or `archived`), slug, title, excerpt, tags, SEO fields, canonical URL, cover asset, presentation settings, and timestamps
+- `contentMarkdown` — the current tip
+- `publishedVersion` — a snapshot of the version live on the blog, when one exists
+- `draftTip` — a snapshot of the newest saved version, when it differs from the published one
+- `mediaAssets` — metadata and `/media-assets/<id>` URLs for each image the published and draft tips reference
+
+## What's not in the file
+
+- **Image files.** Only metadata and URLs are exported; download the binaries separately if you need them.
+- **Version history.** The export has the published version and the current tip, not every past version.
+- **Subscribers and site configuration** beyond the fields above.
+
+The export is a backup and portability format — there is no matching import. To move content elsewhere, render it or hand the Markdown to your next system.

@@ -12,7 +12,7 @@ Every post is checked for the things search engines and AI answer engines look f
 - The editor's SEO section lists findings grouped by severity, with a focus keyword field saved per browser and one-click jumps to the SEO fields a finding attaches to.
 - The publish dialog lists open `error` findings. It informs, it does not block.
 
-Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) runs only body-level checks — metadata checks need a saved post's title, slug, and fields.
+Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) skips the checks that attach to saved metadata — title, description, slug, duplicates, canonical — but still runs site context like `site-not-indexable` alongside the body checks.
 
 ## Finding codes
 
@@ -30,7 +30,7 @@ Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) runs only bo
 
 | Code | Severity | Meaning and fix |
 | --- | --- | --- |
-| `h1-in-body` | warn | Body contains an H1 — the post title is already the page H1, so demote body `#` headings to `##`. |
+| `h1-in-body` | warn | Body contains an H1 other than a leading `# <post title>` — that one is removed before rendering, so demote any other body `#` headings to `##`. |
 | `heading-skip` | warn | A heading level jumps (H2 to H4) — use the next level so the outline stays intact. |
 | `heading-empty` | warn | A heading has no text — fill it or remove it. |
 | `heading-duplicate` | warn | The same heading text appears twice — rename it so each section is unique. |
@@ -82,7 +82,7 @@ Pass `focusKeyword` to `posts.seo_check` (or fill the editor field) to add five 
 - `unclearPassages` — up to three verbatim quotes and why they confuse or overreach
 - `claimsNeedingSources` — up to three verbatim quotes for claims that need a citation
 
-In the editor, **Use this** puts a title or description idea into the SEO field. Like any edit, the editor then saves a new draft version; nothing goes live until you publish.
+In the editor, **Use this** puts a title or description idea into the SEO field and saves through the normal autosave — it may fold into the current unpublished tip rather than cut a new version, and a suggestion equal to the current value saves nothing. Nothing goes live until you publish.
 
 The post is sent to the model as untrusted data — instructions inside the post are ignored. Results are cached per post version and model, so checking the same version again is free; changing the focus keyword does not regenerate a cached review.
 

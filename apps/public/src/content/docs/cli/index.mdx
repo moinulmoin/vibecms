@@ -30,13 +30,13 @@ vibecms sites update --expected-updated-at 123 --data '{"name":"Field Notes"}'
 vibecms sites theme get
 vibecms sites theme update --expected-updated-at 123 --data '{"mode":"dark"}'
 vibecms sites theme revert --expected-updated-at 124
-vibecms sites voice update --data-file voice.json
+vibecms sites voice update --expected-updated-at 0 --data-file voice.json
 vibecms sites signup-form update --expected-updated-at 125 --data '{"enabled":true}'
 vibecms tags list
 vibecms analytics get --range 30
 ```
 
-Use `--data <json>` or `--data-file <path>` for JSON object requests. Site, theme, and signup form updates require `--expected-updated-at` from the current settings. `analytics get` accepts `7`, `30`, `90`, `365`, or `all`.
+Use `--data <json>` or `--data-file <path>` for JSON object requests. Site, theme, and signup form updates require `--expected-updated-at` from the current settings; voice update requires it too, but the value is `voiceProfile.revision` from `vibecms site` — `0` only for a never-configured profile. `analytics get` accepts `7`, `30`, `90`, `365`, or `all`.
 
 ## Posts
 
@@ -54,14 +54,14 @@ vibecms posts versions post_...
 vibecms posts version post_... 2
 vibecms posts restore post_... 1 --expected-version 2
 vibecms posts publish post_... --expected-version 3
-vibecms posts schedule post_... --expected-version 3 --at 2026-10-01T09:00:00Z
+vibecms posts schedule post_... --version-number 4 --at 2027-01-15T09:00:00Z
 vibecms posts unschedule post_...
 vibecms posts rotate-preview post_...
 vibecms posts archive post_...
 vibecms posts unarchive post_...
 ```
 
-For `create`, use `--content <markdown>` or `--content-file <path>`. `update` accepts those flags when changing the body. Optional post fields are `--excerpt`, `--tags a,b`, `--cover <assetId|none>`, `--layout standard|essay|feature|wide`, `--toc true|false`, `--seo-title`, `--seo-description`, and `--canonical-url <url|none>`. `create` requires `--title` and `--slug`; `update` can also change them. `--expected-version` binds an update, restore, publish, or schedule to a saved version. Schedule `--at` must be an ISO-8601 UTC time ending in `Z`.
+For `create`, use `--content <markdown>` or `--content-file <path>`. `update` accepts those flags when changing the body. Optional post fields are `--excerpt`, `--tags a,b`, `--cover <assetId|none>`, `--layout standard|essay|feature|wide`, `--toc true|false`, `--seo-title`, `--seo-description`, and `--canonical-url <url|none>`. `create` requires `--title` and `--slug`; `update` can also change them. `--expected-version` binds `update`, `restore`, `publish`, or `archive` to a saved version — for `restore`, the positional version selects the historical snapshot while `--expected-version` guards the current tip. Only `posts schedule` also accepts `--version-number` as an alias for that flag. Schedule `--at` must be an ISO-8601 UTC time ending in `Z` and in the future.
 
 ## Assets and schemas
 

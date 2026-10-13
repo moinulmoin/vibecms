@@ -7,7 +7,7 @@ Every post has a current private tip. A published post also has a `publishedVers
 
 ## Draft and live state
 
-Updating a published post does not immediately change its public article. The edit creates a new private version. The previous published version stays live until an approved call to `posts.publish` pins the newer tip.
+Updating a published post does not immediately change its public article. Agent and API writes always create a new private version; the previous published version stays live until an approved call to `posts.publish` pins the newer tip. For a human editing in the dashboard, repeated saves within a short window (10 minutes) can fold into the current unpublished tip instead of creating a separate version each time — the tip is renumbered, so earlier version numbers may not all exist. A human save that effectively changes nothing creates no version at all.
 
 This allows an agent or owner to revise a live article without exposing incomplete work.
 

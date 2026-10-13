@@ -1,6 +1,6 @@
 # 023 - One analytics view for people and agents
 
-Status: TODO. Depends on 022 (subpath traffic must be counted too). Migration slot: `0034`.
+Status: DONE — shipped to production 2026-10-13 (migration `0034`). Shared agent classification (`packages/config/src/agents.ts`), first-party `agent_fetch` writes in the public worker, D1 rollups, the Agents dashboard view, and the `analytics.get` contract all ship. Ranges are 7/30/90/365/all; the "today" gaps below were the pre-change motivation.
 
 ## Why
 

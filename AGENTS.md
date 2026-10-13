@@ -1,5 +1,57 @@
 # Agent Guide - vibecms
 
+## Repo map
+
+- `apps/api` - Hono Worker: REST `/api/v1`, MCP, auth, billing webhooks, the
+  internal AutoSEOPilot routes, and it serves the dashboard build as assets.
+- `apps/dashboard` - React + TanStack dashboard (the human control plane).
+- `apps/public` - Astro Worker: landing, docs (`src/content/docs`), and every
+  user's public blog.
+- `apps/og` - OG image Worker.
+- `packages/*` - `core` (domain logic), `db` (D1 repository + drizzle
+  migrations), `content` (Markdown rendering), `api-contract` (schemas +
+  OpenAPI), `mcp`, `validators`, `ui`, `cli` (`@vibecms/cli`), `config`.
+
+## Working rules
+
+- Gates: `pnpm typecheck`, `pnpm lint`, `pnpm build`. Run `pnpm openapi:check`
+  after API contract changes. CI runs these plus the test suite in parallel jobs.
+- Dev: `pnpm deploy:dev` deploys the dev environment; check real behavior there.
+- Prod deploys only from `main`, through the GitHub workflow:
+  `gh workflow run deploy-production.yml --ref main -f release_sha=<full sha> -f smoke_mode=authenticated`.
+- Never edit an existing migration in `packages/db/drizzle`; add a new one.
+- Never commit secrets. `.env*.local` files are gitignored; `pnpm public:audit`
+  runs on every commit.
+- Keep docs current in the same change: the docs site
+  (`apps/public/src/content/docs`), `docs/*.md`, and plan status in `plans/`.
+  Update this file when a working rule changes. Delete docs that no longer
+  match the product rather than leaving them stale.
+
+## Testing
+
+- Don't add tests by default. Write them when asked, or for the expensive
+  areas below.
+- Test observable behavior (input and output, what the user sees, what lands
+  in the database or response), so a correct rewrite still passes. No tests
+  that restate copy, constants, or which mock was called.
+- A failing existing test is a past decision. Work out whether the code broke
+  it or the intent changed. Never quietly loosen or rewrite it; ask if unsure.
+- "Done" means typecheck, lint and build pass and you ran the real behavior
+  (on dev or locally) and can show the result. A green suite alone is not proof.
+- Remove noise tests you find (copy or constant mirrors, mock-call checks,
+  tautologies, duplicates) and list them with reasons in the PR.
+
+Expensive areas (keep and write behavior tests here):
+
+- billing, entitlements and plan limits
+- auth, sessions, CSRF, API keys and scopes
+- the AutoSEOPilot internal API
+- publishing and version pinning
+- domain and hostname claims
+- subscriber data and rate limits
+- migrations
+- escaping and sanitizing user content; secret and token leak checks
+
 ## Design Context
 
 Before UI/design work in `apps/dashboard` or `apps/public`, read these two

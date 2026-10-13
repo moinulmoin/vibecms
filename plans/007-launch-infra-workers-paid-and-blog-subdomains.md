@@ -1,6 +1,6 @@
 # Plan 007: Resolve SSR Error 1102 (Workers Paid) and wire public blog subdomains
 
-> **SUPERSEDED** by `docs/url-architecture-decision.md` (2026-07-05): multi-tenant path-mode (`/blog/<site-slug>/*`) is removed; public blogs are host-only (subdomain + custom domain). The dev path-mode URLs and `publicBlogUsesAppPath()` references below are historical. The Workers Paid (Part A) and prod wildcard subdomain work remain valid.
+> **REJECTED** (2026-06, per `plans/README.md`): superseded by plan 008 — the TanStack migration made Workers Free viable, so the Workers Paid upgrade (Part A) was never bought. Multi-tenant path-mode (`/blog/<site-slug>/*`) was later removed entirely by `docs/url-architecture-decision.md` (2026-07-05); public blogs are host-only (subdomain + custom domain, and later customer subpaths under plan 022). "Dev stays in path mode" and the `dev.vibecms.dev` routing notes below are historical — dev now uses `app.basedui.dev` + `*.basedui.dev`. The June 1102 incident evidence and the single-level Universal SSL decision remain valid history.
 
 > **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving on. If a STOP condition occurs, stop and report. Part A is a prerequisite for Part B and for any further human-facing dev/prod testing. When done, update the status row in `plans/README.md`.
 

@@ -1,7 +1,6 @@
 # AutoSEOPilot managed integration
 
-Status: canonical V1 contract. This document supersedes
-`docs/asp-integration-spec.md`.
+Status: canonical V1 contract.
 
 Implementation status (2026-09-03): the binding, internal routes, entitlement
 gates, credential lifecycle, by-slug read, redaction, and focused worker tests
@@ -322,9 +321,15 @@ segments, never a platform or app host), creates or replaces the site's
 `subpath` domain row, and returns `{ location }` — the same view the
 dashboard location API returns, including `proxyTarget` and ready-to-paste
 `snippets` (Cloudflare Worker, Vercel, Next.js, Netlify, nginx, Caddy) for
-the customer's proxy. A `409 BILLING_REQUIRED` means the effective
-entitlement is off. `default` removes the subpath mount so the site serves
-its `slug.<zone>` host again.
+the customer's proxy. The Next.js snippet never embeds the proxy link: it
+reads it from the `VIBECMS_PROXY_TARGET` environment variable, so the
+caller's setup screen must show the proxy target and tell the user to set
+that variable in their host (see `packages/core/src/subpath.ts` and
+`apps/dashboard/src/components/dashboard/SubpathLocationSection.tsx`). A
+`409 BILLING_REQUIRED` means the effective entitlement is off. `default`
+removes the subpath mount; the site then serves its remaining active custom
+domain while effective entitlement is active, otherwise its
+`slug.<zone>` host.
 
 ### POST location check
 

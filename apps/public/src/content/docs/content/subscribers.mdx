@@ -1,0 +1,18 @@
+---
+title: Subscribers
+description: Collect reader signups with the signup form, then search, filter, and export the list.
+---
+
+Your blog can show a signup form in the footer and at the end of each post. Signups are stored on the **Subscribers** page in the dashboard, which has two tabs: **People** and **Signup form**.
+
+## The signup form
+
+The **Signup form** tab (owner only) toggles the form on and off and edits three fields: **Heading** (80 characters), **Description** (160 characters), and **Button** label (24 characters). **Save changes** updates the live form; a matching `sites.signup_form.update` tool lets a Manage key do the same.
+
+vibecms sends no emails today: no confirmation message and no newsletter. Signups are stored as **pending** — a record of interest, not a verified subscription — so treat the list accordingly.
+
+## The People list
+
+Owners and editors see the **People** tab: every email with its status (**pending**, **confirmed**, **unsubscribed**) and when it signed up. A search box filters by email, and a status filter narrows the list; a header counts pending signups. **Remove** on a row deletes that subscriber after a confirm.
+
+**Export CSV** (owner only) downloads `subscribers.csv` for use in your own mail tool. Since vibecms does not send email, exporting is how you act on the list today.

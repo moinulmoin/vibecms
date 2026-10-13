@@ -13,23 +13,26 @@ The preview shows the current saved tip, even when an older version is live. It 
 
 ## Schedule an approved version
 
-`posts.schedule` requires `posts:publish`. Ask the person to approve the exact saved version and UTC time. Send `postId`, `versionNumber` (a positive integer), and `publishAt` (a future UTC epoch second):
+`posts.schedule` requires `posts:publish`. Ask the person to approve the exact saved version and UTC time. Send `postId`, `versionNumber` (a positive integer), and `publishAt` (a Unix epoch second that must be in the future — the API rejects past times):
 
 ```json
-{"postId":"post_...","versionNumber":4,"publishAt":1790000000}
+{"postId":"post_...","versionNumber":4,"publishAt":<future epoch seconds>}
 ```
 
-The scheduler runs every minute, so publication should usually follow the target time within about a minute. Later edits do not change the scheduled version. You can reschedule by calling `posts.schedule` again with another saved version or future time. `posts.unschedule` cancels a pending or failed schedule. Once a schedule is processing, scheduling returns HTTP `409` with `CONFLICT` and “Schedule is already publishing”; unscheduling returns HTTP `409` with `CONFLICT` and “Already publishing”.
+The scheduler runs every minute, so publication should usually follow the target time within about a minute. Later edits do not change the scheduled version. You can reschedule by calling `posts.schedule` again with another saved version or future time. `posts.unschedule` cancels a pending or failed schedule. Once a schedule is processing, scheduling returns `CONFLICT` with "Schedule is already publishing" and unscheduling returns `CONFLICT` with "Already publishing" — HTTP `409` over REST, an error tool result over MCP (see [error shapes](/docs/agent-workflows/conflicts-and-recovery)).
 
-You cannot schedule an archived post. If the post is archived before the worker publishes it, publication fails and the schedule records an error. A scheduled version can publish even if a newer draft tip exists. The resulting activity entry reads `Published scheduled v4 of <title> · Scheduled by <name>` for version 4.
+You cannot schedule an archived post. Archiving the post before the worker publishes it deletes the pending schedule — the activity entry reads as a canceled schedule, not a failed publication. A scheduled version can publish even if a newer draft tip exists. The resulting activity entry reads `Published scheduled v4 of <title> · Scheduled by <name>` for version 4.
 
 ## CLI
 
-The CLI accepts an ISO-8601 UTC time ending in `Z` and converts it to epoch seconds:
+The CLI accepts an ISO-8601 UTC time ending in `Z` and sends it as `publishAt`; the API converts it:
 
 ```sh
 vibecms posts get post_... --json
-vibecms posts schedule post_... --expected-version 4 --at 2026-10-01T09:00:00Z
+vibecms posts schedule post_... --version-number 4 --at 2027-01-15T09:00:00Z
 vibecms posts unschedule post_...
 vibecms posts rotate-preview post_...
 ```
+
+The `--at` time must be in the future or the API rejects the request.
+

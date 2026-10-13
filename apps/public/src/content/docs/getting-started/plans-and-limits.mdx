@@ -1,0 +1,24 @@
+---
+title: Plans and limits
+description: What the free plan includes, what paid adds, and what happens when paid access ends.
+---
+
+On hosted vibecms every blog starts on the free plan. The free plan includes:
+
+- 5 published posts
+- 5 drafts at a time
+- 10 images
+- Agent keys, with a small daily and monthly request budget
+- Unlimited version history
+
+The paid plan removes those ceilings: unlimited posts, 5 GB of media, analytics, a custom domain or subpath location, search indexing, and a much larger agent request budget (still fair-use bound). Free-plan blogs serve pages with `noindex`, so search engines skip them. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
+
+## Upgrade and manage
+
+Open **Dashboard > Settings > Plan & billing**. The owner sees the current plan, the full allowance table, and **Upgrade** / **Yearly** checkout buttons. Once subscribed, **Manage subscription** opens the billing portal for payment details and cancellation; **Invoices and payment details** appears for past customers. Checkout and the portal are owner-only actions — editors see "Only the owner can change the plan."
+
+## When paid access ends
+
+Nothing is deleted. Posts stay online and the blog keeps working, but paid features pause: the analytics dashboard and API lock and people-view collection pauses (server-side agent-read counting continues on the still-readable default-domain blog), custom domains and subpath locations stop serving, pages get `noindex` again, and free-plan limits apply once more. Posts over the free published limit stay published; the cap only blocks *new* publishes beyond five.
+
+Actions that need an active plan fail with distinct codes — the same over REST and in the MCP tool error result: publishing past the free cap or adding a draft past five → `BILLING_REQUIRED`; reading analytics → `ANALYTICS_PAID_PLAN`; uploading past the free image count → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Resubscribing unlocks everything again; a paused custom domain returns when the plan is active.

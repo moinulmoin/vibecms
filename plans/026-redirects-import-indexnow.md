@@ -1,6 +1,6 @@
 # 026 - Redirects, import, and IndexNow
 
-Status: ON HOLD (owner, 2026-10-12). Depends on 022 (base path aware URLs). Migration slot: `0036`.
+Status: ON HOLD (owner, 2026-10-12). Depends on 022 (base path aware URLs). No migration reserved — slot 0036 is taken by `0036_domains_hostname_claims.sql`; reserve a fresh slot when implementation starts.
 
 ## Why
 

@@ -68,9 +68,9 @@ by people who know the stack), **control** (you are always the owner), and
    placement, not from flooding the surface with color.
 5. **Self-host is quiet trust, not a co-pitch.** Open source is a trust signal -
    one line / a GitHub link / an FAQ entry. Never its own headline section.
-6. **Elevate within the locked brand.** The dark terminal identity, the font
-   trio, and the glossy terminal icon are fixed. Push craft and intent inside
-   that identity; never swap fonts or drift maximalist.
+6. **Elevate within the locked brand.** The dark terminal identity, the Geist /
+   Geist Mono font pair, and the glossy terminal icon are fixed. Push craft and
+   intent inside that identity; never swap fonts or drift maximalist.
 
 ## Accessibility & Inclusion
 

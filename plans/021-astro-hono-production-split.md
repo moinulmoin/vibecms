@@ -1,6 +1,6 @@
 # Astro + Hono production split
 
-Status: approved for execution by the user on 2026-07-13.
+Status: DONE — split implemented and in production. Addendum (2026-10-13): the topology now includes a third Worker, `apps/og` (OG images); the hosted deploy order is OG → public → API (`scripts/deploy-prod.mjs`), not API-then-public. OTP send is fail-closed, not fail-open (`apps/api/src/server/auth-rate-limit.ts`). Invocation logs are disabled on API and public; a zone `CACHE_PURGE_API_TOKEN` remains required in production preflight. Version pins and TanStack-era details below are the dated migration record.
 
 ## Goal
 

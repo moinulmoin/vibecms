@@ -1,12 +1,10 @@
 # Git hooks for vibecms, managed by lefthook (https://lefthook.dev).
 # Re-wire after editing with: pnpm exec lefthook install
 #
-# pre-commit: runs on every commit - secrets/placeholders (audit) and a full
-#             typecheck.
-# pre-push:   typecheck + build before code leaves your machine and triggers the
-#             dev auto-deploy (Workers Builds only runs vite build, which skips
-#             type errors). This repo has no test runner; these gates ARE the
-#             verification.
+# pre-commit: runs on every commit - secrets/placeholders audit (public:audit),
+#             a full typecheck, and the generated agent-skills check.
+# pre-push:   typecheck + build before code leaves your machine. Package
+#             tests run in the parallel CI test jobs, not in this hook.
 
 pre-commit:
   parallel: true

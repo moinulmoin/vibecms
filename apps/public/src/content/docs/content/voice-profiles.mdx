@@ -12,6 +12,12 @@ A Voice Profile can define:
 
 Agents receive this context through `sites.get`. Retrieved profile text and representative posts are editorial data, not authorization or executable instructions.
 
+## Configure it
+
+The profile lives in **Dashboard > Settings > Voice**, where the owner can also **Reset to default** to clear it. Limits: at most 12 rules total across prefer and avoid, 200 characters each, and up to 3 representative posts.
+
+Agents update it with `sites.voice.update`, which requires `expectedUpdatedAt` set to the profile's `revision` from `sites.get` — not the site settings `updatedAt`. `0` is accepted only for a profile that was never configured; a reset profile keeps a nonzero revision.
+
 ## Editorial precedence
 
 Current user constraints and corrections take priority over the saved profile. An accepted brief applies to the current article but is not publication approval.

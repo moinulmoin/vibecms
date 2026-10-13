@@ -113,7 +113,7 @@ pnpm dev
 Database migration SQL lives in `packages/db/drizzle/` and is shared by both Workers.
 Local API development, Astro rendering, migrations, and seed commands share the root `.wrangler/state` directory so both Workers see the same D1 and R2 data.
 
-See `MILESTONES.md` for the milestone-by-milestone build plan and acceptance checks.
+See `plans/README.md` for the decision-record index.
 
 ## Self-host mode
 
@@ -125,12 +125,13 @@ SELF_HOSTED=true
 
 In self-host mode, Polar is optional, billing gates are disabled, and hosted workspace API quotas are not enforced by default. After signup and blog setup, the owner lands on `/dashboard`; publishing, media uploads, scoped agent access, activity history, and post versions run on the self-hoster's Cloudflare D1/R2 resources.
 
-The repository deploys the same two-Worker topology in hosted and self-hosted modes:
+The repository deploys the same three-Worker topology in hosted and self-hosted modes:
 
-- `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc` configure hosted development/production.
+- `apps/api/wrangler.jsonc`, `apps/public/wrangler.jsonc`, and `apps/og/wrangler.jsonc` configure hosted development/production.
 - Root `wrangler.jsonc` configures the self-hosted Hono API + dashboard Worker.
 - Root `wrangler.public.jsonc` configures the self-hosted Astro public-blog Worker.
-- `pnpm deploy` builds both, applies D1 migrations, then deploys API before public.
+- Root `wrangler.og.jsonc` configures the optional self-hosted OG Worker.
+- `pnpm deploy` builds all configured Workers, applies D1 migrations, then deploys API → OG → public (OG first so public's service bindings resolve).
 
 Deploy button shape, once this repo is public:
 
@@ -138,7 +139,9 @@ Deploy button shape, once this repo is public:
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
 ```
 
-During deploy, configure both root Wrangler files. Public blogs are host-only
+During deploy, configure the root Wrangler files (`wrangler.jsonc`,
+`wrangler.public.jsonc`, and `wrangler.og.jsonc` unless you omit OG per
+`docs/self-hosting.md`). Public blogs are host-only
 (tenant identity is the host), so the API/dashboard and public blog use separate
 Worker hosts:
 
@@ -175,9 +178,9 @@ See `docs/self-hosting.md` for the Cloudflare self-host flow and deploy-button n
 ## Launch notes
 
 - Configure shared Cloudflare D1/R2 IDs in `apps/api/wrangler.jsonc` and `apps/public/wrangler.jsonc` before production deploy.
-- Set API Worker secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `AUTOSEOPILOT_INTERNAL_SECRET`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`.
+- Set API Worker secrets with Wrangler: `BETTER_AUTH_SECRET`, `TOKEN_PEPPER`, `POLAR_ACCESS_TOKEN`, and `POLAR_WEBHOOK_SECRET`; `AUTOSEOPILOT_INTERNAL_SECRET` is optional and only enables the managed AutoSEOPilot routes.
 - Set product, URL, and host variables in both Worker configs.
-- Run `pnpm deploy:prod`; it preflights and builds production artifacts, captures backup metadata, migrates D1, deploys API then public, then smokes. Astro sessions are disabled (no SESSION KV).
+- Promote a reviewed commit with `gh workflow run deploy-production.yml --ref main -f release_sha=<full sha> -f smoke_mode=authenticated`, which runs `pnpm deploy:prod`: preflights and builds production artifacts, captures backup metadata, migrates D1, deploys OG → public → API, then smokes. Astro sessions are disabled (no SESSION KV).
 
 For self-hosted production, set `SELF_HOSTED=true` and only `BETTER_AUTH_SECRET` plus `TOKEN_PEPPER` are required as secrets; Polar access token/product/webhook secrets are hosted-SaaS only.
 
@@ -200,25 +203,31 @@ pnpm db:seed:dev
 pnpm deploy:dev
 ```
 
-`pnpm deploy:dev` syncs the development token pepper, applies remote D1 migrations, builds the dashboard assets, deploys the Hono API Worker, then builds and deploys the Astro public Worker.
+`pnpm deploy:dev` syncs the development token pepper, applies remote D1 migrations, builds the dashboard assets, deploys the Hono API Worker, deploys the OG Worker, then builds and deploys the Astro public Worker.
 
-For Polar billing, create a sandbox product in Polar and update:
+For Polar billing, create a sandbox product in Polar and update the dev vars.
+The committed dev vars already carry sandbox product and launch-discount
+ids; if you use your own Polar sandbox products, set all four —
+`POLAR_MONTHLY_PRODUCT_ID`, `POLAR_YEARLY_PRODUCT_ID`,
+`POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, and `POLAR_LAUNCH_DISCOUNT_YEARLY_ID` —
+in `apps/api/wrangler.jsonc` under `env.development.vars`. Checkout selects
+the configured discounts automatically, so create matching forever-duration
+discounts that produce $9/month and $75/year, or remove the two discount
+vars to test list-price checkout:
 
 ```sh
-# In apps/api/wrangler.jsonc, replace product_dev_placeholder:
-# "POLAR_PRODUCT_ID": "<your Polar sandbox product id>"
-
 pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN
 pnpm --filter @vc/api exec wrangler secret put POLAR_WEBHOOK_SECRET
 pnpm deploy:dev
 ```
 
+
 Recommended sandbox product setup:
 
 - Recurring subscription product.
-- Price: $19/month, or $190/year if you create a yearly product/price in Polar.
-- Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`.
-- In hosted mode, new workspaces stay behind the Polar checkout gate until checkout/webhooks mark billing active. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
+- Price: $15/month list, or $150/year if you create a yearly product/price in Polar (launch offer: $9/month, $75/year via discounts).
+- Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`. Set both launch discount ids too, or checkout sends the committed sandbox discounts.
+- In hosted mode the free boundary is 5 published posts, 5 drafts at a time, and 10 images — no card required; a subscription unlocks unlimited posts, 5 GB media, analytics, and custom domains. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely.
 - Launch entitlement: 1 hosted blog, unlimited posts, 5 GB media, scoped agent access, activity and version history, and reader + AI discovery analytics.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 
@@ -232,7 +241,7 @@ You do not need product, order, refund, file, meter, webhook, or subscription wr
 In Polar, set the webhook endpoint to:
 
 ```text
-https://app.vibecms.dev/polar/webhook
+https://app.vibecms.dev/api/polar/webhook
 ```
 
 Subscribe to these webhook events:
