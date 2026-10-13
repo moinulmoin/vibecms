@@ -1,3 +1,4 @@
+import { CHROME_LABELS, INDEX_LABELS, HEADER_LABELS } from '@vc/config'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -87,6 +88,9 @@ const SITE_FIELD_LABELS: Array<[string, string]> = [
   ['template', 'Template'], ['theme', 'Template'],
   ['radius', 'Corners'], ['themeRadius', 'Corners'],
   ['width', 'Reading width'], ['themeWidth', 'Reading width'],
+  ['chrome', 'Navigation'], ['themeChrome', 'Navigation'],
+  ['index', 'Home page'], ['themeIndex', 'Home page'],
+  ['header', 'Article header'], ['themeHeader', 'Article header'],
   ['mode', 'Color mode'], ['themeMode', 'Color mode'],
   ['name', 'Name'], ['description', 'Description'],
   ['enabled', 'Signup form'],
@@ -98,8 +102,11 @@ const SITE_FIELD_LABELS: Array<[string, string]> = [
   ['audience', 'Audience'], ['voiceSummary', 'Voice summary'], ['voiceTone', 'Voice tone'],
 ]
 
-function displayChangeValue(value: unknown) {
-  if (value == null || value === '') return 'empty'
+function displayChangeValue(value: unknown, label?: string) {
+  if (value == null || value === '') return ['Accent', 'Font', 'Corners', 'Reading width', 'Color mode', 'Navigation', 'Home page', 'Article header'].includes(label ?? '') ? 'template default' : 'empty'
+  if (label === 'Navigation' && typeof value === 'string') return CHROME_LABELS[value as keyof typeof CHROME_LABELS] ?? value
+  if (label === 'Home page' && typeof value === 'string') return INDEX_LABELS[value as keyof typeof INDEX_LABELS] ?? value
+  if (label === 'Article header' && typeof value === 'string') return HEADER_LABELS[value as keyof typeof HEADER_LABELS] ?? value
   if (typeof value === 'boolean') return value ? 'On' : 'Off'
   return typeof value === 'string' || typeof value === 'number' ? String(value) : null
 }
@@ -115,8 +122,8 @@ export function activityChanges(event: ActivityEvent): string[] {
   }
   const lines = SITE_FIELD_LABELS.flatMap(([field, label]) => {
     if (!(field in event.before!) || !(field in event.after!)) return []
-    const before = displayChangeValue(event.before![field])
-    const after = displayChangeValue(event.after![field])
+    const before = displayChangeValue(event.before![field], label)
+    const after = displayChangeValue(event.after![field], label)
     return before !== null && after !== null && before !== after ? [`${label}: ${before} → ${after}`] : []
   })
   return lines.length ? lines : event.changes ?? []
@@ -124,7 +131,7 @@ export function activityChanges(event: ActivityEvent): string[] {
 
 const CHANGE_LABELS = [
   'Title', 'URL', 'Status', 'Name', 'Alt text', 'Body', 'Description', 'Byline', 'Credit your agent',
-  'Search title', 'Search description', 'Template', 'Accent', 'Font', 'Corners', 'Reading width', 'Color mode',
+  'Search title', 'Search description', 'Template', 'Accent', 'Font', 'Corners', 'Reading width', 'Navigation', 'Home page', 'Article header', 'Color mode',
   'Signup form', 'Signup heading', 'Signup description', 'Signup button', 'Audience', 'Voice summary', 'Voice tone',
 ]
 // Longest first so "Signup heading" wins over a shorter label that prefixes it.

@@ -13,7 +13,7 @@ import {
   newsletterSettingsSchema,
   VOICE_PROFILE_MAX_GUIDELINES,
 } from "@vc/validators";
-import { ACCENT_IDS, BYLINE_NAME_MAX_LENGTH, FONTS, PRESET_IDS, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS } from "@vc/config";
+import { ACCENT_IDS, BYLINE_NAME_MAX_LENGTH, FONTS, PRESET_IDS, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS } from "@vc/config";
 
 const slug = z
   .string()
@@ -72,8 +72,11 @@ export const updateThemeRequestSchema = z.object({
   keepLook: z.boolean().optional(),
   accent: z.enum(ACCENT_IDS as [string, ...string[]]).optional(),
   font: z.enum(choiceValues(FONT_CHOICES)).optional(),
-  radius: z.enum(THEME_RADII).optional(),
-  width: z.enum(THEME_WIDTHS).optional(),
+  radius: z.enum(THEME_RADII).nullable().optional(),
+  width: z.enum(THEME_WIDTHS).nullable().optional(),
+  chrome: z.enum(TEMPLATE_CHROMES).nullable().optional(),
+  index: z.enum(TEMPLATE_INDEXES).nullable().optional(),
+  header: z.enum(TEMPLATE_HEADERS).nullable().optional(),
   mode: z.enum(THEME_MODES).optional(),
 }).strict();
 export const revertThemeRequestSchema = z.object({ expectedUpdatedAt: z.coerce.number().int().positive() }).strict();

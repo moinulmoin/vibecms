@@ -39,7 +39,7 @@
   display: block;
 }
 
-/* Grid templates need room for cards on listing pages. */
+/* Grid listings need room for cards on any template. */
 .page[data-vc-index="grid"]:not([data-vc-article-page]) .shell {
   max-width: 68rem;
 }
@@ -388,6 +388,9 @@
   }
 
   .page[data-vc-chrome="sidebar"] .shell {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
     margin: 0;
     padding-left: clamp(2rem, 4vw, 3.5rem);
   }
@@ -405,6 +408,47 @@
 @container vc-page (max-width: 520px) {
   .searchInput {
     width: 5.5rem;
+  }
+}
+
+/* Phones: name on its own line, links left with the icons pushed right, and
+   search full width last, instead of wrapping one control onto a stray line. */
+@media (max-width: 40rem) {
+  .mastNav {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .mastNav > :not(.iconLink) + .iconLink,
+  .mastNav > .iconLink:first-child {
+    margin-left: auto;
+  }
+
+  /* Line the first link's text up with the blog name; its hover padding hangs left. */
+  .mastNav > .navLink:first-of-type {
+    margin-left: -0.55rem;
+  }
+
+  .search {
+    order: 10;
+    flex: 1 0 100%;
+    margin-top: 0.35rem;
+  }
+
+  /* Centered navigation stays centered on phones, under the centered name. */
+  .page[data-vc-chrome="centered"] .mastNav {
+    justify-content: center;
+  }
+
+  .page[data-vc-chrome="centered"] .mastNav > .navLink:first-of-type,
+  .page[data-vc-chrome="centered"] .mastNav > :not(.iconLink) + .iconLink,
+  .page[data-vc-chrome="centered"] .mastNav > .iconLink:first-child {
+    margin-left: 0;
+  }
+
+  .searchInput {
+    width: 100%;
   }
 }
 

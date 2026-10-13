@@ -3,6 +3,17 @@
 `pnpm deploy:prod` runs `scripts/deploy-prod.mjs`. It stops at the first failed
 step and prints which one. Nothing after that step runs.
 
+## Routine deploys
+
+The script loads the gitignored `.env.production.local` itself (values already
+in your shell win) and refreshes the wrangler login before preflight. It needs:
+
+- `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_PREFLIGHT_API_TOKEN`
+- `PRODUCTION_SMOKE_TOKEN`: a read-only (Drafts) agent key from the production
+  dashboard, used by the post-deploy smoke test
+
+Then `pnpm deploy:prod`. The write freeze below applied to the first cutover only.
+
 ## Before the first release of the revamp
 
 Production still runs `main`. This release moves posts to pinned, versioned

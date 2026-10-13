@@ -182,6 +182,9 @@ describe("site settings: public byline + template knobs", () => {
       showAgentCredit: true,
       themeRadius: "md",
       themeWidth: "normal",
+      themeChrome: "masthead",
+      themeIndex: "list",
+      themeHeader: "plain",
     });
   });
 
@@ -205,6 +208,10 @@ describe("site settings: public byline + template knobs", () => {
     await expect(
       updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, themeWidth: "full" }),
     ).resolves.toEqual({ kind: "error", code: "invalid_theme_width" });
+    for (const [field, code] of [["themeChrome", "invalid_theme_chrome"], ["themeIndex", "invalid_theme_index"], ["themeHeader", "invalid_theme_header"]] as const) {
+      await expect(updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, [field]: "bad" }))
+        .resolves.toEqual({ kind: "error", code });
+    }
     await expect(
       updateSiteSettingsForApp(ownerApp(), { expectedUpdatedAt: updatedAt, bylineName: "x".repeat(81) }),
     ).resolves.toEqual({ kind: "error", code: "invalid_byline_name" });
@@ -219,10 +226,13 @@ describe("site settings: public byline + template knobs", () => {
         showAgentCredit: false,
         themeRadius: "lg",
         themeWidth: "wide",
+        themeChrome: "sidebar",
+        themeIndex: "grid",
+        themeHeader: "card",
       }),
     ).resolves.toEqual({ kind: "ok", code: "site_saved" });
     const saved = await getSiteSettings(ownerApp());
-    expect(saved).toMatchObject({ bylineName: "Ada Lovelace", showAgentCredit: false, themeRadius: "lg", themeWidth: "wide" });
+    expect(saved).toMatchObject({ bylineName: "Ada Lovelace", showAgentCredit: false, themeRadius: "lg", themeWidth: "wide", themeChrome: "sidebar", themeIndex: "grid", themeHeader: "card" });
 
     updatedAt = saved.updatedAt;
     await expect(
@@ -232,6 +242,9 @@ describe("site settings: public byline + template knobs", () => {
         showAgentCredit: true,
         themeRadius: null,
         themeWidth: null,
+        themeChrome: null,
+        themeIndex: null,
+        themeHeader: null,
       }),
     ).resolves.toEqual({ kind: "ok", code: "site_saved" });
     await expect(getSiteSettings(ownerApp())).resolves.toMatchObject({
@@ -239,6 +252,9 @@ describe("site settings: public byline + template knobs", () => {
       showAgentCredit: true,
       themeRadius: "md",
       themeWidth: "normal",
+      themeChrome: "masthead",
+      themeIndex: "list",
+      themeHeader: "plain",
     });
   });
 });

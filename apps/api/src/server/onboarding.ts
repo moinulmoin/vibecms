@@ -10,6 +10,12 @@ import {
   resolvePresetId,
   resolveRadius,
   resolveWidth,
+  resolveChrome,
+  resolveIndex,
+  resolveHeader,
+  TEMPLATE_CHROMES,
+  TEMPLATE_INDEXES,
+  TEMPLATE_HEADERS,
   THEME_RADII,
   THEME_WIDTHS,
 } from '@vc/config'
@@ -414,6 +420,9 @@ export type SiteSettingsPayload = {
   // Template shape knobs; null resets to the template's default.
   themeRadius?: string | null
   themeWidth?: string | null
+  themeChrome?: string | null
+  themeIndex?: string | null
+  themeHeader?: string | null
   // Public byline. ''/null = use the site name. Never the account email.
   bylineName?: string | null
   showAgentCredit?: boolean
@@ -441,6 +450,9 @@ export async function getSiteSettings(app: AppUserContext) {
     // Resolved against the current template, so null reads as its default.
     themeRadius: resolveRadius(site?.themeRadius, site?.theme),
     themeWidth: resolveWidth(site?.themeWidth, site?.theme),
+    themeChrome: resolveChrome(site?.themeChrome, site?.theme),
+    themeIndex: resolveIndex(site?.themeIndex, site?.theme),
+    themeHeader: resolveHeader(site?.themeHeader, site?.theme),
     bylineName: site?.bylineName ?? '',
     showAgentCredit: site?.showAgentCredit ?? true,
     newsletterSettings: parseNewsletterSettings(site?.newsletterSettings),
@@ -550,6 +562,16 @@ export async function updateSiteSettingsForApp(
       return { kind: 'error', code: 'invalid_theme_width' }
     }
     site.themeWidth = payload.themeWidth
+  }
+  for (const [key, choices, code] of [
+    ['themeChrome', TEMPLATE_CHROMES, 'invalid_theme_chrome'],
+    ['themeIndex', TEMPLATE_INDEXES, 'invalid_theme_index'],
+    ['themeHeader', TEMPLATE_HEADERS, 'invalid_theme_header'],
+  ] as const) {
+    const value = payload[key]
+    if (value === undefined) continue
+    if (value !== null && !(choices as readonly string[]).includes(value)) return { kind: 'error', code }
+    site[key] = value
   }
   if (payload.bylineName !== undefined) {
     if (payload.bylineName !== null && typeof payload.bylineName !== 'string') {

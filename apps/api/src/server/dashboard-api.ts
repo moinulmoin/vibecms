@@ -414,6 +414,9 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
         // Raw template knobs (null = template default) and the public byline.
         themeRadius: siteRow.themeRadius,
         themeWidth: siteRow.themeWidth,
+        themeChrome: siteRow.themeChrome,
+        themeIndex: siteRow.themeIndex,
+        themeHeader: siteRow.themeHeader,
         bylineName: siteRow.bylineName,
         showAgentCredit: siteRow.showAgentCredit,
         newsletterSettings: editorNewsletterSettings(siteRow.newsletterSettings),

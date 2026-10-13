@@ -6,6 +6,9 @@ import {
   resolveMode,
   resolvePresetId,
   resolveRadius,
+  resolveChrome,
+  resolveIndex,
+  resolveHeader,
   resolveThemeAccent,
   resolveThemeFont,
   resolveWidth,
@@ -26,6 +29,9 @@ export interface SiteThemeInput {
   mode: string | null;
   radius?: string | null;
   width?: string | null;
+  chrome?: string | null;
+  index?: string | null;
+  header?: string | null;
 }
 
 /**
@@ -55,14 +61,13 @@ export function resolveSiteTheme(
 }
 
 /** Structural template attributes the CSS modules branch on. */
-export function templateAttributes(presetId: string | null | undefined): Record<string, string> {
+export function templateAttributes(presetId: string | null | undefined, theme?: SiteThemeInput): Record<string, string> {
   const id = resolvePresetId(presetId);
-  const t = THEME_PRESETS[id].template;
   return {
     "data-vc-theme": id,
-    "data-vc-chrome": t.chrome,
-    "data-vc-index": t.index,
-    "data-vc-header": t.header,
+    "data-vc-chrome": resolveChrome(theme?.chrome, id),
+    "data-vc-index": resolveIndex(theme?.index, id),
+    "data-vc-header": resolveHeader(theme?.header, id),
   };
 }
 
@@ -73,7 +78,7 @@ export function siteThemeRootAttributes(presetId: string, theme: SiteThemeInput)
     .map(([k, v]) => `${k}: ${v}`)
     .join("; ");
   return {
-    ...templateAttributes(presetId),
+    ...templateAttributes(presetId, theme),
     ...(mode === "light" || mode === "dark" ? { "data-vc-mode": mode } : {}),
     style: css,
   };
@@ -261,7 +266,7 @@ export function PresentedPostArticle({
   return (
     <article
       className={styles.article}
-      {...templateAttributes(presetId)}
+      {...templateAttributes(presetId, theme)}
       data-vc-layout={presentation.layout}
       data-vc-has-toc={hasToc ? "" : undefined}
       style={themeAttrs?.style}

@@ -139,7 +139,7 @@ export function PreviewPane({
 
   const resolvedPresentation = resolvePresentation(presetId, presentation as Presentation | null | undefined).resolved
   const theme: SiteThemeInput | undefined = site
-    ? { accent: site.themeAccent, font: site.themeFont, mode, radius: site.themeRadius ?? null, width: site.themeWidth ?? null }
+    ? { accent: site.themeAccent, font: site.themeFont, mode, radius: site.themeRadius ?? null, width: site.themeWidth ?? null, chrome: site.themeChrome ?? null, index: site.themeIndex ?? null, header: site.themeHeader ?? null }
     : { accent: null, font: null, mode }
   const showUpdated = Boolean(publishedAt && updatedAt && updatedAt > publishedAt + 86400)
 

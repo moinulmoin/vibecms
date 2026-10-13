@@ -50,6 +50,9 @@ export interface PublicSiteRow {
   // Template shape knobs — nullable→template default (resolveRadius/resolveWidth).
   themeRadius: string | null;
   themeWidth: string | null;
+  themeChrome: string | null;
+  themeIndex: string | null;
+  themeHeader: string | null;
   // Public byline. Null name → site name at render; the account email is never read here.
   bylineName: string | null;
   showAgentCredit: boolean;
@@ -180,6 +183,9 @@ const siteResolveColumns = {
   themeMode: sites.themeMode,
   themeRadius: sites.themeRadius,
   themeWidth: sites.themeWidth,
+  themeChrome: sites.themeChrome,
+  themeIndex: sites.themeIndex,
+  themeHeader: sites.themeHeader,
   bylineName: sites.bylineName,
   showAgentCredit: sites.showAgentCredit,
   description: sites.description,

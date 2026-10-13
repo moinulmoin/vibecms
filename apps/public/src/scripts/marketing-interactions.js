@@ -7,9 +7,9 @@ const UNDERLINE_OFF =
   "absolute -bottom-1.5 left-0 h-px w-full origin-left bg-brand-bright transition-transform duration-200 ease-out scale-x-0";
 
 const BADGE_LIVE =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10.5px] text-brand-bright ring-1 ring-brand-bright/35";
+  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] text-brand-bright ring-1 ring-brand-bright/35";
 const BADGE_QUIET =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10.5px] text-foreground/85 ring-1 ring-[color:var(--hairline)]";
+  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] text-foreground/85 ring-1 ring-[color:var(--hairline)]";
 const DOT_LIVE = "size-1.5 rounded-full bg-brand-bright";
 const DOT_QUIET = "size-1.5 rounded-full bg-muted-foreground/60";
 const NODE_GLOW = "0 0 28px oklch(0.8107 0.1705 152.72 / 0.45)";

@@ -76,18 +76,18 @@ export const siteSettingsDtoSchema = z.object({
   logoAssetId: z.string().nullable(), faviconAssetId: z.string().nullable(),
   navLinks: siteDtoSchema.shape.navLinks, socialLinks: siteDtoSchema.shape.socialLinks,
   theme: z.string(), slug: z.string(), themeAccent: z.string(), themeFont: z.string(),
-  themeMode: z.string(), themeRadius: z.string(), themeWidth: z.string(),
+  themeMode: z.string(), themeRadius: z.string(), themeWidth: z.string(), themeChrome: z.string(), themeIndex: z.string(), themeHeader: z.string(),
   bylineName: z.string(), showAgentCredit: z.boolean(), updatedAt: z.number(),
 });
 export const updatedSiteDtoSchema = siteDtoSchema.extend({ settings: siteSettingsDtoSchema });
 const namedChoiceSchema = z.object({ id: z.string(), name: z.string() });
 export const themeDtoSchema = z.object({
   template: z.string(), accent: z.string(), font: z.string(), radius: z.string(),
-  width: z.string(), mode: z.string(), updatedAt: z.number(),
+  width: z.string(), chrome: z.string(), index: z.string(), header: z.string(), mode: z.string(), updatedAt: z.number(),
   options: z.object({
     templates: z.array(namedChoiceSchema), accents: z.array(namedChoiceSchema),
     fonts: z.array(namedChoiceSchema), radii: z.array(namedChoiceSchema),
-    widths: z.array(namedChoiceSchema), modes: z.array(namedChoiceSchema),
+    widths: z.array(namedChoiceSchema), chromes: z.array(namedChoiceSchema), indexes: z.array(namedChoiceSchema), headers: z.array(namedChoiceSchema), modes: z.array(namedChoiceSchema),
   }),
   url: z.string().nullable(), canRevert: z.boolean(),
 });

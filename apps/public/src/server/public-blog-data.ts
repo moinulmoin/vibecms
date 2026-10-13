@@ -27,6 +27,9 @@ export type SiteRow = {
   /** Template knobs; null = the template's default (resolveRadius/resolveWidth). */
   theme_radius: string | null;
   theme_width: string | null;
+  theme_chrome: string | null;
+  theme_index: string | null;
+  theme_header: string | null;
   /** Public author name; null falls back to the site name. Never the account email. */
   byline_name: string | null;
   /** Credit agent-written posts ("Written with an agent · Reviewed by …"). */
@@ -117,6 +120,9 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     theme_mode: row.themeMode,
     theme_radius: row.themeRadius ?? null,
     theme_width: row.themeWidth ?? null,
+    theme_chrome: row.themeChrome ?? null,
+    theme_index: row.themeIndex ?? null,
+    theme_header: row.themeHeader ?? null,
     byline_name: row.bylineName ?? null,
     show_agent_credit: row.showAgentCredit ?? true,
     description: row.description,

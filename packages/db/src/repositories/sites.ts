@@ -76,6 +76,9 @@ export interface SiteSettings {
   // Template shape knobs — nullable→template default on read.
   themeRadius: string | null;
   themeWidth: string | null;
+  themeChrome: string | null;
+  themeIndex: string | null;
+  themeHeader: string | null;
   // Public byline — null name falls back to the site name (never the email).
   bylineName: string | null;
   showAgentCredit: boolean;
@@ -166,6 +169,9 @@ export interface UpdateSiteSettingsInput {
     // Template knobs — null = the template's default.
     themeRadius: string | null;
     themeWidth: string | null;
+  themeChrome: string | null;
+  themeIndex: string | null;
+  themeHeader: string | null;
     // Public byline — null = the site name.
     bylineName: string | null;
     showAgentCredit: boolean;
@@ -350,6 +356,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
           themeMode: sites.themeMode,
           themeRadius: sites.themeRadius,
           themeWidth: sites.themeWidth,
+          themeChrome: sites.themeChrome,
+          themeIndex: sites.themeIndex,
+          themeHeader: sites.themeHeader,
           bylineName: sites.bylineName,
           showAgentCredit: sites.showAgentCredit,
           newsletterSettings: sites.newsletterSettings,
@@ -540,6 +549,9 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         ["themeMode", "theme_mode"],
         ["themeRadius", "theme_radius"],
         ["themeWidth", "theme_width"],
+        ["themeChrome", "theme_chrome"],
+        ["themeIndex", "theme_index"],
+        ["themeHeader", "theme_header"],
         ["bylineName", "byline_name"],
         ["showAgentCredit", "show_agent_credit"],
       ];

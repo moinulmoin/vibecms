@@ -49,6 +49,9 @@ export const sites = sqliteTable("sites", {
   // Template shape knobs; NULL = the template's default (see @vc/config TEMPLATES).
   themeRadius: text("theme_radius"),
   themeWidth: text("theme_width"),
+  themeChrome: text("theme_chrome"),
+  themeIndex: text("theme_index"),
+  themeHeader: text("theme_header"),
   // Public byline. NULL name falls back to the site name (never the email).
   bylineName: text("byline_name"),
   showAgentCredit: integer("show_agent_credit", { mode: "boolean" }).notNull().default(true),

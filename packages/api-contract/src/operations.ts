@@ -97,7 +97,7 @@ export const operations = [
   },
   {
     toolName: 'sites.theme.update', operationId: 'updateSiteTheme', requiredScope: 'site:write',
-    description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
   },
   {

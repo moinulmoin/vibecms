@@ -6,7 +6,7 @@ import {
 } from "@vc/content/presented-post";
 import { PublicPageChrome } from "@vc/content/public-chrome";
 import { PublicPostList } from "@vc/content/public-post-list";
-import { resolvePresetId, resolvePresentation, resolveThemeFont, THEME_PRESETS } from "@vc/config";
+import { resolveIndex, resolvePresetId, resolvePresentation, resolveThemeFont } from "@vc/config";
 import type { SidebarData } from "@vc/content/public-chrome";
 import type { ArticleAuthor } from "@vc/content/presented-post";
 import type {
@@ -57,6 +57,9 @@ function siteTheme(site: PublicIndexLoaderData["site"]) {
     mode: site.theme_mode,
     radius: site.theme_radius,
     width: site.theme_width,
+    chrome: site.theme_chrome,
+    index: site.theme_index,
+    header: site.theme_header,
   };
 }
 
@@ -67,10 +70,6 @@ export function siteDocumentProps(site: PublicIndexLoaderData["site"]) {
     themeAttrs: siteThemeRootAttributes(presetId, siteTheme(site)),
     fontId: resolveThemeFont(site.theme_font, presetId),
   };
-}
-
-function templateOf(site: PublicIndexLoaderData["site"]) {
-  return THEME_PRESETS[resolvePresetId(site.theme)].template;
 }
 
 function sidebarData(basePath: string, source: PublicIndexLoaderData["sidebar"] | null | undefined): SidebarData | null {
@@ -198,7 +197,7 @@ export function PublicBlogIndexView({
       ) : null}
       {visible.length > 0 ? (
         <PublicPostList
-          variant={templateOf(site).index}
+          variant={resolveIndex(site.theme_index, site.theme)}
           posts={visible.map((post) => {
             const coverMedia = post.cover_asset_id ? buildResponsiveMediaUrls(post.cover_asset_id) : undefined;
             return {

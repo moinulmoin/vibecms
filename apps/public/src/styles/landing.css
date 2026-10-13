@@ -42,11 +42,25 @@
 }
 
 /* Below the hero, reveals play as each section scrolls into view (not all at
-   once on load). Unsupported browsers keep the load-time reveal; reduced
-   motion is handled in app.css (always visible). */
+   once on load). They start from an already-visible state, so content is
+   never hidden before it is reached (screenshots, link previews, print,
+   anchor jumps), and text keeps full contrast: only a short rise plays. Unsupported
+   browsers keep the load-time reveal; reduced motion is handled in app.css
+   (always visible). */
+@keyframes vc-reveal-scroll {
+  from {
+    opacity: 1;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     main section[id] [data-reveal] {
+      animation-name: vc-reveal-scroll;
       animation-timeline: view();
       animation-range: entry 5% cover 28%;
       animation-delay: 0s;

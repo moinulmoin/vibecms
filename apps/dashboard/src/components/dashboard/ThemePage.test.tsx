@@ -55,6 +55,9 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
       themeMode: 'system',
       themeRadius: 'md',
       themeWidth: 'normal',
+      themeChrome: 'masthead',
+      themeIndex: 'list',
+      themeHeader: 'plain',
       bylineName: '',
       showAgentCredit: true,
       updatedAt: 10,
@@ -104,6 +107,30 @@ describe('ThemePage', () => {
   afterEach(() => {
     vi.clearAllMocks()
     document.body.innerHTML = ''
+  })
+
+  it('saves a Home page choice, switches preview, and resets structure on template change', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue(settings())
+    vi.mocked(updateSiteSettingsMutation).mockResolvedValue({ kind: 'ok', code: 'site_saved' })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    const choice = container.querySelector('[role="radiogroup"][aria-label="Home page"] [role="radio"]:nth-child(2)')
+    expect(choice?.textContent).toBe('Grid')
+    await act(async () => choice?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(container.querySelector('[role="radiogroup"][aria-label="Preview page"] [aria-checked="true"]')?.textContent).toBe('Home')
+    expect(router.blockerOptions?.shouldBlockFn({ current: { pathname: '/dashboard/theme', search: {} }, next: { pathname: '/dashboard', search: {} } })).toBe(true)
+    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ themeIndex: 'grid' }))
+    const technical = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Notebook'))
+    await act(async () => technical?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(container.querySelector('[role="radiogroup"][aria-label="Home page"] [aria-checked="true"]')?.textContent).toBe('Compact')
+    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    expect(updateSiteSettingsMutation).toHaveBeenLastCalledWith(expect.objectContaining({ themeChrome: null, themeIndex: null, themeHeader: null }))
+    await act(async () => root.unmount())
+    container.remove()
   })
 
   it('keeps attempted choices after a stale settings conflict and retries against the refreshed version', async () => {
