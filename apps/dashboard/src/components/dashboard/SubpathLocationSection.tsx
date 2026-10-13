@@ -231,7 +231,14 @@ export function SubpathLocationSection({
               titleAs="h3"
               detail={`Send ${stripProtocol(subpath.url)} and everything under it to the proxy target. Pick your platform for a ready-to-paste config.`}
             >
-              {subpath.view.proxyTarget ? <CopyRow label="Proxy target" value={subpath.view.proxyTarget} /> : null}
+              {subpath.view.proxyTarget ? (
+                <>
+                  <CopyRow label="Proxy target" value={subpath.view.proxyTarget} />
+                  <p className="text-sm text-muted-foreground">
+                    This link works like a password. Keep it out of public repos; if it leaks, choose New proxy link.
+                  </p>
+                </>
+              ) : null}
               {snippets ? (
                 <Tabs defaultValue="cloudflareWorker" className="gap-4">
                   <PageTabs label="Proxy platform" tabs={PLATFORM_TABS.map((tab) => ({ value: tab.value, label: tab.label }))} />
@@ -245,6 +252,7 @@ export function SubpathLocationSection({
                           </p>
                         </>
                       ) : null}
+                      {tab.value === 'nextjs' ? <CopyRow label="Environment variable" value="VIBECMS_PROXY_TARGET" /> : null}
                       <CodeBlock label={tab.file} code={snippetFor(snippets, tab.value)} copyLabel="Copy snippet" />
                     </TabsContent>
                   ))}

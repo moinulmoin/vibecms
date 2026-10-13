@@ -36,12 +36,18 @@ describe("subpathSnippets", () => {
     assert.match(s.vercel, /"destination": "https:\/\/my-site\.vibecms\.dev\/_vc\/p\/abc123def456\/:path\*"/);
 
     assert.match(s.nextjs, /source: "\/blog\/:path\*"/);
+    assert.match(s.nextjs, /process\.env\.VIBECMS_PROXY_TARGET/);
+    // The env-var rewrite must never embed the credential.
+    assert.doesNotMatch(s.nextjs, /my-site\.vibecms\.dev/);
+    assert.doesNotMatch(s.nextjs, /abc123def456/);
+    assert.doesNotMatch(s.nextjs, /\/_vc\/p\//);
     assert.match(s.netlify, /\/blog\/\* +https:\/\/my-site\.vibecms\.dev\/_vc\/p\/abc123def456\/:splat +200!/);
 
     assert.match(s.nginx, /location \^~ \/blog\//);
     assert.match(s.nginx, /location = \/blog /);
     assert.match(s.nginx, /proxy_set_header Host my-site\.vibecms\.dev;/);
     assert.match(s.nginx, /proxy_ssl_server_name on;/);
+    assert.equal((s.nginx.match(/proxy_set_header X-Forwarded-For \$remote_addr;/g) ?? []).length, 2);
 
     assert.match(s.caddy, /@vcblog path \/blog \/blog\/\*/);
     assert.match(s.caddy, /handle @vcblog \{/);
@@ -73,8 +79,9 @@ describe("subpathSnippets", () => {
     assert.match(s.nginx, /location \^~ \/resources\/blog\//);
     assert.match(s.caddy, /@vcblog path \/resources\/blog \/resources\/blog\/\*/);
     assert.match(s.netlify, /\/resources\/blog\/\* +/);
+    assert.match(s.nextjs, /process\.env\.VIBECMS_PROXY_TARGET/);
+    assert.doesNotMatch(s.nextjs, /\/_vc\/p\//);
   });
-});
 
   it("lets sibling paths like /blogx fall through to the customer's own origin", async () => {
     const s = subpathSnippets(input);
@@ -103,6 +110,30 @@ describe("subpathSnippets", () => {
     assert.equal(seen[2], "https://customer.com/blogx");
     assert.equal(seen[3], "https://customer.com/blogx/post");
   });
+
+  it("overwrites a spoofable X-Forwarded-For with CF-Connecting-IP", async () => {
+    const s = subpathSnippets(input);
+    const worker = new Function(`"use strict"; ${s.cloudflareWorker.code.replace("export default", "return")}`)() as {
+      fetch: (request: Request) => Promise<Response>;
+    };
+    const seen: (string | null)[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (req: Request) => {
+      seen.push(req.headers.get("x-forwarded-for"));
+      return new Response("origin answer");
+    }) as typeof fetch;
+    try {
+      await worker.fetch(
+        new Request("https://customer.com/blog/post-1", {
+          headers: { "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-For": "198.51.100.7" },
+        }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.equal(seen[0], "203.0.113.9");
+  });
+});
 
 describe("redactProxyLinks", () => {
   it("strips the proxy id out of any URL or message", () => {

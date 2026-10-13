@@ -179,6 +179,9 @@ describe('SubpathLocationSection', () => {
     expect(text).toContain('customer.example.com/blog*')
     expect(text).toContain('Works on the Workers Free plan (100,000 requests a day)')
     expect(text).toContain('Sitemap: https://customer.example.com/blog/sitemap.xml')
+    expect(text).toContain('This link works like a password. Keep it out of public repos')
+    expect(text).toContain('Environment variable')
+    expect(text).toContain('VIBECMS_PROXY_TARGET')
     expect(text).toContain('/blog/llms.txt')
     for (const file of ['worker.js', 'vercel.json', 'next.config.js', '_redirects', 'nginx.conf', 'Caddyfile']) {
       expect(text).toContain(file)
@@ -186,6 +189,16 @@ describe('SubpathLocationSection', () => {
     expect(container.querySelector('[aria-label="Copy proxy target"]')).toBeTruthy()
     expect(container.querySelector('[aria-label="Copy route"]')).toBeTruthy()
     expect(container.querySelector('[aria-label="Copy robots.txt"]')).toBeTruthy()
+    expect(container.querySelector('[aria-label="Copy environment variable"]')).toBeTruthy()
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('shows the password note only alongside the proxy link', async () => {
+    const { container, root } = await render({ location: subpathLocation({ proxyTarget: undefined, snippets: undefined }) })
+    expect(container.textContent).toContain('customer.example.com/blog')
+    expect(container.textContent).not.toContain('works like a password')
+    expect(container.querySelector('[aria-label="Copy proxy target"]')).toBeNull()
     await act(async () => root.unmount())
     container.remove()
   })

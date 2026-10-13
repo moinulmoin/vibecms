@@ -54,7 +54,10 @@ export default {
       return fetch(request);
     }
     const rest = url.pathname.slice(${JSON.stringify(basePath)}.length) || "/";
-    return fetch(new Request(${JSON.stringify(proxyTarget)} + rest + url.search, request));
+    const upstream = new Request(${JSON.stringify(proxyTarget)} + rest + url.search, request);
+    // CF-Connecting-IP is the visitor's real IP; an X-Forwarded-For they send can be faked.
+    upstream.headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP"));
+    return fetch(upstream);
   },
 };`,
     route: `${hostname}${basePath}*`,
@@ -72,11 +75,16 @@ export default {
   );
 
   const nextjs = `// next.config.js
+// The proxy link works like a password: keep it out of your repo.
+// Set VIBECMS_PROXY_TARGET to the proxy target in your hosting environment.
+const target = process.env.VIBECMS_PROXY_TARGET;
+
 module.exports = {
   async rewrites() {
+    if (!target) return [];
     return [
-      { source: ${JSON.stringify(basePath)}, destination: ${JSON.stringify(`${proxyTarget}/`)} },
-      { source: ${JSON.stringify(`${basePath}/:path*`)}, destination: ${JSON.stringify(`${proxyTarget}/:path*`)} },
+      { source: ${JSON.stringify(basePath)}, destination: \`\${target}/\` },
+      { source: ${JSON.stringify(`${basePath}/:path*`)}, destination: \`\${target}/:path*\` },
     ];
   },
 };`;
@@ -88,11 +96,13 @@ ${basePath}/*  ${proxyTarget}/:splat  200!`;
   const nginx = `location = ${basePath} {
   proxy_pass ${proxyTarget}/;
   proxy_set_header Host ${upstreamHost};
+  proxy_set_header X-Forwarded-For $remote_addr;
   proxy_ssl_server_name on;
 }
 location ^~ ${basePath}/ {
   proxy_pass ${proxyTarget}/;
   proxy_set_header Host ${upstreamHost};
+  proxy_set_header X-Forwarded-For $remote_addr;
   proxy_ssl_server_name on;
 }`;
 
