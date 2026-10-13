@@ -13,26 +13,15 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.3.0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level=high
@@ -43,9 +32,6 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
-
       - name: Audit public release
         run: pnpm public:audit
 
@@ -54,3 +40,46 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # Tests run one package group per runner. The API suite alone is ~2 minutes,
+  # so the rest share a runner, and timing-sensitive tests don't compete with
+  # other packages for the same CPUs.
+  test:
+    name: test (${{ matrix.group }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: api
+            run: pnpm --filter @vc/api test
+          - group: public
+            run: pnpm --filter @vc/public test
+          - group: db
+            run: pnpm --filter @vc/db test
+          - group: dashboard
+            run: pnpm --filter @vc/dashboard test
+          - group: rest
+            run: >-
+              pnpm test:preflight &&
+              pnpm -r --filter '!@vc/api' --filter '!@vc/public' --filter '!@vc/db' --filter '!@vc/dashboard' test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Test
+        run: ${{ matrix.run }}
+
+  # One stable status for "everything passed", whatever the jobs above are called.
+  verify:
+    if: always()
+    needs: [checks, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All CI jobs passed
+        run: test "${{ needs.checks.result }}" = success && test "${{ needs.test.result }}" = success
