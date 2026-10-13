@@ -663,9 +663,17 @@ describe("v4 blocks – heading ids and toc markers", () => {
   });
 
   it("dedupes many repeated custom ids in linear time, warning once per id", () => {
-    const start = performance.now();
-    const r = renderRichContent("## X {#a}\n\n".repeat(12_000));
-    expect(performance.now() - start).toBeLessThan(2500);
+    // Timed against the same document with unique ids rather than a fixed
+    // budget: a slow CI runner slows both, while quadratic dedupe would make
+    // the colliding run many times the baseline (they're ~equal when linear).
+    const timed = (md: string) => {
+      const start = performance.now();
+      const result = renderRichContent(md);
+      return { result, ms: performance.now() - start };
+    };
+    const baseline = timed(Array.from({ length: 12_000 }, (_, i) => `## X {#a${i}}\n\n`).join(""));
+    const { result: r, ms } = timed("## X {#a}\n\n".repeat(12_000));
+    expect(ms).toBeLessThan(baseline.ms * 3 + 250);
     const ids = r.outline.map((h) => h.id);
     expect(new Set(ids).size).toBe(12_000);
     expect(ids.slice(0, 3)).toEqual(["h-a", "h-a-1", "h-a-2"]);
