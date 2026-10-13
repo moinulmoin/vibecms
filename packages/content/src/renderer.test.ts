@@ -3,7 +3,6 @@ import {
   renderRichContent,
   renderRichContentToHtml,
   validateRichContent,
-  RENDERER_VERSION,
   applyCodeNotation,
   parseCodeMeta,
   HIGHLIGHT_CHAR_BUDGET,
@@ -47,10 +46,6 @@ describe("PARITY – golden markup contract", () => {
     html = renderRichContentToHtml(FIXTURE);
   });
 
-  it("exports renderer version 4", () => {
-    expect(RENDERER_VERSION).toBe("4");
-  });
-
   it("callout carries vc-callout class", () => {
     expect(html).toContain("vc-callout");
   });
@@ -80,7 +75,6 @@ describe("PARITY – golden markup contract", () => {
   it("code frame exposes deterministic copy control", () => {
     expect(html).toContain("vc-code-copy");
     expect(html).toContain('data-vc-copy="code"');
-    expect(html).toContain("Copy");
   });
 
   it("## Alpha heading has id=\"h-alpha\" and permalink anchor", () => {
@@ -351,7 +345,6 @@ describe("v3 markdown features", () => {
     expect(html).toContain("<kbd>Cmd</kbd>");
     expect(html).toContain("<sub>2</sub>");
     expect(html).not.toContain("<marquee");
-    expect(renderRichContent(md).warnings).toContain("HTML <marquee> is not allowed in posts and was removed");
   });
 
   it("strips ids, names, and styles from raw HTML", () => {

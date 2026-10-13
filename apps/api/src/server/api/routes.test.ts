@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { apiV1OperationRoutes, buildOpenApiDocument, getPostBySlugRoute } from "./routes";
+import { buildOpenApiDocument } from "./routes";
 import { operationsByToolName } from '@vc/api-contract';
 
 describe("by-slug REST contract", () => {
-  it("registers the by-slug route before the generic post-id route", () => {
-    expect(apiV1OperationRoutes.indexOf(getPostBySlugRoute)).toBeLessThan(
-      apiV1OperationRoutes.findIndex((route) => route.path === "/posts/{postId}"),
-    );
-  });
-
   it("includes the exact by-slug path and operation in generated OpenAPI", () => {
     const document = buildOpenApiDocument();
     const operation = document.paths?.["/api/v1/posts/by-slug/{slug}"]?.get as

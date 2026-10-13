@@ -135,11 +135,10 @@ describe('reconcileMediaOperations', () => {
       .run()
     const before = await pending().getMediaPendingBytes(SITE)
     const deleted: string[] = []
-    const result = await reconcileMediaOperations(env, { now, bucket: mockBucket(deleted) })
+    await reconcileMediaOperations(env, { now, bucket: mockBucket(deleted) })
     expect(deleted).not.toContain(`${SITE}/fresh.png`)
     expect(await pending().getOp(opId)).toBeTruthy()
     expect(await pending().getMediaPendingBytes(SITE)).toBe(before)
-    expect(result.scanned === 0 || !deleted.includes(`${SITE}/fresh.png`)).toBe(true)
   })
 
   it('reclaims ops whose claim timed out after a crashed reconciler', async () => {

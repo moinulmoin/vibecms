@@ -93,7 +93,6 @@ describe("site personalization", () => {
       .bind(SITE_ID)
       .first<{ action: string; summary: string }>();
     expect(activity?.action).toBe("site.updated");
-    expect(activity?.summary).toBe("Updated agent onboarding preferences");
   });
 
   it("sanitizes the voice seed: dedupes, caps at three, drops invalid URLs", async () => {

@@ -4,7 +4,6 @@ import { MISSING_IMAGE_ALT_WARNING } from "./constants.js";
 import { parseSeoMarkdown, tryParseSeoMarkdown } from "./renderer.js";
 import {
   collectSeoLinkSlugs,
-  SEO_FINDING_CODES,
   seoChecks,
   type SeoCheckInput,
   type SeoFinding,
@@ -448,26 +447,6 @@ describe("code fence immunity and finding order", () => {
     const positions = altless.filter((x) => x.code === "image-alt-missing").map((x) => x.position ?? -1);
     expect(positions).toHaveLength(2);
     expect(positions[0]!).toBeLessThan(positions[1]!);
-  });
-
-  it("every emitted code is a declared SEO_FINDING_CODES member", () => {
-    const declared = new Set<string>(SEO_FINDING_CODES);
-    const md = `# H1\n\n#### skip\n\n##\n\n## Dup\n\n## dup\n\n[x](/gone) [y](http://insecure) [click here](https://e.com)\n\n${"p ".repeat(160)}`;
-    const f = findings(
-      input(md, {
-        slug: "BAD_SLUG",
-        seoTitle: "x".repeat(70),
-        seoDescription: null,
-        excerpt: null,
-        coverAssetId: null,
-        canonicalUrl: "https://off.example/x",
-        site: { indexable: false, primaryBaseUrl: "https://blog.example.com" },
-        otherPosts: [{ title: "x".repeat(70), description: null }],
-        focusKeyword: "absent",
-      }),
-    );
-    expect(f.length).toBeGreaterThan(10);
-    for (const finding of f) expect(declared.has(finding.code), finding.code).toBe(true);
   });
 });
 

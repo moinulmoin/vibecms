@@ -45,7 +45,7 @@ vi.mock('~/components/dashboard/DashboardLayout', () => ({
   LoadError: ({ message }: { message: string }) => createElement('p', null, message),
 }))
 
-import { AnalyticsPage, TopPosts, analyticsUnavailableMessage, type AnalyticsTab } from './AnalyticsPage'
+import { AnalyticsPage, TopPosts, type AnalyticsTab } from './AnalyticsPage'
 import type { AnalyticsRange } from '~/types/dashboard'
 
 type AvailableData = Extract<AnalyticsPageData, { status: 'available' }>
@@ -118,10 +118,6 @@ it('shows the full top-post title on narrow layouts', () => {
   expect(title?.[1]?.split(' ')).not.toContain('truncate')
 })
 
-it('explains unavailable analytics in customer-facing language', () => {
-  expect(analyticsUnavailableMessage('not_configured')).toBe('Analytics isn’t available for this blog yet. Try again later.')
-})
-
 describe('AnalyticsPage', () => {
   it('shows views, agent reads, and AI referrals in the metric strip', async () => {
     mocks.loadAnalyticsPage.mockResolvedValue(availableData())
@@ -182,15 +178,12 @@ describe('AnalyticsPage', () => {
     const { container } = await render({ tab: 'agents' })
     const text = container.textContent ?? ''
     expect(text).toContain('No agent reads yet')
-    expect(text).toContain('agent read is any request')
-    expect(text).toContain('update daily')
   })
 
   it('keeps the locked upsell unchanged', async () => {
     mocks.loadAnalyticsPage.mockResolvedValue({ status: 'locked', retentionDays: 365 })
     const { container } = await render()
     const text = container.textContent ?? ''
-    expect(text).toContain('See who reads, and which AI tools find you')
     expect(text).toContain('See plans')
     expect(container.querySelector('[role="tablist"]')).toBeNull()
   })

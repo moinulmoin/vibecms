@@ -550,8 +550,12 @@ describe("managed site database foundation", () => {
       result: "revoked",
       entitlementStatus: "revoked",
     });
-    expect(audit?.after_json).not.toContain("owner@example.test");
-    expect(audit?.after_json).not.toContain("sensitive-hash");
+    for (const payload of [rotationAudit?.after_json, audit?.after_json]) {
+      expect(payload).not.toContain(input.owner.email);
+      expect(payload).not.toContain(input.owner.email.trim().toLowerCase());
+      expect(payload).not.toContain(input.apiKey.tokenHash);
+      expect(payload).not.toContain("hash-managed-lifecycle-2");
+    }
     expect(
       await env.DB.prepare("SELECT COUNT(*) AS c FROM sites WHERE id = ?")
         .bind(input.site.id)

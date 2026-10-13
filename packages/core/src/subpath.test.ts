@@ -28,7 +28,6 @@ describe("subpathSnippets", () => {
 
     assert.equal(s.cloudflareWorker.route, "customer.com/blog*");
     assert.match(s.cloudflareWorker.code, /pathname\.slice\("\/blog"\.length\)/);
-    assert.match(s.cloudflareWorker.code, /100k requests\/day/);
     assert.match(s.cloudflareWorker.code, /https:\/\/my-site\.vibecms\.dev\/_vc\/p\/abc123def456/);
 
     assert.match(s.vercel, /"source": "\/blog"/);

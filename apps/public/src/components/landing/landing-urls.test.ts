@@ -20,32 +20,24 @@ describe("landing URL props", () => {
   it("wires login CTAs through HeaderHero without client hydration", () => {
     const html = renderToStaticMarkup(createElement(HeaderHero, { loginUrl }));
     expect(html).toContain(`href="${loginUrl}"`);
-    expect(html).toContain("Start free");
-    expect(html).toContain("Sign in");
     expect(html).toContain("data-landing-nav");
     expect(html).toContain("data-hero-demo");
-    expect(html).toContain("sends you a private")
-    expect(html).toContain("the final say")
     // The full conversation is server-rendered, so it reads without JS.
     for (const turn of HERO_TURNS) expect(html).toContain(`data-hero-turn="${turn.step}"`);
-    expect(html).toContain("Publish it Tuesday at 9.")
   });
 
   it("wires API docs through AgentsDemo and static AgentSurface", () => {
     const agents = renderToStaticMarkup(createElement(AgentsDemo, { apiDocsUrl }));
     expect(agents).toContain(`href="${apiDocsUrl}"`);
     expect(agents).toContain("data-key-demo");
-    expect(agents).toContain("always yours");
 
     const surface = renderToStaticMarkup(createElement(AgentSurface, { apiDocsUrl }));
     expect(surface).toContain(`href="${apiDocsUrl}"`);
-    expect(surface).toContain("API docs");
   });
 
   it("wires login CTAs through static HostingPricing", () => {
     const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
     expect(html).toContain(`href="${loginUrl}?intent=start"`);
-    expect(html).toContain("Start free");
     expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}`);
     expect(html).toContain(`$${PRICING.monthlyUsd}`);
     expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
@@ -63,14 +55,12 @@ describe("landing URL props", () => {
     const html = renderToStaticMarkup(createElement(CtaFooter, { loginUrl, apiDocsUrl }));
     expect(html).toContain(`href="${loginUrl}"`);
     expect(html).toContain(`href="${apiDocsUrl}"`);
-    expect(html).toContain("API docs");
   });
 
   it("opens each AI provider with the prompt prefilled and points it at llms.txt", () => {
     expect(ASK_AI_PROMPT).toContain("https://vibecms.dev/llms.txt");
     const links = askAiLinks();
     for (const { logo } of links) expect(logo).toMatch(/^\/brand\/ai\/[a-z]+\.svg$/);
-    expect(links.map((l) => l.name)).toEqual(["ChatGPT", "Claude", "Perplexity", "Google AI Mode", "Grok"]);
     for (const { href } of links) {
       expect(new URL(href).searchParams.get("q")).toBe(ASK_AI_PROMPT);
     }

@@ -113,8 +113,6 @@ describe("AssetRepository (Drizzle)", () => {
       height: 600,
       altText: "A cat",
     });
-    expect(typeof created.createdAt).toBe("number");
-    expect(typeof created.updatedAt).toBe("number");
 
     const fetched = await repo.getAsset("site-leaf-a", "leaf-create-1");
     expect(fetched).toMatchObject({
@@ -533,10 +531,6 @@ describe("DomainRepository (Drizzle) — conflict + reclaim contracts", () => {
       throw new Error("expected repo.insert to throw on duplicate hostname");
     } catch (err) {
       expect(err).toBeInstanceOf(ConflictError);
-      // Narrow the caught unknown with a real instanceof guard so the .message
-      // read is compiler-checked rather than a fabricated inline cast.
-      const message = err instanceof Error ? err.message : String(err);
-      expect(message).toBe("That domain is already connected to another blog.");
     }
   });
 

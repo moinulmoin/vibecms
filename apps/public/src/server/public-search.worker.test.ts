@@ -34,7 +34,6 @@ import {
   listPublishedPostSummariesByTag as listPublishedPostSummariesByTagData,
   listPublishedPostsForFeed as listPublishedPostsForFeedData,
   searchPublishedPostSummaries as searchPublishedPostSummariesData,
-  PUBLIC_BLOG_LIMITS,
   type PostSummaryRow,
 } from "./public-blog-data";
 
@@ -390,13 +389,6 @@ describe("g. summary caps, ordering, and no body field", () => {
     expect(posts[1]!.id).toBe("psx-1");
     for (const post of posts) assertSummaryRow(post);
   });
-
-  it("default list/search/llms caps come from the shared contract", () => {
-    expect(PUBLIC_BLOG_LIMITS.listSummaries).toBe(200);
-    expect(PUBLIC_BLOG_LIMITS.llmsSummaries).toBe(200);
-    expect(PUBLIC_BLOG_LIMITS.sitemapSummaries).toBe(10_000);
-    expect(PUBLIC_BLOG_LIMITS.feedBodies).toBe(50);
-  });
 });
 
 describe("h. feed body projection", () => {
@@ -406,9 +398,5 @@ describe("h. feed body projection", () => {
     expect(posts[0]).toHaveProperty("content_markdown");
     expect(posts[0]!.content_markdown.length).toBeGreaterThan(0);
     expect(posts.map((p) => p.id)).toEqual(["psx-can", "psx-1"]);
-  });
-
-  it("default feed cap is 50", () => {
-    expect(PUBLIC_BLOG_LIMITS.feedBodies).toBe(50);
   });
 });

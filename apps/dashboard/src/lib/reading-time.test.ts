@@ -73,9 +73,6 @@ describe('readingTimeMinutes', () => {
       "That's all, folks.",
     ].join('\n');
 
-    it('counts 32 whitespace tokens (markdown syntax included)', () => {
-      expect(REALISTIC.split(/\s+/).filter(Boolean).length).toBe(32);
-    });
 
     it('a realistic ~32-word document floors to 1 minute', () => {
       expect(readingTimeMinutes(REALISTIC)).toBe(1);

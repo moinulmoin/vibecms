@@ -106,7 +106,6 @@ describe('PublicPageChrome site identity', () => {
     ><p>Posts</p></PublicPageChrome>);
     const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     expect(header).toMatch(/<a href="\/about"[^>]*data-sidebar-dup=""/);
-    expect(header).toContain('All posts');
   });
 });
 

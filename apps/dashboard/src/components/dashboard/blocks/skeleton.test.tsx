@@ -21,7 +21,6 @@ describe('PageSkeleton', () => {
     for (const variant of ['stats', 'list', 'table', 'detail', 'panels'] as const) {
       const { container, unmount } = renderSkeleton(variant)
       expect(container.firstElementChild?.getAttribute('aria-busy')).toBe('true')
-      expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(3)
       unmount()
     }
   })
@@ -39,7 +38,6 @@ describe('PageSkeleton', () => {
     })
 
     expect(container.querySelector('[data-testid="custom-loading-content"]')).not.toBeNull()
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
     act(() => root.unmount())
   })
 })

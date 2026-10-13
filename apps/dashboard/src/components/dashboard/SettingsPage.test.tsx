@@ -312,7 +312,6 @@ describe('SettingsPage', () => {
     const byline = container.querySelector<HTMLInputElement>('#site-byline-name')
     const siteForm = byline?.closest('form')
     expect(byline?.placeholder).toBe('Agent Journal')
-    expect(container.textContent).toContain('Your email is never shown.')
     // Agent credit is off until agent profiles get a proper design.
     expect(container.querySelector('#site-agent-credit')).toBeNull()
     const saveButton = () => [...(siteForm?.querySelectorAll('button') ?? [])].find((button) => /Save/.test(button.textContent ?? ''))

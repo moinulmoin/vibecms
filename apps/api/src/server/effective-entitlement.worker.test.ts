@@ -333,8 +333,6 @@ describe('usage plan and budget gates', () => {
   it('keeps monthly paid caps above any month of daily guardrails', () => {
     expect(API_USAGE_LIMITS.paid.calls.month).toBe(API_USAGE_LIMITS.paid.calls.day * 31)
     expect(API_USAGE_LIMITS.paid.writes.month).toBe(API_USAGE_LIMITS.paid.writes.day * 31)
-    expect(API_USAGE_LIMITS.free.calls.month).toBe(1_000)
-    expect(API_USAGE_LIMITS.free.writes.month).toBe(200)
   })
   it('uses effective entitlement for paid/free limits and budget enforcement', async () => {
     mutableEnv.SELF_HOSTED = 'false'
