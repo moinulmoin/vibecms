@@ -85,7 +85,7 @@ module.exports = { preset: "minimal" }
 :::
 
 \`\`\`package-install
-npm i -D @vibecms/cli
+npm i -D vibecms-cli
 \`\`\`
 
 ## Images

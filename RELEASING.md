@@ -12,6 +12,13 @@ gh workflow run deploy-production.yml --ref main -f release_sha=<full 40-char sh
 secret. `pnpm deploy:prod` stops at the first failed step and prints which
 one. Nothing after that step runs.
 
+## CLI releases (npm)
+
+Run `pnpm changeset` for CLI changes; merging into `main` opens a `chore: version packages` PR.
+Merging that PR publishes `vibecms-cli` with provenance through npm trusted publishing.
+Configure the npm trusted publisher for repository `moinulmoin/vibecms`, workflow `release.yml`.
+The first version must be hand-published because the package must exist before trusted-publisher setup.
+
 ## Break-glass local deploy
 
 `pnpm deploy:prod` is the same script the workflow invokes. Run it locally

@@ -45,7 +45,7 @@ First public V1 of vibecms: the publishing control plane for AI agents, with hum
 - D1 database and R2 media
 - Better Auth passwordless email OTP sign-in
 - Exact Markdown editing, immutable versions, approval-bound publishing, activity history, and rollback
-- Scoped MCP, typed REST/OpenAPI, and `@vibecms/cli` agent surfaces
+- Scoped MCP, typed REST/OpenAPI, and `vibecms-cli` agent surfaces
 - Curated public themes with a real published-version preview
 - Managed AutoSEOPilot hosting integration
 - Polar hosted billing

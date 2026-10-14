@@ -3,14 +3,15 @@ title: Command-line client
 description: Use the vibecms CLI for site management, posts, assets, and structured output.
 ---
 
-`@vibecms/cli` exists in the repository as a preview package. From a checkout:
+Install `vibecms-cli` from npm to get the `vibecms` command:
 
 ```sh
-pnpm --filter @vibecms/cli build
-node packages/cli/dist/index.js --help
+npm i -g vibecms-cli
 ```
 
-Use `vibecms` below when the built CLI is on your path.
+Or run it without a global install: `npx vibecms-cli --help`.
+
+From a checkout, build with `pnpm --filter vibecms-cli build` and run `node packages/cli/dist/index.js --help`.
 
 ## Connect
 

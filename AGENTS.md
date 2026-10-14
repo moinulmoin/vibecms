@@ -10,7 +10,7 @@
 - `apps/og` - OG image Worker.
 - `packages/*` - `core` (domain logic), `db` (D1 repository + drizzle
   migrations), `content` (Markdown rendering), `api-contract` (schemas +
-  OpenAPI), `mcp`, `validators`, `ui`, `cli` (`@vibecms/cli`), `config`.
+  OpenAPI), `mcp`, `validators`, `ui`, `cli` (`vibecms-cli`, on npm), `config`.
 
 ## Working rules
 
