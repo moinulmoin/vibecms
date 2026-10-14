@@ -1,4 +1,6 @@
+#!/usr/bin/env node
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -9,7 +11,9 @@ import { EXIT, exitCodeForStatus, fail, printData, setErrorFormat, type OutputFo
 // cannot import it); index.test.mjs fails if the two drift.
 export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
 
-const VERSION = "0.1.0";
+// Read from package.json (one level up from both src/ and dist/) so --version
+// always matches the published version.
+const VERSION: string = createRequire(import.meta.url)("../package.json").version;
 
 const HELP = `vibecms - command-line client for the vibecms API (built for AI agents)
 
