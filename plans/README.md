@@ -17,7 +17,7 @@ behavior lives in the code and in `docs/FEATURES.md` plus the docs site.
 | 006 | [Add workspace API and MCP quotas](006-add-workspace-api-quotas.md) | DONE — current tiers in `packages/config/src/index.ts` `API_USAGE_LIMITS` |
 | 007 | [Resolve SSR Error 1102 (Workers Paid) and wire public blog subdomains](007-launch-infra-workers-paid-and-blog-subdomains.md) | REJECTED — superseded by 008 (TanStack migration made Workers Free viable); kept as incident/SSL history |
 | 008 | [Migrate frontend from RedwoodSDK to TanStack Start](008-migrate-to-tanstack-start.md) | DONE — later superseded by 021 (Astro + Hono split) |
-| 009 | [Expose one public API (OpenAPI 3.1) plus a CLI over the unified core](009-public-api-openapi-cli.md) | DONE — live OpenAPI at `/api/v1/openapi.json`, `@vibecms/cli` ships |
+| 009 | [Expose one public API (OpenAPI 3.1) plus a CLI over the unified core](009-public-api-openapi-cli.md) | DONE — live OpenAPI at `/api/v1/openapi.json`, `vibecms-cli` ships |
 | 010 | [Persist SEO fields (seoTitle / seoDescription) end-to-end](010-persist-seo-fields.md) | DONE |
 | 011 | [Post version history: list / view / restore](011-post-version-history.md) | DONE |
 | 012 | [Agent-first onboarding: connect, publish, see it live, then subscribe](012-agent-first-onboarding.md) | DONE — $19/$190 and one-free-post details in the body are historical |

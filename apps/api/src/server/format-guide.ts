@@ -193,7 +193,7 @@ module.exports = { preset: "minimal" }
 
 === Package install (GOOD - write npm once, readers get npm / pnpm / yarn / bun tabs) ===
 \`\`\`package-install
-npm i -D @vibecms/cli
+npm i -D vibecms-cli
 \`\`\`
 
 === Code extras (GOOD) ===

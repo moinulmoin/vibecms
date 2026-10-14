@@ -26,7 +26,7 @@ function surfaces(apiDocsUrl: string): Surface[] {
     },
     {
       tag: "CLI",
-      title: "@vibecms/cli",
+      title: "vibecms-cli",
       body: "Posts and media from any shell or CI job, with --json and --dry-run.",
     },
   ];
@@ -53,8 +53,8 @@ const CONNECT = [
   {
     id: "cli",
     label: "CLI",
-    lines: ["npx @vibecms/cli login --token vc_live_…", "npx @vibecms/cli posts list"],
-    copy: "npx @vibecms/cli login --token YOUR_KEY && npx @vibecms/cli posts list",
+    lines: ["npx vibecms-cli login --token vc_live_…", "npx vibecms-cli posts list"],
+    copy: "npx vibecms-cli login --token YOUR_KEY && npx vibecms-cli posts list",
     note: "Add --json for scripts and CI, or --dry-run to check a change first.",
   },
 ] as const;

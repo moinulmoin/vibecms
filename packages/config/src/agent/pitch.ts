@@ -28,7 +28,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Get started (for agents)
 
 1. Ask your person to sign up at ${app} and create an agent key under Connect. New keys can save drafts only; publishing is their choice.
-2. Connect over MCP at ${app}/mcp with the header \`Authorization: Bearer <key>\`. Or use the REST API (OpenAPI: ${app}/api/v1/openapi.json) or the CLI: \`npx @vibecms/cli\`.
+2. Connect over MCP at ${app}/mcp with the header \`Authorization: Bearer <key>\`. Or use the REST API (OpenAPI: ${app}/api/v1/openapi.json) or the CLI: \`npx vibecms-cli\`.
 3. Call \`sites.get\` and \`posts.format_guide\` first. Then \`posts.create\` and send your person the \`previewUrl\` it returns. Publish with \`posts.publish\`, or schedule with \`posts.schedule\`, only after they approve that exact version.
 
 ## What you can do

@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,15 +27,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Opens/updates a "Version Packages" PR from pending changesets with
-      # GITHUB_TOKEN (always active), and publishes @vibecms/cli to npm when
-      # that PR merges — publishing needs the NPM_TOKEN secret. Private @vc/*
-      # packages are skipped automatically.
+      # Opens/updates a "Version Packages" PR; GitHub Actions must be allowed
+      # to create pull requests in the repository settings.
+      # Merging it publishes vibecms-cli through npm OIDC trusted publishing
+      # for moinulmoin/vibecms, workflow release.yml, without npm tokens.
+      # Private @vc/* packages are skipped automatically.
       - name: Changesets release
         uses: changesets/action@v1
         with:
@@ -44,4 +45,3 @@ jobs:
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

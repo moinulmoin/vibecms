@@ -82,7 +82,7 @@ Last updated: 2026-10-13
 ### Agent surfaces
 - MCP server at `POST /mcp` with 37 tools (sites/theme/voice/signup_form/location, tags, analytics, posts, assets, activity, versions + `posts.format_guide`, `posts.preview`, `posts.seo_check`); JSON-RPC, 4 supported protocol versions (three initialize-era plus modern `2026-07-28`), per-tool scope + read/destructive/idempotent hints.
 - REST API `/api/v1` with 36 OpenAPI operations across 27 paths covering the same capabilities (`posts.search` maps to the posts-list search query) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
-- CLI `@vibecms/cli` (login/whoami/site/posts/assets/activity/schema, including posts get-by-slug; `--json`/`--ndjson`/`--dry-run`, typed exit codes); update, restore, and publish require an expected version.
+- CLI `vibecms-cli` (login/whoami/site/posts/assets/activity/schema, including posts get-by-slug; `--json`/`--ndjson`/`--dry-run`, typed exit codes); update, restore, and publish require an expected version.
 - Bearer tokens `vc_live_...` (HMAC-hashed, peppered, reveal-once, last-used tracking, owner-only management); 11 scopes; 4 key presets (`draft` default / `publish` / `manage` / legacy `full`); `assets:delete` is `full`-only; max 10 active tokens.
 - Typed `coverAssetId` + `canonicalUrl` on posts.create/update (set/clear cover, set canonical); persisted to posts + version snapshots and reverted by restore.
 

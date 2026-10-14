@@ -9,7 +9,7 @@ Agents and humans could `upload` image assets but could not `list`, `get`, or `d
 - New operations `assets.list`, `assets.get`, `assets.delete` on:
   - MCP tools (`packages/mcp/src/index.ts`, `apps/web-next/src/server/mcp-dispatch.ts`; `assets.delete` added to the write-metering set).
   - REST (`GET /api/v1/assets`, `GET /api/v1/assets/{assetId}`, `DELETE /api/v1/assets/{assetId}`).
-  - CLI `@vibecms/cli` (`assets list`, `assets get <id>`, `assets delete <id>`; 409 surfaced as the CONFLICT exit code).
+  - CLI `vibecms-cli` (`assets list`, `assets get <id>`, `assets delete <id>`; 409 surfaced as the CONFLICT exit code).
   - Dashboard Media page: a confirm-gated Delete per asset (`MediaPage.tsx` + `deleteAssetForApp` in `media.ts` + a CSRF/auth-guarded `POST /api/media/delete` route).
 - Contract keystone: `getAsset`/`deleteAsset` core commands + `AssetRepository.deleteAsset`/`isAssetReferencedAsCover` (db), `list/get/delete` request schemas + operation registry entries (`@vc/api-contract`). Reused the existing `assetDtoSchema` + `mapAsset`.
 

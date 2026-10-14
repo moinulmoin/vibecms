@@ -1,8 +1,17 @@
 {
-  "name": "@vibecms/cli",
+  "name": "vibecms-cli",
   "version": "0.1.0",
   "description": "Command-line client for the vibecms API, built for AI agents.",
   "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moinulmoin/vibecms.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://vibecms.dev/docs/cli",
+  "bugs": {
+    "url": "https://github.com/moinulmoin/vibecms/issues"
+  },
   "type": "module",
   "bin": {
     "vibecms": "./dist/index.js"

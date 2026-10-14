@@ -2,6 +2,11 @@
 
 All notable changes to vibecms will be documented in this file.
 
+## 2026-10-14
+
+- Renamed the npm CLI package to `vibecms-cli` to avoid the unrelated `@vibecms` npm scope; the installed command remains `vibecms`.
+- CLI releases now use GitHub Actions OIDC trusted publishing to npm without an npm token.
+
 ## 2026-10-13
 
 - Customer subpath blog hosting (plan 022): paid sites can serve their blog at a path of the customer's own site (e.g. `example.com/blog`) via a reverse proxy. The dashboard location settings emit ready-to-paste proxy snippets (Cloudflare Worker, Vercel, Next.js, Netlify, nginx, Caddy — the Next.js config reads the proxy link from `VIBECMS_PROXY_TARGET`, keeping the credential out of the repo) and a Check-setup probe verifies `/_vc/health` before the claim activates; unverified claims never hold a hostname. Proxied pages get asset, CSP/CORS, and real-visitor-IP handling, and the daily cron re-checks active mounts. Agents get `sites.location.get/set_subpath/check/remove` and REST `GET/PUT/DELETE /api/v1/site/location` plus `POST /api/v1/site/location/check`. The removed platform `/blog/<siteSlug>` path mode stays removed — tenant identity is still the host.

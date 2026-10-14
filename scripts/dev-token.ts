@@ -155,7 +155,7 @@ console.log(
     "  REST:",
     `    curl -s ${apiUrl}/posts -H "Authorization: Bearer ${token}"`,
     "",
-    "  CLI (@vibecms/cli):",
+    "  CLI (vibecms-cli):",
     `    vibecms login --token ${token} --api-url ${base} && vibecms whoami`,
     `    # or: export VIBECMS_TOKEN=${token}; export VIBECMS_API_URL=${base}`,
     "",
