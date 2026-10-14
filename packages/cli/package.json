@@ -1,6 +1,6 @@
 {
   "name": "vibecms-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command-line client for the vibecms API, built for AI agents.",
   "license": "AGPL-3.0-or-later",
   "repository": {
