@@ -20,7 +20,7 @@ behavior lives in the code and in `docs/FEATURES.md` plus the docs site.
 | 009 | [Expose one public API (OpenAPI 3.1) plus a CLI over the unified core](009-public-api-openapi-cli.md) | DONE — live OpenAPI at `/api/v1/openapi.json`, `vibecms-cli` ships |
 | 010 | [Persist SEO fields (seoTitle / seoDescription) end-to-end](010-persist-seo-fields.md) | DONE |
 | 011 | [Post version history: list / view / restore](011-post-version-history.md) | DONE |
-| 012 | [Agent-first onboarding: connect, publish, see it live, then subscribe](012-agent-first-onboarding.md) | DONE — $19/$190 and one-free-post details in the body are historical |
+| 012 | [Agent-first onboarding: connect, publish, see it live, then subscribe](012-agent-first-onboarding.md) | DONE - $19/$190 and one-free-post details in the body are historical; launch fixes add shared address validation, race-safe taken-address feedback, and onboarding sign-out (locally verified, not deployed) |
 | 015 | [Theme presets + per-preset agent guidance + audience capture](015-theme-presets-and-audience-capture.md) | DONE — initial four-theme/token-only starting point since extended by 018 and template structure |
 | 016 | [Rich content components + agent content fidelity](016-rich-content-and-agent-fidelity.md) | DONE — the original no-raw-HTML boundary was later expanded to sanitized allowlisted HTML |
 | 018 | [Theme presets v2: structural layouts + bounded per-post presentation](018-presets-v2-structural-layouts.md) | DONE — the reduced layout matrix in the body was later expanded (all presets support `wide` and ToC) |

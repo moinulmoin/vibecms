@@ -3,9 +3,15 @@ import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@vc/ui/lib/utils"
+import { FocusReturnContext, useFocusReturnOnClose, useFocusReturnOpener } from "~/components/ui/focus-return"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+  const opener = useFocusReturnOpener(props.open)
+  return (
+    <FocusReturnContext.Provider value={opener}>
+      <SheetPrimitive.Root data-slot="sheet" {...props} />
+    </FocusReturnContext.Provider>
+  )
 }
 
 function SheetTrigger({
@@ -47,11 +53,13 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
+  const handleCloseAutoFocus = useFocusReturnOnClose(onCloseAutoFocus)
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -70,6 +78,7 @@ function SheetContent({
           className
         )}
         {...props}
+        onCloseAutoFocus={handleCloseAutoFocus}
       >
         {children}
         {showCloseButton && (

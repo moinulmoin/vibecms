@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SITE_ADDRESS_MAX_LENGTH, SITE_ADDRESS_MIN_LENGTH } from "@vc/config";
 
 const RESERVED_SITE_SLUG_NAMES = [
   // infrastructure, collision, auth, brand
@@ -23,6 +24,38 @@ export function isReservedSiteSlug(slug: string): boolean {
   return RESERVED_SITE_SLUGS[slug.trim().toLowerCase()] === true;
 }
 
+/**
+ * Blog name or typed address -> hosted address label: lowercase a-z, digits,
+ * single hyphens. Latin diacritics fold to their base letter; scripts without a
+ * Latin decomposition (Cyrillic, CJK, emoji) and symbol-only input yield "".
+ * Setup client and server both use this so the preview is the saved address.
+ */
+export function siteAddressFromText(input: string): string {
+  return input
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, SITE_ADDRESS_MAX_LENGTH)
+    .replace(/-+$/g, "");
+}
+
+export type SiteAddressIssue = "address_required" | "slug_reserved" | "address_too_short";
+
+/**
+ * Problem with a normalized address, or null when it can be claimed (uniqueness
+ * is checked by the database). The minimum length applies to newly chosen
+ * addresses only: re-saving `currentAddress` keeps existing short sites working.
+ */
+export function siteAddressIssue(address: string, currentAddress?: string | null): SiteAddressIssue | null {
+  if (!address) return "address_required";
+  if (isReservedSiteSlug(address)) return "slug_reserved";
+  if (address.length < SITE_ADDRESS_MIN_LENGTH && address !== currentAddress) return "address_too_short";
+  return null;
+}
+
 // Site slugs become the left-most label in `<slug>.<public-domain>`.
 export const SITE_SLUG_MAX_LENGTH = 63;
 
@@ -31,10 +64,10 @@ export const createSiteInput = z.object({
   name: z.string().trim().min(1).max(120),
   slug: z
     .string()
-    .min(1)
+    .min(SITE_ADDRESS_MIN_LENGTH)
     .max(SITE_SLUG_MAX_LENGTH)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .refine((value) => !isReservedSiteSlug(value), { message: "That name is reserved." }),
+    .refine((value) => !isReservedSiteSlug(value), { message: "That address is reserved." }),
   description: z.string().trim().max(300).optional(),
 }).strict();
 

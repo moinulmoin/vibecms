@@ -18,8 +18,8 @@ import {
   THEME_RADII,
   THEME_WIDTHS,
 } from '@vc/config'
-import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS } from '@vc/db'
-import { isReservedSiteSlug, newsletterSettingsSchema, navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink, type NewsletterSettings } from '@vc/validators'
+import { createDataAccess, createD1DomainRepository, PUBLIC_BLOG_LIMITS, SiteAddressTakenError } from '@vc/db'
+import { siteAddressFromText, siteAddressIssue, newsletterSettingsSchema, navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink, type NewsletterSettings } from '@vc/validators'
 import { env } from 'cloudflare:workers'
 import { ensureBillingRow } from '@/server/billing'
 import { defaultHostname } from './public-url'
@@ -468,32 +468,41 @@ export async function completeSiteSetupForApp(
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
   const timestamp = now()
   const name = payload.name.trim().slice(0, 80) || 'My Blog'
-  const slug = slugify(payload.slug || name).slice(0, 42)
-  if (isReservedSiteSlug(slug)) return { kind: 'error', code: 'slug_reserved' }
+  // Same normalization the setup page previews; a name with no usable letters
+  // must be paired with an explicit address instead of a silent fallback.
+  const slug = siteAddressFromText(payload.slug || name)
+  const db = createDataAccess(env.DB)
+  const issue = siteAddressIssue(slug, await db.sites.getSiteSlug(app.siteId))
+  if (issue) return { kind: 'error', code: issue }
   const description =
     payload.description?.trim() ? payload.description.trim().slice(0, 220) : null
 
-  const db = createDataAccess(env.DB)
-  await db.sites.completeSiteSetup({
-    timestamp,
-    siteId: app.siteId,
-    site: {
-      name,
-      slug,
-      description,
-      defaultSeoTitle: name,
-      defaultSeoDescription: description,
-    },
-    defaultDomainHostname: defaultHostname(slug),
-    activity: {
-      id: `activity_site_setup_${app.user.id}_${timestamp}`,
-      actorType: app.actor.type,
-      actorId: app.actor.id,
-      actorName: app.actor.name,
-      action: 'site.updated',
-      summary: `Configured ${name}`,
-    },
-  })
+  try {
+    await db.sites.completeSiteSetup({
+      timestamp,
+      siteId: app.siteId,
+      site: {
+        name,
+        slug,
+        description,
+        defaultSeoTitle: name,
+        defaultSeoDescription: description,
+      },
+      defaultDomainHostname: defaultHostname(slug),
+      activity: {
+        id: `activity_site_setup_${app.user.id}_${timestamp}`,
+        actorType: app.actor.type,
+        actorId: app.actor.id,
+        actorName: app.actor.name,
+        action: 'site.updated',
+        summary: `Configured ${name}`,
+      },
+    })
+  } catch (error) {
+    // Another blog holds the slug or its hostname, including a claim that raced this one.
+    if (error instanceof SiteAddressTakenError) return { kind: 'error', code: 'address_taken' }
+    throw error
+  }
 
   return { kind: 'ok', code: 'setup_complete' }
 }

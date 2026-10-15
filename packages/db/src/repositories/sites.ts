@@ -11,6 +11,26 @@ import {
 
 type ActorType = "human" | "agent" | "api_key" | "system";
 
+/** The chosen blog address (site slug or its default hostname) belongs to another blog. */
+export class SiteAddressTakenError extends Error {
+  constructor() {
+    super("That address is taken.");
+    this.name = "SiteAddressTakenError";
+  }
+}
+
+// Drizzle wraps D1 errors; the UNIQUE text lives on the cause chain, not .message.
+// Only the address constraints map; every other failure (activity id, I/O) propagates.
+function isAddressUniqueViolation(error: unknown): boolean {
+  const chain: string[] = [];
+  let cur: unknown = error;
+  while (cur instanceof Error) {
+    chain.push(cur.message);
+    cur = cur.cause;
+  }
+  return /UNIQUE constraint failed: (?:sites\.slug|domains\.hostname)\b/i.test(chain.join("\n"));
+}
+
 // SELECT id, name, slug, description, voice_seed_json, created_at, updated_at FROM sites
 export interface CurrentSite {
   id: string;
@@ -499,35 +519,40 @@ export function createSitesRepository(db: D1Database): SitesRepository {
 
     // Atomic setup completion: UPDATE sites + UPDATE default domain hostname + INSERT activity.
     async completeSiteSetup(input) {
-      await client.batch([
-        client
-          .update(sites)
-          .set({
-            name: input.site.name,
-            slug: input.site.slug,
-            description: input.site.description,
-            defaultSeoTitle: input.site.defaultSeoTitle,
-            defaultSeoDescription: input.site.defaultSeoDescription,
-            updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
-          })
-          .where(eq(sites.id, input.siteId)),
-        client
-          .update(domains)
-          .set({ hostname: input.defaultDomainHostname, updatedAt: input.timestamp })
-          .where(and(eq(domains.siteId, input.siteId), eq(domains.type, "default"))),
-        client.insert(activityEvents).values({
-          id: input.activity.id,
-          siteId: input.siteId,
-          actorType: input.activity.actorType,
-          actorId: input.activity.actorId,
-          actorName: input.activity.actorName,
-          action: input.activity.action,
-          entityType: "site",
-          entityId: input.siteId,
-          summary: input.activity.summary,
-          createdAt: input.timestamp,
-        }),
-      ]);
+      try {
+        await client.batch([
+          client
+            .update(sites)
+            .set({
+              name: input.site.name,
+              slug: input.site.slug,
+              description: input.site.description,
+              defaultSeoTitle: input.site.defaultSeoTitle,
+              defaultSeoDescription: input.site.defaultSeoDescription,
+              updatedAt: sql`max(${input.timestamp}, ${sites.updatedAt} + 1)`,
+            })
+            .where(eq(sites.id, input.siteId)),
+          client
+            .update(domains)
+            .set({ hostname: input.defaultDomainHostname, updatedAt: input.timestamp })
+            .where(and(eq(domains.siteId, input.siteId), eq(domains.type, "default"))),
+          client.insert(activityEvents).values({
+            id: input.activity.id,
+            siteId: input.siteId,
+            actorType: input.activity.actorType,
+            actorId: input.activity.actorId,
+            actorName: input.activity.actorName,
+            action: input.activity.action,
+            entityType: "site",
+            entityId: input.siteId,
+            summary: input.activity.summary,
+            createdAt: input.timestamp,
+          }),
+        ]);
+      } catch (error) {
+        if (isAddressUniqueViolation(error)) throw new SiteAddressTakenError();
+        throw error;
+      }
     },
 
     // Compare-and-swap prevents Theme and Settings (or two browser tabs) from

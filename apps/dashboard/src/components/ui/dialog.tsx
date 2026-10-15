@@ -4,11 +4,17 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@vc/ui/lib/utils"
 import { Button } from "@vc/ui"
+import { FocusReturnContext, useFocusReturnOnClose, useFocusReturnOpener } from "~/components/ui/focus-return"
 
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const opener = useFocusReturnOpener(props.open)
+  return (
+    <FocusReturnContext.Provider value={opener}>
+      <DialogPrimitive.Root data-slot="dialog" {...props} />
+    </FocusReturnContext.Provider>
+  )
 }
 
 function DialogTrigger({
@@ -49,10 +55,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const handleCloseAutoFocus = useFocusReturnOnClose(onCloseAutoFocus)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -63,6 +71,7 @@ function DialogContent({
           className
         )}
         {...props}
+        onCloseAutoFocus={handleCloseAutoFocus}
       >
         {children}
         {showCloseButton && (

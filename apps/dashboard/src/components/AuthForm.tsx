@@ -1,7 +1,7 @@
 import { setupAuthClient } from '~/lib/auth-client'
 import { Button, Field, FieldLabel, Input, Alert } from '@vc/ui'
 import { REGEXP_ONLY_DIGITS } from 'input-otp'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '~/components/ui/input-otp'
 import { Spinner } from '~/components/ui/spinner'
 
@@ -55,6 +55,16 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  const otpInputRef = useRef<HTMLInputElement>(null)
+  // The code input is disabled while a request runs, which drops focus to
+  // <body>; a wrong code or a resend hands it back once the input re-enables.
+  const otpFocusPending = useRef(false)
+
+  useEffect(() => {
+    if (!otpFocusPending.current || loading || step !== 'otp') return
+    otpFocusPending.current = false
+    otpInputRef.current?.focus()
+  }, [loading, step, error, notice])
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -79,7 +89,10 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
       setStep('otp')
       setOtp('')
       setCooldown(RESEND_COOLDOWN_SECONDS)
-      if (isResend) setNotice('New code sent.')
+      if (isResend) {
+        setNotice('New code sent.')
+        otpFocusPending.current = true
+      }
     } catch {
       setError('Could not reach the sign-in service. Check your connection and try again.')
     } finally {
@@ -109,12 +122,14 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
           onError: () => {
             setError('That code didn’t work. Check it, or send a new one.')
             setOtp('')
+            otpFocusPending.current = true
             setLoading(false)
           },
         },
       )
       .catch(() => {
         setError('Could not verify the code. Check your connection and try again.')
+        otpFocusPending.current = true
         setLoading(false)
       })
   }
@@ -140,7 +155,11 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
         <header className="space-y-2">
           <h1 className="font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-foreground">Check your email</h1>
           <p className="text-pretty text-[0.9375rem] leading-6 text-muted-foreground">
-            We sent a 6-digit code to <span className="inline-block max-w-full break-all font-medium text-foreground">{email}</span>.{' '}
+            We sent a 6-digit code to{' '}
+            {/* The full stop lives in the same box as the address so it can't wrap onto its own line before "Change". */}
+            <span className="inline-block max-w-full break-all">
+              <span className="font-medium text-foreground">{email}</span>.
+            </span>{' '}
             <button
               type="button"
               className="text-foreground underline underline-offset-4 hover:text-primary"
@@ -172,6 +191,7 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
               6-digit code
             </FieldLabel>
             <InputOTP
+              ref={otpInputRef}
               id="otp"
               maxLength={6}
               pattern={REGEXP_ONLY_DIGITS}
@@ -214,18 +234,20 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
           <p className="text-center text-sm text-muted-foreground" aria-live="polite">
             {notice ? `${notice} ` : 'Didn’t get it? Check spam, or '}
             {cooldown > 0 ? (
-              <span className="tabular-nums">resend in {cooldown}s</span>
+              <span className="tabular-nums">{notice ? 'Resend' : 'resend'} in {cooldown}s.</span>
             ) : (
-              <button
-                type="button"
-                className="text-foreground underline underline-offset-4 hover:text-primary disabled:opacity-50"
-                disabled={loading}
-                onClick={() => void sendCode(true)}
-              >
-                send a new code
-              </button>
+              <span className="whitespace-nowrap">
+                <button
+                  type="button"
+                  className="text-foreground underline underline-offset-4 hover:text-primary disabled:opacity-50"
+                  disabled={loading}
+                  onClick={() => void sendCode(true)}
+                >
+                  {notice ? 'Send a new code' : 'send a new code'}
+                </button>
+                .
+              </span>
             )}
-            .
           </p>
         </form>
       </div>

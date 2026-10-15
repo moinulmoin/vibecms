@@ -100,6 +100,11 @@ async function settle(rounds = 3) {
   }
 }
 
+/** The save bar's form: the preview renders the blog's own (inert) forms, so never take the first <form>. */
+function saveForm(container: HTMLElement) {
+  return [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Save changes'))?.closest('form') ?? null
+}
+
 describe('ThemePage', () => {
   beforeEach(() => {
     vi.mocked(loadPostsPage).mockResolvedValue({ posts: [] } as never)
@@ -118,18 +123,43 @@ describe('ThemePage', () => {
     const root = createRoot(container)
     await act(async () => root.render(<ThemePage />))
     await settle()
-    const choice = container.querySelector('[role="radiogroup"][aria-label="Home page"] [role="radio"]:nth-child(2)')
-    expect(choice?.textContent).toBe('Grid')
+    const choice = [...container.querySelectorAll('[role="radiogroup"][aria-label="Home page"] [role="radio"]')]
+      .find((radio) => radio.textContent === 'Grid')
+    expect(choice).toBeDefined()
     await act(async () => choice?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(container.querySelector('[role="radiogroup"][aria-label="Preview page"] [aria-checked="true"]')?.textContent).toBe('Home')
     expect(router.blockerOptions?.shouldBlockFn({ current: { pathname: '/dashboard/theme', search: {} }, next: { pathname: '/dashboard', search: {} } })).toBe(true)
-    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    await act(async () => saveForm(container)?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     expect(updateSiteSettingsMutation).toHaveBeenCalledWith(expect.objectContaining({ themeIndex: 'grid' }))
     const technical = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Notebook'))
     await act(async () => technical?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(container.querySelector('[role="radiogroup"][aria-label="Home page"] [aria-checked="true"]')?.textContent).toBe('Compact')
-    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    await act(async () => saveForm(container)?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     expect(updateSiteSettingsMutation).toHaveBeenLastCalledWith(expect.objectContaining({ themeChrome: null, themeIndex: null, themeHeader: null }))
+    await act(async () => root.unmount())
+    container.remove()
+  })
+
+  it('switches the preview page when the already-chosen Home page or Article header option is picked again', async () => {
+    vi.mocked(loadSettingsPage).mockResolvedValue(settings({ themeIndex: 'grid' }))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    await act(async () => root.render(<ThemePage />))
+    await settle()
+    const checked = (group: string) => container.querySelector<HTMLButtonElement>(`[role="radiogroup"][aria-label="${group}"] [aria-checked="true"]`)
+    expect(checked('Preview page')?.textContent).toBe('Post')
+    const grid = checked('Home page')
+    expect(grid?.textContent).toBe('Grid')
+    await act(async () => grid?.click())
+    expect(checked('Preview page')?.textContent).toBe('Home')
+    expect(checked('Home page')?.textContent).toBe('Grid')
+    // Re-picking a chosen option is not an edit.
+    expect(container.textContent).not.toContain('Unsaved changes')
+    const header = checked('Article header')
+    await act(async () => header?.click())
+    expect(checked('Preview page')?.textContent).toBe('Post')
+    expect(checked('Article header')).toBe(header)
     await act(async () => root.unmount())
     container.remove()
   })
@@ -166,7 +196,7 @@ describe('ThemePage', () => {
     expect(technical).toBeTruthy()
     await act(async () => technical?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
 
-    const form = container.querySelector('form')
+    const form = saveForm(container)
     expect(form).toBeTruthy()
     await act(async () => form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     await settle()
@@ -256,7 +286,8 @@ describe('ThemePage', () => {
     expect(container.querySelector<HTMLButtonElement>('[role="radiogroup"][aria-label="Template"] button')?.disabled).toBe(true)
     expect(container.querySelector<HTMLButtonElement>('[role="radiogroup"][aria-label="Accent color"] button')?.disabled).toBe(true)
     expect(container.textContent).not.toContain('Save changes')
-    await act(async () => container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    // No save form for editors: every remaining form is the inert blog preview's own.
+    expect([...container.querySelectorAll('form')].every((form) => form.closest('[inert]'))).toBe(true)
     expect(updateSiteSettingsMutation).not.toHaveBeenCalled()
     await act(async () => root.unmount())
     container.remove()

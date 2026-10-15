@@ -1,5 +1,9 @@
 import { BRAND } from '@vc/config'
-import type { ReactNode } from 'react'
+import { Button } from '@vc/ui'
+import { useTransition, type ReactNode } from 'react'
+import { setupAuthClient } from '~/lib/auth-client'
+import { queryClient } from '~/lib/queries'
+import { clearSessionSecrets } from '~/lib/token-flash'
 
 const STEP_NAMES = ['Name your blog', 'Connect your agent'] as const
 
@@ -26,6 +30,37 @@ function StepIndicator({ step }: { step: { current: number; total: number } }) {
         {step.current}/{step.total}
       </span>
     </div>
+  )
+}
+
+/** Quiet way out of onboarding (the dashboard account menu is not mounted here); same flow as the account menu. */
+function OnboardingSignOut() {
+  const [isPending, startTransition] = useTransition()
+  const signOut = () => {
+    const authClient = setupAuthClient()
+    startTransition(() => {
+      void authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            clearSessionSecrets()
+            queryClient.clear()
+            window.location.href = '/login'
+          },
+        },
+      })
+    })
+  }
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={isPending}
+      className="min-h-11 text-sm text-muted-foreground"
+      onClick={signOut}
+    >
+      {isPending ? 'Signing out…' : 'Sign out'}
+    </Button>
   )
 }
 
@@ -57,7 +92,10 @@ export function OnboardingFrame({
             <img src="/brand/icon.svg" alt="" aria-hidden="true" className="size-6 rounded-md" />
             {BRAND.name}
           </a>
-          {step ? <StepIndicator step={step} /> : null}
+          <div className="flex items-center gap-4">
+            {step ? <StepIndicator step={step} /> : null}
+            <OnboardingSignOut />
+          </div>
         </div>
         <div
           className={

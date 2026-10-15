@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Bot, ExternalLink, FileText, Inbox, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Bot, ExternalLink, FileText, Inbox, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Rocket, Search, Trash2, X } from 'lucide-react'
 import { Input, Select } from '@vc/ui'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { DashboardPostSummary, PostsPageLoad } from '~/types/dashboard'
@@ -141,7 +141,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     })
   }
 
-  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'restore' | 'delete' | 'unschedule') {
+  async function runRowMutation(post: DashboardPostSummary, action: 'archive' | 'unarchive' | 'delete' | 'unschedule') {
     const key = `${post.id}:${action}`
     setRowPending(key)
     setRowError(null)
@@ -149,7 +149,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
     try {
       const result = action === 'archive'
         ? await archivePostMutation({ postId: post.id })
-        : action === 'restore'
+        : action === 'unarchive'
           ? await unarchivePostMutation({ postId: post.id })
           : action === 'unschedule' ? await unschedulePostMutation({ postId: post.id })
           : await deleteArchivedPostMutation({ postId: post.id })
@@ -157,8 +157,8 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
       toast(
         action === 'archive'
           ? { variant: 'success', title: 'Post archived', message: `“${post.title}” is hidden from your blog. History is kept.` }
-          : action === 'restore'
-            ? { variant: 'success', title: 'Restored to draft', message: `“${post.title}” is a draft again.` }
+          : action === 'unarchive'
+            ? { variant: 'success', title: 'Moved to drafts', message: `“${post.title}” is a draft again.` }
             : action === 'unschedule'
               ? { variant: 'success', title: 'Schedule canceled', message: `“${post.title}” will not publish automatically.` }
             : { variant: 'success', title: 'Post deleted', message: `“${post.title}” was permanently deleted.` },
@@ -264,7 +264,7 @@ export function PostsPage({ search, canEdit }: { search: PostsListSearch; canEdi
                 pendingKey={rowPending}
                 error={rowError?.postId === post.id ? rowError : null}
                 onArchive={() => runRowMutation(post, 'archive')}
-                onRestore={() => void runRowMutation(post, 'restore')}
+                onUnarchive={() => void runRowMutation(post, 'unarchive')}
                 onDelete={() => runRowMutation(post, 'delete')}
                 onUnschedule={() => runRowMutation(post, 'unschedule')}
                 onCopied={() => toast({ variant: 'success', title: 'Link copied', message: 'The live link is on your clipboard.' })}
@@ -333,7 +333,7 @@ function PostRow({
   pendingKey,
   error,
   onArchive,
-  onRestore,
+  onUnarchive,
   onDelete,
   onUnschedule,
   onCopied,
@@ -347,7 +347,7 @@ function PostRow({
   pendingKey: string | null
   error: { message: string; retry: () => void } | null
   onArchive: () => Promise<void>
-  onRestore: () => void
+  onUnarchive: () => void
   onDelete: () => Promise<void>
   onUnschedule: () => Promise<void>
   onCopied: () => void
@@ -438,11 +438,11 @@ function PostRow({
             type="button"
             size="sm"
             variant="ghost"
-            disabled={pendingKey === `${post.id}:restore`}
-            onClick={onRestore}
+            disabled={pendingKey === `${post.id}:unarchive`}
+            onClick={onUnarchive}
           >
-            <RotateCcw aria-hidden data-icon="inline-start" />
-            {pendingKey === `${post.id}:restore` ? 'Restoring…' : 'Restore'}
+            <ArchiveRestore aria-hidden data-icon="inline-start" />
+            {pendingKey === `${post.id}:unarchive` ? 'Unarchiving…' : 'Unarchive'}
           </Button>
         ) : null}
         {canEdit && showDelete && post.status === 'archived' ? (

@@ -173,18 +173,19 @@ type SetupStep = { title: string; detail: string; done: boolean; optional?: bool
 
 /** First-run guide: shown until something is live, with real progress, not a static checklist. */
 function GetStarted({ data, canEdit, onlyDraft }: { data: DashboardData; canEdit: boolean; onlyDraft?: { id: string; title: string } }) {
-  // Site-specific evidence: a key for this blog has been used.
+  // Same evidence as onboarding: a key exists (made during setup), then an agent has used it.
+  const hasKey = data.tokenCount > 0
   const agentConnected = (data.usedTokenCount ?? 0) > 0
   const hasDraft = data.counts.draft + data.counts.published > 0
   const steps: SetupStep[] = [
     {
-      title: 'Connect your agent',
+      title: 'Give your agent a key',
       detail: agentConnected
         ? 'Your agent has reached vibecms.'
-        : data.tokenCount > 0
-          ? 'Your key is ready. Paste the command into your agent.'
-          : 'Give your agent a key so it can write here.',
-      done: agentConnected,
+        : hasKey
+          ? 'Key created. Your agent hasn’t used it yet: paste the command from Connect.'
+          : 'Create a key on Connect so your agent can write here.',
+      done: hasKey,
       action: agentConnected ? undefined : { label: 'Open Connect', to: '/dashboard/connect', search: emptyDashboardStatusSearch },
     },
     {
@@ -212,11 +213,13 @@ function GetStarted({ data, canEdit, onlyDraft }: { data: DashboardData; canEdit
   ]
   // The first unfinished required step is the one to do next: give it the primary button.
   const nextIndex = steps.findIndex((step) => !step.done && !step.optional)
+  const required = steps.filter((step) => !step.optional)
+  const doneCount = required.filter((step) => step.done).length
   return (
     <Section
       title="Get started"
-      description="Three steps to a live blog your agents can write for."
-      action={<span className="text-sm tabular-nums text-muted-foreground">{steps.filter((step) => step.done && !step.optional).length} of 3 done</span>}
+      description="Three steps to a live blog your agents can write for, plus one optional."
+      action={<span className="text-sm tabular-nums text-muted-foreground">{doneCount} of {required.length} done</span>}
     >
       <Steps>
         {steps.map((step, index) => (

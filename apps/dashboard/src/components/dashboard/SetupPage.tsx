@@ -1,8 +1,9 @@
-import { FREE_TIER } from '@vc/config'
-import { Alert, Field, FieldLabel, Input, Skeleton } from '@vc/ui'
+import { FORM_STATUS, FREE_TIER, SITE_ADDRESS_MAX_LENGTH } from '@vc/config'
+import { Alert, Field, FieldError, FieldLabel, Input, Skeleton } from '@vc/ui'
+import { siteAddressFromText, siteAddressIssue, type SiteAddressIssue } from '@vc/validators'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -11,25 +12,15 @@ import { completeSetupMutation } from '~/lib/api-client'
 import { emptyDashboardStatusSearch } from '~/lib/dashboard-search'
 import { refreshContext, setupQuery } from '~/lib/queries'
 
-const SLUG_MAX = 42
+type AddressCode = SiteAddressIssue | 'address_taken'
+const ADDRESS_CODES: ReadonlySet<string> = new Set<AddressCode>(['address_required', 'slug_reserved', 'address_too_short', 'address_taken'])
+const isAddressCode = (code: string): code is AddressCode => ADDRESS_CODES.has(code)
 
-/** Blog name → hosted address label. Lowercase letters, digits, single hyphens. */
-export function slugFromName(name: string) {
-  return name
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/['’]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, SLUG_MAX)
-    .replace(/-+$/g, '')
-}
-
+const ADDRESS_ERROR_ID = 'blog-address-error'
 const STEP = { current: 1, total: 2 }
 
 /** The blog taking shape as you type: its address, name, and where posts will land. */
-export function BlogPreview({ name, address }: { name: string; address: string }) {
+export function BlogPreview({ name, address }: { name: string; address: string | null }) {
   const named = name.trim().length > 0
   return (
     <figure className="m-0">
@@ -41,7 +32,7 @@ export function BlogPreview({ name, address }: { name: string; address: string }
             <span className="size-2 rounded-full bg-foreground/15" />
           </span>
           <span className="ml-1 min-w-0 truncate rounded-md border bg-background px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-            {address}
+            {address ?? 'Choose an address'}
           </span>
         </div>
         <div className="px-6 pb-8 pt-5">
@@ -79,34 +70,69 @@ export function SetupPage() {
   const navigate = useNavigate()
   const query = useQuery(setupQuery)
   const [name, setName] = useState('')
+  // Address editor text, normalized as typed; a trailing hyphen is dropped when saved.
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
   const [editingSlug, setEditingSlug] = useState(false)
+  const [attempted, setAttempted] = useState(false)
+  const [rejected, setRejected] = useState<{ code: AddressCode; address: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [seeded, setSeeded] = useState(false)
+  const addressInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!query.data || seeded) return
     setSeeded(true)
     // The server pre-fills a placeholder name; start blank unless the user already named it.
-    const prefilled = query.data.name && query.data.name !== 'My Blog' ? query.data.name : ''
-    setName(prefilled)
-    if (prefilled) setSlug(query.data.slug || slugFromName(prefilled))
+    setName(query.data.name && query.data.name !== 'My Blog' ? query.data.name : '')
   }, [query.data, seeded])
 
-  const effectiveSlug = slugTouched ? slug : slugFromName(name)
   const baseDomain = query.data?.baseDomain ?? null
+  const currentAddress = query.data?.slug ?? null
+  // Exactly what the server will save (same shared normalizer), never a silent fallback.
+  const address = siteAddressFromText(slugTouched ? slug : name)
+  const started = slugTouched || name.trim().length > 0
+  const liveIssue = started ? siteAddressIssue(address, currentAddress) : null
+  // A derived address is too short while the first letters are typed; wait for an explicit address or a submit.
+  const shownIssue = liveIssue === 'address_too_short' && !slugTouched && !attempted ? null : liveIssue
+  const addressCode: AddressCode | null = shownIssue ?? (rejected?.address === address ? rejected.code : null)
+  const addressError = addressCode ? (FORM_STATUS[addressCode]?.message ?? null) : null
+  const addressLabel = started ? address : 'your-blog'
+  // Latest address for async responses: a rejection must not overwrite edits made while saving.
+  const latestAddress = useRef(address)
+  useEffect(() => {
+    latestAddress.current = address
+  })
+
+  // Pins the editor to `target` (already the current address) and moves focus into it.
+  function openAddressEditor(target: string) {
+    setSlug(target)
+    setSlugTouched(true)
+    setEditingSlug(true)
+    addressInputRef.current?.focus()
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!name.trim()) return
+    setAttempted(true)
     setError(null)
+    if (siteAddressIssue(address, currentAddress)) {
+      openAddressEditor(address)
+      return
+    }
+    const submitted = address
     setSubmitting(true)
     try {
-      const result = await completeSetupMutation({ name: name.trim(), slug: slugFromName(effectiveSlug) || slugFromName(name) })
+      const result = await completeSetupMutation({ name: name.trim(), slug: submitted })
       if (result.kind !== 'ok') {
-        setError(resolveFormStatus({ error: result.code })?.message ?? 'That didn’t work. Try another name.')
+        if (isAddressCode(result.code)) {
+          setRejected({ code: result.code, address: submitted })
+          if (latestAddress.current === submitted) openAddressEditor(submitted)
+        } else {
+          setError(resolveFormStatus({ error: result.code })?.message ?? 'That didn’t work. Try another name.')
+        }
         return
       }
       await refreshContext()
@@ -130,8 +156,8 @@ export function SetupPage() {
     <OnboardingFrame
       step={STEP}
       title="Name your blog"
-      description="You can change it any time."
-      aside={<BlogPreview name={name} address={`${effectiveSlug || 'your-blog'}${baseDomain ? `.${baseDomain}` : ''}`} />}
+      description="You can rename your blog any time. Its address can’t be changed after this step."
+      aside={<BlogPreview name={name} address={addressLabel ? `${addressLabel}${baseDomain ? `.${baseDomain}` : ''}` : null} />}
     >
       {!query.data ? (
         <div className="grid gap-4" aria-busy="true">
@@ -142,63 +168,79 @@ export function SetupPage() {
       ) : (
         <form className="grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
           {error ? <Alert variant="error">{error}</Alert> : null}
-          <Field>
-            <FieldLabel htmlFor="blog-name" className="sr-only">
-              Blog name
-            </FieldLabel>
-            <Input
-              id="blog-name"
-              name="name"
-              required
-              autoFocus
-              maxLength={80}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Field Notes"
-              className="h-12 text-lg"
-            />
-            <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              {editingSlug ? (
-                <label className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="sr-only">Blog address</span>
-                  <Input
-                    value={effectiveSlug}
-                    onChange={(event) => {
-                      setSlugTouched(true)
-                      setSlug(
-                        event.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]+/g, '-')
-                          .replace(/-{2,}/g, '-')
-                          .replace(/^-+/, '')
-                          .slice(0, SLUG_MAX),
-                      )
-                    }}
-                    onBlur={() => setEditingSlug(false)}
-                    autoFocus
-                    maxLength={SLUG_MAX}
-                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                    className="h-8 max-w-56 font-mono text-sm"
-                  />
-                  {baseDomain ? <span className="font-mono">.{baseDomain}</span> : null}
-                </label>
-              ) : (
-                <>
-                  <span className="min-w-0 truncate font-mono">
-                    <span className="text-foreground">{effectiveSlug || 'your-blog'}</span>
-                    {baseDomain ? `.${baseDomain}` : ''}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSlug(true)}
-                    className="rounded text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                  >
-                    Edit
-                  </button>
-                </>
-              )}
-            </div>
-          </Field>
+          <div className="grid gap-2">
+            <Field>
+              <FieldLabel htmlFor="blog-name" className="sr-only">
+                Blog name
+              </FieldLabel>
+              <Input
+                id="blog-name"
+                name="name"
+                required
+                autoFocus
+                maxLength={80}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Field Notes"
+                className="h-12 text-lg"
+                aria-describedby={addressError && !slugTouched ? ADDRESS_ERROR_ID : undefined}
+              />
+            </Field>
+            <Field className="gap-1.5">
+              <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                {editingSlug ? (
+                  <>
+                    <FieldLabel htmlFor="blog-address" className="sr-only">
+                      Blog address
+                    </FieldLabel>
+                    <Input
+                      id="blog-address"
+                      ref={addressInputRef}
+                      value={slugTouched ? slug : address}
+                      onChange={(event) => {
+                        setSlugTouched(true)
+                        // Shared normalizer as you type; keep one trailing separator so "my-" can become "my-blog".
+                        const typed = event.target.value
+                        const normalized = siteAddressFromText(typed)
+                        setSlug(normalized && /[^\p{L}\p{M}\p{N}]$/u.test(typed) && normalized.length < SITE_ADDRESS_MAX_LENGTH ? `${normalized}-` : normalized)
+                      }}
+                      onBlur={() => {
+                        if (!addressCode) setEditingSlug(false)
+                      }}
+                      autoFocus
+                      maxLength={SITE_ADDRESS_MAX_LENGTH}
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-invalid={addressError ? true : undefined}
+                      aria-describedby={addressError ? ADDRESS_ERROR_ID : undefined}
+                      className="h-8 max-w-56 font-mono text-sm"
+                    />
+                    {baseDomain ? <span className="font-mono">.{baseDomain}</span> : null}
+                  </>
+                ) : (
+                  <>
+                    {addressLabel ? (
+                      <span className="min-w-0 truncate font-mono">
+                        <span className="text-foreground">{addressLabel}</span>
+                        {baseDomain ? `.${baseDomain}` : ''}
+                      </span>
+                    ) : (
+                      <span>No address yet</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openAddressEditor(address)}
+                      aria-describedby={addressError ? ADDRESS_ERROR_ID : undefined}
+                      className="rounded text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    >
+                      {address || !started ? 'Edit' : 'Choose address'}
+                    </button>
+                  </>
+                )}
+              </div>
+              {addressError ? <FieldError id={ADDRESS_ERROR_ID}>{addressError}</FieldError> : null}
+            </Field>
+          </div>
           <div className="flex flex-wrap items-center gap-4">
             <PendingSubmitButton className="h-11 px-6" pending={submitting} pendingText="Creating…" disabled={!name.trim()}>
               Continue

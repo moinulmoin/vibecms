@@ -69,6 +69,19 @@ Monochrome zero-chroma neutrals: bg `oklch(0.985 0 0)`, ink `oklch(0.18 0 0)`,
 card `oklch(1 0 0)`, border `oklch(0.9 0 0)`. Primary is a deep green
 `oklch(0.32 0.095 152)`. Hairline/dot-grid use black alpha.
 
+Dashboard-only overrides (`apps/dashboard/src/styles.css`) use light muted ink
+`oklch(0.41 0 0)` and destructive ink `oklch(0.5 0.2 25)`. The dashboard
+`.dark` block explicitly restores muted ink `oklch(0.72 0.014 155)` and
+destructive ink `oklch(0.68 0.19 25)`: a later `:root` rule otherwise wins
+against the shared `.dark` rule at equal specificity. Every dashboard light
+override needs a dark counterpart; aliases such as `var(--primary)` resolve
+against the active theme.
+
+Computed sRGB WCAG contrast: dashboard dark muted ink on background/card/sidebar
+is **8.12 / 7.84 / 7.92:1**; light sidebar group labels at 80% ink opacity are
+**4.67:1**. Light destructive ink on its 10% tinted surface is **5.14:1** over
+background and **4.93:1** over card (alpha composited before luminance).
+
 ### Blog templates / presets (user-selectable, `--vc-*`)
 
 These are the **blog themes a vibecms user picks for their own published blog** -

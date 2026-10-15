@@ -23,7 +23,9 @@ const dateLabel = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric'
 
 export function analyticsUnavailableMessage(reason: Extract<AnalyticsPageData, { status: 'unavailable' }>['reason']) {
   if (reason === 'self_hosted') return 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
-  if (reason === 'not_configured') return 'Analytics isn’t available for this blog yet. Try again later.'
+  // The server has no Analytics Engine read credentials (ANALYTICS_ACCOUNT_ID/_DATASET/_API_TOKEN):
+  // an operator fix, so say what is happening and let the owner check again.
+  if (reason === 'not_configured') return 'Your plan includes analytics, but this server isn’t connected to its analytics data yet, so there’s nothing to show. Check again in a few minutes.'
   return 'Analytics couldn’t be read right now. Try again in a few minutes.'
 }
 
@@ -527,10 +529,13 @@ export function AnalyticsPage({ range = 30, tab = 'people' }: { range?: Analytic
 
       {data.status === 'locked' ? <LockedAnalytics /> : null}
       {data.status === 'unavailable' ? (
-        <div className="max-w-2xl py-4">
+        <div className="flex max-w-2xl flex-col items-start gap-4 py-4">
           <p className="text-[0.9375rem] leading-7 text-muted-foreground">
             {analyticsUnavailableMessage(data.reason)}
           </p>
+          <Button type="button" variant="outline" size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
+            {query.isFetching ? 'Checking…' : 'Check again'}
+          </Button>
         </div>
       ) : null}
       {data.status === 'available' ? (
