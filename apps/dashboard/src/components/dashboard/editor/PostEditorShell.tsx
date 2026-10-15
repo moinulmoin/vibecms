@@ -36,6 +36,7 @@ import { readFocusKeyword, usePostSeoCheck } from './SeoSection'
 import { parseTags } from './post-fields'
 import { PreviewPane } from './PreviewPane'
 import { PublishDialog } from './PublishDialog'
+import { FirstPublishNudge, useFirstPublishNudge, type FirstPublishTicket } from './FirstPublishNudge'
 import { scheduledLabel } from './schedule-label'
 import { ReviewView } from './ReviewView'
 import { uploadEditorMedia } from './media-upload'
@@ -193,7 +194,20 @@ function SplitPane({ ratio, onRatio, left, right }: { ratio: number; onRatio: (r
 }
 
 
+/** A created id belongs to this session; every other resource gets fresh state. */
 export function PostEditorShell({ postId }: { postId?: string }) {
+  const sessionRef = useRef({ routeId: postId, initialId: postId, createdId: undefined as string | undefined, key: 0 })
+  if (sessionRef.current.routeId !== postId) {
+    const previous = sessionRef.current
+    sessionRef.current = previous.createdId !== undefined && postId === previous.createdId
+      ? { ...previous, routeId: postId }
+      : { routeId: postId, initialId: postId, createdId: undefined, key: previous.key + 1 }
+  }
+  const session = sessionRef.current
+  return <PostEditorSession key={session.key} postId={session.initialId} onCreated={(id) => { session.createdId = id }} />
+}
+
+function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: (id: string) => void }) {
   const navigate = useNavigate()
   // Read, don't subscribe: the name only matters inside the conflict notice.
   const me = queryClient.getQueryData<AppRouterContext>(contextQuery.queryKey)?.app?.user
@@ -205,6 +219,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [presetId, setPresetId] = useState('minimal')
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [createdMetadataError, setCreatedMetadataError] = useState(false)
   const [latestVersion, setLatestVersion] = useState<PostVersionSummary | null>(null)
   const [redirectSlugs, setRedirectSlugs] = useState<string[]>([])
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null)
@@ -232,6 +247,9 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [savePending, setSavePending] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishVersion, setPublishVersion] = useState<number | null>(null)
+  const publishTriggerRef = useRef<HTMLElement | null>(null)
+  const firstPublishTicketRef = useRef<FirstPublishTicket>(null)
+  const firstPublishNudge = useFirstPublishNudge()
   const [publishPending, setPublishPending] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [archivePending, setArchivePending] = useState(false)
@@ -240,6 +258,8 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const [restorePending, setRestorePending] = useState<number | null>(null)
   const [discardPending, setDiscardPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionErrorCode, setActionErrorCode] = useState<string | null>(null)
+  const [publishErrorCode, setPublishErrorCode] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [conflict, setConflict] = useState<EditorConflict | null>(null)
   const [unsafeSyntax, setUnsafeSyntax] = useState(false)
@@ -257,6 +277,14 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   }, [notesOpen])
   const [safetyCheckPending, setSafetyCheckPending] = useState(false)
   const [slugTouched, setSlugTouched] = useState(Boolean(postId))
+  const slugTouchedRef = useRef(Boolean(postId))
+  const onCreatedRef = useRef(onCreated)
+  onCreatedRef.current = onCreated
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
   const loadedRef = useRef(false)
   const dirtyBaselineRef = useRef('')
   const serializedRef = useRef('')
@@ -267,7 +295,13 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const versionRef = useRef<number | null>(null)
   const activePostIdRef = useRef<string | undefined>(postId)
   const activePostId = postId ?? savedPostId
-  activePostIdRef.current = activePostId ?? activePostIdRef.current
+  activePostIdRef.current = activePostId
+  // A successful create already binds the local snapshot to its new id.
+  // Preview metadata is optional for saving; existing posts still require a load.
+  const resourceReady = loadedRef.current && !loading && !missing && !loadError
+    && (!activePostId || post?.id === activePostId || (!postId && savedPostId === activePostId))
+  const resourceReadyRef = useRef(false)
+  resourceReadyRef.current = resourceReady
 
   const setVersion = useCallback((version: number | null) => {
     versionRef.current = version
@@ -278,7 +312,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   const serialized = useMemo(() => serializeEditorState(content, metadata), [content, metadata])
   serializedRef.current = serialized
   const autosaveEnabled = Boolean(
-    loadedRef.current
+    resourceReady
     && !conflict
     && !publishPending
     && !archivePending
@@ -328,7 +362,21 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     return { content: nextContent, metadata: nextMetadata, version: result.currentVersionNumber }
   }, [applyServerPage])
 
+  const refreshCreatedMetadata = useCallback(async (createdId: string) => {
+    try {
+      const page = await loadPostEditorPage({ postId: createdId })
+      if (!mountedRef.current || activePostIdRef.current !== createdId) return
+      setPost((current) => current ?? page.post)
+      setPreviewUrl(page.previewUrl ?? null)
+      if (page.currentVersionNumber === versionRef.current) setLatestVersion(page.latestVersion)
+      setCreatedMetadataError(false)
+    } catch {
+      if (mountedRef.current) setCreatedMetadataError(true)
+    }
+  }, [])
+
   const persistDraft = useCallback(async (value: string) => {
+    if (!resourceReadyRef.current) throw new Error('This post is still loading. Try again in a moment.')
     if (mutationInFlightRef.current) throw new Error('Another save is still in progress.')
     const parsed = JSON.parse(value) as { content: string; metadata: EditorMetadata }
     const title = parsed.metadata.title.trim()
@@ -349,24 +397,42 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       const existingId = activePostIdRef.current
       if (!existingId) {
         if (!title) throw new Error('Add a title to save this post.')
-        const result = await createPostMutation({ ...fields, excerpt: fields.excerpt || undefined, seoTitle: fields.seoTitle || undefined, seoDescription: fields.seoDescription || undefined })
+        // Only generated URLs may move automatically; explicit URLs need a decision.
+        const automaticSlug = !slugTouchedRef.current
+        const baseSlug = fields.slug
+        let suffix = 1
+        let result = await createPostMutation({ ...fields, excerpt: fields.excerpt || undefined, seoTitle: fields.seoTitle || undefined, seoDescription: fields.seoDescription || undefined })
+        while (result.kind !== 'ok' && result.code === 'slug_conflict' && automaticSlug && suffix < 5) {
+          if (!mountedRef.current) return
+          suffix += 1
+          const ending = `-${suffix}`
+          fields.slug = `${baseSlug.slice(0, 120 - ending.length).replace(/-+$/, '')}${ending}`
+          result = await createPostMutation({ ...fields, excerpt: fields.excerpt || undefined, seoTitle: fields.seoTitle || undefined, seoDescription: fields.seoDescription || undefined })
+        }
+        if (!mountedRef.current) return
         if (result.kind !== 'ok' || !result.postId) throw new PostActionError(result.code, 'save')
         const newId = result.postId
         activePostIdRef.current = newId
         setSavedPostId(newId)
         setVersion(result.versionNumber ?? 1)
-        dirtyBaselineRef.current = value
-        // Keep the writer in place: swap the URL without remounting the editor.
-        try {
-          window.history.replaceState(window.history.state, '', `/dashboard/posts/${newId}/edit`)
-        } catch {
-          // Non-browser environments keep the /new URL; the post is still saved.
+        const savedValue = fields.slug === baseSlug ? value : serializeEditorState(parsed.content, { ...parsed.metadata, slug: fields.slug })
+        dirtyBaselineRef.current = savedValue
+        // Reconcile the generated URL only if it has not since been edited.
+        if (fields.slug !== baseSlug && !slugTouchedRef.current) {
+          setMetadata((current) => current.slug === parsed.metadata.slug ? { ...current, slug: fields.slug } : current)
         }
-        void loadPostEditorPage({ postId: newId }).then((page) => {
-          setPost(page.post)
-          setLatestVersion(page.latestVersion)
-        }).catch(() => {})
-        return { versionNumber: result.versionNumber ?? 1 }
+        onCreatedRef.current(newId)
+        // The shared posts route owns this session across the leaf-route change.
+        void navigate({
+          to: '/dashboard/posts/$postId/edit',
+          params: { postId: newId },
+          search: emptyPostsListSearch,
+          replace: true,
+          ignoreBlocker: true,
+        })
+        // A failed preview read must not turn a successful create into a failed save.
+        await refreshCreatedMetadata(newId)
+        return { versionNumber: result.versionNumber ?? 1, serialized: savedValue }
       }
       const expected = versionRef.current
       if (expected == null) throw new Error('This post is still loading. Try again in a moment.')
@@ -392,11 +458,12 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     } finally {
       mutationInFlightRef.current = false
     }
-  }, [setVersion])
+  }, [navigate, refreshCreatedMetadata, setVersion])
 
   const captureConflict = useCallback(async (error: unknown) => {
     const postIdNow = activePostIdRef.current
     if (!(error instanceof EditorVersionConflict) || !postIdNow) {
+      setActionErrorCode(error instanceof PostActionError ? error.code : null)
       setActionError(friendlyError(error))
       return
     }
@@ -449,6 +516,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
 
   /** Save now (Cmd/Ctrl+S or form submit). Autosave covers everything else. */
   const saveNow = useCallback(async () => {
+    if (!resourceReadyRef.current) return false
     if (conflict) {
       setActionError('Choose which version to keep before saving.')
       return false
@@ -489,13 +557,18 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   }, [])
 
   async function openPublish() {
+    publishTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setPublishError(null)
+    setPublishErrorCode(null)
+    firstPublishTicketRef.current = null
     setActionError(null)
     const saved = await saveNow()
     if (!saved || versionRef.current == null || !activePostIdRef.current) {
       if (saved) setActionError('Save the post before publishing.')
       return
     }
+    firstPublishTicketRef.current = firstPublishNudge.prepare()
+    if (!mountedRef.current) return
     setPublishVersion(versionRef.current)
     setPublishOpen(true)
   }
@@ -503,7 +576,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   async function handlePublish() {
     const postIdNow = activePostIdRef.current
     const approvedVersion = publishVersion
-    if (!postIdNow || approvedVersion == null) return
+    if (!resourceReadyRef.current || !postIdNow || approvedVersion == null) return
     if (serializedRef.current !== dirtyBaselineRef.current || versionRef.current !== approvedVersion) {
       setPublishError('The post changed after you opened this. Close and review the latest version.')
       return
@@ -511,6 +584,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     const approvedSnapshot = serializedRef.current
     setPublishPending(true)
     setPublishError(null)
+    setPublishErrorCode(null)
     try {
       const result = await publishPostMutation({ postId: postIdNow, expectedVersionNumber: approvedVersion })
       if (result.kind !== 'ok') {
@@ -531,12 +605,14 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       setPublishOpen(false)
       setView((current) => (current === 'review' ? 'edit' : current))
       setActionSuccess(`v${approvedVersion} is live.`)
+      firstPublishNudge.confirm(firstPublishTicketRef.current)
     } catch (error) {
       if (error instanceof EditorVersionConflict) {
         setPublishOpen(false)
         await captureConflict(error)
       } else {
         setPublishError(friendlyError(error))
+        setPublishErrorCode(error instanceof PostActionError ? error.code : null)
       }
     } finally {
       setPublishPending(false)
@@ -546,13 +622,14 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   async function handleSchedule(publishAt: number) {
     const postIdNow = activePostIdRef.current
     const approvedVersion = publishVersion
-    if (!postIdNow || approvedVersion == null) return
+    if (!resourceReadyRef.current || !postIdNow || approvedVersion == null) return
     if (serializedRef.current !== dirtyBaselineRef.current || versionRef.current !== approvedVersion) {
       setPublishError('The post changed after you opened this. Close and review the latest version.')
       return
     }
     setPublishPending(true)
     setPublishError(null)
+    setPublishErrorCode(null)
     try {
       const result = await schedulePostMutation({ postId: postIdNow, versionNumber: approvedVersion, publishAt })
       if (result.kind !== 'ok') throw new PostActionError(result.code, 'publish')
@@ -565,6 +642,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       setActionSuccess(`v${approvedVersion} scheduled.`)
     } catch (error) {
       setPublishError(friendlyError(error))
+      setPublishErrorCode(error instanceof PostActionError ? error.code : null)
     } finally {
       setPublishPending(false)
     }
@@ -572,7 +650,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
 
   async function handleUnschedule() {
     const postIdNow = activePostIdRef.current
-    if (!postIdNow) return
+    if (!resourceReadyRef.current || !postIdNow) return
     setPublishPending(true)
     try {
       const result = await unschedulePostMutation({ postId: postIdNow })
@@ -753,7 +831,10 @@ export function PostEditorShell({ postId }: { postId?: string }) {
     setSurfaceNotice('Pasted in Markdown mode to keep the original source exactly.')
   }, [])
   const updateMetadata = useCallback((field: keyof EditorMetadata, value: string | boolean) => {
-    if (field === 'slug') setSlugTouched(true)
+    if (field === 'slug') {
+      slugTouchedRef.current = true
+      setSlugTouched(true)
+    }
     setMetadata((current) => ({ ...current, [field]: value }))
   }, [])
   // Once a post has been live its URL is public: never let a title edit move it.
@@ -875,7 +956,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
   }
   if (missing) return <Panel title="Post not found"><p className="text-sm text-muted-foreground">This post no longer exists.</p></Panel>
 
-  const liveState = editorLiveState(post, currentVersionNumber)
+  const liveState = !post && activePostId ? 'draft' : editorLiveState(post, currentVersionNumber)
   const autosaveLabel = !activePostId
     ? metadata.title.trim() ? (autosave.status === 'saving' ? 'Saving…' : 'Not saved yet') : 'Add a title to start saving'
     : autosave.status === 'saving' || savePending
@@ -886,8 +967,13 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           ? `Saved · v${currentVersionNumber ?? autosave.savedVersion ?? ''}`
           : 'Editing…'
   const reviewAvailable = editorNeedsReview(post, currentVersionNumber, latestVersion)
-  const publishActionVisible = Boolean(activePostId && shouldShowPublishAction(post, currentVersionNumber))
+  const publishActionVisible = Boolean(activePostId && (post
+    ? shouldShowPublishAction(post, currentVersionNumber)
+    : !postId && savedPostId === activePostId))
   const liveUrl = publicBaseUrl && metadata.slug && (post?.publishedVersionNumber == null || post.publishedSlug) ? `${publicBaseUrl}/${post?.publishedVersionNumber == null ? metadata.slug : post.publishedSlug}` : null
+  const pendingSchedule = post?.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status)
+    ? post.scheduledPublish
+    : null
   const effectiveView: EditorView = view === 'review' && !reviewAvailable ? 'edit' : view === 'split' && !isDesktop ? 'edit' : view
   const railOpen = effectiveView === 'split' ? railPrefs.split : railPrefs.normal
   const showRail = isDesktop ? railOpen && effectiveView !== 'review' : mobileSettings
@@ -943,7 +1029,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         onChange={(event) => updateTitle(event.currentTarget.value)}
         placeholder="Title"
         aria-label="Post title"
-        className={`w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground/45 focus:outline-none sm:text-[2.5rem] sm:leading-tight ${
+        className={`w-full border-0 bg-transparent font-display text-3xl font-bold tracking-[-0.03em] text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-[2.5rem] sm:leading-tight ${
           // BlockNote indents blocks for its drag handles; line the title up with the body.
           surface === 'visual' ? 'sm:pl-[54px]' : ''
         }`}
@@ -970,6 +1056,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       canPublish={!conflict && !publishPending}
       publishBlockedReason={publishBlockedReason}
       discardPending={discardPending}
+      publishLabel={pendingSchedule ? 'Change schedule' : undefined}
       onPublish={() => void openPublish()}
       onDiscard={(baseline, republish) => void handleDiscard(baseline, republish)}
       onEdit={() => selectView('edit')}
@@ -1005,11 +1092,14 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         versionNumber={publishVersion}
         liveVersionNumber={post?.status === 'published' ? post.publishedVersionNumber : null}
         liveUrl={liveUrl}
+        scheduledPublish={post?.scheduledPublish}
+        returnFocusRef={publishTriggerRef}
         warnings={notes}
         seoFindings={seoCheck.data?.findings}
         onReviewSeo={reviewSeoFindings}
         pending={publishPending}
         error={publishError}
+        errorCode={publishErrorCode}
         onConfirm={() => void handlePublish()}
         onSchedule={(publishAt) => void handleSchedule(publishAt)}
       />
@@ -1021,17 +1111,16 @@ export function PostEditorShell({ postId }: { postId?: string }) {
         </Button>
         <span className="flex min-w-0 items-center gap-2 text-sm">
           <span aria-hidden className={`size-2 shrink-0 rounded-full ${liveState === 'live' ? 'bg-brand-bright' : liveState === 'unpublished' ? 'bg-warning' : 'bg-muted-foreground/40'}`} />
-          <span className="text-foreground">{STATE_LABEL[liveState]}</span>
-          {post?.scheduledPublish && ['pending', 'processing'].includes(post.scheduledPublish.status) ? <span className="text-warning">· {scheduledLabel(post.scheduledPublish.publishAt)}</span> : null}
+          <span className={pendingSchedule ? 'text-warning' : 'text-foreground'}>{pendingSchedule ? scheduledLabel(pendingSchedule.publishAt) : STATE_LABEL[liveState]}</span>
           {post?.scheduledPublish?.status === 'failed' ? <span className="text-destructive" title={post.scheduledPublish.error ?? undefined}>· Schedule failed: {post.scheduledPublish.error}</span> : null}
-          <span role="status" className={`hidden truncate sm:inline ${autosave.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>· {autosaveLabel}</span>
+          <span role="status" className={`text-xs sm:text-sm ${autosave.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>· {autosaveLabel}</span>
           {autosave.status === 'error' ? <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={autosave.retry}>Retry</Button> : null}
         </span>
         <div className="ms-auto flex flex-wrap items-center gap-1.5">
           {previewUrl && activePostId && post?.status !== 'archived' ? (
             <span className="inline-flex items-center">
               <CopyButton value={previewUrl} label="Copy preview link" copiedLabel="Link copied" className="rounded-r-none" />
-              <Button asChild variant="outline" size="sm" className="-ml-px rounded-l-none px-2">
+              <Button asChild variant="outline" size={isDesktop ? 'sm' : 'lg'} className={`-ml-px rounded-l-none ${isDesktop ? 'px-2' : 'w-11 px-0'}`}>
                 <a href={previewUrl} target="_blank" rel="noreferrer" title="Open the private preview">
                   <ExternalLink aria-hidden="true" className="size-4" /><span className="sr-only">Open private preview</span>
                 </a>
@@ -1042,7 +1131,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
             <Button type="button" variant="ghost" size="sm" disabled={publishPending} onClick={() => void handleUnschedule()}>Unschedule</Button> : null}
           <SegmentedControl label="View" value={effectiveView} onChange={selectView} options={viewOptions} />
           {post?.status === 'published' && liveUrl ? (
-            <Button asChild variant="ghost" size="sm">
+            <Button asChild variant="ghost" size={isDesktop ? 'sm' : 'lg'} className={isDesktop ? undefined : 'w-11 px-0'}>
               <a href={liveUrl} target="_blank" rel="noreferrer" title="Open the live post">
                 <ExternalLink aria-hidden="true" className="size-4" /><span className="sr-only">Open live post</span>
               </a>
@@ -1063,7 +1152,8 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size={isDesktop ? 'sm' : 'lg'}
+            className={isDesktop ? undefined : 'w-11 px-0'}
             aria-pressed={isDesktop ? railOpen : mobileSettings}
             title={isDesktop ? (railOpen ? 'Hide post settings' : 'Show post settings') : 'Post settings'}
             onClick={toggleRail}
@@ -1094,8 +1184,8 @@ export function PostEditorShell({ postId }: { postId?: string }) {
             </div>
           ) : null}
           {(publishActionVisible && effectiveView !== 'review') || !activePostId ? (
-            <Button type="button" size="sm" disabled={publishPending || Boolean(conflict) || (!activePostId && !metadata.title.trim())} onClick={() => void openPublish()}>
-              <Send aria-hidden="true" className="size-4" /> {currentVersionNumber ? `Publish v${currentVersionNumber}` : 'Publish'}
+            <Button type="button" size="sm" disabled={!resourceReady || publishPending || Boolean(conflict) || (!activePostId && (!metadata.title.trim() || actionErrorCode === 'draft_limit'))} onClick={() => void openPublish()}>
+              <Send aria-hidden="true" className="size-4" /> {pendingSchedule ? 'Change schedule' : currentVersionNumber ? `Publish v${currentVersionNumber}` : 'Publish'}
             </Button>
           ) : null}
         </div>
@@ -1128,7 +1218,16 @@ export function PostEditorShell({ postId }: { postId?: string }) {
       {actionError ? (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{actionError}</span>
+          {actionErrorCode && ['draft_limit', 'billing_required', 'media_quota_free'].includes(actionErrorCode) ? (
+            <Link className="shrink-0 text-primary underline underline-offset-4" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>See plans</Link>
+          ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={() => setActionError(null)}>Dismiss</Button>
+        </div>
+      ) : null}
+      {createdMetadataError && activePostId ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>Your draft is saved, but its preview details could not be loaded. You can keep writing.</span>
+          <Button type="button" variant="link" size="sm" onClick={() => void refreshCreatedMetadata(activePostId)}>Retry preview details</Button>
         </div>
       ) : null}
       {actionSuccess ? (
@@ -1138,6 +1237,7 @@ export function PostEditorShell({ postId }: { postId?: string }) {
           {actionSuccess.endsWith('is live.') && liveUrl ? <a className="text-primary underline-offset-4 hover:underline" href={liveUrl} target="_blank" rel="noreferrer">View post</a> : null}
         </p>
       ) : null}
+      <FirstPublishNudge nudge={firstPublishNudge} />
 
       <div className={showRail && isDesktop ? 'grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_19rem]' : 'grid'}>
         {!isDesktop && mobileSettings ? null : <div className="min-w-0">{main}</div>}

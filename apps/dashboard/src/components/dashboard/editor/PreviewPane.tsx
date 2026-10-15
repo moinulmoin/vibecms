@@ -1,4 +1,6 @@
+import { Button } from '@vc/ui'
 import { SegmentedControl } from '~/components/ui/segmented-control'
+import { useMediaQuery } from '~/hooks/use-media-query'
 import {
   readingTimeMinutes,
   renderRichContent,
@@ -80,33 +82,6 @@ function systemMode(): PreviewMode {
   return 'light'
 }
 
-function ToolbarButton({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean
-  label: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`inline-grid size-7 place-items-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
-        active ? 'bg-background text-foreground shadow-xs dark:bg-accent' : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
 export function PreviewPane({
   source,
   metadata,
@@ -123,6 +98,8 @@ export function PreviewPane({
 }: PreviewPaneProps) {
   const highlighter = useCodeHighlighter()
   const [width, setWidth] = useState<PreviewWidth>('desktop')
+  // Narrow screens are usually touch: give the icon controls 44px targets.
+  const narrow = !useMediaQuery('(min-width: 1024px)')
   const siteMode = site?.themeMode === 'light' || site?.themeMode === 'dark' ? site.themeMode : null
   const [mode, setMode] = useState<PreviewMode>(() => siteMode ?? systemMode())
   useEffect(() => {
@@ -153,6 +130,7 @@ export function PreviewPane({
             <SegmentedControl
               label="Preview width"
               size="icon"
+              className={narrow ? '[&>button]:size-11' : undefined}
               value={width}
               onChange={setWidth}
               options={[
@@ -162,13 +140,17 @@ export function PreviewPane({
               ]}
             />
             <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-            <ToolbarButton
-              active={false}
-              label={mode === 'dark' ? 'Preview light mode' : 'Preview dark mode'}
+            <Button
+              type="button"
+              variant="ghost"
+              size={narrow ? 'lg' : 'icon'}
+              className={`text-muted-foreground hover:text-foreground ${narrow ? 'w-11 px-0' : 'size-7 rounded-md'}`}
+              aria-label={mode === 'dark' ? 'Preview light mode' : 'Preview dark mode'}
+              title={mode === 'dark' ? 'Preview light mode' : 'Preview dark mode'}
               onClick={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))}
             >
-              {mode === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
-            </ToolbarButton>
+              {mode === 'dark' ? <Sun aria-hidden className="size-3.5" /> : <Moon aria-hidden className="size-3.5" />}
+            </Button>
           </div>
         </div>
       )}

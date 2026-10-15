@@ -22,6 +22,8 @@ export type ReviewViewProps = {
   preview: ReactNode
   canPublish: boolean
   publishBlockedReason: string | null
+  /** Primary action text; defaults to `Publish v{currentVersionNumber}`. */
+  publishLabel?: string
   discardPending: boolean
   onPublish: () => void
   onDiscard: (baselineVersion: number, republish: boolean) => void
@@ -54,6 +56,7 @@ export function ReviewView({
   preview,
   canPublish,
   publishBlockedReason,
+  publishLabel,
   discardPending,
   onPublish,
   onDiscard,
@@ -124,7 +127,7 @@ export function ReviewView({
             </SpaConfirmButton>
           ) : null}
           <Button type="button" size="sm" disabled={!canPublish} title={publishBlockedReason ?? undefined} onClick={onPublish}>
-            <Send aria-hidden className="size-4" /> Publish v{currentVersionNumber}
+            <Send aria-hidden className="size-4" /> {publishLabel ?? `Publish v${currentVersionNumber}`}
           </Button>
         </div>
       </div>

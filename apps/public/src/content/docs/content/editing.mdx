@@ -13,6 +13,10 @@ Within Write, an **Editor** switch chooses between **Visual** and **Markdown**. 
 
 The editor autosaves once the post has a title. `Cmd+S` / `Ctrl+S` saves immediately. The header shows the state — **Saving…**, **Saved · vN**, or a **Retry** link when a save fails. A save that changes something creates the next numbered version; a save with no changes creates none, and your own edits within ten minutes can fold into the current unpublished version. [Posts and versions](/docs/content/posts-and-versions) explains how versions relate to the live page.
 
+For a new post, the URL comes from its title. If it is taken, the editor tries suffixes `-2` through `-5`, then asks you to choose another URL. A URL you enter yourself is never changed automatically. Writing during the first save stays in the editor and is saved against the created draft.
+
+**Publish** saves first, then opens approval for the saved version, including when the first save selected a suffixed URL. Optional billing-note eligibility is loaded separately; if unavailable, the note is skipped without blocking approval or publishing.
+
 ## Preview
 
 **Preview** renders the post with your live blog's theme, exactly as readers will see it. Toolbar controls switch the width between desktop, tablet, and phone, and toggle light and dark mode. Preview also reports renderer warnings — missing image alt text, removed HTML — in the editor's notes area.

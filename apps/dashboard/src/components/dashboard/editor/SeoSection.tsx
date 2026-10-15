@@ -1,5 +1,6 @@
 import { Button, Field, FieldLabel, Input } from '@vc/ui'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { AlertTriangle, CircleAlert, Info, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Spinner } from '~/components/ui/spinner'
@@ -87,9 +88,28 @@ const SEVERITY_META = [
 
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
 
+// The site is only non-indexable when it has no paid entitlement, so the
+// generic check copy is replaced with the plan reason and the way out.
+const SITE_NOT_INDEXABLE = 'site-not-indexable'
+
 function FindingRow({ finding }: { finding: SeoFinding }) {
   const focusable = finding.field in SEO_FIELD_TARGETS
-  const body = (
+  const body = finding.code === SITE_NOT_INDEXABLE ? (
+    <>
+      <span className="block text-foreground">Search engines don’t index posts on the free plan.</span>
+      <span className="mt-0.5 block text-muted-foreground">
+        Subscribe in{' '}
+        <Link
+          to="/dashboard/settings"
+          search={{ ok: undefined, error: undefined, tab: 'billing' }}
+          className="text-foreground underline underline-offset-4 hover:text-primary"
+        >
+          Settings &gt; Billing
+        </Link>{' '}
+        so this post can appear in search results.
+      </span>
+    </>
+  ) : (
     <>
       <span className="block text-foreground">{finding.message}</span>
       <span className="mt-0.5 block text-muted-foreground">{finding.fix}</span>

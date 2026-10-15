@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import { formatDateTime, formatRelative } from '~/components/dashboard/DashboardLayout'
+import { useMediaQuery } from '~/hooks/use-media-query'
 import { getPostVersionFn, listPostVersionsFn } from '~/lib/api-client'
 import { isAgentActor } from '~/lib/post-review'
 import { personLabel } from '~/lib/people'
@@ -45,6 +46,8 @@ export function VersionHistory({ postId, post, current, currentVersionNumber, as
   const [viewLoading, setViewLoading] = useState<number | null>(null)
   const [viewError, setViewError] = useState<string | null>(null)
   const liveVersion = post?.status === 'published' ? post.publishedVersionNumber : null
+  // Below lg the trigger is icon-only and likely touched: use the 44px lg size.
+  const iconOnly = !useMediaQuery('(min-width: 1024px)')
 
   async function loadVersions() {
     setLoading(true)
@@ -74,7 +77,13 @@ export function VersionHistory({ postId, post, current, currentVersionNumber, as
 
   return (
     <>
-      <Button type="button" variant="ghost" size="sm" onClick={() => { setOpen(true); setViewing(null); void loadVersions() }}>
+      <Button
+        type="button"
+        variant="ghost"
+        size={iconOnly ? 'lg' : 'sm'}
+        className={iconOnly ? 'w-11 px-0' : undefined}
+        onClick={() => { setOpen(true); setViewing(null); void loadVersions() }}
+      >
         <History aria-hidden="true" className="size-4" /> <span className="hidden lg:inline">History</span>
         <span className="sr-only lg:hidden">Version history</span>
       </Button>
@@ -84,7 +93,14 @@ export function VersionHistory({ postId, post, current, currentVersionNumber, as
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Button type="button" variant="ghost" size="icon" className="-ml-2 size-8" aria-label="Back to history" onClick={() => setViewing(null)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size={iconOnly ? 'lg' : 'icon'}
+                    className={iconOnly ? '-ml-3 w-11 px-0' : '-ml-2 size-8'}
+                    aria-label="Back to history"
+                    onClick={() => setViewing(null)}
+                  >
                     <ArrowLeft className="size-4" />
                   </Button>
                   v{viewing.versionNumber} compared with {currentVersionNumber ? `v${currentVersionNumber}` : 'now'}

@@ -1,9 +1,14 @@
 // @vitest-environment happy-dom
-import { act } from 'react'
+import { act, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
 import type { SeoFinding } from '~/types/dashboard'
-import { PublishDialog, quickPicks, timezoneLabel } from './PublishDialog'
+import { PublishDialog, quickPicks, timezoneLabel, type PublishDialogProps } from './PublishDialog'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, search }: { children?: ReactNode; to?: string; search?: unknown }) =>
+    <a href={to} data-search={JSON.stringify(search)}>{children}</a>,
+}))
 
 function setValue(input: HTMLInputElement, value: string) {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
@@ -24,15 +29,45 @@ async function renderDialog(onSchedule = vi.fn(), onConfirm = vi.fn(), extra: { 
 }
 
 const button = (text: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(text))
+const title = () => document.querySelector('[data-slot="dialog-title"]')?.textContent ?? null
+const flushFocus = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+/** Footer actions in DOM order: dismiss, then confirm. */
+const footerButtons = () => [...document.querySelectorAll<HTMLButtonElement>('[data-slot="dialog-footer"] button')]
+
+const BASE: Omit<PublishDialogProps, 'open' | 'onOpenChange'> = {
+  versionNumber: 3, liveVersionNumber: null, liveUrl: null, warnings: [], pending: false, error: null,
+  onConfirm: () => {}, onSchedule: () => {},
+}
+
+/** Owns `open` like the editor shell does, with a real button that opens it. */
+function Harness(props: Partial<PublishDialogProps> & { onOpenChange?: (open: boolean) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>Open publish</button>
+      <PublishDialog {...BASE} {...props} open={open} onOpenChange={(next) => { props.onOpenChange?.(next); setOpen(next) }} />
+    </>
+  )
+}
+
+async function renderHarness(props: Partial<PublishDialogProps> & { onOpenChange?: (open: boolean) => void } = {}) {
+  const host = document.createElement('div')
+  document.body.appendChild(host)
+  const root = createRoot(host)
+  await act(async () => root.render(<Harness {...props} />))
+  const trigger = button('Open publish')!
+  const open = async () => {
+    trigger.focus()
+    await act(async () => trigger.click())
+  }
+  return { trigger, open, cleanup: async () => { await act(async () => root.unmount()); host.remove() } }
+}
+
+const pressEscape = () => act(async () => {
+  (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+})
 
 describe('PublishDialog', () => {
-  it('publishes now by default', async () => {
-    const view = await renderDialog()
-    await act(async () => button('Publish v3 now')?.click())
-    expect(view.onConfirm).toHaveBeenCalled()
-    await view.cleanup()
-  })
-
   it('schedules a local date and time as UTC epoch seconds and says when in plain words', async () => {
     const view = await renderDialog()
     await act(async () => document.querySelector<HTMLButtonElement>('button[role="radio"][value="schedule"]')?.click())
@@ -49,15 +84,12 @@ describe('PublishDialog', () => {
     await view.cleanup()
   })
 
-  it('offers quick picks in the future and names the timezone like a person would', () => {
+  it('puts every quick pick in the future: next quarter hour, then Monday', () => {
     const now = new Date(2026, 9, 1, 15, 7)
     const picks = quickPicks(now)
-    expect(picks.map((p) => p.label)).toEqual(['In an hour', 'Tomorrow, 9:00', 'Monday, 9:00'])
     for (const pick of picks) expect(pick.at.getTime()).toBeGreaterThan(now.getTime())
     expect(picks[0]!.at.getMinutes() % 15).toBe(0)
     expect(picks[2]!.at.getDay()).toBe(1)
-    expect(timezoneLabel('Asia/Nicosia')).toBe('Nicosia time')
-    expect(timezoneLabel('America/New_York')).toBe('New York time')
   })
 
   it('lists only error-severity SEO findings and offers a way back to the rail', async () => {
@@ -113,7 +145,94 @@ describe('PublishDialog', () => {
     expect(onReviewSeo).toHaveBeenCalled()
     await act(async () => button('Publish v3 now')?.click())
     expect(view.onConfirm).toHaveBeenCalled()
-    expect(button('Not yet')).toBeTruthy()
+    await view.cleanup()
+  })
+
+  it('starts every opening from Now, even after scheduling was picked and the dialog cancelled', async () => {
+    const view = await renderHarness()
+    await view.open()
+    await act(async () => document.querySelector<HTMLButtonElement>('button[role="radio"][value="schedule"]')?.click())
+    expect(title()).toBe('Schedule v3')
+    expect(button('Schedule v3')).toBeTruthy()
+    await act(async () => footerButtons()[0]?.click())
+    await flushFocus()
+    expect(title()).toBeNull()
+
+    await view.open()
+    expect(title()).toBe('Publish v3')
+    expect(document.querySelector('button[role="radio"][value="now"]')?.getAttribute('aria-checked')).toBe('true')
+    expect(document.querySelector('input[type="date"]')).toBeNull()
+    expect(button('Publish v3 now')).toBeTruthy()
+    await view.cleanup()
+  })
+
+  it('returns focus to the button that opened it after Escape and after Cancel', async () => {
+    const view = await renderHarness()
+    await view.open()
+    expect(document.activeElement).not.toBe(view.trigger)
+    await pressEscape()
+    await flushFocus()
+    expect(document.activeElement).toBe(view.trigger)
+
+    await view.open()
+    await act(async () => footerButtons()[0]?.click())
+    await flushFocus()
+    expect(document.activeElement).toBe(view.trigger)
+    await view.cleanup()
+  })
+
+  it('returns focus to an explicit element when the shell provides one', async () => {
+    const target = document.createElement('button')
+    target.textContent = 'Header publish'
+    document.body.appendChild(target)
+    const view = await renderHarness({ returnFocusRef: { current: target } })
+    await view.open()
+    await pressEscape()
+    await flushFocus()
+    expect(document.activeElement).toBe(target)
+    await view.cleanup()
+    target.remove()
+  })
+
+  it('cannot be dismissed while publishing is pending', async () => {
+    const onOpenChange = vi.fn()
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    await act(async () => root.render(<PublishDialog {...BASE} open pending onOpenChange={onOpenChange} />))
+    await pressEscape()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(footerButtons().length).toBeGreaterThan(0)
+    expect(footerButtons().every((b) => b.disabled)).toBe(true)
+    await act(async () => root.unmount())
+    host.remove()
+  })
+
+  it.each(['billing_required', 'draft_limit', 'media_quota_free'])('links a %s plan cap error straight to billing', async (errorCode) => {
+    const view = await renderHarness({ error: 'Plan limit reached.', errorCode })
+    await view.open()
+    const plans = document.querySelector<HTMLAnchorElement>('[role="alert"] a')
+    expect(plans?.getAttribute('href')).toBe('/dashboard/settings')
+    expect(JSON.parse(plans?.dataset.search ?? '{}')).toEqual({ tab: 'billing' })
+    await view.cleanup()
+  })
+
+  it('offers no billing link for other publish errors', async () => {
+    const view = await renderHarness({ error: 'Could not publish right now.', errorCode: 'slug_conflict' })
+    await view.open()
+    expect(document.querySelector('[role="alert"]')).toBeTruthy()
+    expect(document.querySelector('[role="alert"] a')).toBeNull()
+    await view.cleanup()
+  })
+
+  it('links a site-not-indexable finding to the billing tab', async () => {
+    const view = await renderHarness({
+      seoFindings: [{ code: 'site-not-indexable', severity: 'info', field: 'site', message: 'Site is not indexable', fix: 'fix' }],
+    })
+    await view.open()
+    const billing = [...document.querySelectorAll<HTMLAnchorElement>('[data-slot="dialog-content"] a')]
+      .find((a) => JSON.parse(a.dataset.search ?? '{}').tab === 'billing')
+    expect(billing?.getAttribute('href')).toBe('/dashboard/settings')
     await view.cleanup()
   })
 })

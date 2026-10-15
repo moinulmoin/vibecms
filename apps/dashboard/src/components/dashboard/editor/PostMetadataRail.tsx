@@ -1,5 +1,5 @@
 import type { Asset } from '@vc/core'
-import { Field, FieldLabel, Input, Select, Textarea } from '@vc/ui'
+import { Field, FieldDescription, FieldLabel, Input, Select, Textarea } from '@vc/ui'
 import { useQuery } from '@tanstack/react-query'
 import { ImageOff, ImagePlus, X } from 'lucide-react'
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
@@ -323,7 +323,7 @@ export function PostMetadataRail({
         <Field>
           <FieldLabel htmlFor="post-slug" className={labelClass}>URL</FieldLabel>
           <div className="flex min-w-0 items-center rounded-xl border border-border bg-card focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-            <span className="max-w-[45%] shrink truncate pl-3 font-mono text-xs text-muted-foreground" title={publicBaseUrl ?? undefined}>{host}/</span>
+            <span aria-hidden="true" className="pl-3 font-mono text-sm text-muted-foreground">/</span>
             <input
               id="post-slug"
               name="slug"
@@ -331,11 +331,17 @@ export function PostMetadataRail({
               required
               maxLength={120}
               pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              aria-describedby={publicBaseUrl ? 'post-slug-host' : undefined}
               className="h-9 min-w-0 flex-1 bg-transparent pr-3 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               placeholder="from-the-title"
               onChange={(event) => onChange('slug', event.currentTarget.value.toLowerCase().replace(/\s+/g, '-'))}
             />
           </div>
+          {publicBaseUrl ? (
+            <FieldDescription id="post-slug-host" className="font-mono text-xs [overflow-wrap:anywhere]">
+              On {host}
+            </FieldDescription>
+          ) : null}
         </Field>
         <Field>
           <FieldLabel htmlFor="post-excerpt" className={labelClass}>Excerpt</FieldLabel>
