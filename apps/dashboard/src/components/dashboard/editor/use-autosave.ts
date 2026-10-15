@@ -4,6 +4,8 @@ export type AutosaveStatus = 'saved' | 'saving' | 'unsaved' | 'error'
 
 export type AutosaveResult = {
   versionNumber?: number | null
+  /** Canonical saved snapshot when persistence changes a generated field. */
+  serialized?: string
 }
 
 export type UseAutosaveOptions = {
@@ -22,6 +24,8 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
   const onSavedRef = useRef(onSaved)
   const onErrorRef = useRef(onError)
   const timerRef = useRef<number | undefined>(undefined)
+  const enabledRef = useRef(enabled)
+  const mountedRef = useRef(true)
   const inFlightRef = useRef(false)
   const inFlightPromiseRef = useRef<Promise<void> | null>(null)
   const [status, setStatus] = useState<AutosaveStatus>('saved')
@@ -29,6 +33,7 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
   const [savedVersion, setSavedVersion] = useState<number | null>(null)
 
   serializedRef.current = serialized
+  enabledRef.current = enabled
   saveRef.current = save
   onSavedRef.current = onSaved
   onErrorRef.current = onError
@@ -46,7 +51,7 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
   }, [])
 
   const runSave = useCallback(async () => {
-    if (!enabled || inFlightRef.current || serializedRef.current === baselineRef.current) return
+    if (!mountedRef.current || !enabledRef.current || inFlightRef.current || serializedRef.current === baselineRef.current) return
     const value = serializedRef.current
     let failed = false
     inFlightRef.current = true
@@ -55,25 +60,30 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
     inFlightPromiseRef.current = new Promise<void>((resolve) => { settle = resolve })
     try {
       const result = await saveRef.current(value)
-      baselineRef.current = value
-      setStatus(serializedRef.current === value ? 'saved' : 'unsaved')
+      if (!mountedRef.current) return
+      const savedValue = result?.serialized ?? value
+      // A canonicalized save is still clean unless the writer changed the snapshot in flight.
+      if (serializedRef.current === value) serializedRef.current = savedValue
+      baselineRef.current = savedValue
+      setStatus(serializedRef.current === savedValue ? 'saved' : 'unsaved')
       setSavedAt(Date.now())
       if (result?.versionNumber != null) setSavedVersion(result.versionNumber)
-      onSavedRef.current?.(result, value)
+      onSavedRef.current?.(result, savedValue)
     } catch (error) {
       failed = true
+      if (!mountedRef.current) return
       setStatus('error')
       onErrorRef.current?.(error, value)
     } finally {
       inFlightRef.current = false
       inFlightPromiseRef.current = null
       settle()
-      if (!failed && serializedRef.current !== baselineRef.current && enabled) {
+      if (!failed && mountedRef.current && serializedRef.current !== baselineRef.current && enabledRef.current) {
         clearTimer()
         timerRef.current = window.setTimeout(() => void runSave(), delayMs)
       }
     }
-  }, [clearTimer, delayMs, enabled])
+  }, [clearTimer, delayMs])
 
   useEffect(() => {
     if (!enabled) {
@@ -90,7 +100,13 @@ export function useAutosave({ serialized, enabled = true, delayMs = 2500, save, 
     return clearTimer
   }, [clearTimer, delayMs, enabled, runSave, serialized])
 
-  useEffect(() => clearTimer, [clearTimer])
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      clearTimer()
+    }
+  }, [clearTimer])
 
   /**
    * Save now: waits for any in-flight save, then saves pending changes.
