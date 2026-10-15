@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 import { AgentSurface } from "./agent-surface";
 import { AgentsDemo } from "./agents-demo";
 import { ASK_AI_PROMPT, AskAi, askAiLinks } from "./ask-ai";
-import { CtaFooter } from "./cta-footer";
+import { LandingFooter } from "./cta-footer";
 import { FaqAccordion } from "./faq-accordion";
-import { HeaderHero } from "./header-hero";
+import { LandingHeader } from "./header-nav";
+import { Hero } from "./hero";
 import { HostingPricing } from "./hosting-pricing";
 import { AGENT_TOKEN_PRESETS } from "../../../../../packages/core/src/types";
 import { HERO_TURNS } from "./hero-demo";
@@ -17,10 +18,12 @@ const loginUrl = "https://app.example.com/login";
 const apiDocsUrl = "https://app.example.com/api/v1/docs";
 
 describe("landing URL props", () => {
-  it("wires login CTAs through HeaderHero without client hydration", () => {
-    const html = renderToStaticMarkup(createElement(HeaderHero, { loginUrl }));
-    expect(html).toContain(`href="${loginUrl}"`);
-    expect(html).toContain("data-landing-nav");
+  it("wires login CTAs through the header and hero without client hydration", () => {
+    const header = renderToStaticMarkup(createElement(LandingHeader, { loginUrl }));
+    expect(header).toContain(`href="${loginUrl}"`);
+    expect(header).toContain("data-landing-nav");
+    const html = renderToStaticMarkup(createElement(Hero, { loginUrl }));
+    expect(html).toContain(`href="${loginUrl}?intent=start"`);
     expect(html).toContain("data-hero-demo");
     // The full conversation is server-rendered, so it reads without JS.
     for (const turn of HERO_TURNS) expect(html).toContain(`data-hero-turn="${turn.step}"`);
@@ -51,8 +54,8 @@ describe("landing URL props", () => {
     expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
   });
 
-  it("wires login and docs through static CtaFooter", () => {
-    const html = renderToStaticMarkup(createElement(CtaFooter, { loginUrl, apiDocsUrl }));
+  it("wires login and docs through the static footer", () => {
+    const html = renderToStaticMarkup(createElement(LandingFooter, { loginUrl, apiDocsUrl }));
     expect(html).toContain(`href="${loginUrl}"`);
     expect(html).toContain(`href="${apiDocsUrl}"`);
   });

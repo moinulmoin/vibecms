@@ -1,6 +1,7 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
 import { BRAND } from "@vc/config";
+import { legalUpdatedLabel } from "../../lib/legal-pages";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
 
@@ -15,7 +16,7 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
 <LegalLayout
   title="Terms of Service"
   description={`The agreement for using ${BRAND.name} during public early access.`}
-  updated="August 16, 2026"
+  updated={legalUpdatedLabel("terms")}
 >
   <h2>The service</h2>
   <p>

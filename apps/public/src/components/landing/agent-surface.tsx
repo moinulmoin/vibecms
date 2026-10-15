@@ -34,27 +34,29 @@ function surfaces(apiDocsUrl: string): Surface[] {
 
 const APP = "https://app.vibecms.dev";
 
-// Shown with a placeholder key; the copied text uses YOUR_KEY.
+// Shown and copied with the same placeholder, so the clipboard matches the screen.
+const KEY = "YOUR_KEY";
+
 const CONNECT = [
   {
     id: "mcp",
     label: "MCP",
-    lines: ["claude mcp add --transport http vibecms \\", `${APP}/mcp \\`, '--header "Authorization: Bearer vc_live_…"'],
-    copy: `claude mcp add --transport http vibecms ${APP}/mcp --header "Authorization: Bearer YOUR_KEY"`,
+    lines: ["claude mcp add --transport http vibecms \\", `${APP}/mcp \\`, `--header "Authorization: Bearer ${KEY}"`],
+    copy: `claude mcp add --transport http vibecms ${APP}/mcp --header "Authorization: Bearer ${KEY}"`,
     note: "",
   },
   {
     id: "rest",
     label: "REST",
-    lines: [`curl ${APP}/api/v1/posts \\`, '-H "Authorization: Bearer vc_live_…"'],
-    copy: `curl ${APP}/api/v1/posts -H "Authorization: Bearer YOUR_KEY"`,
+    lines: [`curl ${APP}/api/v1/posts \\`, `-H "Authorization: Bearer ${KEY}"`],
+    copy: `curl ${APP}/api/v1/posts -H "Authorization: Bearer ${KEY}"`,
     note: "Every tool is an HTTP endpoint, described in OpenAPI 3.1.",
   },
   {
     id: "cli",
     label: "CLI",
-    lines: ["npx vibecms-cli login --token vc_live_…", "npx vibecms-cli posts list"],
-    copy: "npx vibecms-cli login --token YOUR_KEY && npx vibecms-cli posts list",
+    lines: [`npx vibecms-cli login --token ${KEY}`, "npx vibecms-cli posts list"],
+    copy: `npx vibecms-cli login --token ${KEY} && npx vibecms-cli posts list`,
     note: "Add --json for scripts and CI, or --dry-run to check a change first.",
   },
 ] as const;

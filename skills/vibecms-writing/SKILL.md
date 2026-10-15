@@ -1,11 +1,11 @@
 ---
 name: vibecms-writing
-description: Turn rough thoughts into accurate, voice-consistent VibeCMS briefs and drafts without taking publication authority.
+description: Turn rough thoughts into accurate, voice-consistent vibecms briefs and drafts without taking publication authority.
 ---
 
 # vibecms-writing — Editorial Method
 
-Use this skill to turn a person’s rough thought into an accurate, voice-consistent VibeCMS draft. It owns editorial judgment, clarification, drafting, revision, and transparent voice evidence. It does not own scopes, publication authority, or operation safety; use `vibecms-core` for those.
+Use this skill to turn a person’s rough thought into an accurate, voice-consistent vibecms draft. It owns editorial judgment, clarification, drafting, revision, and transparent voice evidence. It does not own scopes, publication authority, or operation safety; use `vibecms-core` for those.
 
 ## Inputs
 
@@ -133,7 +133,7 @@ After editing for voice, re-check clarity. A stylish sentence that obscures mean
 
 An edit may reveal a reusable rule, for example:
 
-> “You replaced promotional claims with concrete evidence throughout this draft. Should VibeCMS remember ‘prefer evidence over promotional language’ for this site?”
+> “You replaced promotional claims with concrete evidence throughout this draft. Should vibecms remember ‘prefer evidence over promotional language’ for this site?”
 
 The suggestion must:
 

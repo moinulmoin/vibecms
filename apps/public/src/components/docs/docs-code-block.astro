@@ -1,0 +1,10 @@
+---
+// MDX `pre` override for docs pages (pages/docs/*): server-rendered frame + copy button, wired by
+// the shared scripts/code-copy.js delegate (no island). The button follows the
+// code so screen readers reach the code first.
+const props = Astro.props;
+---
+<div class="vc-docs-code" data-vc-code-frame>
+  <pre {...props}><slot /></pre>
+  <button type="button" class="vc-docs-code-copy" data-vc-copy="code">Copy</button>
+</div>

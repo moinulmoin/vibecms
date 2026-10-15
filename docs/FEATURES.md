@@ -6,7 +6,7 @@ Update this whenever a feature is added, removed, or planned.
 - `CHANGELOG.md` = code release notes (per-commit/version).
 - This file = product/feature state and roadmap.
 
-Last updated: 2026-10-13
+Last updated: 2026-10-15
 
 ---
 
@@ -72,12 +72,17 @@ Last updated: 2026-10-13
 - Deterministic SEO findings in `posts.preview` and `posts.seo_check` (metadata, headings, links, content, duplicates, indexing, optional focus keyword); no score. Editor SEO rail + publish-dialog findings.
 - Opt-in Workers AI SEO review, cached by post/version/model; hosted free 3/site/day, paid 100/site/day, self-host unlimited by the application.
 - Public caching (`s-maxage=300` + stale-while-revalidate + per-article cache tag) with purge on publish/archive and live site-setting changes (zone purge, fail-open); saving private post edits leaves the live cache unchanged.
+- Marketing sitemap includes the landing, all docs collection pages, and legal pages; legal `<lastmod>` follows the displayed update date. Docs and legal pages share canonical and absolute OG/Twitter metadata.
+- Marketing and docs misses render the branded HTML 404 with status 404; tenant not-found handling stays separate.
+- Landing landmarks support skip navigation; the mobile menu has an opaque surface, focus-out dismissal and scroll locking. Hero autoplay has explicit Pause/Play and stops on manual selection.
+- Docs use Geist Mono for code with lightweight copy controls; folder index pages retain their sidebar selection.
 
 ### Reader and AI discovery analytics
 - Cookie-free first-party page views (JS beacon); dashboard ranges 7/30/90/365/all with previous-period comparison, top posts, and referring domains.
 - First-party agent fetch counting on the public Worker (`agent_fetch`): known agent user agents, markdown/representation requests, and `Signature-Agent` presence; stores matched agent/category, resource, representation, and host - not full UA/IP. Covers proxied customer-subpath and custom-domain traffic the zone query cannot see.
 - Raw Analytics Engine retention 90 days; D1 keeps 365-day detail then monthly all-time aggregates. Legacy zone-crawler rows only fill dates without agent data.
 - AI referrals are identified by referrer hostname. No IP address, user agent, full referrer URL, persistent visitor ID, or visitor profile is stored for page views; DNT and Global Privacy Control opt out.
+- Privacy disclosures distinguish reader beacons from server-side agent reads, essential app sessions, Cloudflare Email Sending, Polar checkout, and opt-in Workers AI review of saved content, including drafts.
 
 ### Agent surfaces
 - MCP server at `POST /mcp` with 37 tools (sites/theme/voice/signup_form/location, tags, analytics, posts, assets, activity, versions + `posts.format_guide`, `posts.preview`, `posts.seo_check`); JSON-RPC, 4 supported protocol versions (three initialize-era plus modern `2026-07-28`), per-tool scope + read/destructive/idempotent hints.
@@ -110,7 +115,7 @@ Last updated: 2026-10-13
 - API/MCP quota counters (hosted): per-minute/day/month call caps per tier, day/month write caps, and per-token per-minute call caps, with `X-RateLimit-*` headers.
 - Same-origin CSRF guards (`rejectCrossOriginBrowserPost`) on the Hono cookie-authenticated dashboard mutations and media POSTs.
 - Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA.
-- Owner-only full JSON export of all posts (`GET /api/export.json`).
+- Owner-only JSON export of every post (`GET /api/export.json`): current and live snapshots plus referenced media metadata/URLs, not full version history, image binaries, subscribers, or all site settings. See the [export boundaries](../apps/public/src/content/docs/content/export.mdx).
 - Self-hosted mode (`SELF_HOSTED=true`): billing always active, no quotas, always indexable.
 
 ---

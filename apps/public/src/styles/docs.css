@@ -16,14 +16,16 @@
   --color-fd-accent: var(--accent);
   --color-fd-accent-foreground: var(--accent-foreground);
   --color-fd-ring: var(--ring);
-  --font-sans: var(--font-display);
-  --font-mono: var(--font-mono);
+  /* @vc/ui declares its fonts in `@theme inline`, so no runtime custom
+     property exists to point at; fumadocs reads these two by name. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .vc-docs-page {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
 }
 
 .vc-docs-page #nd-sidebar {
@@ -49,6 +51,50 @@
   border-radius: 0;
   background: none;
   font-size: inherit;
+}
+
+/* Code frame from components/docs/docs-code-block.astro; the copy button is
+   wired by scripts/code-copy.js. The frame carries no margin so prose spacing
+   on the <pre> collapses through it unchanged. */
+.vc-docs-code {
+  position: relative;
+}
+
+.vc-docs-code > pre:has(> code) {
+  padding-inline-end: 4.5rem;
+}
+
+.vc-docs-code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  min-height: 1.75rem;
+  padding: 0 0.625rem;
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  border-radius: 0.375rem;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.vc-docs-code-copy:hover {
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+.vc-docs-code-copy:disabled {
+  cursor: default;
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-docs-code-copy {
+    transition: none;
+  }
 }
 
 .vc-docs-page :focus-visible {

@@ -1,11 +1,11 @@
 ---
 name: vibecms-core
-description: Safely inspect, draft, preview, version-bind, approve, and publish content through the VibeCMS MCP server.
+description: Safely inspect, draft, preview, version-bind, approve, and publish content through the vibecms MCP server.
 ---
 
-# vibecms-core — Safe VibeCMS Operations
+# vibecms-core — Safe vibecms Operations
 
-Use this skill whenever an agent reads, drafts, revises, or publishes through the VibeCMS MCP server. It defines operation order, trust boundaries, approval, version binding, error recovery, and completion evidence. It does not decide how prose should sound; use `vibecms-writing` for editorial method.
+Use this skill whenever an agent reads, drafts, revises, or publishes through the vibecms MCP server. It defines operation order, trust boundaries, approval, version binding, error recovery, and completion evidence. It does not decide how prose should sound; use `vibecms-writing` for editorial method.
 
 ## Non-negotiable boundaries
 
@@ -14,7 +14,7 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 - Never widen token scopes or ask for a broader token automatically.
 - `posts.create` creates a draft. Publication is always a separate call.
 - Any content or metadata revision invalidates prior publication approval.
-- Never fabricate a public URL. Report only the `url` returned by VibeCMS.
+- Never fabricate a public URL. Report only the `url` returned by vibecms.
 
 ## Canonical authoring flow
 
@@ -105,4 +105,4 @@ Do not duplicate renderer syntax, preset rules, site voice, or API schemas in th
 
 ## Provenance
 
-VibeCMS is an IdeaPlexa LLC product. The same scoped API and agent publishing workflow powers AutoSEOPilot.
+vibecms is an IdeaPlexa LLC product. The same scoped API and agent publishing workflow powers AutoSEOPilot.

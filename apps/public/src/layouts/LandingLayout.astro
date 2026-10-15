@@ -4,14 +4,19 @@ import "../styles/landing.css";
 import { BRAND } from "@vc/config";
 import { seo } from "../lib/landing-seo";
 import { marketingJsonLd } from "../lib/agent-pages";
+import { LandingHeader } from "../components/landing/header-nav";
+import { LandingFooter } from "../components/landing/cta-footer";
+import { DotGrid, Glow } from "../components/landing/primitives";
 import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
 import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
+import marketingInteractionsUrl from "../scripts/marketing-interactions.js?url";
 
 interface Props {
   ogImage?: string;
   loginUrl: string;
+  apiDocsUrl: string;
 }
-const { ogImage, loginUrl } = Astro.props;
+const { ogImage, loginUrl, apiDocsUrl } = Astro.props;
 const canonical = new URL("/", Astro.url).href;
 const title = `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, "")}`;
 const meta = seo({
@@ -51,6 +56,18 @@ const jsonLd = marketingJsonLd(canonical);
     >
       Skip to content
     </a>
-    <slot />
+    <!-- overflow-clip (not hidden) keeps the sticky header working. -->
+    <div class="dark relative min-h-dvh overflow-clip bg-background text-foreground">
+      <DotGrid className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[1100px] opacity-90" />
+      <Glow className="pointer-events-none absolute -top-[300px] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
+      <div class="relative z-[1]">
+        <LandingHeader loginUrl={loginUrl} />
+        <main id="main" tabindex="-1" class="outline-none">
+          <slot />
+        </main>
+        <LandingFooter loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
+      </div>
+    </div>
+    <script is:inline src={marketingInteractionsUrl} defer></script>
   </body>
 </html>

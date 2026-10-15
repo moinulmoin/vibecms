@@ -130,9 +130,9 @@ Landing primitives (`apps/public/src/components/landing/primitives.tsx`):
 
 - **`SectionShell`** - `max-w-[1200px]`, `px-5 sm:px-7`, `py-16 md:py-24`. Section rhythm.
 - **`Pill`** - rounded mono micro-label with optional pulsing brand dot (LIVE/status).
-- **`GlassCard`** - subtle glass surface (inset hairline + deep shadow + glass gradient). Use sparingly; glass is purposeful, not default.
 - **`DotGrid`** / **`Glow`** / **`SectionLight`** - ambient background texture (radial dot mask, blurred brand glow, anchored light pool).
 - **`GREEN_CTA` / `GHOST_CTA` / `PANEL` / `H2` / `LEAD`** - shared CTA, panel, and type class strings.
+- Landing header/footer live outside `main#main`. Mobile navigation uses the opaque popover surface, closes on focus-out and locks document scrolling. The hero demo stops on manual selection and resumes only through Play.
 
 Dashboard primitives live in `apps/dashboard/src/components/dashboard/blocks/`. The dashboard
 follows a docs-UI language (reference: Fumadocs): its own token overrides in

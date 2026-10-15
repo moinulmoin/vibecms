@@ -3,6 +3,7 @@ import { render } from "astro:content";
 import type { MarkdownHeading } from "astro";
 import type { AstroComponentFactory } from "astro/runtime/server/index.js";
 import { DocsShell } from "../../components/docs/docs-shell";
+import DocsCodeBlock from "../../components/docs/docs-code-block.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { docsSource } from "../../lib/docs-source";
 import { isMarketingHost } from "../../server/public-blog";
@@ -19,12 +20,7 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
 const segments = Astro.params.slug?.split("/").filter(Boolean);
 const page = docsSource.getPage(segments);
 
-if (!page) {
-  return new Response("Documentation page not found", {
-    status: 404,
-    headers: { "content-type": "text/plain; charset=utf-8" },
-  });
-}
+if (!page) return Astro.rewrite("/internal/not-found");
 
 const { Content, headings }: { Content: AstroComponentFactory; headings: MarkdownHeading[] } = await render(page.data._raw);
 const toc = headings
@@ -47,6 +43,6 @@ const canonical = new URL(page.url, Astro.url.origin).toString();
     toc={toc}
     appUrl={env.appUrl}
   >
-    <Content />
+    <Content components={{ pre: DocsCodeBlock }} />
   </DocsShell>
 </DocsLayout>

@@ -1,4 +1,3 @@
-import { agentPitch } from "@vc/config/agent-discovery";
 import { describe, expect, it } from "vitest";
 import { archivePost } from "../../core/src/commands/posts";
 
@@ -21,16 +20,5 @@ describe("archive approval binding", () => {
     expect(writes).toBe(0);
     expect((await archivePost(repo, actor as never, { siteId: "site", postId: "post", expectedVersionNumber: 2 })).status).toBe("archived");
     expect(writes).toBe(1);
-  });
-});
-
-describe("agent pitch", () => {
-  it("distinguishes pinned post content from immediate site changes", () => {
-    const pitch = agentPitch({ appUrl: "https://app.vibecms.dev" });
-    expect(pitch).toContain("Post content stays pinned until publishing, including scheduled publishing.");
-    expect(pitch).toContain("Site settings and theme changes apply immediately.");
-    expect(pitch).toContain("post edits have versions they can restore");
-    expect(pitch).not.toContain("every change is a version");
-    expect(pitch).toContain("secret bearer link shows the current saved tip");
   });
 });

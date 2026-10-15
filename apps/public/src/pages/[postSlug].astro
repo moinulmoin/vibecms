@@ -44,6 +44,7 @@ const cacheSite = await resolveSite(Astro.request, db, env);
 if (!cacheSite) {
   const markdownMissing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
   if (markdownMissing) return markdownMissing;
+  if (!env.selfHosted && isMarketingHost(Astro.request, env)) return Astro.rewrite("/internal/not-found");
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
 if (cacheSite.effective_entitlement.effective) {

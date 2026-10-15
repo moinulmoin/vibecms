@@ -26,6 +26,10 @@
   (`apps/public/src/content/docs`), `docs/*.md`, and plan status in `plans/`.
   Update this file when a working rule changes. Delete docs that no longer
   match the product rather than leaving them stale.
+- Public chrome uses explicit Tailwind sources: when adding shared layouts or page
+  families, update `apps/public/src/styles/landing.css` sources. Keep tenant CSS
+  independent. Smoke marketing/docs misses, legal styling and the collection-backed
+  sitemap on local preview when remote deploys are outside scope.
 
 ## Testing
 

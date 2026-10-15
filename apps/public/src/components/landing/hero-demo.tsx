@@ -1,7 +1,11 @@
 // Looping hero story: the person asks their agent in chat, the agent drafts and
 // sends a private preview, the person approves a time, and that exact version
-// goes live. Steps are advanced by marketing-interactions.js; without JS (or
-// with reduced motion) the whole conversation and the live post are shown.
+// goes live. Steps are advanced by marketing-interactions.js until the visitor
+// pauses or picks a step; without JS (or with reduced motion) the whole
+// conversation and the live post are shown.
+
+import { Pause, Play } from "./icons";
+import { GHOST_CTA } from "./primitives";
 
 export const HERO_POST = {
   title: "What shipped this week",
@@ -144,20 +148,37 @@ export function HeroDemo() {
         </div>
       </div>
     </div>
-    <nav aria-label="Demo steps" className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
-      {HERO_STEPS.map((label, i) => (
-        <button
-          key={label}
-          type="button"
-          data-hero-goto={i + 1}
-          aria-current={i + 1 === LAST_STEP ? "step" : undefined}
-          className="group inline-flex min-h-[36px] items-center gap-2 rounded-full px-3 font-mono text-[11px] text-muted-foreground transition-colors duration-200 hover:text-foreground aria-[current=step]:text-foreground aria-[current=step]:[background:var(--surface-glass-strong)] aria-[current=step]:ring-1 aria-[current=step]:ring-[color:var(--hairline)]"
-        >
-          <span className="size-1.5 rounded-full bg-muted-foreground/50 transition-colors duration-200 group-aria-[current=step]:bg-brand-bright" aria-hidden="true" />
-          {label}
-        </button>
-      ))}
-    </nav>
+    <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-3">
+      {/* Below sm the five steps sit in a balanced 3 + 2 grid (six tracks, two
+          per pill; row two starts at track two so it centers). From sm up they
+          flow in one row. */}
+      <div role="group" aria-label="Demo steps" className="grid grid-cols-6 gap-1.5 sm:flex sm:items-center sm:justify-center">
+        {HERO_STEPS.map((label, i) => (
+          <button
+            key={label}
+            type="button"
+            data-hero-goto={i + 1}
+            aria-current={i + 1 === LAST_STEP ? "step" : undefined}
+            className="group col-span-2 inline-flex min-h-[36px] items-center justify-center gap-2 rounded-full px-3 font-mono text-[11px] text-muted-foreground transition-colors duration-200 hover:text-foreground aria-[current=step]:text-foreground aria-[current=step]:[background:var(--surface-glass-strong)] aria-[current=step]:ring-1 aria-[current=step]:ring-[color:var(--hairline)] [&:nth-child(4)]:col-start-2"
+          >
+            <span className="size-1.5 rounded-full bg-muted-foreground/50 transition-colors duration-200 group-aria-[current=step]:bg-brand-bright" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* Autoplay pause (WCAG 2.2.2). Shown by marketing-interactions.js only when the demo animates. */}
+      <button
+        type="button"
+        hidden
+        data-hero-toggle
+        aria-label="Pause demo"
+        className={`${GHOST_CTA} group min-h-[36px] px-3 font-mono text-[11px]`}
+      >
+        <Pause className="size-3.5 group-data-[paused]:hidden" />
+        <Play className="hidden size-3.5 group-data-[paused]:block" />
+        <span data-hero-toggle-label>Pause</span>
+      </button>
+    </div>
     </div>
   );
 }

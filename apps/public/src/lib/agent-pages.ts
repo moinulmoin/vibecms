@@ -1,13 +1,44 @@
 import type { PublicIndexLoaderData } from "../server/public-blog";
 import { sanitizeLlmsField } from "../server/llms-text";
-import { BRAND, PRICING } from "@vc/config";
+import { BRAND, LAUNCH_OFFER, PRICING } from "@vc/config";
+
+/**
+ * One subscription offer: `price` is what checkout charges now (the launch
+ * rate); the ListPrice spec carries the standard rate it is discounted from.
+ * `unitCode` is UN/CEFACT: MON = month, ANN = year.
+ */
+function subscriptionOffer(cadence: "Monthly" | "Annual", launchUsd: number, listUsd: number, unitCode: "MON" | "ANN") {
+  const perUnit = { "@type": "QuantitativeValue", value: 1, unitCode };
+  return {
+    "@type": "Offer",
+    name: `${PRICING.planName} · ${cadence} (${LAUNCH_OFFER.phaseLabel.toLowerCase()})`,
+    price: String(launchUsd),
+    priceCurrency: "USD",
+    priceSpecification: [
+      { "@type": "UnitPriceSpecification", price: launchUsd, priceCurrency: "USD", referenceQuantity: perUnit },
+      { "@type": "UnitPriceSpecification", priceType: "https://schema.org/ListPrice", price: listUsd, priceCurrency: "USD", referenceQuantity: perUnit },
+    ],
+  };
+}
 
 export function marketingJsonLd(canonical: string): string {
   return JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "Organization", "@id": `${canonical}#organization`, name: BRAND.name, url: canonical, contactPoint: { "@type": "ContactPoint", url: new URL("/legal/support", canonical).href, contactType: "customer support" } },
-      { "@type": "SoftwareApplication", name: BRAND.name, url: canonical, description: BRAND.description, applicationCategory: "WebApplication", operatingSystem: "Web", publisher: { "@id": `${canonical}#organization` }, offers: { "@type": "Offer", price: String(PRICING.monthlyUsd), priceCurrency: "USD" } },
+      {
+        "@type": "SoftwareApplication",
+        name: BRAND.name,
+        url: canonical,
+        description: BRAND.description,
+        applicationCategory: "WebApplication",
+        operatingSystem: "Web",
+        publisher: { "@id": `${canonical}#organization` },
+        offers: [
+          subscriptionOffer("Monthly", LAUNCH_OFFER.monthlyUsd, PRICING.monthlyUsd, "MON"),
+          subscriptionOffer("Annual", LAUNCH_OFFER.annualUsd, PRICING.annualUsd, "ANN"),
+        ],
+      },
     ],
   }).replace(/</g, "\\u003c");
 }

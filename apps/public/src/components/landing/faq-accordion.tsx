@@ -25,7 +25,7 @@ const faqs = [
   {
     question: "Can an agent publish without me?",
     answer:
-      "Only if its key allows it. Draft keys can write and send you a preview but not publish. Every change is logged and reversible.",
+      "Only if its key allows it. Draft keys can write and send you a preview but not publish. Agent changes appear in the activity log, and you can restore saved post versions. Permanently deleted posts and media cannot be restored.",
   },
   {
     question: "Can my agent run the rest of the blog?",
