@@ -235,7 +235,9 @@ Google and GitHub OAuth secrets are optional. Configure both the client ID and c
 
 - Liveness: `GET /api/health/live`
 - Readiness: `GET /api/health/ready`
-- API logs include `X-Request-ID`; unknown failures are logged with redaction.
+- API logs include `X-Request-ID`; unexpected app, REST and MCP exceptions emit one `unhandled_exception` event with redacted message, stack and bounded causes. Client error responses do not expose those details.
+- Scheduled publishing emits `scheduled_publish_failed` with post/site IDs and an error code for terminal failures, `scheduled_publish_retry` for retryable failures, and `scheduled_publish_run` counts (`attempted`, `published`, `failed`, plus retries and abandoned leases) on every tick, including empty runs and lease-bookkeeping failures. Terminal failures also create owner-visible `post.schedule_failed` activity.
+- Dashboard static assets use `apps/dashboard/public/_headers`, copied to `apps/dashboard/dist/_headers`, for CSP, frame denial, nosniff, referrer policy, HSTS and noindex. The `/*` rule covers `/login` and deep dashboard SPA fallbacks in hosted and self-hosted builds; Worker-generated responses still use middleware.
 - The API liveness response includes Worker version metadata.
 
 Executable helpers (safe defaults are non-destructive):
@@ -248,6 +250,41 @@ pnpm production:rollback -- --worker public --to <version-id> --yes
 ```
 
 `production:rollback` with no flags only prints backup metadata, current API/public Worker deployments, and D1 time-travel info. Worker rollback does not undo D1 writes. D1 migrations are forward-only; time-travel restore is destructive and requires explicit confirmation flags (`--d1-restore --i-understand-d1-restore-is-destructive --yes`). Do not treat that as a safe schema rollback.
+
+### Recovery artifact
+
+Every `deploy-production.yml` run uploads the backup that `pnpm deploy:prod`
+captured as the artifact `production-recovery-<run-id>-<attempt>`, kept for
+90 days. It uploads even when a later step fails, so a failed migration or
+deploy still leaves its pre-deploy bookmark. If the run stopped before
+`production:backup`, there is nothing to upload and the run logs a warning.
+
+The artifact holds only:
+
+- `production-backup/<stamp>/backup-metadata.json`: the D1 time-travel
+  bookmark (`.d1.timeTravelInfo.bookmark`), the API and public Worker
+  deployment version IDs, and the rollback commands. The repository is public,
+  so Cloudflare `author_email` fields, any email address, and the account ID
+  are redacted.
+- `production-backup/<stamp>/schema.sql`: the schema-only D1 export
+  (`--no-data`). It is dropped if it contains any `INSERT`.
+- `last-backup.json`: the pointer that `production:backup` writes. Its paths
+  are runner paths; inside the artifact they correspond to
+  `production-backup/<stamp>/`.
+- `run.json`: the release SHA, smoke mode, deploy step outcome, and run URL.
+
+Env files, Wrangler state, and data dumps are never uploaded. To retrieve a
+run's recovery files:
+
+```sh
+gh run list --workflow deploy-production.yml --limit 5
+gh run download <run-id> --pattern 'production-recovery-*' --dir production-recovery
+jq -r '.d1.timeTravelInfo.bookmark' production-recovery/*/production-backup/*/backup-metadata.json
+```
+
+Pass that bookmark to `pnpm production:rollback -- --d1-restore --bookmark <id> --i-understand-d1-restore-is-destructive --yes`
+only after accepting that the restore is destructive. Use the Worker version IDs
+in the same file with `--worker api|public --to <version-id> --yes`.
 
 ## Deploy-button rehearsal
 

@@ -12,6 +12,11 @@ gh workflow run deploy-production.yml --ref main -f release_sha=<full 40-char sh
 secret. `pnpm deploy:prod` stops at the first failed step and prints which
 one. Nothing after that step runs.
 
+Every run uploads the pre-deploy recovery bookmark as the
+`production-recovery-<run-id>-<attempt>` artifact, kept for 90 days, even when
+the deploy fails. See the recovery artifact section in `docs/deploy.md` for
+its contents and the `gh run download` command.
+
 ## CLI releases (npm)
 
 Run `pnpm changeset` for CLI changes; merging into `main` opens a `chore: version packages` PR.

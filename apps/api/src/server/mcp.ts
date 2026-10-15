@@ -16,6 +16,7 @@ import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usag
 import { UploadError } from "./media";
 import { dispatchOperation } from "./mcp-dispatch";
 import type { OperationContext } from "./operations";
+import { logUnhandledException } from "./request-logging";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: unknown };
 function asObject(value: unknown): Record<string, unknown> {
@@ -27,26 +28,9 @@ function stringParam(params: Record<string, unknown>, name: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-const writeTools: Record<string, true> = {
-  "posts.create": true,
-  "posts.update": true,
-  "posts.publish": true,
-  "posts.archive": true,
-  "posts.versions.restore": true,
-  "assets.upload": true,
-  "assets.delete": true,
-  "sites.update": true,
-  "sites.theme.update": true,
-  "sites.theme.revert": true,
-  "sites.voice.update": true,
-  "sites.signup_form.update": true,
-  "sites.location.set_subpath": true,
-  "sites.location.check": true,
-  "sites.location.remove": true,
-};
-
-export function apiUsageKind(toolName: string): ApiUsageKind {
-  return writeTools[toolName] ? "write" : "read";
+/** Single source of truth: the operation registry. Anything not marked readOnly consumes the write budget. */
+export function apiUsageKind(toolName: McpToolName): ApiUsageKind {
+  return (operationsByToolName[toolName].annotations as OperationAnnotations).readOnly ? "read" : "write";
 }
 
 function forceQuotaForSmoke(request: Request) {
@@ -328,7 +312,8 @@ function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
   }
 }
 
-export async function handleMcpRequest(request: Request) {
+/** requestId: the outer worker's X-Request-ID, used to correlate exception logs. */
+export async function handleMcpRequest(request: Request, requestId: string | null = null) {
   if (hasInvalidOrigin(request)) return new Response("Forbidden", { status: 403 });
   if (request.method === "GET") return new Response(null, { status: 405, headers: { Allow: "POST" } });
   if (request.method !== "POST") return new Response(null, { status: 405 });
@@ -421,6 +406,7 @@ export async function handleMcpRequest(request: Request) {
       );
     } catch (error) {
       if (error instanceof AppError) return appRpcError(body.id, error);
+      logUnhandledException({ surface: "mcp", requestId, method: request.method, url: request.url, cfRay: request.headers.get("cf-ray"), error });
       return rpcError(body.id, -32000, "Tool failed", 500);
     }
   }
@@ -442,7 +428,7 @@ export async function handleMcpRequest(request: Request) {
       workspaceId: auth.workspaceId,
       siteId: auth.siteId,
       tokenId: auth.tokenId,
-      kind: apiUsageKind(name),
+      kind: apiUsageKind(name as McpToolName),
       force: forceQuotaForSmoke(request),
     });
     return result(
@@ -461,6 +447,7 @@ export async function handleMcpRequest(request: Request) {
       (error as AppError & { details?: unknown }).details,
       error instanceof RateLimitError ? rateLimitRetryAfterSeconds(error)
         : (error as AppError & { retryAfterSeconds?: number }).retryAfterSeconds), modern);
+    logUnhandledException({ surface: "mcp", requestId, method: request.method, url: request.url, cfRay: request.headers.get("cf-ray"), tool: name, error });
     return rpcError(body.id, -32000, "Tool failed", 500);
   }
 }

@@ -23,6 +23,8 @@ The scheduler runs every minute, so publication should usually follow the target
 
 You cannot schedule an archived post. Archiving the post before the worker publishes it deletes the pending schedule — the activity entry reads as a canceled schedule, not a failed publication. A scheduled version can publish even if a newer draft tip exists. The resulting activity entry reads `Published scheduled v4 of <title> · Scheduled by <name>` for version 4.
 
+Transient publish failures retry up to three attempts. Billing, version/slug conflicts, missing content, validation, and image/cover errors stop the schedule immediately. A crashed final attempt is also marked failed once its lease expires. Terminal failures appear in **Activity** and the post's schedule status; inspect the reason, fix the issue, then reschedule or use `posts.unschedule` to clear it.
+
 ## CLI
 
 The CLI accepts an ISO-8601 UTC time ending in `Z` and sends it as `publishAt`; the API converts it:

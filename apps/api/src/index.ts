@@ -5,7 +5,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { timeout } from 'hono/timeout'
 import { HTTPException } from 'hono/http-exception'
 import { auth } from '@/server/auth'
-import { maybeRejectOtpSendRateLimit } from '@/server/auth-guards'
+import { guardAuthRequest } from '@/server/auth-guards'
 import { apiV1App } from '@/server/api/app'
 import { handleMcpRequest } from '@/server/mcp'
 import { handlePolarWebhook } from '@/server/billing'
@@ -21,6 +21,7 @@ import { deleteAssetForApp } from '@/server/media'
 import { dashboardRoutes } from '@/routes/dashboard'
 import { errorEnvelope, jsonAppError } from '@/server/http-errors'
 import { runWithExecutionContext } from '@/server/execution-scope'
+import { logUnhandledException, redactPathSecrets } from '@/server/request-logging'
 import { rpcHandleSubscribe } from '@/rpc/public'
 import { autoseopilotRoutes } from '@/routes/autoseopilot'
 import rootPackage from '../../../package.json'
@@ -36,11 +37,6 @@ export const app = new Hono<AppEnv>()
 const NO_STORE = 'no-store'
 const marketingOrigin = (env: Cloudflare.Env) => `https://${env.PUBLIC_BLOG_DOMAIN}`
 
-/** Preview links carry their secret in the path; never log it. */
-export function redactPathSecrets(pathname: string) {
-  return pathname.replace(/\/preview\/[^/]+/g, '/preview/[redacted]')
-}
-
 function requestLog(c: Context<AppEnv>, status: number, durationMs: number) {
   return {
     service: 'vibecms-api',
@@ -51,16 +47,6 @@ function requestLog(c: Context<AppEnv>, status: number, durationMs: number) {
     durationMs,
     cfRay: c.req.header('cf-ray') ?? null,
   }
-}
-
-export function redactErrorText(value: string | undefined) {
-  if (!value) return undefined
-  return value
-    .slice(0, 2_000)
-    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/(authorization|cookie|token|secret|otp|password|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
-    .replace(/\b\d{6}\b/g, '[redacted-otp]')
-    .replace(/\/preview\/[^/\s"')]+/g, '/preview/[redacted]')
 }
 
 app.use('*', async (c, next) => {
@@ -141,7 +127,7 @@ app.get('/.well-known/agent-skills/:name/SKILL.md', (c) => {
   return c.body(skillArtifacts[name as keyof typeof skillArtifacts], 200, { 'Content-Type': 'text/markdown; charset=utf-8' })
 })
 app.get('/auth.md', (c) => c.body(authMarkdown(c.env.APP_URL, marketingOrigin(c.env)), 200, { 'Content-Type': 'text/markdown; charset=utf-8' }))
-app.get('/openapi.json', (c) => apiV1App.fetch(new Request(new URL('/api/v1/openapi.json', c.req.url), c.req.raw)))
+app.get('/openapi.json', (c) => apiV1App.fetch(new Request(new URL('/api/v1/openapi.json', c.req.url), c.req.raw), { requestId: c.get('requestId') }))
 app.get('/llms.txt', (c) => c.body(`# vibecms app and API\n\nThe marketing guide is at ${marketingOrigin(c.env)}/llms.txt.\n\n- MCP: ${c.env.APP_URL}/mcp\n- OpenAPI: ${c.env.APP_URL}/openapi.json\n- Authentication: ${c.env.APP_URL}/auth.md\n`, 200, { 'Content-Type': 'text/markdown; charset=utf-8' }))
 app.get('/robots.txt', (c) => c.body(`User-agent: *\nDisallow: /\nAllow: /.well-known/\nAllow: /openapi.json\nAllow: /auth.md\nAllow: /llms.txt\nContent-Signal: search=yes, ai-input=yes, ai-train=no\nSitemap: ${marketingOrigin(c.env)}/sitemap.xml\n`, 200, { 'Content-Type': 'text/plain; charset=utf-8' }))
 
@@ -163,8 +149,8 @@ app.get('/api/health/ready', async (c) => {
 app.post('/api/subscribe', async (c) => rpcHandleSubscribe({ request: c.req.raw }))
 
 app.all('/api/auth/*', async (c) => {
-  const rateLimited = await maybeRejectOtpSendRateLimit(c.req.raw)
-  if (rateLimited) return rateLimited
+  const rejected = await guardAuthRequest(c.req.raw)
+  if (rejected) return rejected
   return auth.handler(c.req.raw)
 })
 
@@ -216,8 +202,8 @@ app.post('/api/media/delete', bodyLimit({ maxSize: 8 * 1024 }), async (c) => {
 
 app.get('/media-assets/:assetId', async (c) => serveAsset(c.req.param('assetId')))
 
-app.all('/api/v1/*', (c) => apiV1App.fetch(c.req.raw))
-app.all('/mcp', (c) => handleMcpRequest(c.req.raw))
+app.all('/api/v1/*', (c) => apiV1App.fetch(c.req.raw, { requestId: c.get('requestId') }))
+app.all('/mcp', (c) => handleMcpRequest(c.req.raw, c.get('requestId')))
 app.route('/internal/autoseopilot', autoseopilotRoutes)
 
 app.onError((err, c) => {
@@ -226,18 +212,14 @@ app.onError((err, c) => {
     response.headers.set('X-Request-ID', c.get('requestId'))
     return response
   }
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      event: 'unhandled_exception',
-      ...requestLog(c, 500, 0),
-      error: {
-        name: err.name,
-        message: redactErrorText(err.message),
-        stack: redactErrorText(err.stack),
-      },
-    }),
-  )
+  logUnhandledException({
+    surface: 'app',
+    requestId: c.get('requestId'),
+    method: c.req.method,
+    url: c.req.url,
+    cfRay: c.req.header('cf-ray') ?? null,
+    error: err,
+  })
   return jsonAppError(err, c.get('requestId'))
 })
 
