@@ -117,7 +117,7 @@ Last updated: 2026-10-15
 - Owner-only full JSON export of all posts (`GET /api/export.json`).
 - Self-hosted mode (`SELF_HOSTED=true`): billing always active, no quotas, always indexable.
 - Unexpected REST/MCP exceptions log redacted message, stack and bounded causes once, correlated with the response request ID; responses remain generic.
-- Production deployment recovery metadata and schema-only exports are retained as GitHub Actions artifacts for 90 days, including failed deploys after backup capture.
+- Each production deploy records its pre-deploy UTC timestamp in the job summary as the D1 Time Travel recovery point; nothing is uploaded as an artifact because the repo is public.
 
 ---
 

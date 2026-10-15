@@ -161,6 +161,26 @@ describe('minute scheduled publishing with a fake clock', () => {
       .toEqual([[1, 1, 0], [1, 1, 0], [1, 0, 1], [0, 0, 0]]);
   });
 
+  it('records a crashed final attempt as published when its version already went live', async () => {
+    const item = await post();
+    const clock = 1_800_006_000;
+    await schedulePost(env.DB, SITE, item.id, 1, clock, actor, clock - 10);
+    let lastClaim: Awaited<ReturnType<typeof claimDueSchedules>>[number] | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      [lastClaim] = await claimDueSchedules(env.DB, clock + attempt * 121);
+    }
+    // The final attempt's publish committed, then the worker died before finishing the schedule.
+    await publishScheduledPost(repo, { type: 'system', id: 'system', name: 'System' }, {
+      siteId: SITE, postId: item.id, versionNumber: 1,
+      billingStatus: 'active', scheduledBy: actor.name, leaseToken: lastClaim!.leaseToken!,
+    });
+    const logs = captureLogs();
+    expect(await processDueSchedules(env.DB, clock + 242 + 120, async () => {})).toEqual({ published: 0, failed: 0, retrying: 0 });
+    expect(await status(item.id)).toMatchObject({ status: 'published', error: null });
+    expect(logs('scheduled_publish_failed')).toEqual([]);
+    expect(await failureActivity(item.id)).toHaveLength(0);
+  });
+
   it('fails, logs, and reports a schedule whose final attempt crashed mid-lease', async () => {
     const item = await post();
     const clock = 1_800_005_000;

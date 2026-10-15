@@ -16,6 +16,11 @@ describe('serializeErrorForLog', () => {
     })
   })
 
+  it('redacts credentials written as JSON or quoted keys', () => {
+    const text = JSON.stringify(serializeErrorForLog(new Error('upstream said {"token":"raw-json-token","password": "pw-1"} and \'api_key\'=k-2')))
+    for (const secret of ['raw-json-token', 'pw-1', 'k-2']) expect(text).not.toContain(secret)
+  })
+
   it('bounds deep cause chains and cycles', () => {
     let deep: unknown = new Error('leaf')
     for (let index = 0; index < 50; index += 1) deep = new Error(`level ${index}`, { cause: deep })

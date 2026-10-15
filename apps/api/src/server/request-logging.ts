@@ -8,7 +8,7 @@ export function redactErrorText(value: string | undefined) {
   return value
     .slice(0, 2_000)
     .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/(authorization|cookie|token|secret|otp|password|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
+    .replace(/(authorization|cookie|token|secret|otp|password|api[_-]?key)["']?\s*[:=]\s*["']?[^\s,;"'}]+["']?/gi, '$1=[redacted]')
     .replace(/\b\d{6}\b/g, '[redacted-otp]')
     .replace(/\/preview\/[^/\s"')]+/g, '/preview/[redacted]')
 }
