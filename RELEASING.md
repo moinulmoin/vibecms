@@ -18,6 +18,7 @@ Run `pnpm changeset` for CLI changes; merging into `main` opens a `chore: versio
 Merging that PR publishes `vibecms-cli` with provenance through npm trusted publishing.
 Configure the npm trusted publisher for repository `moinulmoin/vibecms`, workflow `release.yml`.
 The first version must be hand-published because the package must exist before trusted-publisher setup.
+Before every publish, `prepublishOnly` installs the packed tarball into an empty project and runs the installed `vibecms --version` and `vibecms schema`; a failure stops the publish. Run it any time with `pnpm --filter vibecms-cli smoke`.
 
 ## Break-glass local deploy
 
