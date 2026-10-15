@@ -29,7 +29,8 @@
     "build": "tsc && cp ../../apps/api/openapi.json dist/openapi.json",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "pnpm build",
+    "smoke": "pnpm build && node scripts/smoke-pack.mjs",
+    "prepublishOnly": "pnpm smoke",
     "test": "node --test src/index.test.mjs"
   },
   "devDependencies": {
