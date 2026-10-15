@@ -3,7 +3,8 @@
 import type { APIContext } from "astro";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
-import { beforeAll, beforeEach, describe, expect, inject, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, inject, it, vi } from "vitest";
+import { PAST_DUE_GRACE_DAYS } from "@vc/config";
 import {
   createDataAccess,
   type ManagedFirstProvisionInput,
@@ -105,11 +106,15 @@ async function setManagedEntitlement(
     .run();
 }
 
-async function setPolar(status: "active" | "none", currentPeriodEnd: number | null): Promise<void> {
+async function setPolar(
+  status: "active" | "past_due" | "none",
+  currentPeriodEnd: number | null,
+  pastDueSince: number | null = null,
+): Promise<void> {
   await env.DB.prepare(
-    "UPDATE billing_customers SET status = ?, current_period_end = ?, updated_at = ? WHERE workspace_id = ?",
+    "UPDATE billing_customers SET status = ?, current_period_end = ?, past_due_since = ?, updated_at = ? WHERE workspace_id = ?",
   )
-    .bind(status, currentPeriodEnd, NOW, WORKSPACE_ID)
+    .bind(status, currentPeriodEnd, pastDueSince, NOW, WORKSPACE_ID)
     .run();
 }
 
@@ -322,6 +327,82 @@ describe("public effective entitlement resolution", () => {
       .bind(SITE_ID)
       .first();
     expect(after).toEqual(before);
+  });
+});
+
+describe("public past_due grace", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // Non-zero millisecond start; the deadline lands mid-second, a few days ahead.
+  const SINCE = NOW * 1000 - 3 * DAY_MS + 789;
+  const DEADLINE = SINCE + PAST_DUE_GRACE_DAYS * DAY_MS;
+  // Pins the clock every public seam reads (Date.now() / 1000, unfloored).
+  const clockAt = (ms: number) => vi.spyOn(Date, "now").mockReturnValue(ms);
+
+  beforeEach(async () => {
+    // Polar grace is the only paid source.
+    await setManagedEntitlement("revoked", null);
+    await setPolar("past_due", NOW - 10, SINCE);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("serves the custom domain and indexes the blog until the exact millisecond deadline", async () => {
+    clockAt(DEADLINE - 1);
+    const customSite = await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv);
+    expect(customSite).toMatchObject({
+      billing_status: "past_due",
+      resolved_domain_type: "custom",
+      effective_entitlement: {
+        effective: true,
+        access: "hosted_paid",
+        activeSources: ["polar"],
+        effectiveUntil: DEADLINE / 1000,
+        polar: { status: "past_due", active: true, pastDueSince: SINCE, graceEndsAt: DEADLINE },
+      },
+    });
+    const defaultSite = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
+    expect(isPublicBlogIndexable(defaultSite!, runtimeEnv)).toBe(true);
+    expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST, "/sitemap.xml"), runtimeEnv)).status).toBe(200);
+    expect(await (await handleRobots(env.DB, requestFor(DEFAULT_HOST, "/robots.txt"), runtimeEnv)).text()).toContain("Sitemap:");
+    const blog = await loadPublicPostByHost(env.DB, requestFor(CUSTOM_HOST, "/hello"), "hello", runtimeEnv);
+    expect(blog).toMatchObject({ indexable: true, site: { resolved_domain_type: "custom" } });
+
+    for (const ms of [DEADLINE, DEADLINE + 1]) {
+      clockAt(ms);
+      expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toBeNull();
+      const expired = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
+      expect(expired).toMatchObject({
+        billing_status: "past_due",
+        resolved_domain_type: "default",
+        effective_entitlement: { effective: false, access: "hosted_free", activeSources: [] },
+      });
+      expect(isPublicBlogIndexable(expired!, runtimeEnv)).toBe(false);
+      expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST, "/sitemap.xml"), runtimeEnv)).status).toBe(404);
+      expect(await loadPublicPostByHost(env.DB, requestFor(DEFAULT_HOST, "/hello"), "hello", runtimeEnv))
+        .toMatchObject({ indexable: false });
+    }
+  });
+
+  it("never lets a cached response outlive the grace deadline", async () => {
+    const cacheControl = async () =>
+      (await handleFeed(env.DB, requestFor(DEFAULT_HOST, "/feed.xml"), runtimeEnv)).headers.get("cache-control");
+    clockAt(DEADLINE - 1_500);
+    expect(await cacheControl()).toBe("public, max-age=1, s-maxage=1");
+    // Still paid, but less than one whole second remains.
+    clockAt(DEADLINE - 500);
+    expect(await cacheControl()).toBe("no-store");
+    clockAt(DEADLINE);
+    expect(await cacheControl()).toBe("no-store");
+  });
+
+  it("grants no grace when the past_due start is unknown", async () => {
+    await setPolar("past_due", NOW + 100, null);
+    clockAt(SINCE);
+    expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toBeNull();
+    expect(await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv)).toMatchObject({
+      effective_entitlement: { effective: false, polar: { active: false, graceEndsAt: null } },
+    });
   });
 });
 

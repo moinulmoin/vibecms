@@ -660,10 +660,16 @@ metadata shape. Do not accept a client-supplied billing status or customer
 identifier as proof of entitlement.
 
 **Replay and repudiation:** Receipt IDs or deterministic payload identities
-must deduplicate re-delivery. A monotonic source timestamp plus deterministic
-tie-break must prevent older events from rolling back newer state. Receipt
-recording and billing mutation must be atomic; a failed transaction must be
-retryable.
+must deduplicate re-delivery. Order by the object's modification time in
+milliseconds, then the envelope or signed header timestamp, then creation time.
+Only strictly newer timestamps may replace each independently ordered group:
+status/customer for all events, subscription-only fields for subscription events.
+Equal timestamps retain that group and conflicting statuses emit a structured
+warning. A fresh request nonce on the inserted receipt must gate every billing
+write, including row creation: a duplicate must never mutate legacy or current
+billing state. Recording and mutation must be atomic; a failed transaction must
+be retryable. Grace starts only on an accepted transition into past_due;
+repeated past_due retains even an unknown legacy clock without retroactive grace.
 
 **Information disclosure:** Webhook responses and logs must not reveal the
 signing secret, raw payload beyond bounded diagnostics, provider access token,

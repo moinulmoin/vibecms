@@ -102,16 +102,42 @@ describe("analytics rollup repository", () => {
 
   it("stops selecting canceled sites while retaining their historical rows", async () => {
     const { workspaceId, siteId } = await seedSite("cancel");
+    const selected = async (now: number) =>
+      (await data.managedSites.listEffectiveEntitledActiveSites({ selfHosted: false, now }))
+        .some((site) => site.id === siteId);
     await data.analytics.replaceDaily(siteId, "2026-07-20", [
       { kind: "page", dimension: "", label: null, value: 7 },
     ]);
-    expect((await data.analytics.listActiveSites()).some((site) => site.id === siteId)).toBe(true);
+    expect(await selected(timestamp)).toBe(true);
 
     await env.DB.prepare("UPDATE billing_customers SET status = 'canceled' WHERE workspace_id = ?")
       .bind(workspaceId)
       .run();
 
-    expect((await data.analytics.listActiveSites()).some((site) => site.id === siteId)).toBe(false);
+    expect(await selected(timestamp)).toBe(false);
     expect(await data.analytics.listDaily(siteId, "2026-07-20", "2026-07-20")).toHaveLength(1);
+  });
+
+  it("keeps rolling up a past_due site until its exact grace deadline", async () => {
+    const { workspaceId, siteId } = await seedSite("grace");
+    const since = 1_900_000_000_123;
+    const deadline = since + 7 * 24 * 60 * 60 * 1000;
+    const selected = async (nowMs: number) =>
+      (await data.managedSites.listEffectiveEntitledActiveSites({ selfHosted: false, now: nowMs / 1000 }))
+        .some((site) => site.id === siteId);
+    await env.DB.prepare("UPDATE billing_customers SET status = 'past_due', past_due_since = ? WHERE workspace_id = ?")
+      .bind(since, workspaceId)
+      .run();
+
+    expect(await selected(since)).toBe(true);
+    expect(await selected(deadline - 1)).toBe(true);
+    expect(await selected(deadline)).toBe(false);
+    expect(await selected(deadline + 1)).toBe(false);
+
+    // Unknown start: no grace at all.
+    await env.DB.prepare("UPDATE billing_customers SET past_due_since = NULL WHERE workspace_id = ?")
+      .bind(workspaceId)
+      .run();
+    expect(await selected(since)).toBe(false);
   });
 });

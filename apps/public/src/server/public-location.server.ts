@@ -44,7 +44,8 @@ async function hostedEntitled(
   if (env.selfHosted) return true;
   const entitlement = await createDataAccess(db).managedSites.resolveSite(siteId, {
     selfHosted: false,
-    now: Math.floor(Date.now() / 1000),
+    // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+    now: Date.now() / 1000,
   });
   return entitlement?.effective ?? false;
 }

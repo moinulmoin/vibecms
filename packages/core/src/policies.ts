@@ -1,4 +1,3 @@
-export { hasActiveSubscription } from "@vc/config";
 import { ForbiddenError } from "./errors";
 import type { Actor, Scope } from "./types";
 

@@ -63,8 +63,34 @@ export const API_USAGE_LIMITS = {
   },
 } as const;
 
-export function hasActiveSubscription(status: string | null | undefined): boolean {
-  return status === "active";
+/** Days a `past_due` subscription keeps paid entitlement while Polar retries payment. */
+export const PAST_DUE_GRACE_DAYS = 7;
+
+const PAST_DUE_GRACE_MS = PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+/** Raw Polar billing state; `pastDueSince` is epoch MILLISECONDS of the first failed-payment transition. */
+export interface PaidBillingState {
+  status?: string | null;
+  pastDueSince?: number | null;
+}
+
+/**
+ * End of the past_due grace window, epoch MILLISECONDS. Null unless the
+ * subscription is `past_due` with a known start (an unknown start gets no grace).
+ */
+export function pastDueGraceEndsAt(billing: PaidBillingState): number | null {
+  if (billing.status !== "past_due" || billing.pastDueSince == null) return null;
+  return billing.pastDueSince + PAST_DUE_GRACE_MS;
+}
+
+/**
+ * The one hosted paid-billing rule: `active`, or `past_due` strictly before its
+ * grace end (a deadline equal to `nowMs` is expired). Every other status is free.
+ */
+export function isPaidBilling(billing: PaidBillingState, nowMs: number = Date.now()): boolean {
+  if (billing.status === "active") return true;
+  const graceEndsAt = pastDueGraceEndsAt(billing);
+  return graceEndsAt !== null && graceEndsAt > nowMs;
 }
 
 /** Max active (non-revoked) API tokens per workspace. Leak/abuse guard; owners revoke to free slots. */
@@ -188,6 +214,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
   already_active: { variant: "error", title: "Subscription already active", message: "This workspace already has an active plan. Manage it from the customer portal." },
+  payment_past_due: { variant: "error", title: "Payment overdue", message: "Your last payment failed. Update your payment method in billing settings." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   version_conflict: { variant: "error", title: "Post changed", message: "Review the latest version, then publish again." },

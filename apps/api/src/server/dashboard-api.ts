@@ -465,7 +465,7 @@ export async function loadBillingPage(app: AppUserContext) {
     return {
       selfHosted: true as const,
       isOwner,
-      billing: { status: 'active' as const, currentPeriodEnd: null },
+      billing: { status: 'active' as const, currentPeriodEnd: null, cancelAtPeriodEnd: null, pastDueSince: null, graceEndsAt: null },
     }
   }
   const [billing, managedSnapshot, entitlement] = await Promise.all([

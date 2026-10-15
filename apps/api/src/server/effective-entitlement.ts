@@ -20,10 +20,6 @@ export type ApiEffectiveEntitlement = EffectiveHostedEntitlement & {
 
 export type EntitlementReadOptions = Partial<ManagedEntitlementResolutionOptions>
 
-function currentTime(): number {
-  return Math.floor(Date.now() / 1000)
-}
-
 function selfHostedMode(): boolean {
   return String(env.SELF_HOSTED) === 'true'
 }
@@ -31,7 +27,8 @@ function selfHostedMode(): boolean {
 function resolveOptions(options?: EntitlementReadOptions): ManagedEntitlementResolutionOptions {
   return {
     selfHosted: options?.selfHosted ?? selfHostedMode(),
-    now: options?.now ?? currentTime(),
+    // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+    now: options?.now ?? Date.now() / 1000,
   }
 }
 
@@ -53,7 +50,7 @@ export function toApiEffectiveEntitlement(
       effectiveUntil: null,
       rawPolarStatus: 'none',
       source: 'none',
-      polar: { status: null, currentPeriodEnd: null, active: false },
+      polar: { status: null, currentPeriodEnd: null, active: false, pastDueSince: null, graceEndsAt: null },
       managedSponsorship: { status: null, expiresAt: null, active: false },
     }
   }

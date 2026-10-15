@@ -50,6 +50,7 @@ import { TooltipProvider } from '~/components/ui/tooltip'
 import { SegmentedControl } from '~/components/ui/segmented-control'
 import { AgentPresence } from '~/components/dashboard/AgentPresence'
 import { CommandPalette } from '~/components/dashboard/CommandPalette'
+import { PastDueBanner } from '~/components/dashboard/PastDueBanner'
 import { setupAuthClient } from '~/lib/auth-client'
 import { selectDashboardApp, suspendDashboardMutations } from '~/lib/api-client'
 import { queryClient } from '~/lib/queries'
@@ -465,6 +466,7 @@ export function AppShell({
                 : 'mx-auto flex w-full max-w-[1120px] flex-1 flex-col gap-8 px-4 py-7 outline-none sm:px-8 sm:py-10 lg:px-10'
             }
           >
+            <PastDueBanner />
             {children}
           </div>
         </SidebarInset>

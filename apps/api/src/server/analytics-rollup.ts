@@ -178,7 +178,8 @@ export async function runAnalyticsRollup(workerEnv: RollupEnv = env, fetcher: ty
   const data = createDataAccess(workerEnv.DB)
   const sites = await data.managedSites.listEffectiveEntitledActiveSites({
     selfHosted,
-    now: Math.floor(Date.now() / 1000),
+    // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+    now: Date.now() / 1000,
   })
   const yesterday = utcDate(-1)
   const sourceFloor = utcDate(-(SOURCE_RETENTION_DAYS - 1))

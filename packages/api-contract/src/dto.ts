@@ -101,7 +101,18 @@ export const voiceSettingsDtoSchema = z.object({
 export const signupFormDtoSchema = z.object({
   enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(),
 });
-export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema });
+/**
+ * Present only while the workspace's paid subscription is past_due (hosted only).
+ * `paidFeaturesUntil` is the latest guaranteed paid-through ISO time (Polar grace window or a
+ * finite sponsorship); null means no guaranteed date — grace ended/unknown, or an indefinite
+ * sponsorship keeps paid access — never by itself that features stopped. Agents relay it to the owner.
+ */
+export const billingNoticeDtoSchema = z.object({
+  kind: z.literal('payment_failed'),
+  paidFeaturesUntil: z.string().nullable(),
+  action: z.string(),
+});
+export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema, billingNotice: billingNoticeDtoSchema.optional() });
 /** sites.signup_form.update echoes the new site revision for follow-up edits. */
 export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
 const subpathCheckIssueDtoSchema = z.object({ code: z.string(), message: z.string() });
@@ -232,6 +243,7 @@ export const postVersionDtoSchema = postVersionSummaryDtoSchema.extend({
 
 export type SiteDto = z.infer<typeof siteDtoSchema>;
 export type SiteVoiceProfileDto = z.infer<typeof siteVoiceProfileDtoSchema>;
+export type BillingNoticeDto = z.infer<typeof billingNoticeDtoSchema>;
 export type PostSummaryDto = z.infer<typeof postSummaryDtoSchema>;
 export type PostDto = z.infer<typeof postDtoSchema>;
 export type AssetDto = z.infer<typeof assetDtoSchema>;

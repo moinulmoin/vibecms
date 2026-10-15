@@ -3,7 +3,8 @@
 
 import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
-import { beforeAll, describe, expect, inject, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, inject, it } from 'vitest'
+import { PAST_DUE_GRACE_DAYS } from '@vc/config'
 import { AGENT_TOKEN_PRESETS, type Actor } from '@vc/core'
 import { createPost, updatePost } from '@vc/core'
 import { createD1PostRepository } from '@vc/db'
@@ -311,5 +312,137 @@ describe('Manage key', () => {
       .rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringContaining('Confirm a new UTC time with the owner') })
     await expect(revertThemeOp(ctx, { expectedUpdatedAt: (await getSiteSettings(owner)).updatedAt + 1 }))
       .rejects.toMatchObject({ code: 'CONFLICT', message: expect.stringContaining('only retry when canRevert is true') })
+  })
+})
+
+describe('sites.get billing notice', () => {
+  const billingWorkspaceId = 'manage-test-billing-workspace'
+  const billingSiteId = 'manage-test-billing-site'
+  const billingToken = `vc_test_manage_billing_${'e'.repeat(32)}`
+  const billingCtx: OperationContext = { actor, siteId: billingSiteId, workspaceId: billingWorkspaceId, tokenId: actor.id }
+  const mutableEnv = env as unknown as Record<string, unknown>
+  const savedSelfHosted = mutableEnv.SELF_HOSTED
+  const dayMs = 24 * 60 * 60 * 1000
+
+  beforeAll(async () => {
+    const t = Math.floor(Date.now() / 1000)
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').bind(billingWorkspaceId, 'Billing', billingWorkspaceId, t, t),
+      env.DB.prepare('INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(billingSiteId, billingWorkspaceId, 'Billing', billingSiteId, t, t),
+      env.DB.prepare(`INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name,
+        created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind('manage-test-billing-key', billingSiteId, 'Billing key', billingToken.slice(0, 18), await hashApiToken(billingToken, env.TOKEN_PEPPER),
+          JSON.stringify(AGENT_TOKEN_PRESETS.manage), 'Billing Agent', 'manage-test-owner', t, t),
+    ])
+  })
+
+  afterEach(async () => {
+    mutableEnv.SELF_HOSTED = savedSelfHosted
+    await env.DB.prepare('DELETE FROM autoseopilot_managed_sites WHERE site_id = ?').bind(billingSiteId).run()
+  })
+
+  async function sponsor(expiresAt: number | null) {
+    const t = Math.floor(Date.now() / 1000)
+    await env.DB.prepare(`INSERT INTO autoseopilot_managed_sites (id, external_workspace_id, owner_user_id, workspace_id, site_id,
+      credential_id, credential_generation, api_key_id, entitlement_status, entitlement_expires_at, lifecycle_revision, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'active', ?, 1, ?, ?)`)
+      .bind('manage-test-billing-sponsorship', 'manage-test-billing-external', 'manage-test-owner', billingWorkspaceId, billingSiteId,
+        'manage-test-billing-credential', 'manage-test-billing-key', expiresAt, t, t).run()
+  }
+
+  async function setBilling(status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'none', pastDueSince: number | null = null) {
+    const t = Math.floor(Date.now() / 1000)
+    await env.DB.prepare(`INSERT INTO billing_customers (id, workspace_id, status, past_due_since, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(workspace_id) DO UPDATE SET status = excluded.status, past_due_since = excluded.past_due_since`)
+      .bind('manage-test-billing-row', billingWorkspaceId, status, pastDueSince, t, t).run()
+  }
+
+  async function restSite() {
+    await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(billingWorkspaceId).run()
+    const response = await app.fetch(new Request('https://app.vibecms.dev/api/v1/site', {
+      headers: { authorization: `Bearer ${billingToken}` },
+    }), env)
+    expect(response.status).toBe(200)
+    return await response.json() as Record<string, unknown>
+  }
+
+  async function mcpSite() {
+    await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(billingWorkspaceId).run()
+    const response = await handleMcpRequest(new Request('https://app.vibecms.dev/mcp', {
+      method: 'POST', headers: { authorization: `Bearer ${billingToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 31, method: 'tools/call', params: { name: 'sites.get', arguments: {} } }),
+    }))
+    // sites.get returns a nullable DTO, so MCP wraps it as structuredContent.result (see outputSchemaFor).
+    return (await response.json() as { result: { isError?: boolean; structuredContent: { result: Record<string, unknown> } } }).result
+  }
+
+  it('tells agents through REST and MCP the guaranteed paid-through time during past_due grace', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const pastDueSince = Date.now() - 2 * dayMs
+    await setBilling('past_due', pastDueSince)
+    const expected = {
+      kind: 'payment_failed',
+      paidFeaturesUntil: new Date(pastDueSince + PAST_DUE_GRACE_DAYS * dayMs).toISOString(),
+      action: 'Update the payment method in the dashboard: Settings > Billing',
+    }
+    expect((await getSiteOp(billingCtx))?.billingNotice).toEqual(expected)
+    expect((await restSite()).billingNotice).toEqual(expected)
+    const mcp = await mcpSite()
+    expect(mcp.isError).not.toBe(true)
+    expect(mcp.structuredContent.result.billingNotice).toEqual(expected)
+  })
+
+  it('keeps the notice with a null deadline after grace expires or when the failure time is unknown', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    await setBilling('past_due', Date.now() - (PAST_DUE_GRACE_DAYS + 1) * dayMs)
+    expect((await restSite()).billingNotice).toEqual({
+      kind: 'payment_failed', paidFeaturesUntil: null, action: 'Update the payment method in the dashboard: Settings > Billing',
+    })
+    await setBilling('past_due', null)
+    expect((await getSiteOp(billingCtx))?.billingNotice).toMatchObject({ kind: 'payment_failed', paidFeaturesUntil: null })
+  })
+
+  it.each(['active', 'none', 'canceled', 'unpaid'] as const)('omits the notice for hosted status %s', async (status) => {
+    mutableEnv.SELF_HOSTED = 'false'
+    await setBilling(status)
+    expect(await restSite()).not.toHaveProperty('billingNotice')
+    expect(await getSiteOp(billingCtx)).not.toHaveProperty('billingNotice')
+  })
+
+  it('reports no guaranteed date, not lost access, when an indefinite sponsorship keeps the past_due site paid', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    await setBilling('past_due', Date.now() - dayMs)
+    await sponsor(null)
+    expect((await getSiteOp(billingCtx))?.billingNotice).toEqual({
+      kind: 'payment_failed', paidFeaturesUntil: null, action: 'Update the payment method in the dashboard: Settings > Billing',
+    })
+  })
+
+  it('reports the later of a finite sponsorship and the still-active grace deadline', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const pastDueSince = Date.now() - dayMs
+    const graceEndsAt = pastDueSince + PAST_DUE_GRACE_DAYS * dayMs
+    await setBilling('past_due', pastDueSince)
+
+    const longSponsorship = Math.floor((graceEndsAt + 30 * dayMs) / 1000)
+    await sponsor(longSponsorship)
+    expect((await getSiteOp(billingCtx))?.billingNotice?.paidFeaturesUntil).toBe(new Date(longSponsorship * 1000).toISOString())
+
+    await env.DB.prepare('DELETE FROM autoseopilot_managed_sites WHERE site_id = ?').bind(billingSiteId).run()
+    await sponsor(Math.floor((Date.now() + dayMs) / 1000))
+    // The Polar grace deadline outlasts the sponsorship and keeps its exact millisecond.
+    expect((await getSiteOp(billingCtx))?.billingNotice?.paidFeaturesUntil).toBe(new Date(graceEndsAt).toISOString())
+
+    await env.DB.prepare('DELETE FROM autoseopilot_managed_sites WHERE site_id = ?').bind(billingSiteId).run()
+    await setBilling('past_due', Date.now() - (PAST_DUE_GRACE_DAYS + 1) * dayMs)
+    const sponsorshipOnly = Math.floor((Date.now() + 3 * dayMs) / 1000)
+    await sponsor(sponsorshipOnly)
+    expect((await getSiteOp(billingCtx))?.billingNotice?.paidFeaturesUntil).toBe(new Date(sponsorshipOnly * 1000).toISOString())
+  })
+
+  it('never shows a notice on self-hosted deployments, even with a past_due row', async () => {
+    mutableEnv.SELF_HOSTED = 'true'
+    await setBilling('past_due', Date.now() - dayMs)
+    expect(await restSite()).not.toHaveProperty('billingNotice')
   })
 })

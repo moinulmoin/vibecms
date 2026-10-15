@@ -1,45 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { applyPolarWebhookAtomically, polarEventId } from '@/server/polar-webhook-receipts'
+import { polarCancelAtPeriodEnd, polarEventId, polarSourceTimestampMs } from '@/server/polar-webhook-receipts'
 
-// ── Minimal D1 stub ──────────────────────────────────────────────────────────
-// prepare(sql).bind(...vals) → { sql, bindings }; batch() returns preset results.
-// No cloudflare:workers import → runs under normal Vitest.
-
-type FakeStmt = { sql: string; bindings: unknown[] }
-
-function makeFakeD1(
-  batchResults: Array<Array<{ meta: { changes: number } }>>,
-) {
-  let batchIdx = 0
-  const batchCalls: FakeStmt[][] = []
-
-  const db = {
-    prepare(sql: string) {
-      return {
-        bind(...vals: unknown[]): FakeStmt {
-          return { sql, bindings: vals }
-        },
-      }
-    },
-    async batch(stmts: FakeStmt[]) {
-      batchCalls.push(stmts.map((s) => ({ sql: s.sql, bindings: [...s.bindings] })))
-      return batchResults[batchIdx++] ?? stmts.map(() => ({ meta: { changes: 1 } }))
-    },
-  }
-
-  return { db: db as unknown as D1Database, batchCalls }
-}
-
-const baseInput = {
-  eventId: 'evt_abc',
-  workspaceId: 'ws_1',
-  eventType: 'subscription.created',
-  sourceTimestamp: 1_000,
-  appliedStatus: 'active' as const,
-  polarCustomerId: 'cust_1' as string | null,
-  polarSubscriptionId: 'sub_1' as string | null,
-  currentPeriodEnd: 2_000 as number | null,
-}
+// Pure helpers only. applyPolarWebhookAtomically's D1 behavior (monotonic
+// guard, duplicate/stale, cancel flag COALESCE) is covered against real D1 in
+// billing-webhook.worker.test.ts.
 
 // ── polarEventId ──────────────────────────────────────────────────────────────
 
@@ -62,97 +26,45 @@ describe('polarEventId', () => {
   })
 })
 
-// ── applyPolarWebhookAtomically ───────────────────────────────────────────────
+// ── polarSourceTimestampMs ────────────────────────────────────────────────────
 
-describe('applyPolarWebhookAtomically', () => {
-  it('returns applied when receipt + billing both change', async () => {
-    const { db } = makeFakeD1([
-      [
-        { meta: { changes: 1 } },
-        { meta: { changes: 1 } },
-      ],
-    ])
-    const result = await applyPolarWebhookAtomically(db, { ...baseInput })
-    expect(result).toEqual({ kind: 'applied' })
+describe('polarSourceTimestampMs', () => {
+  const modified = new Date('2026-10-01T12:00:00.250Z')
+  const envelope = new Date('2026-10-01T12:00:05.000Z')
+  const created = new Date('2026-09-01T00:00:00.000Z')
+  const header = new Headers({ 'webhook-timestamp': '1790000000' })
+
+  it('prefers modifiedAt, keeping millisecond precision', () => {
+    expect(polarSourceTimestampMs({ timestamp: envelope }, { modifiedAt: modified, createdAt: created }, header))
+      .toBe(modified.getTime())
+    expect(polarSourceTimestampMs({}, { modified_at: modified.toISOString() }, header)).toBe(modified.getTime())
   })
 
-  it('returns duplicate when receipt already exists (re-delivery)', async () => {
-    const { db } = makeFakeD1([
-      [
-        { meta: { changes: 0 } },
-        { meta: { changes: 0 } },
-      ],
-    ])
-    const result = await applyPolarWebhookAtomically(db, { ...baseInput })
-    expect(result).toEqual({ kind: 'duplicate' })
+  it('falls back to the envelope timestamp when modifiedAt is null', () => {
+    expect(polarSourceTimestampMs({ timestamp: envelope }, { modifiedAt: null, createdAt: created }, header))
+      .toBe(envelope.getTime())
   })
 
-  it('returns stale when receipt is new but billing guard rejects', async () => {
-    const { db } = makeFakeD1([
-      [
-        { meta: { changes: 1 } },
-        { meta: { changes: 0 } },
-      ],
-    ])
-    const result = await applyPolarWebhookAtomically(db, { ...baseInput })
-    expect(result).toEqual({ kind: 'stale' })
+  it('falls back to the webhook-timestamp header (seconds → ms)', () => {
+    expect(polarSourceTimestampMs({}, { createdAt: created }, header)).toBe(1_790_000_000_000)
   })
 
-  it('calls db.batch with exactly two statements in one transaction', async () => {
-    const { db, batchCalls } = makeFakeD1([
-      [
-        { meta: { changes: 1 } },
-        { meta: { changes: 1 } },
-      ],
-    ])
-    await applyPolarWebhookAtomically(db, { ...baseInput })
-    expect(batchCalls).toHaveLength(1)
-    expect(batchCalls[0]).toHaveLength(2)
+  it('falls back to createdAt, then now', () => {
+    expect(polarSourceTimestampMs({}, { created_at: created.toISOString() }, new Headers())).toBe(created.getTime())
+    expect(polarSourceTimestampMs({}, {}, new Headers(), 42)).toBe(42)
+  })
+})
+
+// ── polarCancelAtPeriodEnd ────────────────────────────────────────────────────
+
+describe('polarCancelAtPeriodEnd', () => {
+  it('reads the flag from subscription events, including uncancel (false)', () => {
+    expect(polarCancelAtPeriodEnd('subscription.canceled', { cancelAtPeriodEnd: true })).toBe(true)
+    expect(polarCancelAtPeriodEnd('subscription.uncanceled', { cancel_at_period_end: false })).toBe(false)
   })
 
-  it('first statement is receipt INSERT with ON CONFLICT DO NOTHING', async () => {
-    const { db, batchCalls } = makeFakeD1([
-      [
-        { meta: { changes: 1 } },
-        { meta: { changes: 1 } },
-      ],
-    ])
-    await applyPolarWebhookAtomically(db, { ...baseInput })
-    const receipt = batchCalls[0][0]
-    expect(receipt.sql).toContain('polar_webhook_receipts')
-    expect(receipt.sql).toContain('ON CONFLICT(event_id) DO NOTHING')
-    expect(receipt.bindings[0]).toBe('evt_abc')
-  })
-
-  it('second statement is billing conditional upsert with monotonic guard', async () => {
-    const { db, batchCalls } = makeFakeD1([
-      [
-        { meta: { changes: 1 } },
-        { meta: { changes: 1 } },
-      ],
-    ])
-    await applyPolarWebhookAtomically(db, { ...baseInput })
-    const billing = batchCalls[0][1]
-    expect(billing.sql).toContain('billing_customers')
-    expect(billing.sql).toContain('ON CONFLICT(workspace_id) DO UPDATE')
-    expect(billing.sql).toContain('webhook_updated_at < excluded.webhook_updated_at')
-    expect(billing.sql).toContain('webhook_event_id < excluded.webhook_event_id')
-    // Bindings include the new monotonic fields
-    expect(billing.bindings).toContain('evt_abc')
-    expect(billing.bindings).toContain(1_000)
-  })
-
-  it('propagates batch errors (atomicity — neither committed)', async () => {
-    const db = {
-      prepare() {
-        return { bind() { return {} } }
-      },
-      async batch() {
-        throw new Error('D1 batch failed')
-      },
-    }
-    await expect(
-      applyPolarWebhookAtomically(db as unknown as D1Database, { ...baseInput }),
-    ).rejects.toThrow('D1 batch failed')
+  it('is null (leave unchanged) for checkout events and missing flags', () => {
+    expect(polarCancelAtPeriodEnd('checkout.updated', { cancelAtPeriodEnd: true })).toBeNull()
+    expect(polarCancelAtPeriodEnd('subscription.updated', {})).toBeNull()
   })
 })

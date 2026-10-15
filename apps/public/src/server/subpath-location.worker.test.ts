@@ -4,7 +4,8 @@
  * primary-location redirects, location-fed producers, and cache-key split.
  * Runs against real miniflare D1; IDs are file-scoped ("spl-*").
  */
-import { beforeAll, describe, expect, inject, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, inject, it, vi } from "vitest";
+import { PAST_DUE_GRACE_DAYS } from "@vc/config";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { parsePublicRuntimeEnv } from "./public-url";
@@ -440,6 +441,66 @@ describe("review fixes: entitlement and rewrite passes", () => {
     // The data-layer helper resolves the same candidates directly.
     const slugs = await resolvePublishedLinkSlugs(env.DB, site!.id, ["[a](/old-link-0) [b](/old-link-200) [c](/missing)"]);
     expect(slugs).toEqual(new Set(["old-link-0", "old-link-200"]));
+  });
+});
+
+describe("past_due grace on the subpath mount", () => {
+  const GRACE_HOST = "spl-grace.basedui.dev";
+  const GRACE_PROXY_ID = "spl-grace-0123456789abcde";
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // Non-zero millisecond start so the deadline lands mid-second.
+  const SINCE = T * 1000 + 2 * DAY_MS + 417;
+  const DEADLINE = SINCE + PAST_DUE_GRACE_DAYS * DAY_MS;
+  const graceLocation = { origin: `https://${GRACE_HOST}`, basePath: "", assetOrigin: `https://${GRACE_HOST}`, proxied: false };
+  const graceRequest = (path: string) => new Request(`https://${GRACE_HOST}${path}`, { headers: { host: GRACE_HOST } });
+  const ingressPath = `/_vc/p/${GRACE_PROXY_ID}/hello`;
+  // Pins the clock the public entitlement gate reads (Date.now() / 1000, unfloored).
+  const clockAt = (ms: number) => vi.spyOn(Date, "now").mockReturnValue(ms);
+
+  beforeAll(async () => {
+    const exec = (sql: string, ...binds: unknown[]) => env.DB.prepare(sql).bind(...binds).run();
+    await exec("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      "ws-spl-grace", "Spl Grace", "ws-spl-grace", T, T);
+    await exec("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "site-spl-grace", "ws-spl-grace", "Grace Blog", "spl-grace", T, T);
+    await exec("INSERT INTO billing_customers (id, workspace_id, status, past_due_since, created_at, updated_at) VALUES (?, ?, 'past_due', ?, ?, ?)",
+      "bc-spl-grace", "ws-spl-grace", SINCE, T, T);
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "dom-spl-grace-def", "site-spl-grace", GRACE_HOST, "default", "active", null, null, T, T);
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "dom-spl-grace-sub", "site-spl-grace", "grace.example.com", "subpath", "active", "/blog", GRACE_PROXY_ID, T, T);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("serves and redirects to the subpath mount until the exact millisecond deadline", async () => {
+    for (const ms of [SINCE, DEADLINE - 1]) {
+      clockAt(ms);
+      expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
+        .toMatchObject({ kind: "proxied", path: "/hello" });
+      const redirect = await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation);
+      expect(redirect?.headers.get("location")).toBe("https://grace.example.com/blog/hello");
+    }
+    for (const ms of [DEADLINE, DEADLINE + 1]) {
+      clockAt(ms);
+      expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
+        .toEqual({ kind: "not-found" });
+      expect(await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation)).toBeNull();
+    }
+  });
+
+  it("does not mount the subpath when the past_due start is unknown", async () => {
+    await env.DB.prepare("UPDATE billing_customers SET past_due_since = NULL WHERE workspace_id = ?").bind("ws-spl-grace").run();
+    try {
+      clockAt(SINCE);
+      expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
+        .toEqual({ kind: "not-found" });
+    } finally {
+      await env.DB.prepare("UPDATE billing_customers SET past_due_since = ? WHERE workspace_id = ?").bind(SINCE, "ws-spl-grace").run();
+    }
   });
 });
 

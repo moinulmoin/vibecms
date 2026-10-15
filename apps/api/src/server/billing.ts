@@ -2,20 +2,31 @@ import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
 import { createDataAccess } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
-import { LAUNCH_OFFER, PRICING } from '@vc/config'
+import { LAUNCH_OFFER, PRICING, pastDueGraceEndsAt } from '@vc/config'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
 import { HTTPClient } from '@polar-sh/sdk/lib/http.js'
 import { POLAR_API_VERSION } from '@vc/config'
 import { env } from 'cloudflare:workers'
-import { applyPolarWebhookAtomically, polarEventId } from '@/server/polar-webhook-receipts'
+import {
+  applyPolarWebhookAtomically,
+  polarCancelAtPeriodEnd,
+  polarEventId,
+  polarSourceTimestampMs,
+} from '@/server/polar-webhook-receipts'
 import type { AppUserContext } from '@/server/onboarding'
 
-type PolarWebhookEvent = { id?: unknown; type: string; data?: Record<string, unknown> }
+type PolarWebhookEvent = { id?: unknown; type: string; timestamp?: unknown; data?: Record<string, unknown> }
 
 export type BillingSnapshot = {
   status: BillingStatus
+  /** Epoch seconds. */
   currentPeriodEnd: number | null
   polarCustomerId: string | null
+  /** Polar cancel-at-period-end flag; null when unknown (self-hosted, no row, no subscription webhook yet). */
+  cancelAtPeriodEnd: boolean | null
+  /** First past-due transition and grace deadline, epoch milliseconds. */
+  pastDueSince: number | null
+  graceEndsAt: number | null
 }
 
 export function isSelfHosted() {
@@ -29,7 +40,7 @@ export async function ensureBillingRow(workspaceId: string, status: BillingStatu
 
 export async function getBilling(workspaceId: string): Promise<BillingSnapshot> {
   if (isSelfHosted()) {
-    return { status: 'active', currentPeriodEnd: null, polarCustomerId: null }
+    return { status: 'active', currentPeriodEnd: null, polarCustomerId: null, cancelAtPeriodEnd: null, pastDueSince: null, graceEndsAt: null }
   }
   const db = createDataAccess(env.DB)
   const row = await db.billing.getBillingRecord(workspaceId)
@@ -37,6 +48,9 @@ export async function getBilling(workspaceId: string): Promise<BillingSnapshot> 
     status: row?.status ?? 'none',
     currentPeriodEnd: row?.currentPeriodEnd ?? null,
     polarCustomerId: row?.polarCustomerId ?? null,
+    cancelAtPeriodEnd: row?.cancelAtPeriodEnd ?? null,
+    pastDueSince: row?.pastDueSince ?? null,
+    graceEndsAt: row ? pastDueGraceEndsAt(row) : null,
   }
 }
 
@@ -157,8 +171,16 @@ export async function createCheckoutSessionForApp(
   if (await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)) {
     return { kind: 'error', code: 'managed_workspace' }
   }
-  if (await db.billing.isActiveSubscription(app.workspaceId)) {
+  const existingBilling = await db.billing.getBillingRecord(app.workspaceId)
+  if (existingBilling?.status === 'active') {
     return { kind: 'error', code: 'already_active' }
+  }
+  // past_due is a live subscription in Polar's payment-retry window: the fix is
+  // updating the payment method in the portal, not a second subscription.
+  // Ended states (none/canceled/unpaid — Polar revokes to unpaid once retries
+  // are exhausted) may start a fresh checkout.
+  if (existingBilling?.status === 'past_due') {
+    return { kind: 'error', code: 'payment_past_due' }
   }
 
   const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : env.POLAR_MONTHLY_PRODUCT_ID
@@ -218,7 +240,7 @@ export async function createCheckoutSessionForApp(
         products: [productId],
         ...(discountId ? { discountId } : {}),
         successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
-        returnUrl: `${env.APP_URL}/dashboard/billing?error=unknown`,
+        returnUrl: `${env.APP_URL}/dashboard/billing`,
         externalCustomerId: app.workspaceId,
         customerEmail: app.user.email,
         customerName: app.user.name,
@@ -274,6 +296,7 @@ function subscriptionStatus(value: unknown): BillingStatus {
   return 'none'
 }
 
+/** current_period_end stays in epoch seconds (entitlement checks compare seconds). */
 function epochSeconds(value: unknown) {
   if (value instanceof Date) return Math.floor(value.getTime() / 1000)
   if (typeof value === 'string') {
@@ -335,10 +358,7 @@ export async function handlePolarWebhook(request: Request) {
       ? 'active'
       : undefined
   if (!status) return Response.json({ received: true })
-  const sourceTimestamp =
-    epochSeconds(data.updatedAt ?? data.updated_at) ??
-    epochSeconds(data.createdAt ?? data.created_at) ??
-    Math.floor(Date.now() / 1000)
+  const sourceTimestamp = polarSourceTimestampMs(event, data, request.headers)
   const eventId = await polarEventId(event, payload, request.headers)
   const subscriptionId =
     stringField(data, 'subscriptionId', 'subscription_id') ??
@@ -351,7 +371,8 @@ export async function handlePolarWebhook(request: Request) {
     appliedStatus: status,
     polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
     polarSubscriptionId: subscriptionId,
-    currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end) ?? null,
+    currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
+    cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
   })
   return Response.json({ received: true, result: result.kind })
 }

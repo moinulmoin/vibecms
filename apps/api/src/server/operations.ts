@@ -1,7 +1,7 @@
 import { AppError, archivePost, BillingRequiredError, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
 import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
-import type { ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
+import type { BillingNoticeDto, ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import { normalizeThemeChoice } from "@vc/api-contract";
 import {
   mapActivityRow,
@@ -18,7 +18,9 @@ import {
   billingStatusForCore,
   getCoreBillingStatusForSite,
   resolveEffectiveEntitlementForSite,
+  type ApiEffectiveEntitlement,
 } from "./effective-entitlement";
+import { getBilling, type BillingSnapshot } from "./billing";
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
@@ -107,19 +109,47 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
   }
 }
 
+const BILLING_NOTICE_ACTION = "Update the payment method in the dashboard: Settings > Billing";
+
+/**
+ * Owner-relayable notice for a failed payment; self-hosted getBilling is always active, so never noticed.
+ * paidFeaturesUntil is the latest known paid-through instant across the still-active Polar grace window
+ * and a finite managed sponsorship; null when no date is guaranteed (grace over/unknown, or an
+ * indefinite sponsorship that keeps paid features independently of Polar).
+ */
+function billingNoticeFor(billing: BillingSnapshot, entitlement: ApiEffectiveEntitlement, nowMs: number): BillingNoticeDto | null {
+  if (billing.status !== "past_due") return null;
+  const graceEndsAt = billing.graceEndsAt !== null && billing.graceEndsAt > nowMs ? billing.graceEndsAt : null;
+  const sponsorship = entitlement.managedSponsorship;
+  let paidUntilMs = graceEndsAt;
+  if (sponsorship.active) {
+    paidUntilMs = sponsorship.expiresAt === null ? null : Math.max(sponsorship.expiresAt * 1000, graceEndsAt ?? 0);
+  }
+  return {
+    kind: "payment_failed",
+    paidFeaturesUntil: paidUntilMs === null ? null : new Date(paidUntilMs).toISOString(),
+    action: BILLING_NOTICE_ACTION,
+  };
+}
+
 export async function getSiteOp(ctx: OperationContext) {
   requireScope(ctx.actor, "sites:read");
-  const [row, voiceProfile, form] = await Promise.all([
+  const nowMs = Date.now();
+  const [row, voiceProfile, form, billing, entitlement] = await Promise.all([
     createDataAccess(env.DB).sites.getCurrentSite(ctx.siteId),
     getVoiceProfileForSite(ctx.siteId),
     getNewsletterSettingsForApp(appUser(ctx)),
+    getBilling(ctx.workspaceId),
+    resolveEffectiveEntitlementForSite(ctx.siteId, { now: nowMs / 1000 }),
   ]);
   const [url, assetUrl] = row
     ? await Promise.all([getSitePublicBaseUrl(ctx.siteId, row.slug), getSiteAssetBaseUrl(ctx.siteId, row.slug)])
     : [null, null];
   const site = mapSiteRow(row, url, voiceProfile, assetUrl);
-  return site && { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
-    description: form.subtext, button: form.buttonLabel } };
+  if (!site) return site;
+  const billingNotice = billingNoticeFor(billing, entitlement, nowMs);
+  return { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
+    description: form.subtext, button: form.buttonLabel }, ...(billingNotice ? { billingNotice } : {}) };
 }
 
 function mutationResult(result: { kind: 'ok' | 'error'; code: string }) {

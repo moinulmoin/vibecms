@@ -15,7 +15,17 @@ The paid plan removes those ceilings: unlimited posts, 5 GB of media, analytics,
 
 ## Upgrade and manage
 
-Open **Dashboard > Settings > Plan & billing**. The owner sees the current plan, the full allowance table, and **Upgrade** / **Yearly** checkout buttons. Once subscribed, **Manage subscription** opens the billing portal for payment details and cancellation; **Invoices and payment details** appears for past customers. Checkout and the portal are owner-only actions — editors see "Only the owner can change the plan."
+Open **Dashboard > Settings > Plan & billing**. The owner sees the current plan, the full allowance table, and **Upgrade** / **Yearly** checkout buttons. Once subscribed, **Manage subscription** opens the billing portal for payment details and cancellation; **Invoices and payment details** appears for past customers. Leaving checkout or the portal brings you back to Plan & billing. Checkout and the portal are owner-only actions — editors see "Only the owner can change the plan."
+
+## Canceling and failed payments
+
+Canceling in the billing portal schedules the end of the subscription: the plan stays paid until the end of the current billing period, and Plan & billing shows **Ends** with that date instead of **Renews**. After it ends, the free plan applies and checkout is available again.
+
+If a renewal payment fails, the subscription is past due and paid features stay on for a 7-day grace period from the first failed payment. Every dashboard page shows "Your last payment failed. Paid features stay on until _date_." with **Update payment**, which opens the billing portal to fix the payment method; editors see a note to ask the owner instead. Starting a new checkout is not offered while a payment is past due.
+
+The grace clock starts with the first accepted past-due notification and does not restart on repeated failures. If notifications are delayed while our endpoint is failing, the clock can start later, extending grace by at most that delay. Older or duplicate notifications never change the current clock. Legacy past-due subscriptions with an unknown failure date receive no retroactive grace. An accepted successful payment, including a completed checkout, ends that past-due episode; a later failed payment starts a new grace period.
+
+If the payment is still failing when the grace period ends, the free plan applies (see below) and the notice changes to "Your last payment failed. Paid features are paused." Nothing is deleted, including custom domain and subpath location settings. Once the payment goes through, the subscription is active again and paid features return immediately. A subscription that ends — canceled, unpaid after the retries run out, or revoked — drops to the free plan with no grace period.
 
 ## When paid access ends
 
