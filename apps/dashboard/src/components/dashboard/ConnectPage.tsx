@@ -46,11 +46,20 @@ export function lastUsedLabel(lastUsedAt: number | null) {
   return lastUsedAt ? `Last used ${formatRelative(lastUsedAt)}` : 'Never used'
 }
 
-/** The one-time key reveal. Shown right after creation, then gone for good. */
+/**
+ * The one-time key reveal. Kept in sessionStorage so a refresh doesn't lose
+ * it; Done clears it for good. Rendered with `key={flash.id}` so a second key
+ * remounts it and pulls focus and scroll to it again.
+ */
 export function KeyReveal({ flash, onDone }: { flash: TokenFlash; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    ref.current?.focus()
+    const node = ref.current
+    if (!node) return
+    // "Create key" sits at the bottom of the page; the reveal is at the top.
+    node.focus({ preventScroll: true })
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    node.scrollIntoView?.({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [])
   return (
     <div
@@ -66,7 +75,7 @@ export function KeyReveal({ flash, onDone }: { flash: TokenFlash; onDone: () => 
             Your key for “{flash.name}”
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
-            Copy it now. For your security, it won’t be shown again. It’s already filled in below.
+            Copy it now. After you click Done, it won’t be shown again. It’s already filled in below.
           </p>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
@@ -146,7 +155,7 @@ export function NewKeyForm({
     >
       <Field className="max-w-sm">
         <FieldLabel htmlFor="key-name">Name</FieldLabel>
-        <Input id="key-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required />
+        <Input id="key-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required autoFocus />
         <p className="text-sm text-muted-foreground">Shown in Activity next to what this agent changes.</p>
       </Field>
       <fieldset className="grid gap-2">
@@ -190,6 +199,16 @@ export function ConnectPage() {
   const query = useQuery(connectQuery)
   const [flash, setFlash] = useState<TokenFlash | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const newKeyButtonRef = useRef<HTMLButtonElement>(null)
+  // Done and Cancel unmount the button that was pressed; focus goes back to
+  // "New key" once it re-renders.
+  const [refocusNewKey, setRefocusNewKey] = useState(false)
+
+  useEffect(() => {
+    if (!refocusNewKey) return
+    setRefocusNewKey(false)
+    newKeyButtonRef.current?.focus()
+  }, [refocusNewKey])
   const [createPending, setCreatePending] = useState(false)
 
   useEffect(() => {
@@ -252,6 +271,8 @@ export function ConnectPage() {
       queryClient.setQueryData(queryKeys.connect, (prev: typeof data) =>
         prev ? { ...prev, apiKeys: prev.apiKeys.filter((key) => key.id !== keyId) } : prev,
       )
+      // The deleted row (and its button) is gone.
+      setRefocusNewKey(true)
       toast({ variant: 'success', title: 'Key deleted', message: 'Agents using it can no longer reach your blog.' })
       void queryClient.invalidateQueries({ queryKey: queryKeys.connect })
     } catch {
@@ -294,7 +315,16 @@ export function ConnectPage() {
     <>
       {header}
 
-      {flash ? <KeyReveal flash={flash} onDone={dismissFlash} /> : null}
+      {flash ? (
+        <KeyReveal
+          key={flash.id ?? flash.token}
+          flash={flash}
+          onDone={() => {
+            dismissFlash()
+            setRefocusNewKey(true)
+          }}
+        />
+      ) : null}
 
       <Section title="Add vibecms to your agent" description="Pick your agent and copy one thing. That’s the whole setup.">
         <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} />
@@ -318,7 +348,7 @@ export function ConnectPage() {
         description={data.canManage ? 'Each agent gets its own key. Delete one to cut that agent off instantly.' : undefined}
         action={
           data.canManage && !formOpen ? (
-            <Button type="button" variant="outline" onClick={() => setFormOpen(true)}>
+            <Button ref={newKeyButtonRef} type="button" variant="outline" onClick={() => setFormOpen(true)}>
               <Plus aria-hidden data-icon="inline-start" /> New key
             </Button>
           ) : undefined
@@ -329,7 +359,14 @@ export function ConnectPage() {
         ) : (
           <>
             {formOpen ? (
-              <NewKeyForm pending={createPending} onCreate={(input) => void createKey(input)} onCancel={() => setFormOpen(false)} />
+              <NewKeyForm
+                pending={createPending}
+                onCreate={(input) => void createKey(input)}
+                onCancel={() => {
+                  setFormOpen(false)
+                  setRefocusNewKey(true)
+                }}
+              />
             ) : null}
             {keys.length ? (
               <ul aria-label="Agent keys" className="grid">

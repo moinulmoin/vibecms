@@ -37,6 +37,10 @@ export const MEDIA = {
   mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as const,
 } as const;
 
+/** Hosted blog address (`<address>.<public-domain>`) bounds for newly chosen addresses. */
+export const SITE_ADDRESS_MIN_LENGTH = 3;
+export const SITE_ADDRESS_MAX_LENGTH = 42;
+
 /** Root paths routed by the public worker instead of serving blog posts. */
 export const RESERVED_POST_SLUGS = [
   "dashboard", "api", "blog", "login", "mcp", "media-assets", "internal",
@@ -191,7 +195,10 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   version_conflict: { variant: "error", title: "Post changed", message: "Review the latest version, then publish again." },
-  slug_reserved: { variant: "error", title: "Name reserved", message: "That name is reserved. Please choose another." },
+  slug_reserved: { variant: "error", title: "Address reserved", message: "That address is reserved. Choose another." },
+  address_taken: { variant: "error", title: "Address taken", message: "That address is taken. Choose another." },
+  address_too_short: { variant: "error", title: "Address too short", message: `Use at least ${SITE_ADDRESS_MIN_LENGTH} letters or numbers.` },
+  address_required: { variant: "error", title: "Choose an address", message: "Choose an address using letters a-z, numbers, and hyphens." },
   token_expired: { variant: "error", title: "Token unavailable", message: "The token could not be shown. Create a new one." },
   token_limit: { variant: "error", title: "Token limit reached", message: `Revoke an unused token first. Up to ${API_TOKENS_MAX} active tokens are allowed.` },
   yearly_unavailable: { variant: "error", title: "Yearly plan unavailable", message: "Yearly billing is not configured yet. Choose monthly for now." },

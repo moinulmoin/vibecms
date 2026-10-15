@@ -2,6 +2,14 @@
 
 All notable changes to vibecms will be documented in this file.
 
+## Unreleased
+
+- Dashboard launch fixes: restore AA secondary/error text contrast, validate permanent blog addresses inline with race-safe taken-address feedback, and add onboarding sign-out.
+- Clipboard controls no longer claim success after failed copies; manual-copy recovery preserves multiline values. Shared segmented controls now support radio arrow-key navigation.
+- Restore dialog, mobile navigation, OTP and key-creation focus; protect unsaved media alt text; rebase subscriber-form revisions on discard.
+- Overlay dismissal preserves focus already moved to a destination page. Re-activating selected theme layout and editor view segments keeps their preview/panel actions without duplicating selection changes.
+- Correct overview progress and one-time-key persistence copy, use inline site-name validation, remove theme-preview key/nesting warnings, label archived-post actions Unarchive, and offer retry when analytics data is unavailable.
+
 ## 2026-10-14
 
 - Renamed the npm CLI package to `vibecms-cli` to avoid the unrelated `@vibecms` npm scope; the installed command remains `vibecms`.

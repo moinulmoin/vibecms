@@ -4,12 +4,14 @@ import { Image as ImageIcon, Search, Trash2, Upload, X } from 'lucide-react'
 import { CopyButton, Field, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Progress } from '~/components/ui/progress'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { useToast } from '~/components/Toaster'
 import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
@@ -109,12 +111,26 @@ async function deleteAsset(assetId: string): Promise<'ok' | 'error' | 'unauthori
   return result.kind === 'ok' ? 'ok' : 'error'
 }
 
-function AltEditor({ asset, onSaved }: { asset: Asset; onSaved: (altText: string | null) => void }) {
+export function altTextDirty(draft: string | null, saved: string | null | undefined) {
+  return draft !== null && draft.trim() !== (saved ?? '')
+}
+
+/** Controlled: the inspector owns the draft so a dismissal can ask before dropping it. */
+function AltEditor({
+  asset,
+  value,
+  onChange,
+  onSaved,
+}: {
+  asset: Asset
+  value: string
+  onChange: (value: string) => void
+  onSaved: (altText: string | null) => void
+}) {
   const { toast } = useToast()
-  const [value, setValue] = useState(asset.altText ?? '')
   const [pending, setPending] = useState(false)
-  useEffect(() => setValue(asset.altText ?? ''), [asset.id, asset.altText])
-  const dirty = value.trim() !== (asset.altText ?? '')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const dirty = altTextDirty(value, asset.altText)
 
   async function save() {
     setPending(true)
@@ -125,6 +141,8 @@ function AltEditor({ asset, onSaved }: { asset: Asset; onSaved: (altText: string
         return
       }
       onSaved(value.trim().slice(0, 180) || null)
+      // Save disables itself once clean, which would drop focus to <body>.
+      textareaRef.current?.focus()
       toast({ variant: 'success', title: 'Alt text saved', message: 'Screen readers and search engines will use it.' })
     } catch {
       toast({ variant: 'error', title: 'Not saved', message: 'Check your connection and try again.' })
@@ -138,8 +156,9 @@ function AltEditor({ asset, onSaved }: { asset: Asset; onSaved: (altText: string
       <FieldLabel htmlFor={`alt-${asset.id}`}>Alt text</FieldLabel>
       <Textarea
         id={`alt-${asset.id}`}
+        ref={textareaRef}
         value={value}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         maxLength={180}
         rows={3}
         placeholder="Describe the image for people who can’t see it"
@@ -166,6 +185,15 @@ export function MediaPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [liveAnnounce, setLiveAnnounce] = useState<string | null>(null)
   const [inspectorId, setInspectorId] = useState<string | null>(null)
+  // null = untouched; the saved alt text shows until the person types. Tagged
+  // with its asset so a slow save for one image can't clear another's draft.
+  const [altDraft, setAltDraft] = useState<{ assetId: string; value: string } | null>(null)
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const discardingRef = useRef(false)
+  // Which tile opened the inspector, so focus can go back to it, or to a
+  // neighbour if that tile is gone by the time it closes.
+  const inspectorOpenedRef = useRef({ id: '', index: 0 })
+  const uploadButtonRef = useRef<HTMLButtonElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [missingAltOnly, setMissingAltOnly] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -323,6 +351,35 @@ export function MediaPage() {
   )
   const missingAltCount = assets.filter((asset) => !asset.altText).length
   const inspectorAsset = assets.find((asset) => asset.id === inspectorId) ?? null
+  const inspectorDraft = inspectorAsset && altDraft?.assetId === inspectorAsset.id ? altDraft.value : null
+  const altDirty = inspectorAsset ? altTextDirty(inspectorDraft, inspectorAsset.altText) : false
+
+  function openInspector(assetId: string, index: number) {
+    inspectorOpenedRef.current = { id: assetId, index }
+    setAltDraft(null)
+    setInspectorId(assetId)
+  }
+
+  function closeInspector() {
+    setInspectorId(null)
+    setAltDraft(null)
+  }
+
+  // Escape, outside click and the close button all land here.
+  function requestCloseInspector() {
+    if (altDirty) setDiscardOpen(true)
+    else closeInspector()
+  }
+
+  // Back to the image's tile; if it's gone (deleted, or filtered out by
+  // "Missing alt" after a save), its neighbour, else the upload button.
+  function restoreFocusAfterInspector(event: Event) {
+    event.preventDefault()
+    const { id, index } = inspectorOpenedRef.current
+    const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-media-tile]'))
+    const next = tiles.find((tile) => tile.dataset.mediaTile === id) ?? tiles[Math.min(index, tiles.length - 1)] ?? uploadButtonRef.current
+    next?.focus()
+  }
 
   return (
     <>
@@ -332,7 +389,7 @@ export function MediaPage() {
       <PageHeader
         title="Media"
         description={`Images for covers and posts. ${MEDIA.formatsLabel}, up to ${MEDIA.maxImageLabel} each.`}
-        action={<Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+        action={<Button ref={uploadButtonRef} type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
           <Upload aria-hidden data-icon="inline-start" /> Upload images
         </Button>}
       />
@@ -503,7 +560,7 @@ export function MediaPage() {
             />
           ) : (
             <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4" aria-label="Images">
-              {filteredAssets.map((asset) => {
+              {filteredAssets.map((asset, index) => {
                 const selected = selectedIds.includes(asset.id)
                 return (
                   <li key={asset.id} className="group grid min-w-0 gap-2">
@@ -515,7 +572,8 @@ export function MediaPage() {
                     >
                       <button
                         type="button"
-                        onClick={() => setInspectorId(asset.id)}
+                        data-media-tile={asset.id}
+                        onClick={() => openInspector(asset.id, index)}
                         aria-label={`Open ${asset.filename}`}
                         className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       >
@@ -569,8 +627,14 @@ export function MediaPage() {
         </div>
       )}
 
-      <Sheet open={inspectorId !== null} onOpenChange={(open) => (!open ? setInspectorId(null) : undefined)}>
-        <SheetContent side="right" className="flex w-full flex-col gap-5 overflow-y-auto sm:max-w-md">
+      <UnsavedNavigationGuard when={altDirty} />
+
+      <Sheet open={inspectorId !== null} onOpenChange={(open) => (!open ? requestCloseInspector() : undefined)}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-5 overflow-y-auto sm:max-w-md"
+          onCloseAutoFocus={restoreFocusAfterInspector}
+        >
           <SheetHeader>
             <SheetTitle className="truncate">{inspectorAsset?.filename ?? 'Image'}</SheetTitle>
             <SheetDescription>
@@ -585,10 +649,16 @@ export function MediaPage() {
                 <img className="max-h-80 w-full object-contain" src={assetUrl(inspectorAsset)} alt={inspectorAsset.altText ?? ''} />
               </div>
               <AltEditor
+                key={inspectorAsset.id}
                 asset={inspectorAsset}
-                onSaved={(altText) =>
-                  setAssets((prev) => prev.map((asset) => (asset.id === inspectorAsset.id ? { ...asset, altText } : asset)))
-                }
+                value={inspectorDraft ?? inspectorAsset.altText ?? ''}
+                onChange={(value) => setAltDraft({ assetId: inspectorAsset.id, value })}
+                onSaved={(altText) => {
+                  const savedId = inspectorAsset.id
+                  setAssets((prev) => prev.map((asset) => (asset.id === savedId ? { ...asset, altText } : asset)))
+                  // Clear only this image's draft, and only if nothing was typed since.
+                  setAltDraft((prev) => (prev?.assetId === savedId && !altTextDirty(prev.value, altText) ? null : prev))
+                }}
               />
               <div className="grid gap-2">
                 <p className="text-sm font-medium text-foreground">Use it</p>
@@ -611,9 +681,9 @@ export function MediaPage() {
                 pendingLabel="Deleting…"
                 helperText="Deleted images can’t be recovered."
                 onConfirm={async () => {
-                  const id = inspectorAsset.id
-                  setInspectorId(null)
-                  await handleDelete(id)
+                  // Close after the tile is gone, so focus lands on its neighbour rather than a removed node.
+                  await handleDelete(inspectorAsset.id)
+                  closeInspector()
                 }}
                 className="w-full text-muted-foreground hover:text-destructive"
               >
@@ -623,6 +693,40 @@ export function MediaPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={discardOpen} onOpenChange={(open) => (!open ? setDiscardOpen(false) : undefined)}>
+        <DialogContent
+          showCloseButton={false}
+          className="sm:max-w-md"
+          onCloseAutoFocus={(event) => {
+            // Discarding closes the inspector too; it returns focus to the image tile.
+            if (!discardingRef.current) return
+            discardingRef.current = false
+            event.preventDefault()
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Discard alt text changes?</DialogTitle>
+            <DialogDescription>Your alt text for this image has not been saved. Closing now will discard it.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDiscardOpen(false)}>
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                discardingRef.current = true
+                setDiscardOpen(false)
+                closeInspector()
+              }}
+            >
+              Discard changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

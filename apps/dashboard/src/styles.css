@@ -15,14 +15,21 @@
 
 /* Dashboard surfaces. Calmer than the landing: a soft page tone, translucent
    lines that recede, and hover fills that tint instead of flooding. Overrides
-   the shared app tokens for the dashboard only; the landing keeps its own. */
+   the shared app tokens for the dashboard only; the landing keeps its own.
+   This block comes after the shared `.dark` at equal specificity, so every
+   token set here MUST be set again in the `.dark` block below, or dark mode
+   inherits the light value. */
 :root {
   --background: oklch(0.972 0 0);
   --card: oklch(0.957 0 0);
   --popover: oklch(0.99 0 0);
   --secondary: oklch(0.945 0 0);
   --muted: oklch(0.945 0 0);
-  --muted-foreground: oklch(0.45 0 0);
+  /* Dark enough that muted text at 80% (sidebar group labels) clears 4.5:1 on
+     the sidebar and card. */
+  --muted-foreground: oklch(0.41 0 0);
+  /* Error text clears 4.5:1 on its own pale surface (destructive/10). */
+  --destructive: oklch(0.5 0.2 25);
   --accent: oklch(0 0 0 / 0.05);
   --border: oklch(0 0 0 / 0.1);
   --input: oklch(0 0 0 / 0.16);
@@ -38,6 +45,8 @@
   --popover: oklch(0.172 0.007 220);
   --secondary: oklch(0.19 0.007 210);
   --muted: oklch(0.19 0.007 210);
+  --muted-foreground: oklch(0.72 0.014 155);
+  --destructive: oklch(0.68 0.19 25);
   --accent: oklch(1 0 0 / 0.06);
   --accent-foreground: oklch(0.95 0.008 155);
   --border: oklch(1 0 0 / 0.09);

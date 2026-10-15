@@ -42,6 +42,7 @@ Last updated: 2026-10-15
 ### Media
 - Image upload (jpeg/png/webp/gif, <=10 MB) to R2, served at `/media-assets/<id>` (immutable 1-year cache).
 - Alt text, list / delete; delete blocked (409) when the asset is a post cover or site social image, and agent deletion requires the dedicated `assets:delete` scope.
+- Media inspector alt-text drafts are protected on dismissal and navigation; confirmed discard returns focus to the image tile.
 - Hosted storage quota: 5 GB (paid) with a live usage meter; free tier includes 10 images.
 
 ### Themes & presentation
@@ -104,10 +105,16 @@ Last updated: 2026-10-15
 - Connect-an-agent flow with focused snippets for Claude Code, Codex, Cursor, Droid, and generic MCP + a protected-read connection check + approval-first starter prompt.
 - Success/error feedback via toast (`?ok=`/`?error=` params converted and cleared).
 - Dashboard/login documents are `noindex` and use static-asset security headers, including a minimal CSP and frame denial, on SPA fallback routes as well as the root.
+- Shared single-choice controls use Radix radio keyboard navigation. Clipboard controls confirm only successful writes and expose selectable text with an accessible failure message when copying fails.
+- Controlled dialogs and sheets return focus to their opener; OTP rejection returns to the code input, and newly created keys receive focus in their reveal banner.
+- Connect preserves a revealed key across refreshes in this tab until Done clears it; the reveal copy states that boundary explicitly.
+- The overview counts a created key as its first required step and distinguishes key creation from an agent's first connection. Analytics configuration/read failures explain the unavailable data and offer Check again.
 
 ### Onboarding
 - One visible path: Blog setup -> Personalize -> Connect agent -> First draft -> Review exact version -> Publish proof, with manual writing as a fallback.
 - Setup collects name plus an editable name-derived slug, then navigates to `/dashboard/personalize`. No website-URL prefill, no scraping/import.
+- Setup uses one client/server address normalizer and reserved list. New addresses need at least 3 normalized characters; empty or non-Latin-only derivations prompt for an explicit address. Taken addresses, including racing claims, show a field error without losing entered values.
+- The address is permanent after setup; the blog name remains editable. Setup and personalize include sign-out.
 
 ### Billing (hosted)
 - Polar checkout (monthly + yearly) + customer portal (owner-only); webhook flips subscription status. Checkout validates product, discount, currency, and net amount.

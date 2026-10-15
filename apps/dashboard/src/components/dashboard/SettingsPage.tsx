@@ -12,7 +12,7 @@ import {
 import { ArrowDown, ArrowUp, Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
 import type { Asset, BillingStatus } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, SiteLocationView, VoiceProfileSettings } from '~/types/dashboard'
-import { Alert, CopyButton, Field, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
+import { Alert, CopyButton, Field, FieldError, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -278,6 +278,8 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const [navLinks, setNavLinks] = useState<NavLink[]>([])
   // Empty new rows stay quiet until the owner types in them or tries to save.
   const [linksAttempted, setLinksAttempted] = useState(false)
+  // Required site fields validate inline on save (the form is noValidate: no native bubbles).
+  const [siteFieldErrors, setSiteFieldErrors] = useState<{ name?: string; defaultSeoTitle?: string }>({})
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([])
   const linksCurrent = useRef({ navLinks, socialLinks })
   linksCurrent.current = { navLinks, socialLinks }
@@ -412,6 +414,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     setSocialLinks(latest?.socialLinks ?? [])
     setSiteDirty(false)
     setSiteChangedElsewhere(false)
+    setSiteFieldErrors({})
     setSiteFormRevision((revision) => revision + 1)
   }
 
@@ -420,6 +423,15 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
     const formElement = event.currentTarget
     const submitted = siteDraftFromForm(formElement)
     const nameChanged = submitted.name !== siteBaseline?.name
+    const fieldErrors = {
+      ...(submitted.name.trim() ? {} : { name: 'Give your blog a name.' }),
+      ...(submitted.defaultSeoTitle.trim() ? {} : { defaultSeoTitle: 'Add a title for search results.' }),
+    }
+    setSiteFieldErrors(fieldErrors)
+    if (fieldErrors.name || fieldErrors.defaultSeoTitle) {
+      formElement.querySelector<HTMLElement>(fieldErrors.name ? '#site-name' : '#default-seo-title')?.focus()
+      return
+    }
     if (!navLinksSchema.safeParse(navLinks).success || !socialLinksSchema.safeParse(socialLinks).success) {
       setLinksAttempted(true)
       return
@@ -605,8 +617,18 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
         <TabsContent value="site">
           <form
             key={siteFormRevision}
+            noValidate
             className="grid max-w-5xl gap-8"
-            onChange={(event) => { if (editable) markSiteDirty(event.currentTarget) }}
+            onChange={(event) => {
+              if (!editable) return
+              markSiteDirty(event.currentTarget)
+              // Clear an inline error as soon as the field has a value again.
+              const target = event.target
+              if (target instanceof HTMLInputElement && target.value.trim()) {
+                if (target.name === 'name' && siteFieldErrors.name) setSiteFieldErrors(({ name: _cleared, ...rest }) => rest)
+                if (target.name === 'defaultSeoTitle' && siteFieldErrors.defaultSeoTitle) setSiteFieldErrors(({ defaultSeoTitle: _cleared, ...rest }) => rest)
+              }
+            }}
             onSubmit={(event) => { if (editable) void handleSiteSave(event); else event.preventDefault() }}
           >
             <fieldset disabled={!editable} className="contents">
@@ -619,7 +641,16 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             <Section layout="aside" title="Your blog" description="What readers see first: its name, a line about it, and its icons.">
               <Field>
                 <FieldLabel htmlFor="site-name">Name</FieldLabel>
-                <Input id="site-name" name="name" required maxLength={80} defaultValue={site.name} />
+                <Input
+                  id="site-name"
+                  name="name"
+                  aria-required
+                  maxLength={80}
+                  defaultValue={site.name}
+                  aria-invalid={siteFieldErrors.name ? true : undefined}
+                  aria-describedby={siteFieldErrors.name ? 'site-name-error' : undefined}
+                />
+                {siteFieldErrors.name ? <FieldError id="site-name-error">{siteFieldErrors.name}</FieldError> : null}
               </Field>
               <Field>
                 <FieldLabel htmlFor="site-description">Description</FieldLabel>
@@ -711,7 +742,16 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             <Section layout="aside" title="Search and sharing" description="Defaults for search results and link previews. Each post can override them.">
               <Field>
                 <FieldLabel htmlFor="default-seo-title">Title</FieldLabel>
-                <Input id="default-seo-title" name="defaultSeoTitle" required maxLength={120} defaultValue={site.defaultSeoTitle} aria-describedby="default-seo-title-help" />
+                <Input
+                  id="default-seo-title"
+                  name="defaultSeoTitle"
+                  aria-required
+                  maxLength={120}
+                  defaultValue={site.defaultSeoTitle}
+                  aria-invalid={siteFieldErrors.defaultSeoTitle ? true : undefined}
+                  aria-describedby={siteFieldErrors.defaultSeoTitle ? 'default-seo-title-error default-seo-title-help' : 'default-seo-title-help'}
+                />
+                {siteFieldErrors.defaultSeoTitle ? <FieldError id="default-seo-title-error">{siteFieldErrors.defaultSeoTitle}</FieldError> : null}
                 <FieldHint id="default-seo-title-help">Shown in search results and browser tabs for your home page. Usually your blog name.</FieldHint>
               </Field>
               <Field>

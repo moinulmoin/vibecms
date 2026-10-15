@@ -40,7 +40,7 @@ vi.mock('~/lib/api-client', () => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
-  return { ...actual, useNavigate: () => async () => ({}) }
+  return { ...actual, useNavigate: () => async () => ({}), useBlocker: () => ({ status: 'idle' as const }) }
 })
 
 function deleteResponse(kind: 'ok' | 'error') {

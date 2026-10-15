@@ -256,6 +256,12 @@ function SignupForm() {
   const validation = newsletterSettingsSchema.safeParse(draft)
   const fieldErrors = validation.success ? {} : validation.error.flatten().fieldErrors
   const update = (patch: Partial<NewsletterSettings>) => setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
+  // Discard rebases on what is saved now: values and revision together, so the next edit
+  // saves against the version the owner is looking at instead of conflicting.
+  const discard = () => {
+    draftRevision.current = saved.updatedAt
+    setDraft({ enabled: saved.enabled, heading: saved.heading, subtext: saved.subtext, buttonLabel: saved.buttonLabel })
+  }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -341,7 +347,7 @@ function SignupForm() {
             Save changes
           </PendingSubmitButton>
           {dirty ? (
-            <Button type="button" variant="ghost" onClick={() => setDraft(saved)}>
+            <Button type="button" variant="ghost" onClick={discard}>
               Discard
             </Button>
           ) : null}

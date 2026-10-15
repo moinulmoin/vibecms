@@ -1,4 +1,4 @@
-import { SegmentedControl } from '~/components/ui/segmented-control'
+import { SegmentedControl, type SegmentedOption } from '~/components/ui/segmented-control'
 import type { Asset, Post, PostVersionSummary } from '@vc/core'
 import { THEME_PRESETS, resolvePresetId } from '@vc/config'
 import { renderRichContent } from '@vc/content'
@@ -980,11 +980,14 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
   const siteTheme = site ? { accent: site.themeAccent, font: site.themeFont, mode: site.themeMode } : undefined
   const publishBlockedReason = conflict ? 'Choose which version to keep first.' : null
 
-  const viewOptions: Array<{ value: EditorView; label: string }> = [
-    ...(reviewAvailable ? [{ value: 'review' as const, label: 'Review' }] : []),
-    { value: 'edit', label: 'Write' },
-    ...(isDesktop ? [{ value: 'split' as const, label: 'Split' }] : []),
-    { value: 'preview', label: 'Preview' },
+  // Picking any view, even the current one, leaves the mobile settings sheet
+  // so the chosen view is what shows.
+  const closeMobileSettings = () => setMobileSettings(false)
+  const viewOptions: Array<SegmentedOption<EditorView>> = [
+    ...(reviewAvailable ? [{ value: 'review' as const, label: 'Review', onActivate: closeMobileSettings }] : []),
+    { value: 'edit', label: 'Write', onActivate: closeMobileSettings },
+    ...(isDesktop ? [{ value: 'split' as const, label: 'Split', onActivate: closeMobileSettings }] : []),
+    { value: 'preview', label: 'Preview', onActivate: closeMobileSettings },
   ]
 
   const renderPreview = (fill: boolean) => (

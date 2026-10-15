@@ -299,8 +299,8 @@ export function PublicPageChrome({
             <div className={styles.sidebarGroup}>
               <p className={styles.sidebarLabel}>Recent</p>
               <ul className={styles.sidebarList}>
-                {sidebar.recent.slice(0, 6).map((post) => (
-                  <li key={post.href}>
+                {sidebar.recent.slice(0, 6).map((post, index) => (
+                  <li key={`${index}-${post.href}`}>
                     <a href={post.href} className={styles.sidebarLink}>
                       {post.title}
                     </a>
@@ -314,7 +314,7 @@ export function PublicPageChrome({
               <p className={styles.sidebarLabel}>Tags</p>
               <ul className={styles.sidebarTags}>
                 {sidebar.tags.slice(0, 16).map((tag) => (
-                  <li key={tag.href}>
+                  <li key={tag.name}>
                     <a href={tag.href} className={styles.sidebarTag}>
                       {tag.name}
                       {tag.count ? <span className={styles.sidebarCount}>{tag.count}</span> : null}

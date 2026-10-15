@@ -554,10 +554,9 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
         </div>
       </section>
 
-      <form
-        className="mt-6 grid gap-8 xl:grid-cols-[18.5rem_minmax(0,1fr)] xl:items-start"
-        onSubmit={(e) => void handleThemeSave(e)}
-      >
+      {/* Not a <form>: the live preview renders the blog's own search/subscribe forms,
+          which must not nest inside the settings form. Only the save bar submits. */}
+      <div className="mt-6 grid gap-8 xl:grid-cols-[18.5rem_minmax(0,1fr)] xl:items-start">
         <div className="flex flex-col gap-7 xl:sticky xl:top-6">
           {editable && previousLook ? (
             <div className="-mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground" role="status">
@@ -645,15 +644,13 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
               </div>
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Home page</span>
-                <SegmentedControl fill size="xs" label="Home page" disabled={!editable} value={selectedIndex}
-                  onChange={(value) => { setSelectedIndex(value); setPreviewPage('home') }}
-                  options={TEMPLATE_INDEXES.map((value) => ({ value, label: INDEX_LABELS[value] }))} />
+                <SegmentedControl fill size="xs" label="Home page" disabled={!editable} value={selectedIndex} onChange={setSelectedIndex}
+                  options={TEMPLATE_INDEXES.map((value) => ({ value, label: INDEX_LABELS[value], onActivate: () => setPreviewPage('home') }))} />
               </div>
               <div className={CONTROL_ROW}>
                 <span className="text-xs text-muted-foreground">Article header</span>
-                <SegmentedControl fill size="xs" label="Article header" disabled={!editable} value={selectedHeader}
-                  onChange={(value) => { setSelectedHeader(value); setPreviewPage('article') }}
-                  options={TEMPLATE_HEADERS.map((value) => ({ value, label: HEADER_LABELS[value] }))} />
+                <SegmentedControl fill size="xs" label="Article header" disabled={!editable} value={selectedHeader} onChange={setSelectedHeader}
+                  options={TEMPLATE_HEADERS.map((value) => ({ value, label: HEADER_LABELS[value], onActivate: () => setPreviewPage('article') }))} />
               </div>
             </div>
           </section>
@@ -815,17 +812,20 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
         </div>
 
         {editable ? (
-          <FloatingSaveBar
-            className="xl:col-span-2"
-            dirty={themeDirty}
-            pending={saving}
-            onDiscard={discard}
-            onShortcut={() => void handleThemeSave()}
-            hint="Readers still see your current theme."
-            notice={saveError ? { tone: 'error', text: saveError } : justSaved ? { tone: 'success', text: 'Your blog is updated.' } : null}
-          />
+          // display: contents keeps the bar a grid child, so it still floats over the whole page.
+          <form className="contents" onSubmit={(e) => void handleThemeSave(e)}>
+            <FloatingSaveBar
+              className="xl:col-span-2"
+              dirty={themeDirty}
+              pending={saving}
+              onDiscard={discard}
+              onShortcut={() => void handleThemeSave()}
+              hint="Readers still see your current theme."
+              notice={saveError ? { tone: 'error', text: saveError } : justSaved ? { tone: 'success', text: 'Your blog is updated.' } : null}
+            />
+          </form>
         ) : null}
-      </form>
+      </div>
     </>
   )
 }
