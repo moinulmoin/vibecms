@@ -210,13 +210,13 @@ export function isMarketingHost(request: Request, env: PublicRuntimeEnv): boolea
 export async function resolveSite(request: Request, db: D1Database, env: PublicRuntimeEnv): Promise<SiteRow | null> {
   const dataAccess = createDataAccess(db);
   const readModel = dataAccess.publicBlog;
-  const now = Math.floor(Date.now() / 1000);
 
   async function resolveRow(row: PublicSiteRow | null): Promise<SiteRow | null> {
     if (!row) return null;
     const effectiveEntitlement = await dataAccess.managedSites.resolveSite(row.id, {
       selfHosted: env.selfHosted,
-      now,
+      // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+      now: Date.now() / 1000,
     });
     if (!effectiveEntitlement) return null;
     if (row.resolvedDomainType === "custom" && !effectiveEntitlement.effective) return null;

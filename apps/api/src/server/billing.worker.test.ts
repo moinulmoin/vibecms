@@ -207,6 +207,50 @@ describe('createCheckoutSessionForApp — active subscription guard', () => {
     expect(createCheckout).not.toHaveBeenCalled()
     expect(listOpenCheckouts).not.toHaveBeenCalled()
   })
+
+  it('refuses a new checkout for past_due even when an open checkout exists', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = ''
+    const workspaceId = 'ws-billing-past-due-guard'
+    await seedWorkspace(workspaceId)
+    await createDataAccess(env.DB).billing.ensureBillingRow(workspaceId, 'past_due')
+    const result = await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', {
+      listOpenCheckouts: async () => [{
+        url: 'https://polar.example/existing', productId: 'prod_monthly',
+        currency: 'usd', netAmount: 1500, status: 'open',
+      }],
+      createCheckout: async () => ({
+        url: 'https://polar.example/new', productId: 'prod_monthly',
+        currency: 'usd', netAmount: 1500,
+      }),
+    })
+    expect(result).toEqual({ kind: 'error', code: 'payment_past_due' })
+    expect((await createDataAccess(env.DB).billing.getBillingRecord(workspaceId))?.status).toBe('past_due')
+  })
+
+  it.each(['canceled', 'none', 'unpaid'] as const)('allows fresh checkout for terminal/non-subscribed status %s with a neutral cancel return', async (status) => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = ''
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = `ws-billing-ended-${status}`
+    await seedWorkspace(workspaceId)
+    await createDataAccess(env.DB).billing.ensureBillingRow(workspaceId, status)
+    let returnUrl: string | undefined
+    const result = await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', {
+      listOpenCheckouts: async () => [],
+      createCheckout: async (body) => {
+        returnUrl = body.returnUrl
+        return {
+          url: 'https://polar.example/new', productId: 'prod_monthly',
+          currency: 'usd', netAmount: 1500,
+        }
+      },
+    })
+    expect(result).toEqual({ kind: 'ok', url: 'https://polar.example/new' })
+    expect(returnUrl).toBe('https://app.example.com/dashboard/billing')
+  })
 })
 
 describe('createCheckoutSessionForApp — open checkout reuse', () => {

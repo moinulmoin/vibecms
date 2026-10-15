@@ -17,7 +17,7 @@ import {
   type Actor,
   type BillingStatus,
 } from '@vc/core'
-import { API_USAGE_LIMITS } from '@vc/config'
+import { API_USAGE_LIMITS, PAST_DUE_GRACE_DAYS } from '@vc/config'
 import { createDataAccess, createD1PostRepository } from '@vc/db'
 import { addCustomDomainForApp, listCustomDomainsForApp } from './custom-domains'
 import { loadAnalyticsForApp } from './analytics'
@@ -70,6 +70,8 @@ const fullActor: Actor = {
 
 type SeedOptions = {
   polarStatus?: BillingStatus
+  /** Epoch milliseconds; only meaningful with polarStatus 'past_due'. */
+  pastDueSince?: number | null
   managedStatus?: 'active' | 'revoked'
   managedExpiresAt?: number | null
   siteStatus?: 'active' | 'archived'
@@ -98,8 +100,8 @@ async function seedSite(suffix: string, options: SeedOptions = {}): Promise<Seed
   if (polarStatus) {
     statements.push(
       env.DB.prepare(
-        'INSERT INTO billing_customers (id, workspace_id, status, current_period_end, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).bind(`entitlement-billing-${suffix}`, workspaceId, polarStatus, NOW + 100, timestamp, timestamp),
+        'INSERT INTO billing_customers (id, workspace_id, status, current_period_end, past_due_since, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).bind(`entitlement-billing-${suffix}`, workspaceId, polarStatus, NOW + 100, options.pastDueSince ?? null, timestamp, timestamp),
     )
   }
 
@@ -643,5 +645,198 @@ describe('managed API key ownership boundary', () => {
         .bind(managedKeyId)
         .first<{ revoked_at: number | null }>(),
     ).toMatchObject({ revoked_at: null })
+  })
+})
+
+describe('past_due grace through real entitlement paths', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000
+  // Non-zero millisecond start so the deadline never lands on a whole second.
+  const SINCE = NOW * 1000 - 2 * DAY_MS + 321
+  const DEADLINE = SINCE + PAST_DUE_GRACE_DAYS * DAY_MS
+  // Pins the clock every default-clock seam reads (Date.now() / 1000, unfloored).
+  const clockAt = (ms: number) => vi.spyOn(Date, 'now').mockReturnValue(ms)
+  const graceSite = (suffix: string, pastDueSince: number | null = SINCE) =>
+    seedSite(suffix, { polarStatus: 'past_due', pastDueSince })
+
+  it('is paid strictly before the millisecond deadline and maps to synthetic active only then', async () => {
+    const grace = await graceSite('grace-resolve')
+    const unknown = await graceSite('grace-unknown-start', null)
+
+    for (const ms of [SINCE, DEADLINE - 1]) {
+      // Injected fractional seconds and the default clock agree.
+      const injected = await resolveEffectiveEntitlementForSite(grace.siteId, { selfHosted: false, now: ms / 1000 })
+      clockAt(ms)
+      const defaulted = await resolveEffectiveEntitlementForWorkspace(grace.workspaceId, { selfHosted: false })
+      for (const entitlement of [injected, defaulted]) {
+        expect(entitlement).toMatchObject({
+          effective: true,
+          access: 'hosted_paid',
+          source: 'polar',
+          rawPolarStatus: 'past_due',
+          effectiveUntil: DEADLINE / 1000,
+          polar: { status: 'past_due', active: true, pastDueSince: SINCE, graceEndsAt: DEADLINE },
+        })
+        expect(billingStatusForCore(entitlement)).toBe('active')
+      }
+      expect(await getCoreBillingStatusForSite(grace.siteId, { selfHosted: false })).toBe('active')
+    }
+
+    for (const ms of [DEADLINE, DEADLINE + 1, DEADLINE + 999]) {
+      clockAt(ms)
+      const entitlement = await resolveEffectiveEntitlementForSite(grace.siteId, { selfHosted: false })
+      expect(entitlement).toMatchObject({
+        effective: false,
+        access: 'hosted_free',
+        source: 'none',
+        rawPolarStatus: 'past_due',
+        polar: { active: false, graceEndsAt: DEADLINE },
+      })
+      expect(billingStatusForCore(entitlement)).toBe('past_due')
+    }
+
+    clockAt(SINCE)
+    expect(await resolveEffectiveEntitlementForSite(unknown.siteId, { selfHosted: false })).toMatchObject({
+      effective: false,
+      access: 'hosted_free',
+      rawPolarStatus: 'past_due',
+      polar: { active: false, pastDueSince: null, graceEndsAt: null },
+    })
+  })
+
+  it('lifts the draft and publish caps within grace and restores them at the deadline', async () => {
+    const site = await graceSite('grace-caps')
+    const repo = createD1PostRepository(env.DB)
+    const draft = (index: number) => ({
+      siteId: site.siteId,
+      title: `Grace draft ${index}`,
+      slug: `grace-draft-${index}`,
+      contentMarkdown: '# Grace draft',
+    })
+
+    clockAt(DEADLINE)
+    const drafts = []
+    for (let index = 0; index < 5; index += 1) {
+      drafts.push(await createPost(repo, fullActor, draft(index), await getCoreBillingStatusForSite(site.siteId)))
+    }
+    await expect(createPost(repo, fullActor, draft(5), await getCoreBillingStatusForSite(site.siteId)))
+      .rejects.toBeInstanceOf(BillingRequiredError)
+
+    clockAt(DEADLINE - 1)
+    const sixth = await createPost(repo, fullActor, draft(5), await getCoreBillingStatusForSite(site.siteId))
+    expect(sixth.status).toBe('draft')
+
+    // Publish cap: five live posts at the deadline, a sixth only within grace.
+    clockAt(DEADLINE)
+    for (const post of drafts) {
+      await publishPost(repo, fullActor, {
+        siteId: site.siteId,
+        postId: post.id,
+        expectedVersionNumber: post.currentVersionNumber,
+        billingStatus: await getCoreBillingStatusForSite(site.siteId),
+      })
+    }
+    await expect(publishPost(repo, fullActor, {
+      siteId: site.siteId,
+      postId: sixth.id,
+      expectedVersionNumber: sixth.currentVersionNumber,
+      billingStatus: await getCoreBillingStatusForSite(site.siteId),
+    })).rejects.toBeInstanceOf(BillingRequiredError)
+
+    clockAt(DEADLINE - 1)
+    await expect(publishPost(repo, fullActor, {
+      siteId: site.siteId,
+      postId: sixth.id,
+      expectedVersionNumber: sixth.currentVersionNumber,
+      billingStatus: await getCoreBillingStatusForSite(site.siteId),
+    })).resolves.toMatchObject({ status: 'published' })
+  })
+
+  it('applies paid API quotas within grace and free quotas from the deadline', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.APP_ENV = 'production'
+    mutableEnv.API_USAGE_TEST_LIMIT = undefined
+    const site = await graceSite('grace-usage')
+    const summary = () => getApiUsageSummary({ workspaceId: site.workspaceId, siteId: site.siteId, tokenId: 'grace-usage-key' })
+
+    clockAt(DEADLINE - 1)
+    expect(await summary()).toMatchObject({
+      billingStatus: 'past_due',
+      polarStatus: 'past_due',
+      effective: true,
+      access: 'hosted_paid',
+      source: 'polar',
+      calls: { day: { limit: API_USAGE_LIMITS.paid.calls.day }, month: { limit: API_USAGE_LIMITS.paid.calls.month } },
+      writes: { day: { limit: API_USAGE_LIMITS.paid.writes.day }, month: { limit: API_USAGE_LIMITS.paid.writes.month } },
+    })
+    clockAt(DEADLINE)
+    expect(await summary()).toMatchObject({
+      billingStatus: 'past_due',
+      effective: false,
+      access: 'hosted_free',
+      source: 'none',
+      calls: { day: { limit: API_USAGE_LIMITS.free.calls.day }, month: { limit: API_USAGE_LIMITS.free.calls.month } },
+      writes: { day: { limit: API_USAGE_LIMITS.free.writes.day }, month: { limit: API_USAGE_LIMITS.free.writes.month } },
+    })
+
+    // Counter period ids follow the real calendar day (`new Date()`), not the pinned clock.
+    const today = new Date().toISOString().slice(0, 10)
+    await env.DB.prepare(
+      `INSERT INTO usage_counters
+         (id, workspace_id, site_id, period, metric, value, created_at, updated_at)
+       VALUES (?, ?, NULL, ?, 'calls', ?, ?, ?)`,
+    )
+      .bind(`workspace:${site.workspaceId}:calls:${today}`, site.workspaceId, today, API_USAGE_LIMITS.free.calls.day, NOW, NOW)
+      .run()
+    const budget = () => enforceApiBudget({ workspaceId: site.workspaceId, siteId: site.siteId, tokenId: 'grace-budget-key', kind: 'read' })
+    clockAt(DEADLINE - 1)
+    await expect(budget()).resolves.toBeUndefined()
+    clockAt(DEADLINE)
+    await expect(budget()).rejects.toBeInstanceOf(RateLimitError)
+  })
+
+  it('gates media, custom domains, and analytics on the same deadline', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const site = await graceSite('grace-gates')
+
+    clockAt(DEADLINE - 1)
+    await expect(assertMediaUploadAllowed(site.siteId)).resolves.toMatchObject({ skipQuota: false, quotaType: 'bytes' })
+    await expect(addCustomDomainForApp(appFor(site), 'grace-within.example.test'))
+      .resolves.toMatchObject({ ok: true, domain: { hostname: 'grace-within.example.test' } })
+    expect(await loadAnalyticsForApp(appFor(site), 7)).toMatchObject({ status: 'unavailable', reason: 'not_configured' })
+
+    clockAt(DEADLINE)
+    await expect(assertMediaUploadAllowed(site.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 10 })
+    await expect(addCustomDomainForApp(appFor(site), 'grace-expired.example.test'))
+      .resolves.toEqual({ ok: false, code: 'domain_billing' })
+    expect(await loadAnalyticsForApp(appFor(site), 7)).toEqual({ status: 'locked', retentionDays: 365 })
+  })
+
+  it('rolls up analytics for a site within grace and skips one at its exact deadline', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const clock = NOW * 1000 + 654
+    const within = await graceSite('grace-rollup-within', clock - DAY_MS)
+    const expired = await graceSite('grace-rollup-expired', clock - PAST_DUE_GRACE_DAYS * DAY_MS)
+    clockAt(clock)
+
+    const fetcher: typeof fetch = async () =>
+      new Response(JSON.stringify({ data: [] }), { headers: { 'content-type': 'application/json' } })
+    await runAnalyticsRollup(
+      {
+        ...env,
+        SELF_HOSTED: 'false',
+        ANALYTICS_ACCOUNT_ID: 'account',
+        ANALYTICS_DATASET: 'dataset',
+        ANALYTICS_API_TOKEN: 'x',
+        CLOUDFLARE_ZONE_ID: undefined,
+      } as typeof env,
+      fetcher,
+    )
+
+    const rolled = async (siteId: string) =>
+      (await env.DB.prepare('SELECT COUNT(*) AS count FROM analytics_rollup_state WHERE site_id = ?')
+        .bind(siteId)
+        .first<{ count: number }>())?.count
+    expect(await rolled(within.siteId)).toBeGreaterThan(0)
+    expect(await rolled(expired.siteId)).toBe(0)
   })
 })

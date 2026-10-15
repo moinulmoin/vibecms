@@ -255,9 +255,18 @@ export const billingCustomers = sqliteTable("billing_customers", {
   polarCustomerId: text("polar_customer_id").unique(),
   polarSubscriptionId: text("polar_subscription_id").unique(),
   status: text("status", { enum: ["active", "past_due", "canceled", "unpaid", "none"] }).notNull().default("none"),
+  // Polar's current_period_end, epoch SECONDS (shared with entitlement checks).
   currentPeriodEnd: integer("current_period_end"),
+  // NULL = unknown (no subscription webhook yet); checkout events leave it unchanged.
+  cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }),
+  // Epoch MILLISECONDS of the accepted transition into past_due.
+  // NULL for other statuses or an unknown legacy episode (no retroactive grace).
+  pastDueSince: integer("past_due_since"),
   webhookEventId: text("webhook_event_id"),
+  // Status/customer ordering key, epoch MILLISECONDS (strictly-newer wins).
   webhookUpdatedAt: integer("webhook_updated_at"),
+  // Subscription-only fields use a separate strictly-newer millisecond watermark.
+  subscriptionUpdatedAt: integer("subscription_updated_at"),
   ...timestamps,
 });
 

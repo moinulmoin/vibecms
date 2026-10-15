@@ -1,14 +1,12 @@
 import { FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
 import { Check, CreditCard, Minus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import { cn, Skeleton } from '@vc/ui'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
-import { useToast } from '~/components/Toaster'
-import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
-import { checkoutBillingMutation, portalBillingMutation } from '~/lib/api-client'
+import { useBillingRedirect } from '~/components/dashboard/useBillingRedirect'
+import { OWNER_PAYMENT_NOTE, formatBillingDate, pastDueMessage, usePastDueState } from '~/lib/billing-grace'
 import { billingQuery } from '~/lib/queries'
 
 type Allowance = string | boolean
@@ -70,25 +68,8 @@ function PlanTable({ paidActive }: { paidActive: boolean }) {
 /** Plan & billing, rendered inside Settings. */
 export function PlanAndBilling() {
   const query = useQuery(billingQuery)
-  const { toast } = useToast()
-  const [pending, setPending] = useState<'monthly' | 'yearly' | 'portal' | null>(null)
-
-  async function redirectTo(action: 'monthly' | 'yearly' | 'portal') {
-    if (pending) return
-    setPending(action)
-    try {
-      const result = action === 'portal' ? await portalBillingMutation() : await checkoutBillingMutation({ interval: action })
-      if (result.kind === 'ok') {
-        window.location.assign(result.url)
-        return
-      }
-      toast(resolveFormStatus({ error: result.code }) ?? { variant: 'error', title: 'Checkout didn’t open', message: 'Try again.' })
-    } catch {
-      toast({ variant: 'error', title: 'Checkout didn’t open', message: 'Check your connection and try again.' })
-    } finally {
-      setPending(null)
-    }
-  }
+  const { pending, redirectTo } = useBillingRedirect()
+  const pastDueState = usePastDueState(query.data)
 
   if (query.isError && !query.data) {
     return <LoadError message="Your plan didn’t load." onRetry={() => void query.refetch()} />
@@ -116,35 +97,50 @@ export function PlanAndBilling() {
 
   const billing = data.billing
   const active = billing.status === 'active'
-  const managed = data.managed && !active ? data.managed : null
-  const paidActive = active || managed?.effective === true
-  const renews = active && billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd * 1000) : null
+  // Recover failed renewals in the portal, even if sponsorship still covers the blog.
+  const pastDue = pastDueState !== null
+  const sponsored = data.managed?.effective === true
+  const managed = data.managed && !active && !pastDue ? data.managed : null
+  // Failed renewals keep paid features through the grace window; sponsorship keeps them regardless.
+  const paidActive = active || sponsored || pastDueState?.kind === 'grace'
+  const periodEnd = active && billing.currentPeriodEnd ? formatBillingDate(billing.currentPeriodEnd * 1000) : null
+  const ending = active && billing.cancelAtPeriodEnd === true
 
   return (
     <div className="grid gap-8">
       <div className="flex max-w-2xl flex-wrap items-start justify-between gap-4 rounded-xl border border-border p-5">
         <div className="min-w-0 space-y-1">
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
-            {managed ? 'Sponsored plan' : active ? 'Paid plan' : 'Free plan'}
+            {managed ? 'Sponsored plan' : active || pastDue ? 'Paid plan' : 'Free plan'}
             {billing.status !== 'none' && !managed ? <StatusBadge status={billing.status} /> : null}
             {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'Active' : 'Ended'} /> : null}
           </p>
-          <p className="text-[0.9375rem] leading-7 text-muted-foreground">
+          <p className={cn('text-[0.9375rem] leading-7', ending || pastDue ? 'text-foreground' : 'text-muted-foreground')}>
             {managed
               ? managed.effective
                 ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
                 : 'The sponsorship ended. Your posts stay online; paid features are paused.'
               : active
-                ? renews
-                  ? `Renews ${renews.toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' })}.`
-                  : 'Everything is unlocked.'
-                : billing.status === 'canceled'
-                  ? 'Your subscription ended. Posts stay online and nothing was deleted.'
-                  : `Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images. Subscribe for unlimited posts.`}
+                ? ending
+                  ? periodEnd
+                    ? `Ends ${periodEnd}. Everything stays unlocked until then.`
+                    : 'Your subscription is set to end. Everything stays unlocked until then.'
+                  : periodEnd
+                    ? `Renews ${periodEnd}.`
+                    : 'Everything is unlocked.'
+                : pastDueState
+                  ? pastDueMessage(pastDueState, sponsored)
+                  : billing.status === 'canceled'
+                    ? 'Your subscription ended. Posts stay online and nothing was deleted.'
+                    : `Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images. Subscribe for unlimited posts.`}
           </p>
         </div>
         {!data.isOwner ? (
-          <p className="text-sm text-muted-foreground">Only the owner can change the plan.</p>
+          <p className="text-sm text-muted-foreground">{pastDue ? OWNER_PAYMENT_NOTE : 'Only the owner can change the plan.'}</p>
+        ) : pastDue ? (
+          <PendingSubmitButton type="button" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
+            <CreditCard aria-hidden data-icon="inline-start" /> Update payment
+          </PendingSubmitButton>
         ) : active ? (
           <PendingSubmitButton type="button" variant="outline" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
             <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
@@ -166,7 +162,7 @@ export function PlanAndBilling() {
 
       <PlanTable paidActive={paidActive} />
 
-      {!active && !managed && data.isOwner && billing.polarCustomerId ? (
+      {!active && !pastDue && !managed && data.isOwner && billing.polarCustomerId ? (
         <button
           type="button"
           onClick={() => void redirectTo('portal')}

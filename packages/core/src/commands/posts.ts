@@ -1,7 +1,7 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
-import { FREE_TIER } from "@vc/config";
+import { FREE_TIER, isPaidBilling } from "@vc/config";
 import { BillingRequiredError, ConflictError, NotFoundError, ValidationError } from "../errors";
-import { hasActiveSubscription, requireScope } from "../policies";
+import { requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
 
 export type PostMutationHistory = {
@@ -89,7 +89,7 @@ export async function createPost(repo: PostRepository, actor: Actor, input: unkn
     changeSummary: "Created post",
     activityAction: "post.created",
     activitySummary: `Created ${postInput.title}`,
-  }, { billingActive: hasActiveSubscription(billingStatus), freeLimit: FREE_TIER.drafts });
+  }, { billingActive: isPaidBilling({ status: billingStatus }), freeLimit: FREE_TIER.drafts });
 }
 
 export async function updatePost(repo: PostRepository, actor: Actor, input: unknown) {
@@ -151,7 +151,7 @@ export async function publishPost(
       activityAction: "post.published",
       activitySummary: `Published ${before.title}`,
     },
-    { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT },
+    { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT },
   );
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
@@ -176,7 +176,7 @@ export async function publishScheduledPost(
     changeSummary: `Published scheduled v${input.versionNumber}`,
     activityAction: "post.published",
     activitySummary: `Published scheduled v${input.versionNumber} of ${version.title} · Scheduled by ${input.scheduledBy}`,
-  }, { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_PUBLISHED_LIMIT, allowOlderVersion: true, scheduleLeaseToken: input.leaseToken });
+  }, { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT, allowOlderVersion: true, scheduleLeaseToken: input.leaseToken });
   if (result.capReached) throw new BillingRequiredError("Subscribe to publish more posts");
   if (!result.post) throw new NotFoundError("Post not found");
   return result.post;
@@ -211,7 +211,7 @@ export async function unarchivePost(repo: PostRepository, actor: Actor, input: {
     changeSummary: "Restored post to draft",
     activityAction: "post.unarchived",
     activitySummary: `Restored ${before.title} to draft`,
-  }, before.currentVersionNumber, { billingActive: hasActiveSubscription(input.billingStatus), freeLimit: FREE_TIER.drafts });
+  }, before.currentVersionNumber, { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_TIER.drafts });
   if (!after) throw new NotFoundError("Post not found");
   return after.post;
 }

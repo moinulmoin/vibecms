@@ -612,14 +612,18 @@ describe("billing — ensureBillingRow idempotency + lookups", () => {
   });
 });
 
-describe("billing.isActiveSubscription", () => {
-  it("is false with no row or non-active status, true only when status is active", async () => {
+describe("billing rows through the effective entitlement rule", () => {
+  it("is free with no row or non-active status, paid when active, and past_due grace needs a known start", async () => {
     await seedWorkspace("ws-sb-active-check");
+    // Fractional epoch seconds, as the API/public seams pass them.
+    const now = 1_900_000_000.25;
+    const paid = async () =>
+      (await da.managedSites.resolveWorkspace("ws-sb-active-check", { selfHosted: false, now }))?.effective;
 
-    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+    expect(await paid()).toBe(false);
 
     await da.billing.ensureBillingRow("ws-sb-active-check", "none");
-    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+    expect(await paid()).toBe(false);
 
     await da.billing.upsertFromWebhook({
       workspaceId: "ws-sb-active-check",
@@ -628,7 +632,13 @@ describe("billing.isActiveSubscription", () => {
       status: "past_due",
       currentPeriodEnd: 2_000_000_000,
     });
-    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(false);
+    // Unknown past_due start (NULL past_due_since) never earns grace.
+    expect(await paid()).toBe(false);
+    // A known start inside the 7-day window is paid.
+    await env.DB.prepare("UPDATE billing_customers SET past_due_since = ? WHERE workspace_id = ?")
+      .bind(now * 1000 - 1000, "ws-sb-active-check")
+      .run();
+    expect(await paid()).toBe(true);
 
     await da.billing.upsertFromWebhook({
       workspaceId: "ws-sb-active-check",
@@ -637,7 +647,9 @@ describe("billing.isActiveSubscription", () => {
       status: "active",
       currentPeriodEnd: 2_000_000_000,
     });
-    expect(await da.billing.isActiveSubscription("ws-sb-active-check")).toBe(true);
+    expect(await paid()).toBe(true);
+    // Leaving past_due clears the grace start so it can never be reused.
+    expect((await da.billing.getBillingRecord("ws-sb-active-check"))?.pastDueSince).toBeNull();
   });
 });
 

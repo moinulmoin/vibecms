@@ -182,12 +182,23 @@ export type PostAnalytics = { views: number; agentReads: number } | null
 
 export type BillingSnapshot = {
   status: BillingStatus
+  /** Unix seconds. */
   currentPeriodEnd: number | null
+  /** True when an active subscription is scheduled to end at `currentPeriodEnd`; null when unknown, self-hosted, or no billing row. */
+  cancelAtPeriodEnd: boolean | null
   polarCustomerId?: string | null
+  /** First failed renewal, epoch milliseconds; null unless past due. */
+  pastDueSince: number | null
+  /** End of the paid-features grace after a failed renewal, epoch milliseconds; null unless past due. */
+  graceEndsAt: number | null
 }
 
 export type BillingPageLoadResult =
-  | { selfHosted: true; isOwner: boolean; billing: { status: BillingStatus; currentPeriodEnd: null } }
+  | {
+      selfHosted: true
+      isOwner: boolean
+      billing: { status: BillingStatus; currentPeriodEnd: null; cancelAtPeriodEnd: null; pastDueSince: null; graceEndsAt: null }
+    }
   | {
       selfHosted: false
       isOwner: boolean

@@ -81,7 +81,7 @@ export const operations = [
     operationId: "getSite",
     requiredScope: "sites:read",
     description: opDescription(
-      "Get the current site for this token, including its voice profile revision and signup form settings. A cleared voice profile returns configured: false with its current nonzero revision; send that revision as expectedUpdatedAt when recreating it. Revision zero means never configured.",
+      "Get the current site for this token, including its voice profile revision and signup form settings. A cleared voice profile returns configured: false with its current nonzero revision; send that revision as expectedUpdatedAt when recreating it. Revision zero means never configured. billingNotice appears only when the owner's subscription payment failed: paidFeaturesUntil is the latest guaranteed paid-through time, or null when no date is guaranteed (grace ended or unknown, or paid access continues through a separate sponsorship); null does not by itself mean paid features stopped. action tells the owner how to fix the payment.",
       "sites:read",
       readErrors,
     ),

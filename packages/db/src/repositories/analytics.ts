@@ -21,8 +21,6 @@ export type AnalyticsRollupRecord = AnalyticsRollupValue & {
   periodStart: string;
 };
 
-export type AnalyticsSite = { id: string; slug: string };
-
 type RollupRow = {
   granularity: AnalyticsGranularity;
   period_start: string;
@@ -32,7 +30,6 @@ type RollupRow = {
   value: number;
 };
 
-type SiteRow = { id: string; slug: string };
 type DateRow = { last_rolled_date: string | null };
 type MonthRow = { site_id: string; month: string };
 type HostRow = { hostname: string };
@@ -51,7 +48,6 @@ function asRecord(row: RollupRow): AnalyticsRollupRecord {
 }
 
 export interface AnalyticsRepository {
-  listActiveSites(): Promise<AnalyticsSite[]>;
   listActiveCustomHosts(siteId: string): Promise<string[]>;
   getLastRolledDate(siteId: string): Promise<string | null>;
   replaceDaily(siteId: string, date: string, values: AnalyticsRollupValue[]): Promise<void>;
@@ -62,17 +58,6 @@ export interface AnalyticsRepository {
 
 export function createAnalyticsRepository(db: D1Database): AnalyticsRepository {
   return {
-    async listActiveSites() {
-      const result = await db.prepare(
-        `SELECT s.id, s.slug
-         FROM sites s
-         INNER JOIN billing_customers b ON b.workspace_id = s.workspace_id
-         WHERE s.status = 'active' AND b.status = 'active'
-         ORDER BY s.id`,
-      ).all<SiteRow>();
-      return result.results ?? [];
-    },
-
     async listActiveCustomHosts(siteId) {
       const result = await db.prepare(
         `SELECT hostname FROM domains

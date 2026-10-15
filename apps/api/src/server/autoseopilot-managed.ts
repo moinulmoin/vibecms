@@ -387,10 +387,12 @@ async function resolveReceipt(
   options: { repairLocalHostname?: boolean } = {},
 ): Promise<ManagedReceipt> {
   const db = createDataAccess(environment.DB)
+  // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+  const entitlementNow = Date.now() / 1000
   const entitlement =
     (await db.managedSites.resolveSite(snapshot.siteId, {
       selfHosted: String(environment.SELF_HOSTED) === 'true',
-      now: now(),
+      now: entitlementNow,
     })) ??
     evaluateEffectiveHostedEntitlement(
       {
@@ -398,13 +400,14 @@ async function resolveReceipt(
         polar: {
           status: snapshot.polarStatus,
           currentPeriodEnd: snapshot.polarCurrentPeriodEnd,
+          pastDueSince: snapshot.polarPastDueSince,
         },
         managedSponsorship: {
           status: snapshot.entitlementStatus,
           expiresAt: snapshot.entitlementExpiresAt,
         },
       },
-      now(),
+      entitlementNow,
     )
   const resolvedPublicUrl = await publicUrl(
     environment,
@@ -712,7 +715,8 @@ async function assertManagedEntitled(environment: ManagedEnvironment, snapshot: 
   const selfHosted = String(environment.SELF_HOSTED) === 'true'
   const entitlement = await createDataAccess(environment.DB).managedSites.resolveSite(snapshot.siteId, {
     selfHosted,
-    now: now(),
+    // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
+    now: Date.now() / 1000,
   })
   if (!entitlement?.effective) {
     throw conflict('BILLING_REQUIRED', 'Subpath hosting requires an active entitlement.')

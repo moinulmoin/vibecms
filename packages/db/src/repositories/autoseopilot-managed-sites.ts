@@ -1,3 +1,4 @@
+import { isPaidBilling, pastDueGraceEndsAt } from "@vc/config";
 import type { BillingStatus } from "@vc/core";
 
 /**
@@ -11,7 +12,10 @@ export type EffectiveEntitlementSource = "self_hosted" | "polar" | "managed_spon
 
 export interface PolarEntitlementInput {
   status: BillingStatus | null;
+  /** Epoch seconds. */
   currentPeriodEnd: number | null;
+  /** Epoch MILLISECONDS of the first failed payment; drives the past_due grace window. */
+  pastDueSince?: number | null;
 }
 
 export interface ManagedSponsorshipInput {
@@ -32,8 +36,14 @@ export interface EffectiveHostedEntitlement {
   effectiveUntil: number | null;
   polar: {
     status: BillingStatus | null;
+    /** Epoch seconds. */
     currentPeriodEnd: number | null;
+    /** True while Polar billing is paid: `active`, or `past_due` inside its grace window. */
     active: boolean;
+    /** Epoch MILLISECONDS; null unless past_due with a known start. */
+    pastDueSince?: number | null;
+    /** Epoch MILLISECONDS past_due grace deadline; null unless past_due with a known start. */
+    graceEndsAt?: number | null;
   };
   managedSponsorship: {
     status: ManagedEntitlementStatus | null;
@@ -44,11 +54,14 @@ export interface EffectiveHostedEntitlement {
 
 /**
  * Pure entitlement policy shared by site/workspace resolvers and analytics.
+ * `now` and every returned horizon are epoch seconds; the Polar paid rule is
+ * `isPaidBilling` from `@vc/config` (millisecond clock), converted only here.
  *
  * A managed expiry is strictly future-facing: an expiry equal to `now` is no
  * longer effective. Polar status remains the source of truth for an active
  * subscription; its period end is returned as detail and as the effective
- * horizon, but is not independently used as a gate.
+ * horizon, but is not independently used as a gate. A past_due subscription
+ * stays paid until its grace deadline (exclusive), which is its horizon.
  */
 export function evaluateEffectiveHostedEntitlement(
   input: EffectiveHostedEntitlementInput,
@@ -58,7 +71,13 @@ export function evaluateEffectiveHostedEntitlement(
   const polar: PolarEntitlementInput = input.polar ?? { status: null, currentPeriodEnd: null };
   const managed: ManagedSponsorshipInput = input.managedSponsorship ?? { status: null, expiresAt: null };
 
-  const polarActive = polar.status === "active";
+  const polarBilling = { status: polar.status, pastDueSince: polar.pastDueSince ?? null };
+  // `now` is fractional seconds from Date.now() / 1000; rounding recovers the
+  // exact integer milliseconds lost to floating-point division.
+  const polarActive = isPaidBilling(polarBilling, Math.round(now * 1000));
+  const graceEndsAt = pastDueGraceEndsAt(polarBilling);
+  // Exact deadline as fractional epoch seconds; seconds consumers compare fractionally.
+  const polarHorizon = graceEndsAt !== null ? graceEndsAt / 1000 : polar.currentPeriodEnd;
   const managedActive =
     managed.status === "active" && (managed.expiresAt === null || managed.expiresAt > now);
   const activeSources: EffectiveEntitlementSource[] = [];
@@ -68,7 +87,7 @@ export function evaluateEffectiveHostedEntitlement(
   if (managedActive) activeSources.push("managed_sponsorship");
 
   const horizons = [
-    ...(polarActive && polar.currentPeriodEnd !== null ? [polar.currentPeriodEnd] : []),
+    ...(polarActive && polarHorizon !== null ? [polarHorizon] : []),
     ...(managedActive && managed.expiresAt !== null ? [managed.expiresAt] : []),
   ];
 
@@ -86,6 +105,8 @@ export function evaluateEffectiveHostedEntitlement(
       status: polar.status,
       currentPeriodEnd: polar.currentPeriodEnd,
       active: polarActive,
+      pastDueSince: graceEndsAt === null ? null : polarBilling.pastDueSince,
+      graceEndsAt,
     },
     managedSponsorship: {
       status: managed.status,
@@ -117,6 +138,8 @@ export interface ManagedSiteSnapshot {
   polarSubscriptionId: string | null;
   polarStatus: BillingStatus | null;
   polarCurrentPeriodEnd: number | null;
+  /** Epoch MILLISECONDS of the first failed payment (past_due grace start). */
+  polarPastDueSince: number | null;
   credentialId: string;
   credentialGeneration: number;
   entitlementStatus: ManagedEntitlementStatus;
@@ -129,6 +152,10 @@ export interface ManagedSiteSnapshot {
 
 export interface ManagedEntitlementResolutionOptions {
   selfHosted: boolean;
+  /**
+   * Epoch seconds, fractional allowed (`Date.now() / 1000`). Pass it unfloored:
+   * the past_due grace deadline is compared at millisecond precision.
+   */
   now: number;
 }
 
@@ -264,6 +291,7 @@ type ManagedRawSnapshot = {
   polar_subscription_id: string | null;
   polar_status: BillingStatus | null;
   polar_current_period_end: number | null;
+  polar_past_due_since: number | null;
   credential_id: string;
   credential_generation: number;
   entitlement_status: ManagedEntitlementStatus;
@@ -297,6 +325,7 @@ function mapSnapshot(row: ManagedRawSnapshot): ManagedSiteSnapshot {
     polarSubscriptionId: row.polar_subscription_id,
     polarStatus: row.polar_status,
     polarCurrentPeriodEnd: row.polar_current_period_end,
+    polarPastDueSince: row.polar_past_due_since,
     credentialId: row.credential_id,
     credentialGeneration: Number(row.credential_generation),
     entitlementStatus: row.entitlement_status,
@@ -343,6 +372,7 @@ const SNAPSHOT_SQL = `
     b.polar_subscription_id,
     b.status AS polar_status,
     b.current_period_end AS polar_current_period_end,
+    b.past_due_since AS polar_past_due_since,
     m.credential_id,
     m.credential_generation,
     m.entitlement_status,
@@ -514,6 +544,7 @@ async function readEntitlement(
          x.id AS entity_id,
          b.status AS polar_status,
          b.current_period_end AS polar_current_period_end,
+         b.past_due_since AS polar_past_due_since,
          m.entitlement_status AS managed_status,
          m.entitlement_expires_at AS managed_expires_at
        FROM ${column === "site_id" ? "sites" : "workspaces"} x
@@ -529,6 +560,7 @@ async function readEntitlement(
       entity_id: string;
       polar_status: BillingStatus | null;
       polar_current_period_end: number | null;
+      polar_past_due_since: number | null;
       managed_status: ManagedEntitlementStatus | null;
       managed_expires_at: number | null;
     }>();
@@ -539,6 +571,7 @@ async function readEntitlement(
       polar: {
         status: row.polar_status,
         currentPeriodEnd: row.polar_current_period_end,
+        pastDueSince: row.polar_past_due_since,
       },
       managedSponsorship: {
         status: row.managed_status,
@@ -580,6 +613,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              s.workspace_id,
              b.status AS polar_status,
              b.current_period_end AS polar_current_period_end,
+             b.past_due_since AS polar_past_due_since,
              m.entitlement_status AS managed_status,
              m.entitlement_expires_at AS managed_expires_at
            FROM sites s
@@ -594,6 +628,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           workspace_id: string;
           polar_status: BillingStatus | null;
           polar_current_period_end: number | null;
+          polar_past_due_since: number | null;
           managed_status: ManagedEntitlementStatus | null;
           managed_expires_at: number | null;
         }>();
@@ -609,6 +644,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
               polar: {
                 status: row.polar_status,
                 currentPeriodEnd: row.polar_current_period_end,
+                pastDueSince: row.polar_past_due_since,
               },
               managedSponsorship: {
                 status: row.managed_status,

@@ -16,6 +16,7 @@ import {
   normalizeManagedOwnerEmail,
   type ManagedFirstProvisionInput,
 } from "@vc/db";
+import { PAST_DUE_GRACE_DAYS, isPaidBilling, pastDueGraceEndsAt } from "@vc/config";
 
 const data = createDataAccess(env.DB);
 const NOW = 2_000_000_000;
@@ -163,6 +164,82 @@ describe("evaluateEffectiveHostedEntitlement", () => {
       activeSources: ["self_hosted", "polar", "managed_sponsorship"],
       effectiveUntil: null,
     });
+  });
+
+  it("keeps past_due paid until the exact millisecond grace deadline", () => {
+    // Non-zero millisecond start: the deadline is not on a whole second.
+    const since = NOW * 1000 - 3_600_000 + 123;
+    const deadline = since + PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+    const at = (nowMs: number) =>
+      evaluateEffectiveHostedEntitlement(
+        { selfHosted: false, polar: { status: "past_due", currentPeriodEnd: NOW - 10, pastDueSince: since } },
+        nowMs / 1000,
+      );
+
+    expect(at(since)).toMatchObject({
+      effective: true,
+      access: "hosted_paid",
+      activeSources: ["polar"],
+      // Exact millisecond deadline expressed as fractional epoch seconds.
+      effectiveUntil: deadline / 1000,
+      polar: { status: "past_due", active: true, pastDueSince: since, graceEndsAt: deadline },
+    });
+    expect(at(deadline - 1)).toMatchObject({ effective: true, polar: { active: true } });
+    // Equality is expired.
+    for (const nowMs of [deadline, deadline + 1, deadline + 1_000]) {
+      expect(at(nowMs)).toMatchObject({
+        effective: false,
+        access: "hosted_free",
+        activeSources: [],
+        effectiveUntil: null,
+        polar: { status: "past_due", active: false, graceEndsAt: deadline },
+      });
+    }
+
+    // Unknown start and every non-active, non-past_due status get no grace.
+    expect(
+      evaluateEffectiveHostedEntitlement(
+        { selfHosted: false, polar: { status: "past_due", currentPeriodEnd: NOW + 100, pastDueSince: null } },
+        NOW,
+      ),
+    ).toMatchObject({ effective: false, access: "hosted_free", polar: { active: false, graceEndsAt: null } });
+    for (const status of ["canceled", "unpaid", "none"] as const) {
+      expect(
+        evaluateEffectiveHostedEntitlement(
+          { selfHosted: false, polar: { status, currentPeriodEnd: NOW + 100, pastDueSince: since } },
+          since / 1000,
+        ),
+      ).toMatchObject({ effective: false, polar: { active: false, pastDueSince: null, graceEndsAt: null } });
+    }
+
+    // Grace and sponsorship are independent; the earlier horizon wins.
+    expect(
+      evaluateEffectiveHostedEntitlement(
+        {
+          selfHosted: false,
+          polar: { status: "past_due", currentPeriodEnd: null, pastDueSince: since },
+          managedSponsorship: { status: "active", expiresAt: NOW + 10 },
+        },
+        NOW,
+      ),
+    ).toMatchObject({ activeSources: ["polar", "managed_sponsorship"], effectiveUntil: NOW + 10 });
+  });
+
+  it("defines the shared 7-day paid billing helper in milliseconds", () => {
+    const since = 1_900_000_000_007;
+    const deadline = since + 7 * 24 * 60 * 60 * 1000;
+    expect(PAST_DUE_GRACE_DAYS).toBe(7);
+    expect(pastDueGraceEndsAt({ status: "past_due", pastDueSince: since })).toBe(deadline);
+    expect(pastDueGraceEndsAt({ status: "past_due", pastDueSince: null })).toBeNull();
+    expect(pastDueGraceEndsAt({ status: "past_due" })).toBeNull();
+    expect(pastDueGraceEndsAt({ status: "active", pastDueSince: since })).toBeNull();
+    expect(isPaidBilling({ status: "active" }, deadline + 1)).toBe(true);
+    expect(isPaidBilling({ status: "past_due", pastDueSince: since }, deadline - 1)).toBe(true);
+    expect(isPaidBilling({ status: "past_due", pastDueSince: since }, deadline)).toBe(false);
+    expect(isPaidBilling({ status: "past_due", pastDueSince: null }, since)).toBe(false);
+    for (const status of ["canceled", "unpaid", "none", null, undefined]) {
+      expect(isPaidBilling({ status, pastDueSince: since }, since)).toBe(false);
+    }
   });
 });
 
@@ -444,6 +521,52 @@ describe("managed site database foundation", () => {
     });
     expect(entitled.map((site) => site.id)).toContain(first.site.id);
     expect(entitled.map((site) => site.id)).not.toContain(second.site.id);
+  });
+
+  it("reads past_due_since through snapshots, site/workspace resolvers, and the analytics list", async () => {
+    const input = provisionInput("grace");
+    await data.managedSites.firstProvision(input);
+    // Managed sponsorship off so Polar grace is the only paid source.
+    await env.DB.prepare(
+      "UPDATE autoseopilot_managed_sites SET entitlement_status = 'revoked', revoked_at = ? WHERE external_workspace_id = ?",
+    ).bind(NOW, input.binding.externalWorkspaceId).run();
+    const since = NOW * 1000 - 86_400_000 + 457;
+    const deadline = since + PAST_DUE_GRACE_DAYS * 86_400_000;
+    await env.DB.prepare(
+      "INSERT INTO billing_customers (id, workspace_id, status, current_period_end, past_due_since, created_at, updated_at) VALUES (?, ?, 'past_due', ?, ?, ?, ?)",
+    ).bind("managed-billing-grace", input.workspace.id, NOW - 100, since, NOW, NOW).run();
+
+    expect(await data.managedSites.getSnapshotBySiteId(input.site.id)).toMatchObject({
+      polarStatus: "past_due",
+      polarPastDueSince: since,
+    });
+    const at = async (nowMs: number) => {
+      const options = { selfHosted: false, now: nowMs / 1000 };
+      const [site, workspace, listed] = await Promise.all([
+        data.managedSites.resolveSite(input.site.id, options),
+        data.managedSites.resolveWorkspace(input.workspace.id, options),
+        data.managedSites.listEffectiveEntitledActiveSites(options),
+      ]);
+      return { site, workspace, listed: listed.some((row) => row.id === input.site.id) };
+    };
+
+    const within = await at(deadline - 1);
+    expect(within.site).toMatchObject({
+      effective: true,
+      access: "hosted_paid",
+      activeSources: ["polar"],
+      effectiveUntil: deadline / 1000,
+      polar: { status: "past_due", active: true, pastDueSince: since, graceEndsAt: deadline },
+    });
+    expect(within.workspace).toMatchObject({ effective: true, access: "hosted_paid" });
+    expect(within.listed).toBe(true);
+
+    for (const nowMs of [deadline, deadline + 1]) {
+      const expired = await at(nowMs);
+      expect(expired.site).toMatchObject({ effective: false, access: "hosted_free", polar: { active: false } });
+      expect(expired.workspace).toMatchObject({ effective: false, access: "hosted_free" });
+      expect(expired.listed).toBe(false);
+    }
   });
 
   it("CAS-protects rotation/reactivation and revoke while preserving site content", async () => {

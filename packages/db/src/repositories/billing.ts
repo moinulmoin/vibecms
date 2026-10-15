@@ -17,8 +17,6 @@ export interface BillingRepository {
   ensureBillingRow(workspaceId: string, status?: BillingStatus): Promise<void>;
   // Full billing_customers row for a workspace, or undefined if absent.
   getBillingRecord(workspaceId: string): Promise<BillingCustomerRow | undefined>;
-  // True when the workspace already has an active subscription (blocks new checkout).
-  isActiveSubscription(workspaceId: string): Promise<boolean>;
   // Resolve the owning workspace for a site, or undefined when no site exists.
   getWorkspaceIdForSite(siteId: string): Promise<string | undefined>;
   // Polar webhook upsert: keep the existing subscription id when the incoming one is null.
@@ -57,15 +55,6 @@ export function createBillingRepository(db: D1Database): BillingRepository {
       return rows[0];
     },
 
-    async isActiveSubscription(workspaceId) {
-      const rows = await client
-        .select({ status: billingCustomers.status })
-        .from(billingCustomers)
-        .where(eq(billingCustomers.workspaceId, workspaceId))
-        .limit(1);
-      return rows[0]?.status === "active";
-    },
-
     async getWorkspaceIdForSite(siteId) {
       const rows = await client
         .select({ workspaceId: sites.workspaceId })
@@ -96,6 +85,9 @@ export function createBillingRepository(db: D1Database): BillingRepository {
             polarSubscriptionId: sql`coalesce(excluded.polar_subscription_id, ${billingCustomers.polarSubscriptionId})`,
             status: sql`excluded.status`,
             currentPeriodEnd: sql`excluded.current_period_end`,
+            // No event timestamp here, so this path never starts a grace clock;
+            // leaving past_due clears it so a stale start is never reused.
+            pastDueSince: sql`CASE WHEN excluded.status = 'past_due' THEN ${billingCustomers.pastDueSince} ELSE NULL END`,
             updatedAt: sql`excluded.updated_at`,
           },
         })
