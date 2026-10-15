@@ -16,9 +16,17 @@ describe('serializeErrorForLog', () => {
     })
   })
 
-  it('redacts credentials written as JSON or quoted keys', () => {
-    const text = JSON.stringify(serializeErrorForLog(new Error('upstream said {"token":"raw-json-token","password": "pw-1"} and \'api_key\'=k-2')))
-    for (const secret of ['raw-json-token', 'pw-1', 'k-2']) expect(text).not.toContain(secret)
+  it('redacts credentials written as JSON, quoted values with spaces, cookies, keys and emails', () => {
+    const message = [
+      'upstream said {"token":"raw-json-token","password": "correct horse battery"}',
+      "and 'api_key'=k-2",
+      'Cookie: session=abc; other=def',
+      'key vc_live_AbC123_x for owner@example.com',
+    ].join('\n')
+    const text = JSON.stringify(serializeErrorForLog(new Error(message)))
+    for (const secret of ['raw-json-token', 'correct', 'horse', 'battery', 'k-2', 'abc', 'def', 'vc_live_AbC123_x', 'owner@example.com']) {
+      expect(text).not.toContain(secret)
+    }
   })
 
   it('bounds deep cause chains and cycles', () => {

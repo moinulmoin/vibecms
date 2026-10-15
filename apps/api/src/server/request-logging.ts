@@ -8,7 +8,12 @@ export function redactErrorText(value: string | undefined) {
   return value
     .slice(0, 2_000)
     .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/(authorization|cookie|token|secret|otp|password|api[_-]?key)["']?\s*[:=]\s*["']?[^\s,;"'}]+["']?/gi, '$1=[redacted]')
+    // Header-style credentials (Cookie: a=b; c=d) are redacted to the end of the line.
+    .replace(/(authorization|cookie|set-cookie)["']?\s*[:=][^\r\n]*/gi, '$1=[redacted]')
+    // key=value / "key": "value", including quoted values with spaces.
+    .replace(/(token|secret|otp|password|api[_-]?key)["']?\s*[:=]\s*(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^\s,;}]+)/gi, '$1=[redacted]')
+    .replace(/\bvc_[a-z]+_[A-Za-z0-9_-]+/g, '[redacted-key]')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[redacted-email]')
     .replace(/\b\d{6}\b/g, '[redacted-otp]')
     .replace(/\/preview\/[^/\s"')]+/g, '/preview/[redacted]')
 }
