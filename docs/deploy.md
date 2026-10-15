@@ -251,40 +251,20 @@ pnpm production:rollback -- --worker public --to <version-id> --yes
 
 `production:rollback` with no flags only prints backup metadata, current API/public Worker deployments, and D1 time-travel info. Worker rollback does not undo D1 writes. D1 migrations are forward-only; time-travel restore is destructive and requires explicit confirmation flags (`--d1-restore --i-understand-d1-restore-is-destructive --yes`). Do not treat that as a safe schema rollback.
 
-### Recovery artifact
+### Recovery point
 
-Every `deploy-production.yml` run uploads the backup that `pnpm deploy:prod`
-captured as the artifact `production-recovery-<run-id>-<attempt>`, kept for
-90 days. It uploads even when a later step fails, so a failed migration or
-deploy still leaves its pre-deploy bookmark. If the run stopped before
-`production:backup`, there is nothing to upload and the run logs a warning.
-
-The artifact holds only:
-
-- `production-backup/<stamp>/backup-metadata.json`: the D1 time-travel
-  bookmark (`.d1.timeTravelInfo.bookmark`), the API and public Worker
-  deployment version IDs, and the rollback commands. The repository is public,
-  so Cloudflare `author_email` fields, any email address, and the account ID
-  are redacted.
-- `production-backup/<stamp>/schema.sql`: the schema-only D1 export
-  (`--no-data`). It is dropped if it contains any `INSERT`.
-- `last-backup.json`: the pointer that `production:backup` writes. Its paths
-  are runner paths; inside the artifact they correspond to
-  `production-backup/<stamp>/`.
-- `run.json`: the release SHA, smoke mode, deploy step outcome, and run URL.
-
-Env files, Wrangler state, and data dumps are never uploaded. To retrieve a
-run's recovery files:
+The repository is public, so `deploy-production.yml` never uploads backup
+files as artifacts. Before deploying, it writes the pre-deploy UTC timestamp to
+the run's job summary. D1 Time Travel can restore to any timestamp in the last
+30 days, so that timestamp is the recovery point:
 
 ```sh
-gh run list --workflow deploy-production.yml --limit 5
-gh run download <run-id> --pattern 'production-recovery-*' --dir production-recovery
-jq -r '.d1.timeTravelInfo.bookmark' production-recovery/*/production-backup/*/backup-metadata.json
+pnpm production:rollback -- --d1-restore --timestamp <recovery-point> --i-understand-d1-restore-is-destructive --yes
 ```
 
-Pass that bookmark to `pnpm production:rollback -- --d1-restore --bookmark <id> --i-understand-d1-restore-is-destructive --yes`
-only after accepting that the restore is destructive. Use the Worker version IDs
-in the same file with `--worker api|public --to <version-id> --yes`.
+Only run it after accepting that the restore is destructive. Worker versions
+roll back with `--worker api|public --to <version-id> --yes`; list version IDs
+with `wrangler versions list`.
 
 ## Deploy-button rehearsal
 

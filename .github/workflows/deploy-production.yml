@@ -88,8 +88,21 @@ jobs:
             exit 1
           fi
 
+      # The repo is public, so recovery data never leaves the runner as an
+      # artifact. D1 Time Travel restores to any timestamp in the last 30 days;
+      # this pre-deploy timestamp is the recovery point (see docs/deploy.md).
+      - name: Record recovery point
+        run: |
+          recovery_point="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "### Recovery point"
+            echo
+            echo "Pre-deploy UTC timestamp: \`${recovery_point}\`"
+            echo
+            echo "Restore D1 to it with \`pnpm production:rollback -- --d1-restore --timestamp ${recovery_point} --i-understand-d1-restore-is-destructive --yes\` (destructive; see docs/deploy.md)."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Canonical production deploy
-        id: deploy
         run: pnpm deploy:prod
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -98,69 +111,3 @@ jobs:
           ALLOW_BOOTSTRAP_SMOKE: ${{ inputs.smoke_mode == 'bootstrap' && '1' || '' }}
           PRODUCTION_BOOTSTRAP_SHA: ${{ inputs.smoke_mode == 'bootstrap' && secrets.PRODUCTION_BOOTSTRAP_SHA || '' }}
 
-      # pnpm deploy:prod runs production:backup internally, before any D1
-      # migration or Worker deploy. Keep that recovery bookmark even when a
-      # later step fails: the runner's .wrangler/ directory is discarded with
-      # the job. Only recovery metadata and the schema-only export are staged;
-      # env files, Wrangler state, and data dumps are never uploaded. The repo
-      # is public, so emails and the account ID are redacted from metadata.
-      - name: Stage production recovery files
-        if: ${{ always() }}
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
-          SMOKE_MODE: ${{ inputs.smoke_mode }}
-          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          out="${RUNNER_TEMP}/production-recovery"
-          rm -rf "${out}"
-          backups=(.wrangler/production-backup/*/)
-          if [ "${#backups[@]}" -eq 0 ]; then
-            echo "::warning::No production backup was captured; pnpm deploy:prod stopped before production:backup."
-            exit 0
-          fi
-          mkdir -p "${out}"
-          redact='walk(if type == "object" then del(.author_email) else . end)
-            | walk(if type == "string"
-                then (gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"; "[redacted-email]")
-                  | if $account != "" then gsub($account; "[redacted-account-id]") else . end)
-                else . end)'
-          for dir in "${backups[@]}"; do
-            stamp="$(basename "${dir}")"
-            dest="${out}/production-backup/${stamp}"
-            mkdir -p "${dest}"
-            if [ -f "${dir}backup-metadata.json" ]; then
-              jq --arg account "${CLOUDFLARE_ACCOUNT_ID:-}" "${redact}" "${dir}backup-metadata.json" > "${dest}/backup-metadata.json"
-            fi
-            if [ -f "${dir}schema.sql" ]; then
-              if grep -Eqi '^[[:space:]]*INSERT[[:space:]]' "${dir}schema.sql"; then
-                echo "::warning::${dir}schema.sql contains INSERT statements; not uploading a data dump."
-              else
-                cp "${dir}schema.sql" "${dest}/schema.sql"
-              fi
-            fi
-          done
-          if [ -f .wrangler/production/last-backup.json ]; then
-            cp .wrangler/production/last-backup.json "${out}/last-backup.json"
-          fi
-          jq -n \
-            --arg releaseSha "${RELEASE_SHA}" \
-            --arg smokeMode "${SMOKE_MODE}" \
-            --arg deployOutcome "${DEPLOY_OUTCOME}" \
-            --arg runUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
-            '{releaseSha: $releaseSha, smokeMode: $smokeMode, deployOutcome: $deployOutcome, runUrl: $runUrl,
-              bookmarkPath: "production-backup/<stamp>/backup-metadata.json#.d1.timeTravelInfo.bookmark"}' \
-            > "${out}/run.json"
-          find "${out}" -type f -print
-
-      - name: Upload production recovery files
-        if: ${{ always() }}
-        # actions/upload-artifact v7.0.2
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: production-recovery-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/production-recovery/
-          if-no-files-found: warn
-          retention-days: 90
