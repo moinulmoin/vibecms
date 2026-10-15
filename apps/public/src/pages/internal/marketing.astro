@@ -2,19 +2,17 @@
 import LandingLayout from "../../layouts/LandingLayout.astro";
 import { AgentSurface } from "../../components/landing/agent-surface";
 import { AgentsDemo } from "../../components/landing/agents-demo";
-import { CtaFooter } from "../../components/landing/cta-footer";
+import { CtaSection } from "../../components/landing/cta-footer";
 import { BlogFeatures } from "../../components/landing/blog-features";
 import { ControlSection } from "../../components/landing/control-section";
 import { FaqAccordion } from "../../components/landing/faq-accordion";
-import { HeaderHero } from "../../components/landing/header-hero";
+import { Hero } from "../../components/landing/hero";
 import { HostingPricing } from "../../components/landing/hosting-pricing";
-import { DotGrid, Glow } from "../../components/landing/primitives";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
 import { markdownNotFound, marketingHomeLinks, marketingMarkdown } from "../../lib/agent-discovery";
 import { appApiDocsUrl, appLoginUrl } from "../../lib/landing-links";
 import { publicOrigin } from "../../server/public-url";
 import { publicRuntimeEnv } from "../../server/runtime";
-import marketingInteractionsUrl from "../../scripts/marketing-interactions.js?url";
 
 // Internal entry only — reachable via rewrite from `/`. Direct hits 404 so the
 // path stays non-indexable and never becomes a public canonical URL.
@@ -36,20 +34,13 @@ const loginUrl = appLoginUrl(env.appUrl);
 const apiDocsUrl = appApiDocsUrl(env.appUrl);
 const ogImage = `${publicOrigin(Astro.request.url)}/brand/og.png`;
 ---
-<LandingLayout loginUrl={loginUrl} ogImage={ogImage}>
-  <main id="main" tabindex="-1" class="dark relative min-h-dvh overflow-clip bg-background text-foreground">
-    <DotGrid className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[1100px] opacity-90" />
-    <Glow className="pointer-events-none absolute -top-[300px] left-1/2 z-0 size-[min(760px,108vw)] -translate-x-1/2 opacity-40" />
-    <div class="relative z-[1]">
-      <HeaderHero loginUrl={loginUrl} />
-      <ControlSection />
-      <AgentsDemo apiDocsUrl={apiDocsUrl} />
-      <AgentSurface apiDocsUrl={apiDocsUrl} />
-      <BlogFeatures />
-      <HostingPricing loginUrl={loginUrl} />
-      <FaqAccordion />
-      <CtaFooter loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} />
-    </div>
-  </main>
-  <script is:inline src={marketingInteractionsUrl} defer></script>
+<LandingLayout loginUrl={loginUrl} apiDocsUrl={apiDocsUrl} ogImage={ogImage}>
+  <Hero loginUrl={loginUrl} />
+  <ControlSection />
+  <AgentsDemo apiDocsUrl={apiDocsUrl} />
+  <AgentSurface apiDocsUrl={apiDocsUrl} />
+  <BlogFeatures />
+  <HostingPricing loginUrl={loginUrl} />
+  <FaqAccordion />
+  <CtaSection loginUrl={loginUrl} />
 </LandingLayout>

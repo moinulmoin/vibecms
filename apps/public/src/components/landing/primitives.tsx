@@ -54,24 +54,6 @@ export function Glow({ className, children }: Classable) {
   );
 }
 
-export function GlassCard({ className, children }: Classable) {
-  return (
-    <div
-      className={[
-        "rounded-[18px] shadow-[inset_0_1px_0_var(--hairline),0_24px_50px_-36px_oklch(0_0_0/0.9)] ring-1 ring-[color:var(--hairline)]",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        background: "linear-gradient(180deg, var(--surface-glass-strong), var(--surface-glass))",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 type PillProps = Classable & {
   pulse?: boolean;
 };

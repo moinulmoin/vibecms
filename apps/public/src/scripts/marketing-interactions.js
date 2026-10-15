@@ -1,10 +1,9 @@
-const NAV_ACTIVE = "relative text-sm font-medium no-underline transition-colors text-foreground";
-const NAV_IDLE =
-  "relative text-sm font-medium no-underline transition-colors text-muted-foreground hover:text-foreground";
-const UNDERLINE_ON =
-  "absolute -bottom-1.5 left-0 h-px w-full origin-left bg-brand-bright transition-transform duration-200 ease-out scale-x-100";
-const UNDERLINE_OFF =
-  "absolute -bottom-1.5 left-0 h-px w-full origin-left bg-brand-bright transition-transform duration-200 ease-out scale-x-0";
+// Scroll-spy toggles only these classes; the rest of each link's class list
+// (including its enlarged ::before hit area) comes from header-nav.tsx.
+const NAV_ON = "text-foreground";
+const NAV_OFF = "text-muted-foreground";
+const UNDERLINE_ON = "scale-x-100";
+const UNDERLINE_OFF = "scale-x-0";
 
 const BADGE_LIVE =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] text-brand-bright ring-1 ring-brand-bright/35";
@@ -36,24 +35,28 @@ function initNav() {
   const setActive = (activeId) => {
     for (const { id, link } of sections) {
       const on = id === activeId;
-      link.className = on ? NAV_ACTIVE : NAV_IDLE;
+      link.classList.replace(on ? NAV_OFF : NAV_ON, on ? NAV_ON : NAV_OFF);
       if (on) link.setAttribute("aria-current", "true");
       else link.removeAttribute("aria-current");
       const underline = link.querySelector("[data-nav-underline]");
       if (underline instanceof HTMLElement) {
-        underline.className = on ? UNDERLINE_ON : UNDERLINE_OFF;
+        underline.classList.replace(on ? UNDERLINE_OFF : UNDERLINE_ON, on ? UNDERLINE_ON : UNDERLINE_OFF);
       }
     }
   };
 
+  // Track which linked sections cross the middle band of the viewport. When
+  // none does (hero, control, connection, final CTA), no link is current.
+  const inView = new Set();
   const observer = new IntersectionObserver(
     (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-      if (visible[0]?.target?.id) setActive(visible[0].target.id);
+      for (const entry of entries) {
+        if (entry.isIntersecting) inView.add(entry.target.id);
+        else inView.delete(entry.target.id);
+      }
+      setActive(sections.find(({ id }) => inView.has(id))?.id ?? null);
     },
-    { rootMargin: "-45% 0px -45% 0px", threshold: [0, 0.25, 0.5, 1] },
+    { rootMargin: "-45% 0px -45% 0px" },
   );
 
   for (const { section } of sections) observer.observe(section);
@@ -92,29 +95,60 @@ function setHeroStep(root, step) {
 // How long each step stays on screen before the next one.
 const HERO_DURATIONS = { 1: 1800, 2: 2100, 3: 1600, 4: 2100, 5: 3900 };
 
+// Autoplay runs until the visitor pauses it or picks a step; only Play resumes
+// it. Reduced motion shows the final step with no autoplay and no toggle.
 function initHeroDemo() {
   const root = document.querySelector("[data-hero-demo]");
   if (!(root instanceof HTMLElement)) return;
 
   const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
   const pills = [...root.querySelectorAll("[data-hero-goto]")];
+  const toggle = root.querySelector("[data-hero-toggle]");
+  const toggleLabel = root.querySelector("[data-hero-toggle-label]");
   let timer = 0;
+  let step = 5;
+  let playing = false;
 
-  const go = (step, autoplay = !mq.matches) => {
+  const schedule = () => {
     clearTimeout(timer);
+    if (playing) timer = setTimeout(() => go(step === 5 ? 1 : step + 1), HERO_DURATIONS[step]);
+  };
+
+  const go = (next) => {
+    step = next;
     setHeroStep(root, step);
     for (const pill of pills) {
       if (Number(pill.getAttribute("data-hero-goto")) === step) pill.setAttribute("aria-current", "step");
       else pill.removeAttribute("aria-current");
     }
-    if (autoplay) timer = setTimeout(() => go(step === 5 ? 1 : step + 1), HERO_DURATIONS[step]);
+    schedule();
+  };
+
+  const setPlaying = (on) => {
+    playing = on;
+    if (toggle instanceof HTMLElement) {
+      toggle.toggleAttribute("data-paused", !on);
+      toggle.setAttribute("aria-label", on ? "Pause demo" : "Play demo");
+    }
+    if (toggleLabel) toggleLabel.textContent = on ? "Pause" : "Play";
+    schedule();
+  };
+
+  const reset = () => {
+    if (toggle instanceof HTMLElement) toggle.hidden = mq.matches;
+    setPlaying(!mq.matches);
+    go(mq.matches ? 5 : 1);
   };
 
   for (const pill of pills) {
-    pill.addEventListener("click", () => go(Number(pill.getAttribute("data-hero-goto"))));
+    pill.addEventListener("click", () => {
+      setPlaying(false);
+      go(Number(pill.getAttribute("data-hero-goto")));
+    });
   }
-  go(mq.matches ? 5 : 1);
-  mq.addEventListener("change", () => go(mq.matches ? 5 : 1));
+  if (toggle instanceof HTMLElement) toggle.addEventListener("click", () => setPlaying(!playing));
+  reset();
+  mq.addEventListener("change", reset);
 }
 
 function initHistoryDemo() {
@@ -248,25 +282,48 @@ function initMobileNav() {
   if (!(nav instanceof HTMLDetailsElement)) return;
 
   const summary = nav.querySelector("summary");
+  const label = nav.querySelector("[data-mobile-nav-label]");
+  const desktop = window.matchMedia("(min-width: 48rem)");
+
+  // State, label and page scroll lock follow the disclosure, however it changed.
+  const sync = () => {
+    if (summary instanceof HTMLElement) summary.setAttribute("aria-expanded", nav.open ? "true" : "false");
+    if (label) label.textContent = nav.open ? "Close" : "Menu";
+    document.documentElement.style.overflow = nav.open ? "hidden" : "";
+  };
+  const close = () => {
+    if (!nav.open) return;
+    nav.open = false;
+    sync();
+  };
+
+  nav.addEventListener("toggle", sync);
+  sync();
 
   document.addEventListener("click", (event) => {
-    if (nav.open && !(event.target instanceof Node && nav.contains(event.target))) {
-      nav.open = false;
-    }
+    if (!(event.target instanceof Node && nav.contains(event.target))) close();
+  });
+
+  // Tabbing (or otherwise moving focus) out of the menu closes it.
+  nav.addEventListener("focusout", (event) => {
+    if (event.relatedTarget instanceof Node && !nav.contains(event.relatedTarget)) close();
   });
 
   nav.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && nav.open) {
-      nav.open = false;
+      close();
       if (summary instanceof HTMLElement) summary.focus();
     }
   });
 
   for (const link of nav.querySelectorAll("[data-mobile-nav-link]")) {
-    link.addEventListener("click", () => {
-      nav.open = false;
-    });
+    link.addEventListener("click", close);
   }
+
+  // The menu is hidden from md up; never leave the page locked behind it.
+  desktop.addEventListener("change", () => {
+    if (desktop.matches) close();
+  });
 }
 
 initNav();

@@ -1,0 +1,44 @@
+---
+import "../../styles/global.css";
+import "../../styles/landing.css";
+import { BRAND } from "@vc/config";
+import geistFontUrl from "@vc/ui/assets/fonts/Geist-Variable.woff2";
+import geistMonoFontUrl from "@vc/ui/assets/fonts/GeistMono-Variable.woff2";
+import { MarketingNotFound } from "../../components/landing/not-found";
+import { isDirectInternalRootHit } from "../../lib/internal-root";
+import { markdownNotFound } from "../../lib/agent-discovery";
+import { isMarketingHost } from "../../server/public-blog";
+import { publicRuntimeEnv } from "../../server/runtime";
+
+// Internal entry only: marketing-host routes (404, [postSlug], docs/[...slug],
+// tag/[tag]) `Astro.rewrite("/internal/not-found")` unknown paths here so the
+// branded page keeps its own module graph and tenant 404s never load marketing
+// CSS. Direct hits stay a plain 404.
+const env = publicRuntimeEnv(Astro);
+if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname) || env.selfHosted || !isMarketingHost(Astro.request, env)) {
+  return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+}
+const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
+if (missing) return missing;
+Astro.response.status = 404;
+Astro.response.headers.set("Vary", "Accept");
+Astro.response.headers.set("cache-control", "no-store");
+---
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0c100e" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found | {BRAND.name}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="preload" href={geistFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={geistMonoFontUrl} as="font" type="font/woff2" crossorigin="anonymous" />
+  </head>
+  <body>
+    <MarketingNotFound />
+  </body>
+</html>

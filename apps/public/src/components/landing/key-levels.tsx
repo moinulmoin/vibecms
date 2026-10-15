@@ -88,10 +88,10 @@ export function KeyLevelsDemo() {
 
       <ul className="px-5 pb-2 pt-3">
         {CAPABILITIES.map((cap) => (
-          <li key={cap.label} data-cap={cap.min} className="flex items-center gap-3 py-2.5 transition-opacity duration-200">
+          <li key={cap.label} data-cap={cap.min} className="flex items-center gap-3 py-2.5">
             <Check data-cap-on className="size-4 shrink-0 text-brand-bright" />
             <Minus data-cap-off className="size-4 shrink-0 text-muted-foreground" />
-            <span className="text-sm text-foreground/90">
+            <span data-cap-label className="text-sm text-foreground/90 transition-colors duration-200">
               <span data-cap-off className="sr-only">Not included: </span>
               {cap.label}
             </span>

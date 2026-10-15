@@ -1,0 +1,28 @@
+---
+// Shared <head> metadata for non-landing marketing pages (docs, legal):
+// title/description, canonical, and OG/Twitter tags with absolute URLs.
+import { BRAND } from "@vc/config";
+import { DEFAULT_OG_IMAGE, seo } from "../lib/landing-seo";
+
+interface Props {
+  title: string;
+  description?: string;
+  canonical: string;
+}
+
+const { title, description, canonical } = Astro.props;
+const meta = seo({
+  title,
+  description,
+  url: canonical,
+  image: new URL(DEFAULT_OG_IMAGE, canonical).href,
+  siteName: BRAND.name,
+});
+---
+{meta.map((tag) =>
+  "title" in tag ? <title>{String(tag.title)}</title> :
+  "name" in tag && tag.name ? <meta name={String(tag.name)} content={String(tag.content ?? "")} /> :
+  "property" in tag && tag.property ? <meta property={String(tag.property)} content={String(tag.content ?? "")} /> :
+  null
+)}
+<link rel="canonical" href={canonical} />

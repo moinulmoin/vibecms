@@ -26,8 +26,8 @@ const POINTS: Point[] = [
   },
   {
     Icon: History,
-    title: "Undo anything",
-    body: "Every change is a version, and every action lands in one activity log. Restore any version in one step.",
+    title: "Restore any saved version",
+    body: "Agent edits create versions, and every action lands in one activity log. Restoring creates a new version; the live post stays put until you publish.",
   },
 ];
 
@@ -120,7 +120,7 @@ export function ControlSection() {
           </h2>
           <p className={`mt-4 max-w-[440px] ${LEAD}`}>
             Your agent drafts. You look at the real page, say yes, and pick
-            when. Every step is saved and reversible.
+            when. Any saved version can be restored.
           </p>
           <ul className="mt-8 grid gap-5">
             {POINTS.map(({ Icon, title, body }) => (

@@ -49,6 +49,22 @@ export const Menu = icon(
   </>,
 );
 
+export const X = icon(
+  <>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </>,
+);
+
+export const Pause = icon(
+  <>
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+  </>,
+);
+
+export const Play = icon(<polygon points="6 3 20 12 6 21 6 3" />);
+
 export const History = icon(
   <>
     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />

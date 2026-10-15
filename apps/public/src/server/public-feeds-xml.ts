@@ -23,6 +23,17 @@ export function xmlEscape(value: string): string {
     .replace(/'/g, '&apos;');
 }
 
+/** One sitemap `<url>`: absolute `loc`, optional W3C-date `lastmod`. */
+export type SitemapEntry = { loc: string; lastmod?: string | null };
+
+/** Serialize entries, in the order given, as a sitemap `<urlset>` document. */
+export function buildUrlsetXml(entries: readonly SitemapEntry[]): string {
+  const body = entries
+    .map(({ loc, lastmod }) => `  <url><loc>${xmlEscape(loc)}</loc>${lastmod ? `<lastmod>${xmlEscape(lastmod)}</lastmod>` : ''}</url>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
+}
+
 /**
  * Build a sitemap.xml document. The home entry (`${origin}/`) comes first and
  * carries a `<lastmod>` set to the newest `max(published_at, updated_at)` across
@@ -35,18 +46,13 @@ export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string
     const epoch = maxPublishEpoch(post.published_at, post.updated_at);
     return epoch == null ? max : Math.max(max ?? 0, epoch);
   }, null);
-  const homeLastmod = formatW3CDate(homeEpoch);
-
-  const lines: string[] = [
-    `  <url><loc>${xmlEscape(`${origin}/`)}</loc>${homeLastmod ? `<lastmod>${homeLastmod}</lastmod>` : ''}</url>`,
-  ];
-  for (const post of posts) {
-    const loc = `${origin}/${post.slug}`;
-    const lastmod = formatW3CDate(maxPublishEpoch(post.published_at, post.updated_at));
-    lines.push(`  <url><loc>${xmlEscape(loc)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`);
-  }
-  const body = lines.join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
+  return buildUrlsetXml([
+    { loc: `${origin}/`, lastmod: formatW3CDate(homeEpoch) },
+    ...posts.map((post) => ({
+      loc: `${origin}/${post.slug}`,
+      lastmod: formatW3CDate(maxPublishEpoch(post.published_at, post.updated_at)),
+    })),
+  ]);
 }
 
 /**

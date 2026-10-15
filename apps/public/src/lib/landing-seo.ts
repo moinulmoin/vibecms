@@ -1,4 +1,4 @@
-const DEFAULT_OG_IMAGE = '/brand/og.png'
+export const DEFAULT_OG_IMAGE = '/brand/og.png'
 
 export const seo = ({
   title,

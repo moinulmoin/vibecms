@@ -280,9 +280,15 @@ describe("public effective entitlement resolution", () => {
   });
 
   it("preserves marketing-host isolation for product output", async () => {
-    const sitemap = await handleSitemap(env.DB, requestFor(runtimeEnv.publicBlogDomain!, "/sitemap.xml"), runtimeEnv);
+    const sitemap = await handleSitemap(env.DB, requestFor(runtimeEnv.publicBlogDomain!, "/sitemap.xml"), runtimeEnv, undefined, [
+      { path: "/docs/cli" },
+      { path: "/legal/terms", lastmod: "2026-08-16" },
+    ]);
     expect(sitemap.status).toBe(200);
-    expect(await sitemap.text()).toContain(`${runtimeEnv.appUrl}/docs`.replace(runtimeEnv.appUrl, "https://basedui.dev"));
+    const sitemapXml = await sitemap.text();
+    expect(sitemapXml).toContain("<loc>https://basedui.dev/</loc>");
+    expect(sitemapXml).toContain("<loc>https://basedui.dev/docs/cli</loc></url>");
+    expect(sitemapXml).toContain("<loc>https://basedui.dev/legal/terms</loc><lastmod>2026-08-16</lastmod>");
 
     const robots = await handleRobots(env.DB, requestFor(runtimeEnv.publicBlogDomain!, "/robots.txt"), runtimeEnv);
     expect(await robots.text()).toContain("Sitemap:");

@@ -5,6 +5,7 @@ import type { AstroComponentFactory } from "astro/runtime/server/index.js";
 import Base from "../../layouts/Base.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { DocsShell } from "../../components/docs/docs-shell";
+import DocsCodeBlock from "../../components/docs/docs-code-block.astro";
 import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from "../../components/PublicBlogPages";
 import { docsSource } from "../../lib/docs-source";
 import { buildPostHeadContent } from "../../lib/seo-meta";
@@ -92,7 +93,7 @@ const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown)
 ) : page && rendered ? (
   <DocsLayout title={page.data.title ?? "Documentation"} description={page.data.description} canonical={new URL(page.url, Astro.url.origin).toString()}>
     <DocsShell client:load tree={docsSource.pageTree} pathname={Astro.url.pathname} params={Astro.params} title={page.data.title ?? "Documentation"} description={page.data.description} toc={toc} appUrl={env.appUrl}>
-      <rendered.Content />
+      <rendered.Content components={{ pre: DocsCodeBlock }} />
     </DocsShell>
   </DocsLayout>
 ) : null}

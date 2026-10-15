@@ -12,7 +12,7 @@ import {
   type PostSummaryRow,
   type SiteRow,
 } from "./public-blog-data";
-import { buildRssXml, buildSitemapXml, xmlEscape } from "./public-feeds-xml";
+import { buildRssXml, buildSitemapXml, buildUrlsetXml } from "./public-feeds-xml";
 import { sanitizeLlmsField } from "./llms-text";
 import { publicCacheControlForEntitlement, siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
@@ -28,10 +28,12 @@ function robotsTagHeaders(site: SiteRow, env: PublicRuntimeEnv): Record<string, 
 const notFound = () =>
   new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 
-function productSitemap(origin: string): Response {
-  const urls = [`${origin}/`, `${origin}/docs`];
-  const body = urls.map((url) => `  <url><loc>${xmlEscape(url)}</loc></url>`).join("\n");
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
+/** A product-site page for the marketing sitemap: root-relative path, optional W3C date. */
+export type ProductSitemapPage = { path: string; lastmod?: string | null };
+
+function productSitemap(origin: string, pages: readonly ProductSitemapPage[]): Response {
+  const entries: readonly ProductSitemapPage[] = [{ path: "/" }, ...pages];
+  const xml = buildUrlsetXml(entries.map(({ path, lastmod }) => ({ loc: `${origin}${path}`, lastmod })));
   return new Response(xml, {
     headers: { "content-type": "application/xml; charset=utf-8", "cache-control": cacheControl },
   });
@@ -93,9 +95,21 @@ export async function handleFeed(db: D1Database, request: Request, env: PublicRu
   });
 }
 
-export async function handleSitemap(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
+/**
+ * Tenant sitemap for blog hosts; on the hosted marketing host, the landing page
+ * plus `productPages` (docs and legal, supplied by the route). The marketing
+ * branch never touches D1.
+ */
+export async function handleSitemap(
+  db: D1Database,
+  request: Request,
+  env: PublicRuntimeEnv,
+  location?: PublicLocation,
+  productPages: readonly ProductSitemapPage[] = [],
+): Promise<Response> {
+  if (!env.selfHosted && isMarketingHost(request, env)) return productSitemap(publicOrigin(request.url), productPages);
   const site = await resolveSite(request, db, env);
-  if (!site) return isMarketingHost(request, env) ? productSitemap(publicOrigin(request.url)) : notFound();
+  if (!site) return notFound();
   if (!isPublicBlogIndexable(site, env)) return notFound();
   const origin = location ? publicBaseUrl(location) : publicOrigin(request.url);
   const posts = await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.sitemapSummaries);

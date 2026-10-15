@@ -1,6 +1,6 @@
 export const BRAND = {
   name: "vibecms",
-  tagline: "CMS for AI Agents.",
+  tagline: "CMS for AI agents.",
   description:
     "The CMS your agents publish into: Markdown posts, versions, and media over scoped MCP - you own every post.",
   repoUrl: "https://github.com/moinulmoin/vibecms",

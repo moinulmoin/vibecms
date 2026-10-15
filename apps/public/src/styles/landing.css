@@ -12,6 +12,8 @@
 @source "../content/docs";
 @source "../layouts/DocsLayout.astro";
 @source "../pages/docs";
+@source "../layouts/LegalLayout.astro";
+@source "../pages/legal";
 @source "../scripts/marketing-interactions.js";
 
 /* Hero conversation: turns after the current step wait off-stage. SSR renders
@@ -27,7 +29,8 @@
   opacity: 0.4;
 }
 
-/* Key levels: show the selected level's note and scopes; dim what it can't do. */
+/* Key levels: show the selected level's note and scopes. Excluded capabilities
+   keep readable full-opacity --muted-foreground labels; only the icon dims. */
 [data-key-demo]:not([data-level="draft"]) [data-for="draft"],
 [data-key-demo]:not([data-level="publish"]) [data-for="publish"],
 [data-key-demo]:not([data-level="manage"]) [data-for="manage"],
@@ -36,9 +39,10 @@
 }
 [data-key-demo][data-level="draft"] :is([data-cap="publish"], [data-cap="manage"]),
 [data-key-demo][data-level="publish"] [data-cap="manage"] {
-  opacity: 0.45;
   & [data-cap-on] { display: none; }
   & [data-cap-off] { display: block; }
+  & [data-cap-label] { color: var(--muted-foreground); }
+  & svg[data-cap-off] { opacity: 0.5; }
 }
 
 /* Below the hero, reveals play as each section scrolls into view (not all at

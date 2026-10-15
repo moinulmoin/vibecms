@@ -56,7 +56,7 @@ const GROUPS: { title: string; items: Feature[] }[] = [
       { Icon: PenLine, title: "Voice profile", body: "Describe how you write. Agents read it before they draft." },
       { Icon: ImageIcon, title: "Media on R2", body: `Images up to ${MEDIA.maxImageLabel}, ${MEDIA.paidStorageLabel} of storage, resized at the edge.` },
       { Icon: Mail, title: "Newsletter signups", body: "A subscribe form on your blog. Export the list as CSV." },
-      { Icon: Download, title: "Export anytime", body: "Every post as JSON, whenever you want it. No lock-in." },
+      { Icon: Download, title: "Export anytime", body: "Every post as JSON, drafts included, whenever you want it." },
     ],
   },
 ];
@@ -112,7 +112,8 @@ function ThemeSwatch({ id, name }: { id: PresetId; name: string }) {
           className={[
             "mt-2 truncate text-[10px] leading-tight text-vc-fg",
             id === "editorial"
-              ? "font-[family-name:var(--vc-font-heading)] italic"
+              ? // System serif italic: evokes Newsreader without the landing downloading its italic face.
+                "font-serif italic"
               : id === "technical"
                 ? "font-mono text-[9px] tracking-[0.08em]"
                 : "font-[family-name:var(--vc-font-heading)] font-semibold",
@@ -159,7 +160,7 @@ function PostMock() {
           </p>
           <div className="mt-4 rounded-md bg-vc-accent/10 px-3.5 py-2.5 text-[12.5px] leading-[1.55]">
             <span className="font-semibold text-vc-accent">Note</span>
-            <span className="text-vc-fg/85"> Tokens are scoped per agent.</span>
+            <span className="text-vc-fg/85"> Keys are scoped per agent.</span>
           </div>
           <pre className="mt-4 overflow-hidden rounded-lg bg-[oklch(0.2_0.01_250)] ring-1 ring-vc-border px-3.5 py-3 font-mono text-[11.5px] leading-[1.7] text-[oklch(0.9_0.01_250)]">
             <code>

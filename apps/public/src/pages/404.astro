@@ -1,7 +1,11 @@
 ---
 import { markdownNotFound } from "../lib/agent-discovery";
+import { isMarketingHost } from "../server/public-blog";
+import { publicRuntimeEnv } from "../server/runtime";
 const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
 if (missing) return missing;
+const env = publicRuntimeEnv(Astro);
+if (!env.selfHosted && isMarketingHost(Astro.request, env)) return Astro.rewrite("/internal/not-found");
 Astro.response.status = 404;
 Astro.response.headers.set("Vary", "Accept");
 const basePath = Astro.locals.publicLocation?.basePath ?? "";
