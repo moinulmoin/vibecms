@@ -88,6 +88,20 @@ jobs:
             exit 1
           fi
 
+      # The repo is public, so recovery data never leaves the runner as an
+      # artifact. D1 Time Travel restores to any timestamp in the last 30 days;
+      # this pre-deploy timestamp is the recovery point (see docs/deploy.md).
+      - name: Record recovery point
+        run: |
+          recovery_point="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "### Recovery point"
+            echo
+            echo "Pre-deploy UTC timestamp: \`${recovery_point}\`"
+            echo
+            echo "Restore D1 to it with \`pnpm production:rollback -- --d1-restore --timestamp ${recovery_point} --i-understand-d1-restore-is-destructive --yes\` (destructive; see docs/deploy.md)."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Canonical production deploy
         run: pnpm deploy:prod
         env:
@@ -96,3 +110,4 @@ jobs:
           PRODUCTION_SMOKE_TOKEN: ${{ inputs.smoke_mode == 'authenticated' && secrets.PRODUCTION_SMOKE_TOKEN || '' }}
           ALLOW_BOOTSTRAP_SMOKE: ${{ inputs.smoke_mode == 'bootstrap' && '1' || '' }}
           PRODUCTION_BOOTSTRAP_SHA: ${{ inputs.smoke_mode == 'bootstrap' && secrets.PRODUCTION_BOOTSTRAP_SHA || '' }}
+

@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import { app, redactErrorText, redactPathSecrets } from './index'
+import { app } from './index'
+import { redactErrorText, redactPathSecrets } from './server/request-logging'
 
 describe('API Worker request hardening', () => {
   it('rejects an oversized auth body before dispatch', async () => {

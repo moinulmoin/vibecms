@@ -6,7 +6,7 @@ Update this whenever a feature is added, removed, or planned.
 - `CHANGELOG.md` = code release notes (per-commit/version).
 - This file = product/feature state and roadmap.
 
-Last updated: 2026-10-13
+Last updated: 2026-10-15
 
 ---
 
@@ -16,6 +16,7 @@ Last updated: 2026-10-13
 - Passwordless email OTP sign-in (Better Auth `emailOTP`, 6-digit, 10-min expiry).
 - OTP delivery via Cloudflare's native `send_email` Workers binding (`EMAIL`, declared in wrangler.jsonc) on an onboarded sending domain; otherwise console-logged (local/test).
 - OTP send rate limit: 5/hour per email (D1, fail-closed when the durable budget cannot be checked).
+- Only sign-in OTP sends are enabled and budgeted; unused email-verification, password, account-deletion and email-change send endpoints return 404.
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default domain + billing row (`none`).
 
 ### Content / posts
@@ -25,6 +26,7 @@ Last updated: 2026-10-13
 - Update patch semantics: omit a field to keep it; `null` clears cover/canonical and resets presentation; title/body/tags reject `null`; excerpt/SEO strings clear with an empty string.
 - Per-site unique slugs; slug conflict surfaced as `slug_conflict`; auto-slug from title until the slug is edited manually.
 - Scheduled publishing: `posts.schedule` / `posts.unschedule` (+ REST + dashboard) pin an approved version for a future `publishAt`. Scheduling preserves the current draft/published status — a draft stays private, and a published post keeps serving its current live version until the scheduled run.
+- Scheduled publication retries transient errors up to three attempts; permanent errors fail immediately. Terminal failures appear in Activity and the posts list; structured failure events and per-run counts include crashed final attempts.
 
 ### Version history
 - Meaningful changes create versions with the actor (human, token, or agent) and a change summary; publish pins the approved existing version (no new row), eligible unpublished draft edits fold into the tip (renumbered), and no-op saves do not create a version. Live and scheduled versions are protected from folding.
@@ -96,6 +98,7 @@ Last updated: 2026-10-13
 - Overview, Analytics, Posts, Media, Subscribers, Activity, Theme, Settings, Connect, Billing, Setup.
 - Connect-an-agent flow with focused snippets for Claude Code, Codex, Cursor, Droid, and generic MCP + a protected-read connection check + approval-first starter prompt.
 - Success/error feedback via toast (`?ok=`/`?error=` params converted and cleared).
+- Dashboard/login documents are `noindex` and use static-asset security headers, including a minimal CSP and frame denial, on SPA fallback routes as well as the root.
 
 ### Onboarding
 - One visible path: Blog setup -> Personalize -> Connect agent -> First draft -> Review exact version -> Publish proof, with manual writing as a fallback.
@@ -108,10 +111,13 @@ Last updated: 2026-10-13
 
 ### Quotas, security, export
 - API/MCP quota counters (hosted): per-minute/day/month call caps per tier, day/month write caps, and per-token per-minute call caps, with `X-RateLimit-*` headers.
+- MCP write classification comes from the operation registry's read-only annotation, including scheduling, unscheduling, preview rotation, unarchive and asset metadata updates. REST charges equivalent mutations as writes.
 - Same-origin CSRF guards (`rejectCrossOriginBrowserPost`) on the Hono cookie-authenticated dashboard mutations and media POSTs.
 - Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA.
 - Owner-only full JSON export of all posts (`GET /api/export.json`).
 - Self-hosted mode (`SELF_HOSTED=true`): billing always active, no quotas, always indexable.
+- Unexpected REST/MCP exceptions log redacted message, stack and bounded causes once, correlated with the response request ID; responses remain generic.
+- Each production deploy records its pre-deploy UTC timestamp in the job summary as the D1 Time Travel recovery point; nothing is uploaded as an artifact because the repo is public.
 
 ---
 

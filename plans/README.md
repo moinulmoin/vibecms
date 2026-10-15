@@ -36,6 +36,8 @@ behavior lives in the code and in `docs/FEATURES.md` plus the docs site.
 Status values: DONE | REJECTED (with one-line rationale) | ON HOLD. Plans 013,
 014, and 017 have no plan files (numbers reserved/skipped).
 
+Launch-hardening maintenance (2026-10-15): passwordless auth endpoint restrictions, dashboard document headers/noindex, registry-derived MCP write quotas, correlated exception causes, scheduled-publish failure activity/logs, and a pre-deploy D1 recovery timestamp in the deploy job summary are implemented. This does not close the open items below.
+
 ## Open
 
 - **Self-host deploy button unrehearsed**: rehearse the clean-account

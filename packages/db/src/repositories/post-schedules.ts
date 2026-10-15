@@ -30,11 +30,32 @@ export async function unschedulePost(db: D1Database, siteId: string, postId: str
   return (result.meta.changes ?? 0) > 0;
 }
 
+export const ABANDONED_SCHEDULE_ERROR = 'Scheduled publish stopped after 3 attempts';
+
+/**
+ * Terminally fail schedules whose final (third) attempt crashed mid-lease, and
+ * return them so the scheduler can report each one. Earlier crashed attempts
+ * stay reclaimable by claimDueSchedules after the two-minute lease.
+ */
+export async function failAbandonedSchedules(db: D1Database, now: number): Promise<PostSchedule[]> {
+  // The publish commits before finishSchedule; if only the bookkeeping failed on the
+  // last attempt, the scheduled version is already live. Record that, not a failure.
+  await db.prepare(`UPDATE post_schedules SET status = 'published', error = NULL, lease_token = NULL,
+    updated_at = ? WHERE status = 'processing' AND attempts >= 3 AND updated_at <= ?
+    AND EXISTS (SELECT 1 FROM posts p JOIN post_versions v ON v.id = p.published_version_id
+      WHERE p.id = post_schedules.post_id AND p.site_id = post_schedules.site_id
+        AND p.status = 'published' AND v.version_number = post_schedules.version_number)`)
+    .bind(now, now - 120).run();
+  const result = await db.prepare(`UPDATE post_schedules SET status = 'failed', error = ?, lease_token = NULL,
+    updated_at = ? WHERE status = 'processing' AND attempts >= 3 AND updated_at <= ?
+    RETURNING post_id AS postId, site_id AS siteId, version_number AS versionNumber, publish_at AS publishAt,
+      status, error, attempts, scheduled_by_name AS scheduledByName, lease_token AS leaseToken`)
+    .bind(ABANDONED_SCHEDULE_ERROR, now, now - 120).all<PostSchedule>();
+  return result.results;
+}
+
 export async function claimDueSchedules(db: D1Database, now: number, limit = 25): Promise<PostSchedule[]> {
   // A crashed worker's processing lease becomes due again after two minutes.
-  await db.prepare(`UPDATE post_schedules SET status = 'failed', error = 'Scheduled publish stopped after 3 attempts',
-    updated_at = ? WHERE status = 'processing' AND attempts >= 3 AND updated_at <= ?`)
-    .bind(now, now - 120).run();
   const candidates = await db.prepare(`SELECT post_id AS postId, site_id AS siteId,
       version_number AS versionNumber, publish_at AS publishAt, status, error, attempts,
       scheduled_by_name AS scheduledByName, lease_token AS leaseToken

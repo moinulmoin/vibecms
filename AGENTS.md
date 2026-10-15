@@ -22,6 +22,10 @@
 - Never edit an existing migration in `packages/db/drizzle`; add a new one.
 - Never commit secrets. `.env*.local` files are gitignored; `pnpm public:audit`
   runs on every commit.
+- Better Auth upgrades must re-audit installed core and `emailOTP` email-sending
+  routes against `auth-guards.ts`: only budgeted sign-in OTP sends are enabled.
+  Dashboard documents are asset-first; keep their security policy in
+  `apps/dashboard/public/_headers`, not only Hono middleware.
 - Keep docs current in the same change: the docs site
   (`apps/public/src/content/docs`), `docs/*.md`, and plan status in `plans/`.
   Update this file when a working rule changes. Delete docs that no longer

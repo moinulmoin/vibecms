@@ -36,6 +36,7 @@ import {
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, apiRetryAfterSeconds, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
+import { logUnhandledException } from "@/server/request-logging";
 import {
   archivePostRoute,
   unarchivePostRoute,
@@ -68,6 +69,8 @@ import {
 } from "@/server/api/routes";
 
 type ApiEnv = {
+  /** Passed by the outer worker: apiV1App.fetch(request, { requestId }). */
+  Bindings: { requestId?: string };
   Variables: {
     ctx: OperationContext;
   };
@@ -77,6 +80,7 @@ function forceQuotaForSmoke(request: Request) {
   return String(env.APP_ENV) !== "production" && request.headers.get("x-vibecms-quota-smoke") === "1";
 }
 
+// Fail closed: every non-safe method is charged as a write.
 function usageKind(method: string): ApiUsageKind {
   return method === "GET" || method === "HEAD" || method === "OPTIONS" ? "read" : "write";
 }
@@ -391,5 +395,13 @@ apiV1App.onError((err, c) => {
   if (zodMessage) {
     return c.json(errorEnvelope("VALIDATION_ERROR", zodMessage), 400);
   }
+  logUnhandledException({
+    surface: "rest",
+    requestId: c.env?.requestId ?? null,
+    method: c.req.method,
+    url: c.req.url,
+    cfRay: c.req.header("cf-ray") ?? null,
+    error: err,
+  });
   return c.json(errorEnvelope("INTERNAL_ERROR", "Request failed"), 500);
 });

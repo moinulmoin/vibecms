@@ -19,6 +19,8 @@ Tokens are created in **Dashboard > Connect**, belong to one site, and are shown
 
 MCP and REST calls count against the same hosted workspace budget.
 
+Mutations consume the write budget as well as the call budget over both transports. This includes scheduling or unscheduling a post, rotating a preview link, unarchiving a post, and updating asset metadata. Read-only tools remain available when only the write budget is exhausted.
+
 ## Limits
 
 Hosted workspaces share these budgets across all keys and calls:

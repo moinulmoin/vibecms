@@ -9,7 +9,7 @@ import { mapPost, mapPostSummary } from '@vc/api-contract'
 import { updatePostForApp } from './post-mutations'
 import { handleExport } from './export'
 import { deleteSubscriberForApp } from './dashboard-api'
-import { maybeRejectOtpSendRateLimit } from './auth-guards'
+import { guardAuthRequest } from './auth-guards'
 import { listActivityOp, unarchivePostOp, updateAssetOp, type OperationContext } from './operations'
 import { updateSignupFormOp } from './operations'
 import { getNewsletterSettingsForApp, getSiteSettings, updateNewsletterSettingsForApp } from './onboarding'
@@ -131,15 +131,40 @@ describe('release regression paths', () => {
   })
 
   it('returns the durable OTP retry delay in both body and header', async () => {
-    const request = () => new Request('https://example.com/api/auth/email-otp/send-verification-otp', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'release-rate@example.com' }),
+    const request = (email = 'release-rate@example.com') => new Request('https://example.com/api/auth/email-otp/send-verification-otp', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, type: 'sign-in' }),
     })
-    for (let n = 0; n < 5; n++) expect(await maybeRejectOtpSendRateLimit(request())).toBeUndefined()
-    const response = await maybeRejectOtpSendRateLimit(request())
+    for (let n = 0; n < 5; n++) expect(await guardAuthRequest(request(n % 2 ? 'Release-Rate@Example.com' : undefined))).toBeUndefined()
+    const response = await guardAuthRequest(request())
     expect(response?.status).toBe(429)
     const body = await response!.json() as { retryAfter: number }
     expect(body.retryAfter).toBe(Number(response?.headers.get('retry-after')))
     expect(body.retryAfter).toBeGreaterThan(0)
+  })
+
+  it('refuses unused Better Auth email and password routes before the handler', async () => {
+    const budgeted: string[] = []
+    const budget = async (email: string) => { budgeted.push(email); return { allowed: true, retryAfter: 0 } }
+    const post = (path: string, body: unknown = { email: 'victim@example.com' }) => guardAuthRequest(new Request(`https://example.com/api/auth${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    }), budget)
+    for (const path of ['/email-otp/request-password-reset', '/forget-password/email-otp', '/send-verification-email', '/verify-email', '/request-password-reset', '/email-otp/request-email-change', '/change-email', '/sign-up/email', '/email-otp/reset-password', '/email-otp/request-password-reset/', '//forget-password//email-otp']) {
+      expect((await post(path))?.status, path).toBe(404)
+    }
+    expect((await guardAuthRequest(new Request('https://example.com/api/auth/reset-password/abc'), budget))?.status).toBe(404)
+    // Non-canonical aliases of the send route never reach the sender unbudgeted.
+    const signIn = { email: 'victim@example.com', type: 'sign-in' }
+    for (const path of ['/email-otp/send-verification-otp/', '//email-otp//send-verification-otp', '/Email-OTP/send-verification-otp', '/email-otp/send-verification-otp//']) {
+      expect((await post(path, signIn))?.status, path).toBe(404)
+    }
+    expect((await guardAuthRequest(new Request('https://example.com/api/auth/email-otp/send-verification-otp'), budget))?.status).toBe(404)
+    for (const type of ['forget-password', 'email-verification', undefined]) {
+      expect((await post('/email-otp/send-verification-otp', { email: 'victim@example.com', type }))?.status).toBe(400)
+    }
+    expect(budgeted).toEqual([])
+    expect(await post('/email-otp/send-verification-otp', { email: 'Victim@Example.com', type: 'sign-in' })).toBeUndefined()
+    expect(budgeted).toEqual(['victim@example.com'])
+    for (const path of ['/get-session', '/sign-out', '/sign-in/social', '/sign-in/email-otp', '/callback/google']) expect(await post(path)).toBeUndefined()
   })
 
   it('supports unarchive and asset alt updates through agent operations', async () => {
