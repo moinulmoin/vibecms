@@ -436,6 +436,12 @@ export const autoseopilotPurgeIntents = sqliteTable("autoseopilot_purge_intents"
   deadline: integer("deadline").notNull(),
   /** The lifecycle revision the intent was taken for. */
   lifecycleRevision: integer("lifecycle_revision").notNull(),
+  /**
+   * When the purge finished (epoch seconds). A finished intent stays as the
+   * durable trace that this blog was deleted, so a late paid webhook is
+   * recognised instead of turning a deleted blog into a paid workspace.
+   */
+  completedAt: integer("completed_at"),
   ...timestamps,
 }, (table) => [
   index("idx_autoseopilot_purge_intents_external_workspace").on(table.externalWorkspaceId),
@@ -451,7 +457,37 @@ export const autoseopilotClaimCheckouts = sqliteTable("autoseopilot_claim_checko
   workspaceId: text("workspace_id").primaryKey(),
   createdAt: integer("created_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
+  /**
+   * Until when the attempt blocks the purge of the blog (epoch seconds). The
+   * guard outlives the checkout itself: a checkout that expired without a
+   * webhook may still be paid at Polar days later.
+   */
+  guardUntil: integer("guard_until").notNull().default(0),
+  /** When the attempt was resolved by a webhook (epoch seconds). */
+  resolvedAt: integer("resolved_at"),
 }, (table) => [index("idx_autoseopilot_claim_checkouts_expires").on(table.expiresAt)]);
+
+/**
+ * A paid Polar event that arrived for a blog the purge is deleting, or has
+ * already deleted. The row is the operator's record: the customer paid, so
+ * the money has to be refunded by hand. It survives the blog's own rows.
+ */
+export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_conflicts", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  siteId: text("site_id"),
+  polarCustomerId: text("polar_customer_id"),
+  polarSubscriptionId: text("polar_subscription_id"),
+  polarOrderId: text("polar_order_id"),
+  polarCheckoutId: text("polar_checkout_id"),
+  eventId: text("event_id"),
+  eventType: text("event_type"),
+  appliedStatus: text("applied_status"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("idx_autoseopilot_purge_conflicts_workspace").on(table.workspaceId),
+  index("idx_autoseopilot_purge_conflicts_created").on(table.createdAt),
+]);
 
 export const pendingMediaOperations = sqliteTable("pending_media_operations", {
   id: text("id").primaryKey(),

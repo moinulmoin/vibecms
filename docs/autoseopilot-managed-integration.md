@@ -170,7 +170,12 @@ Deleting a blog is irreversible, so it happens in three steps:
    still revoked, still past its own deadline (`revoked_at + 30 days <= now`,
    never a deadline carried over from an earlier candidate), still the same
    lifecycle the candidate was selected at, its workspace still never claimed
-   VibeCMS Cloud, and no claim checkout is still open. The intent records the
+   VibeCMS Cloud, and no claim checkout for that workspace was opened in the
+   last 48 hours. The 48 hours are counted from the moment the checkout was
+   opened and cover the checkout whether it is still open or already
+   resolved: Polar's checkout expiry and a delayed webhook can land anywhere
+   in that window, and a customer charged for a blog that was deleted is far
+   worse than a purge that runs two days late. The intent records the
    resources the purge will delete: the site's Cloudflare custom hostname ids
    and its R2 prefixes.
 2. The external cleanup runs from the recorded resources.
@@ -178,12 +183,19 @@ Deleting a blog is irreversible, so it happens in three steps:
    intent.
 
 While an intent exists the blog cannot come back. The claim checkout is
-refused before any money is taken, an in-flight Polar webhook is answered
-with a conflict instead of flipping the workspace to paid, the AutoSEOPilot
-plan resumption is refused with a retryable failure, and a re-provision
-cannot recreate the same site id and R2 namespace. A crashed run leaves the
-intent behind and the next daily run resumes the same cleanup from it; the
-intent never expires and is never auto-cleared.
+refused before any money is taken, a Polar webhook for a blog that is being
+purged, or that is already gone, is answered (so Polar stops retrying) and
+recorded in `autoseopilot_purge_conflicts` (migration 0040) with the Polar
+customer, order and subscription ids, instead of flipping the workspace to
+paid; the operator is alerted with the same ids so the money can be refunded
+by hand. The AutoSEOPilot plan resumption is refused with a retryable
+failure, and a re-provision cannot recreate the same site id and R2
+namespace while the purge is under way. A crashed run leaves the intent
+behind and the next daily run resumes the same cleanup from it; the intent
+never expires and is never auto-cleared. A finished intent stays behind as
+the trace of a deleted blog (`completed_at`), so a late paid webhook is
+recognised instead of turning a deleted blog into a paid workspace with no
+notice.
 
 ## Internal API
 

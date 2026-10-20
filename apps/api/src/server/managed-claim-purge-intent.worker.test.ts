@@ -282,6 +282,7 @@ beforeEach(async () => {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM autoseopilot_purge_intents'),
     env.DB.prepare('DELETE FROM autoseopilot_claim_checkouts'),
+    env.DB.prepare('DELETE FROM autoseopilot_purge_conflicts'),
     env.DB.prepare('DELETE FROM autoseopilot_managed_sites'),
   ])
 })
@@ -333,13 +334,18 @@ describe('claim window — the purge intent', () => {
     expect(checkout).toEqual({ kind: 'error', code: 'purge_in_progress' })
     expect(createCheckout).not.toHaveBeenCalled()
 
-    // An in-flight webhook must not resurrect the blog either.
+    // An in-flight webhook must not resurrect the blog either. The customer
+    // may have paid for the claim, so the event is recorded for a refund
+    // instead of being dropped, and the workspace stays unpaid.
     const response = await handlePolarWebhook(await signedWebhook('evt-intent', blog.workspaceId))
-    expect(response.status).toBe(409)
+    expect(response.status).toBe(200)
     const billing = await env.DB.prepare('SELECT status FROM billing_customers WHERE workspace_id = ?')
       .bind(blog.workspaceId)
       .first<{ status: string }>()
     expect(billing?.status).not.toBe('active')
+    const conflicts = await data.managedSites.listPurgeConflicts(blog.workspaceId)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].polarSubscriptionId).toBe(`sub_${blog.workspaceId}`)
 
     // The plan resumption is refused, and the refusal stays retryable.
     await expect(
@@ -382,7 +388,12 @@ describe('claim window — the purge intent', () => {
     expect(await env.ASSETS_BUCKET.get(`${blog.siteId}/media-1.png`)).toBeNull()
     expect(await env.ASSETS_BUCKET.get(`og/${blog.siteId}/card.png`)).toBeNull()
     expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(false)
-    expect(await rowExists('SELECT id FROM autoseopilot_purge_intents WHERE site_id = ?', blog.siteId)).toBe(false)
+    // The intent stays as the trace of the deleted blog: a paid webhook that
+    // arrives late must be recognised, not turned into a paid workspace.
+    const finished = await env.DB.prepare('SELECT completed_at FROM autoseopilot_purge_intents WHERE site_id = ?')
+      .bind(blog.siteId)
+      .first<{ completed_at: number | null }>()
+    expect(finished?.completed_at).toBeTypeOf('number')
   })
 
   it('finishes the cleanup of a purge that died after the rows were deleted', async () => {
@@ -410,7 +421,10 @@ describe('claim window — the purge intent', () => {
     expect(deletedHostnames).toContain(blog.hostnameId)
     expect(await env.ASSETS_BUCKET.get(`${blog.siteId}/media-1.png`)).toBeNull()
     expect(await env.ASSETS_BUCKET.get(`og/${blog.siteId}/card.png`)).toBeNull()
-    expect(await rowExists('SELECT id FROM autoseopilot_purge_intents WHERE site_id = ?', blog.siteId)).toBe(false)
+    const finished = await env.DB.prepare('SELECT completed_at FROM autoseopilot_purge_intents WHERE site_id = ?')
+      .bind(blog.siteId)
+      .first<{ completed_at: number | null }>()
+    expect(finished?.completed_at).toBeTypeOf('number')
   })
 
   it('never deletes a lifecycle whose own revoke is younger than the window', async () => {
@@ -451,10 +465,81 @@ describe('claim window — the purge intent', () => {
     expect(deferred.purged).toBe(0)
     expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(true)
 
-    // The checkout expired without a claim: the purge goes through.
+    // The checkout expired without a claim, but the attempt still guards the
+    // purge: Polar's checkout expiry and a late webhook can land anywhere in
+    // the guard window.
     await data.managedSites.recordClaimCheckoutAttempt(blog.workspaceId, now() - 7200, now() - 3600)
+    const stillDeferred = await runManagedClaimSweep(env)
+    expect(stillDeferred.purged).toBe(0)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(true)
+  })
+
+  it('defers the purge for 48 hours after a claim checkout was opened', async () => {
+    const blog = await seedRevokedBlog('guard', 31)
+    await seedMedia(blog.siteId)
+    // A checkout that was opened 30 hours ago and has been resolved since:
+    // the money can still arrive at Polar, so the blog must not go.
+    await data.managedSites.recordClaimCheckoutAttempt(blog.workspaceId, now() - 30 * 3600, now() - 29 * 3600)
+    await data.managedSites.resolveClaimCheckoutAttempt(blog.workspaceId, now() - 29 * 3600)
+
+    const deferred = await runManagedClaimSweep(env)
+    expect(deferred.purged).toBe(0)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(true)
+
+    // 72 hours after the checkout was opened, the guard window is over and
+    // the purge goes through.
+    await env.DB.prepare(
+      'UPDATE autoseopilot_claim_checkouts SET created_at = ?, guard_until = ? WHERE workspace_id = ?',
+    )
+      .bind(now() - 72 * 3600, now() - 24 * 3600, blog.workspaceId)
+      .run()
     const purges = await runManagedClaimSweep(env)
     expect(purges.purged).toBe(1)
     expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(false)
+  })
+
+  it('records and alerts when a paid claim webhook arrives for a purged blog', async () => {
+    const blog = await seedRevokedBlog('paidlate', 31)
+    await seedMedia(blog.siteId)
+    expect(await acquireIntent(blog)).not.toBeNull()
+
+    // The purge runs: the blog is gone.
+    const purged = await runManagedClaimSweep(env)
+    expect(purged.purged).toBe(1)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(false)
+
+    // The customer paid at Polar and the webhook arrives late. The webhook
+    // is answered (so Polar stops retrying) and the payment is escalated.
+    const warnings: string[] = []
+    const warn = console.warn
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' '))
+    }
+    try {
+      const response = await handlePolarWebhook(await signedWebhook('evt-late-paid', blog.workspaceId))
+      expect(response.status).toBe(200)
+    } finally {
+      console.warn = warn
+    }
+
+    // The workspace did not quietly become a paid workspace with no blog.
+    const billing = await env.DB.prepare('SELECT status FROM billing_customers WHERE workspace_id = ?')
+      .bind(blog.workspaceId)
+      .first<{ status: string }>()
+    expect(billing?.status).not.toBe('active')
+
+    // The payment is recorded with the Polar ids, so the founder can refund
+    // it by hand.
+    const conflicts = await data.managedSites.listPurgeConflicts(blog.workspaceId)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].siteId).toBe(blog.siteId)
+    expect(conflicts[0].polarCustomerId).toBe(`cust_${blog.workspaceId}`)
+    expect(conflicts[0].polarSubscriptionId).toBe(`sub_${blog.workspaceId}`)
+    expect(conflicts[0].eventId).toBe('evt-late-paid')
+
+    // The operator is told: this one needs a human.
+    const alert = warnings.find((line) => line.includes('polar_webhook_purge_conflict'))
+    expect(alert).toBeDefined()
+    expect(alert).toContain(`sub_${blog.workspaceId}`)
   })
 })

@@ -88,8 +88,9 @@ async function purgeR2Prefixes(bucket: R2Bucket, prefixes: string[]): Promise<vo
 
 /**
  * Runs the purge of one intent: the recorded external resources first, then
- * the D1 rows, then the intent itself. The intent is only removed once the
- * blog is really gone, so a crash in the middle leaves the work resumable.
+ * the D1 rows, then the intent itself. The intent is only finished once the
+ * blog is really gone, so a crash in the middle leaves the work resumable. A
+ * finished intent stays behind as the trace of a deleted blog.
  */
 async function runPurgeIntent(
   env: Cloudflare.Env,
@@ -112,18 +113,35 @@ async function runPurgeIntent(
     now,
   })
   if (!purged) {
-    // The rows are gone (an earlier run deleted them) or the blog is claimed
-    // after all. Either way the intent has done its job: a claimed blog must
-    // never be blocked by it again.
-    await repo.deletePurgeIntent(intent.siteId)
-    console.warn('[managed-claim-sweep] purge did not delete rows, intent released', {
+    // Two cases: the blog is claimed after all, or an earlier run already
+    // deleted the rows. A blog that still lives must never be blocked by the
+    // intent again, so it is released. A blog that is gone keeps the intent
+    // as its trace: a paid webhook that arrives late must be recognised and
+    // escalated, not turned into a paid workspace with no blog.
+    const site = await env.DB.prepare('SELECT id FROM sites WHERE id = ?')
+      .bind(intent.siteId)
+      .first<{ id: string }>()
+    if (site) {
+      await repo.deletePurgeIntent(intent.siteId)
+      console.warn('[managed-claim-sweep] purge did not delete rows, intent released', {
+        workspaceId: intent.workspaceId,
+        siteId: intent.siteId,
+        at: now,
+      })
+      return false
+    }
+    await repo.completePurgeIntent(intent.siteId, now)
+    console.log('[managed-claim-sweep] purged unclaimed managed blog, rows were already gone', {
       workspaceId: intent.workspaceId,
       siteId: intent.siteId,
+      externalWorkspaceId: intent.externalWorkspaceId,
+      ownerUserId: intent.ownerUserId,
+      revokedAt: intent.revokedAt,
       at: now,
     })
-    return false
+    return true
   }
-  await repo.deletePurgeIntent(intent.siteId)
+  await repo.completePurgeIntent(intent.siteId, now)
   // The audit trail: activity rows cascade away with the site, so this line
   // is the operational record that a blog was deleted.
   console.log('[managed-claim-sweep] purged unclaimed managed blog', {

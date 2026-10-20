@@ -1,4 +1,9 @@
-import { MANAGED_CLAIM_WINDOW, isPaidBilling, pastDueGraceEndsAt } from "@vc/config";
+import {
+  MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS,
+  MANAGED_CLAIM_WINDOW,
+  isPaidBilling,
+  pastDueGraceEndsAt,
+} from "@vc/config";
 import type { BillingStatus } from "@vc/core";
 
 /**
@@ -622,8 +627,43 @@ export interface ManagedPurgeIntent {
   deadline: number;
   /** The lifecycle revision the intent was taken for. */
   lifecycleRevision: number;
+  /**
+   * When the purge finished (epoch seconds). A finished intent stays behind as
+   * the durable trace that the blog is gone.
+   */
+  completedAt: number | null;
   createdAt: number;
   updatedAt: number;
+}
+
+/** A paid Polar event that arrived for a blog the purge is deleting or has deleted. */
+export interface ManagedPurgeConflictInput {
+  workspaceId: string;
+  siteId?: string | null;
+  polarCustomerId?: string | null;
+  polarSubscriptionId?: string | null;
+  polarOrderId?: string | null;
+  polarCheckoutId?: string | null;
+  eventId?: string | null;
+  eventType?: string | null;
+  appliedStatus?: string | null;
+  /** Epoch seconds. */
+  now: number;
+}
+
+/** The operator record of a paid event that arrived too late. */
+export interface ManagedPurgeConflict {
+  id: string;
+  workspaceId: string;
+  siteId: string | null;
+  polarCustomerId: string | null;
+  polarSubscriptionId: string | null;
+  polarOrderId: string | null;
+  polarCheckoutId: string | null;
+  eventId: string | null;
+  eventType: string | null;
+  appliedStatus: string | null;
+  createdAt: number;
 }
 
 /**
@@ -693,28 +733,51 @@ export interface AutoseopilotManagedSitesClaimSweep {
 export interface AutoseopilotManagedPurgeIntents {
   /**
    * Writes the purge intent in ONE atomic statement, but only while the
-   * binding is still revoked, still past its own deadline, still the same
-   * lifecycle the candidate was selected at, its workspace still never
-   * claimed VibeCMS Cloud and no claim checkout is in flight. Returns the
-   * intent (the new one, or the one an earlier run left behind) or null when
-   * the guard did not hold and nothing is deleted.
+   * binding is still revoked, still past ITS OWN claim-window deadline, still
+   * the same lifecycle the candidate was selected at, its workspace still
+   * never claimed VibeCMS Cloud and no claim checkout blocked the purge
+   * inside its guard window. Returns the intent (the new one, or the one an
+   * earlier run left behind) or null when the guard did not hold and nothing
+   * is deleted.
    */
   acquirePurgeIntent(request: ManagedPurgeIntentRequest): Promise<ManagedPurgeIntent | null>;
   /** The intents left behind by earlier runs, so a crashed purge can resume. */
   listPurgeIntents(page: { limit?: number; cursor?: string | null }): Promise<ManagedPurgeIntent[]>;
   getPurgeIntentBySiteId(siteId: string): Promise<ManagedPurgeIntent | null>;
   getPurgeIntentByWorkspaceId(workspaceId: string): Promise<ManagedPurgeIntent | null>;
+  /**
+   * The intent of a purge that is still under way. A finished intent is only
+   * the trace of a deleted blog, so it must not block a new purchase.
+   */
+  getActivePurgeIntentByWorkspaceId(workspaceId: string): Promise<ManagedPurgeIntent | null>;
   getPurgeIntentByExternalWorkspaceId(externalWorkspaceId: string): Promise<ManagedPurgeIntent | null>;
-  /** Removes the intent once the blog is gone; never called while it lives. */
+  /**
+   * Removes the intent of a blog that is still alive: the purge was refused
+   * (the blog was claimed after all), so the intent must never block it
+   * again.
+   */
   deletePurgeIntent(siteId: string): Promise<void>;
+  /**
+   * Marks the intent as finished: the blog is gone. The row stays behind as
+   * the durable trace, so a paid webhook that arrives late is recognised
+   * instead of turning a deleted blog into a paid workspace with no notice.
+   */
+  completePurgeIntent(siteId: string, now: number): Promise<void>;
   /** Records a claim checkout that may still turn into a paid claim. */
   recordClaimCheckoutAttempt(workspaceId: string, now: number, expiresAt: number): Promise<void>;
-  /** Clears the attempt once the claim landed (or the checkout was abandoned). */
-  resolveClaimCheckoutAttempt(workspaceId: string): Promise<void>;
-  /** Drops the attempts that expired, so the ledger stays small. */
+  /**
+   * Marks the attempt as resolved (the webhook landed). The row stays: the
+   * attempt still blocks the purge until its guard window ends.
+   */
+  resolveClaimCheckoutAttempt(workspaceId: string, now: number): Promise<void>;
+  /** Drops the attempts whose guard window ended, so the ledger stays small. */
   deleteExpiredClaimCheckoutAttempts(now: number): Promise<void>;
   /** True while a recorded claim checkout could still become a paid claim. */
   hasUnresolvedClaimCheckout(workspaceId: string, now: number): Promise<boolean>;
+  /** Records a paid Polar event for a blog that is purged or being purged. */
+  recordPurgeConflict(conflict: ManagedPurgeConflictInput): Promise<ManagedPurgeConflict>;
+  /** The recorded conflicts, newest first. */
+  listPurgeConflicts(workspaceId?: string): Promise<ManagedPurgeConflict[]>;
 }
 export interface AutoseopilotManagedSitesRepository
   extends AutoseopilotManagedSitesClaimSweep,
@@ -822,6 +885,7 @@ interface ManagedPurgeIntentRaw {
   revoked_at: number;
   deadline: number;
   lifecycle_revision: number;
+  completed_at: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -849,18 +913,29 @@ function mapPurgeIntent(row: ManagedPurgeIntentRaw): ManagedPurgeIntent {
     revokedAt: Number(row.revoked_at),
     deadline: Number(row.deadline),
     lifecycleRevision: Number(row.lifecycle_revision),
+    completedAt: row.completed_at === null || row.completed_at === undefined ? null : Number(row.completed_at),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
 }
 
+/**
+ * Reads a purge intent. `activeOnly` skips the finished ones: a finished
+ * intent is the trace of a deleted blog, not a purge in flight, so it must
+ * never block a claim, a resumed plan or a re-provision.
+ */
 async function readPurgeIntentBy(
   db: D1Database,
   column: "site_id" | "workspace_id" | "external_workspace_id",
   value: string,
+  options?: { activeOnly?: boolean },
 ): Promise<ManagedPurgeIntent | null> {
   const row = await db
-    .prepare(`SELECT * FROM autoseopilot_purge_intents WHERE ${column} = ? LIMIT 1`)
+    .prepare(
+      `SELECT * FROM autoseopilot_purge_intents
+       WHERE ${column} = ?${options?.activeOnly ? " AND completed_at IS NULL" : ""}
+       LIMIT 1`,
+    )
     .bind(value)
     .first<ManagedPurgeIntentRaw>();
   return row ? mapPurgeIntent(row) : null;
@@ -952,11 +1027,14 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
       // The managed ids are derived from the external workspace, so a
       // provision while a purge is under way would rebuild the same site and
-      // the same R2 namespace the cleanup is still emptying.
+      // the same R2 namespace the cleanup is still emptying. A finished
+      // intent is only the trace of a deleted blog: it must not block a
+      // re-provision, or the customer could never get their blog back.
       const purgeIntent = await readPurgeIntentBy(
         db,
         "external_workspace_id",
         input.binding.externalWorkspaceId,
+        { activeOnly: true },
       );
       if (purgeIntent) throw new Error("managed_purge_in_progress");
 
@@ -1203,9 +1281,13 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       const beforeRotation = await readSnapshot(db, input.externalWorkspaceId);
       // A blog whose purge is under way must not come back: the intent is the
       // irreversible decision to delete it, and its domain and media may
-      // already be gone. The caller turns this into a retryable failure.
+      // already be gone. The caller turns this into a retryable failure. A
+      // finished intent is only the trace of a deleted blog, so a plan that
+      // resumes afterwards may bring the blog back.
       if (beforeRotation) {
-        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId);
+        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId, {
+          activeOnly: true,
+        });
         if (intent) throw new Error("managed_purge_in_progress");
       }
       const rotationResult = beforeRotation?.entitlementStatus === "revoked" ? "reactivated" : "rotated";
@@ -1336,7 +1418,9 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         // The intent can land between the guard above and this batch; a
         // rotation that did not apply because of it is a retryable refusal,
         // not a stale generation.
-        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId);
+        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId, {
+          activeOnly: true,
+        });
         if (intent) throw new Error("managed_purge_in_progress");
       }
       const snapshot = await readSnapshot(db, input.externalWorkspaceId);
@@ -1547,9 +1631,14 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // ONE atomic statement. The intent appears only while the binding is
       // still revoked, still past ITS OWN claim-window deadline, still the
       // same lifecycle the candidate was selected at, its workspace still
-      // never claimed VibeCMS Cloud, and no claim checkout is in flight. The
-      // hostname ids are read from the site's own domain rows in the same
-      // statement, so the recorded resources are the ones the purge deletes.
+      // never claimed VibeCMS Cloud, and no claim checkout blocked the purge
+      // inside its guard window. The hostname ids are read from the site's
+      // own domain rows in the same statement, so the recorded resources are
+      // the ones the purge deletes.
+      //
+      // A finished intent (a blog that was purged before) is replaced by the
+      // new one: the blog may have been provisioned again, and the new
+      // lifecycle must be able to purge its own blog.
       await db
         .prepare(
           `INSERT INTO autoseopilot_purge_intents (
@@ -1592,9 +1681,21 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              )
              AND NOT EXISTS (
                SELECT 1 FROM autoseopilot_claim_checkouts c
-               WHERE c.workspace_id = m.workspace_id AND c.expires_at > ?
+               WHERE c.workspace_id = m.workspace_id AND c.guard_until > ?
              )
-           ON CONFLICT(site_id) DO NOTHING`,
+           ON CONFLICT(site_id) DO UPDATE SET
+             id = excluded.id,
+             external_workspace_id = excluded.external_workspace_id,
+             owner_user_id = excluded.owner_user_id,
+             hostname_ids_json = excluded.hostname_ids_json,
+             r2_prefixes_json = excluded.r2_prefixes_json,
+             revoked_at = excluded.revoked_at,
+             deadline = excluded.deadline,
+             lifecycle_revision = excluded.lifecycle_revision,
+             completed_at = NULL,
+             created_at = excluded.created_at,
+             updated_at = excluded.updated_at
+           WHERE autoseopilot_purge_intents.completed_at IS NOT NULL`,
         )
         .bind(
           JSON.stringify(request.r2Prefixes),
@@ -1623,7 +1724,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       const { results } = await db
         .prepare(
           `SELECT * FROM autoseopilot_purge_intents
-           WHERE site_id > ?
+           WHERE site_id > ? AND completed_at IS NULL
            ORDER BY site_id ASC
            LIMIT ?`,
         )
@@ -1640,6 +1741,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       return readPurgeIntentBy(db, "workspace_id", workspaceId);
     },
 
+    async getActivePurgeIntentByWorkspaceId(workspaceId) {
+      return readPurgeIntentBy(db, "workspace_id", workspaceId, { activeOnly: true });
+    },
+
     async getPurgeIntentByExternalWorkspaceId(externalWorkspaceId) {
       return readPurgeIntentBy(db, "external_workspace_id", externalWorkspaceId);
     },
@@ -1648,29 +1753,52 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       await db.prepare(`DELETE FROM autoseopilot_purge_intents WHERE site_id = ?`).bind(siteId).run();
     },
 
-    async recordClaimCheckoutAttempt(workspaceId, now, expiresAt) {
+    async completePurgeIntent(siteId, now) {
+      // The blog is gone, so the intent stays as its trace. A late paid
+      // webhook finds it and is escalated instead of silently making a
+      // deleted blog a paid workspace.
       await db
         .prepare(
-          `INSERT INTO autoseopilot_claim_checkouts (workspace_id, created_at, expires_at)
-           VALUES (?, ?, ?)
-           ON CONFLICT(workspace_id) DO UPDATE SET
-             created_at = excluded.created_at,
-             expires_at = excluded.expires_at`,
+          `UPDATE autoseopilot_purge_intents
+           SET completed_at = ?, updated_at = ?
+           WHERE site_id = ?`,
         )
-        .bind(workspaceId, now, expiresAt)
+        .bind(now, now, siteId)
         .run();
     },
 
-    async resolveClaimCheckoutAttempt(workspaceId) {
+    async recordClaimCheckoutAttempt(workspaceId, now, expiresAt) {
       await db
-        .prepare(`DELETE FROM autoseopilot_claim_checkouts WHERE workspace_id = ?`)
-        .bind(workspaceId)
+        .prepare(
+          `INSERT INTO autoseopilot_claim_checkouts (workspace_id, created_at, expires_at, guard_until)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(workspace_id) DO UPDATE SET
+             created_at = excluded.created_at,
+             expires_at = excluded.expires_at,
+             guard_until = excluded.guard_until,
+             resolved_at = NULL`,
+        )
+        .bind(workspaceId, now, expiresAt, now + MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS)
+        .run();
+    },
+
+    async resolveClaimCheckoutAttempt(workspaceId, now) {
+      // The attempt is resolved, not deleted: it still blocks the purge until
+      // its guard window ends. Polar's checkout expiry and a delayed webhook
+      // can land anywhere in that window.
+      await db
+        .prepare(
+          `UPDATE autoseopilot_claim_checkouts
+           SET resolved_at = ?
+           WHERE workspace_id = ?`,
+        )
+        .bind(now, workspaceId)
         .run();
     },
 
     async deleteExpiredClaimCheckoutAttempts(now) {
       await db
-        .prepare(`DELETE FROM autoseopilot_claim_checkouts WHERE expires_at <= ?`)
+        .prepare(`DELETE FROM autoseopilot_claim_checkouts WHERE guard_until <= ?`)
         .bind(now)
         .run();
     },
@@ -1680,12 +1808,84 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         .prepare(
           `SELECT 1 AS ok
            FROM autoseopilot_claim_checkouts
-           WHERE workspace_id = ? AND expires_at > ?
+           WHERE workspace_id = ? AND resolved_at IS NULL AND expires_at > ?
            LIMIT 1`,
         )
         .bind(workspaceId, now)
         .first<{ ok: number }>();
       return row !== null;
+    },
+
+    async recordPurgeConflict(conflict) {
+      const id = `purge-conflict-${conflict.workspaceId}-${conflict.eventId ?? conflict.now}`;
+      await db
+        .prepare(
+          `INSERT INTO autoseopilot_purge_conflicts (
+             id, workspace_id, site_id, polar_customer_id, polar_subscription_id,
+             polar_order_id, polar_checkout_id, event_id, event_type,
+             applied_status, created_at
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             site_id = excluded.site_id,
+             polar_customer_id = excluded.polar_customer_id,
+             polar_subscription_id = excluded.polar_subscription_id,
+             polar_order_id = excluded.polar_order_id,
+             polar_checkout_id = excluded.polar_checkout_id,
+             applied_status = excluded.applied_status`,
+        )
+        .bind(
+          id,
+          conflict.workspaceId,
+          conflict.siteId ?? null,
+          conflict.polarCustomerId ?? null,
+          conflict.polarSubscriptionId ?? null,
+          conflict.polarOrderId ?? null,
+          conflict.polarCheckoutId ?? null,
+          conflict.eventId ?? null,
+          conflict.eventType ?? null,
+          conflict.appliedStatus ?? null,
+          conflict.now,
+        )
+        .run();
+      return {
+        id,
+        workspaceId: conflict.workspaceId,
+        siteId: conflict.siteId ?? null,
+        polarCustomerId: conflict.polarCustomerId ?? null,
+        polarSubscriptionId: conflict.polarSubscriptionId ?? null,
+        polarOrderId: conflict.polarOrderId ?? null,
+        polarCheckoutId: conflict.polarCheckoutId ?? null,
+        eventId: conflict.eventId ?? null,
+        eventType: conflict.eventType ?? null,
+        appliedStatus: conflict.appliedStatus ?? null,
+        createdAt: conflict.now,
+      };
+    },
+
+    async listPurgeConflicts(workspaceId) {
+      const { results } = await db
+        .prepare(
+          `SELECT * FROM autoseopilot_purge_conflicts
+           ${workspaceId ? "WHERE workspace_id = ?" : ""}
+           ORDER BY created_at DESC
+           LIMIT 200`,
+        )
+        .bind(...(workspaceId ? [workspaceId] : []))
+        .all<Record<string, unknown>>();
+      return (results ?? []).map((row) => ({
+        id: String(row.id),
+        workspaceId: String(row.workspace_id),
+        siteId: row.site_id === null ? null : String(row.site_id),
+        polarCustomerId: row.polar_customer_id === null ? null : String(row.polar_customer_id),
+        polarSubscriptionId: row.polar_subscription_id === null ? null : String(row.polar_subscription_id),
+        polarOrderId: row.polar_order_id === null ? null : String(row.polar_order_id),
+        polarCheckoutId: row.polar_checkout_id === null ? null : String(row.polar_checkout_id),
+        eventId: row.event_id === null ? null : String(row.event_id),
+        eventType: row.event_type === null ? null : String(row.event_type),
+        appliedStatus: row.applied_status === null ? null : String(row.applied_status),
+        createdAt: Number(row.created_at),
+      }));
     },
 
     async purgeRevokedManagedSite(input) {

@@ -12,6 +12,7 @@ import {
   polarCancelAtPeriodEnd,
   polarEventId,
   polarSourceTimestampMs,
+  type WebhookApplyResult,
 } from '@/server/polar-webhook-receipts'
 import type { AppUserContext } from '@/server/onboarding'
 
@@ -156,11 +157,12 @@ export type CreatePolarCheckout = (
 ) => Promise<PolarOpenCheckout>
 
 /**
- * Clears a recorded checkout attempt: the checkout ended without a claim, so
- * the sweep must stop waiting for it.
+ * Marks a recorded checkout attempt as resolved: the checkout ended without a
+ * claim, so the sweep must stop waiting for it. The attempt still blocks the
+ * purge until its guard window ends.
  */
-async function resolveCheckoutAttempt(workspaceId: string): Promise<void> {
-  await createDataAccess(env.DB).managedSites.resolveClaimCheckoutAttempt(workspaceId)
+async function resolveCheckoutAttempt(workspaceId: string, now: number): Promise<void> {
+  await createDataAccess(env.DB).managedSites.resolveClaimCheckoutAttempt(workspaceId, now)
 }
 
 export async function createCheckoutSessionForApp(
@@ -178,8 +180,10 @@ export async function createCheckoutSessionForApp(
   const db = createDataAccess(env.DB)
   // A blog whose purge is under way must not be sold: the intent is the
   // irreversible decision to delete it, so a checkout here would take the
-  // customer's money for a blog that cannot come back.
-  if (await db.managedSites.getPurgeIntentByWorkspaceId(app.workspaceId)) {
+  // customer's money for a blog that cannot come back. A finished intent is
+  // only the trace of a blog that was deleted; a blog that was provisioned
+  // again may be sold again.
+  if (await db.managedSites.getActivePurgeIntentByWorkspaceId(app.workspaceId)) {
     return { kind: 'error', code: 'purge_in_progress' }
   }
   if (await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)) {
@@ -278,17 +282,17 @@ export async function createCheckoutSessionForApp(
       console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: discountId ?? null,
         returnedProductId: session.productId, returnedDiscountId: session.discountId,
         currency: session.currency, netAmount: session.netAmount, expectedNetAmount })
-      await resolveCheckoutAttempt(app.workspaceId)
+      await resolveCheckoutAttempt(app.workspaceId, Math.floor(Date.now() / 1000))
       return { kind: 'error', code: 'checkout_failed' }
     }
     if (!session.url) {
-      await resolveCheckoutAttempt(app.workspaceId)
+      await resolveCheckoutAttempt(app.workspaceId, Math.floor(Date.now() / 1000))
       return { kind: 'error', code: 'checkout_failed' }
     }
     return { kind: 'ok', url: session.url }
   } catch (error) {
     console.error('polar checkout failed', error)
-    await resolveCheckoutAttempt(app.workspaceId)
+    await resolveCheckoutAttempt(app.workspaceId, Math.floor(Date.now() / 1000))
     return { kind: 'error', code: 'checkout_failed' }
   }
 }
@@ -392,28 +396,80 @@ export async function handlePolarWebhook(request: Request) {
   const subscriptionId =
     stringField(data, 'subscriptionId', 'subscription_id') ??
     (typeof data.id === 'string' && event.type.startsWith('subscription.') ? data.id : null)
-  const result = await applyPolarWebhookAtomically(env.DB, {
-    eventId,
-    workspaceId,
-    eventType: event.type,
-    sourceTimestamp,
-    appliedStatus: status,
-    polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
-    polarSubscriptionId: subscriptionId,
-    currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
-    cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
-  })
+  let result: WebhookApplyResult
+  try {
+    result = await applyPolarWebhookAtomically(env.DB, {
+      eventId,
+      workspaceId,
+      eventType: event.type,
+      sourceTimestamp,
+      appliedStatus: status,
+      polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
+      polarSubscriptionId: subscriptionId,
+      currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
+      cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
+    })
+  } catch (error) {
+    // The billing row hangs on the workspace, so an event for a workspace
+    // that is gone fails on the write. That is the purged-blog case, and the
+    // customer may have paid for a blog that no longer exists. Any other
+    // failure is a real error: the receipt stays rolled back and Polar
+    // retries.
+    const workspace = await env.DB.prepare('SELECT 1 AS ok FROM workspaces WHERE id = ?')
+      .bind(workspaceId)
+      .first<{ ok: number }>()
+    const purged = workspace
+      ? null
+      : await createDataAccess(env.DB).managedSites.getPurgeIntentByWorkspaceId(workspaceId)
+    if (!purged) throw error
+    result = { kind: 'conflict' }
+  }
   if (result.kind === 'conflict') {
-    // The blog is being deleted: a claim must not resurrect it, and the
-    // workspace must not become paid behind the purge. The event is not
-    // applied, so the customer is never billed for a deleted blog.
-    console.warn('[polar-webhook] refused: the managed blog is being purged', { workspaceId })
-    return Response.json({ received: false, result: result.kind }, { status: 409 })
+    // The blog is being deleted, or it is already gone: a claim must not
+    // resurrect it, and the workspace must not become paid behind the purge.
+    // The event is not applied, so the customer is never billed for a
+    // deleted blog. But the customer may have PAID for it, so the event is
+    // recorded and the operator is alerted: the money has to be refunded by
+    // hand. The webhook is answered, so Polar stops retrying.
+    const intent = await createDataAccess(env.DB).managedSites.getPurgeIntentByWorkspaceId(workspaceId)
+    const conflict = await createDataAccess(env.DB).managedSites.recordPurgeConflict({
+      workspaceId,
+      siteId: intent?.siteId ?? null,
+      polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
+      polarSubscriptionId: subscriptionId,
+      polarOrderId: stringField(data, 'orderId', 'order_id') ?? null,
+      polarCheckoutId:
+        stringField(data, 'checkoutId', 'checkout_id') ??
+        (event.type === 'checkout.updated' && typeof data.id === 'string' ? data.id : null),
+      eventId,
+      eventType: event.type,
+      appliedStatus: status,
+      now: Math.floor(Date.now() / 1000),
+    })
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        event: 'polar_webhook_purge_conflict',
+        workspaceId,
+        conflictId: conflict.id,
+        siteId: conflict.siteId,
+        polarCustomerId: conflict.polarCustomerId,
+        polarSubscriptionId: conflict.polarSubscriptionId,
+        polarOrderId: conflict.polarOrderId,
+        polarCheckoutId: conflict.polarCheckoutId,
+        eventId,
+        eventType: event.type,
+        appliedStatus: status,
+        note: 'a paid event arrived for a managed blog that is purged or being purged: refund by hand',
+      }),
+    )
+    return Response.json({ received: true, result: result.kind })
   }
   if (result.kind === 'applied') {
     // The checkout ended: the sweep must stop waiting for a claim that
-    // either landed or will never land.
-    await resolveCheckoutAttempt(workspaceId)
+    // either landed or will never land. The attempt still blocks the purge
+    // until its guard window ends.
+    await resolveCheckoutAttempt(workspaceId, Math.floor(Date.now() / 1000))
   }
   return Response.json({ received: true, result: result.kind })
 }

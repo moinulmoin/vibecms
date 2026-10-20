@@ -174,6 +174,16 @@ export const MANAGED_CLAIM_REMINDERS = [
  */
 export const MANAGED_CLAIM_CHECKOUT_TTL_SECONDS = 2 * 60 * 60;
 
+/**
+ * How long a claim checkout blocks the purge of its blog, counted from the
+ * moment the checkout was opened. The window is generous on purpose: Polar's
+ * checkout expiry plus a delayed webhook can land anywhere in here, and a
+ * customer charged for a blog that was deleted is far worse than a purge that
+ * runs two days late. The attempt blocks the purge whether it is still open
+ * or already resolved.
+ */
+export const MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS = 48 * 60 * 60;
+
 export const ENTITLEMENTS = [
   "1 hosted blog",
   "Unlimited posts",
