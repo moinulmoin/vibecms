@@ -188,14 +188,16 @@ purged, or that is already gone, is answered (so Polar stops retrying) and
 recorded in `autoseopilot_purge_conflicts` (migration 0040) with the Polar
 customer, order and subscription ids, instead of flipping the workspace to
 paid; the operator is alerted with the same ids so the money can be refunded
-by hand. The AutoSEOPilot plan resumption is refused with a retryable
-failure, and a re-provision cannot recreate the same site id and R2
-namespace while the purge is under way. A crashed run leaves the intent
-behind and the next daily run resumes the same cleanup from it; the intent
-never expires and is never auto-cleared. A finished intent stays behind as
-the trace of a deleted blog (`completed_at`), so a late paid webhook is
-recognised instead of turning a deleted blog into a paid workspace with no
-notice.
+by hand. The alert goes to the support address (`SUPPORT_EMAIL`), through the
+same `send_email` binding the reminder mail uses, because a log line only
+reaches someone who goes looking. The AutoSEOPilot plan resumption is
+refused with a retryable failure, and a re-provision cannot recreate the same
+site id and R2 namespace while the purge is under way. A crashed run leaves
+the intent behind and the next daily run resumes the same cleanup from it;
+the intent never expires and is never auto-cleared. A finished intent stays
+behind as the trace of a deleted blog (`completed_at`), so a late paid
+webhook is recognised instead of turning a deleted blog into a paid workspace
+with no notice.
 
 ## Internal API
 

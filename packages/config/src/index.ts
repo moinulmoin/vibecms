@@ -8,6 +8,13 @@ export const BRAND = {
   marketingUrl: "https://vibecms.dev",
 } as const;
 
+/**
+ * The support address the product publishes. It is also where operational
+ * mail lands: a paid claim for a blog that was deleted has to be refunded by
+ * hand, and a human has to see that without watching the logs.
+ */
+export const SUPPORT_EMAIL = "support@vibecms.dev";
+
 /** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
 export const AGENT_TOOL_COUNT = 37;
 

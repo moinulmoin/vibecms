@@ -3,7 +3,8 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:workers";
-import { sendOtpEmail } from "@/server/email";
+import { sendOtpEmail, sendPurgeConflictEmail } from "@/server/email";
+import { SUPPORT_EMAIL } from "@vc/config";
 
 const mutableEnv = env as unknown as Record<string, unknown>;
 const saved = {
@@ -58,5 +59,39 @@ describe("sendOtpEmail with the EMAIL binding", () => {
       text: expect.stringContaining("123456"),
     });
     expect(log).toHaveBeenCalledWith(expect.stringContaining("123456"));
+  });
+});
+
+describe("sendPurgeConflictEmail", () => {
+  it("sends the Polar ids to the support address so a human can refund", async () => {
+    mutableEnv.APP_ENV = "development";
+    const send = vi.fn().mockResolvedValue({ messageId: "m1" });
+    mutableEnv.EMAIL = { send };
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await sendPurgeConflictEmail({
+      workspaceId: "ws-purge-conflict",
+      siteId: "site-purge-conflict",
+      polarCustomerId: "cust_123",
+      polarSubscriptionId: "sub_123",
+      polarOrderId: "order_123",
+      polarCheckoutId: "checkout_123",
+      eventType: "subscription.active",
+      eventId: "evt_123",
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const message = send.mock.calls[0]?.[0] as {
+      to: string;
+      subject: string;
+      text: string;
+    };
+    expect(message.to).toBe(SUPPORT_EMAIL);
+    expect(message.subject).toContain("ws-purge-conflict");
+    expect(message.subject.toLowerCase()).toContain("refund");
+    expect(message.text).toContain("sub_123");
+    expect(message.text).toContain("order_123");
+    expect(message.text).toContain("site-purge-conflict");
+    expect(message.text.toLowerCase()).toContain("refund it by hand");
   });
 });

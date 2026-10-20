@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, inject, it, vi } from 'vitest'
 import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { createDataAccess, type ManagedClaimSweepCandidate } from '@vc/db'
+import { SUPPORT_EMAIL } from '@vc/config'
 import { createCheckoutSessionForApp, handlePolarWebhook } from '@/server/billing'
 import type { AppUserContext } from '@/server/onboarding'
 import { runManagedClaimSweep } from './managed-claim-sweep'
@@ -34,7 +35,11 @@ const now = () => Math.floor(Date.now() / 1000)
 
 const webhookSecret = 'managed-claim-purge-intent-webhook-secret'
 const mutableEnv = env as unknown as Record<string, unknown>
-const savedEnv = { SELF_HOSTED: mutableEnv.SELF_HOSTED, POLAR_WEBHOOK_SECRET: mutableEnv.POLAR_WEBHOOK_SECRET }
+const savedEnv = {
+  SELF_HOSTED: mutableEnv.SELF_HOSTED,
+  POLAR_WEBHOOK_SECRET: mutableEnv.POLAR_WEBHOOK_SECRET,
+  EMAIL: mutableEnv.EMAIL,
+}
 
 interface SeededBlog {
   externalWorkspaceId: string
@@ -277,6 +282,7 @@ beforeEach(async () => {
   deletedHostnames.length = 0
   mutableEnv.SELF_HOSTED = 'false'
   mutableEnv.POLAR_WEBHOOK_SECRET = webhookSecret
+  mutableEnv.EMAIL = undefined
   // The sweep works on every managed binding in the database, so each test
   // starts with none of its own.
   await env.DB.batch([
@@ -515,6 +521,13 @@ describe('claim window — the purge intent', () => {
     console.warn = (...args: unknown[]) => {
       warnings.push(args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' '))
     }
+    const sent: { to?: string; subject?: string; text?: string }[] = []
+    mutableEnv.EMAIL = {
+      send: async (message: { to: string; subject: string; text: string }) => {
+        sent.push(message)
+        return { messageId: 'm1' }
+      },
+    }
     try {
       const response = await handlePolarWebhook(await signedWebhook('evt-late-paid', blog.workspaceId))
       expect(response.status).toBe(200)
@@ -541,5 +554,13 @@ describe('claim window — the purge intent', () => {
     const alert = warnings.find((line) => line.includes('polar_webhook_purge_conflict'))
     expect(alert).toBeDefined()
     expect(alert).toContain(`sub_${blog.workspaceId}`)
+
+    // And the support address hears about it, because a log line only
+    // reaches someone who goes looking.
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.to).toBe(SUPPORT_EMAIL)
+    expect(sent[0]?.text).toContain(`sub_${blog.workspaceId}`)
+    expect(sent[0]?.text).toContain(blog.siteId)
+    expect(sent[0]?.text?.toLowerCase()).toContain('refund it by hand')
   })
 })

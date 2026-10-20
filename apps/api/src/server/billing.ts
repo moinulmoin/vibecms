@@ -15,6 +15,7 @@ import {
   type WebhookApplyResult,
 } from '@/server/polar-webhook-receipts'
 import type { AppUserContext } from '@/server/onboarding'
+import { sendPurgeConflictEmail } from '@/server/email'
 
 type PolarWebhookEvent = { id?: unknown; type: string; timestamp?: unknown; data?: Record<string, unknown> }
 
@@ -463,6 +464,26 @@ export async function handlePolarWebhook(request: Request) {
         note: 'a paid event arrived for a managed blog that is purged or being purged: refund by hand',
       }),
     )
+    // The log only reaches someone who goes looking, so the support address
+    // hears about it too. A failed mail must not fail the webhook: the
+    // conflict is already recorded, and Polar must not keep retrying.
+    try {
+      await sendPurgeConflictEmail({
+        workspaceId,
+        siteId: conflict.siteId,
+        polarCustomerId: conflict.polarCustomerId,
+        polarSubscriptionId: conflict.polarSubscriptionId,
+        polarOrderId: conflict.polarOrderId,
+        polarCheckoutId: conflict.polarCheckoutId,
+        eventType: conflict.eventType,
+        eventId: conflict.eventId,
+      })
+    } catch (error) {
+      console.warn('[polar-webhook] purge conflict email failed', {
+        workspaceId,
+        error: String(error),
+      })
+    }
     return Response.json({ received: true, result: result.kind })
   }
   if (result.kind === 'applied') {

@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers'
+import { SUPPORT_EMAIL } from '@vc/config'
 
 type OtpType = 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
 
@@ -110,6 +111,75 @@ export async function sendClaimReminderEmail(input: {
   } catch (err) {
     if (!isProd) {
       console.warn(`[claim-reminder] send failed in non-prod (ok locally): ${String(err)}`)
+      return
+    }
+    throw err
+  }
+}
+
+/**
+ * Operational alert: a paid claim arrived for a blog that is being deleted,
+ * or that has already been deleted. The customer may have paid for a blog
+ * that no longer exists, so the money has to be refunded by hand at Polar.
+ * It goes to the support address, because a log line only reaches someone
+ * who goes looking.
+ */
+export async function sendPurgeConflictEmail(input: {
+  workspaceId: string
+  siteId: string | null
+  polarCustomerId: string | null
+  polarSubscriptionId: string | null
+  polarOrderId: string | null
+  polarCheckoutId: string | null
+  eventType: string | null
+  eventId: string | null
+}) {
+  const isProd = env.APP_ENV === 'production'
+  const subject = `Refund needed: a paid claim arrived for a deleted blog (${input.workspaceId})`
+  const facts: [string, string][] = [
+    ['Workspace', input.workspaceId],
+    ['Site', input.siteId ?? 'unknown'],
+    ['Polar customer', input.polarCustomerId ?? 'unknown'],
+    ['Polar subscription', input.polarSubscriptionId ?? 'unknown'],
+    ['Polar order', input.polarOrderId ?? 'unknown'],
+    ['Polar checkout', input.polarCheckoutId ?? 'unknown'],
+    ['Event', `${input.eventType ?? 'unknown'}${input.eventId ? ` (${input.eventId})` : ''}`],
+  ]
+  const lead =
+    'A paid claim arrived for a blog that is being deleted, or that has already been deleted. The subscription was not applied, so nobody was charged for a blog they do not have. Refund it by hand at Polar.'
+  const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;"><p style="font-size:15px;line-height:1.6;">${lead}</p><table style="font-size:14px;line-height:1.6;border-collapse:collapse;margin:16px 0;">${facts
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:2px 16px 2px 0;color:#6b7280;">${label}</td><td style="padding:2px 0;">${value}</td></tr>`,
+    )
+    .join('')}</table></body></html>`
+  const text = `${lead}\n\n${facts.map(([label, value]) => `${label}: ${value}`).join('\n')}`
+
+  if (!env.EMAIL) {
+    if (isProd && String(env.SELF_HOSTED) !== 'true') {
+      throw new Error('email not configured: add a send_email binding named EMAIL and onboard the sending domain')
+    }
+    console.log(
+      `[purge-conflict] to=${SUPPORT_EMAIL} workspace=${input.workspaceId} subscription=${input.polarSubscriptionId}`,
+    )
+    return
+  }
+  if (!isProd) {
+    console.log(
+      `[purge-conflict] to=${SUPPORT_EMAIL} workspace=${input.workspaceId} subscription=${input.polarSubscriptionId}`,
+    )
+  }
+  try {
+    await env.EMAIL.send({
+      to: SUPPORT_EMAIL,
+      from: parseFromAddress(env.EMAIL_FROM ?? DEFAULT_FROM),
+      subject,
+      html,
+      text,
+    })
+  } catch (err) {
+    if (!isProd) {
+      console.warn(`[purge-conflict] send failed in non-prod (ok locally): ${String(err)}`)
       return
     }
     throw err

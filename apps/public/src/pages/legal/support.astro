@@ -1,6 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { BRAND } from "@vc/config";
+import { BRAND, SUPPORT_EMAIL } from "@vc/config";
 import { legalUpdatedLabel } from "../../lib/legal-pages";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
@@ -28,7 +28,7 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
   <h2>Account, billing, and private matters</h2>
   <p>
     Anything involving your workspace, invoices, tokens, or content privacy goes to{" "}
-    <a href="mailto:support@vibecms.dev">support@vibecms.dev</a> from the email you sign in with.
+    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> from the email you sign in with.
     Tell us the symptom and what you expected instead; posting your token is never necessary and
     please do not include it.
   </p>

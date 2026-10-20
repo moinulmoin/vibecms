@@ -1,6 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { BRAND } from "@vc/config";
+import { BRAND, SUPPORT_EMAIL } from "@vc/config";
 import { legalUpdatedLabel } from "../../lib/legal-pages";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
@@ -94,6 +94,6 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
 
   <h2>Contact</h2>
   <p>
-    Questions or requests about your data: <a href="mailto:support@vibecms.dev">support@vibecms.dev</a>.
+    Questions or requests about your data: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
   </p>
 </LegalLayout>

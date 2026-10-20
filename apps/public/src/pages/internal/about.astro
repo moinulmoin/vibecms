@@ -1,6 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { BRAND } from "@vc/config";
+import { BRAND, SUPPORT_EMAIL } from "@vc/config";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
 import { isDirectInternalRootHit } from "../../lib/internal-root";
@@ -32,7 +32,7 @@ if (isDirectInternalRootHit(Astro.originPathname, Astro.url.pathname) || env.sel
   </p>
   <h2>Contact</h2>
   <p>
-    For account, billing, or private questions, email <a href="mailto:support@vibecms.dev">support@vibecms.dev</a>.
+    For account, billing, or private questions, email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
     For bugs and feature ideas, open an issue in the public repository. The
     <a href="/legal/support">support page</a> explains what information helps us investigate.
   </p>
