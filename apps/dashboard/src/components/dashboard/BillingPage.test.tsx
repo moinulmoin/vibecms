@@ -164,7 +164,7 @@ describe('PlanAndBilling', () => {
 
   it('explains the claim window instead of promising the posts stay online', async () => {
     const revokedAt = Date.UTC(2026, 9, 1, 12) / 1000
-    vi.spyOn(Date, 'now').mockReturnValue((revokedAt + 2 * DAY_MS))
+    vi.spyOn(Date, 'now').mockReturnValue(revokedAt * 1000 + 2 * DAY_MS)
     const { container, requireButton } = await render(
       hosted({}, {
         managed: { status: 'revoked', expiresAt: null, effective: false },
@@ -181,7 +181,7 @@ describe('PlanAndBilling', () => {
 
   it('says the blog is paused once the claim grace has passed', async () => {
     const revokedAt = Date.UTC(2026, 9, 1, 12) / 1000
-    vi.spyOn(Date, 'now').mockReturnValue(revokedAt + 10 * DAY_MS)
+    vi.spyOn(Date, 'now').mockReturnValue(revokedAt * 1000 + 10 * DAY_MS)
     const { container } = await render(
       hosted({}, {
         managed: { status: 'revoked', expiresAt: null, effective: false },

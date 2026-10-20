@@ -63,7 +63,7 @@ describe("public agent discovery", () => {
   });
 
   it("marks tenant HTML as negotiated and gives owner content the no-training default", () => {
-    const headers = publicHtmlResponseHeaders({ effective_entitlement: { effective: true } } as never, { selfHosted: false } as never);
+    const headers = publicHtmlResponseHeaders({ effective_entitlement: { effective: true, servingAllowed: true } } as never, { selfHosted: false } as never);
     expect(headers.vary).toBe("Accept");
     expect(headers["content-signal"]).toBe("ai-train=no, search=yes, ai-input=yes");
   });

@@ -97,13 +97,15 @@ function provisionInput(): ManagedFirstProvisionInput {
 async function setManagedEntitlement(
   status: "active" | "revoked",
   expiresAt: number | null,
+  // The revoke moment is claim-window day 0; the default is "just now".
+  revokedAt: number | null = status === "revoked" ? NOW : null,
 ): Promise<void> {
   await env.DB.prepare(
     `UPDATE autoseopilot_managed_sites
      SET entitlement_status = ?, entitlement_expires_at = ?, revoked_at = ?, updated_at = ?
      WHERE site_id = ?`,
   )
-    .bind(status, expiresAt, status === "revoked" ? NOW : null, NOW, SITE_ID)
+    .bind(status, expiresAt, revokedAt, NOW, SITE_ID)
     .run();
 }
 
@@ -218,12 +220,27 @@ describe("public effective entitlement resolution", () => {
     expect(customSite).toBeNull();
   });
 
-  it("denies revoked custom domains while an independent Polar subscription restores access", async () => {
+  it("keeps a revoked custom domain online during the claim grace and lets a Polar subscription restore paid access", async () => {
     await setManagedEntitlement("revoked", null);
     expect(await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv)).toMatchObject({
       effective_entitlement: { effective: false },
     });
-    expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toBeNull();
+    // Days 0-7 after the revoke the blog is still fully online, custom domain
+    // included, and still indexed.
+    const duringGrace = await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv);
+    expect(duringGrace).toMatchObject({
+      effective_entitlement: { effective: false, servingAllowed: true, servingPaused: false },
+    });
+    expect(isPublicBlogIndexable(duringGrace!, runtimeEnv)).toBe(true);
+
+    // Past the claim grace the blog is paused, not gone: the address still
+    // resolves so every ingress can show the paused page.
+    await setManagedEntitlement("revoked", null, NOW - 8 * 24 * 60 * 60);
+    const paused = await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv);
+    expect(paused).toMatchObject({
+      effective_entitlement: { servingAllowed: false, servingPaused: true },
+    });
+    expect(isPublicBlogIndexable(paused!, runtimeEnv)).toBe(false);
 
     await setPolar("active", NOW + 100);
     const customSite = await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv);
@@ -240,7 +257,9 @@ describe("public effective entitlement resolution", () => {
   });
 
   it("keeps free default output readable but disables indexing, sitemap, and feed discovery", async () => {
-    await setManagedEntitlement("revoked", null);
+    // An expired sponsorship (not a revoke): no claim window, so the blog is
+    // an ordinary unpaid blog again.
+    await setManagedEntitlement("active", Math.floor(Date.now() / 1000) - 1);
 
     const site = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
     expect(site).toMatchObject({ effective_entitlement: { effective: false } });
@@ -341,8 +360,10 @@ describe("public past_due grace", () => {
   const clockAt = (ms: number) => vi.spyOn(Date, "now").mockReturnValue(ms);
 
   beforeEach(async () => {
-    // Polar grace is the only paid source.
-    await setManagedEntitlement("revoked", null);
+    // Polar grace is the only paid source. The sponsorship is expired, not
+    // revoked, so no claim window (the 7 days after a revoke) is in play and
+    // the grace under test is the Polar one.
+    await setManagedEntitlement("active", Math.floor(SINCE / 1000) - 1);
     await setPolar("past_due", NOW - 10, SINCE);
   });
   afterEach(() => {
@@ -435,8 +456,11 @@ describe("public analytics effective entitlement gate", () => {
 
     writeDataPoint.mockReset();
     await setPolar("none", null);
-    const free = await analyticsPost(analyticsContext(DEFAULT_HOST));
-    expect(free.status).toBe(204);
+    // A blog past its claim grace is paused: it serves nothing, so it records
+    // nothing either.
+    await setManagedEntitlement("revoked", null, NOW - 8 * 24 * 60 * 60);
+    const paused = await analyticsPost(analyticsContext(DEFAULT_HOST));
+    expect(paused.status).toBe(204);
     expect(writeDataPoint).not.toHaveBeenCalled();
 
     await setManagedEntitlement("active", null);

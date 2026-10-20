@@ -154,7 +154,7 @@ describe("cache tags and SEO headers", () => {
     ).toBe("public, max-age=50, s-maxage=50");
     expect(
       publicCacheControlForEntitlement(
-        { ...site.effective_entitlement, effective: false, effectiveUntil: null },
+        { ...site.effective_entitlement, effective: false, servingAllowed: false, effectiveUntil: null },
         950,
       ),
     ).toBe("no-store");
@@ -189,6 +189,7 @@ describe("cache tags and SEO headers", () => {
       effective_entitlement: {
         ...site.effective_entitlement,
         effective: false,
+        servingAllowed: false,
         access: "hosted_free",
         activeSources: [],
         polar: { status: "none", currentPeriodEnd: null, active: false },

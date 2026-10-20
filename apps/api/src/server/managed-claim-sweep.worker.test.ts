@@ -198,14 +198,15 @@ describe('managed claim sweep — purge', () => {
     const sharedOwner = 'sweep-owner-shared'
     const now = Math.floor(Date.now() / 1000)
     const doomed = await seedManagedSite({ suffix: 'pshared', revokedDaysAgo: 32 })
+    // The shared owner must exist before the binding can point at it.
+    await env.DB
+      .prepare('INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)')
+      .bind(sharedOwner, 'Shared Owner', 'shared@sweep.example.test', now - 100, now - 100)
+      .run()
     // Move the doomed site onto the shared owner, then give that owner a second workspace.
     await env.DB
       .prepare('UPDATE autoseopilot_managed_sites SET owner_user_id = ? WHERE external_workspace_id = ?')
       .bind(sharedOwner, doomed.externalWorkspaceId)
-      .run()
-    await env.DB
-      .prepare('INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)')
-      .bind(sharedOwner, 'Shared Owner', 'shared@sweep.example.test', now - 100, now - 100)
       .run()
     await env.DB
       .prepare('INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')

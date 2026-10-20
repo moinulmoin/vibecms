@@ -71,6 +71,10 @@ export function PlanAndBilling() {
   const query = useQuery(billingQuery)
   const { pending, redirectTo } = useBillingRedirect()
   const pastDueState = usePastDueState(query.data)
+  // The claim window ("keep your blog"): present while a revoked AutoSEOPilot
+  // sponsorship waits to be claimed.
+  const claim = query.data && !query.data.selfHosted ? query.data.claim : null
+  const claimState = useClaimWindowState(claim)
 
   if (query.isError && !query.data) {
     return <LoadError message="Your plan didn’t load." onRetry={() => void query.refetch()} />
@@ -97,8 +101,6 @@ export function PlanAndBilling() {
   }
 
   const billing = data.billing
-  const claim = data.claim
-  const claimState = useClaimWindowState(claim)
   const active = billing.status === 'active'
   // Recover failed renewals in the portal, even if sponsorship still covers the blog.
   const pastDue = pastDueState !== null
