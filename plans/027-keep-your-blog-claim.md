@@ -64,10 +64,17 @@ stay indexed and the paused page never is.
   before the send, so a reminder goes out at most once; a definitive send
   failure releases the marker and the next daily run retries.
 - Deletion: at day 30 the blog is purged — Cloudflare custom hostnames, the
-  site's R2 prefix, and the D1 rows (binding, site, workspace, and the user
-  row only when that user has no other workspace). The purge re-checks the
-  state inside its transaction, so a claim or a resumed plan landing
-  mid-sweep deletes nothing.
+  site's R2 prefix (media and OG cards), and the D1 rows (binding, site,
+  workspace, and the user row only when that user has no other workspace).
+  The deletion is irreversible, so it is a durable three-step operation: a
+  purge intent is written first (one atomic statement that only lands while
+  the blog is still revoked, still past its own deadline, still never
+  claimed, and that records the resources the purge will delete), the
+  external cleanup runs from that intent, and only then are the D1 rows
+  deleted. While the intent exists the blog cannot come back — the claim
+  checkout is refused before any money is taken, an in-flight billing
+  webhook is a conflict, the AutoSEOPilot plan resumption is a retryable
+  refusal — and a crashed purge is resumed by the next daily run.
 
 ### Dashboard
 
@@ -82,6 +89,7 @@ stay indexed and the paused page never is.
 
 - `packages/config/src/index.ts` — `MANAGED_CLAIM_WINDOW`, `MANAGED_CLAIM_REMINDERS`.
 - `packages/db/drizzle/0038_managed_claim_window.sql`, `packages/db/src/schema.ts` — reminder markers + sweep index.
+- `packages/db/drizzle/0039_managed_purge_intents.sql`, `packages/db/src/schema.ts` — the durable purge intent and the in-flight claim checkout.
 - `packages/db/src/repositories/autoseopilot-managed-sites.ts` — claim window in the entitlement, sweep selection, reminder markers, guarded purge.
 - `apps/api/src/server/managed-claim-sweep.ts` — the daily job.
 - `apps/api/src/server/email.ts` — the reminder email.

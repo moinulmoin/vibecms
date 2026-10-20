@@ -4,6 +4,8 @@ export type WebhookApplyResult =
   | { kind: 'applied' }
   | { kind: 'duplicate' }
   | { kind: 'stale' }
+  /** The workspace's blog is being deleted; the event was not applied. */
+  | { kind: 'conflict' }
 
 /**
  * Deterministic event ID for a Polar webhook.
@@ -173,6 +175,10 @@ export async function applyPolarWebhookAtomically(
          updated_at = ?
        WHERE workspace_id = ?
          AND (webhook_updated_at IS NULL OR webhook_updated_at < ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM autoseopilot_purge_intents p
+           WHERE p.workspace_id = billing_customers.workspace_id
+         )
          AND EXISTS (
            SELECT 1 FROM polar_webhook_receipts WHERE event_id = ? AND apply_nonce = ?
          )`,
@@ -201,6 +207,10 @@ export async function applyPolarWebhookAtomically(
          updated_at = ?
        WHERE workspace_id = ? AND ?
          AND (subscription_updated_at IS NULL OR subscription_updated_at < ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM autoseopilot_purge_intents p
+           WHERE p.workspace_id = billing_customers.workspace_id
+         )
          AND EXISTS (
            SELECT 1 FROM polar_webhook_receipts WHERE event_id = ? AND apply_nonce = ?
          )`,
@@ -242,7 +252,21 @@ export async function applyPolarWebhookAtomically(
         incomingStatus: input.appliedStatus,
       }))
     }
-    if (subscriptionChanges === 0) return { kind: 'stale' }
+    if (subscriptionChanges === 0) {
+      // A workspace whose blog is being deleted must not become paid: the
+      // claim would resurrect a blog whose domain and media are already gone.
+      const purgeIntent = await db
+        .prepare(
+          `SELECT 1 AS ok
+           FROM autoseopilot_purge_intents
+           WHERE workspace_id = ?
+           LIMIT 1`,
+        )
+        .bind(input.workspaceId)
+        .first<{ ok: number }>()
+      if (purgeIntent) return { kind: 'conflict' }
+      return { kind: 'stale' }
+    }
   }
   return { kind: 'applied' }
 }

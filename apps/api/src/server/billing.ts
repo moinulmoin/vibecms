@@ -2,7 +2,7 @@ import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
 import { createDataAccess } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
-import { LAUNCH_OFFER, PRICING, pastDueGraceEndsAt } from '@vc/config'
+import { LAUNCH_OFFER, MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
 import { HTTPClient } from '@polar-sh/sdk/lib/http.js'
 import { POLAR_API_VERSION } from '@vc/config'
@@ -155,6 +155,14 @@ export type CreatePolarCheckout = (
   options?: { headers?: HeadersInit },
 ) => Promise<PolarOpenCheckout>
 
+/**
+ * Clears a recorded checkout attempt: the checkout ended without a claim, so
+ * the sweep must stop waiting for it.
+ */
+async function resolveCheckoutAttempt(workspaceId: string): Promise<void> {
+  await createDataAccess(env.DB).managedSites.resolveClaimCheckoutAttempt(workspaceId)
+}
+
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
   interval: CheckoutInterval,
@@ -168,6 +176,12 @@ export async function createCheckoutSessionForApp(
   if (isSelfHosted()) return { kind: 'error', code: 'self_hosted' }
 
   const db = createDataAccess(env.DB)
+  // A blog whose purge is under way must not be sold: the intent is the
+  // irreversible decision to delete it, so a checkout here would take the
+  // customer's money for a blog that cannot come back.
+  if (await db.managedSites.getPurgeIntentByWorkspaceId(app.workspaceId)) {
+    return { kind: 'error', code: 'purge_in_progress' }
+  }
   if (await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)) {
     return { kind: 'error', code: 'managed_workspace' }
   }
@@ -220,6 +234,16 @@ export async function createCheckoutSessionForApp(
       : null)
   if (!createCheckout) return { kind: 'error', code: 'polar_unconfigured' }
 
+  // A checkout can be paid at Polar before its webhook reaches us. The
+  // attempt is recorded before the checkout is handed out, so the daily sweep
+  // waits for it instead of deleting a blog whose owner just claimed it.
+  const attemptNow = Math.floor(Date.now() / 1000)
+  await db.managedSites.recordClaimCheckoutAttempt(
+    app.workspaceId,
+    attemptNow,
+    attemptNow + MANAGED_CLAIM_CHECKOUT_TTL_SECONDS,
+  )
+
   // Prefer reusing an existing open Polar checkout for this workspace/product before creating another.
   if (listOpenCheckouts) {
     try {
@@ -254,12 +278,17 @@ export async function createCheckoutSessionForApp(
       console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: discountId ?? null,
         returnedProductId: session.productId, returnedDiscountId: session.discountId,
         currency: session.currency, netAmount: session.netAmount, expectedNetAmount })
+      await resolveCheckoutAttempt(app.workspaceId)
       return { kind: 'error', code: 'checkout_failed' }
     }
-    if (!session.url) return { kind: 'error', code: 'checkout_failed' }
+    if (!session.url) {
+      await resolveCheckoutAttempt(app.workspaceId)
+      return { kind: 'error', code: 'checkout_failed' }
+    }
     return { kind: 'ok', url: session.url }
   } catch (error) {
     console.error('polar checkout failed', error)
+    await resolveCheckoutAttempt(app.workspaceId)
     return { kind: 'error', code: 'checkout_failed' }
   }
 }
@@ -374,5 +403,17 @@ export async function handlePolarWebhook(request: Request) {
     currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
     cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
   })
+  if (result.kind === 'conflict') {
+    // The blog is being deleted: a claim must not resurrect it, and the
+    // workspace must not become paid behind the purge. The event is not
+    // applied, so the customer is never billed for a deleted blog.
+    console.warn('[polar-webhook] refused: the managed blog is being purged', { workspaceId })
+    return Response.json({ received: false, result: result.kind }, { status: 409 })
+  }
+  if (result.kind === 'applied') {
+    // The checkout ended: the sweep must stop waiting for a claim that
+    // either landed or will never land.
+    await resolveCheckoutAttempt(workspaceId)
+  }
   return Response.json({ received: true, result: result.kind })
 }

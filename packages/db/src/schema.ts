@@ -412,6 +412,47 @@ export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites"
   ),
 ]);
 
+/**
+ * The durable decision to delete an unclaimed managed blog (claim window).
+ * Written in one atomic statement while the blog is still revoked, still past
+ * its own deadline and still never claimed; it records the external resources
+ * the purge deletes so a crashed run can resume the same cleanup. No foreign
+ * key: the purge deletes the site, workspace and user rows, and the intent
+ * must outlive them.
+ */
+export const autoseopilotPurgeIntents = sqliteTable("autoseopilot_purge_intents", {
+  id: text("id").primaryKey(),
+  siteId: text("site_id").notNull().unique(),
+  workspaceId: text("workspace_id").notNull(),
+  externalWorkspaceId: text("external_workspace_id").notNull(),
+  ownerUserId: text("owner_user_id").notNull(),
+  /** JSON array of the Cloudflare custom hostname ids the purge deletes. */
+  hostnameIdsJson: text("hostname_ids_json").notNull().default("[]"),
+  /** JSON array of the R2 prefixes the purge empties. */
+  r2PrefixesJson: text("r2_prefixes_json").notNull().default("[]"),
+  /** The revoke the intent was taken for (epoch seconds). */
+  revokedAt: integer("revoked_at").notNull(),
+  /** The claim-window deadline that had elapsed (epoch seconds). */
+  deadline: integer("deadline").notNull(),
+  /** The lifecycle revision the intent was taken for. */
+  lifecycleRevision: integer("lifecycle_revision").notNull(),
+  ...timestamps,
+}, (table) => [
+  index("idx_autoseopilot_purge_intents_external_workspace").on(table.externalWorkspaceId),
+]);
+
+/**
+ * A claim checkout in flight. The customer can have paid at Polar before the
+ * webhook arrives, so the sweep defers the purge of that workspace while the
+ * attempt is unresolved. The attempt expires; it never blocks the purge
+ * forever.
+ */
+export const autoseopilotClaimCheckouts = sqliteTable("autoseopilot_claim_checkouts", {
+  workspaceId: text("workspace_id").primaryKey(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => [index("idx_autoseopilot_claim_checkouts_expires").on(table.expiresAt)]);
+
 export const pendingMediaOperations = sqliteTable("pending_media_operations", {
   id: text("id").primaryKey(),
   kind: text("kind", { enum: ["upload_cleanup", "delete"] }).notNull(),
@@ -485,3 +526,7 @@ export type PostSeoReviewRow = typeof postSeoReviews.$inferSelect;
 export type PostSeoReviewInsert = typeof postSeoReviews.$inferInsert;
 export type AutoseopilotManagedSiteRow = typeof autoseopilotManagedSites.$inferSelect;
 export type AutoseopilotManagedSiteInsert = typeof autoseopilotManagedSites.$inferInsert;
+export type AutoseopilotPurgeIntentRow = typeof autoseopilotPurgeIntents.$inferSelect;
+export type AutoseopilotPurgeIntentInsert = typeof autoseopilotPurgeIntents.$inferInsert;
+export type AutoseopilotClaimCheckoutRow = typeof autoseopilotClaimCheckouts.$inferSelect;
+export type AutoseopilotClaimCheckoutInsert = typeof autoseopilotClaimCheckouts.$inferInsert;

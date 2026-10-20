@@ -292,7 +292,7 @@ autoseopilotRoutes.post('/sites/:externalWorkspaceId/location/check', async (c) 
 
 function handleManagedError(
   c: {
-    json: (body: unknown, status: 400 | 401 | 404 | 409 | 413 | 500) => Response
+    json: (body: unknown, status: 400 | 401 | 404 | 409 | 413 | 500 | 503) => Response
   },
   error: unknown,
   id: string,

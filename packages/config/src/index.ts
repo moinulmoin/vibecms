@@ -167,6 +167,13 @@ export const MANAGED_CLAIM_REMINDERS = [
   { day: 28, daysLeft: 2 },
 ] as const;
 
+/**
+ * How long a claim checkout counts as "in flight". The customer can pay at
+ * Polar before the webhook reaches us, so the daily sweep waits this long
+ * before it may delete a blog whose owner just tried to claim it.
+ */
+export const MANAGED_CLAIM_CHECKOUT_TTL_SECONDS = 2 * 60 * 60;
+
 export const ENTITLEMENTS = [
   "1 hosted blog",
   "Unlimited posts",
@@ -241,6 +248,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
   already_active: { variant: "error", title: "Subscription already active", message: "This workspace already has an active plan. Manage it from the customer portal." },
   payment_past_due: { variant: "error", title: "Payment overdue", message: "Your last payment failed. Update your payment method in billing settings." },
+  purge_in_progress: { variant: "error", title: "Blog is being deleted", message: "This blog is past its claim deadline and is being deleted. Contact support if you paid to keep it." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },
   version_conflict: { variant: "error", title: "Post changed", message: "Review the latest version, then publish again." },

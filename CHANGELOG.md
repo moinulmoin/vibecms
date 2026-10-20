@@ -4,6 +4,8 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- The claim-window purge is now a durable three-step operation instead of a best-effort delete: a blog past its 30-day deadline first gets a purge intent (one atomic write that only lands while the blog is still revoked, still past its own deadline, still never claimed, and that records the Cloudflare hostname ids and R2 prefixes the purge will delete), the external cleanup runs from that intent, and only then are the D1 rows deleted. While the intent exists the blog cannot come back: the claim checkout is refused before any money is taken, an in-flight billing webhook is answered with a conflict instead of reviving the blog, the AutoSEOPilot plan resumption is refused with a retryable failure, a re-provision cannot recreate the same site, and a crashed purge is resumed by the next daily run.
+
 - Dashboard launch fixes: restore AA secondary/error text contrast, validate permanent blog addresses inline with race-safe taken-address feedback, and add onboarding sign-out.
 - Clipboard controls no longer claim success after failed copies; manual-copy recovery preserves multiline values. Shared segmented controls now support radio arrow-key navigation.
 - Restore dialog, mobile navigation, OTP and key-creation focus; protect unsaved media alt text; rebase subscriber-form revisions on discard.

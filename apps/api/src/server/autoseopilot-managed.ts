@@ -49,7 +49,7 @@ export class ManagedInternalError extends Error {
   constructor(
     readonly code: ManagedInternalErrorCode,
     message: string,
-    readonly status: 400 | 401 | 404 | 409 | 413 | 500,
+    readonly status: 400 | 401 | 404 | 409 | 413 | 500 | 503,
   ) {
     super(message)
     this.name = 'ManagedInternalError'
@@ -290,6 +290,14 @@ function mapRepositoryError(error: unknown): ManagedInternalError | null {
     case 'managed_owner_email_required':
     case 'managed_site_slug_required':
       return new ManagedInternalError('VALIDATION_ERROR', 'Invalid managed site request.', 400)
+    case 'managed_purge_in_progress':
+      // The blog is being deleted: a 5xx keeps the outcome ambiguous, so the
+      // caller reconciles and retries instead of writing the request off.
+      return new ManagedInternalError(
+        'INTERNAL_ERROR',
+        'The managed blog is being deleted. Retry later.',
+        503,
+      )
     default:
       return null
   }
@@ -600,6 +608,10 @@ async function rotateManagedCredential(
     if (isApiKeyHashUniqueError(error)) {
       throw conflict('CREDENTIAL_CONFLICT', 'The managed credential does not match.')
     }
+    // A blog whose purge is under way must not be reactivated: the refusal
+    // stays retryable instead of looking like a stale generation.
+    const purgeRefusal = mapRepositoryError(error)
+    if (purgeRefusal?.status === 503) throw purgeRefusal
     if (isSiteSlugUniqueError(error)) {
       throw conflict('SLUG_CONFLICT', 'The requested site slug is already in use.')
     }

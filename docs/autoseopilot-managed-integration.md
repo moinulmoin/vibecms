@@ -159,11 +159,31 @@ reminders stop as soon as the blog is claimed or the AutoSEOPilot plan
 resumes (a resumed plan clears `revoked_at`).
 
 At day 30 an unclaimed blog is deleted: the Cloudflare custom hostname, the
-site's R2 objects, and the D1 rows (binding, site, workspace, and the user row
-only when that user owns or belongs to no other workspace). The purge
-re-checks the state inside its transaction, so a claim or a resumed plan
-landing mid-sweep deletes nothing, and a partial failure is retried on the
-next daily run. A claimed workspace is skipped forever.
+site's R2 objects (its media prefix and its OG cards), and the D1 rows
+(binding, site, workspace, and the user row only when that user owns or
+belongs to no other workspace). A claimed workspace is skipped forever.
+
+Deleting a blog is irreversible, so it happens in three steps:
+
+1. A durable **purge intent** (`autoseopilot_purge_intents`, migration 0039)
+   is written in ONE atomic statement. It only lands while the binding is
+   still revoked, still past its own deadline (`revoked_at + 30 days <= now`,
+   never a deadline carried over from an earlier candidate), still the same
+   lifecycle the candidate was selected at, its workspace still never claimed
+   VibeCMS Cloud, and no claim checkout is still open. The intent records the
+   resources the purge will delete: the site's Cloudflare custom hostname ids
+   and its R2 prefixes.
+2. The external cleanup runs from the recorded resources.
+3. The D1 rows go, guarded again inside one transaction that requires the
+   intent.
+
+While an intent exists the blog cannot come back. The claim checkout is
+refused before any money is taken, an in-flight Polar webhook is answered
+with a conflict instead of flipping the workspace to paid, the AutoSEOPilot
+plan resumption is refused with a retryable failure, and a re-provision
+cannot recreate the same site id and R2 namespace. A crashed run leaves the
+intent behind and the next daily run resumes the same cleanup from it; the
+intent never expires and is never auto-cleared.
 
 ## Internal API
 
