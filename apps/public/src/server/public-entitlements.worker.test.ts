@@ -14,6 +14,7 @@ import { buildPostHeadContent } from "../lib/seo-meta";
 import { handleFeed, handleLlmsTxt, handleRobots, handleSitemap } from "./public-feeds";
 import {
   handlePublicPostByHostGet,
+  isPublicBlogPaused,
   loadPublicPostByHost,
 } from "./public-blog";
 import { parsePublicRuntimeEnv } from "./public-url";
@@ -244,14 +245,15 @@ describe("public effective entitlement resolution", () => {
     const site = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
     expect(site).toMatchObject({ effective_entitlement: { effective: false } });
     const blog = await loadPublicPostByHost(env.DB, requestFor(DEFAULT_HOST, "/hello"), "hello", runtimeEnv);
-    expect(blog).toMatchObject({ indexable: false, site: { effective_entitlement: { effective: false } } });
+    const article = blog && !isPublicBlogPaused(blog) ? blog : null;
+    expect(article).toMatchObject({ indexable: false, site: { effective_entitlement: { effective: false } } });
 
     const head = buildPostHeadContent({
-      post: blog!.post,
-      site: blog!.site,
-      canonicalUrl: blog!.canonicalUrl,
-      origin: blog!.origin,
-      indexable: blog!.indexable,
+      post: article!.post,
+      site: article!.site,
+      canonicalUrl: article!.canonicalUrl,
+      origin: article!.origin,
+      indexable: article!.indexable,
       generatedCards: true,
     });
     expect(head.meta).toContainEqual({ name: "robots", content: "noindex,nofollow" });

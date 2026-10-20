@@ -2,11 +2,15 @@
 import Base from '../../layouts/Base.astro';
 import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from '../../components/PublicBlogPages';
 import { loadPrivatePreview, previewNotFound, previewResponseHeaders } from '../../server/preview';
+import { isPausedSite } from '../../server/public-blog-data';
+import { pausedBlogResponse } from '../../server/paused-blog';
 import { publicDb, publicRuntimeEnv } from '../../server/runtime';
 
 for (const [name, value] of Object.entries(previewResponseHeaders)) Astro.response.headers.set(name, value);
 const token = Astro.params.token ?? '';
 const preview = await loadPrivatePreview(publicDb(Astro), Astro.request, token, publicRuntimeEnv(Astro));
+// A paused blog shares nothing, not even through its private preview link.
+if (preview && isPausedSite(preview.data.site)) return pausedBlogResponse(Astro.request);
 const missing = preview === null ? previewNotFound() : null;
 if (missing) return missing;
 const { data, versionNumber } = preview!;

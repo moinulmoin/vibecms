@@ -59,7 +59,10 @@ const site = {
     activeSources: ["polar"],
     effectiveUntil: null,
     polar: { status: "active", currentPeriodEnd: null, active: true },
-    managedSponsorship: { status: null, expiresAt: null, active: false },
+    managedSponsorship: { status: null, expiresAt: null, active: false, revokedAt: null },
+    claim: null,
+    servingAllowed: true,
+    servingPaused: false,
   },
 } satisfies SiteRow;
 

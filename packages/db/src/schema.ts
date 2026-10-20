@@ -378,7 +378,11 @@ export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites"
   entitlementExpiresAt: integer("entitlement_expires_at"),
   lifecycleRevision: integer("lifecycle_revision").notNull(),
   createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
+  /** Durable sent markers for the claim reminders (epoch seconds). */
+  claimDay7SentAt: integer("claim_day7_sent_at"),
+  claimDay14SentAt: integer("claim_day14_sent_at"),
+  claimDay21SentAt: integer("claim_day21_sent_at"),
+  claimDay28SentAt: integer("claim_day28_sent_at"),
   revokedAt: integer("revoked_at"),
 }, (table) => [
   uniqueIndex("idx_autoseopilot_managed_external_workspace").on(table.externalWorkspaceId),
@@ -390,6 +394,7 @@ export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites"
     table.credentialGeneration,
   ),
   index("idx_autoseopilot_managed_owner_user").on(table.ownerUserId),
+  index("idx_autoseopilot_managed_claim_sweep").on(table.entitlementStatus, table.revokedAt),
   check(
     "ck_autoseopilot_managed_credential_generation_positive",
     sql`${table.credentialGeneration} > 0`,

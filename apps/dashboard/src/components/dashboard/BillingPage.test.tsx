@@ -22,6 +22,7 @@ import { withQueryClient } from '~/test/query'
 // Noon UTC keeps the rendered calendar date stable across test-runner time zones.
 const PERIOD_END = Date.UTC(2026, 10, 15, 12) / 1000
 const DAY_MS = 24 * 60 * 60 * 1000
+const DAY_SECONDS = 24 * 60 * 60
 
 /** Header of the plan column the table highlights as the one in effect. */
 function boldColumn(container: HTMLElement) {
@@ -30,16 +31,18 @@ function boldColumn(container: HTMLElement) {
 }
 
 type Managed = Extract<BillingPageLoadResult, { selfHosted: false }>['managed']
+type Claim = Extract<BillingPageLoadResult, { selfHosted: false }>['claim']
 
 function hosted(
   billing: Partial<BillingSnapshot>,
-  overrides: { isOwner?: boolean; managed?: Managed } = {},
+  overrides: { isOwner?: boolean; managed?: Managed; claim?: Claim } = {},
 ): BillingPageLoadResult {
   return {
     selfHosted: false,
     isOwner: overrides.isOwner ?? true,
     billing: { status: 'none', currentPeriodEnd: null, cancelAtPeriodEnd: null, polarCustomerId: null, pastDueSince: null, graceEndsAt: null, ...billing },
     managed: overrides.managed ?? null,
+    claim: overrides.claim ?? null,
   }
 }
 
@@ -157,6 +160,37 @@ describe('PlanAndBilling', () => {
     requireButton('Update payment')
     expect(findButton('Upgrade')).toBeUndefined()
     expect(findButton('Yearly')).toBeUndefined()
+  })
+
+  it('explains the claim window instead of promising the posts stay online', async () => {
+    const revokedAt = Date.UTC(2026, 9, 1, 12) / 1000
+    vi.spyOn(Date, 'now').mockReturnValue((revokedAt + 2 * DAY_MS))
+    const { container, requireButton } = await render(
+      hosted({}, {
+        managed: { status: 'revoked', expiresAt: null, effective: false },
+        claim: { revokedAt, pausedAt: revokedAt + 7 * DAY_SECONDS, deadline: revokedAt + 30 * DAY_SECONDS },
+      }),
+    )
+
+    expect(container.textContent).toContain('Your AutoSEOPilot plan ended.')
+    expect(container.textContent).toContain('stays online until October 8, 2026')
+    expect(container.textContent).toContain('before October 31, 2026')
+    expect(container.textContent).not.toContain('Your posts stay online')
+    requireButton('Upgrade')
+  })
+
+  it('says the blog is paused once the claim grace has passed', async () => {
+    const revokedAt = Date.UTC(2026, 9, 1, 12) / 1000
+    vi.spyOn(Date, 'now').mockReturnValue(revokedAt + 10 * DAY_MS)
+    const { container } = await render(
+      hosted({}, {
+        managed: { status: 'revoked', expiresAt: null, effective: false },
+        claim: { revokedAt, pausedAt: revokedAt + 7 * DAY_SECONDS, deadline: revokedAt + 30 * DAY_SECONDS },
+      }),
+    )
+
+    expect(container.textContent).toContain('is paused')
+    expect(container.textContent).toContain('before October 31, 2026')
   })
 
   it('keeps payment recovery available while sponsorship still grants paid features', async () => {

@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import { PublicBlogPostView, loadPostHighlighter, PublicNotFoundView, siteDocumentProps } from "../components/PublicBlogPages";
 import {
   handlePublicPostByHostGet,
+  isPublicBlogPaused,
   loadPublicPostForSite,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
@@ -10,7 +11,8 @@ import {
   isMarketingHost,
 } from "../server/public-blog";
 import { buildPostHeadContent } from "../lib/seo-meta";
-import { resolveSite } from "../server/public-blog-data";
+import { isPausedSite, resolveSite } from "../server/public-blog-data";
+import { pausedBlogResponse } from "../server/paused-blog";
 import { publicDb, publicRuntimeEnv } from "../server/runtime";
 import { publicLocationRequest, publicUrl, type PublicLocation } from "../server/public-location";
 import pageViewScriptUrl from "../scripts/page-view.js?url";
@@ -47,12 +49,14 @@ if (!cacheSite) {
   if (!env.selfHosted && isMarketingHost(Astro.request, env)) return Astro.rewrite("/internal/not-found");
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
-if (cacheSite.effective_entitlement.effective) {
-  const cachedHtml = await matchCachedPublicPostHtml(pubRequest, cacheSite.id);
-  if (cachedHtml) return cachedHtml;
-}
+if (isPausedSite(cacheSite)) return pausedBlogResponse(Astro.request);
+if (cacheSite.effective_entitlement.servingAllowed) {
+   const cachedHtml = await matchCachedPublicPostHtml(pubRequest, cacheSite.id);
+   if (cachedHtml) return cachedHtml;
+ }
 
-const blog = await loadPublicPostForSite(db, location, cacheSite, postSlug, env);
+ const blog = await loadPublicPostForSite(db, location, cacheSite, postSlug, env);
+if (isPublicBlogPaused(blog)) return pausedBlogResponse(Astro.request);
 const { themeAttrs: siteThemeAttrs, fontId } = siteDocumentProps(cacheSite);
 if (!blog) {
   if (postSlug) {

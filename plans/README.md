@@ -32,6 +32,7 @@ behavior lives in the code and in `docs/FEATURES.md` plus the docs site.
 | 024 | [SEO checks: deterministic rules plus a cheap AI review](024-seo-checks.md) | DONE — shipped 2026-10-13, including the editor UI phase |
 | 025 | [WebMCP: agents in the browser drive the dashboard](025-webmcp.md) | ON HOLD — owner decision 2026-10-13, not started |
 | 026 | [Redirects, import, and IndexNow](026-redirects-import-indexnow.md) | ON HOLD — owner decision 2026-10-12, not started |
+| 027 | [Keep your blog after an AutoSEOPilot plan ends](027-keep-your-blog-claim.md) | SHIPPED locally 2026-10-21 — claim window, paused page, day 7/14/21/28 reminders, day-30 deletion; dev proof still to run |
 
 Status values: DONE | REJECTED (with one-line rationale) | ON HOLD. Plans 013,
 014, and 017 have no plan files (numbers reserved/skipped).

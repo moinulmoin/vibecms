@@ -107,6 +107,64 @@ site, default domain, and public URL MUST remain intact. Public output follows
 the existing unpaid-site behavior, including noindex and disabled paid feeds
 where those gates apply. VibeCMS MUST NOT delete or purge remote content.
 
+## Claim window (keep your blog)
+
+A revoked managed sponsorship starts a 30-day claim window. Day 0 is the
+revoke that landed in VibeCMS (`revoked_at`) — VibeCMS owns the clock, and
+AutoSEOPilot's own state does not move it. The window exists so a customer
+whose plan ends keeps their blog (and its readers) instead of losing it the
+same minute.
+
+### Timeline
+
+| Day | What the world sees | What VibeCMS sends |
+|---|---|---|
+| 0-7 | The blog is fully online on every address (default host, custom domain, subpath), indexed as normal. | AutoSEOPilot sends the day-0 email. |
+| 7 | The blog is paused on every address: a neutral "This blog is paused" page, `noindex`, never a bare 404. | First reminder (23 days left). |
+| 14 | Still paused. | Reminder (16 days left). |
+| 21 | Still paused. | Reminder (9 days left). |
+| 28 | Still paused. | Final reminder (2 days left). |
+| 30 | The blog is deleted, unless claimed. | Nothing. |
+
+### Serving
+
+The claim window is separate from paid effectiveness. The entitlement helper
+returns `servingAllowed` (paid-effective, self-hosted, or inside the grace)
+and `servingPaused` (revoked, past the grace, no other source). The public
+worker resolves a paused site so it can render the paused page, but never its
+content: default host, custom domains, the subpath mount, feeds, sitemap,
+`llms.txt`, OG cards, previews and the analytics beacon all answer the paused
+page with `X-Robots-Tag: noindex, nofollow` and `cache-control: no-store`.
+
+### Claiming
+
+Claiming is signing in with the same email and buying VibeCMS Cloud. The
+sponsor's own day-0 email points the customer at that flow. Nothing moves:
+the same blog, posts, media and domain serve again, and a blog that was
+claimed is never deleted by this flow again, even if Cloud is cancelled later.
+The dashboard shows a "Keep your blog" banner with the exact deadline, and
+the billing page states the grace, the pause, the deadline and the upgrade.
+Claiming is strictly same-email; there is no transfer to another email at
+launch. The owner keeps dashboard access and can read and export during the
+window.
+
+### Reminders and deletion
+
+One daily job (`apps/api/src/server/managed-claim-sweep.ts`) owns the window.
+It selects revoked managed sites whose workspace never claimed VibeCMS Cloud
+(no billing row, or status `none`) and, for each one, sends the reminder of
+the day it is on — days 7, 14, 21 and 28 — each guarded by its own durable
+marker column, so a reminder goes out at most once even across replays. All
+reminders stop as soon as the blog is claimed or the AutoSEOPilot plan
+resumes (a resumed plan clears `revoked_at`).
+
+At day 30 an unclaimed blog is deleted: the Cloudflare custom hostname, the
+site's R2 objects, and the D1 rows (binding, site, workspace, and the user row
+only when that user owns or belongs to no other workspace). The purge
+re-checks the state inside its transaction, so a claim or a resumed plan
+landing mid-sweep deletes nothing, and a partial failure is retried on the
+next daily run. A claimed workspace is skipped forever.
+
 ## Internal API
 
 All managed routes are under `/internal/autoseopilot`:
@@ -304,7 +362,8 @@ revoked receipt and does not increment the revision again. A stale generation
 or credential ID returns HTTP 409 with `STALE_GENERATION` or
 `CREDENTIAL_CONFLICT` and MUST NOT revoke a newer key. Revoke never deletes
 posts, versions, media, activity, users, workspaces, sites, domains, or
-public content.
+public content on the spot; an unclaimed blog is deleted later, at the end of
+the claim window (see "Claim window (keep your blog)").
 
 ### PUT location
 

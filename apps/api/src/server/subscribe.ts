@@ -101,6 +101,16 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
     return { status: 200, body: { ok: true } }
   }
 
+  // A paused managed blog is not serving; its subscribe form is gone too.
+  // Neutral success keeps the slug non-enumerable.
+  const entitlement = await createDataAccess(env.DB).managedSites.resolveSite(siteId, {
+    selfHosted: String(env.SELF_HOSTED) === 'true',
+    now: Date.now() / 1000,
+  })
+  if (entitlement?.servingPaused) {
+    return { status: 200, body: { ok: true } }
+  }
+
   // HMAC-SHA256 hashes keyed by TOKEN_PEPPER; degrade to null when pepper absent
   const pepper = env.TOKEN_PEPPER ?? ''
   // Only the public Worker forwards `x-vc-client-ip` (its first

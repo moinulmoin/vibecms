@@ -5,10 +5,11 @@ import { isDirectInternalRootHit } from "../../lib/internal-root";
 import { markdownNotFound, tenantHomeLinks } from "../../lib/agent-discovery";
 import { listingMarkdown, tenantBlogJsonLd } from "../../lib/agent-pages";
 import { resolveSocialImage } from "../../lib/seo-meta";
-import { loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
+import { isPublicBlogPaused, loadPublicIndexByHost, publicListingResponseHeaders } from "../../server/public-blog";
+import { pausedBlogResponse } from "../../server/paused-blog";
 import { publicOrigin } from "../../server/public-url";
-import { publicBaseUrl, publicUrl, type PublicLocation } from "../../server/public-location";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
+import { publicBaseUrl, publicUrl, type PublicLocation } from "../../server/public-location";
 
 // Internal entry only — reachable via rewrite from `/` (or `/_vc/p/<id>/` for
 // proxied subpath blogs). Direct hits 404 so the path stays non-indexable and
@@ -39,6 +40,7 @@ if (!blog) {
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 }
+if (isPublicBlogPaused(blog)) return pausedBlogResponse(Astro.request);
 
 const page = blog.page ?? resolvePublicPage(Astro.url.searchParams.get("page"), blog.posts.length);
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {

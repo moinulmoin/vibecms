@@ -227,7 +227,10 @@ const site = {
     activeSources: [],
     effectiveUntil: null,
     polar: { status: null, currentPeriodEnd: null, active: false },
-    managedSponsorship: { status: null, expiresAt: null, active: false },
+    managedSponsorship: { status: null, expiresAt: null, active: false, revokedAt: null },
+    claim: null,
+    servingAllowed: false,
+    servingPaused: false,
   },
 } satisfies SiteRow;
 

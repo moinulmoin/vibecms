@@ -51,7 +51,10 @@ export function toApiEffectiveEntitlement(
       rawPolarStatus: 'none',
       source: 'none',
       polar: { status: null, currentPeriodEnd: null, active: false, pastDueSince: null, graceEndsAt: null },
-      managedSponsorship: { status: null, expiresAt: null, active: false },
+      managedSponsorship: { status: null, expiresAt: null, active: false, revokedAt: null },
+      claim: null,
+      servingAllowed: false,
+      servingPaused: false,
     }
   }
 

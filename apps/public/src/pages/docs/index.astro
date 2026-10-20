@@ -9,10 +9,12 @@ import DocsCodeBlock from "../../components/docs/docs-code-block.astro";
 import { PublicBlogPostView, loadPostHighlighter, siteDocumentProps } from "../../components/PublicBlogPages";
 import { docsSource } from "../../lib/docs-source";
 import { buildPostHeadContent } from "../../lib/seo-meta";
-import { resolveSite } from "../../server/public-blog-data";
+import { isPausedSite, resolveSite } from "../../server/public-blog-data";
+import { pausedBlogResponse } from "../../server/paused-blog";
 import {
   handlePublicPostByHostGet,
   isMarketingHost,
+  isPublicBlogPaused,
   loadPublicPostForSite,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
@@ -38,11 +40,13 @@ if (!marketing) {
   if (early) return early;
   const site = await resolveSite(Astro.request, db, env);
   if (!site) return new Response("Not found", { status: 404 });
-  if (site.effective_entitlement.effective) {
-    const cachedHtml = await matchCachedPublicPostHtml(pubRequest, site.id);
-    if (cachedHtml) return cachedHtml;
-  }
-  blog = await loadPublicPostForSite(db, location, site, "docs", env);
+  if (isPausedSite(site)) return pausedBlogResponse(Astro.request);
+  if (site.effective_entitlement.servingAllowed) {
+     const cachedHtml = await matchCachedPublicPostHtml(pubRequest, site.id);
+     if (cachedHtml) return cachedHtml;
+   }
+   blog = await loadPublicPostForSite(db, location, site, "docs", env);
+  if (isPublicBlogPaused(blog)) return pausedBlogResponse(Astro.request);
   if (!blog) {
     // A legacy post that used to live at /docs may have moved.
     const redirect = await publicPostRedirect(db, site, "docs", pubRequest, env, location.basePath);

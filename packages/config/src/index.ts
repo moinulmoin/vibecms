@@ -145,6 +145,28 @@ export const FREE_TIER = {
     "5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).",
 } as const;
 
+/**
+ * Post-revoke claim window for AutoSEOPilot-managed blogs (day 0 = VibeCMS
+ * `revoked_at`). Days 0-7 the blog stays fully online on every address; after
+ * the grace it serves a neutral paused page; unclaimed blogs are deleted at
+ * the deadline. Claiming (VibeCMS Cloud on the same workspace) or the
+ * AutoSEOPilot plan resuming clears the clock.
+ */
+export const MANAGED_CLAIM_WINDOW = {
+  /** Full-online grace after revoke, in seconds. */
+  graceSeconds: 7 * 24 * 60 * 60,
+  /** Total claim window before deletion, in seconds. */
+  windowSeconds: 30 * 24 * 60 * 60,
+} as const;
+
+/** Reminder schedule inside the claim window: days after revoke → days left. */
+export const MANAGED_CLAIM_REMINDERS = [
+  { day: 7, daysLeft: 23 },
+  { day: 14, daysLeft: 16 },
+  { day: 21, daysLeft: 9 },
+  { day: 28, daysLeft: 2 },
+] as const;
+
 export const ENTITLEMENTS = [
   "1 hosted blog",
   "Unlimited posts",

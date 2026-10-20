@@ -1,6 +1,7 @@
 import { getPublishedSlugRedirect } from "@vc/db";
 import {
   getPublishedPost,
+  isPausedSite,
   isPublicBlogIndexable,
   listPublishedPostSummaries,
   listPublishedPostPage,
@@ -11,6 +12,7 @@ import {
   type PostSummaryRow,
   type SiteRow,
 } from "./public-blog-data";
+import { pausedBlogResponse } from "./paused-blog";
 import type { PublicRuntimeEnv } from "../env";
 import {
   articleCacheTags,
@@ -28,6 +30,17 @@ import { publicOrigin } from "./public-url";
 import type { PublicLocation } from "./public-location";
 import { resolvePublicByline, type PublicByline } from "../lib/byline";
 import { markdownNotFound } from "../lib/agent-discovery";
+
+/** Loader result for a paused managed blog: render the paused page, no content. */
+export type PublicBlogPaused = { readonly paused: true };
+
+export const PUBLIC_BLOG_PAUSED: PublicBlogPaused = Object.freeze({ paused: true }) as PublicBlogPaused;
+
+export function isPublicBlogPaused(
+  value: PublicIndexLoaderData | PublicPostLoaderData | PublicBlogPaused | null | undefined,
+): value is PublicBlogPaused {
+  return value !== null && value !== undefined && (value as PublicBlogPaused).paused === true;
+}
 
 export { isMarketingHost } from "./public-blog-data";
 
@@ -241,6 +254,7 @@ export async function handlePublicPostByHostGet(
 
   const site = await resolveSite(request, db, env);
   if (!site) return markdownNotFound();
+  if (isPausedSite(site)) return pausedBlogResponse(request);
   return tryPublicPostMarkdownResponse(db, request, site, loc.basePath, slug, env);
 }
 
@@ -353,7 +367,8 @@ export async function loadPublicPostForSite(
   site: SiteRow,
   slug: string | undefined,
   env: PublicRuntimeEnv,
-): Promise<PublicPostLoaderData | null> {
+): Promise<PublicPostLoaderData | PublicBlogPaused | null> {
+  if (isPausedSite(site)) return PUBLIC_BLOG_PAUSED;
   const { slug: postSlug } = stripMarkdownSuffix(slug);
   if (!isReadableTenantPostSlug(postSlug)) return null;
   const [post, summaries] = await Promise.all([
@@ -391,9 +406,10 @@ export async function loadPublicPostByHost(
   slug: string | undefined,
   env: PublicRuntimeEnv,
   location?: PublicLocation,
-): Promise<PublicPostLoaderData | null> {
+): Promise<PublicPostLoaderData | PublicBlogPaused | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
+  if (isPausedSite(site)) return PUBLIC_BLOG_PAUSED;
   const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   return loadPublicPostForSite(db, loc, site, slug, env);
 }
@@ -425,9 +441,10 @@ export async function loadPublicIndexByHost(
   query?: string,
   requestedPage = 1,
   location?: PublicLocation,
-): Promise<PublicIndexLoaderData | null> {
+): Promise<PublicIndexLoaderData | PublicBlogPaused | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
+  if (isPausedSite(site)) return PUBLIC_BLOG_PAUSED;
   const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   if (query !== undefined) {
     const [posts, all] = await Promise.all([
@@ -470,9 +487,10 @@ export async function loadPublicTagByHost(
   env: PublicRuntimeEnv,
   requestedPage = 1,
   location?: PublicLocation,
-): Promise<PublicIndexLoaderData | null> {
+): Promise<PublicIndexLoaderData | PublicBlogPaused | null> {
   const site = await resolveSite(request, db, env);
   if (!site) return null;
+  if (isPausedSite(site)) return PUBLIC_BLOG_PAUSED;
   const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   // Sidebar stays site-wide (all tags, newest posts), not just this tag's posts.
   const [result, all] = await Promise.all([

@@ -7,6 +7,7 @@ import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useBillingRedirect } from '~/components/dashboard/useBillingRedirect'
 import { OWNER_PAYMENT_NOTE, formatBillingDate, pastDueMessage, usePastDueState } from '~/lib/billing-grace'
+import { claimMessage, useClaimWindowState } from '~/lib/claim-window'
 import { billingQuery } from '~/lib/queries'
 
 type Allowance = string | boolean
@@ -96,6 +97,8 @@ export function PlanAndBilling() {
   }
 
   const billing = data.billing
+  const claim = data.claim
+  const claimState = useClaimWindowState(claim)
   const active = billing.status === 'active'
   // Recover failed renewals in the portal, even if sponsorship still covers the blog.
   const pastDue = pastDueState !== null
@@ -119,7 +122,9 @@ export function PlanAndBilling() {
             {managed
               ? managed.effective
                 ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
-                : 'The sponsorship ended. Your posts stay online; paid features are paused.'
+                : claim
+                  ? claimMessage(claim, claimState ?? 'grace')
+                  : 'Your subscription ended. Posts stay online and nothing was deleted.'
               : active
                 ? ending
                   ? periodEnd

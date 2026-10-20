@@ -6,6 +6,7 @@ import { parsePublicRuntimeEnv } from "./public-url";
 import { resolveSite, type SiteRow } from "./public-blog-data";
 import {
   handlePublicPostByHostGet,
+  isPublicBlogPaused,
   loadPublicPostByHost,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
@@ -76,7 +77,7 @@ describe("public reserved-root rendering", () => {
     expect(await loadPublicPostByHost(env.DB, new Request("https://posts.public.example.com/api", { headers }), "api", runtimeEnv)).toBeNull();
     expect(await loadPublicPostByHost(env.DB, new Request("https://posts.public.example.com/api.md", { headers }), "api.md", runtimeEnv)).toBeNull();
     const real = await loadPublicPostByHost(env.DB, new Request("https://posts.public.example.com/hello", { headers }), "hello", runtimeEnv);
-    expect(real?.post.slug).toBe("hello");
+    expect(isPublicBlogPaused(real) ? null : real?.post.slug).toBe("hello");
     const markdown = await handlePublicPostByHostGet(env.DB, new Request("https://posts.public.example.com/api?format=md", { headers }), "api", runtimeEnv);
     expect(markdown).toBeNull();
   });
@@ -128,7 +129,10 @@ describe("Accept markdown after HTML response cache", () => {
                 activeSources: ["polar"],
                 effectiveUntil: null,
                 polar: { status: "active", currentPeriodEnd: null, active: true },
-                managedSponsorship: { status: null, expiresAt: null, active: false },
+                managedSponsorship: { status: null, expiresAt: null, active: false, revokedAt: null },
+                claim: null,
+                servingAllowed: true,
+                servingPaused: false,
               },
             } satisfies SiteRow,
             runtimeEnv,

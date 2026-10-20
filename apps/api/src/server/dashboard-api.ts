@@ -2,7 +2,7 @@ import { navLinksSchema, socialLinksSchema, parseSiteLinks } from '@vc/validator
 import { publicBlogBaseDomain } from '@/server/public-url'
 import type { Post } from '@vc/core'
 import { listPostVersions, getPostVersion } from '@vc/core'
-import { resolvePresetId } from '@vc/config'
+import { MANAGED_CLAIM_WINDOW, resolvePresetId } from '@vc/config'
 import { createDataAccess, createD1PostRepository, type ActivationPost } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import {
@@ -473,6 +473,19 @@ export async function loadBillingPage(app: AppUserContext) {
     createDataAccess(env.DB).managedSites.getSnapshotByWorkspaceId(app.workspaceId),
     resolveEffectiveEntitlementForWorkspace(app.workspaceId),
   ])
+  // The claim window ("keep your blog"): day 0 is the managed revoke, day 7 the
+  // blog pauses, day 30 an unclaimed blog is deleted. It only exists while the
+  // workspace has never claimed vibecms Cloud — exactly when the daily sweep
+  // can delete the blog. A claimed workspace keeps its blog forever.
+  const revokedAt = managedSnapshot?.revokedAt ?? null
+  const claim =
+    revokedAt !== null && billing.status === 'none'
+      ? {
+          revokedAt,
+          pausedAt: revokedAt + MANAGED_CLAIM_WINDOW.graceSeconds,
+          deadline: revokedAt + MANAGED_CLAIM_WINDOW.windowSeconds,
+        }
+      : null
   return {
     selfHosted: false as const,
     isOwner,
@@ -484,6 +497,7 @@ export async function loadBillingPage(app: AppUserContext) {
           effective: entitlement.managedSponsorship.active,
         }
       : null,
+    claim,
   }
 }
 

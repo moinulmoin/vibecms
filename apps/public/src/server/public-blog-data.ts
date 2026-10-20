@@ -219,7 +219,12 @@ export async function resolveSite(request: Request, db: D1Database, env: PublicR
       now: Date.now() / 1000,
     });
     if (!effectiveEntitlement) return null;
-    if (row.resolvedDomainType === "custom" && !effectiveEntitlement.effective) return null;
+    // A managed blog past its 7-day claim grace resolves (so every ingress
+    // can render the paused page) but never serves content.
+    if (effectiveEntitlement.servingPaused) return toSiteRow(row, effectiveEntitlement);
+    // Custom domains are a paid location: they serve while entitlement is
+    // effective or inside the claim grace, and stop otherwise.
+    if (row.resolvedDomainType === "custom" && !effectiveEntitlement.servingAllowed) return null;
     return toSiteRow(row, effectiveEntitlement);
   }
 
@@ -230,7 +235,7 @@ export async function resolveSite(request: Request, db: D1Database, env: PublicR
   if (isMarketingHost(request, env)) return null;
   const row = await readModel.resolveSiteByHost(normalizeHost(request));
   return resolveRow(row);
-}
+ }
 
 export async function getPublishedPost(db: D1Database, siteId: string, slug: string): Promise<PostDetailRow | null> {
   const now = Math.floor(Date.now() / 1000);
@@ -296,7 +301,14 @@ export async function resolvePublishedLinkSlugs(
 }
 
 export function isPublicBlogIndexable(site: SiteRow, _env: PublicRuntimeEnv) {
-  return site.effective_entitlement.effective;
+  // Serving gate, not paid effectiveness: days 0-7 after a managed revoke
+  // stay indexed as normal; the paused page is never indexable.
+  return site.effective_entitlement.servingAllowed;
+}
+
+/** True when this site must answer with the paused page on every ingress. */
+export function isPausedSite(site: SiteRow): boolean {
+  return site.effective_entitlement.servingPaused;
 }
 
 export async function listPublishedPostSummariesByTag(

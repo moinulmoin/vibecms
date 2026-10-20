@@ -13,6 +13,7 @@ import { proxiedLocation, publicLocationRequest } from "./public-location";
 import { ingressStateForPass, primaryLocationRedirect, proxyFingerprint, resolvePublicLocationIngress } from "./public-location.server";
 import {
   handlePublicPostByHostGet,
+  isPublicBlogPaused,
   loadPublicIndexByHost,
   loadPublicPostForSite,
   loadPublicTagByHost,
@@ -259,8 +260,7 @@ describe("producers in proxied mode", () => {
       canonicalUrl: "/blog/hello",
       origin: CUSTOMER,
     });
-    // Link slugs resolve from the body (only /world is a root-relative post link).
-    expect(blog!.postSlugs).toEqual(new Set(["world"]));
+    expect(isPublicBlogPaused(blog) ? null : blog!.postSlugs).toEqual(new Set(["world"]));
     expect(req.url).toBe(`${CUSTOMER}/blog/hello`);
   });
 
@@ -436,7 +436,7 @@ describe("review fixes: entitlement and rewrite passes", () => {
     const blog = await loadPublicPostForSite(env.DB, location, site!, "linker", runtimeEnv);
     // `old-link-0` is the oldest of 201 posts — outside the newest-200 summary
     // set — but still published, so its link gets the base path. `/nope` isn't.
-    expect(blog!.postSlugs).toEqual(new Set(["old-link-0"]));
+    expect(isPublicBlogPaused(blog) ? null : blog!.postSlugs).toEqual(new Set(["old-link-0"]));
 
     // The data-layer helper resolves the same candidates directly.
     const slugs = await resolvePublishedLinkSlugs(env.DB, site!.id, ["[a](/old-link-0) [b](/old-link-200) [c](/missing)"]);

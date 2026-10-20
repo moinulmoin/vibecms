@@ -7,8 +7,8 @@ import {
 } from '@/server/scheduled-dispatch'
 
 describe('scheduledJobsForCron', () => {
-  it('runs analytics and media on the daily cron', () => {
-    expect(scheduledJobsForCron(ANALYTICS_CRON)).toEqual(['analytics', 'media', 'subpaths'])
+  it('runs analytics, media and the claim sweep on the daily cron', () => {
+    expect(scheduledJobsForCron(ANALYTICS_CRON)).toEqual(['analytics', 'media', 'subpaths', 'managed-claim'])
   })
 
   it('runs only media on the 15-minute cron', () => {

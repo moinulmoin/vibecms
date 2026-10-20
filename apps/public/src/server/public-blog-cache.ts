@@ -11,12 +11,14 @@ export const publicCacheControl = "public, max-age=300, s-maxage=300, stale-whil
 
 export function publicCacheControlForEntitlement(
   entitlement: EffectiveHostedEntitlement,
-  // Unfloored: a cache lifetime must never outlast the entitlement deadline.
+  // Unfloored: a cache lifetime must never outlast the entitlement deadline
+  // or the claim-grace pause moment, whichever ends serving first.
   now = Date.now() / 1000,
 ): string {
-  if (!entitlement.effective) return "no-store";
-  if (entitlement.effectiveUntil === null) return publicCacheControl;
-  const remaining = Math.floor(Math.max(0, entitlement.effectiveUntil - now));
+  if (!entitlement.servingAllowed) return "no-store";
+  const horizon = entitlement.effectiveUntil ?? entitlement.claim?.pausedAt ?? null;
+  if (horizon === null) return publicCacheControl;
+  const remaining = Math.floor(Math.max(0, horizon - now));
   if (remaining === 0) return "no-store";
   const maxAge = Math.min(300, remaining);
   return `public, max-age=${maxAge}, s-maxage=${maxAge}`;

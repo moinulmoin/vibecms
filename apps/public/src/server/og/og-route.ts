@@ -17,7 +17,7 @@
 import type { APIContext } from "astro";
 import { buildOgCardModel, ogCardVersion } from "../../lib/og-card";
 import { articleCacheTags, cachedArticleResponseBelongsToSite, siteCacheTag } from "../public-blog-cache";
-import { getPublishedPost, resolveSite } from "../public-blog-data";
+import { getPublishedPost, isPausedSite, resolveSite } from "../public-blog-data";
 import { ogBinding, publicAssetsBucket, publicDb, publicRuntimeEnv } from "../runtime";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
@@ -61,6 +61,8 @@ export async function handleOgCardRequest(context: APIContext, slug: string | un
   const request = context.request;
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
+  // A paused blog renders no share card: its content is not public any more.
+  if (isPausedSite(site)) return notFound();
   const post = slug === undefined ? null : await getPublishedPost(db, site.id, slug);
   if (slug !== undefined && !post) return notFound();
 

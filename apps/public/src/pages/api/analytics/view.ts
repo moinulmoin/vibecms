@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { agentForUserAgent } from "@vc/config/agents";
-import { loadPublicPostByHost } from "../../../server/public-blog";
+import { isPublicBlogPaused, loadPublicPostByHost } from "../../../server/public-blog";
 import {
   analyticsConfigured,
   normalizeReferrerHost,
@@ -58,7 +58,9 @@ export const POST: APIRoute = async (context) => {
 
   const blog = await loadPublicPostByHost(publicDb(context), context.request, body.slug, runtime, context.locals.publicLocation);
   if (!blog) return emptyResponse();
-  if (!blog.indexable) return emptyResponse();
+  // A paused managed blog is not serving: the beacon records nothing.
+  if (isPublicBlogPaused(blog)) return emptyResponse();
+   if (!blog.indexable) return emptyResponse();
 
   writePageView(worker.ANALYTICS, {
     siteId: blog.site.id,

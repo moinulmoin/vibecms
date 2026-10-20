@@ -208,6 +208,17 @@ export type BillingPageLoadResult =
         expiresAt: number | null
         effective: boolean
       } | null
+      /**
+       * The claim window ("keep your blog") for a revoked AutoSEOPilot
+       * sponsorship: day 0 is the revoke, the blog pauses at `pausedAt` and an
+       * unclaimed blog is deleted at `deadline`. Null once the blog is claimed
+       * or the plan resumed. Epoch seconds.
+       */
+      claim: {
+        revokedAt: number
+        pausedAt: number
+        deadline: number
+      } | null
     }
 
 export type CheckoutInterval = 'monthly' | 'yearly'

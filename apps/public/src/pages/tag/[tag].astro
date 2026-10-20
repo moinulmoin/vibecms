@@ -2,7 +2,8 @@
 import Base from "../../layouts/Base.astro";
 import { PublicBlogIndexView, publicPageCanonicalPath, requestedPublicPage, siteDocumentProps } from "../../components/PublicBlogPages";
 import { resolveSocialImage } from "../../lib/seo-meta";
-import { isMarketingHost, loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
+import { isMarketingHost, isPublicBlogPaused, loadPublicTagByHost, publicListingResponseHeaders } from "../../server/public-blog";
+import { pausedBlogResponse } from "../../server/paused-blog";
 import { publicDb, publicRuntimeEnv } from "../../server/runtime";
 import { publicOrigin } from "../../server/public-url";
 import { publicBaseUrl, publicUrl, type PublicLocation } from "../../server/public-location";
@@ -24,6 +25,7 @@ if (!blog) {
   if (!env.selfHosted && isMarketingHost(Astro.request, env)) return Astro.rewrite("/internal/not-found");
   return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
 }
+if (isPublicBlogPaused(blog)) return pausedBlogResponse(Astro.request);
 if (Astro.request.headers.get("accept")?.includes("text/markdown")) {
   const markdown = new Response(listingMarkdown(blog, publicBaseUrl(location)), { headers: { ...publicListingResponseHeaders(blog.site, env), "content-type": "text/markdown; charset=utf-8", vary: "Accept" } });
   if (markdown) return markdown;

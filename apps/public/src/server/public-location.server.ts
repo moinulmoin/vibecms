@@ -28,26 +28,30 @@ export type PublicLocationIngress =
   | { kind: "health"; siteId: string | null; proxyFingerprint: string | null }
   /** Valid proxy id on a not-yet-active row: health answers, pages get the setup 404. */
   | { kind: "not-connected" }
+  /** A paused managed blog: every proxied page answers with the paused page. */
+  | { kind: "paused" }
   | { kind: "not-found" };
 
 /**
- * Effective hosted entitlement for a site row (same rule `resolveSite` uses to
- * gate custom domains; self-host is always entitled). Null/!effective means
- * the paid locations (custom domain, subpath mount) must not serve or be
- * redirected to.
+ * Serving state for a site row (the same rule `resolveSite` gates custom
+ * domains with; self-host is always entitled). `entitled` covers paid
+ * effectiveness and the post-revoke claim grace; `paused` is a managed blog
+ * past its grace with no other source — every ingress shows the paused page.
  */
-async function hostedEntitled(
+async function hostedServingState(
   db: D1Database,
   siteId: string,
   env: PublicRuntimeEnv,
-): Promise<boolean> {
-  if (env.selfHosted) return true;
+): Promise<"entitled" | "paused" | "no"> {
+  if (env.selfHosted) return "entitled";
   const entitlement = await createDataAccess(db).managedSites.resolveSite(siteId, {
     selfHosted: false,
     // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
     now: Date.now() / 1000,
   });
-  return entitlement?.effective ?? false;
+  if (!entitlement) return "no";
+  if (entitlement.servingPaused) return "paused";
+  return entitlement.servingAllowed ? "entitled" : "no";
 }
 
 /**
@@ -88,10 +92,13 @@ export async function resolvePublicLocationIngress(
   // A saved-but-unverified mount never serves pages: the dashboard check
   // verifies through health, then flips the row to active.
   if (subpath.status !== "active") return { kind: "not-connected" };
-  // The subpath mount is a paid location: once the site's entitlement lapses
+  // The subpath mount is a paid location: once serving is no longer allowed
   // it stops serving even though `resolveSiteByHost` still resolves the
-  // default host (free reads stay allowed there).
-  if (!(await hostedEntitled(db, site.id, env))) return { kind: "not-found" };
+  // default host (free reads stay allowed there). A paused managed blog
+  // answers with the paused page instead of a bare 404.
+  const servingState = await hostedServingState(db, site.id, env);
+  if (servingState === "paused") return { kind: "paused" };
+  if (servingState === "no") return { kind: "not-found" };
   const location = proxiedLocation(subpath, request);
   return { kind: "proxied", location, path };
 }
@@ -137,7 +144,7 @@ export async function primaryLocationRedirect(
   // Paid mounts (custom domain, subpath) are only canonical while the site is
   // entitled; an unentitled site keeps serving its default host instead of
   // 301ing readers at a location that 404s.
-  if (primary.type !== "default" && !(await hostedEntitled(db, site.id, env))) return null;
+  if (primary.type !== "default" && (await hostedServingState(db, site.id, env)) !== "entitled") return null;
   if (primary.hostname.toLowerCase() === host && primary.basePath === "") return null;
   const target = `https://${primary.hostname}${primary.basePath}${pathname}${new URL(request.url).search}`;
   return new Response(null, {

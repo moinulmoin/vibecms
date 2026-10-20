@@ -1,4 +1,4 @@
-import { isPaidBilling, pastDueGraceEndsAt } from "@vc/config";
+import { MANAGED_CLAIM_WINDOW, isPaidBilling, pastDueGraceEndsAt } from "@vc/config";
 import type { BillingStatus } from "@vc/core";
 
 /**
@@ -21,6 +21,8 @@ export interface PolarEntitlementInput {
 export interface ManagedSponsorshipInput {
   status: ManagedEntitlementStatus | null;
   expiresAt: number | null;
+  /** Epoch seconds; set the moment a revoke landed (claim-window day 0). */
+  revokedAt?: number | null;
 }
 
 export interface EffectiveHostedEntitlementInput {
@@ -49,7 +51,28 @@ export interface EffectiveHostedEntitlement {
     status: ManagedEntitlementStatus | null;
     expiresAt: number | null;
     active: boolean;
+    /** Epoch seconds of the revoke, when the sponsorship is revoked. */
+    revokedAt: number | null;
   };
+  /**
+   * The post-revoke claim window ("keep your blog"). Present only while the
+   * managed sponsorship is revoked; claiming (paid Polar on the same
+   * workspace) or the AutoSEOPilot plan resuming supersedes it.
+   */
+  claim: {
+    state: "grace" | "paused";
+    /** Epoch seconds when public traffic flips to the paused page. */
+    pausedAt: number;
+    /** Epoch seconds when an unclaimed blog is deleted. */
+    deadline: number;
+  } | null;
+  /**
+   * Public-traffic gate: paid-effective, self-hosted, or inside the claim
+   * grace (days 0-7 after a managed revoke, every address serves normally).
+   */
+  servingAllowed: boolean;
+  /** Managed-revoked past its grace with no other source: paused page everywhere. */
+  servingPaused: boolean;
 }
 
 /**
@@ -62,6 +85,12 @@ export interface EffectiveHostedEntitlement {
  * subscription; its period end is returned as detail and as the effective
  * horizon, but is not independently used as a gate. A past_due subscription
  * stays paid until its grace deadline (exclusive), which is its horizon.
+ *
+ * Serving is gated separately from paid effectiveness: for `graceSeconds`
+ * after a managed revoke the claim grace keeps public traffic serving on
+ * every address (`servingAllowed`), so a just-ended AutoSEOPilot plan never
+ * drops its blog mid-flight; past that, with no other source,
+ * `servingPaused` flips every ingress to the paused page.
  */
 export function evaluateEffectiveHostedEntitlement(
   input: EffectiveHostedEntitlementInput,
@@ -91,6 +120,22 @@ export function evaluateEffectiveHostedEntitlement(
     ...(managedActive && managed.expiresAt !== null ? [managed.expiresAt] : []),
   ];
 
+  // Claim window ("keep your blog"): runs from the managed revoke. While no
+  // other source is active, days 0-7 keep every public ingress serving and
+  // indexed as normal; afterwards traffic sees the paused page.
+  const managedRevokedAt = managed.status === "revoked" ? managed.revokedAt ?? null : null;
+  const claim =
+    managedRevokedAt !== null
+      ? {
+          pausedAt: managedRevokedAt + MANAGED_CLAIM_WINDOW.graceSeconds,
+          deadline: managedRevokedAt + MANAGED_CLAIM_WINDOW.windowSeconds,
+        }
+      : null;
+  const claimState = claim ? (now < claim.pausedAt ? "grace" : "paused") : null;
+  const coveredByActiveSource = activeSources.length > 0;
+  const servingAllowed = coveredByActiveSource || claimState === "grace";
+  const servingPaused = !coveredByActiveSource && claimState === "paused";
+
   let access: ManagedAccess;
   if (selfHosted) access = "self_hosted";
   else if (polarActive || managedActive) access = "hosted_paid";
@@ -112,7 +157,14 @@ export function evaluateEffectiveHostedEntitlement(
       status: managed.status,
       expiresAt: managed.expiresAt,
       active: managedActive,
+      revokedAt: managedRevokedAt,
     },
+    claim:
+      claim && claimState
+        ? { state: claimState, pausedAt: claim.pausedAt, deadline: claim.deadline }
+        : null,
+    servingAllowed,
+    servingPaused,
   };
 }
 
@@ -396,6 +448,16 @@ function bound(value: string | null | undefined, max: number): string | null {
   return value.slice(0, max);
 }
 
+function claimReminderColumn(day: ManagedClaimReminderDay): string {
+  const columns: Record<ManagedClaimReminderDay, string> = {
+    7: "claim_day7_sent_at",
+    14: "claim_day14_sent_at",
+    21: "claim_day21_sent_at",
+    28: "claim_day28_sent_at",
+  };
+  return columns[day];
+}
+
 function lifecycleAfterJson(input: {
   externalWorkspaceId: string;
   lifecycleRevision: number;
@@ -492,7 +554,74 @@ export function normalizeManagedOwnerEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export interface AutoseopilotManagedSitesRepository {
+/** Reminder days inside the claim window; each has a durable sent marker. */
+export type ManagedClaimReminderDay = 7 | 14 | 21 | 28;
+
+/** One revoked, unclaimed managed blog the daily sweep must act on. */
+export interface ManagedClaimSweepCandidate {
+  id: string;
+  externalWorkspaceId: string;
+  ownerUserId: string;
+  ownerEmail: string;
+  workspaceId: string;
+  workspaceName: string;
+  siteId: string;
+  siteName: string;
+  siteSlug: string;
+  revokedAt: number;
+  claimDay7SentAt: number | null;
+  claimDay14SentAt: number | null;
+  claimDay21SentAt: number | null;
+  claimDay28SentAt: number | null;
+}
+
+export interface ManagedClaimSweepPurgeInput {
+  externalWorkspaceId: string;
+  workspaceId: string;
+  siteId: string;
+  ownerUserId: string;
+  /** Epoch seconds; the purge re-checks the revoke is still this old. */
+  deadline: number;
+}
+
+export interface AutoseopilotManagedSitesClaimSweep {
+  /**
+   * Revoked managed sites whose workspace has never claimed VibeCMS Cloud
+   * (no billing row, or status 'none'). A resumed plan clears revoked_at and
+   * leaves this set; a claim flips billing away from 'none'.
+   */
+  listClaimSweepCandidates(): Promise<ManagedClaimSweepCandidate[]>;
+  /** Claims a reminder send; false when already sent (or no longer revoked). */
+  markClaimReminderSent(
+    externalWorkspaceId: string,
+    day: ManagedClaimReminderDay,
+    timestamp: number,
+  ): Promise<boolean>;
+  /** Releases a claimed send whose dispatch definitively failed. */
+  clearClaimReminderSent(
+    externalWorkspaceId: string,
+    day: ManagedClaimReminderDay,
+    timestamp: number,
+  ): Promise<void>;
+  /**
+   * Deletes an unclaimed blog past its deadline: binding, site (cascades
+   * posts, versions, media, domains, subscribers, activity), workspace
+   * (cascades billing and memberships), and — only when the login belongs to
+   * no other workspace — the user row. Every statement re-checks the sweep
+   * state inside the single D1 batch, so a racing claim or resume selects no
+   * rows and nothing is deleted.
+   */
+  purgeRevokedManagedSite(input: ManagedClaimSweepPurgeInput): Promise<boolean>;
+  /**
+   * Re-checks outside the purge transaction that a candidate is still
+   * purgeable: revoked, past its deadline, and the workspace never claimed
+   * VibeCMS Cloud. The sweep calls this right before it touches Cloudflare
+   * hostnames or R2 objects, so a blog claimed moments earlier is never
+   * stripped of its domain or media.
+   */
+  recheckClaimSweepPurgeable(input: ManagedClaimSweepPurgeInput): Promise<boolean>;
+}
+export interface AutoseopilotManagedSitesRepository extends AutoseopilotManagedSitesClaimSweep {
   getSnapshotByExternalWorkspaceId(externalWorkspaceId: string): Promise<ManagedSiteSnapshot | null>;
   getSnapshotBySiteId(siteId: string): Promise<ManagedSiteSnapshot | null>;
   getSnapshotByWorkspaceId(workspaceId: string): Promise<ManagedSiteSnapshot | null>;
@@ -546,7 +675,8 @@ async function readEntitlement(
          b.current_period_end AS polar_current_period_end,
          b.past_due_since AS polar_past_due_since,
          m.entitlement_status AS managed_status,
-         m.entitlement_expires_at AS managed_expires_at
+         m.entitlement_expires_at AS managed_expires_at,
+         m.revoked_at AS managed_revoked_at
        FROM ${column === "site_id" ? "sites" : "workspaces"} x
        LEFT JOIN billing_customers b ON b.workspace_id = ${
          column === "site_id" ? "x.workspace_id" : "x.id"
@@ -563,6 +693,7 @@ async function readEntitlement(
       polar_past_due_since: number | null;
       managed_status: ManagedEntitlementStatus | null;
       managed_expires_at: number | null;
+      managed_revoked_at: number | null;
     }>();
   if (!row) return null;
   return evaluateEffectiveHostedEntitlement(
@@ -576,6 +707,7 @@ async function readEntitlement(
       managedSponsorship: {
         status: row.managed_status,
         expiresAt: row.managed_expires_at,
+        revokedAt: row.managed_revoked_at,
       },
     },
     options.now,
@@ -1115,7 +1247,184 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         snapshot,
       };
     },
-  };
+
+    async listClaimSweepCandidates() {
+      const { results } = await db
+        .prepare(
+          `SELECT
+             m.id,
+             m.external_workspace_id,
+             m.owner_user_id,
+             lower(u.email) AS owner_email,
+             m.workspace_id,
+             w.name AS workspace_name,
+             m.site_id,
+             s.name AS site_name,
+             s.slug AS site_slug,
+             m.revoked_at,
+             m.claim_day7_sent_at,
+             m.claim_day14_sent_at,
+             m.claim_day21_sent_at,
+             m.claim_day28_sent_at
+           FROM autoseopilot_managed_sites m
+           INNER JOIN user u ON u.id = m.owner_user_id
+           INNER JOIN workspaces w ON w.id = m.workspace_id
+           INNER JOIN sites s ON s.id = m.site_id
+           LEFT JOIN billing_customers b ON b.workspace_id = m.workspace_id
+           WHERE m.entitlement_status = 'revoked'
+             AND m.revoked_at IS NOT NULL
+             AND (b.status IS NULL OR b.status = 'none')
+           ORDER BY m.revoked_at ASC
+           LIMIT 200`,
+        )
+        .all<{
+          id: string;
+          external_workspace_id: string;
+          owner_user_id: string;
+          owner_email: string;
+          workspace_id: string;
+          workspace_name: string;
+          site_id: string;
+          site_name: string;
+          site_slug: string;
+          revoked_at: number;
+          claim_day7_sent_at: number | null;
+          claim_day14_sent_at: number | null;
+          claim_day21_sent_at: number | null;
+          claim_day28_sent_at: number | null;
+        }>();
+      return (results ?? []).map((row) => ({
+        id: row.id,
+        externalWorkspaceId: row.external_workspace_id,
+        ownerUserId: row.owner_user_id,
+        ownerEmail: row.owner_email,
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name,
+        siteId: row.site_id,
+        siteName: row.site_name,
+        siteSlug: row.site_slug,
+        revokedAt: Number(row.revoked_at),
+        claimDay7SentAt: row.claim_day7_sent_at,
+        claimDay14SentAt: row.claim_day14_sent_at,
+        claimDay21SentAt: row.claim_day21_sent_at,
+        claimDay28SentAt: row.claim_day28_sent_at,
+      }));
+    },
+
+    async markClaimReminderSent(externalWorkspaceId, day, timestamp) {
+      const column = claimReminderColumn(day);
+      const result = await db
+        .prepare(
+          `UPDATE autoseopilot_managed_sites
+           SET ${column} = ?
+           WHERE external_workspace_id = ?
+             AND entitlement_status = 'revoked'
+             AND ${column} IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM billing_customers b
+               WHERE b.workspace_id = autoseopilot_managed_sites.workspace_id
+                 AND b.status IS NOT NULL
+                 AND b.status != 'none'
+             )`,
+        )
+        .bind(timestamp, externalWorkspaceId)
+        .run();
+      return (result.meta.changes ?? 0) > 0;
+    },
+
+    async clearClaimReminderSent(externalWorkspaceId, day, timestamp) {
+      const column = claimReminderColumn(day);
+      await db
+        .prepare(
+          `UPDATE autoseopilot_managed_sites
+           SET ${column} = NULL
+           WHERE external_workspace_id = ?
+             AND ${column} = ?`,
+        )
+        .bind(externalWorkspaceId, timestamp)
+        .run();
+    },
+
+    async recheckClaimSweepPurgeable(input) {
+      const row = await db
+        .prepare(
+          `SELECT 1 AS ok
+           FROM autoseopilot_managed_sites m
+           WHERE m.external_workspace_id = ?
+             AND m.workspace_id = ?
+             AND m.site_id = ?
+             AND m.entitlement_status = 'revoked'
+             AND m.revoked_at IS NOT NULL
+             AND m.revoked_at <= ?
+             AND NOT EXISTS (
+               SELECT 1 FROM billing_customers b
+               WHERE b.workspace_id = m.workspace_id
+                 AND b.status IS NOT NULL
+                 AND b.status != 'none'
+             )
+           LIMIT 1`,
+        )
+        .bind(input.externalWorkspaceId, input.workspaceId, input.siteId, input.deadline)
+        .first<{ ok: number }>();
+      return row !== null;
+    },
+
+    async purgeRevokedManagedSite(input) {
+      // One transactional batch. The first statement is the guard: it deletes
+      // the binding only while the site is still revoked past its deadline and
+      // the workspace still has never claimed Cloud. Every later statement is
+      // conditioned on the binding (or dependent rows) already being gone, so
+      // a racing claim/resume leaves the whole batch a no-op.
+      const results = await db.batch([
+        db
+          .prepare(
+            `DELETE FROM autoseopilot_managed_sites
+             WHERE external_workspace_id = ?
+               AND workspace_id = ?
+               AND site_id = ?
+               AND entitlement_status = 'revoked'
+               AND revoked_at IS NOT NULL
+               AND revoked_at <= ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM billing_customers b
+                 WHERE b.workspace_id = ? AND b.status IS NOT NULL AND b.status != 'none'
+               )`,
+          )
+          .bind(
+            input.externalWorkspaceId,
+            input.workspaceId,
+            input.siteId,
+            input.deadline,
+            input.workspaceId,
+          ),
+        db
+          .prepare(
+            `DELETE FROM sites
+             WHERE id = ?
+               AND NOT EXISTS (SELECT 1 FROM autoseopilot_managed_sites m WHERE m.site_id = sites.id)`,
+          )
+          .bind(input.siteId),
+        db
+          .prepare(
+            `DELETE FROM workspaces
+             WHERE id = ?
+               AND NOT EXISTS (SELECT 1 FROM sites s WHERE s.workspace_id = workspaces.id)
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_managed_sites m WHERE m.workspace_id = workspaces.id
+               )`,
+          )
+          .bind(input.workspaceId),
+        db
+          .prepare(
+            `DELETE FROM user
+             WHERE id = ?
+               AND NOT EXISTS (SELECT 1 FROM memberships ms WHERE ms.user_id = user.id)`,
+          )
+          .bind(input.ownerUserId),
+      ]);
+      return (results[0]?.meta.changes ?? 0) > 0;
+    },
+   };
 
   return repository;
 }

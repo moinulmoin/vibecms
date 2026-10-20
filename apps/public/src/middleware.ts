@@ -11,7 +11,8 @@ import {
 } from "./server/public-blog";
 import { articleResponseForClientAndCache, conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
 import { directLocation, type PublicLocation } from "./server/public-location";
-import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./server/public-location.server";
+ import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./server/public-location.server";
+import { pausedBlogResponse } from "./server/paused-blog";
 import { rewriteProxiedAssetsInHtml } from "./server/proxied-assets";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
@@ -70,6 +71,11 @@ const handleRequest = defineMiddleware(async (context, next) => {
         status: 404,
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
       });
+    }
+    if (ingress.kind === "paused") {
+      const paused = pausedBlogResponse(request);
+      applyPublicSecurityHeaders(pathname, paused.headers.get("content-type"), paused.headers, location);
+      return paused;
     }
     if (ingress.kind === "health") {
       const response = Response.json(
