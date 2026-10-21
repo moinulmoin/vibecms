@@ -22,11 +22,18 @@ ALTER TABLE autoseopilot_claim_checkouts
 ALTER TABLE autoseopilot_claim_checkouts
   ADD COLUMN resolved_at INTEGER;
 
+-- The attempts that already existed get the same 48-hour guard as the new
+-- ones, counted from the moment they were opened.
+UPDATE autoseopilot_claim_checkouts
+  SET guard_until = created_at + 172800
+  WHERE guard_until = 0;
+
 ALTER TABLE autoseopilot_purge_intents
   ADD COLUMN completed_at INTEGER;
 
 -- The operator record of a paid event that arrived too late. The founder
--- refunds by hand from the Polar ids here.
+-- refunds by hand from the Polar ids here. notified_at stays NULL until the
+-- mail that asks for the refund was accepted, so a lost notice is retried.
 CREATE TABLE autoseopilot_purge_conflicts (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
@@ -38,6 +45,7 @@ CREATE TABLE autoseopilot_purge_conflicts (
   event_id TEXT,
   event_type TEXT,
   applied_status TEXT,
+  notified_at INTEGER,
   created_at INTEGER NOT NULL
 );
 

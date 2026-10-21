@@ -39,6 +39,10 @@ const savedEnv = {
   SELF_HOSTED: mutableEnv.SELF_HOSTED,
   POLAR_WEBHOOK_SECRET: mutableEnv.POLAR_WEBHOOK_SECRET,
   EMAIL: mutableEnv.EMAIL,
+  APP_ENV: mutableEnv.APP_ENV,
+  APP_URL: mutableEnv.APP_URL,
+  POLAR_MONTHLY_PRODUCT_ID: mutableEnv.POLAR_MONTHLY_PRODUCT_ID,
+  POLAR_LAUNCH_DISCOUNT_MONTHLY_ID: mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID,
 }
 
 interface SeededBlog {
@@ -283,6 +287,10 @@ beforeEach(async () => {
   mutableEnv.SELF_HOSTED = 'false'
   mutableEnv.POLAR_WEBHOOK_SECRET = webhookSecret
   mutableEnv.EMAIL = undefined
+  mutableEnv.APP_ENV = 'development'
+  mutableEnv.APP_URL = 'https://app.example.test'
+  mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+  mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = ''
   // The sweep works on every managed binding in the database, so each test
   // starts with none of its own.
   await env.DB.batch([
@@ -562,5 +570,281 @@ describe('claim window — the purge intent', () => {
     expect(sent[0]?.text).toContain(`sub_${blog.workspaceId}`)
     expect(sent[0]?.text).toContain(blog.siteId)
     expect(sent[0]?.text?.toLowerCase()).toContain('refund it by hand')
+  })
+})
+
+describe('claim window — the claim', () => {
+  it('sells VibeCMS Cloud to a revoked managed blog and guards the purge for 48 hours', async () => {
+    const blog = await seedRevokedBlog('claim', 10)
+    const createCheckout = vi.fn().mockResolvedValue({
+      url: 'https://polar.example/claim',
+      productId: 'prod_monthly',
+      currency: 'usd',
+      netAmount: 1500,
+    })
+
+    const result = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
+      createCheckout,
+      listOpenCheckouts: vi.fn().mockResolvedValue([]),
+    })
+
+    expect(result).toEqual({ kind: 'ok', url: 'https://polar.example/claim' })
+    expect(createCheckout).toHaveBeenCalledTimes(1)
+    // The attempt is recorded before the checkout is handed out, and it
+    // guards the purge for 48 hours.
+    const attempt = await env.DB.prepare(
+      'SELECT created_at, guard_until FROM autoseopilot_claim_checkouts WHERE workspace_id = ?',
+    )
+      .bind(blog.workspaceId)
+      .first<{ created_at: number; guard_until: number }>()
+    expect(attempt).not.toBeNull()
+    expect(attempt!.guard_until - attempt!.created_at).toBe(48 * 60 * 60)
+  })
+
+  it('completes the claim: the paid webhook makes the workspace paid and the purge impossible', async () => {
+    const blog = await seedRevokedBlog('claimpaid', 10)
+    await seedMedia(blog.siteId)
+
+    // The customer buys VibeCMS Cloud.
+    const checkout = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
+      createCheckout: vi.fn().mockResolvedValue({
+        url: 'https://polar.example/claim',
+        productId: 'prod_monthly',
+        currency: 'usd',
+        netAmount: 1500,
+      }),
+      listOpenCheckouts: vi.fn().mockResolvedValue([]),
+    })
+    expect(checkout).toEqual({ kind: 'ok', url: 'https://polar.example/claim' })
+
+    // Polar says the customer paid.
+    const response = await handlePolarWebhook(await signedWebhook('evt-claim', blog.workspaceId))
+    expect(response.status).toBe(200)
+
+    // The workspace is the owner's paid VibeCMS workspace.
+    const billing = await env.DB.prepare('SELECT status FROM billing_customers WHERE workspace_id = ?')
+      .bind(blog.workspaceId)
+      .first<{ status: string }>()
+    expect(billing?.status).toBe('active')
+
+    // The purge is impossible: the sweep leaves the blog, its media and its
+    // hostname alone.
+    const sweep = await runManagedClaimSweep(env)
+    expect(sweep.purged).toBe(0)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(true)
+    expect(await env.ASSETS_BUCKET.get(`${blog.siteId}/media-1.png`)).not.toBeNull()
+    expect(deletedHostnames).not.toContain(blog.hostnameId)
+  })
+
+  it('refuses the writes that would compete with a running purge', async () => {
+    const blog = await seedRevokedBlog('compete', 31)
+    expect(await acquireIntent(blog)).not.toBeNull()
+
+    // The claim checkout: the attempt write carries the exclusion itself.
+    const createCheckout = vi.fn()
+    const checkout = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
+      createCheckout,
+      listOpenCheckouts: vi.fn().mockResolvedValue([]),
+    })
+    expect(checkout).toEqual({ kind: 'error', code: 'purge_in_progress' })
+    expect(createCheckout).not.toHaveBeenCalled()
+
+    // The plan resumption: the rotation batch carries the exclusion, so
+    // nothing is written.
+    await expect(
+      data.managedSites.rotateOrReactivate({
+        externalWorkspaceId: blog.externalWorkspaceId,
+        credentialId: blog.credentialId,
+        currentGeneration: 1,
+        newGeneration: 2,
+        expectedLifecycleRevision: 1,
+        newApiKey: {
+          id: 'intent-key-2-compete',
+          name: 'AutoSEOPilot',
+          tokenPrefix: 'vc_test_intent_compete',
+          tokenHash: 'hash-intent-compete',
+          scopesJson: '[]',
+          actorName: 'AutoSEOPilot',
+        },
+        entitlementExpiresAt: null,
+        timestamp: now(),
+      }),
+    ).rejects.toThrow('managed_purge_in_progress')
+    const binding = await env.DB.prepare(
+      'SELECT credential_generation FROM autoseopilot_managed_sites WHERE site_id = ?',
+    )
+      .bind(blog.siteId)
+      .first<{ credential_generation: number }>()
+    expect(binding?.credential_generation).toBe(1)
+
+    // The re-provision: the provision batch carries the exclusion, so no row
+    // is created.
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM autoseopilot_managed_sites WHERE site_id = ?').bind(blog.siteId),
+      env.DB.prepare('DELETE FROM sites WHERE id = ?').bind(blog.siteId),
+      env.DB.prepare('DELETE FROM workspaces WHERE id = ?').bind(blog.workspaceId),
+    ])
+    await expect(
+      data.managedSites.firstProvision({
+        timestamp: now(),
+        owner: {
+          id: 'intent-owner-compete',
+          name: 'Intent Owner compete',
+          email: 'intent-compete@example.test',
+        },
+        workspace: { id: 'intent-ws-compete', name: 'Intent compete', slug: 'intent-compete' },
+        membership: { id: 'intent-membership-compete' },
+        site: {
+          id: 'intent-site-compete',
+          name: 'Intent Site compete',
+          slug: 'intent-site-compete',
+          description: null,
+        },
+        defaultDomain: { id: 'intent-domain-compete', hostname: 'intent-compete.example.test' },
+        apiKey: {
+          id: 'intent-key-compete',
+          name: 'AutoSEOPilot',
+          tokenPrefix: 'vc_test_intent_compete',
+          tokenHash: 'hash-intent-compete',
+          scopesJson: '[]',
+          actorName: 'AutoSEOPilot',
+        },
+        binding: {
+          id: 'intent-binding-compete',
+          externalWorkspaceId: 'external-intent-compete',
+          credentialId: 'intent-credential-compete',
+          credentialGeneration: 1,
+          entitlementStatus: 'active',
+          entitlementExpiresAt: null,
+          lifecycleRevision: 1,
+        },
+      }),
+    ).rejects.toThrow('managed_purge_in_progress')
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', 'intent-site-compete')).toBe(false)
+    expect(await rowExists('SELECT id FROM workspaces WHERE id = ?', 'intent-ws-compete')).toBe(false)
+    expect(await rowExists('SELECT id FROM api_keys WHERE id = ?', 'intent-key-compete')).toBe(false)
+  })
+
+  it('never hands back the finished intent of a deleted blog', async () => {
+    const blog = await seedRevokedBlog('reprovision', 31)
+    expect(await acquireIntent(blog)).not.toBeNull()
+
+    // The purge runs: the blog is gone, the intent stays as its trace.
+    const purged = await runManagedClaimSweep(env)
+    expect(purged.purged).toBe(1)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(false)
+
+    // The blog comes back with the same derived ids.
+    await data.managedSites.firstProvision({
+      timestamp: now(),
+      owner: {
+        id: 'intent-owner-reprovision',
+        name: 'Intent Owner reprovision',
+        email: 'intent-reprovision@example.test',
+      },
+      workspace: { id: 'intent-ws-reprovision', name: 'Intent reprovision', slug: 'intent-reprovision' },
+      membership: { id: 'intent-membership-reprovision' },
+      site: {
+        id: 'intent-site-reprovision',
+        name: 'Intent Site reprovision',
+        slug: 'intent-site-reprovision',
+        description: null,
+      },
+      defaultDomain: {
+        id: 'intent-domain-reprovision',
+        hostname: 'intent-reprovision.example.test',
+      },
+      apiKey: {
+        id: 'intent-key-reprovision-2',
+        name: 'AutoSEOPilot',
+        tokenPrefix: 'vc_test_intent_reprovision',
+        tokenHash: 'hash-intent-reprovision',
+        scopesJson: '[]',
+        actorName: 'AutoSEOPilot',
+      },
+      binding: {
+        id: 'intent-binding-reprovision',
+        externalWorkspaceId: 'external-intent-reprovision',
+        credentialId: 'intent-credential-reprovision',
+        credentialGeneration: 1,
+        entitlementStatus: 'active',
+        entitlementExpiresAt: null,
+        lifecycleRevision: 1,
+      },
+    })
+    await env.DB.prepare(
+      `UPDATE autoseopilot_managed_sites
+       SET entitlement_status = 'revoked', revoked_at = ?, updated_at = ?
+       WHERE site_id = ?`,
+    )
+      .bind(now() - 31 * DAY, now(), blog.siteId)
+      .run()
+    await seedMedia(blog.siteId)
+
+    // A claim checkout is in flight, so the purge may not start.
+    await data.managedSites.recordClaimCheckoutAttempt(blog.workspaceId, now(), now() + 3600)
+    const candidate = await candidateFor(blog.siteId)
+    expect(await acquireIntent(blog, candidate)).toBeNull()
+
+    // The sweep must not delete the media of the blog that came back.
+    const sweep = await runManagedClaimSweep(env)
+    expect(sweep.purged).toBe(0)
+    expect(await env.ASSETS_BUCKET.get(`${blog.siteId}/media-1.png`)).not.toBeNull()
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(true)
+  })
+
+  it('only visits the blogs that have something due', async () => {
+    // A blog that was reminded on every slot and is not due for the purge
+    // yet must not take a slot: a later blog has to be reached.
+    const reminded = await seedRevokedBlog('reminded', 10)
+    await env.DB.prepare(
+      `UPDATE autoseopilot_managed_sites
+       SET claim_day7_sent_at = ?, claim_day14_sent_at = ?, claim_day21_sent_at = ?,
+           claim_day28_sent_at = ?, updated_at = ?
+       WHERE site_id = ?`,
+    )
+      .bind(now(), now(), now(), now(), now(), reminded.siteId)
+      .run()
+    // A blog whose day-14 reminder is due.
+    const due = await seedRevokedBlog('due', 15)
+
+    const page = await data.managedSites.listClaimSweepCandidates({ now: now() })
+    const siteIds = page.candidates.map((candidate) => candidate.siteId)
+    expect(siteIds).toContain(due.siteId)
+    expect(siteIds).not.toContain(reminded.siteId)
+  })
+
+  it('keeps the refund notice owed until the mail is accepted', async () => {
+    const blog = await seedRevokedBlog('notice', 31)
+    expect(await acquireIntent(blog)).not.toBeNull()
+    const purged = await runManagedClaimSweep(env)
+    expect(purged.purged).toBe(1)
+
+    // The mail cannot be delivered: the notice stays owed.
+    mutableEnv.APP_ENV = 'production'
+    mutableEnv.EMAIL = {
+      send: async () => {
+        throw new Error('mailbox unavailable')
+      },
+    }
+    const response = await handlePolarWebhook(await signedWebhook('evt-notice', blog.workspaceId))
+    expect(response.status).toBe(200)
+    const conflicts = await data.managedSites.listPurgeConflicts(blog.workspaceId)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].notifiedAt).toBeNull()
+
+    // The next sweep sends it again, and only then is it marked as sent.
+    const sent: unknown[] = []
+    mutableEnv.EMAIL = {
+      send: async (message: unknown) => {
+        sent.push(message)
+        return { messageId: 'm1' }
+      },
+    }
+    const sweep = await runManagedClaimSweep(env)
+    expect(sweep.refundNotices).toBe(1)
+    expect(sent).toHaveLength(1)
+    const after = await data.managedSites.listPurgeConflicts(blog.workspaceId)
+    expect(after[0].notifiedAt).toBeTypeOf('number')
   })
 })

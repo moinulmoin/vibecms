@@ -262,7 +262,7 @@ describe('managed AutoSEOPilot internal routes', () => {
       externalWorkspaceId: EXTERNAL_WORKSPACE_ID,
       siteName: 'Managed Route Site',
       entitlement: { status: 'active', effective: true },
-      lifecycle: { revision: 1, status: 'active' },
+      lifecycle: { revision: 1, status: 'active', revokedAt: null },
       correlationId,
     })
     expect(firstBody.publicUrl).toMatch(/^https:\/\//)
@@ -396,7 +396,7 @@ describe('managed AutoSEOPilot internal routes', () => {
     )
     expect(rotated.status).toBe(200)
     const rotatedBody = await json(rotated)
-    expect(rotatedBody.lifecycle).toEqual({ revision: 2, status: 'active' })
+    expect(rotatedBody.lifecycle).toEqual({ revision: 2, status: 'active', revokedAt: null })
     expect(rotatedBody.apiKeyId).not.toBe(firstBody.apiKeyId)
 
     const activeRevokedPut = await request(
@@ -505,7 +505,9 @@ describe('managed AutoSEOPilot internal routes', () => {
     )
     expect(revoke.status).toBe(200)
     const revokedBody = await json(revoke)
-    expect(revokedBody.lifecycle).toEqual({ revision: 3, status: 'revoked' })
+    expect(revokedBody.lifecycle).toMatchObject({ revision: 3, status: 'revoked' })
+    // The revoke timestamp is VibeCMS's own: the claim window's day 0.
+    expect(revokedBody.lifecycle.revokedAt).toEqual(expect.any(String))
     expect(revokedBody.entitlement).toMatchObject({ status: 'revoked', effective: false })
     expect(
       await env.DB
@@ -606,7 +608,8 @@ describe('managed AutoSEOPilot internal routes', () => {
     const recovery = await request(`/internal/autoseopilot/sites/${EXTERNAL_WORKSPACE_ID}`)
     expect(recovery.status).toBe(200)
     const recoveryBody = await json(recovery)
-    expect(recoveryBody.lifecycle).toEqual({ revision: 3, status: 'revoked' })
+    expect(recoveryBody.lifecycle).toMatchObject({ revision: 3, status: 'revoked' })
+    expect(recoveryBody.lifecycle.revokedAt).toEqual(expect.any(String))
     expect(recoveryBody.siteName).toBe('Managed Route Site Renamed')
     expect(recoveryBody.publicUrl).toMatch(/^https:\/\//)
     expect(

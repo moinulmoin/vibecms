@@ -31,7 +31,7 @@ import {
   type ManagedPurgeIntent,
 } from '@vc/db'
 import { deleteCustomHostname } from '@/server/custom-hostnames'
-import { sendClaimReminderEmail } from '@/server/email'
+import { sendClaimReminderEmail, sendPurgeConflictEmail } from '@/server/email'
 
 const DAY_SECONDS = 24 * 60 * 60
 /** Pages of candidates per run; the daily cron must stay well under its limit. */
@@ -191,19 +191,47 @@ export interface ManagedClaimSweepResult {
   candidates: number
   remindersSent: number
   purged: number
+  refundNotices: number
 }
 
 /** The daily cron entry: reminders at days 7/14/21/28, purge at day 30. */
 export async function runManagedClaimSweep(workerEnv: Cloudflare.Env): Promise<ManagedClaimSweepResult> {
   if (String(workerEnv.SELF_HOSTED) === 'true') {
-    return { skipped: true, candidates: 0, remindersSent: 0, purged: 0 }
+    return { skipped: true, candidates: 0, remindersSent: 0, purged: 0, refundNotices: 0 }
   }
   const now = Math.floor(Date.now() / 1000)
   const repo = createDataAccess(workerEnv.DB).managedSites
   let remindersSent = 0
   let purged = 0
   let candidates = 0
+  let refundNotices = 0
   let cursor: { revokedAt: number; id: string } | null = null
+
+  // Refund notices that were never accepted. The record of a paid claim for
+  // a deleted blog is durable, and the notice is only marked as sent when
+  // the mail was accepted, so a lost mail is sent again here instead of
+  // being forgotten.
+  for (const conflict of await repo.listUnnotifiedPurgeConflicts(50)) {
+    try {
+      await sendPurgeConflictEmail({
+        workspaceId: conflict.workspaceId,
+        siteId: conflict.siteId,
+        polarCustomerId: conflict.polarCustomerId,
+        polarSubscriptionId: conflict.polarSubscriptionId,
+        polarOrderId: conflict.polarOrderId,
+        polarCheckoutId: conflict.polarCheckoutId,
+        eventType: conflict.eventType,
+        eventId: conflict.eventId,
+      })
+      await repo.markPurgeConflictNotified(conflict.id, now)
+      refundNotices += 1
+    } catch (error) {
+      console.warn('[managed-claim-sweep] refund notice failed', {
+        conflictId: conflict.id,
+        error: String(error),
+      })
+    }
+  }
 
   // Resume first: a run that died after taking an intent (or after deleting
   // the rows) left that intent behind, and the same resources must go.
@@ -286,5 +314,5 @@ export async function runManagedClaimSweep(workerEnv: Cloudflare.Env): Promise<M
     cursor = result.cursor
     if (!cursor) break
   }
-  return { skipped: false, candidates, remindersSent, purged }
+  return { skipped: false, candidates, remindersSent, purged, refundNotices }
 }

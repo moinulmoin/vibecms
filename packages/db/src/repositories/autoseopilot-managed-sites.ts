@@ -1,5 +1,6 @@
 import {
   MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS,
+  MANAGED_CLAIM_REMINDERS,
   MANAGED_CLAIM_WINDOW,
   isPaidBilling,
   pastDueGraceEndsAt,
@@ -663,7 +664,17 @@ export interface ManagedPurgeConflict {
   eventId: string | null;
   eventType: string | null;
   appliedStatus: string | null;
+  /** When the refund notice was accepted; null means it is still owed. */
+  notifiedAt: number | null;
   createdAt: number;
+}
+
+/**
+ * The identity of a purge conflict. One event can only produce one record,
+ * so a replay never writes a second one.
+ */
+export function purgeConflictId(workspaceId: string, eventId: string): string {
+  return `purge-conflict-${workspaceId}-${eventId}`;
 }
 
 /**
@@ -763,8 +774,12 @@ export interface AutoseopilotManagedPurgeIntents {
    * instead of turning a deleted blog into a paid workspace with no notice.
    */
   completePurgeIntent(siteId: string, now: number): Promise<void>;
-  /** Records a claim checkout that may still turn into a paid claim. */
-  recordClaimCheckoutAttempt(workspaceId: string, now: number, expiresAt: number): Promise<void>;
+  /**
+   * Records a claim checkout that may still turn into a paid claim. The
+   * write carries the purge exclusion itself and returns false when it was
+   * refused, so the caller never sells a blog that is being deleted.
+   */
+  recordClaimCheckoutAttempt(workspaceId: string, now: number, expiresAt: number): Promise<boolean>;
   /**
    * Marks the attempt as resolved (the webhook landed). The row stays: the
    * attempt still blocks the purge until its guard window ends.
@@ -776,6 +791,10 @@ export interface AutoseopilotManagedPurgeIntents {
   hasUnresolvedClaimCheckout(workspaceId: string, now: number): Promise<boolean>;
   /** Records a paid Polar event for a blog that is purged or being purged. */
   recordPurgeConflict(conflict: ManagedPurgeConflictInput): Promise<ManagedPurgeConflict>;
+  /** Marks the refund notice as accepted, so it is not sent again. */
+  markPurgeConflictNotified(id: string, now: number): Promise<void>;
+  /** The conflicts whose refund notice is still owed, oldest first. */
+  listUnnotifiedPurgeConflicts(limit?: number): Promise<ManagedPurgeConflict[]>;
   /** The recorded conflicts, newest first. */
   listPurgeConflicts(workspaceId?: string): Promise<ManagedPurgeConflict[]>;
 }
@@ -922,21 +941,34 @@ function mapPurgeIntent(row: ManagedPurgeIntentRaw): ManagedPurgeIntent {
 /**
  * Reads a purge intent. `activeOnly` skips the finished ones: a finished
  * intent is the trace of a deleted blog, not a purge in flight, so it must
- * never block a claim, a resumed plan or a re-provision.
+ * never block a claim, a resumed plan or a re-provision. The lifecycle
+ * filters pick the intent of THIS lifecycle, so a stale request never gets
+ * the intent of a newer one.
  */
 async function readPurgeIntentBy(
   db: D1Database,
   column: "site_id" | "workspace_id" | "external_workspace_id",
   value: string,
-  options?: { activeOnly?: boolean },
+  options?: { activeOnly?: boolean; lifecycleRevision?: number; revokedAt?: number },
 ): Promise<ManagedPurgeIntent | null> {
+  const filters: string[] = [];
+  const bindings: unknown[] = [value];
+  if (options?.activeOnly) filters.push("completed_at IS NULL");
+  if (options?.lifecycleRevision !== undefined) {
+    filters.push("lifecycle_revision = ?");
+    bindings.push(options.lifecycleRevision);
+  }
+  if (options?.revokedAt !== undefined) {
+    filters.push("revoked_at = ?");
+    bindings.push(options.revokedAt);
+  }
   const row = await db
     .prepare(
       `SELECT * FROM autoseopilot_purge_intents
-       WHERE ${column} = ?${options?.activeOnly ? " AND completed_at IS NULL" : ""}
+       WHERE ${column} = ?${filters.length > 0 ? ` AND ${filters.join(" AND ")}` : ""}
        LIMIT 1`,
     )
-    .bind(value)
+    .bind(...bindings)
     .first<ManagedPurgeIntentRaw>();
   return row ? mapPurgeIntent(row) : null;
 }
@@ -1027,16 +1059,12 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
       // The managed ids are derived from the external workspace, so a
       // provision while a purge is under way would rebuild the same site and
-      // the same R2 namespace the cleanup is still emptying. A finished
-      // intent is only the trace of a deleted blog: it must not block a
-      // re-provision, or the customer could never get their blog back.
-      const purgeIntent = await readPurgeIntentBy(
-        db,
-        "external_workspace_id",
-        input.binding.externalWorkspaceId,
-        { activeOnly: true },
-      );
-      if (purgeIntent) throw new Error("managed_purge_in_progress");
+      // the same R2 namespace the cleanup is still emptying. The exclusion
+      // lives in the SQL of the writes themselves, so the decision and the
+      // write cannot race; the change count below turns a blocked write into
+      // a retryable refusal. A finished intent is only the trace of a
+      // deleted blog: it must not block a re-provision, or the customer could
+      // never get their blog back.
 
       // Recovery/read-after-timeout path: the unique external workspace
       // identity is checked before any dependent insert. Exact replay
@@ -1063,7 +1091,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           .prepare(
             `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at)
              SELECT ?, ?, ?, 0, ?, ?, ?
-             WHERE NOT EXISTS (SELECT 1 FROM user WHERE email = ?)`,
+             WHERE NOT EXISTS (SELECT 1 FROM user WHERE email = ?)
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.owner.id,
@@ -1073,12 +1105,17 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.timestamp,
             input.timestamp,
             email,
+            input.workspace.id,
           ),
         db
           .prepare(
             `INSERT INTO workspaces (id, name, slug, created_at, updated_at)
              SELECT ?, ?, ?, ?, ?
-             WHERE EXISTS (SELECT 1 FROM user WHERE email = ?)`,
+             WHERE EXISTS (SELECT 1 FROM user WHERE email = ?)
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.workspace.id,
@@ -1087,21 +1124,37 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.timestamp,
             input.timestamp,
             email,
+            input.workspace.id,
           ),
         db
           .prepare(
             `INSERT INTO memberships (id, workspace_id, user_id, role, created_at, updated_at)
              SELECT ?, ?, owner.id, 'owner', ?, ?
              FROM user owner
-             WHERE owner.email = ?`,
+             WHERE owner.email = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
-          .bind(input.membership.id, input.workspace.id, input.timestamp, input.timestamp, email),
+          .bind(
+            input.membership.id,
+            input.workspace.id,
+            input.timestamp,
+            input.timestamp,
+            email,
+            input.workspace.id,
+          ),
         db
           .prepare(
             `INSERT INTO sites (id, workspace_id, name, slug, description, status, created_at, updated_at)
              SELECT ?, ?, ?, ?, ?, 'active', ?, ?
              FROM workspaces
-             WHERE id = ?`,
+             WHERE id = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.site.id,
@@ -1112,13 +1165,18 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.timestamp,
             input.timestamp,
             input.workspace.id,
+            input.workspace.id,
           ),
         db
           .prepare(
             `INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at)
              SELECT ?, ?, ?, 'default', 'active', ?, ?
              FROM sites
-             WHERE id = ? AND workspace_id = ?`,
+             WHERE id = ? AND workspace_id = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.defaultDomain.id,
@@ -1127,6 +1185,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.timestamp,
             input.timestamp,
             input.site.id,
+            input.workspace.id,
             input.workspace.id,
           ),
         db
@@ -1138,7 +1197,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              SELECT ?, ?, ?, ?, ?, ?, ?, NULL, owner.id, ?, ?
              FROM user owner
              INNER JOIN sites s ON s.id = ?
-             WHERE owner.email = ?`,
+             WHERE owner.email = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.apiKey.id,
@@ -1152,6 +1215,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.timestamp,
             input.site.id,
             email,
+            input.workspace.id,
           ),
         db
           .prepare(
@@ -1165,7 +1229,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              INNER JOIN workspaces w ON w.id = ?
              INNER JOIN sites s ON s.id = ? AND s.workspace_id = w.id
              INNER JOIN api_keys k ON k.id = ?
-             WHERE owner.email = ?`,
+             WHERE owner.email = ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = ? AND p.completed_at IS NULL
+               )`,
           )
           .bind(
             input.binding.id,
@@ -1184,6 +1252,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             input.site.id,
             input.apiKey.id,
             email,
+            input.workspace.id,
           ),
         activityStatement(
           db,
@@ -1197,7 +1266,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
             summary: "Managed site provisioned",
             activity: input.activity,
           },
-          "m.id = ? AND m.lifecycle_revision = ? AND m.external_workspace_id = ?",
+          "m.id = ? AND m.lifecycle_revision = ? AND m.external_workspace_id = ? AND NOT EXISTS (SELECT 1 FROM autoseopilot_purge_intents p WHERE p.workspace_id = m.workspace_id AND p.completed_at IS NULL)",
           [input.binding.id, revision, input.binding.externalWorkspaceId],
           input.timestamp,
         ),
@@ -1215,12 +1284,18 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         throw error;
       }
 
+      const created = (results[6]?.meta.changes ?? 0) > 0;
+      if (!created) {
+        // The binding insert carried its own purge exclusion, so a write that
+        // did not happen because of it is a retryable refusal, not a replay.
+        const intent = await readPurgeIntentBy(db, "external_workspace_id", input.binding.externalWorkspaceId, {
+          activeOnly: true,
+        });
+        if (intent) throw new Error("managed_purge_in_progress");
+      }
       const snapshot = await readSnapshot(db, input.binding.externalWorkspaceId);
       if (!snapshot) throw new Error("managed_first_provision_not_created");
-      return {
-        created: (results[6]?.meta.changes ?? 0) > 0,
-        snapshot,
-      };
+      return { created, snapshot };
     },
 
     async reconcile(input) {
@@ -1281,15 +1356,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       const beforeRotation = await readSnapshot(db, input.externalWorkspaceId);
       // A blog whose purge is under way must not come back: the intent is the
       // irreversible decision to delete it, and its domain and media may
-      // already be gone. The caller turns this into a retryable failure. A
+      // already be gone. The exclusion lives in the SQL of the writes
+      // themselves, so the decision and the write cannot race; the change
+      // count below turns a blocked write into a retryable refusal. A
       // finished intent is only the trace of a deleted blog, so a plan that
       // resumes afterwards may bring the blog back.
-      if (beforeRotation) {
-        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId, {
-          activeOnly: true,
-        });
-        if (intent) throw new Error("managed_purge_in_progress");
-      }
       const rotationResult = beforeRotation?.entitlementStatus === "revoked" ? "reactivated" : "rotated";
 
       // Every write is guarded by the old generation/revision. A stale request
@@ -1311,7 +1382,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                AND m.credential_id = ?
                AND m.credential_generation = ?
                AND m.lifecycle_revision = ?
-               AND ? = m.credential_generation + 1`,
+               AND ? = m.credential_generation + 1
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = m.workspace_id AND p.completed_at IS NULL
+               )`,
           )
             .bind(
               input.newApiKey.id,
@@ -1333,13 +1408,17 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
               `UPDATE api_keys
              SET revoked_at = COALESCE(revoked_at, ?), updated_at = ?
              WHERE id = (
-               SELECT api_key_id
-               FROM autoseopilot_managed_sites
-               WHERE external_workspace_id = ?
-                 AND credential_id = ?
-                 AND credential_generation = ?
-                 AND lifecycle_revision = ?
-                 AND ? = credential_generation + 1
+               SELECT m.api_key_id
+               FROM autoseopilot_managed_sites m
+               WHERE m.external_workspace_id = ?
+                 AND m.credential_id = ?
+                 AND m.credential_generation = ?
+                 AND m.lifecycle_revision = ?
+                 AND ? = m.credential_generation + 1
+                 AND NOT EXISTS (
+                   SELECT 1 FROM autoseopilot_purge_intents p
+                   WHERE p.workspace_id = m.workspace_id AND p.completed_at IS NULL
+                 )
              )`,
             )
             .bind(
@@ -1366,7 +1445,12 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                AND credential_generation = ?
                AND lifecycle_revision = ?
                AND ? = credential_generation + 1
-               AND EXISTS (SELECT 1 FROM api_keys WHERE id = ?)`,
+               AND EXISTS (SELECT 1 FROM api_keys WHERE id = ?)
+               AND NOT EXISTS (
+                 SELECT 1 FROM autoseopilot_purge_intents p
+                 WHERE p.workspace_id = autoseopilot_managed_sites.workspace_id
+                   AND p.completed_at IS NULL
+               )`,
             )
             .bind(
               input.newApiKey.id,
@@ -1392,7 +1476,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
               summary: "Managed credential rotated",
               activity: input.activity,
             },
-            "m.external_workspace_id = ? AND m.api_key_id = ? AND m.credential_generation = ? AND m.lifecycle_revision = ? AND m.updated_at = ?",
+            "m.external_workspace_id = ? AND m.api_key_id = ? AND m.credential_generation = ? AND m.lifecycle_revision = ? AND m.updated_at = ? AND NOT EXISTS (SELECT 1 FROM autoseopilot_purge_intents p WHERE p.workspace_id = m.workspace_id AND p.completed_at IS NULL)",
             [input.externalWorkspaceId, input.newApiKey.id, input.newGeneration, nextRevision, input.timestamp],
             input.timestamp,
           ),
@@ -1414,11 +1498,11 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       }
 
       const applied = (results[2]?.meta.changes ?? 0) > 0;
-      if (!applied && beforeRotation) {
-        // The intent can land between the guard above and this batch; a
-        // rotation that did not apply because of it is a retryable refusal,
-        // not a stale generation.
-        const intent = await readPurgeIntentBy(db, "site_id", beforeRotation.siteId, {
+      if (!applied) {
+        // The write carried its own purge exclusion, so a rotation that did
+        // not apply because of it is a retryable refusal, not a stale
+        // generation.
+        const intent = await readPurgeIntentBy(db, "external_workspace_id", input.externalWorkspaceId, {
           activeOnly: true,
         });
         if (intent) throw new Error("managed_purge_in_progress");
@@ -1508,10 +1592,23 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
     async listClaimSweepCandidates(page) {
       const limit = Math.min(Math.max(page.limit ?? 200, 1), 500);
-      // Only rows with something due: the first reminder day, or the purge.
-      // Everything else is left alone until its day comes.
+      // Only rows with something due: a reminder that was never sent, or the
+      // purge. Everything else is left alone until its day comes, so a row
+      // that is already handled never takes a slot and a later blog is still
+      // reached.
       const dueBefore = page.now - MANAGED_CLAIM_WINDOW.graceSeconds;
       const cursor = page.cursor ?? null;
+      // The latest reminder slot that is due for a row, and whether that slot
+      // was already used. The days come from the shared schedule, so the
+      // query cannot drift away from the sweep.
+      const dueReminders = [...MANAGED_CLAIM_REMINDERS].reverse();
+      const reminderCase = dueReminders
+        .map(
+          (reminder) =>
+            `WHEN m.revoked_at + ${reminder.day} * 86400 <= ? THEN m.${claimReminderColumn(reminder.day)}`,
+        )
+        .join("\n                    ");
+      const reminderBinds = dueReminders.map(() => page.now);
       const { results } = await db
         .prepare(
           `SELECT
@@ -1539,12 +1636,22 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              AND m.revoked_at IS NOT NULL
              AND m.revoked_at <= ?
              AND (b.status IS NULL OR b.status = 'none')
+             AND (
+               m.revoked_at + ? <= ?
+               OR CASE
+                    ${reminderCase}
+                    ELSE 0
+                  END IS NULL
+             )
              AND (m.revoked_at > ? OR (m.revoked_at = ? AND m.id > ?))
            ORDER BY m.revoked_at ASC, m.id ASC
            LIMIT ?`,
         )
         .bind(
           dueBefore,
+          MANAGED_CLAIM_WINDOW.windowSeconds,
+          page.now,
+          ...reminderBinds,
           cursor?.revokedAt ?? -1,
           cursor?.revokedAt ?? -1,
           cursor?.id ?? "",
@@ -1715,8 +1822,15 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         )
         .run();
       // The intent of this site: the one just written, or the one an earlier
-      // run left behind (a crashed purge resumes from it).
-      return readPurgeIntentBy(db, "site_id", request.siteId);
+      // run left behind for THIS lifecycle (a crashed purge resumes from
+      // it). A finished intent is the trace of a deleted blog and must never
+      // be handed back: the sweep would delete a blog that was provisioned
+      // again.
+      return readPurgeIntentBy(db, "site_id", request.siteId, {
+        activeOnly: true,
+        lifecycleRevision: request.lifecycleRevision,
+        revokedAt: request.revokedAt,
+      });
     },
 
     async listPurgeIntents(page) {
@@ -1768,18 +1882,26 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
     },
 
     async recordClaimCheckoutAttempt(workspaceId, now, expiresAt) {
-      await db
+      // The attempt carries its own purge exclusion: a blog that is being
+      // deleted must not take a customer's money, and the decision and the
+      // write cannot race. False means the write was refused.
+      const result = await db
         .prepare(
           `INSERT INTO autoseopilot_claim_checkouts (workspace_id, created_at, expires_at, guard_until)
-           VALUES (?, ?, ?, ?)
+           SELECT ?, ?, ?, ?
+           WHERE NOT EXISTS (
+             SELECT 1 FROM autoseopilot_purge_intents p
+             WHERE p.workspace_id = ? AND p.completed_at IS NULL
+           )
            ON CONFLICT(workspace_id) DO UPDATE SET
              created_at = excluded.created_at,
              expires_at = excluded.expires_at,
              guard_until = excluded.guard_until,
              resolved_at = NULL`,
         )
-        .bind(workspaceId, now, expiresAt, now + MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS)
+        .bind(workspaceId, now, expiresAt, now + MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS, workspaceId)
         .run();
+      return (result.meta.changes ?? 0) > 0;
     },
 
     async resolveClaimCheckoutAttempt(workspaceId, now) {
@@ -1817,22 +1939,16 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
     },
 
     async recordPurgeConflict(conflict) {
-      const id = `purge-conflict-${conflict.workspaceId}-${conflict.eventId ?? conflict.now}`;
+      const id = purgeConflictId(conflict.workspaceId, conflict.eventId ?? String(conflict.now));
       await db
         .prepare(
           `INSERT INTO autoseopilot_purge_conflicts (
              id, workspace_id, site_id, polar_customer_id, polar_subscription_id,
              polar_order_id, polar_checkout_id, event_id, event_type,
-             applied_status, created_at
+             applied_status, notified_at, created_at
            )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             site_id = excluded.site_id,
-             polar_customer_id = excluded.polar_customer_id,
-             polar_subscription_id = excluded.polar_subscription_id,
-             polar_order_id = excluded.polar_order_id,
-             polar_checkout_id = excluded.polar_checkout_id,
-             applied_status = excluded.applied_status`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+           ON CONFLICT(id) DO NOTHING`,
         )
         .bind(
           id,
@@ -1848,19 +1964,65 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           conflict.now,
         )
         .run();
+      // The stored row wins: a replay must not clear a notice that was
+      // already accepted.
+      const stored = await db
+        .prepare(`SELECT * FROM autoseopilot_purge_conflicts WHERE id = ?`)
+        .bind(id)
+        .first<Record<string, unknown>>();
+      if (!stored) throw new Error("managed_purge_conflict_not_recorded");
       return {
         id,
-        workspaceId: conflict.workspaceId,
-        siteId: conflict.siteId ?? null,
-        polarCustomerId: conflict.polarCustomerId ?? null,
-        polarSubscriptionId: conflict.polarSubscriptionId ?? null,
-        polarOrderId: conflict.polarOrderId ?? null,
-        polarCheckoutId: conflict.polarCheckoutId ?? null,
-        eventId: conflict.eventId ?? null,
-        eventType: conflict.eventType ?? null,
-        appliedStatus: conflict.appliedStatus ?? null,
-        createdAt: conflict.now,
+        workspaceId: String(stored.workspace_id),
+        siteId: stored.site_id === null ? null : String(stored.site_id),
+        polarCustomerId: stored.polar_customer_id === null ? null : String(stored.polar_customer_id),
+        polarSubscriptionId:
+          stored.polar_subscription_id === null ? null : String(stored.polar_subscription_id),
+        polarOrderId: stored.polar_order_id === null ? null : String(stored.polar_order_id),
+        polarCheckoutId: stored.polar_checkout_id === null ? null : String(stored.polar_checkout_id),
+        eventId: stored.event_id === null ? null : String(stored.event_id),
+        eventType: stored.event_type === null ? null : String(stored.event_type),
+        appliedStatus: stored.applied_status === null ? null : String(stored.applied_status),
+        notifiedAt: stored.notified_at === null ? null : Number(stored.notified_at),
+        createdAt: Number(stored.created_at),
       };
+    },
+
+    async markPurgeConflictNotified(id, now) {
+      await db
+        .prepare(
+          `UPDATE autoseopilot_purge_conflicts
+           SET notified_at = ?
+           WHERE id = ?`,
+        )
+        .bind(now, id)
+        .run();
+    },
+
+    async listUnnotifiedPurgeConflicts(limit = 50) {
+      const { results } = await db
+        .prepare(
+          `SELECT * FROM autoseopilot_purge_conflicts
+           WHERE notified_at IS NULL
+           ORDER BY created_at ASC
+           LIMIT ?`,
+        )
+        .bind(Math.min(Math.max(limit, 1), 200))
+        .all<Record<string, unknown>>();
+      return (results ?? []).map((row) => ({
+        id: String(row.id),
+        workspaceId: String(row.workspace_id),
+        siteId: row.site_id === null ? null : String(row.site_id),
+        polarCustomerId: row.polar_customer_id === null ? null : String(row.polar_customer_id),
+        polarSubscriptionId: row.polar_subscription_id === null ? null : String(row.polar_subscription_id),
+        polarOrderId: row.polar_order_id === null ? null : String(row.polar_order_id),
+        polarCheckoutId: row.polar_checkout_id === null ? null : String(row.polar_checkout_id),
+        eventId: row.event_id === null ? null : String(row.event_id),
+        eventType: row.event_type === null ? null : String(row.event_type),
+        appliedStatus: row.applied_status === null ? null : String(row.applied_status),
+        notifiedAt: row.notified_at === null ? null : Number(row.notified_at),
+        createdAt: Number(row.created_at),
+      }));
     },
 
     async listPurgeConflicts(workspaceId) {
@@ -1884,6 +2046,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         eventId: row.event_id === null ? null : String(row.event_id),
         eventType: row.event_type === null ? null : String(row.event_type),
         appliedStatus: row.applied_status === null ? null : String(row.applied_status),
+        notifiedAt: row.notified_at === null ? null : Number(row.notified_at),
         createdAt: Number(row.created_at),
       }));
     },

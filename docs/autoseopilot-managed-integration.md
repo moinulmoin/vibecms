@@ -148,6 +148,14 @@ Claiming is strictly same-email; there is no transfer to another email at
 launch. The owner keeps dashboard access and can read and export during the
 window.
 
+A revoked managed workspace can therefore start a checkout: buying VibeCMS
+Cloud there is exactly how the customer keeps the blog. A workspace with a
+LIVE sponsorship is not for sale (the plan already includes the blog), and a
+blog whose purge is under way must not take money at all. The checkout
+attempt is written BEFORE the checkout is handed out and carries a 48-hour
+purge guard, so a paid claim can never race the deletion of the blog it
+pays for.
+
 ### Reminders and deletion
 
 One daily job (`apps/api/src/server/managed-claim-sweep.ts`) owns the window.
@@ -182,22 +190,36 @@ Deleting a blog is irreversible, so it happens in three steps:
 3. The D1 rows go, guarded again inside one transaction that requires the
    intent.
 
-While an intent exists the blog cannot come back. The claim checkout is
-refused before any money is taken, a Polar webhook for a blog that is being
-purged, or that is already gone, is answered (so Polar stops retrying) and
-recorded in `autoseopilot_purge_conflicts` (migration 0040) with the Polar
-customer, order and subscription ids, instead of flipping the workspace to
-paid; the operator is alerted with the same ids so the money can be refunded
-by hand. The alert goes to the support address (`SUPPORT_EMAIL`), through the
-same `send_email` binding the reminder mail uses, because a log line only
-reaches someone who goes looking. The AutoSEOPilot plan resumption is
-refused with a retryable failure, and a re-provision cannot recreate the same
-site id and R2 namespace while the purge is under way. A crashed run leaves
-the intent behind and the next daily run resumes the same cleanup from it;
-the intent never expires and is never auto-cleared. A finished intent stays
-behind as the trace of a deleted blog (`completed_at`), so a late paid
-webhook is recognised instead of turning a deleted blog into a paid workspace
-with no notice.
+While an intent exists the blog cannot come back. The exclusion lives in the
+SQL of the competing writes themselves, not in a separate precheck: the
+rotation/reactivation batch, the first provision and the claim-checkout
+attempt each carry "no active purge intent" in their own condition, and the
+change count turns a blocked write into a retryable refusal. So a decision
+and a write can never race. The claim checkout is refused before any money
+is taken, a Polar webhook for a blog that is being purged, or that is
+already gone, is answered (so Polar stops retrying) and recorded in
+`autoseopilot_purge_conflicts` (migration 0040) with the Polar customer,
+order and subscription ids, instead of flipping the workspace to paid. That
+record is written in the SAME transaction as the webhook receipt, so a
+payment can never be lost; if it cannot be written, the receipt is rolled
+back with it and Polar retries. The operator is alerted with the same ids so
+the money can be refunded by hand, and the notice goes to the support
+address (`SUPPORT_EMAIL`) through the same `send_email` binding the reminder
+mail uses, because a log line only reaches someone who goes looking. The
+notice is only marked as sent when the mail was accepted (`notified_at`), and
+the daily sweep sends every notice that is still owed. The AutoSEOPilot plan
+resumption is refused with a retryable failure, and a re-provision cannot
+recreate the same site id and R2 namespace while the purge is under way. A
+crashed run leaves the intent behind and the next daily run resumes the same
+cleanup from it; the intent never expires and is never auto-cleared. A
+finished intent stays behind as the trace of a deleted blog (`completed_at`),
+so a late paid webhook is recognised instead of turning a deleted blog into a
+paid workspace with no notice.
+
+The daily sweep only visits the blogs that have something due: a reminder
+that was never sent, or the purge. A blog that was already reminded about
+and is not due for the purge yet takes no slot, so a long queue of old blogs
+can never starve a newer one.
 
 ## Internal API
 
@@ -309,7 +331,8 @@ and a reconciliation:
   },
   "lifecycle": {
     "revision": 1,
-    "status": "active"
+    "status": "active",
+    "revokedAt": null
   },
   "correlationId": "corr-example"
 }
@@ -380,10 +403,16 @@ receipt shape with:
   },
   "lifecycle": {
     "revision": 2,
-    "status": "revoked"
+    "status": "revoked",
+    "revokedAt": "2026-10-20T09:00:00.000Z"
   }
 }
 ```
+
+`lifecycle.revokedAt` is the moment VibeCMS recorded the revoke (ISO 8601),
+or null while the site is active. The claim window's clock belongs to
+VibeCMS, so AutoSEOPilot records this timestamp and shows its deadlines
+from it, never from the moment it heard about the revoke.
 
 The complete response still includes `externalWorkspaceId`, `workspaceId`,
 `siteId`, `siteName`, `apiKeyId`, `apiKeyPrefix`, `publicUrl`, and

@@ -1,6 +1,6 @@
 import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
-import { createDataAccess } from '@vc/db'
+import { createDataAccess, type ManagedPurgeConflict } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
 import { LAUNCH_OFFER, MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
 import { validateEvent } from '@polar-sh/sdk/webhooks'
@@ -166,6 +166,37 @@ async function resolveCheckoutAttempt(workspaceId: string, now: number): Promise
   await createDataAccess(env.DB).managedSites.resolveClaimCheckoutAttempt(workspaceId, now)
 }
 
+/**
+ * Sends the refund notice for a paid claim that arrived for a blog the purge
+ * is deleting, and marks the record as notified. A failed mail is not fatal:
+ * the record stays unnotified, so the daily sweep sends it again until the
+ * mail is accepted.
+ */
+async function notifyPurgeConflict(conflict: ManagedPurgeConflict): Promise<void> {
+  if (conflict.notifiedAt !== null) return
+  try {
+    await sendPurgeConflictEmail({
+      workspaceId: conflict.workspaceId,
+      siteId: conflict.siteId,
+      polarCustomerId: conflict.polarCustomerId,
+      polarSubscriptionId: conflict.polarSubscriptionId,
+      polarOrderId: conflict.polarOrderId,
+      polarCheckoutId: conflict.polarCheckoutId,
+      eventType: conflict.eventType,
+      eventId: conflict.eventId,
+    })
+    await createDataAccess(env.DB).managedSites.markPurgeConflictNotified(
+      conflict.id,
+      Math.floor(Date.now() / 1000),
+    )
+  } catch (error) {
+    console.warn('[polar-webhook] purge conflict notice failed', {
+      conflictId: conflict.id,
+      error: String(error),
+    })
+  }
+}
+
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
   interval: CheckoutInterval,
@@ -187,7 +218,12 @@ export async function createCheckoutSessionForApp(
   if (await db.managedSites.getActivePurgeIntentByWorkspaceId(app.workspaceId)) {
     return { kind: 'error', code: 'purge_in_progress' }
   }
-  if (await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)) {
+  // A workspace with a LIVE AutoSEOPilot sponsorship is not for sale: the
+  // plan already includes the blog. A revoked sponsorship is the claim
+  // window: buying VibeCMS Cloud there is exactly how the customer keeps
+  // the blog, so it must reach the checkout.
+  const managed = await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)
+  if (managed && managed.entitlementStatus === 'active') {
     return { kind: 'error', code: 'managed_workspace' }
   }
   const existingBilling = await db.billing.getBillingRecord(app.workspaceId)
@@ -242,12 +278,18 @@ export async function createCheckoutSessionForApp(
   // A checkout can be paid at Polar before its webhook reaches us. The
   // attempt is recorded before the checkout is handed out, so the daily sweep
   // waits for it instead of deleting a blog whose owner just claimed it.
+  // The write carries the purge exclusion: a blog that is being deleted must
+  // not take the customer's money, and the decision and the write cannot
+  // race.
   const attemptNow = Math.floor(Date.now() / 1000)
-  await db.managedSites.recordClaimCheckoutAttempt(
+  const attemptRecorded = await db.managedSites.recordClaimCheckoutAttempt(
     app.workspaceId,
     attemptNow,
     attemptNow + MANAGED_CLAIM_CHECKOUT_TTL_SECONDS,
   )
+  if (!attemptRecorded) {
+    return { kind: 'error', code: 'purge_in_progress' }
+  }
 
   // Prefer reusing an existing open Polar checkout for this workspace/product before creating another.
   if (listOpenCheckouts) {
@@ -397,6 +439,10 @@ export async function handlePolarWebhook(request: Request) {
   const subscriptionId =
     stringField(data, 'subscriptionId', 'subscription_id') ??
     (typeof data.id === 'string' && event.type.startsWith('subscription.') ? data.id : null)
+  const polarOrderId = stringField(data, 'orderId', 'order_id') ?? null
+  const polarCheckoutId =
+    stringField(data, 'checkoutId', 'checkout_id') ??
+    (event.type === 'checkout.updated' && typeof data.id === 'string' ? data.id : null)
   let result: WebhookApplyResult
   try {
     result = await applyPolarWebhookAtomically(env.DB, {
@@ -407,15 +453,18 @@ export async function handlePolarWebhook(request: Request) {
       appliedStatus: status,
       polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
       polarSubscriptionId: subscriptionId,
+      polarOrderId,
+      polarCheckoutId,
       currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
       cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
     })
   } catch (error) {
     // The billing row hangs on the workspace, so an event for a workspace
     // that is gone fails on the write. That is the purged-blog case, and the
-    // customer may have paid for a blog that no longer exists. Any other
-    // failure is a real error: the receipt stays rolled back and Polar
-    // retries.
+    // customer may have paid for a blog that no longer exists. The record
+    // has to be written: if it cannot, the webhook fails too, so Polar
+    // retries instead of us losing the payment. Any other failure is a real
+    // error: the receipt stays rolled back and Polar retries.
     const workspace = await env.DB.prepare('SELECT 1 AS ok FROM workspaces WHERE id = ?')
       .bind(workspaceId)
       .first<{ ok: number }>()
@@ -423,6 +472,18 @@ export async function handlePolarWebhook(request: Request) {
       ? null
       : await createDataAccess(env.DB).managedSites.getPurgeIntentByWorkspaceId(workspaceId)
     if (!purged) throw error
+    await createDataAccess(env.DB).managedSites.recordPurgeConflict({
+      workspaceId,
+      siteId: purged.siteId,
+      polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
+      polarSubscriptionId: subscriptionId,
+      polarOrderId,
+      polarCheckoutId,
+      eventId,
+      eventType: event.type,
+      appliedStatus: status,
+      now: Math.floor(Date.now() / 1000),
+    })
     result = { kind: 'conflict' }
   }
   if (result.kind === 'conflict') {
@@ -430,18 +491,18 @@ export async function handlePolarWebhook(request: Request) {
     // resurrect it, and the workspace must not become paid behind the purge.
     // The event is not applied, so the customer is never billed for a
     // deleted blog. But the customer may have PAID for it, so the event is
-    // recorded and the operator is alerted: the money has to be refunded by
-    // hand. The webhook is answered, so Polar stops retrying.
-    const intent = await createDataAccess(env.DB).managedSites.getPurgeIntentByWorkspaceId(workspaceId)
-    const conflict = await createDataAccess(env.DB).managedSites.recordPurgeConflict({
+    // recorded (durably, in the same transaction as the receipt) and the
+    // operator is alerted: the money has to be refunded by hand. The webhook
+    // is answered, so Polar stops retrying.
+    const managed = createDataAccess(env.DB).managedSites
+    const intent = await managed.getPurgeIntentByWorkspaceId(workspaceId)
+    const conflict = await managed.recordPurgeConflict({
       workspaceId,
       siteId: intent?.siteId ?? null,
       polarCustomerId: stringField(data, 'customerId', 'customer_id') ?? null,
       polarSubscriptionId: subscriptionId,
-      polarOrderId: stringField(data, 'orderId', 'order_id') ?? null,
-      polarCheckoutId:
-        stringField(data, 'checkoutId', 'checkout_id') ??
-        (event.type === 'checkout.updated' && typeof data.id === 'string' ? data.id : null),
+      polarOrderId,
+      polarCheckoutId,
       eventId,
       eventType: event.type,
       appliedStatus: status,
@@ -464,26 +525,7 @@ export async function handlePolarWebhook(request: Request) {
         note: 'a paid event arrived for a managed blog that is purged or being purged: refund by hand',
       }),
     )
-    // The log only reaches someone who goes looking, so the support address
-    // hears about it too. A failed mail must not fail the webhook: the
-    // conflict is already recorded, and Polar must not keep retrying.
-    try {
-      await sendPurgeConflictEmail({
-        workspaceId,
-        siteId: conflict.siteId,
-        polarCustomerId: conflict.polarCustomerId,
-        polarSubscriptionId: conflict.polarSubscriptionId,
-        polarOrderId: conflict.polarOrderId,
-        polarCheckoutId: conflict.polarCheckoutId,
-        eventType: conflict.eventType,
-        eventId: conflict.eventId,
-      })
-    } catch (error) {
-      console.warn('[polar-webhook] purge conflict email failed', {
-        workspaceId,
-        error: String(error),
-      })
-    }
+    await notifyPurgeConflict(conflict)
     return Response.json({ received: true, result: result.kind })
   }
   if (result.kind === 'applied') {

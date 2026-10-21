@@ -1,4 +1,5 @@
 import type { BillingStatus } from '@vc/core'
+import { purgeConflictId } from '@vc/db'
 
 export type WebhookApplyResult =
   | { kind: 'applied' }
@@ -104,6 +105,10 @@ export type PolarWebhookApplyInput = {
   appliedStatus: BillingStatus
   polarCustomerId: string | null
   polarSubscriptionId: string | null
+  /** The Polar order id, when the event carries one. */
+  polarOrderId: string | null
+  /** The Polar checkout id, when the event carries one. */
+  polarCheckoutId: string | null
   /** Polar current_period_end, epoch seconds. */
   currentPeriodEnd: number | null
   /** null leaves the stored flag unchanged (checkout events). */
@@ -240,15 +245,61 @@ export async function applyPolarWebhookAtomically(
       applyNonce,
     )
 
-  const [priorResult, receiptResult, , statusResult, subscriptionResult] = await db.batch([
-    priorStmt, receiptStmt, createStmt, statusStmt, subscriptionStmt,
+  // The conflict record is written in the SAME transaction as the receipt: a
+  // paid event for a blog that is purged (or already gone) must never be
+  // lost, and if this write fails the receipt is rolled back with it, so
+  // Polar retries instead of us losing the payment. notified_at stays NULL
+  // until the refund notice is accepted.
+  const conflictStmt = db
+    .prepare(
+      `INSERT INTO autoseopilot_purge_conflicts (
+         id, workspace_id, site_id, polar_customer_id, polar_subscription_id,
+         polar_order_id, polar_checkout_id, event_id, event_type,
+         applied_status, notified_at, created_at
+       )
+       SELECT ?, ?, (
+         SELECT p.site_id FROM autoseopilot_purge_intents p
+         WHERE p.workspace_id = ? LIMIT 1
+       ), ?, ?, ?, ?, ?, ?, ?, NULL, ?
+       WHERE EXISTS (
+         SELECT 1 FROM autoseopilot_purge_intents p
+         WHERE p.workspace_id = ?
+           AND (
+             p.completed_at IS NULL
+             OR NOT EXISTS (SELECT 1 FROM sites s WHERE s.id = p.site_id)
+           )
+       )
+       ON CONFLICT(id) DO NOTHING`,
+    )
+    .bind(
+      purgeConflictId(input.workspaceId, input.eventId),
+      input.workspaceId,
+      input.workspaceId,
+      input.polarCustomerId,
+      input.polarSubscriptionId,
+      input.polarOrderId,
+      input.polarCheckoutId,
+      input.eventId,
+      input.eventType,
+      input.appliedStatus,
+      now,
+      input.workspaceId,
+    )
+
+  const [priorResult, receiptResult, , statusResult, subscriptionResult, conflictResult] = await db.batch([
+    priorStmt, receiptStmt, createStmt, statusStmt, subscriptionStmt, conflictStmt,
   ])
 
   const receiptChanges = receiptResult?.meta?.changes ?? 0
   const statusChanges = statusResult?.meta?.changes ?? 0
   const subscriptionChanges = subscriptionResult?.meta?.changes ?? 0
+  const conflictChanges = conflictResult?.meta?.changes ?? 0
 
   if (receiptChanges === 0) return { kind: 'duplicate' }
+  // The conflict row was written in the same transaction as the receipt, so
+  // its presence is the proof that the blog is being purged or is already
+  // gone: the event was not applied, and the customer has to be refunded.
+  if (conflictChanges > 0) return { kind: 'conflict' }
   if (statusChanges === 0) {
     const prior = (priorResult?.results as PriorBillingRow[] | undefined)?.[0]
     if (prior && prior.webhook_updated_at === input.sourceTimestamp && prior.status !== input.appliedStatus) {
@@ -264,28 +315,7 @@ export async function applyPolarWebhookAtomically(
         incomingStatus: input.appliedStatus,
       }))
     }
-    if (subscriptionChanges === 0) {
-      // A workspace whose blog is being deleted must not become paid: the
-      // claim would resurrect a blog whose domain and media are already gone.
-      // The same is true for a blog that is already gone: the customer paid
-      // for a blog that no longer exists, and that has to be refunded by
-      // hand instead of being turned into a paid workspace with no blog.
-      const purgeIntent = await db
-        .prepare(
-          `SELECT 1 AS ok
-           FROM autoseopilot_purge_intents p
-           WHERE p.workspace_id = ?
-             AND (
-               p.completed_at IS NULL
-               OR NOT EXISTS (SELECT 1 FROM sites s WHERE s.id = p.site_id)
-             )
-           LIMIT 1`,
-        )
-        .bind(input.workspaceId)
-        .first<{ ok: number }>()
-      if (purgeIntent) return { kind: 'conflict' }
-      return { kind: 'stale' }
-    }
+    if (subscriptionChanges === 0) return { kind: 'stale' }
   }
   return { kind: 'applied' }
 }

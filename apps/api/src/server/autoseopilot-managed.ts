@@ -152,6 +152,12 @@ type ManagedReceiptState<Status extends 'active' | 'revoked', PublicUrl> = {
   lifecycle: {
     revision: number
     status: Status
+    /**
+     * When VibeCMS revoked the sponsorship (ISO 8601). The claim window
+     * belongs to VibeCMS, so AutoSEOPilot records this timestamp and never
+     * its own confirmation time.
+     */
+    revokedAt: string | null
   }
 }
 
@@ -435,20 +441,24 @@ async function resolveReceipt(
   }
   const expiresAt = expiryIso(snapshot.entitlementExpiresAt)
   const revision = snapshot.lifecycleRevision
+  // The claim window's day 0 is the revoke VibeCMS recorded, not the moment
+  // AutoSEOPilot heard about it.
+  const revokedAt =
+    snapshot.revokedAt === null ? null : new Date(snapshot.revokedAt * 1000).toISOString()
   if (snapshot.entitlementStatus === 'active') {
     if (!resolvedPublicUrl) throw publicUrlUnavailable()
     return {
       ...base,
       publicUrl: resolvedPublicUrl,
       entitlement: { status: 'active', expiresAt, effective: entitlement.effective },
-      lifecycle: { revision, status: 'active' },
+      lifecycle: { revision, status: 'active', revokedAt },
     }
   }
   return {
     ...base,
     publicUrl: resolvedPublicUrl,
     entitlement: { status: 'revoked', expiresAt, effective: entitlement.effective },
-    lifecycle: { revision, status: 'revoked' },
+    lifecycle: { revision, status: 'revoked', revokedAt },
   }
 }
 

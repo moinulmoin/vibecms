@@ -483,6 +483,11 @@ export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_confli
   eventId: text("event_id"),
   eventType: text("event_type"),
   appliedStatus: text("applied_status"),
+  /**
+   * When the refund notice was accepted (epoch seconds). NULL means the
+   * notice is still owed, so it is sent again.
+   */
+  notifiedAt: integer("notified_at"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   index("idx_autoseopilot_purge_conflicts_workspace").on(table.workspaceId),
