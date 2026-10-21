@@ -814,6 +814,30 @@ describe('claim window — the claim', () => {
     expect(siteIds).not.toContain(reminded.siteId)
   })
 
+  it('lets an owner who cancelled the claim subscribe again', async () => {
+    const blog = await seedRevokedBlog('resubscribe', 10)
+    // The owner claimed the blog: the workspace is a paid VibeCMS workspace.
+    await claimWorkspace(blog.workspaceId)
+    // Then the subscription ended.
+    await env.DB.prepare('UPDATE billing_customers SET status = ? WHERE workspace_id = ?')
+      .bind('canceled', blog.workspaceId)
+      .run()
+
+    const createCheckout = vi.fn().mockResolvedValue({
+      url: 'https://polar.example/resubscribe',
+      productId: 'prod_monthly',
+      currency: 'usd',
+      netAmount: 1500,
+    })
+    const result = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
+      createCheckout,
+      listOpenCheckouts: vi.fn().mockResolvedValue([]),
+    })
+
+    expect(result).toEqual({ kind: 'ok', url: 'https://polar.example/resubscribe' })
+    expect(createCheckout).toHaveBeenCalledTimes(1)
+  })
+
   it('refuses the claim checkout after the blog was purged', async () => {
     const blog = await seedRevokedBlog('purgedclaim', 31)
     expect(await acquireIntent(blog)).not.toBeNull()

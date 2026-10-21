@@ -1929,7 +1929,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // completed between the read and this write must not let Polar sell a
       // deleted blog. A workspace that is not a managed one (a normal
       // VibeCMS workspace) is unaffected, and a re-provisioned blog is
-      // allowed again. False means the write was refused.
+      // allowed again. Only a LIVE subscription blocks the attempt: an owner
+      // who claimed the blog and later cancelled (or went unpaid) may
+      // subscribe again, exactly like in the checkout path. False means the
+      // write was refused.
       const result = await db
         .prepare(
           `INSERT INTO autoseopilot_claim_checkouts (workspace_id, created_at, expires_at, guard_until)
@@ -1956,7 +1959,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                AND NOT EXISTS (
                  SELECT 1 FROM billing_customers b
                  WHERE b.workspace_id = ?
-                   AND b.status IS NOT NULL AND b.status != 'none'
+                   AND b.status IN ('active', 'past_due')
                )
              )
            )

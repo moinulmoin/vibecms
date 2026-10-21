@@ -227,9 +227,11 @@ reminder.
 
 The claim checkout is refused before Polar is asked to sell anything, and
 the refusal lives in the write itself: the attempt is only written while
-the blog is still there, still revoked and still unclaimed. A purge that
-completes between the read and the write therefore cannot let Polar sell a
-deleted blog, while a re-provisioned blog can be claimed again.
+the blog is still there, still revoked and without a live subscription. A
+purge that completes between the read and the write therefore cannot let
+Polar sell a deleted blog, while a re-provisioned blog can be claimed again
+and an owner who claimed the blog and later cancelled (or went unpaid) may
+subscribe again.
 
 ## Internal API
 
