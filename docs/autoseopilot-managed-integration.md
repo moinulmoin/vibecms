@@ -219,7 +219,17 @@ paid workspace with no notice.
 The daily sweep only visits the blogs that have something due: a reminder
 that was never sent, or the purge. A blog that was already reminded about
 and is not due for the purge yet takes no slot, so a long queue of old blogs
-can never starve a newer one.
+can never starve a newer one. Every attempt is recorded
+(`last_sweep_attempt_at`), and the due blogs are ordered by that attempt
+first: a blog the sweep cannot delete yet rotates to the back of the queue,
+so it can never take the slot of a blog that is still waiting for its
+reminder.
+
+The claim checkout is refused before Polar is asked to sell anything, and
+the refusal lives in the write itself: the attempt is only written while
+the blog is still there, still revoked and still unclaimed. A purge that
+completes between the read and the write therefore cannot let Polar sell a
+deleted blog, while a re-provisioned blog can be claimed again.
 
 ## Internal API
 

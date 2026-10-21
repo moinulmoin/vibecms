@@ -31,6 +31,12 @@ UPDATE autoseopilot_claim_checkouts
 ALTER TABLE autoseopilot_purge_intents
   ADD COLUMN completed_at INTEGER;
 
+-- When the daily sweep last tried to act on a blog. A blog it cannot delete
+-- yet rotates to the back of the queue, so it never takes the slot of a blog
+-- that is still waiting for its reminder.
+ALTER TABLE autoseopilot_managed_sites
+  ADD COLUMN last_sweep_attempt_at INTEGER;
+
 -- The operator record of a paid event that arrived too late. The founder
 -- refunds by hand from the Polar ids here. notified_at stays NULL until the
 -- mail that asks for the refund was accepted, so a lost notice is retried.

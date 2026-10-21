@@ -586,8 +586,12 @@ export interface ManagedClaimSweepCandidate {
 /** One page of sweep candidates, plus the cursor for the next page. */
 export interface ManagedClaimSweepPage {
   candidates: ManagedClaimSweepCandidate[];
-  /** The last (revokedAt, id) of this page; null when the list is exhausted. */
-  cursor: { revokedAt: number; id: string } | null;
+  /**
+   * The last (attemptAt, revokedAt, id) of this page; null when the list is
+   * exhausted. `attemptAt` is the sweep's last attempt on the row (0 when it
+   * never tried), so a row that cannot be acted on rotates to the back.
+   */
+  cursor: { attemptAt: number; revokedAt: number; id: string } | null;
 }
 
 export interface ManagedClaimSweepPurgeInput {
@@ -705,14 +709,21 @@ export interface AutoseopilotManagedSitesClaimSweep {
    * (no billing row, or status 'none') AND whose window has something due
    * (the first reminder, or the purge). A resumed plan clears revoked_at and
    * leaves this set; a claim flips billing away from 'none'. Only due rows
-   * are returned, paged by (revoked_at, id), so a long queue of old blogs
-   * cannot starve the newer ones.
+   * are returned, paged by (last attempt, revoked_at, id), so a long queue
+   * of old blogs cannot starve the newer ones and a blog the sweep cannot
+   * act on yet rotates to the back of the queue.
    */
   listClaimSweepCandidates(page: {
     now: number;
     limit?: number;
-    cursor?: { revokedAt: number; id: string } | null;
+    cursor?: { attemptAt: number; revokedAt: number; id: string } | null;
   }): Promise<ManagedClaimSweepPage>;
+  /**
+   * Records that the sweep tried to act on a blog. A blog it cannot act on
+   * yet rotates to the back of the queue, so it never takes the slot of a
+   * blog that is still waiting.
+   */
+  markClaimSweepAttempt(externalWorkspaceId: string, timestamp: number): Promise<void>;
   /** Claims a reminder send; false when already sent (or no longer revoked). */
   markClaimReminderSent(
     externalWorkspaceId: string,
@@ -1626,7 +1637,8 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              m.claim_day7_sent_at,
              m.claim_day14_sent_at,
              m.claim_day21_sent_at,
-             m.claim_day28_sent_at
+             m.claim_day28_sent_at,
+             m.last_sweep_attempt_at
            FROM autoseopilot_managed_sites m
            INNER JOIN user u ON u.id = m.owner_user_id
            INNER JOIN workspaces w ON w.id = m.workspace_id
@@ -1643,8 +1655,12 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                     ELSE 0
                   END IS NULL
              )
-             AND (m.revoked_at > ? OR (m.revoked_at = ? AND m.id > ?))
-           ORDER BY m.revoked_at ASC, m.id ASC
+             AND (
+               COALESCE(m.last_sweep_attempt_at, 0) > ?
+               OR (COALESCE(m.last_sweep_attempt_at, 0) = ? AND m.revoked_at > ?)
+               OR (COALESCE(m.last_sweep_attempt_at, 0) = ? AND m.revoked_at = ? AND m.id > ?)
+             )
+           ORDER BY COALESCE(m.last_sweep_attempt_at, 0) ASC, m.revoked_at ASC, m.id ASC
            LIMIT ?`,
         )
         .bind(
@@ -1652,7 +1668,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           MANAGED_CLAIM_WINDOW.windowSeconds,
           page.now,
           ...reminderBinds,
+          cursor?.attemptAt ?? -1,
+          cursor?.attemptAt ?? -1,
           cursor?.revokedAt ?? -1,
+          cursor?.attemptAt ?? -1,
           cursor?.revokedAt ?? -1,
           cursor?.id ?? "",
           limit + 1,
@@ -1673,6 +1692,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           claim_day14_sent_at: number | null;
           claim_day21_sent_at: number | null;
           claim_day28_sent_at: number | null;
+          last_sweep_attempt_at: number | null;
         }>();
       const rows = results ?? [];
       const hasMore = rows.length > limit;
@@ -1696,8 +1716,29 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           claimDay21SentAt: row.claim_day21_sent_at,
           claimDay28SentAt: row.claim_day28_sent_at,
         })),
-        cursor: hasMore && last ? { revokedAt: Number(last.revoked_at), id: last.id } : null,
+        cursor:
+          hasMore && last
+            ? {
+                attemptAt: last.last_sweep_attempt_at === null ? 0 : Number(last.last_sweep_attempt_at),
+                revokedAt: Number(last.revoked_at),
+                id: last.id,
+              }
+            : null,
       };
+    },
+
+    async markClaimSweepAttempt(externalWorkspaceId, timestamp) {
+      // The sweep tried this blog. A blog it cannot act on yet rotates to
+      // the back of the queue, so it never takes the slot of a blog that is
+      // still waiting for its reminder.
+      await db
+        .prepare(
+          `UPDATE autoseopilot_managed_sites
+           SET last_sweep_attempt_at = ?
+           WHERE external_workspace_id = ?`,
+        )
+        .bind(timestamp, externalWorkspaceId)
+        .run();
     },
 
     async markClaimReminderSent(externalWorkspaceId, day, timestamp) {
@@ -1882,16 +1923,42 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
     },
 
     async recordClaimCheckoutAttempt(workspaceId, now, expiresAt) {
-      // The attempt carries its own purge exclusion: a blog that is being
-      // deleted must not take a customer's money, and the decision and the
-      // write cannot race. False means the write was refused.
+      // The attempt carries its own exclusions: a blog that is being deleted
+      // must not take a customer's money, and the decision and the write
+      // cannot race. The blog must also still be there: a purge that
+      // completed between the read and this write must not let Polar sell a
+      // deleted blog. A workspace that is not a managed one (a normal
+      // VibeCMS workspace) is unaffected, and a re-provisioned blog is
+      // allowed again. False means the write was refused.
       const result = await db
         .prepare(
           `INSERT INTO autoseopilot_claim_checkouts (workspace_id, created_at, expires_at, guard_until)
            SELECT ?, ?, ?, ?
            WHERE NOT EXISTS (
              SELECT 1 FROM autoseopilot_purge_intents p
-             WHERE p.workspace_id = ? AND p.completed_at IS NULL
+             WHERE p.workspace_id = ?
+               AND (
+                 p.completed_at IS NULL
+                 OR NOT EXISTS (SELECT 1 FROM sites s WHERE s.id = p.site_id)
+               )
+           )
+           AND (
+             NOT EXISTS (
+               SELECT 1 FROM autoseopilot_managed_sites m
+               WHERE m.workspace_id = ?
+             )
+             OR (
+               EXISTS (
+                 SELECT 1 FROM autoseopilot_managed_sites m
+                 INNER JOIN sites s ON s.id = m.site_id
+                 WHERE m.workspace_id = ? AND m.entitlement_status = 'revoked'
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM billing_customers b
+                 WHERE b.workspace_id = ?
+                   AND b.status IS NOT NULL AND b.status != 'none'
+               )
+             )
            )
            ON CONFLICT(workspace_id) DO UPDATE SET
              created_at = excluded.created_at,
@@ -1899,7 +1966,16 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              guard_until = excluded.guard_until,
              resolved_at = NULL`,
         )
-        .bind(workspaceId, now, expiresAt, now + MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS, workspaceId)
+        .bind(
+          workspaceId,
+          now,
+          expiresAt,
+          now + MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS,
+          workspaceId,
+          workspaceId,
+          workspaceId,
+          workspaceId,
+        )
         .run();
       return (result.meta.changes ?? 0) > 0;
     },

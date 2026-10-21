@@ -814,6 +814,64 @@ describe('claim window — the claim', () => {
     expect(siteIds).not.toContain(reminded.siteId)
   })
 
+  it('refuses the claim checkout after the blog was purged', async () => {
+    const blog = await seedRevokedBlog('purgedclaim', 31)
+    expect(await acquireIntent(blog)).not.toBeNull()
+    const purged = await runManagedClaimSweep(env)
+    expect(purged.purged).toBe(1)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blog.siteId)).toBe(false)
+
+    // The blog is gone: Polar must not be asked to sell it.
+    const createCheckout = vi.fn()
+    const result = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
+      createCheckout,
+      listOpenCheckouts: vi.fn().mockResolvedValue([]),
+    })
+    expect(result).toEqual({ kind: 'error', code: 'purge_in_progress' })
+    expect(createCheckout).not.toHaveBeenCalled()
+  })
+
+  it('rotates the blogs it cannot delete, so a later blog still gets its reminder', async () => {
+    // Two blogs past the deadline whose purge is blocked by a claim checkout.
+    const blockedA = await seedRevokedBlog('blockeda', 31)
+    const blockedB = await seedRevokedBlog('blockedb', 32)
+    for (const blog of [blockedA, blockedB]) {
+      await data.managedSites.recordClaimCheckoutAttempt(blog.workspaceId, now(), now() + 3600)
+    }
+    // A blog whose day-7 reminder is due.
+    const later = await seedRevokedBlog('later', 8)
+
+    // Each run may act on one blog. The two blocked ones are older, so
+    // without a rotation they would take every slot for ever.
+    await runManagedClaimSweep(env, { maxCandidates: 1 })
+
+    // The blog the sweep could not delete rotated to the back: the attempt
+    // is recorded, so the next run starts with a blog it can act on.
+    const attempt = await env.DB.prepare(
+      'SELECT last_sweep_attempt_at FROM autoseopilot_managed_sites WHERE site_id = ?',
+    )
+      .bind(blockedB.siteId)
+      .first<{ last_sweep_attempt_at: number | null }>()
+    expect(attempt?.last_sweep_attempt_at).not.toBeNull()
+    const next = await data.managedSites.listClaimSweepCandidates({ now: now(), limit: 1 })
+    expect(next.candidates[0]?.siteId).toBe(blockedA.siteId)
+
+    await runManagedClaimSweep(env, { maxCandidates: 1 })
+    await runManagedClaimSweep(env, { maxCandidates: 1 })
+
+    // The later blog's reminder went out, even though two older blogs were
+    // in front of it.
+    const reminded = await env.DB.prepare(
+      'SELECT claim_day7_sent_at FROM autoseopilot_managed_sites WHERE site_id = ?',
+    )
+      .bind(later.siteId)
+      .first<{ claim_day7_sent_at: number | null }>()
+    expect(reminded?.claim_day7_sent_at).not.toBeNull()
+    // The blocked blogs are still there, waiting for their turn.
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blockedA.siteId)).toBe(true)
+    expect(await rowExists('SELECT id FROM sites WHERE id = ?', blockedB.siteId)).toBe(true)
+  })
+
   it('keeps the refund notice owed until the mail is accepted', async () => {
     const blog = await seedRevokedBlog('notice', 31)
     expect(await acquireIntent(blog)).not.toBeNull()

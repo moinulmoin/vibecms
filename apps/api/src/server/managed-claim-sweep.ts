@@ -36,6 +36,10 @@ import { sendClaimReminderEmail, sendPurgeConflictEmail } from '@/server/email'
 const DAY_SECONDS = 24 * 60 * 60
 /** Pages of candidates per run; the daily cron must stay well under its limit. */
 const MAX_SWEEP_PAGES = 20
+/** Candidates per page. */
+const SWEEP_PAGE_SIZE = 200
+/** Blogs one run may act on; the rest wait for the next one. */
+const MAX_SWEEP_CANDIDATES = MAX_SWEEP_PAGES * SWEEP_PAGE_SIZE
 /** Intents resumed per run; a crashed purge must not starve the queue. */
 const MAX_INTENT_PAGES = 20
 
@@ -195,17 +199,21 @@ export interface ManagedClaimSweepResult {
 }
 
 /** The daily cron entry: reminders at days 7/14/21/28, purge at day 30. */
-export async function runManagedClaimSweep(workerEnv: Cloudflare.Env): Promise<ManagedClaimSweepResult> {
+export async function runManagedClaimSweep(
+  workerEnv: Cloudflare.Env,
+  options?: { maxCandidates?: number },
+): Promise<ManagedClaimSweepResult> {
   if (String(workerEnv.SELF_HOSTED) === 'true') {
     return { skipped: true, candidates: 0, remindersSent: 0, purged: 0, refundNotices: 0 }
   }
   const now = Math.floor(Date.now() / 1000)
   const repo = createDataAccess(workerEnv.DB).managedSites
+  const maxCandidates = Math.max(1, options?.maxCandidates ?? MAX_SWEEP_CANDIDATES)
   let remindersSent = 0
   let purged = 0
   let candidates = 0
   let refundNotices = 0
-  let cursor: { revokedAt: number; id: string } | null = null
+  let cursor: { attemptAt: number; revokedAt: number; id: string } | null = null
 
   // Refund notices that were never accepted. The record of a paid claim for
   // a deleted blog is durable, and the notice is only marked as sent when
@@ -257,62 +265,76 @@ export async function runManagedClaimSweep(workerEnv: Cloudflare.Env): Promise<M
     if (!intentCursor) break
   }
 
-  // Page through every eligible blog: a long queue of old blogs must never
-  // starve the newer ones from their reminders.
+  // Collect the blogs that have something due BEFORE acting on any of them.
+  // The attempt markers move the rows in the queue, so the pages have to be
+  // read while the order is still the one the query ordered. A blog the
+  // sweep cannot act on yet rotates to the back, so it never takes the slot
+  // of a blog that is still waiting for its reminder.
+  const due: ManagedClaimSweepCandidate[] = []
   for (let page = 0; page < MAX_SWEEP_PAGES; page++) {
-    const result = await repo.listClaimSweepCandidates({ now, cursor })
-    candidates += result.candidates.length
-    for (const candidate of result.candidates) {
-      const elapsed = now - candidate.revokedAt
-      const deadline = candidate.revokedAt + MANAGED_CLAIM_WINDOW.windowSeconds
+    const remaining = maxCandidates - due.length
+    if (remaining <= 0) break
+    const result = await repo.listClaimSweepCandidates({
+      now,
+      cursor,
+      limit: Math.min(SWEEP_PAGE_SIZE, remaining),
+    })
+    due.push(...result.candidates)
+    cursor = result.cursor
+    if (!cursor) break
+  }
+  candidates += due.length
+  for (const candidate of due) {
+    const elapsed = now - candidate.revokedAt
+    const deadline = candidate.revokedAt + MANAGED_CLAIM_WINDOW.windowSeconds
+    try {
+      // The sweep tried this blog. If it cannot act on it yet, the marker
+      // sends it to the back of the queue for the next run.
+      await repo.markClaimSweepAttempt(candidate.externalWorkspaceId, now)
+      if (elapsed >= MANAGED_CLAIM_WINDOW.windowSeconds) {
+        // Past the deadline the blog is deleted, not reminded about.
+        if (await purgeClaimSite(workerEnv, candidate, now)) purged += 1
+        continue
+      }
+      const reminder = latestDueReminder(elapsed)
+      if (!reminder || reminderMarker(candidate, reminder.day) !== null) continue
+      // Claim the marker first: at most one reminder per day-slot ever,
+      // even with overlapping cron runs.
+      const claimed = await repo.markClaimReminderSent(
+        candidate.externalWorkspaceId,
+        reminder.day as ManagedClaimReminderDay,
+        now,
+      )
+      if (!claimed) continue
       try {
-        if (elapsed >= MANAGED_CLAIM_WINDOW.windowSeconds) {
-          // Past the deadline the blog is deleted, not reminded about.
-          if (await purgeClaimSite(workerEnv, candidate, now)) purged += 1
-          continue
-        }
-        const reminder = latestDueReminder(elapsed)
-        if (!reminder || reminderMarker(candidate, reminder.day) !== null) continue
-        // Claim the marker first: at most one reminder per day-slot ever,
-        // even with overlapping cron runs.
-        const claimed = await repo.markClaimReminderSent(
+        await sendClaimReminderEmail({
+          to: candidate.ownerEmail,
+          siteName: candidate.siteName,
+          daysLeft: Math.max(1, Math.ceil((deadline - now) / DAY_SECONDS)),
+          deadline,
+          loginUrl: `${workerEnv.APP_URL.replace(/\/$/, '')}/login`,
+        })
+        remindersSent += 1
+      } catch (error) {
+        // A definite failure releases the slot so tomorrow's run retries.
+        await repo.clearClaimReminderSent(
           candidate.externalWorkspaceId,
           reminder.day as ManagedClaimReminderDay,
           now,
         )
-        if (!claimed) continue
-        try {
-          await sendClaimReminderEmail({
-            to: candidate.ownerEmail,
-            siteName: candidate.siteName,
-            daysLeft: Math.max(1, Math.ceil((deadline - now) / DAY_SECONDS)),
-            deadline,
-            loginUrl: `${workerEnv.APP_URL.replace(/\/$/, '')}/login`,
-          })
-          remindersSent += 1
-        } catch (error) {
-          // A definite failure releases the slot so tomorrow's run retries.
-          await repo.clearClaimReminderSent(
-            candidate.externalWorkspaceId,
-            reminder.day as ManagedClaimReminderDay,
-            now,
-          )
-          console.warn('[managed-claim-sweep] reminder send failed', {
-            workspaceId: candidate.workspaceId,
-            day: reminder.day,
-            error: String(error),
-          })
-        }
-      } catch (error) {
-        // Per-site isolation: one broken site never blocks the rest.
-        console.warn('[managed-claim-sweep] site sweep failed', {
+        console.warn('[managed-claim-sweep] reminder send failed', {
           workspaceId: candidate.workspaceId,
+          day: reminder.day,
           error: String(error),
         })
       }
+    } catch (error) {
+      // Per-site isolation: one broken site never blocks the rest.
+      console.warn('[managed-claim-sweep] site sweep failed', {
+        workspaceId: candidate.workspaceId,
+        error: String(error),
+      })
     }
-    cursor = result.cursor
-    if (!cursor) break
   }
   return { skipped: false, candidates, remindersSent, purged, refundNotices }
 }

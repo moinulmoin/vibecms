@@ -384,6 +384,12 @@ export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites"
   claimDay21SentAt: integer("claim_day21_sent_at"),
   claimDay28SentAt: integer("claim_day28_sent_at"),
   revokedAt: integer("revoked_at"),
+  /**
+   * When the daily sweep last tried to act on this blog (epoch seconds).
+   * A blog the sweep cannot delete yet rotates to the back of the queue,
+   * so it can never take the slot of a blog that is still waiting.
+   */
+  lastSweepAttemptAt: integer("last_sweep_attempt_at"),
 }, (table) => [
   uniqueIndex("idx_autoseopilot_managed_external_workspace").on(table.externalWorkspaceId),
   uniqueIndex("idx_autoseopilot_managed_workspace").on(table.workspaceId),
