@@ -15,6 +15,7 @@ import { handleFeed, handleLlmsTxt, handleRobots, handleSitemap } from "./public
 import {
   handlePublicPostByHostGet,
   isPublicBlogPaused,
+  loadPublicIndexByHost,
   loadPublicPostByHost,
 } from "./public-blog";
 import { parsePublicRuntimeEnv } from "./public-url";
@@ -474,5 +475,62 @@ describe("public analytics effective entitlement gate", () => {
     const response = await analyticsPost(analyticsContext(DEFAULT_HOST, selfHostedEnv));
     expect(response.status).toBe(204);
     expect(writeDataPoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("public claim window ingress", () => {
+  it("keeps the blog online and indexed for the first seven days", async () => {
+    // Day 6 of the claim window: the blog is still fully online on every
+    // address, and still indexed.
+    await setManagedEntitlement("revoked", null, NOW - 6 * 24 * 60 * 60);
+
+    for (const host of [DEFAULT_HOST, CUSTOM_HOST]) {
+      const site = await resolveSite(requestFor(host), env.DB, runtimeEnv);
+      expect(site).toMatchObject({
+        effective_entitlement: { effective: false, servingAllowed: true, servingPaused: false },
+      });
+      expect(isPublicBlogIndexable(site!, runtimeEnv)).toBe(true);
+    }
+
+    // The machine surfaces still answer with the blog.
+    expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(200);
+    expect((await handleFeed(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(200);
+  });
+
+  it("pauses the blog after the grace: the paused page for visitors, 404 for the machines", async () => {
+    // Day 8 of the claim window: the blog is paused, not gone. The address
+    // still resolves, so every ingress can show the paused page.
+    await setManagedEntitlement("revoked", null, NOW - 8 * 24 * 60 * 60);
+
+    const site = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
+    expect(site).toMatchObject({
+      effective_entitlement: { servingAllowed: false, servingPaused: true },
+    });
+
+    // The loaders hand back the paused sentinel, never the content.
+    expect(
+      isPublicBlogPaused(await loadPublicIndexByHost(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)),
+    ).toBe(true);
+    expect(
+      isPublicBlogPaused(
+        await loadPublicPostByHost(env.DB, requestFor(DEFAULT_HOST, "/hello.md"), "hello.md", runtimeEnv),
+      ),
+    ).toBe(true);
+
+    // The machine surfaces are gone: no feed, no sitemap, no llms.txt.
+    expect((await handleFeed(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
+    expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
+    expect((await handleLlmsTxt(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
+
+    // A visitor gets the paused page, never a bare 404, and never indexable.
+    const paused = await handlePublicPostByHostGet(
+      env.DB,
+      requestFor(DEFAULT_HOST, "/hello.md"),
+      "hello.md",
+      runtimeEnv,
+    );
+    expect(paused?.status).toBe(503);
+    expect(paused?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(paused?.headers.get("cache-control")).toBe("no-store");
   });
 });
