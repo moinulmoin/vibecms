@@ -565,3 +565,62 @@ describe("proxied page assets and CSP (phase 2)", () => {
     expect(csp).toContain("script-src 'self'");
   });
 });
+
+describe("claim window on the subpath mount", () => {
+  const PAUSED_HOST = "spl-paused.basedui.dev";
+  const PAUSED_PROXY_ID = "spl-paused-0123456789abc";
+  const DAY = 24 * 60 * 60;
+  const pausedRequest = (path: string) => new Request(`https://${PAUSED_HOST}${path}`, { headers: { host: PAUSED_HOST } });
+  const ingressPath = `/_vc/p/${PAUSED_PROXY_ID}/hello`;
+  const revokedDaysAgo = (days: number) => Math.floor(Date.now() / 1000) - days * DAY;
+
+  beforeAll(async () => {
+    const exec = (sql: string, ...binds: unknown[]) => env.DB.prepare(sql).bind(...binds).run();
+    await exec("INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)",
+      "user-spl-paused", "Spl Paused", "spl-paused@example.test", T, T);
+    await exec("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      "ws-spl-paused", "Spl Paused", "ws-spl-paused", T, T);
+    await exec("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "site-spl-paused", "ws-spl-paused", "Paused Blog", "spl-paused", T, T);
+    await exec(
+      `INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, created_by_user_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
+      "key-spl-paused", "site-spl-paused", "AutoSEOPilot", "vc_test_spl_paused", "hash-spl-paused", "spl-paused", "user-spl-paused", T, T,
+    );
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "dom-spl-paused-def", "site-spl-paused", PAUSED_HOST, "default", "active", null, null, T, T);
+    await exec(
+      "INSERT INTO domains (id, site_id, hostname, type, status, base_path, proxy_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "dom-spl-paused-sub", "site-spl-paused", "paused.example.com", "subpath", "active", "/blog", PAUSED_PROXY_ID, T, T);
+    // A managed sponsorship revoked eight days ago: past the seven-day
+    // claim grace, so the blog is paused.
+    await exec(
+      `INSERT INTO autoseopilot_managed_sites (
+         id, external_workspace_id, owner_user_id, workspace_id, site_id, credential_id,
+         credential_generation, api_key_id, entitlement_status, entitlement_expires_at,
+         lifecycle_revision, created_at, updated_at, revoked_at
+       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'revoked', NULL, 1, ?, ?, ?)`,
+      "binding-spl-paused", "external-spl-paused", "user-spl-paused", "ws-spl-paused", "site-spl-paused",
+      "credential-spl-paused", "key-spl-paused", T, T, revokedDaysAgo(8),
+    );
+  });
+
+  it("pauses the mount after the claim grace and keeps the health probe alive", async () => {
+    // Past the grace: the page answers with the paused page, not a bare 404.
+    expect(await resolvePublicLocationIngress(env.DB, pausedRequest(ingressPath), ingressPath, runtimeEnv))
+      .toEqual({ kind: "paused" });
+
+    // The setup probe still answers: the customer can check the mount.
+    const healthPath = `/_vc/p/${PAUSED_PROXY_ID}/_vc/health`;
+    expect(await resolvePublicLocationIngress(env.DB, pausedRequest(healthPath), healthPath, runtimeEnv))
+      .toEqual({ kind: "health", siteId: "site-spl-paused", proxyFingerprint: await proxyFingerprint(PAUSED_PROXY_ID) });
+
+    // Before the grace the mount serves the blog as usual.
+    await env.DB.prepare("UPDATE autoseopilot_managed_sites SET revoked_at = ? WHERE id = ?")
+      .bind(revokedDaysAgo(6), "binding-spl-paused")
+      .run();
+    expect(await resolvePublicLocationIngress(env.DB, pausedRequest(ingressPath), ingressPath, runtimeEnv))
+      .toMatchObject({ kind: "proxied", path: "/hello" });
+  });
+});
