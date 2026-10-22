@@ -283,25 +283,9 @@ export const seoFindingSchema = z.object({
   position: z.number().optional(),
 });
 
-/** Strict shape the Workers AI review must satisfy; anything else is dropped. */
-export const seoAiReviewSchema = z
-  .object({
-    intent: z.string(),
-    titleIdeas: z.tuple([z.string(), z.string()]),
-    descriptionIdea: z.string(),
-    missingSubtopics: z.array(z.string()).max(5),
-    unclearPassages: z
-      .array(z.object({ quote: z.string(), why: z.string() }).strict())
-      .max(3),
-    claimsNeedingSources: z.array(z.object({ quote: z.string() }).strict()).max(3),
-  })
-  .strict();
-
 export const seoCheckPostDtoSchema = z.object({
   versionNumber: z.number().int(),
   findings: z.array(seoFindingSchema),
-  ai: seoAiReviewSchema.nullable().optional(),
-  warnings: z.array(z.string()).optional(),
 });
 
 export const previewPostDtoSchema = z.object({
@@ -323,5 +307,4 @@ export const previewPostDtoSchema = z.object({
 export type PreviewPostDto = z.infer<typeof previewPostDtoSchema>;
 
 export type SeoFinding = z.infer<typeof seoFindingSchema>;
-export type SeoAiReview = z.infer<typeof seoAiReviewSchema>;
 export type SeoCheckPostDto = z.infer<typeof seoCheckPostDtoSchema>;

@@ -1,20 +1,24 @@
 ---
-title: SEO checks
-description: Deterministic SEO checks and an optional AI review before you publish.
+title: SEO and AI-answer checks
+description: Deterministic checks for search engines and AI answers before you publish, on every plan.
 ---
 
-Every post is checked for the things search engines and AI answer engines look for: titles and descriptions, heading structure, links, duplicates, and more. Findings have a stable `code`, a `severity` of `error`, `warn`, or `info`, the `field` they attach to, a plain-language `message`, and a `fix` hint. They come back sorted by severity.
+Every post is checked for the things search engines and AI answer engines look for: titles and descriptions, heading structure, links, duplicates, an opening that can stand as an answer, sourced numbers, and passages short enough to quote. There are 31 rules, all plain code, and they run on every plan, Try free included. vibecms runs no AI model on your post. The judgment calls a rule can't make (does the opening actually answer the title? which claims need a source?) are for your own agent, guided by the `vibecms-seo` skill.
+
+Findings have a stable `code`, a `severity` of `error`, `warn`, or `info`, the `field` they attach to, a plain-language `message`, and a `fix` hint. They come back sorted by severity.
 
 ## Where they show
 
 - `posts.preview` returns the findings in its `seo` field next to `warnings`, so the existing preview flow sees them for free.
-- `posts.seo_check({postId, focusKeyword?, ai?})` checks a saved post's current tip and returns `{versionNumber, findings, ai?, warnings?}`. REST mirrors it at `GET /api/v1/posts/{postId}/seo?focusKeyword=&ai=1`.
+- `posts.seo_check({postId, focusKeyword?})` checks a saved post's current tip and returns `{versionNumber, findings}`. REST mirrors it at `GET /api/v1/posts/{postId}/seo?focusKeyword=`.
 - The editor's SEO section lists findings grouped by severity, with a focus keyword field saved per browser and one-click jumps to the SEO fields a finding attaches to.
 - The publish dialog lists open `error` findings. It informs, it does not block.
 
 Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) skips the checks that attach to saved metadata — title, description, slug, duplicates, canonical — but still runs site context like `site-not-indexable` alongside the body checks.
 
 ## Finding codes
+
+26 rules for search engines (including the five focus keyword rules) and 5 for AI answers.
 
 ### Title, description, slug
 
@@ -71,23 +75,22 @@ Previewing unsaved Markdown (`contentMarkdown` instead of `postId`) skips the ch
 
 Pass `focusKeyword` to `posts.seo_check` (or fill the editor field) to add five `warn` findings, one for each place the keyword should appear: `keyword-title`, `keyword-slug`, `keyword-intro` (first 100 words), `keyword-heading` (a subheading; the title does not count), and `keyword-description`. Hyphens and underscores in a keyword match like spaces.
 
-## AI review
+### AI answers
 
-`posts.seo_check` with `ai: true` (or the editor's **Ask AI review** button) runs one opt-in Workers AI pass over the post. It returns:
+AI answer engines quote short, self-contained passages. These rules check structure only; they can't tell whether a passage is right or useful.
 
-- `intent` — the searcher intent the post best serves
-- `titleIdeas` — two alternative SEO titles
-- `descriptionIdea` — one meta description
-- `missingSubtopics` — up to five subtopics a searcher would expect
-- `unclearPassages` — up to three verbatim quotes and why they confuse or overreach
-- `claimsNeedingSources` — up to three verbatim quotes for claims that need a citation
+| Code | Severity | Meaning and fix |
+| --- | --- | --- |
+| `answer-intro-missing` | warn | The post opens with a heading, list, or quote instead of a paragraph — start with a short paragraph that answers the title. |
+| `answer-intro-long` | info | The opening paragraph runs over 80 words — keep the answer under 80 and move detail to the next paragraph. |
+| `answer-claim-unsourced` | info | A paragraph states a percentage, a multiplier ("3x faster"), or a count in millions or more with no link in that paragraph — link the source or say where the number comes from. Footnote references count as links. Plain counts, versions, years, and prices are not flagged. |
+| `answer-section-long` | info | The text under one heading runs over 400 words before the next heading — add subheadings so each part makes sense quoted on its own. |
+| `answer-steps-prose` | info | A paragraph walks through steps in prose (three or more sentences starting with words like "First", "Then", "Finally"), or two or more paragraphs in a row start with "Step 1", "Step 2" — use a numbered list. |
 
-In the editor, **Use this** puts a title or description idea into the SEO field and saves through the normal autosave — it may fold into the current unpublished tip rather than cut a new version, and a suggestion equal to the current value saves nothing. Nothing goes live until you publish.
-
-The post is sent to the model as untrusted data — instructions inside the post are ignored. Results are cached per post version and model, so checking the same version again is free; changing the focus keyword does not regenerate a cached review.
-
-Limits: hosted free sites get 3 reviews a day, paid sites 100 a day, and self-hosted installs have no cap — they spend their own Workers AI allocation (about 140 reviews a day on the free 10,000-neuron tier). Over the limit returns `RATE_LIMIT` with `retryAfterSeconds`. If the deployment has no Workers AI binding, `ai: true` returns `AI_UNAVAILABLE`; a failed or unparseable model response returns `ai: null` with a warning — the deterministic findings still apply.
+Code blocks never count toward these rules, and a number inside inline code is not a claim.
 
 ## Agent guidance
 
-Fix `error` and `warn` findings before asking for publish approval. `error` findings are broken promises — a link to a post that doesn't exist yet; `warn` findings are things readers and crawlers will notice. `info` findings are optional improvements.
+Fix `error` and `warn` findings before asking for publish approval. `error` findings are broken promises — a link to a post that doesn't exist yet; `warn` findings are things readers and crawlers will notice. `info` findings are optional improvements. Never invent a source to clear `answer-claim-unsourced`; say where the number comes from instead.
+
+Then answer the judgment questions in the `vibecms-seo` skill with your own model before asking the human to approve.

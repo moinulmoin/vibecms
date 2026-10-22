@@ -36,7 +36,6 @@
       "migrations_dir": "packages/db/drizzle"
     }
   ],
-  "ai": { "binding": "AI" },
   "r2_buckets": [
     {
       "binding": "ASSETS_BUCKET",
@@ -57,7 +56,6 @@
     "PUBLIC_BLOG_DOMAIN": "vibecms-public.example.workers.dev",
     "SELF_HOSTED": "true",
     "EMAIL_FROM": "vibecms <hey@example.com>",
-    "POLAR_SERVER": "production",
-    "SEO_REVIEW_MODEL": "@cf/google/gemma-4-26b-a4b-it"
+    "POLAR_SERVER": "production"
   }
 }

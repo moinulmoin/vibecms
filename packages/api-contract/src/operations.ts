@@ -436,9 +436,9 @@ export const operations = [
     operationId: "seoCheckPost",
     requiredScope: "posts:read",
     description: opDescription(
-      "Check a saved post's SEO and AI-answer readiness on the current tip. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same deterministic findings in its seo field. Optional focusKeyword adds keyword checks; ai: true runs an opt-in AI review that counts against the site's daily review limit (over the limit returns RATE_LIMIT with retryAfterSeconds; AI_UNAVAILABLE when no AI binding is configured). Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
+      "Check a saved post's SEO and AI-answer readiness on the current tip with deterministic rules; vibecms runs no AI model on the post. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same findings in its seo field. Optional focusKeyword adds keyword checks. Judgment calls (does the opening answer the title, which claims need a source) are for your own agent; see the vibecms-seo skill. Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
       "posts:read",
-      `${readErrors} AI_UNAVAILABLE when the AI review is requested but not configured on this deployment.`,
+      readErrors,
     ),
     requestSchema: seoCheckPostRequestSchema,
     responseSchema: seoCheckPostDtoSchema,

@@ -17,7 +17,6 @@
       "bucket_name": "vibecms-assets-test"
     }
   ],
-  // Worker tests install a mock env.AI; never connect to remote Workers AI.
   "vars": {
     "APP_ENV": "development",
     "APP_URL": "https://app.basedui.dev",
@@ -29,7 +28,6 @@
     "POLAR_SERVER": "sandbox",
     "BETTER_AUTH_SECRET": "test-secret-for-miniflare-not-used",
     "TOKEN_PEPPER": "test-pepper-for-miniflare-not-used",
-    "POLAR_WEBHOOK_SECRET": "test-webhook-secret-not-used",
-    "SEO_REVIEW_MODEL": "@cf/google/gemma-4-26b-a4b-it"
+    "POLAR_WEBHOOK_SECRET": "test-webhook-secret-not-used"
   }
 }

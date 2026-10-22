@@ -2,6 +2,8 @@
 
 Status: DONE — shipped to production 2026-10-13 (migration `0035`). Deterministic checks, `posts.seo_check`, the dashboard API route, the editor SEO rail, AI review UI, and publish-dialog findings all ship. The local smoke noted below remains historical; a remote Workers AI call was not separately re-verified.
 
+Update 2026-10-22: the AI review half of this plan is removed (plan 028, founder decision): no `ai` option, no `AI` binding, no `SEO_REVIEW_MODEL`, and migration `0042` drops `post_seo_reviews`. The deterministic rules stay and gain five AI-answer rules; judgment moved to the `vibecms-seo` skill. The AI review sections below are historical.
+
 ## Why
 
 AutoSEOPilot writes posts with agents; vibecms is where they land. Both the agent and the

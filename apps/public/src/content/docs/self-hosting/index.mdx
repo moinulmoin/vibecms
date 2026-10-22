@@ -37,11 +37,9 @@ Production OTP delivery also requires a configured `EMAIL` binding and sender do
 
 The API Worker's `wrangler.jsonc` declares three cron triggers — three of the five a Workers Free account allows: `17 2 * * *` runs the daily analytics rollup and the subpath location re-check, `*/15 * * * *` runs media reconciliation, and `* * * * *` publishes due scheduled posts. Removing the daily trigger stops history rollups and location re-checks; scheduled publishing depends on the every-minute trigger.
 
-## Optional analytics and AI
+## Optional analytics
 
 Blog analytics turn on when the public Worker has an `analytics_engine_datasets` binding named `ANALYTICS` and both Workers set `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` (see [`docs/self-hosting.md`](https://github.com/moinulmoin/vibecms/blob/dev/docs/self-hosting.md)). Without them, analytics collects nothing.
-
-AI SEO reviews need a Workers AI binding named `AI` on the API Worker; `SEO_REVIEW_MODEL` picks the model. Without the binding, AI review requests return `AI_UNAVAILABLE` and deterministic SEO checks still work.
 
 ## Deploy
 

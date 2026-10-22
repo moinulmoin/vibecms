@@ -63,18 +63,17 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
     preferences such as light or dark mode stay in the reader&rsquo;s own browser storage.
   </p>
 
-  <h2>AI review</h2>
+  <h2>AI</h2>
   <p>
-    AI SEO review is opt-in. Only when you or your agent asks for one, we send the site name and the
-    post&rsquo;s title, description, focus keyword, and up to 24,000 characters of its Markdown to
-    Cloudflare Workers AI. This includes unpublished drafts. Results are cached by post version and
-    model.
+    We run no AI model on your content. The SEO and AI-answer checks are plain code that runs in
+    our own service. Your agent is yours: what it sends to its own AI provider is between you and
+    that provider.
   </p>
 
   <h2>Providers</h2>
   <p>
     The service runs on Cloudflare: compute, database, and media storage, Cloudflare Email Sending
-    for sign-in codes, and Workers AI for requested reviews. Polar processes payments. Each
+    for sign-in codes. Polar processes payments. Each
     provider processes data only as needed to deliver the service.
   </p>
 

@@ -72,8 +72,8 @@ Last updated: 2026-10-21
 ### Public output & SEO
 - RSS feed, sitemap.xml, robots.txt, llms.txt (per-site + product variant), `content-signal` AI headers; per-site favicons (PWA manifest + light/dark theme-color only on marketing/legal chrome). `sitemap.xml` emits per-URL `<lastmod>`; RSS carries full sanitized article HTML in `<content:encoded>` plus channel `<lastBuildDate>` and `<atom:link rel="self">`.
 - Per-post OG/Twitter/meta/canonical; `noindex` for unpaid blogs.
-- Deterministic SEO findings in `posts.preview` and `posts.seo_check` (metadata, headings, links, content, duplicates, indexing, optional focus keyword); no score. Editor SEO rail + publish-dialog findings.
-- Opt-in Workers AI SEO review, cached by post/version/model; hosted free 3/site/day, paid 100/site/day, self-host unlimited by the application.
+- Deterministic SEO and AI-answer (GEO) findings in `posts.preview` and `posts.seo_check` on every plan, Try free included: 31 code rules, 26 for search (metadata, headings, links, content, duplicates, indexing, optional focus keyword) and 5 for AI answers (opening paragraph before the first heading and under 80 words, number claims without a link, sections over 400 words, steps written as prose); no score. Editor SEO rail + publish-dialog findings.
+- Judgment questions (does the opening answer the title, which claims need a source, does each section stand alone when quoted) live in the `vibecms-seo` skill for the customer's own agent; vibecms runs no AI model on content. The Workers AI SEO review was removed on 2026-10-22 (migration 0042 drops its cache table).
 - Public caching (`s-maxage=300` + stale-while-revalidate + per-article cache tag) with purge on publish/archive and live site-setting changes (zone purge, fail-open); saving private post edits leaves the live cache unchanged.
 - Marketing sitemap includes the landing, all docs collection pages, and legal pages; legal `<lastmod>` follows the displayed update date. Docs and legal pages share canonical and absolute OG/Twitter metadata.
 - Marketing and docs misses render the branded HTML 404 with status 404; tenant not-found handling stays separate.
@@ -85,7 +85,7 @@ Last updated: 2026-10-21
 - First-party agent fetch counting on the public Worker (`agent_fetch`): known agent user agents, markdown/representation requests, and `Signature-Agent` presence; stores matched agent/category, resource, representation, and host - not full UA/IP. Covers proxied customer-subpath and custom-domain traffic the zone query cannot see.
 - Raw Analytics Engine retention 90 days; D1 keeps 365-day detail then monthly all-time aggregates. Legacy zone-crawler rows only fill dates without agent data.
 - AI referrals are identified by referrer hostname. No IP address, user agent, full referrer URL, persistent visitor ID, or visitor profile is stored for page views; DNT and Global Privacy Control opt out.
-- Privacy disclosures distinguish reader beacons from server-side agent reads, essential app sessions, Cloudflare Email Sending, Polar checkout, and opt-in Workers AI review of saved content, including drafts.
+- Privacy disclosures distinguish reader beacons from server-side agent reads, essential app sessions, Cloudflare Email Sending, and Polar checkout, and state that vibecms runs no AI model on customer content.
 
 ### Agent surfaces
 - MCP server at `POST /mcp` with 37 tools (sites/theme/voice/signup_form/location, tags, analytics, posts, assets, activity, versions + `posts.format_guide`, `posts.preview`, `posts.seo_check`); JSON-RPC, 4 supported protocol versions (three initialize-era plus modern `2026-07-28`), per-tool scope + read/destructive/idempotent hints.
@@ -159,6 +159,7 @@ Last updated: 2026-10-21
 - **Multi-blog / teams / comments**: single-blog-per-workspace by design.
 - **Page builder or block-canonical content model**: intentionally skipped. Markdown stays canonical; the visual block canvas is a capability-gated editing adapter, not a second storage format.
 - **Platform-authored AI content**: the agent is the intelligence; the platform validates/nudges (e.g. `posts.format_guide`, `posts.preview`, `posts.seo_check`) but never writes content.
+- **Platform-run AI review**: removed 2026-10-22 (plan 028). The platform checks with code; the customer's agent makes judgment calls with its own model, so we pay no inference and send no content to a model.
 
 ---
 

@@ -267,20 +267,9 @@ export const seoFindingSchema = z.object({
   position: z.number().optional(),
 })
 
-export const seoAiReviewSchema = z.object({
-  intent: z.string(),
-  titleIdeas: z.tuple([z.string(), z.string()]),
-  descriptionIdea: z.string(),
-  missingSubtopics: z.array(z.string()).max(5),
-  unclearPassages: z.array(z.object({ quote: z.string(), why: z.string() })).max(3),
-  claimsNeedingSources: z.array(z.object({ quote: z.string() })).max(3),
-})
-
 export const seoCheckResultSchema = z.object({
   versionNumber: z.number().int(),
   findings: z.array(seoFindingSchema),
-  ai: seoAiReviewSchema.nullable().optional(),
-  warnings: z.array(z.string()).optional(),
 })
 
 /** Slim read of /api/dashboard/analytics?postId=… — just what the editor rail line needs. */

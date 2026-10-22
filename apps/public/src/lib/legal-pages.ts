@@ -7,7 +7,7 @@ type LegalPage = keyof typeof LEGAL;
  * for the page's "Last updated" line and the marketing sitemap's `<lastmod>`.
  */
 export const LEGAL_UPDATED = {
-  privacy: "2026-10-15",
+  privacy: "2026-10-22",
   terms: "2026-08-16",
   support: "2026-08-16",
 } as const satisfies Record<LegalPage, string>;

@@ -1,12 +1,10 @@
-import { Button, Field, FieldLabel, Input } from '@vc/ui'
+import { Field, FieldLabel, Input } from '@vc/ui'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, CircleAlert, Info, Sparkles } from 'lucide-react'
+import { AlertTriangle, CircleAlert, Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Spinner } from '~/components/ui/spinner'
-import { checkPostSeo, DashboardApiError } from '~/lib/api-client'
 import { postAnalyticsQuery, postSeoQuery } from '~/lib/queries'
-import type { PostAnalytics, SeoAiReview, SeoFinding } from '~/types/dashboard'
+import type { PostAnalytics, SeoFinding } from '~/types/dashboard'
 
 export const SEO_SECTION_ID = 'post-seo-section'
 
@@ -73,13 +71,6 @@ export function usePostSeoCheck(postId: string | undefined, versionNumber: numbe
   return useQuery(postSeoQuery(postId, version, keyword.trim()))
 }
 
-function rateLimitMessage(error: DashboardApiError) {
-  const seconds = error.retryAfterSeconds
-  if (seconds === undefined) return "You've used today's AI reviews. Try again later."
-  const hours = Math.max(1, Math.ceil(seconds / 3600))
-  return `You've used today's AI reviews. Try again in ${hours} ${hours === 1 ? 'hour' : 'hours'}.`
-}
-
 const SEVERITY_META = [
   { severity: 'error', label: 'Errors', icon: CircleAlert, className: 'text-destructive' },
   { severity: 'warn', label: 'Warnings', icon: AlertTriangle, className: 'text-warning' },
@@ -128,76 +119,17 @@ function FindingRow({ finding }: { finding: SeoFinding }) {
   )
 }
 
-function AiReviewView({ review, onApply }: { review: SeoAiReview; onApply: (field: 'seoTitle' | 'seoDescription', value: string) => void }) {
-  return (
-    <div className="grid gap-3 text-[13px] leading-5">
-      {review.intent ? <p className="text-muted-foreground">Search intent: {review.intent}</p> : null}
-      {review.titleIdeas.length > 0 ? (
-        <div>
-          <p className="font-medium text-foreground">Title ideas</p>
-          <ul className="mt-1 grid gap-1.5">
-            {review.titleIdeas.map((idea) => (
-              <li key={idea} className="flex items-start justify-between gap-2">
-                <span className="min-w-0 text-muted-foreground">{idea}</span>
-                <Button type="button" variant="link" size="sm" className="h-auto shrink-0 p-0" onClick={() => onApply('seoTitle', idea)}>Use this</Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {review.descriptionIdea ? (
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-medium text-foreground">Description idea</p>
-            <p className="mt-1 text-muted-foreground">{review.descriptionIdea}</p>
-          </div>
-          <Button type="button" variant="link" size="sm" className="h-auto shrink-0 p-0" onClick={() => onApply('seoDescription', review.descriptionIdea)}>Use this</Button>
-        </div>
-      ) : null}
-      {review.missingSubtopics.length > 0 ? (
-        <div>
-          <p className="font-medium text-foreground">Missing subtopics</p>
-          <ul className="mt-1 list-disc space-y-0.5 ps-5 text-muted-foreground">
-            {review.missingSubtopics.map((item) => <li key={item}>{item}</li>)}
-          </ul>
-        </div>
-      ) : null}
-      {review.unclearPassages.length > 0 ? (
-        <div>
-          <p className="font-medium text-foreground">Unclear passages</p>
-          <ul className="mt-1 list-disc space-y-0.5 ps-5 text-muted-foreground">
-            {review.unclearPassages.map((item) => <li key={item.quote}>&ldquo;{item.quote}&rdquo; — {item.why}</li>)}
-          </ul>
-        </div>
-      ) : null}
-      {review.claimsNeedingSources.length > 0 ? (
-        <div>
-          <p className="font-medium text-foreground">Claims needing sources</p>
-          <ul className="mt-1 list-disc space-y-0.5 ps-5 text-muted-foreground">
-            {review.claimsNeedingSources.map((item) => <li key={item.quote}>&ldquo;{item.quote}&rdquo;</li>)}
-          </ul>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 export type SeoSectionProps = {
   postId?: string
   postStatus: 'draft' | 'published' | 'archived' | null
   /** Saved version the check runs against; bumps re-check after each save. */
   versionNumber: number | null
-  onApplySeo: (field: 'seoTitle' | 'seoDescription', value: string) => void
 }
 
-export function SeoSection({ postId, postStatus, versionNumber, onApplySeo }: SeoSectionProps) {
+export function SeoSection({ postId, postStatus, versionNumber }: SeoSectionProps) {
   const [focusKeyword, setFocusKeyword] = useState(() => (postId ? readFocusKeyword(postId) : ''))
   const check = usePostSeoCheck(postId, versionNumber, focusKeyword)
   const analytics = useQuery(postAnalyticsQuery(postStatus === 'published' ? postId : undefined))
-  const [aiPending, setAiPending] = useState(false)
-  const [aiReview, setAiReview] = useState<SeoAiReview | null>(null)
-  const [aiWarnings, setAiWarnings] = useState<string[]>([])
-  const [aiMessage, setAiMessage] = useState<string | null>(null)
 
   const groups = useMemo(
     () =>
@@ -207,24 +139,6 @@ export function SeoSection({ postId, postStatus, versionNumber, onApplySeo }: Se
       })).filter((group) => group.findings.length > 0),
     [check.data],
   )
-
-  async function askAiReview() {
-    if (!postId) return
-    setAiPending(true)
-    setAiMessage(null)
-    try {
-      const result = await checkPostSeo({ postId, ...(focusKeyword.trim() ? { focusKeyword: focusKeyword.trim() } : {}), ai: true })
-      setAiReview(result.ai ?? null)
-      setAiWarnings(result.warnings ?? [])
-      if (!result.ai) setAiMessage('The AI review didn’t return usable suggestions. Try again in a moment.')
-    } catch (error) {
-      if (error instanceof DashboardApiError && error.code === 'RATE_LIMIT') setAiMessage(rateLimitMessage(error))
-      else if (error instanceof DashboardApiError && error.code === 'AI_UNAVAILABLE') setAiMessage("AI review isn't set up on this server.")
-      else setAiMessage("Couldn't get an AI review. Try again later.")
-    } finally {
-      setAiPending(false)
-    }
-  }
 
   const stats: PostAnalytics = analytics.data ?? null
 
@@ -266,22 +180,6 @@ export function SeoSection({ postId, postStatus, versionNumber, onApplySeo }: Se
             </ul>
           </div>
         ))}
-      </div>
-
-      <div className="grid gap-3">
-        <div>
-          <Button type="button" variant="outline" size="sm" disabled={aiPending || !postId} onClick={() => void askAiReview()}>
-            {aiPending ? <Spinner aria-hidden className="size-3.5" /> : <Sparkles aria-hidden className="size-3.5" />}
-            {aiPending ? 'Reviewing…' : 'Ask AI review'}
-          </Button>
-        </div>
-        {aiMessage ? <p role="status" className="text-sm text-muted-foreground">{aiMessage}</p> : null}
-        {aiReview ? <AiReviewView review={aiReview} onApply={onApplySeo} /> : null}
-        {aiWarnings.length > 0 ? (
-          <ul className="list-disc space-y-0.5 ps-5 text-[13px] leading-5 text-muted-foreground">
-            {aiWarnings.map((warning) => <li key={warning}>{warning}</li>)}
-          </ul>
-        ) : null}
       </div>
     </div>
   )

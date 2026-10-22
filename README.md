@@ -72,14 +72,14 @@ sites.get -> posts.format_guide -> draft -> posts.preview
 
 Fix `error` and `warn` SEO findings before asking for publication approval.
 `posts.preview` includes deterministic `seo` findings. For a saved post, use
-`posts.seo_check({postId, focusKeyword?, ai?})` or
-`GET /api/v1/posts/{postId}/seo?focusKeyword=deployment&ai=1`.
-AI review is opt-in and cached by post version and model; changing the keyword
-does not regenerate a cached review. Hosted sites get 3 reviews/day free or
-100/day with an effective paid entitlement; self-hosted sites have no application
-cap. `RATE_LIMIT` includes `retryAfterSeconds`; without a Workers AI binding,
-AI requests return `AI_UNAVAILABLE`. Invalid AI output returns `ai: null` with a
-warning, leaving deterministic findings available.
+`posts.seo_check({postId, focusKeyword?})` or
+`GET /api/v1/posts/{postId}/seo?focusKeyword=deployment`.
+The 31 rules are plain code and run on every plan: 26 for search engines
+(metadata, headings, links, content, duplicates, indexing, focus keyword) and 5
+for AI answers (a short opening paragraph before the first heading, numbers
+with a source link, sections short enough to quote, steps as lists). vibecms
+runs no AI model on your posts; your agent answers the judgment questions in
+the `vibecms-seo` skill with its own model.
 
 The REST `/api/v1` API mirrors the MCP tools with full read/write parity. Post lists return summaries without full Markdown, so fetch a single post body through REST or MCP `posts.get`:
 

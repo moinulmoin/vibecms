@@ -27,7 +27,7 @@ describe("public agent discovery", () => {
     expect(card.endpoint).toBe(`${app}/mcp`);
     expect(card.capabilities).toEqual({ tools: {} });
     const index = await agentSkillsIndex(origin);
-    expect(index.skills.map((skill) => skill.name)).toEqual(["vibecms-core", "vibecms-writing"]);
+    expect(index.skills.map((skill) => skill.name)).toEqual(["vibecms-core", "vibecms-seo", "vibecms-writing"]);
     for (const skill of index.skills) {
       const bytes = new TextEncoder().encode(skillArtifacts[skill.name as keyof typeof skillArtifacts]);
       const hash = await crypto.subtle.digest("SHA-256", bytes);

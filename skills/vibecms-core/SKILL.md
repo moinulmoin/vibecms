@@ -23,11 +23,12 @@ Use this skill whenever an agent reads, drafts, revises, or publishes through th
 3. **Inspect only relevant content.** Use `posts.list` or `posts.search`; call `posts.get` only for the post being edited or a small set of relevant exemplars.
 4. **Prepare the draft.** Apply `vibecms-writing`. For new work, call `posts.create` and verify the returned status is `draft`. For revisions, call `posts.update` with `expectedVersionNumber` set to the current tip from `posts.get` / `posts.versions.list`; `contentMarkdown` must contain the complete body. Upload approved images with descriptive alt text before assigning a featured asset or inserting its returned URL into Markdown.
 5. **Read and preview the saved content.** Fetch the saved post with `posts.get`, then call `posts.preview` with that exact Markdown and presentation. Surface every warning and the resolved presentation. `posts.preview` is read-only and does **not** create or return a saved version number. Send the person the `previewUrl` returned by `posts.create` / `posts.update` so they can see the saved draft on their own blog; never construct one.
-6. **Bind the approval request.** Record currentVersionNumber from the same posts.get response whose Markdown and presentation you previewed. Bind approval to that number. If a subsequent read reports a different currentVersionNumber, fetch and preview that version before requesting approval. Then present the title, post ID, exact version, and remaining preview warnings. Ask: “Publish this exact version now?”
-7. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.
-8. **Recheck.** Immediately before publishing, call `posts.get` again. If the currentVersionNumber changed, re-read, re-preview, and request fresh approval.
-9. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`. If the person asked for a later time, call `posts.schedule` with `{ postId, versionNumber, publishAt }` instead (same approval rule); `posts.unschedule` cancels it.
-10. **Report evidence.** Return the exact title, published status, and tool-returned `url`. If `url` is null, say that; do not construct one.
+6. **Fix SEO findings.** The preview's `seo` field lists the SEO and AI-answer findings; `posts.seo_check({ postId })` re-runs them on the saved tip. Fix every `error` and `warn` finding before asking for publication approval, using each finding's `fix` hint, then save, re-read, and re-preview. Never invent a source, number, or date to clear a finding. Use `vibecms-seo` for the judgment questions the rules can't answer.
+7. **Bind the approval request.** Record currentVersionNumber from the same posts.get response whose Markdown and presentation you previewed. Bind approval to that number. If a subsequent read reports a different currentVersionNumber, fetch and preview that version before requesting approval. Then present the title, post ID, exact version, remaining preview warnings, and any SEO findings left open with the reason. Ask: “Publish this exact version now?”
+8. **Wait.** Do not call `posts.publish` in the drafting/revision turn. Approval must be an explicit current-conversation instruction to publish the identified version.
+9. **Recheck.** Immediately before publishing, call `posts.get` again. If the currentVersionNumber changed, re-read, re-preview, and request fresh approval.
+10. **Publish exactly once.** Call `posts.publish` with `{ postId, expectedVersionNumber }`. If the person asked for a later time, call `posts.schedule` with `{ postId, versionNumber, publishAt }` instead (same approval rule); `posts.unschedule` cancels it.
+11. **Report evidence.** Return the exact title, published status, and tool-returned `url`. If `url` is null, say that; do not construct one.
 
 ## Draft vs live
 
@@ -85,6 +86,7 @@ Report:
 - post ID and status;
 - newest saved version;
 - preview warnings and resolved presentation;
+- SEO findings left open, with the reason;
 - unresolved facts or decisions;
 - the exact next action requiring the user.
 

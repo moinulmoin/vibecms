@@ -10,8 +10,6 @@ declare namespace Cloudflare {
     ASSETS_BUCKET: R2Bucket;
     ASSETS: Fetcher;
     EMAIL: SendEmail;
-    AI: Ai;
-    SEO_REVIEW_MODEL: string;
     TOKEN_PEPPER?: string;
     AUTOSEOPILOT_INTERNAL_SECRET?: string;
     BETTER_AUTH_SECRET?: string;

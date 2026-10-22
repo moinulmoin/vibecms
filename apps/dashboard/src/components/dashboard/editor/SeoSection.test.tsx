@@ -3,7 +3,6 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { withQueryClient } from '~/test/query'
-import { DashboardApiError } from '~/lib/api-client'
 import type { SeoCheckResult } from '~/types/dashboard'
 
 const api = vi.hoisted(() => ({
@@ -46,7 +45,7 @@ async function renderSection(props: Partial<Parameters<typeof SeoSection>[0]> = 
   root = createRoot(host)
   await act(async () => {
     root!.render(withQueryClient(
-      <SeoSection postId="post-1" postStatus="draft" versionNumber={1} onApplySeo={() => {}} {...props} />,
+      <SeoSection postId="post-1" postStatus="draft" versionNumber={1} {...props} />,
     ))
   })
   for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
@@ -126,59 +125,6 @@ describe('SeoSection', () => {
     } finally {
       seoTitle.remove()
     }
-  })
-
-  it('shows AI review ideas and fills the SEO fields via Use this', async () => {
-    api.checkPostSeo.mockResolvedValue({
-      versionNumber: 1,
-      findings: [],
-      ai: {
-        intent: 'informational',
-        titleIdeas: ['A better title', 'Another title'],
-        descriptionIdea: 'A sharper description.',
-        missingSubtopics: ['internal linking'],
-        unclearPassages: [{ quote: 'it just works', why: 'no subject' }],
-        claimsNeedingSources: [{ quote: '99% faster' }],
-      },
-    })
-    const applied: Array<[string, string]> = []
-    const el = await renderSection({ onApplySeo: (field, value) => applied.push([field, value]) })
-    const ask = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Ask AI review'))
-    await act(async () => ask!.click())
-    for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
-    expect(api.checkPostSeo).toHaveBeenCalledWith({ postId: 'post-1', ai: true })
-    expect(el.textContent).toContain('A better title')
-    expect(el.textContent).toContain('A sharper description.')
-    expect(el.textContent).toContain('internal linking')
-    expect(el.textContent).toContain('it just works')
-    expect(el.textContent).toContain('99% faster')
-    const useButtons = [...el.querySelectorAll('button')].filter((b) => b.textContent === 'Use this')
-    expect(useButtons).toHaveLength(3)
-    await act(async () => useButtons[0]!.click())
-    await act(async () => useButtons[2]!.click())
-    expect(applied).toEqual([['seoTitle', 'A better title'], ['seoDescription', 'A sharper description.']])
-  })
-
-  it('explains the daily limit when AI review is rate limited', async () => {
-    api.checkPostSeo
-      .mockResolvedValueOnce({ versionNumber: 1, findings: [] })
-      .mockRejectedValueOnce(new DashboardApiError(429, 'RATE_LIMIT', 'limited', undefined, 7200))
-    const el = await renderSection()
-    const ask = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Ask AI review'))
-    await act(async () => ask!.click())
-    for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
-    expect(el.textContent).toContain("You've used today's AI reviews. Try again in 2 hours.")
-  })
-
-  it('explains when AI review is not set up on the server', async () => {
-    api.checkPostSeo
-      .mockResolvedValueOnce({ versionNumber: 1, findings: [] })
-      .mockRejectedValueOnce(new DashboardApiError(503, 'AI_UNAVAILABLE', 'no binding'))
-    const el = await renderSection()
-    const ask = [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Ask AI review'))
-    await act(async () => ask!.click())
-    for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
-    expect(el.textContent).toContain("AI review isn't set up on this server.")
   })
 
   it('shows the 30-day line for published posts when analytics is available', async () => {
