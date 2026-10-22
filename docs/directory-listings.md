@@ -12,17 +12,16 @@ Repo files these listings depend on:
   marketplace named `vibecms`.
 - `plugins/vibecms/`: the `vibecms` plugin. `.claude-plugin/plugin.json`
   declares the hosted MCP server and asks for the agent key.
-- `skills/`: the only hand-edited copy of the `vibecms-core` and
-  `vibecms-writing` skills (what `npx skills add` and
+- `skills/`: the only hand-edited copy of the `vibecms-core`,
+  `vibecms-writing` and `vibecms-seo` skills (what `npx skills add` and
   `/.well-known/agent-skills/` serve). The plugin's `plugins/vibecms/skills/`
   is a generated copy produced by `pnpm gen:agent-skills`; never edit it by
-  hand. Until that generator change lands, the plugin folder has no skills
-  and installs the MCP server only.
+  hand.
 
-When the product changes, keep `version` in `server.json` and
-`plugins/vibecms/.claude-plugin/plugin.json` in step with the root
-`package.json`. Claude Code only updates plugin users when the plugin
-`version` changes, so bump it whenever a skill changes.
+When the product changes, keep `version` in `server.json` in step with the
+root `package.json`. Claude Code only updates plugin users when the plugin
+`version` in `plugins/vibecms/.claude-plugin/plugin.json` changes, so bump it
+whenever a skill changes, even between product releases.
 
 ## Listing copy
 
@@ -138,8 +137,9 @@ Server behavior that directory scanners will see:
   moinulmoin/vibecms` and `/plugin install vibecms@vibecms` in a session).
 - **Docs:** <https://code.claude.com/docs/en/plugin-marketplaces>,
   <https://code.claude.com/docs/en/plugins/manifest-reference>.
-- **What it installs:** skills `vibecms:vibecms-core` and
-  `vibecms:vibecms-writing`, and the MCP server `vibecms`. The key is a
+- **What it installs:** skills `vibecms:vibecms-core`,
+  `vibecms:vibecms-writing` and `vibecms:vibecms-seo`, and the MCP server
+  `vibecms`. The key is a
   `userConfig` value (`sensitive: true`): Claude Code prompts for it when the
   plugin is enabled, masks it, and stores it in the system credential store.
   The header is `Bearer ${user_config.api_key}`; no key is in the repo.
@@ -284,7 +284,7 @@ after `mnoomnoo/resume-mcp-server` (category choice **[CHECK]**):
 
 - **Submit:** none. Skills are indexed automatically from anonymous install
   telemetry when someone runs
-  `npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing`
+  `npx skills add moinulmoin/vibecms --skill '*'`
   (<https://skills.sh/docs/faq>). The CLI discovers the skills in the
   root `skills/` directory.
 - **Status:** <https://www.skills.sh/moinulmoin/vibecms/vibecms-core> renders,

@@ -47,7 +47,7 @@ Any compatible MCP client uses the same endpoint and bearer credential:
 }
 ```
 
-Install the client-independent safety and writing skills (every skill in `skills/`):
+Install the client-independent safety, writing and SEO skills (every skill in `skills/`):
 
 ```sh
 npx skills add moinulmoin/vibecms --skill '*'
