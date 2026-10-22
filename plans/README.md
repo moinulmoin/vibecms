@@ -32,10 +32,10 @@ behavior lives in the code and in `docs/FEATURES.md` plus the docs site.
 | 024 | [SEO checks: deterministic rules plus a cheap AI review](024-seo-checks.md) | DONE — shipped 2026-10-13, including the editor UI phase; AI review removed 2026-10-22 (plan 028) |
 | 025 | [WebMCP: agents in the browser drive the dashboard](025-webmcp.md) | ON HOLD — owner decision 2026-10-13, not started |
 | 026 | [Redirects, import, and IndexNow](026-redirects-import-indexnow.md) | ON HOLD — owner decision 2026-10-12, not started |
-| 027 | [Keep your blog after an AutoSEOPilot plan ends](027-keep-your-blog-claim.md) | SHIPPED locally 2026-10-21 — claim window, paused page, day 7/14/21/28 reminders, day-30 deletion; dev proof still to run |
-| 028 | [Plans, pricing, and ownership after AutoSEOPilot](028-plans-pricing-and-ownership.md) | DECIDED, NOT BUILT — founder decisions 2026-10-19 and 2026-10-22; no implementation or deployment |
+| 027 | [Keep your blog after an AutoSEOPilot plan ends](027-keep-your-blog-claim.md) | SHIPPED to production 2026-10-22 (`4fd0cb4`) — 7-day live claim window, paused page, day 7/14/21/28 reminders, day-30 deletion |
+| 028 | [Plans, pricing, and ownership after AutoSEOPilot](028-plans-pricing-and-ownership.md) | PARTIALLY SHIPPED to production 2026-10-22 (`4fd0cb4`) — 31-rule SEO check (5 AI-answer rules), `vibecms-seo`, Workers AI removal (0042), cloud skills (MCP/REST/CLI, 39 tools), 10 GB Cloud media, no monthly Cloud agent-call caps (free unchanged), free-blog attribution, and plan 027 claim window; agent OAuth and founder directory submissions remain, Try free signup removal open (keep email code recommended) |
 
-Status values: DONE | REJECTED (with one-line rationale) | ON HOLD |
+Status values: DONE | SHIPPED | PARTIALLY SHIPPED | REJECTED (with one-line rationale) | ON HOLD |
 DECIDED, NOT BUILT. Plans 013, 014, and 017 have no plan files (numbers reserved/skipped).
 
 Launch-hardening maintenance (2026-10-15): passwordless auth endpoint restrictions, dashboard document headers/noindex, registry-derived MCP write quotas, correlated exception causes, scheduled-publish failure activity/logs, and a pre-deploy D1 recovery timestamp in the deploy job summary are implemented. This does not close the open items below.

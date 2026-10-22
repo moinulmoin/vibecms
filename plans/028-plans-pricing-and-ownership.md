@@ -1,8 +1,8 @@
 # 028 - Plans, pricing, and ownership after AutoSEOPilot
 
-Status: DECIDED, NOT BUILT (founder, 2026-10-19 and 2026-10-22). Decision record, not a release or implementation proof. Existing capabilities below are context; the new contract has not shipped. Roadmap additions and removals live in [FEATURES.md](../docs/FEATURES.md#planned), not duplicated here.
+Status: PARTIALLY SHIPPED — production 2026-10-22, main `4fd0cb4`. Founder decisions dated 2026-10-19 and 2026-10-22; shipped scope and remaining work are distinguished below. Current capabilities live in [FEATURES.md](../docs/FEATURES.md).
 
-vibecms launches publicly on 2026-10-22 on the build already in production. Nothing in this doc is part of that launch.
+The production release includes the per-article SEO check, cloud-served skills, Cloud allowance changes, free-blog attribution, and the keep-your-blog claim window. Agent OAuth and directory submissions are not built/completed; removing the Try free signup form remains an open question.
 
 ## Positioning and plans
 
@@ -10,15 +10,15 @@ Agentic CMS: agent-first, works for people too. Anything that costs us per use i
 
 | Offer | Decided contract |
 |---|---|
-| Try free | CTA everywhere: **Try free**. 5 published posts, 10 images, not indexed, no own domain, limited agent access, deterministic SEO check. Add a **Published with VibeCMS** badge (not built yet); remove the signup form from Try. |
-| Cloud | Keep the name Cloud (not the considered Pro rename) and today's price display: ~~$15/month~~ **$9/month**, ~~$150/year~~ **$75/year**. Unlimited posts and visitors; indexing; own domain or `/blog` subfolder; no badge; **10 GB** media (up from today's 5 GB); reader + AI-agent analytics; signup form for audience capture. Unlimited agent MCP/API/CLI calls with guardrails: keep per-minute and per-day write caps, drop monthly call caps. |
+| Try free | 5 published posts, 10 images, not indexed, no own domain, limited agent access, deterministic SEO check. **Shipped:** "Published with vibecms" link on free blogs. **Open:** "Try free" CTA wording and what removing the signup form means; recommendation: keep the email sign-in code. Free-plan agent-call limits are unchanged. |
+| Cloud | Keep the name Cloud (not the considered Pro rename) and today's price display: ~~$15/month~~ **$9/month**, ~~$150/year~~ **$75/year**. Unlimited posts and visitors; indexing; own domain or `/blog` subfolder; no attribution link; reader + AI-agent analytics; signup form for audience capture. **Shipped:** **10 GB** media and no monthly agent-call caps. Per-minute/day call limits and the daily write cap remain. |
 | Self-hosting | Stays free. |
 
 ## AutoSEOPilot cancellation and claim
 
-Sponsorship ends immediately on cancellation, with no grace. Keep the site, posts, media, domain rows, and owner access. The owner claims the same blog and domain by signing in with the same email and buying Cloud; no migration. Delete it if unclaimed after 30 days.
+The original decision was to end sponsorship immediately on cancellation, keeping site, posts, media, domain rows, and owner access for a same-email Cloud claim, with deletion after 30 days.
 
-Built since on main as [plan 027](027-keep-your-blog-claim.md) (not yet in production): the blog stays live for 7 days, then shows a paused page, and is deleted after 30 days if unclaimed. That replaces "no grace" above. Restoring the custom domain after a Cloud purchase still needs the dev proof listed in 027.
+**Shipped to production 2026-10-22:** [plan 027](027-keep-your-blog-claim.md) replaces the original "no grace" decision. The blog stays live for 7 days, then shows a paused page, and is deleted after 30 days if unclaimed. The owner claims the same blog and domain by signing in with the same email and buying Cloud; no migration.
 
 ## Import and component boundary
 
@@ -45,11 +45,11 @@ Founder planning estimate: a typical Cloud blog with 100 images and 100,000 view
 ## Founder decisions, 2026-10-22
 
 1. **Analytics stays Cloud-only.** Confirmed. Already gated in code: `apps/api/src/server/operations.ts:327` returns `ANALYTICS_PAID_PLAN` (402) for locked sites.
-2. **The AI SEO review becomes a per-article "SEO & GEO check", with no AI model of ours.**
-   - Code rules run on every plan, Try free included. The code already has 26 rules, including the 5 focus-keyword rules (`SEO_FINDING_CODES`, `packages/content/src/seo-checks.ts:36-63`: 21 general + `keyword-title`, `keyword-slug`, `keyword-intro`, `keyword-heading`, `keyword-description`). Only the GEO rules (for AI answers) are new. Proposed: the answer comes in the first paragraph; numbers link to a source; a "last updated" date; steps and comparisons in lists or tables; sections short enough to quote.
-   - Judgment questions go in a new skill, `vibecms-seo` (covers search engines and AI answers). Examples: "does the opening answer the title?", "which claims need a source?", "does this section make sense quoted on its own?". The customer's own agent runs the code check, then answers these with its own AI. That costs us nothing.
-   - Remove the Workers AI review: `apps/api/src/server/seo-review.ts`, `packages/db/src/repositories/seo-reviews.ts`, the `ai: true` option on `posts.seo_check`, the `AI` binding in `apps/api/wrangler.jsonc`, and the related docs and privacy text. Its title and description suggestions go too: the platform checks, the agent writes.
-3. **Add a CLI command and an MCP call to fetch the core skills** (`skills/vibecms-core`, `skills/vibecms-writing`, later `vibecms-seo`). Today agents get them with `npx skills add moinulmoin/vibecms` or from `/.well-known/agent-skills/` (`apps/public/src/pages/.well-known/[...path].ts`).
+2. **SHIPPED: per-article SEO check and `vibecms-seo`, with no AI model of ours.**
+   - The deterministic check runs on every plan, Try free included: **31 rules total**, comprising the existing 26 SEO rules and **5 AI-answer rules**.
+   - Judgment questions live in the free `vibecms-seo` skill, covering search engines and AI answers. The customer's own agent runs the code check, then answers judgment questions with its own model. The platform checks; the agent writes.
+   - Workers AI review was removed, including its API option, binding, title/description suggestions, related documentation/privacy text, and persistence (migration **0042**).
+3. **SHIPPED: fetch skills from the cloud.** `vibecms-core`, `vibecms-writing`, and `vibecms-seo` are served from `/.well-known/agent-skills/`, via MCP/REST `skills.list` and `skills.get` (**39 tools** total), and via CLI `vibecms skills list|get`. Install with `npx skills add https://vibecms.dev`.
 4. **Skills are free, for everyone.** "Skills updated from the users" means we keep improving our skills and every agent gets the newest version (this already works). No per-customer skill rules.
 5. **Skill names keep the `vibecms-` prefix.** Installed skills share one folder with other vendors' skills, so a bare `core` or `writing` would collide.
 
@@ -57,12 +57,18 @@ Founder planning estimate: a typical Cloud blog with 100 images and 100,000 view
 
 - **Subscriber download is built.** Owner-only CSV export at `GET /api/dashboard/subscribers/export.csv` (`apps/api/src/routes/dashboard.ts:204-218`, `apps/api/src/server/dashboard-api.ts:206-225`). It has no plan gate, so Try free owners can use it too.
 - **Pricing matches the decision.** List $15/$150 (`PRICING`, `packages/config/src/index.ts:110-116`) with a $9/$75 launch offer (`LAUNCH_OFFER`, same file `:132-144`), shown as ~~$15~~ $9. The code says "Locked while you stay subscribed."
-- **Paid media storage is 5 GB today** (`paidStorageBytes`, `packages/config/src/index.ts:40-41`). The target is 10 GB; not built.
-- **The signup CTA says "Start free"**, not "Try free" (`apps/public/src/components/landing/hero.tsx:34`, `hosting-pricing.tsx:120`), and the email sign-in code is still required.
+- **Paid media storage is now 10 GB**, shipped to production 2026-10-22.
+- **Cloud has no monthly agent-call caps**, shipped to production 2026-10-22; free-plan limits are unchanged.
+- **Free blogs show "Published with vibecms"**, shipped to production 2026-10-22.
+- **Email sign-in code remains required.** Removing the Try free signup form has not shipped; recommendation: keep the email code.
+
+## Not built / not completed
+
+- **OAuth "Sign in with vibecms" for agents** is not built. It is needed for Claude's Connectors Directory; it is separate from human Google/GitHub sign-in.
+- **Directory submissions** are not completed. The founder submits them using the kit in [directory-listings.md](../docs/directory-listings.md).
 
 ## Open questions
 
 - Should the subscriber download be Cloud-only? Today every owner can use it.
-- Build order. Proposed: (1) SEO & GEO check, (2) badge, (3) 10 GB of images, (4) no monthly agent-call caps, (5) Try free without the signup form. The subscriber download is already built.
-- What does "Try free without the signup form" mean? The email sign-in code is still required today, and the CTA says "Start free". Does it mean dropping the sign-in step, dropping the reader signup form from free blogs, or renaming the button?
+- What does "Try free without the signup form" mean? Not built: dropping the sign-in step, dropping the reader signup form from free blogs, and renaming the CTA are different changes. Recommendation: keep the email sign-in code.
 - Is $9 permanent or first-period only? The code says the rate is locked while the subscription stays active, but its comments disagree on how Polar applies it (products priced at the offer vs. 40%/50% discounts, `packages/config/src/index.ts:119-141`). Check the live Polar products and discounts.
