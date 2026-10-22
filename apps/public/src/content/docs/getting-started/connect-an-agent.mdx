@@ -22,6 +22,18 @@ claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
 
 Self-hosters should replace `https://app.vibecms.dev` with their API and dashboard Worker origin.
 
+### Claude Code plugin
+
+The vibecms plugin bundles the same MCP server with the `vibecms-core` and `vibecms-writing` skills:
+
+```sh
+claude plugin marketplace add moinulmoin/vibecms
+claude plugin install vibecms@vibecms
+```
+
+When the plugin is enabled, Claude Code asks for your agent key, masks it, and keeps it in secure storage rather than `settings.json`.
+
+Inside a session, `/plugin marketplace add moinulmoin/vibecms` followed by `/plugin install vibecms@vibecms` does the same. The plugin always connects to `https://app.vibecms.dev/mcp`; self-hosters should use `claude mcp add` with their own origin instead.
 
 ## Codex
 

@@ -24,6 +24,15 @@ Configure the npm trusted publisher for repository `moinulmoin/vibecms`, workflo
 The first version must be hand-published because the package must exist before trusted-publisher setup.
 Before every publish, `prepublishOnly` installs the packed tarball into an empty project and runs the installed `vibecms --version` and `vibecms schema`; a failure stops the publish. Run it any time with `pnpm --filter vibecms-cli smoke`.
 
+## Directory listings and the Claude Code plugin
+
+`server.json` (Official MCP Registry) and `plugins/vibecms/.claude-plugin/plugin.json`
+(Claude Code plugin) carry their own `version`. Raise both with the root
+`package.json` version, and raise the plugin version whenever a skill in
+`skills/` changes, or plugin users keep the old copy. Re-run
+`mcp-publisher publish` after changing `server.json`. Submission steps per
+directory are in `docs/directory-listings.md`.
+
 ## Break-glass local deploy
 
 `pnpm deploy:prod` is the same script the workflow invokes. Run it locally
