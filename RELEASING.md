@@ -29,7 +29,7 @@ Before every publish, `prepublishOnly` installs the packed tarball into an empty
 `server.json` (Official MCP Registry) and `plugins/vibecms/.claude-plugin/plugin.json`
 (Claude Code plugin) carry their own `version`. Raise both with the root
 `package.json` version, and raise the plugin version whenever a skill in
-`plugins/vibecms/skills/` changes, or plugin users keep the old copy. Re-run
+`skills/` changes, or plugin users keep the old copy. Re-run
 `mcp-publisher publish` after changing `server.json`. Submission steps per
 directory are in `docs/directory-listings.md`.
 

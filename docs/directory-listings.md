@@ -11,9 +11,13 @@ Repo files these listings depend on:
 - `.claude-plugin/marketplace.json`: makes this repo a Claude Code plugin
   marketplace named `vibecms`.
 - `plugins/vibecms/`: the `vibecms` plugin. `.claude-plugin/plugin.json`
-  declares the hosted MCP server and asks for the agent key; `skills/` holds
-  the canonical `vibecms-core` and `vibecms-writing` skills (the same files
-  `npx skills add` and `/.well-known/agent-skills/` serve).
+  declares the hosted MCP server and asks for the agent key.
+- `skills/`: the only hand-edited copy of the `vibecms-core` and
+  `vibecms-writing` skills (what `npx skills add` and
+  `/.well-known/agent-skills/` serve). The plugin's `plugins/vibecms/skills/`
+  is a generated copy produced by `pnpm gen:agent-skills`; never edit it by
+  hand. Until that generator change lands, the plugin folder has no skills
+  and installs the MCP server only.
 
 When the product changes, keep `version` in `server.json` and
 `plugins/vibecms/.claude-plugin/plugin.json` in step with the root
@@ -281,8 +285,8 @@ after `mnoomnoo/resume-mcp-server` (category choice **[CHECK]**):
 - **Submit:** none. Skills are indexed automatically from anonymous install
   telemetry when someone runs
   `npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing`
-  (<https://skills.sh/docs/faq>). The CLI finds the skills under
-  `plugins/vibecms/skills/` (checked with `npx skills add <checkout> --list`).
+  (<https://skills.sh/docs/faq>). The CLI discovers the skills in the
+  root `skills/` directory.
 - **Status:** <https://www.skills.sh/moinulmoin/vibecms/vibecms-core> renders,
   but the site renders a page for any slug, so whether it is indexed is
   **[CHECK]**.
