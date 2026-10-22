@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { basename, extname } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { DEFAULT_API_URL, resolveConfig, saveConfigFile, type ResolvedConfig } from "./config.js";
@@ -10,6 +11,10 @@ import { EXIT, exitCodeForStatus, fail, printData, setErrorFormat, type OutputFo
 // Mirrors PRESENTATION_LAYOUTS in @vc/config (private, so the published CLI
 // cannot import it); index.test.mjs fails if the two drift.
 export const PRESENTATION_LAYOUTS = ["standard", "essay", "feature", "wide"] as const;
+
+// Project folder read by Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode and
+// others (the `skills` CLI's universal path); Claude Code users pass --dir .claude/skills.
+const DEFAULT_SKILLS_DIR = ".agents/skills";
 
 // Read from package.json (one level up from both src/ and dist/) so --version
 // always matches the published version.
@@ -59,6 +64,8 @@ Commands:
   assets upload <file> [--alt <text>]
   assets delete <assetId>
   schema [operationId]                      Print the API operations as JSON (for agent introspection)
+  skills list                               The vibecms agent skills (no token needed)
+  skills install [--dir <path>] [--force]   Save every skill as <dir>/<name>/SKILL.md (default ${DEFAULT_SKILLS_DIR})
 
 Global options:
   --api-url <url>   API base URL (default ${DEFAULT_API_URL})
@@ -113,6 +120,8 @@ const OPTIONS = {
   "data-file": { type: "string" },
   "expected-updated-at": { type: "string" },
   range: { type: "string" },
+  dir: { type: "string" },
+  force: { type: "boolean" },
 } as const;
 
 type Values = { [K in keyof typeof OPTIONS]?: string | boolean };
@@ -168,6 +177,8 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "assets upload": { usage: "assets upload <file> [--alt <text>]", flags: ["alt"] },
   "assets delete": { usage: "assets delete <assetId>" },
   schema: { usage: "schema [operationId]" },
+  "skills list": { usage: "skills list" },
+  "skills install": { usage: "skills install [--dir <path>] [--force]", flags: ["dir", "force"], values: [`--dir: default ${DEFAULT_SKILLS_DIR} (Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode); use .claude/skills for Claude Code`, "--force: replace skill files that differ from the latest version (never replaced without it)", "--dry-run: show what would be written"] },
 };
 const GLOBAL_FLAGS = new Set(["api-url", "token", "json", "ndjson", "dry-run", "help", "version"]);
 
@@ -588,6 +599,66 @@ async function schemaCommand(operationId: string | undefined, cfg: ResolvedConfi
   printData(ops, fmt);
 }
 
+type SkillIndex = { skills: Array<{ name: string; description: string; url: string; digest: string }> };
+
+// Public text fetch for the skills index and files; no token is sent.
+async function fetchText(cfg: ResolvedConfig, url: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    fail({ error: { code: "NETWORK", message: `Cannot reach ${cfg.apiUrl}: ${(err as Error).message}` } }, EXIT.OTHER);
+  }
+  if (!res.ok) fail({ error: { code: "HTTP", message: `GET ${url} returned HTTP ${res.status}` } }, exitCodeForStatus(res.status));
+  return res.text();
+}
+
+async function skillsIndex(cfg: ResolvedConfig): Promise<SkillIndex> {
+  const url = `${cfg.apiUrl}/.well-known/agent-skills/index.json`;
+  let index: SkillIndex;
+  try {
+    index = JSON.parse(await fetchText(cfg, url)) as SkillIndex;
+  } catch {
+    fail({ error: { code: "HTTP", message: `${url} is not a skills index` } }, EXIT.OTHER);
+  }
+  if (!Array.isArray(index?.skills)) fail({ error: { code: "HTTP", message: `${url} is not a skills index` } }, EXIT.OTHER);
+  return index;
+}
+
+async function skillsCommand(action: string | undefined, v: Values, cfg: ResolvedConfig, fmt: OutputFormat): Promise<void> {
+  const index = await skillsIndex(cfg);
+  if (action === "list") {
+    return printData(index.skills.map(({ name, description, url, digest }) => ({ name, description, url, digest })), fmt);
+  }
+  const dir = resolve(str(v.dir) ?? DEFAULT_SKILLS_DIR);
+  const plan: Array<{ name: string; path: string; content: string; status: "installed" | "updated" | "unchanged" }> = [];
+  for (const skill of index.skills) {
+    // Names become folder names: never let the index write outside --dir.
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(skill.name)) fail({ error: { code: "HTTP", message: `Refusing skill with unsafe name: ${skill.name}` } }, EXIT.OTHER);
+    const content = await fetchText(cfg, skill.url);
+    const digest = `sha256:${createHash("sha256").update(content).digest("hex")}`;
+    if (digest !== skill.digest) fail({ error: { code: "HTTP", message: `${skill.name} did not match its published digest; nothing was written. Try again.` } }, EXIT.OTHER);
+    const path = join(dir, skill.name, "SKILL.md");
+    const existing = await readFile(path, "utf8").catch((err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") return null;
+      throw err;
+    });
+    plan.push({ name: skill.name, path, content, status: existing === null ? "installed" : existing === content ? "unchanged" : "updated" });
+  }
+  const changed = plan.filter((item) => item.status === "updated");
+  if (changed.length && !v.force) {
+    fail({ error: { code: "CONFLICT", message: `${changed.length} installed skill file(s) differ from the latest version. Nothing was written. Re-run with --force to replace them.`, details: { paths: changed.map((item) => item.path) } } }, EXIT.CONFLICT);
+  }
+  if (!v["dry-run"]) {
+    for (const item of plan) {
+      if (item.status === "unchanged") continue;
+      await mkdir(dirname(item.path), { recursive: true });
+      await writeFile(item.path, item.content);
+    }
+  }
+  printData({ ...(v["dry-run"] ? { dryRun: true } : {}), dir, skills: plan.map(({ name, path, status }) => ({ name, path, status })) }, fmt);
+}
+
 async function main(): Promise<void> {
   setErrorFormat(process.argv.slice(2).includes('--json'));
   let parsed: { values: Values; positionals: string[] };
@@ -650,6 +721,8 @@ async function main(): Promise<void> {
       return readRequest(cfg, '/api/v1/analytics', v, fmt, { range: str(v.range) });
     case "schema":
       return schemaCommand(action, cfg, fmt);
+    case "skills":
+      return skillsCommand(action, v, cfg, fmt);
     case "posts":
       return postsCommand(action, pos.slice(2), v, cfg, fmt);
     case "assets":
