@@ -9,13 +9,12 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { type Actor } from "@vc/core";
-import { createD1PostRepository, createSeoReadModel, createSeoReviewsRepository } from "@vc/db";
+import { createD1PostRepository, createSeoReadModel } from "@vc/db";
 
 const siteId = "seo-read-site";
 const otherSiteId = "seo-read-other";
 const actor: Actor = { type: "human", id: "seo-test-user", name: "Editor", role: "editor" };
 const repo = createD1PostRepository(env.DB);
-const reviews = createSeoReviewsRepository(env.DB);
 const seo = createSeoReadModel(env.DB);
 let sequence = 0;
 
@@ -53,33 +52,6 @@ async function publish(postId: string, version: number, site = siteId) {
     { changeSummary: "Published", activityAction: "post.published", activitySummary: "Published" },
     { billingActive: true, freeLimit: 100 });
 }
-
-describe("post_seo_reviews cache repository", () => {
-  it("stores and returns a review keyed by post, version, and model; site-scoped", async () => {
-    const post = await create({ slug: "cached-review" });
-    const createdAt = 1_800_000_000;
-    await reviews.put({
-      siteId, postId: post.id, versionNumber: 1, model: "@cf/test/model-a",
-      resultJson: '{"intent":"explain"}', neuronsEstimate: 71, createdAt,
-    });
-    expect(await reviews.get(siteId, post.id, 1, "@cf/test/model-a")).toEqual({
-      postId: post.id, versionNumber: 1, model: "@cf/test/model-a",
-      resultJson: '{"intent":"explain"}', neuronsEstimate: 71, createdAt,
-    });
-    expect(await reviews.get(siteId, post.id, 2, "@cf/test/model-a")).toBeNull();
-    expect(await reviews.get(siteId, post.id, 1, "@cf/test/model-b")).toBeNull();
-    expect(await reviews.get(otherSiteId, post.id, 1, "@cf/test/model-a")).toBeNull();
-  });
-
-  it("upserts on the (post, version, model) key and tolerates null estimates", async () => {
-    const post = await create({ slug: "upserted-review" });
-    await reviews.put({ siteId, postId: post.id, versionNumber: 1, model: "m", resultJson: "{}", createdAt: 100 });
-    await reviews.put({ siteId, postId: post.id, versionNumber: 1, model: "m", resultJson: '{"v":2}', neuronsEstimate: null, createdAt: 200 });
-    expect(await reviews.get(siteId, post.id, 1, "m")).toMatchObject({ resultJson: '{"v":2}', neuronsEstimate: null, createdAt: 200 });
-    const rows = await env.DB.prepare("SELECT count(*) AS n FROM post_seo_reviews WHERE post_id = ?").bind(post.id).first<{ n: number }>();
-    expect(rows?.n).toBe(1);
-  });
-});
 
 describe("seo read model", () => {
   it("resolves live pinned slugs and live redirects, but not drafts, archived posts, other sites, or future publishes", async () => {

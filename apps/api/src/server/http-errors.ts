@@ -71,7 +71,6 @@ export function jsonAppError(error: unknown, requestId?: string): Response {
       'CONFLICT',
       'RATE_LIMIT',
       'VALIDATION_ERROR',
-      'AI_UNAVAILABLE',
     ].includes(error.code)
       ? error.code
       : 'INTERNAL_ERROR'

@@ -19,5 +19,4 @@ export * from "./read-models/dashboard";
 export * from "./read-models/exports";
 export * from "./repositories/pending-media";
 export * from "./repositories/autoseopilot-managed-sites";
-export * from "./repositories/seo-reviews";
 export * from "./read-models/seo";

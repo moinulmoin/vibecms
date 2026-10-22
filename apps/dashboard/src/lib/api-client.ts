@@ -267,9 +267,9 @@ export async function loadPostAnalytics(postId: string, signal?: AbortSignal): P
   return data.status === 'available' ? { views: data.views, agentReads: data.agents?.total ?? 0 } : null
 }
 
-/** Deterministic SEO checks on the last saved version; `ai` also runs the opt-in review. */
+/** Deterministic SEO and AI-answer checks on the last saved version. */
 export function checkPostSeo(
-  data: { postId: string; focusKeyword?: string; ai?: boolean },
+  data: { postId: string; focusKeyword?: string },
   signal?: AbortSignal,
 ) {
   return dashboardPost<SeoCheckResult>('/api/dashboard/posts/seo', data, signal, seoCheckResultSchema)

@@ -427,7 +427,7 @@ export function PostMetadataRail({
       {postId ? (
         <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 border-t border-[color:var(--hairline)] pt-6">
           <SectionTitle>SEO</SectionTitle>
-          <SeoSection postId={postId} postStatus={postStatus ?? null} versionNumber={versionNumber ?? null} onApplySeo={onChange} />
+          <SeoSection postId={postId} postStatus={postStatus ?? null} versionNumber={versionNumber ?? null} />
         </section>
       ) : null}
     </aside>

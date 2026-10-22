@@ -138,7 +138,6 @@ function publicAppErrorCode(error: AppError) {
     "RATE_LIMIT",
     "VALIDATION_ERROR",
     "ANALYTICS_PAID_PLAN",
-    "AI_UNAVAILABLE",
   ].includes(error.code)
     ? error.code
     : "INTERNAL_ERROR";
@@ -358,9 +357,9 @@ apiV1App.openapi(previewPostRoute, async (c) => {
 
 apiV1App.openapi(seoCheckPostRoute, async (c) => {
   const { postId } = c.req.valid("param");
-  const { focusKeyword, ai } = c.req.valid("query");
+  const { focusKeyword } = c.req.valid("query");
   return c.json(
-    await seoCheckPostOp(c.get("ctx"), { postId, focusKeyword, ai: ai === "1" || ai === "true" }),
+    await seoCheckPostOp(c.get("ctx"), { postId, focusKeyword }),
     200,
   );
 });

@@ -1,6 +1,7 @@
 /**
- * Deterministic, pure SEO checks (plan 024). `seoChecks` runs over the hast
- * from `parseSeoMarkdown` — no DB, no renderer — and returns `SeoFinding`s
+ * Deterministic, pure SEO and AI-answer (GEO) checks (plans 024 and 028).
+ * `seoChecks` runs over the hast from `parseSeoMarkdown` — no DB, no
+ * renderer, no AI model — and returns `SeoFinding`s
  * sorted by severity (error, warn, info), then code lexically, then position.
  * `position` on a finding is the Markdown character offset where the
  * offending element starts, when remark retained it.
@@ -60,6 +61,11 @@ export const SEO_FINDING_CODES = [
   "keyword-intro",
   "keyword-heading",
   "keyword-description",
+  "answer-intro-missing",
+  "answer-intro-long",
+  "answer-claim-unsourced",
+  "answer-section-long",
+  "answer-steps-prose",
 ] as const;
 
 export type SeoFindingCode = (typeof SEO_FINDING_CODES)[number];
@@ -255,15 +261,58 @@ const GENERIC_ANCHOR_TEXT: Record<string, true> = {
 
 const HEADING_TAG = /^h([1-6])$/;
 
+/**
+ * Containers whose paragraphs are never the post's opening answer: a callout,
+ * list item, or table cell before the first heading is not an intro.
+ */
+const NON_INTRO_CONTAINER: Record<string, true> = {
+  blockquote: true,
+  ul: true,
+  ol: true,
+  li: true,
+  table: true,
+  details: true,
+  aside: true,
+  figure: true,
+  section: true,
+  dl: true,
+};
+
+interface HeadingEntry {
+  level: number;
+  text: string;
+  position?: number;
+  /** Index into `bodyWords` where the heading's own text starts. */
+  textStart: number;
+  /** Index into `bodyWords` right after the heading's own text: its section starts here. */
+  sectionStart: number;
+}
+
+interface ParagraphEntry {
+  words: number;
+  position?: number;
+  /** Prose text with inline `code` removed, for claim and step detection. */
+  prose: string;
+  /** True when any link (including footnote references) sits inside the paragraph. */
+  hasLink: boolean;
+  /** False for paragraphs inside lists, quotes, tables and similar containers. */
+  topLevel: boolean;
+}
+
 interface DocModel {
-  readonly headings: { level: number; text: string; position?: number }[];
+  readonly headings: HeadingEntry[];
   readonly anchors: { text: string; position?: number }[];
   /** Raw `href`/`src`/`srcSet` values on any element, in document order. */
   readonly linkRefs: { raw: string; position?: number }[];
   readonly imagesMissingAlt: { position?: number }[];
-  readonly paragraphWords: { words: number; position?: number }[];
+  readonly paragraphs: ParagraphEntry[];
   /** Body text words (pre/script/style subtrees excluded), in order. */
   readonly bodyWords: string[];
+  /**
+   * The opening answer: the first top-level paragraph with words, when it
+   * comes before every heading. Null when a heading (or nothing) comes first.
+   */
+  intro: { words: number; position?: number } | null;
 }
 
 function offsetOf(el: SeoMarkdownElement): number | undefined {
@@ -283,16 +332,44 @@ function elText(el: SeoMarkdownElement): string {
   return out;
 }
 
+function countWords(text: string): number {
+  let words = 0;
+  for (const word of text.split(/\s+/)) if (word) words += 1;
+  return words;
+}
+
+/** Paragraph text without inline code, plus whether a link sits inside it. */
+function paragraphProse(el: SeoMarkdownElement): { prose: string; hasLink: boolean } {
+  let prose = "";
+  let hasLink = false;
+  const walk = (children: readonly SeoMarkdownNode[]) => {
+    for (const node of children) {
+      if (isEl(node)) {
+        if (node.tagName === "a" && typeof node.properties.href === "string" && node.properties.href.trim()) hasLink = true;
+        if (node.tagName !== "code") walk(node.children);
+      } else if (typeof node.value === "string") {
+        prose += node.value;
+      }
+    }
+  };
+  walk(el.children);
+  return { prose, hasLink };
+}
+
 function buildModel(tree: SeoMarkdownTree): DocModel {
   const model: DocModel = {
     headings: [],
     anchors: [],
     linkRefs: [],
     imagesMissingAlt: [],
-    paragraphWords: [],
+    paragraphs: [],
     bodyWords: [],
+    intro: null,
   };
-  const walk = (children: readonly SeoMarkdownNode[], skipText: boolean) => {
+  // The opening is decided by whichever comes first in document order: a
+  // heading (no intro) or a top-level paragraph with words (the intro).
+  let introDecided = false;
+  const walk = (children: readonly SeoMarkdownNode[], skipText: boolean, inContainer: boolean) => {
     for (const node of children) {
       if (!isEl(node)) {
         if (!skipText && typeof node.value === "string") {
@@ -313,21 +390,32 @@ function buildModel(tree: SeoMarkdownTree): DocModel {
         }
       }
       const heading = HEADING_TAG.exec(node.tagName);
-      if (heading) model.headings.push({ level: Number(heading[1]), text: elText(node), position });
+      let headingEntry: HeadingEntry | null = null;
+      if (heading) {
+        const textStart = model.bodyWords.length;
+        headingEntry = { level: Number(heading[1]), text: elText(node), position, textStart, sectionStart: textStart };
+        model.headings.push(headingEntry);
+        introDecided = true;
+      }
       if (node.tagName === "a") model.anchors.push({ text: elText(node), position });
       if (node.tagName === "img") {
         const alt = p.alt;
         if (typeof alt !== "string" || !alt.trim()) model.imagesMissingAlt.push({ position });
       }
       if (node.tagName === "p") {
-        let words = 0;
-        for (const word of elText(node).split(/\s+/)) if (word) words += 1;
-        model.paragraphWords.push({ words, position });
+        const words = countWords(elText(node));
+        const { prose, hasLink } = paragraphProse(node);
+        model.paragraphs.push({ words, position, prose, hasLink, topLevel: !inContainer });
+        if (!introDecided && !inContainer && !skipText && words > 0) {
+          model.intro = { words, position };
+          introDecided = true;
+        }
       }
-      walk(node.children, skipText || SKIP_BODY_TEXT[node.tagName] === true);
+      walk(node.children, skipText || SKIP_BODY_TEXT[node.tagName] === true, inContainer || NON_INTRO_CONTAINER[node.tagName] === true);
+      if (headingEntry) headingEntry.sectionStart = model.bodyWords.length;
     }
   };
-  walk(tree.children, false);
+  walk(tree.children, false, false);
   return model;
 }
 
@@ -354,6 +442,26 @@ const SLUG_MAX = 75;
 const THIN_WORDS = 300;
 const LONG_PARAGRAPH_WORDS = 150;
 const INTRO_WORDS = 100;
+/** An opening paragraph longer than this no longer reads as a quotable answer. */
+const INTRO_ANSWER_MAX_WORDS = 80;
+/** Text under one heading past this is too long for an AI answer to quote as one passage. */
+const SECTION_MAX_WORDS = 400;
+/** Fewest sentence-start sequence words ("First", "Then", "Finally") that read as steps. */
+const STEP_MARKERS_MIN = 3;
+
+/**
+ * A number claim worth a source: a percentage, a multiplier comparison
+ * ("3x faster"), or a large count ("2 million"). Plain counts, versions,
+ * years, and prices are not claims and stay quiet.
+ */
+const NUMBER_CLAIM =
+  /\d(?:[\d,.]*\d)?\s?(?:%|percent\b|per cent\b)|\b\d(?:[\d,.]*\d)?\s?(?:x|×|times)\s+(?:faster|slower|more|less|fewer|cheaper|better|worse|bigger|smaller|higher|lower)\b|\b\d(?:[\d,.]*\d)?\s+(?:million|billion|trillion)\b/i;
+/** Sequence words at the start of a sentence. */
+const STEP_MARKER =
+  /(?:^|[.!?:;]\s+)(firstly|first|secondly|second|thirdly|third|fourth|fifth|next|then|after that|afterwards|finally|lastly|step\s+\d+)(?=[\s,:)])/gi;
+/** Sequence words that only make sense in an ordered sequence; one must appear. */
+const ORDINAL_MARKER = /^(?:firstly|first|secondly|second|thirdly|third|fourth|fifth|finally|lastly|step\s+\d+)$/i;
+const STEP_PARAGRAPH = /^\s*step\s+\d+(?=[\s,:.)])/i;
 
 export function seoChecks(input: SeoCheckInput): SeoFinding[] {
   const findings: SeoFinding[] = [];
@@ -546,7 +654,7 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
       "Add substance — examples, context, or detail — or consolidate this post with a related one.",
     );
   }
-  for (const paragraph of model.paragraphWords) {
+  for (const paragraph of model.paragraphs) {
     if (paragraph.words > LONG_PARAGRAPH_WORDS) {
       add(
         "paragraph-long",
@@ -556,6 +664,91 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
         `Split paragraphs over ${LONG_PARAGRAPH_WORDS} words for readability.`,
         paragraph.position,
       );
+    }
+  }
+
+  // ── AI answers (GEO) ──
+  // Answer engines quote short, self-contained passages. These rules are
+  // structural only; whether the passage actually answers anything is the
+  // writer's judgment (the vibecms-seo skill), not ours.
+  if (model.bodyWords.length > 0) {
+    if (!model.intro) {
+      add(
+        "answer-intro-missing",
+        "warn",
+        "content",
+        "The post doesn't open with a paragraph; a heading, list, or quote comes first.",
+        "Start with a short paragraph that answers the title directly — AI answers and search snippets quote the opening.",
+        model.headings[0]?.position,
+      );
+    } else if (model.intro.words > INTRO_ANSWER_MAX_WORDS) {
+      add(
+        "answer-intro-long",
+        "info",
+        "content",
+        `The opening paragraph runs ${model.intro.words} words.`,
+        `Keep the opening answer under ${INTRO_ANSWER_MAX_WORDS} words so it can be quoted whole; put the detail in the next paragraph.`,
+        model.intro.position,
+      );
+    }
+  }
+  for (const paragraph of model.paragraphs) {
+    if (paragraph.hasLink) continue;
+    const claim = NUMBER_CLAIM.exec(paragraph.prose);
+    if (claim) {
+      add(
+        "answer-claim-unsourced",
+        "info",
+        "content",
+        `A paragraph states "${claim[0].trim()}" with no link to a source.`,
+        "Link the source in the same paragraph, or say where the number comes from (your own test, your own data). Never invent a source.",
+        paragraph.position,
+      );
+    }
+  }
+  model.headings.forEach((heading, index) => {
+    const end = model.headings[index + 1]?.textStart ?? model.bodyWords.length;
+    const words = end - heading.sectionStart;
+    if (words > SECTION_MAX_WORDS) {
+      add(
+        "answer-section-long",
+        "info",
+        "content",
+        `The section under "${heading.text.trim() || "untitled"}" runs ${words} words without a subheading.`,
+        `Break it up with subheadings every ${SECTION_MAX_WORDS} words or fewer, so each part makes sense quoted on its own.`,
+        heading.position,
+      );
+    }
+  });
+  let stepRun: ParagraphEntry[] = [];
+  const flaggedSteps = new Set<ParagraphEntry>();
+  const flagSteps = (paragraph: ParagraphEntry) => {
+    if (flaggedSteps.has(paragraph)) return;
+    flaggedSteps.add(paragraph);
+    add(
+      "answer-steps-prose",
+      "info",
+      "content",
+      "Steps are written as prose instead of a list.",
+      "Turn the steps into a numbered list — readers and AI answers follow and quote lists more reliably than prose.",
+      paragraph.position,
+    );
+  };
+  for (const paragraph of model.paragraphs) {
+    if (!paragraph.topLevel) continue;
+    let markers = 0;
+    let ordinal = false;
+    for (const match of paragraph.prose.matchAll(STEP_MARKER)) {
+      markers += 1;
+      if (ORDINAL_MARKER.test(match[1]!.replace(/\s+/g, " "))) ordinal = true;
+    }
+    if (markers >= STEP_MARKERS_MIN && ordinal) flagSteps(paragraph);
+    // Consecutive "Step 1: …", "Step 2: …" paragraphs are a list written long-hand.
+    if (STEP_PARAGRAPH.test(paragraph.prose)) {
+      stepRun.push(paragraph);
+      if (stepRun.length === 2) flagSteps(stepRun[0]!);
+    } else {
+      stepRun = [];
     }
   }
 

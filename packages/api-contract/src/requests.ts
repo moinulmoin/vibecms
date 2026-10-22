@@ -236,8 +236,6 @@ export const seoCheckPostRequestSchema = z.object({
   postId: z.string().min(1),
   /** Optional focus keyword checked against title, slug, intro, headings, and description. */
   focusKeyword: z.string().trim().min(1).max(80).optional(),
-  /** When true, also run the opt-in AI review; counts against the site's review limit. */
-  ai: z.boolean().optional(),
 }).strict();
 
 

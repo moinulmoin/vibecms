@@ -67,7 +67,6 @@ export const errorResponses = {
   409: errorResponse("Conflict"),
   429: errorResponse("Rate limit exceeded"),
   500: errorResponse("Internal server error"),
-  503: errorResponse("AI review unavailable"),
 } as const;
 
 type ErrorStatus = keyof typeof errorResponses;
@@ -588,10 +587,7 @@ export const previewPostRoute = createRoute({
   },
 });
 
-// Query params arrive as strings; "ai" is opt-in and only truthy values enable it.
-const seoCheckQuerySchema = seoCheckPostRequestSchema.omit({ postId: true, ai: true }).extend({
-  ai: z.string().optional(),
-});
+const seoCheckQuerySchema = seoCheckPostRequestSchema.omit({ postId: true });
 
 export const seoCheckPostRoute = createRoute({
   method: "get",
@@ -608,7 +604,7 @@ export const seoCheckPostRoute = createRoute({
       description: "SEO findings for the post's current tip",
       content: { "application/json": { schema: seoCheckPostDtoSchema } },
     },
-    ...routeErrors(400, 401, 403, 404, 429, 500, 503),
+    ...routeErrors(400, 401, 403, 404, 429, 500),
   },
 });
 

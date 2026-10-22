@@ -35,7 +35,6 @@ import { loadAnalyticsForApp, type AnalyticsRange } from "./analytics";
 import type { Post } from "@vc/core";
 import type { SeoCheckPostRequest, SeoCheckPostDto } from "@vc/api-contract";
 import { createSeoReadModel } from "@vc/db";
-import { reviewPostSeo } from "./seo-review";
 import { seoChecks, tryParseSeoMarkdown, collectSeoLinkSlugs, renderRichContent as renderSeoContent, renderRichContentResultToHtml, validateRichContent } from "@vc/content";
 import { createMathRenderer } from "@vc/content/math";
 
@@ -629,8 +628,7 @@ async function deterministicPostSeo(
   try {
     const tree = tryParseSeoMarkdown(contentMarkdown);
     const site = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
-    const siteName = site?.name ?? "";
-    if (!tree) return { siteName, findings: [] };
+    if (!tree) return [];
     const [entitlement, primaryBaseUrl] = await Promise.all([
       resolveEffectiveEntitlementForSite(siteId),
       site ? getSitePublicBaseUrl(siteId, site.slug) : Promise.resolve(null),
@@ -641,46 +639,33 @@ async function deterministicPostSeo(
       // Without saved metadata the duplicate inputs don't exist; skip the read.
       post ? reads.listPublishedSeoFields(siteId, post.id) : Promise.resolve([]),
     ]);
-    return {
-      siteName,
-      findings: seoChecks({
-        title: post?.title ?? "",
-        slug: post?.slug ?? "",
-        seoTitle: post?.seoTitle,
-        seoDescription: post?.seoDescription,
-        excerpt: post?.excerpt,
-        canonicalUrl: post?.canonicalUrl,
-        coverAssetId: post?.coverAssetId,
-        tree,
-        site: { indexable: entitlement.effective, primaryBaseUrl },
-        publishedSlugs,
-        otherPosts,
-        metadataKnown: post !== null,
-        renderWarnings,
-        focusKeyword,
-      }),
-    };
+    return seoChecks({
+      title: post?.title ?? "",
+      slug: post?.slug ?? "",
+      seoTitle: post?.seoTitle,
+      seoDescription: post?.seoDescription,
+      excerpt: post?.excerpt,
+      canonicalUrl: post?.canonicalUrl,
+      coverAssetId: post?.coverAssetId,
+      tree,
+      site: { indexable: entitlement.effective, primaryBaseUrl },
+      publishedSlugs,
+      otherPosts,
+      metadataKnown: post !== null,
+      renderWarnings,
+      focusKeyword,
+    });
   } catch (error) {
     console.warn(`posts.preview SEO checks failed; returning no findings (${error instanceof Error ? error.message : String(error)})`);
-    return { siteName: "", findings: [] };
+    return [];
   }
 }
 
 export async function seoCheckPostOp(ctx: OperationContext, input: SeoCheckPostRequest): Promise<SeoCheckPostDto> {
   const post = await getPost(repository(), ctx.actor, ctx.siteId, input.postId);
   const rendered = renderSeoContent(post.contentMarkdown);
-  const { findings, siteName } = await deterministicPostSeo(ctx.siteId, post, post.contentMarkdown, rendered.warnings, input.focusKeyword);
-  const result = { versionNumber: post.currentVersionNumber, findings };
-  if (!input.ai) return result;
-  return {
-    ...result,
-    ...await reviewPostSeo({
-      siteId: ctx.siteId, postId: post.id, versionNumber: post.currentVersionNumber,
-      title: post.seoTitle?.trim() || post.title,
-      description: post.seoDescription?.trim() || post.excerpt || "",
-      contentMarkdown: post.contentMarkdown, siteName, focusKeyword: input.focusKeyword,
-    }),
-  };
+  const findings = await deterministicPostSeo(ctx.siteId, post, post.contentMarkdown, rendered.warnings, input.focusKeyword);
+  return { versionNumber: post.currentVersionNumber, findings };
 }
 export async function previewPostOp(
   ctx: OperationContext,
@@ -717,7 +702,7 @@ export async function previewPostOp(
   const contentHtml = renderRichContentResultToHtml(renderResult, { presetId: resolvedPresetId });
 
   const warnings = [...new Set([...renderWarnings, ...validateWarnings, ...dupTocWarnings])];
-  const { findings: seo } = await deterministicPostSeo(ctx.siteId, saved, contentMarkdown, renderWarnings);
+  const seo = await deterministicPostSeo(ctx.siteId, saved, contentMarkdown, renderWarnings);
 
   return {
     previewUrl: input.postId ? await previewUrlForPost(ctx.siteId, input.postId) : null,
