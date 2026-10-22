@@ -145,7 +145,7 @@ describe('app-host agent discovery', () => {
     const index = await get('/.well-known/agent-skills/index.json')
     const document = await index.json() as { $schema: string; skills: { name: string; url: string; digest: string }[] }
     expect(document.$schema).toBe('https://schemas.agentskills.io/discovery/0.2.0/schema.json')
-    expect(document.skills.map((skill) => skill.name)).toEqual(['vibecms-core', 'vibecms-writing'])
+    expect(document.skills.map((skill) => skill.name)).toEqual(['vibecms-core', 'vibecms-seo', 'vibecms-writing'])
     for (const skill of document.skills) {
       const artifact = await get(new URL(skill.url).pathname)
       expect(artifact.status).toBe(200)
