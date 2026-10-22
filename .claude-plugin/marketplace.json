@@ -1,0 +1,17 @@
+{
+  "name": "vibecms",
+  "description": "The vibecms plugin for Claude Code: the hosted MCP server and the vibecms agent skills.",
+  "owner": {
+    "name": "Moinul Moin",
+    "url": "https://github.com/moinulmoin"
+  },
+  "plugins": [
+    {
+      "name": "vibecms",
+      "source": "./plugins/vibecms",
+      "description": "Draft, preview and publish vibecms blog posts over MCP, with the vibecms-core and vibecms-writing skills. Publishing waits for your approval.",
+      "category": "productivity",
+      "tags": ["cms", "blog", "mcp", "publishing"]
+    }
+  ]
+}

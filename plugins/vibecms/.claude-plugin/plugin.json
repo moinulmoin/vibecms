@@ -1,0 +1,37 @@
+{
+  "name": "vibecms",
+  "displayName": "vibecms",
+  "version": "0.1.0",
+  "description": "Write and publish vibecms blog posts from Claude: the hosted MCP server plus the vibecms-core and vibecms-writing skills. Publishing waits for your approval.",
+  "author": {
+    "name": "Moinul Moin",
+    "url": "https://github.com/moinulmoin"
+  },
+  "homepage": "https://vibecms.dev/docs/getting-started/connect-an-agent",
+  "repository": "https://github.com/moinulmoin/vibecms",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["cms", "blog", "markdown", "publishing", "agents"],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://vibecms.dev/docs",
+  "supportUrl": "https://vibecms.dev/legal/support",
+  "privacyPolicyUrl": "https://vibecms.dev/legal/privacy",
+  "termsOfServiceUrl": "https://vibecms.dev/legal/terms",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "vibecms agent key",
+      "description": "Agent key from Dashboard > Connect on app.vibecms.dev. It starts with vc_live_ and is shown once.",
+      "required": true,
+      "sensitive": true
+    }
+  },
+  "mcpServers": {
+    "vibecms": {
+      "type": "http",
+      "url": "https://app.vibecms.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.api_key}"
+      }
+    }
+  }
+}
