@@ -3,7 +3,7 @@
 #
 #   scripts/proof-keep-your-blog.sh local    # hermetic proof in the local worker runtime
 #   scripts/proof-keep-your-blog.sh dev      # the real ingresses on the dev deployment
-#   scripts/proof-keep-your-blog.sh dev check # re-check the state after the daily sweep tick
+#   scripts/proof-keep-your-blog.sh dev check # re-check the state after the next sweep tick
 #
 # The dev proof needs these in the environment (never commit them):
 #   INTERNAL_SECRET        the dev deployment's X-AUTOSEOPILOT-INTERNAL-SECRET
@@ -201,7 +201,7 @@ dev_revoke() {
 }
 
 dev_sweep_state() {
-  say "sweep state (the daily cron runs the sweep at 02:17 UTC)"
+  say "sweep state (the 15-minute cron runs the sweep)"
   d1 "SELECT entitlement_status, revoked_at, claim_day7_sent_at, claim_day14_sent_at, claim_day21_sent_at, claim_day28_sent_at
       FROM autoseopilot_managed_sites WHERE external_workspace_id = '${EXTERNAL_WORKSPACE_ID}'" \
     | sed 's/^/  /'
@@ -223,7 +223,7 @@ run_dev() {
 
 Next steps (each needs a real trigger):
 
-  * Reminders: the sweep runs on the daily cron (17 2 * * *). Backdate to day 7
+  * Reminders: the sweep runs on the 15-minute cron (*/15 * * * *). Backdate to day 7
     (scripts/proof-keep-your-blog.sh dev + backdate_days 7), wait for the tick,
     then check the owner email and the markers:
       pnpm --filter @vc/api exec wrangler d1 execute DB --remote --env development \

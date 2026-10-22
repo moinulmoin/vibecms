@@ -4,6 +4,7 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- The claim-window sweep now runs on the 15-minute cron instead of the daily one and stays inside an explicit D1 query budget of 500 per run (D1 allows 1,000 per invocation): every query it makes is counted, a reminder or purge only starts when the budget still covers its worst case, and the rest waits for the next run.
 - The claim-window purge is now a durable three-step operation instead of a best-effort delete: a blog past its 30-day deadline first gets a purge intent (one atomic write that only lands while the blog is still revoked, still past its own deadline, still never claimed, and that records the Cloudflare hostname ids and R2 prefixes the purge will delete), the external cleanup runs from that intent, and only then are the D1 rows deleted. While the intent exists the blog cannot come back: the claim checkout is refused before any money is taken, an in-flight billing webhook is answered with a conflict instead of reviving the blog, the AutoSEOPilot plan resumption is refused with a retryable failure, a re-provision cannot recreate the same site, and a crashed purge is resumed by the next daily run.
 
 - Dashboard launch fixes: restore AA secondary/error text contrast, validate permanent blog addresses inline with race-safe taken-address feedback, and add onboarding sign-out.

@@ -176,7 +176,7 @@ export const MANAGED_CLAIM_REMINDERS = [
 
 /**
  * How long a claim checkout counts as "in flight". The customer can pay at
- * Polar before the webhook reaches us, so the daily sweep waits this long
+ * Polar before the webhook reaches us, so the claim sweep waits this long
  * before it may delete a blog whose owner just tried to claim it.
  */
 export const MANAGED_CLAIM_CHECKOUT_TTL_SECONDS = 2 * 60 * 60;

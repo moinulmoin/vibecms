@@ -158,8 +158,10 @@ pays for.
 
 ### Reminders and deletion
 
-One daily job (`apps/api/src/server/managed-claim-sweep.ts`) owns the window.
-It selects revoked managed sites whose workspace never claimed VibeCMS Cloud
+One job (`apps/api/src/server/managed-claim-sweep.ts`) owns the window. It
+runs on the existing 15-minute cron (`*/15 * * * *`, next to media
+recovery), so a reminder lands within 15 minutes of its day and a purge
+within 15 minutes of day 30. It selects revoked managed sites whose workspace never claimed VibeCMS Cloud
 (no billing row, or status `none`) and, for each one, sends the reminder of
 the day it is on — days 7, 14, 21 and 28 — each guarded by its own durable
 marker column, so a reminder goes out at most once even across replays. All
@@ -207,16 +209,16 @@ the money can be refunded by hand, and the notice goes to the support
 address (`SUPPORT_EMAIL`) through the same `send_email` binding the reminder
 mail uses, because a log line only reaches someone who goes looking. The
 notice is only marked as sent when the mail was accepted (`notified_at`), and
-the daily sweep sends every notice that is still owed. The AutoSEOPilot plan
+the sweep sends every notice that is still owed. The AutoSEOPilot plan
 resumption is refused with a retryable failure, and a re-provision cannot
 recreate the same site id and R2 namespace while the purge is under way. A
-crashed run leaves the intent behind and the next daily run resumes the same
+crashed run leaves the intent behind and the next run resumes the same
 cleanup from it; the intent never expires and is never auto-cleared. A
 finished intent stays behind as the trace of a deleted blog (`completed_at`),
 so a late paid webhook is recognised instead of turning a deleted blog into a
 paid workspace with no notice.
 
-The daily sweep only visits the blogs that have something due: a reminder
+The sweep only visits the blogs that have something due: a reminder
 that was never sent, or the purge. A blog that was already reminded about
 and is not due for the purge yet takes no slot, so a long queue of old blogs
 can never starve a newer one. Every attempt is recorded
@@ -224,6 +226,18 @@ can never starve a newer one. Every attempt is recorded
 first: a blog the sweep cannot delete yet rotates to the back of the queue,
 so it can never take the slot of a blog that is still waiting for its
 reminder.
+
+One run is bounded by a D1 query budget: D1 allows 1,000 queries per Worker
+invocation (Workers Paid, a `batch()` counts as one), and the sweep shares
+its invocation with media recovery (at most about 150 queries). The sweep
+counts every D1 query it makes and stops at 500 (`SWEEP_QUERY_BUDGET`):
+refund notices take at most 51 (one list, 50 marks), resuming crashed purges
+at most 200 (3 per intent: the guarded delete batch, a site read, the intent
+write), and the rest goes to the due blogs (3 per reminder: attempt marker,
+reminder marker, its release on a failed send; 6 per purge: attempt marker,
+the intent write and read, then the resume). A unit of work only starts when
+the budget still covers its worst case; the blogs that do not fit keep their
+place at the front of the queue for the next run, 15 minutes later.
 
 The claim checkout is refused before Polar is asked to sell anything, and
 the refusal lives in the write itself: the attempt is only written while

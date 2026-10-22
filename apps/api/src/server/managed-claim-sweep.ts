@@ -5,8 +5,14 @@
  * normally everywhere, day 7 it pauses on every ingress and the first
  * reminder goes out, and at day 30 an unclaimed blog is deleted — custom
  * hostnames, R2 objects, and every D1 row including (when the login belongs
- * to no other workspace) the user row. Runs on the existing daily cron; no
- * per-request timers.
+ * to no other workspace) the user row. Runs on the existing 15-minute cron
+ * (next to media recovery); no per-request timers.
+ *
+ * D1 allows 1,000 queries per Worker invocation (Workers Paid), so one run is
+ * bounded by an explicit query budget (`SWEEP_QUERY_BUDGET`). Every D1 call
+ * the sweep makes is counted, a unit of work (one reminder, one purge) only
+ * starts when the budget still covers its worst case, and whatever does not
+ * fit is left for the next run, 15 minutes later.
  *
  * Deleting a blog is irreversible, so it happens in three steps:
  *
@@ -34,14 +40,99 @@ import { deleteCustomHostname } from '@/server/custom-hostnames'
 import { sendClaimReminderEmail, sendPurgeConflictEmail } from '@/server/email'
 
 const DAY_SECONDS = 24 * 60 * 60
-/** Pages of candidates per run; the daily cron must stay well under its limit. */
-const MAX_SWEEP_PAGES = 20
+
+/**
+ * D1 queries one sweep run may make. D1 allows 1,000 per Worker invocation
+ * (Workers Paid; a `batch()` counts as one). The sweep shares its invocation
+ * with media recovery (`reconcileMediaOperations`: one list plus at most
+ * three queries for each of its 50 operations, about 151), so 500 leaves
+ * roughly 350 queries of headroom. At 96 runs a day that is 48,000 queries a
+ * day for the window: thousands of reminders or purges, far above the
+ * revokes the managed plan produces.
+ */
+export const SWEEP_QUERY_BUDGET = 500
+/** Of the budget, what resuming crashed purges may use, so they never starve new work. */
+const INTENT_QUERY_SHARE = 200
+/** Refund notices sent per run (one list, then one write per accepted mail). */
+const REFUND_NOTICES_PER_RUN = 50
 /** Candidates per page. */
 const SWEEP_PAGE_SIZE = 200
-/** Blogs one run may act on; the rest wait for the next one. */
-const MAX_SWEEP_CANDIDATES = MAX_SWEEP_PAGES * SWEEP_PAGE_SIZE
-/** Intents resumed per run; a crashed purge must not starve the queue. */
-const MAX_INTENT_PAGES = 20
+/**
+ * Worst-case D1 queries of each unit of work. Reminder: attempt marker,
+ * reminder marker, released marker. Purge resume (`runPurgeIntent`): the
+ * guarded delete batch, then at most a site read and the intent write. Purge
+ * of a candidate: attempt marker, the intent write and its read, then the
+ * resume.
+ */
+const REMINDER_QUERY_COST = 3
+const RESUME_QUERY_COST = 3
+const PURGE_QUERY_COST = 3 + RESUME_QUERY_COST
+
+/** Counts the D1 queries of one run against its budget. */
+class D1QueryBudget {
+  used = 0
+  constructor(readonly limit: number) {}
+  remaining(): number {
+    return this.limit - this.used
+  }
+  covers(queries: number): boolean {
+    return this.remaining() >= queries
+  }
+  spend(): void {
+    // A backstop: the unit-of-work checks keep the run below the budget, so
+    // reaching this means a cost above is wrong. Refusing the query keeps the
+    // invocation inside the D1 limit; every step is resumable.
+    if (this.used >= this.limit) throw new Error('managed_claim_sweep_query_budget_exhausted')
+    this.used += 1
+  }
+}
+
+/**
+ * The run's D1 binding: every query (a statement's `first`/`run`/`all`/`raw`,
+ * a `batch`, an `exec`) is counted against the budget before it is sent.
+ */
+function budgetedD1(db: D1Database, budget: D1QueryBudget): D1Database {
+  const unwrapped = new WeakMap<object, D1PreparedStatement>()
+  const wrapStatement = (statement: D1PreparedStatement): D1PreparedStatement => {
+    const counted = new Proxy(statement, {
+      get(target, property) {
+        if (property === 'bind') {
+          return (...values: unknown[]) => wrapStatement(target.bind(...values))
+        }
+        if (property === 'first' || property === 'run' || property === 'all' || property === 'raw') {
+          const method = Reflect.get(target, property, target) as (...args: unknown[]) => unknown
+          return (...args: unknown[]) => {
+            budget.spend()
+            return method.apply(target, args)
+          }
+        }
+        const value = Reflect.get(target, property, target) as unknown
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    unwrapped.set(counted, statement)
+    return counted
+  }
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === 'prepare') return (query: string) => wrapStatement(target.prepare(query))
+      if (property === 'batch') {
+        return (statements: D1PreparedStatement[]) => {
+          budget.spend()
+          return target.batch(statements.map((statement) => unwrapped.get(statement) ?? statement))
+        }
+      }
+      if (property === 'exec') {
+        return (query: string) => {
+          budget.spend()
+          return target.exec(query)
+        }
+      }
+      const value = Reflect.get(target, property, target) as unknown
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}
 
 function reminderMarker(candidate: ManagedClaimSweepCandidate, day: number): number | null {
   switch (day) {
@@ -98,6 +189,7 @@ async function purgeR2Prefixes(bucket: R2Bucket, prefixes: string[]): Promise<vo
  */
 async function runPurgeIntent(
   env: Cloudflare.Env,
+  db: D1Database,
   intent: ManagedPurgeIntent,
   now: number,
 ): Promise<boolean> {
@@ -107,7 +199,7 @@ async function runPurgeIntent(
   }
   await purgeR2Prefixes(env.ASSETS_BUCKET, intent.r2Prefixes)
 
-  const repo = createDataAccess(env.DB).managedSites
+  const repo = createDataAccess(db).managedSites
   const purged = await repo.purgeRevokedManagedSite({
     externalWorkspaceId: intent.externalWorkspaceId,
     workspaceId: intent.workspaceId,
@@ -122,7 +214,7 @@ async function runPurgeIntent(
     // intent again, so it is released. A blog that is gone keeps the intent
     // as its trace: a paid webhook that arrives late must be recognised and
     // escalated, not turned into a paid workspace with no blog.
-    const site = await env.DB.prepare('SELECT id FROM sites WHERE id = ?')
+    const site = await db.prepare('SELECT id FROM sites WHERE id = ?')
       .bind(intent.siteId)
       .first<{ id: string }>()
     if (site) {
@@ -161,10 +253,11 @@ async function runPurgeIntent(
 
 async function purgeClaimSite(
   env: Cloudflare.Env,
+  db: D1Database,
   candidate: ManagedClaimSweepCandidate,
   now: number,
 ): Promise<boolean> {
-  const repo = createDataAccess(env.DB).managedSites
+  const repo = createDataAccess(db).managedSites
   // The decision to delete, taken in one atomic write. It fails (and nothing
   // is deleted) when the blog was claimed, the plan resumed, the deadline
   // moved, or a claim checkout is still open.
@@ -187,7 +280,7 @@ async function purgeClaimSite(
     })
     return false
   }
-  return await runPurgeIntent(env, intent, now)
+  return await runPurgeIntent(env, db, intent, now)
 }
 
 export interface ManagedClaimSweepResult {
@@ -196,30 +289,46 @@ export interface ManagedClaimSweepResult {
   remindersSent: number
   purged: number
   refundNotices: number
+  /** D1 queries this run made; never above `SWEEP_QUERY_BUDGET`. */
+  queries: number
 }
 
-/** The daily cron entry: reminders at days 7/14/21/28, purge at day 30. */
+/**
+ * The sweep entry (15-minute cron): reminders at days 7/14/21/28, purge at
+ * day 30, inside one D1 query budget per run.
+ */
 export async function runManagedClaimSweep(
   workerEnv: Cloudflare.Env,
-  options?: { maxCandidates?: number },
+  options?: { maxCandidates?: number; queryBudget?: number },
 ): Promise<ManagedClaimSweepResult> {
   if (String(workerEnv.SELF_HOSTED) === 'true') {
-    return { skipped: true, candidates: 0, remindersSent: 0, purged: 0, refundNotices: 0 }
+    return { skipped: true, candidates: 0, remindersSent: 0, purged: 0, refundNotices: 0, queries: 0 }
   }
   const now = Math.floor(Date.now() / 1000)
-  const repo = createDataAccess(workerEnv.DB).managedSites
-  const maxCandidates = Math.max(1, options?.maxCandidates ?? MAX_SWEEP_CANDIDATES)
+  const budget = new D1QueryBudget(Math.max(0, options?.queryBudget ?? SWEEP_QUERY_BUDGET))
+  const db = budgetedD1(workerEnv.DB, budget)
+  const repo = createDataAccess(db).managedSites
+  const maxCandidates = Math.max(1, options?.maxCandidates ?? Number.MAX_SAFE_INTEGER)
   let remindersSent = 0
   let purged = 0
   let candidates = 0
   let refundNotices = 0
   let cursor: { attemptAt: number; revokedAt: number; id: string } | null = null
+  const result = (): ManagedClaimSweepResult => ({
+    skipped: false,
+    candidates,
+    remindersSent,
+    purged,
+    refundNotices,
+    queries: budget.used,
+  })
 
   // Refund notices that were never accepted. The record of a paid claim for
   // a deleted blog is durable, and the notice is only marked as sent when
   // the mail was accepted, so a lost mail is sent again here instead of
   // being forgotten.
-  for (const conflict of await repo.listUnnotifiedPurgeConflicts(50)) {
+  if (!budget.covers(1 + REFUND_NOTICES_PER_RUN)) return result()
+  for (const conflict of await repo.listUnnotifiedPurgeConflicts(REFUND_NOTICES_PER_RUN)) {
     try {
       await sendPurgeConflictEmail({
         workspaceId: conflict.workspaceId,
@@ -242,15 +351,23 @@ export async function runManagedClaimSweep(
   }
 
   // Resume first: a run that died after taking an intent (or after deleting
-  // the rows) left that intent behind, and the same resources must go.
+  // the rows) left that intent behind, and the same resources must go. The
+  // resumes get their own share of the budget, so a pile of crashed purges
+  // never starves the reminders.
+  if (!budget.covers(1)) return result()
   await repo.deleteExpiredClaimCheckoutAttempts(now)
+  const intentBudgetEnd = budget.used + INTENT_QUERY_SHARE
   let intentCursor: string | null = null
-  for (let page = 0; page < MAX_INTENT_PAGES; page++) {
-    const intents = await repo.listPurgeIntents({ cursor: intentCursor })
+  for (;;) {
+    const affordable = Math.floor(
+      (Math.min(intentBudgetEnd - budget.used, budget.remaining()) - 1) / RESUME_QUERY_COST,
+    )
+    if (affordable < 1) break
+    const intents = await repo.listPurgeIntents({ cursor: intentCursor, limit: Math.min(100, affordable) })
     if (intents.length === 0) break
     for (const intent of intents) {
       try {
-        if (await runPurgeIntent(workerEnv, intent, now)) purged += 1
+        if (await runPurgeIntent(workerEnv, db, intent, now)) purged += 1
       } catch (error) {
         // Per-site isolation: one broken site never blocks the rest, and the
         // intent stays for the next run.
@@ -269,31 +386,37 @@ export async function runManagedClaimSweep(
   // The attempt markers move the rows in the queue, so the pages have to be
   // read while the order is still the one the query ordered. A blog the
   // sweep cannot act on yet rotates to the back, so it never takes the slot
-  // of a blog that is still waiting for its reminder.
+  // of a blog that is still waiting for its reminder. Only as many blogs are
+  // read as the budget can still act on; a blog that is read but not acted
+  // on keeps its place at the front of the queue for the next run.
   const due: ManagedClaimSweepCandidate[] = []
-  for (let page = 0; page < MAX_SWEEP_PAGES; page++) {
-    const remaining = maxCandidates - due.length
+  for (;;) {
+    const affordable = Math.floor((budget.remaining() - 1) / REMINDER_QUERY_COST) - due.length
+    const remaining = Math.min(maxCandidates - due.length, affordable)
     if (remaining <= 0) break
-    const result = await repo.listClaimSweepCandidates({
+    const page = await repo.listClaimSweepCandidates({
       now,
       cursor,
       limit: Math.min(SWEEP_PAGE_SIZE, remaining),
     })
-    due.push(...result.candidates)
-    cursor = result.cursor
+    due.push(...page.candidates)
+    cursor = page.cursor
     if (!cursor) break
   }
-  candidates += due.length
   for (const candidate of due) {
     const elapsed = now - candidate.revokedAt
     const deadline = candidate.revokedAt + MANAGED_CLAIM_WINDOW.windowSeconds
+    const purgeDue = elapsed >= MANAGED_CLAIM_WINDOW.windowSeconds
+    // The rest of the queue waits for the next run.
+    if (!budget.covers(purgeDue ? PURGE_QUERY_COST : REMINDER_QUERY_COST)) break
+    candidates += 1
     try {
       // The sweep tried this blog. If it cannot act on it yet, the marker
       // sends it to the back of the queue for the next run.
       await repo.markClaimSweepAttempt(candidate.externalWorkspaceId, now)
-      if (elapsed >= MANAGED_CLAIM_WINDOW.windowSeconds) {
+      if (purgeDue) {
         // Past the deadline the blog is deleted, not reminded about.
-        if (await purgeClaimSite(workerEnv, candidate, now)) purged += 1
+        if (await purgeClaimSite(workerEnv, db, candidate, now)) purged += 1
         continue
       }
       const reminder = latestDueReminder(elapsed)
@@ -336,5 +459,5 @@ export async function runManagedClaimSweep(
       })
     }
   }
-  return { skipped: false, candidates, remindersSent, purged, refundNotices }
+  return result()
 }

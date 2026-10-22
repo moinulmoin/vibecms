@@ -169,7 +169,7 @@ async function resolveCheckoutAttempt(workspaceId: string, now: number): Promise
 /**
  * Sends the refund notice for a paid claim that arrived for a blog the purge
  * is deleting, and marks the record as notified. A failed mail is not fatal:
- * the record stays unnotified, so the daily sweep sends it again until the
+ * the record stays unnotified, so the claim sweep sends it again until the
  * mail is accepted.
  */
 async function notifyPurgeConflict(conflict: ManagedPurgeConflict): Promise<void> {
@@ -276,7 +276,7 @@ export async function createCheckoutSessionForApp(
   if (!createCheckout) return { kind: 'error', code: 'polar_unconfigured' }
 
   // A checkout can be paid at Polar before its webhook reaches us. The
-  // attempt is recorded before the checkout is handed out, so the daily sweep
+  // attempt is recorded before the checkout is handed out, so the claim sweep
   // waits for it instead of deleting a blog whose owner just claimed it.
   // The write carries the purge exclusion: a blog that is being deleted must
   // not take the customer's money, and the decision and the write cannot

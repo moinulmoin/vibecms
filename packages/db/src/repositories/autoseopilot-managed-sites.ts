@@ -563,7 +563,7 @@ export function normalizeManagedOwnerEmail(email: string): string {
 /** Reminder days inside the claim window; each has a durable sent marker. */
 export type ManagedClaimReminderDay = 7 | 14 | 21 | 28;
 
-/** One revoked, unclaimed managed blog the daily sweep must act on. */
+/** One revoked, unclaimed managed blog the claim sweep must act on. */
 export interface ManagedClaimSweepCandidate {
   id: string;
   externalWorkspaceId: string;

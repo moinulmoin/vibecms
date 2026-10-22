@@ -53,16 +53,18 @@ answer "This blog is paused" with `X-Robots-Tag: noindex, nofollow` and
 `cache-control: no-store`. Indexability follows `servingAllowed`, so days 0-7
 stay indexed and the paused page never is.
 
-### Reminders and deletion (one daily job)
+### Reminders and deletion (one sweep, every 15 minutes)
 
-`apps/api/src/server/managed-claim-sweep.ts` runs on the existing daily cron:
+`apps/api/src/server/managed-claim-sweep.ts` runs on the existing 15-minute
+cron (next to media recovery), inside a 500-query D1 budget per run (D1
+allows 1,000 per invocation); what does not fit waits for the next run:
 
 - Selection: revoked managed sites whose workspace never claimed VibeCMS
   Cloud (no billing row, or status `none`).
 - Reminders: days 7/14/21/28, each with its own durable marker column
   (`claim_day7_sent_at` … `claim_day28_sent_at`). The marker is claimed
   before the send, so a reminder goes out at most once; a definitive send
-  failure releases the marker and the next daily run retries.
+  failure releases the marker and the next run retries.
 - Deletion: at day 30 the blog is purged — Cloudflare custom hostnames, the
   site's R2 prefix (media and OG cards), and the D1 rows (binding, site,
   workspace, and the user row only when that user has no other workspace).
@@ -74,7 +76,7 @@ stay indexed and the paused page never is.
   deleted. While the intent exists the blog cannot come back — the claim
   checkout is refused before any money is taken, an in-flight billing
   webhook is a conflict, the AutoSEOPilot plan resumption is a retryable
-  refusal — and a crashed purge is resumed by the next daily run.
+  refusal — and a crashed purge is resumed by the next run.
 
 ### Dashboard
 
@@ -91,7 +93,7 @@ stay indexed and the paused page never is.
 - `packages/db/drizzle/0038_managed_claim_window.sql`, `packages/db/src/schema.ts` — reminder markers + sweep index.
 - `packages/db/drizzle/0039_managed_purge_intents.sql`, `packages/db/src/schema.ts` — the durable purge intent and the in-flight claim checkout.
 - `packages/db/src/repositories/autoseopilot-managed-sites.ts` — claim window in the entitlement, sweep selection, reminder markers, guarded purge.
-- `apps/api/src/server/managed-claim-sweep.ts` — the daily job.
+- `apps/api/src/server/managed-claim-sweep.ts` — the sweep (15-minute cron, D1 query budget).
 - `apps/api/src/server/email.ts` — the reminder email.
 - `apps/api/src/server/dashboard-api.ts` — the claim window in the billing payload.
 - `apps/public/src/server/paused-blog.ts` + the public ingresses — the paused page.

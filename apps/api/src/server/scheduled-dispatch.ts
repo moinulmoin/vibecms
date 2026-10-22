@@ -6,7 +6,12 @@ import { recheckActiveSubpathLocations } from '@/server/subpath-recheck'
 
 /** Daily analytics + media reconcile + subpath re-check cron (existing). */
 export const ANALYTICS_CRON = '17 2 * * *'
-/** Frequent media recovery so failed uploads cannot hold quota overnight. */
+/**
+ * Frequent media recovery so failed uploads cannot hold quota overnight, and
+ * the claim-window sweep. The sweep is bounded by its own D1 query budget per
+ * run, so it lives off the daily invocation (analytics, subpaths) and what
+ * one run leaves behind drains through the day.
+ */
 export const MEDIA_RECONCILE_CRON = '*/15 * * * *'
 export const POST_PUBLISH_CRON = '* * * * *'
 
@@ -14,9 +19,10 @@ export type ScheduledJob = 'analytics' | 'media' | 'posts' | 'subpaths' | 'manag
 
 /** Map Cloudflare ScheduledController.cron to the jobs that should run. */
 export function scheduledJobsForCron(cron: string): ScheduledJob[] {
-  if (cron === ANALYTICS_CRON) return ['analytics', 'media', 'subpaths', 'managed-claim']
+  if (cron === ANALYTICS_CRON) return ['analytics', 'media', 'subpaths']
+  if (cron === MEDIA_RECONCILE_CRON) return ['media', 'managed-claim']
   if (cron === POST_PUBLISH_CRON) return ['posts']
-  // 15-minute tick (and any unexpected cron): media only — never analytics.
+  // Any unexpected cron: media only — never analytics, never the sweep.
   return ['media']
 }
 

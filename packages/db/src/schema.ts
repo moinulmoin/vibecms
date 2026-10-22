@@ -385,7 +385,7 @@ export const autoseopilotManagedSites = sqliteTable("autoseopilot_managed_sites"
   claimDay28SentAt: integer("claim_day28_sent_at"),
   revokedAt: integer("revoked_at"),
   /**
-   * When the daily sweep last tried to act on this blog (epoch seconds).
+   * When the claim sweep last tried to act on this blog (epoch seconds).
    * A blog the sweep cannot delete yet rotates to the back of the queue,
    * so it can never take the slot of a blog that is still waiting.
    */
