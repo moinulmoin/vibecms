@@ -31,10 +31,13 @@ export const seo = ({
     { name: 'twitter:image', content: image },
   ].filter((tag) => !('content' in tag) || tag.content)
 
-  // The bundled card (relative or absolute) is a fixed 1200x630.
+  // The bundled card (relative or absolute) is a fixed 1200x630 PNG.
   if (image.endsWith(DEFAULT_OG_IMAGE)) {
     tags.push(
       { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:type', content: 'image/png' },
+      { property: 'og:image:alt', content: 'vibecms: CMS for AI agents' },
+      { name: 'twitter:image:alt', content: 'vibecms: CMS for AI agents' },
       { property: 'og:image:height', content: '630' },
     )
   }

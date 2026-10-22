@@ -15,18 +15,27 @@ interface Props {
   ogImage?: string;
   loginUrl: string;
   apiDocsUrl: string;
+  title?: string;
+  description?: string;
+  noindex?: boolean;
 }
-const { ogImage, loginUrl, apiDocsUrl } = Astro.props;
-const canonical = new URL("/", Astro.url).href;
-const title = `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, "")}`;
+const {
+  ogImage,
+  loginUrl,
+  apiDocsUrl,
+  title = `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, "")}`,
+  description = BRAND.description,
+  noindex = false,
+} = Astro.props;
+const canonical = noindex ? undefined : new URL("/", Astro.url).href;
 const meta = seo({
   title,
-  description: BRAND.description,
+  description,
   image: ogImage,
   url: canonical,
   siteName: BRAND.name,
 });
-const jsonLd = marketingJsonLd(canonical);
+const jsonLd = canonical ? marketingJsonLd(canonical) : undefined;
 ---
 <!doctype html>
 <html lang="en" class="dark" data-vc-app-login={loginUrl}>
@@ -41,8 +50,9 @@ const jsonLd = marketingJsonLd(canonical);
       "property" in tag && tag.property ? <meta property={String(tag.property)} content={String(tag.content ?? "")} /> :
       null
     )}
-    <link rel="canonical" href={canonical} />
-    <script is:inline type="application/ld+json" set:html={jsonLd} />
+    {noindex && <meta name="robots" content="noindex" />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="manifest" href="/site.webmanifest" />

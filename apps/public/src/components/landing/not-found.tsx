@@ -1,5 +1,5 @@
 import { ArrowRight } from "./icons";
-import { DotGrid, GHOST_CTA, GREEN_BG, GREEN_CTA, H2, LEAD } from "./primitives";
+import { GHOST_CTA, GREEN_BG, GREEN_CTA, H2, LEAD } from "./primitives";
 
 /**
  * Branded 404 body for the product site (unknown marketing and docs paths).
@@ -7,19 +7,7 @@ import { DotGrid, GHOST_CTA, GREEN_BG, GREEN_CTA, H2, LEAD } from "./primitives"
  */
 export function MarketingNotFound() {
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-clip bg-background text-foreground">
-      <DotGrid className="h-[640px]" />
-      <header className="relative border-b border-[color:var(--hairline)]">
-        <div className="mx-auto flex max-w-[1200px] items-center px-5 py-4 sm:px-7">
-          <a className="inline-flex min-h-[44px] items-center gap-2.5 no-underline" href="/">
-            <img src="/brand/icon.svg" alt="" width={28} height={28} className="size-7 rounded-lg" aria-hidden="true" />
-            <span className="font-mono text-[15px] font-medium lowercase tracking-tight text-foreground">
-              vibecms<span className="text-brand-bright">.</span>
-            </span>
-          </a>
-        </div>
-      </header>
-      <main id="main" className="relative mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-center px-5 py-20 sm:px-7">
+    <section className="relative mx-auto flex min-h-[60dvh] w-full max-w-[720px] flex-col justify-center px-5 py-20 sm:px-7">
         <p className="font-mono text-xs text-brand-bright">// 404</p>
         <h1 className={`mt-3 ${H2}`}>This page doesn't exist.</h1>
         <p className={`mt-4 max-w-[52ch] ${LEAD}`}>
@@ -39,7 +27,6 @@ export function MarketingNotFound() {
             /llms.txt
           </a>
         </p>
-      </main>
-    </div>
+    </section>
   );
 }

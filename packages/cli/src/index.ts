@@ -33,6 +33,10 @@ Commands:
   sites theme update --expected-updated-at <n> --data '<json>'  Change the look
   sites theme revert --expected-updated-at <n>  Undo the last theme change
   sites voice update --expected-updated-at <n> --data '<json>'  Save audience, tone, rules, exemplar posts
+  sites location get                        Show the current public location
+  sites location set-subpath --data '{"url":"https://example.com/blog"}'  Configure a subpath proxy (or --data-file)
+  sites location remove                     Remove the subpath location
+  sites location check                      Check the saved proxy and activate on success
   sites signup-form get                     Current form and site updatedAt
   sites signup-form update --expected-updated-at <n> --data '<json>'  Change signup form fields
   tags list                                 Tags in use with post counts
@@ -46,6 +50,7 @@ Commands:
   posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]
   posts preview [<postId> | --content <md> | --content-file <path>] [--preset <id> --layout <l> --toc <bool>]
   posts format-guide [--preset <id>]         Markdown syntax this blog renders (callouts, code, TOC...)
+  posts seo <postId> [--focus-keyword <text>]  Deterministic SEO findings for the current tip
   posts versions <postId>                   List versions (who changed what)
   posts version <postId> <versionNumber>    Show one version
   posts publish <postId> --expected-version <n>
@@ -116,6 +121,7 @@ const OPTIONS = {
   "seo-description": { type: "string" },
   "canonical-url": { type: "string" },
   preset: { type: "string" },
+  "focus-keyword": { type: "string" },
   data: { type: "string" },
   "data-file": { type: "string" },
   "expected-updated-at": { type: "string" },
@@ -154,6 +160,10 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "sites theme update": { usage: "sites theme update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms site`", fields: { template: "string", keepLook: "boolean", accent: "string", font: "string", radius: "string|null", width: "string|null", chrome: "string|null", index: "string|null", header: "string|null", mode: "string" }, values: [...hint("template", "accent", "font", "radius", "width", "chrome", "index", "header", "mode"), "template and font also accept the display name (e.g. \"Magazine\", \"Newsreader\")"] },
   "sites theme revert": { usage: "sites theme revert --expected-updated-at <n>", flags: ["expected-updated-at"], revision: "--expected-updated-at: the updatedAt from `vibecms sites theme get`" },
   "sites voice update": { usage: "sites voice update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the voiceProfile.revision from `vibecms site` (0 if unconfigured)", fields: { audience: "string", tone: "string", doRules: "array", dontRules: "array", representativePostIds: "array" } },
+  "sites location get": { usage: "sites location get" },
+  "sites location set-subpath": { usage: "sites location set-subpath --data '<json>'", flags: ["data", "data-file"], fields: { url: "string (https://example.com/blog)" }, values: ["Use exactly one of --data or --data-file; no revision flag is required", "Get the owner's explicit approval before changing the live location; save a returned proxy snippet, then run sites location check"] },
+  "sites location remove": { usage: "sites location remove", values: ["Get the owner's explicit approval before removing the live subpath location"] },
+  "sites location check": { usage: "sites location check", values: ["Run after saving a returned proxy snippet; a passing check activates the subpath location"] },
   "sites signup-form get": { usage: "sites signup-form get" },
   "sites signup-form update": { usage: "sites signup-form update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms sites signup-form get` or `vibecms site`", fields: { enabled: "boolean", heading: "string", description: "string", button: "string" } },
   "tags list": { usage: "tags list" },
@@ -165,6 +175,7 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "posts update": { usage: "posts update <postId> --expected-version <n> [--title --slug --content --content-file] [post fields]", flags: ["expected-version", "title", "slug", ...CONTENT, ...POST_FIELDS], revision: "--expected-version: currentVersionNumber from `vibecms posts get <postId>`" },
   "posts preview": { usage: "posts preview [<postId> | --content <md> | --content-file <path>] [--preset --layout --toc]", flags: [...CONTENT, "preset", "layout", "toc"], values: [...hint("layout"), "preset: minimal | editorial | technical | product"] },
   "posts format-guide": { usage: "posts format-guide [--preset <id>]", flags: ["preset"] },
+  "posts seo": { usage: "posts seo <postId> [--focus-keyword <text>]", flags: ["focus-keyword"], values: ["Checks the saved current tip with deterministic rules; no AI model is run", "focus-keyword: optional, 1–80 characters"] },
   "posts versions": { usage: "posts versions <postId>" }, "posts version": { usage: "posts version <postId> <versionNumber>" },
   "posts publish": { usage: "posts publish <postId> --expected-version <n>", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`" },
   "posts schedule": { usage: "posts schedule <postId> --version-number <n> --at <ISO-8601 UTC>", flags: ["version-number", "expected-version", "at"], revision: "--version-number: approved saved version from `vibecms posts versions <postId>`; --expected-version is an alias" },
@@ -377,6 +388,12 @@ async function sitesCommand(action: string | undefined, rest: string[], v: Value
   }
   if (action === 'voice' && rest[0] === 'update')
     return mutate(cfg, 'PUT', '/api/v1/site/voice', { ...await jsonData(v), expectedUpdatedAt: expectedUpdatedAt(v, true) }, v, fmt);
+  if (action === 'location') {
+    if (rest[0] === 'get') return readRequest(cfg, '/api/v1/site/location', v, fmt);
+    if (rest[0] === 'set-subpath') return mutate(cfg, 'PUT', '/api/v1/site/location', await jsonData(v), v, fmt);
+    if (rest[0] === 'remove') return mutate(cfg, 'DELETE', '/api/v1/site/location', undefined, v, fmt);
+    if (rest[0] === 'check') return mutate(cfg, 'POST', '/api/v1/site/location/check', undefined, v, fmt);
+  }
   if (action === 'signup-form' && rest[0] === 'get') {
     if (v['dry-run']) return readRequest(cfg, '/api/v1/site', v, fmt);
     const result = await apiRequest(cfg, 'GET', '/api/v1/site');
@@ -421,6 +438,9 @@ async function postsCommand(
       }), v, fmt);
     case "format-guide":
       return emit(await apiRequest(cfg, "GET", "/api/v1/posts/format-guide", { query: { presetId: str(v.preset) } }), fmt);
+    case "seo":
+      return readRequest(cfg, `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/seo`, v, fmt,
+        { focusKeyword: str(v["focus-keyword"]) });
     case "versions":
       return emit(await apiRequest(cfg, "GET", `/api/v1/posts/${encodeURIComponent(need(rest[0], "<postId>"))}/versions`), fmt);
     case "version":

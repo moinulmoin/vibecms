@@ -39,6 +39,19 @@ vibecms analytics get --range 30
 
 Use `--data <json>` or `--data-file <path>` for JSON object requests. Site, theme, and signup form updates require `--expected-updated-at` from the current settings; voice update requires it too, but the value is `voiceProfile.revision` from `vibecms site` — `0` only for a never-configured profile. `analytics get` accepts `7`, `30`, `90`, `365`, or `all`.
 
+### Public location
+
+```sh
+vibecms sites location get
+vibecms sites location set-subpath --data '{"url":"https://example.com/blog"}'
+vibecms sites location check
+vibecms sites location remove
+```
+
+`location get` reads the current default host, custom domain, or subpath location. `set-subpath` accepts exactly one of `--data` or `--data-file` with a `url` field; it does not require a revision flag. It replaces the existing subpath setup and returns the proxy target and ready-to-paste configuration snippets. Save the appropriate snippet on the owner's host, then run `location check`: a passing check activates the location, while a failed check records setup errors. `location remove` removes the subpath location and stops serving the blog at that customer path.
+
+Get the owner's explicit approval before changing or removing a live location. Location commands support `--dry-run` to show the request without sending it.
+
 ## Posts
 
 ```sh
@@ -47,6 +60,8 @@ vibecms posts search notes --limit 20
 vibecms posts get post_...
 vibecms posts get-by-slug example-post
 vibecms posts format-guide --preset minimal
+vibecms posts seo post_...
+vibecms posts seo post_... --focus-keyword 'release notes'
 vibecms posts preview post_...
 vibecms posts preview --content-file post.md --preset minimal --layout essay --toc true
 vibecms posts create --title 'Example' --slug example --content-file post.md
@@ -63,6 +78,8 @@ vibecms posts unarchive post_...
 ```
 
 For `create`, use `--content <markdown>` or `--content-file <path>`. `update` accepts those flags when changing the body. Optional post fields are `--excerpt`, `--tags a,b`, `--cover <assetId|none>`, `--layout standard|essay|feature|wide`, `--toc true|false`, `--seo-title`, `--seo-description`, and `--canonical-url <url|none>`. `create` requires `--title` and `--slug`; `update` can also change them. `--expected-version` binds `update`, `restore`, `publish`, or `archive` to a saved version — for `restore`, the positional version selects the historical snapshot while `--expected-version` guards the current tip. Only `posts schedule` also accepts `--version-number` as an alias for that flag. Schedule `--at` must be an ISO-8601 UTC time ending in `Z` and in the future.
+
+`posts seo <postId>` checks the saved post's current tip using deterministic SEO and AI-answer-readiness rules; vibecms does not run an AI model. The response includes `versionNumber` and findings sorted by severity with stable codes and fix hints. Optional `--focus-keyword` (1–80 characters) adds keyword checks. There is no AI option. `posts preview` already includes the same findings in its `seo` field. Use `--dry-run` to inspect the SEO request without sending it.
 
 ## Assets and schemas
 

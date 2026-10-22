@@ -8,6 +8,7 @@
 @source "../components/landing";
 @source "../layouts/LandingLayout.astro";
 @source "../pages/internal/marketing.astro";
+@source "../pages/internal/not-found.astro";
 @source "../components/docs";
 @source "../content/docs";
 @source "../layouts/DocsLayout.astro";

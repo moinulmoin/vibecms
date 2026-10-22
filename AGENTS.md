@@ -16,6 +16,8 @@
 - `plugins/vibecms` - Claude Code plugin (listed by `.claude-plugin/marketplace.json`).
   Plugin skills are generated from `skills/`; never edit them by hand.
   `server.json` is the MCP Registry entry; see `docs/directory-listings.md`.
+- `docs/account-deletion.md` - operator runbook for safe hosted workspace/account
+  deletion, external cleanup, billing retention, and backup/PITR handling.
 
 ## Working rules
 

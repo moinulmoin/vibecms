@@ -5,6 +5,8 @@ import { publicRuntimeEnv } from "../server/runtime";
 const missing = Astro.request.headers.get("accept")?.includes("text/markdown") ? markdownNotFound() : null;
 if (missing) return missing;
 const env = publicRuntimeEnv(Astro);
+// Keep shared landing chrome in the internal entry's module graph so tenant
+// misses retain their independent document and never import marketing styles.
 if (!env.selfHosted && isMarketingHost(Astro.request, env)) return Astro.rewrite("/internal/not-found");
 Astro.response.status = 404;
 Astro.response.headers.set("Vary", "Accept");
