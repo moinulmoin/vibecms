@@ -659,6 +659,8 @@ describe("v4 blocks – heading ids and toc markers", () => {
     // Timed against the same document with unique ids rather than a fixed
     // budget: a slow CI runner slows both, while quadratic dedupe would make
     // the colliding run many times the baseline (they're ~equal when linear).
+    // The ratio is the assertion; the 30s timeout below only absorbs a busy
+    // shared runner (the production preflight runs every suite at once).
     const timed = (md: string) => {
       const start = performance.now();
       const result = renderRichContent(md);
@@ -671,7 +673,7 @@ describe("v4 blocks – heading ids and toc markers", () => {
     expect(new Set(ids).size).toBe(12_000);
     expect(ids.slice(0, 3)).toEqual(["h-a", "h-a-1", "h-a-2"]);
     expect(r.warningCodes).toEqual([RENDER_WARNING.HEADING_ID_DUPLICATE]);
-  });
+  }, 30_000);
 
   it("raw HTML cannot hide headings or mint ids", () => {
     const r = renderRichContent('<h2 data-vc-toc="hide" id="evil">Raw</h2>');
