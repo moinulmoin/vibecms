@@ -11003,7 +11003,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "uploadAsset",
-        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 5 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write.",
+        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []

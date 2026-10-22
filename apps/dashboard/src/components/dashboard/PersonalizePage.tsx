@@ -1,4 +1,4 @@
-import { FREE_TIER, LAUNCH_OFFER } from '@vc/config'
+import { FREE_TIER, LAUNCH_OFFER, MEDIA } from '@vc/config'
 import { CopyButton, Skeleton } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -227,7 +227,7 @@ export function PersonalizePage() {
           </Button>
           {!connect.data.effectiveEntitlement.effective ? (
             <p className="text-[13px] leading-5 text-muted-foreground">
-              Free includes {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, and {FREE_TIER.images} images. Unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use) are{' '}
+              Free includes {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, and {FREE_TIER.images} images. Unlimited posts, {MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and unlimited agent requests (fair use) are{' '}
               {LAUNCH_OFFER.monthlyLabel} at launch pricing.
             </p>
           ) : null}

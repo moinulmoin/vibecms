@@ -37,8 +37,8 @@ export const LEGAL = {
 export const MEDIA = {
   maxImageBytes: 10 * 1024 * 1024,
   maxImageLabel: "10\u00a0MB",
-  paidStorageBytes: 5 * 1024 * 1024 * 1024,
-  paidStorageLabel: "5\u00a0GB",
+  paidStorageBytes: 10 * 1024 * 1024 * 1024,
+  paidStorageLabel: "10\u00a0GB",
   formats: ["JPEG", "PNG", "WebP", "GIF"] as const,
   formatsLabel: "JPEG, PNG, WebP, GIF",
   mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] as const,
@@ -153,7 +153,7 @@ export const FREE_TIER = {
   drafts: 5,
   images: 10,
   marketingLine:
-    "5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, 5 GB media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).",
+    `5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).`,
 } as const;
 
 /**
@@ -260,8 +260,8 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_missing_file: { variant: "error", title: "No file selected", message: "Choose an image to upload." },
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
-  media_quota_paid: { variant: "error", title: "Storage full", message: "You have reached the 5\u00a0GB media limit." },
-  media_quota_free: { variant: "error", title: "Image limit reached", message: "Free plan: up to 10 images. Subscribe for 5 GB of media." },
+  media_quota_paid: { variant: "error", title: "Storage full", message: `You have reached the ${MEDIA.paidStorageLabel} media limit.` },
+  media_quota_free: { variant: "error", title: "Image limit reached", message: `Free plan: up to 10 images. Subscribe for ${MEDIA.paidStorageLabel} of media.` },
   draft_limit: { variant: "error", title: "Draft limit reached", message: "Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts." },
   billing_required: { variant: "error", title: "Subscription required", message: "Free plan: up to 5 published posts. Subscribe for unlimited posts." },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
