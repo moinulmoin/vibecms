@@ -50,10 +50,10 @@ Any compatible MCP client uses the same endpoint and bearer credential:
 Install the client-independent safety, writing and SEO skills (every skill in `skills/`):
 
 ```sh
-npx skills add moinulmoin/vibecms --skill '*'
+npx skills add https://vibecms.dev --skill '*'
 ```
 
-Or save them with the CLI (`npx vibecms-cli skills install`, default `.agents/skills`), or let a connected agent call the `skills.list` and `skills.get` MCP tools.
+Run `npx skills update` to stay current. Alternatively, use `npx vibecms-cli skills get` to save every skill to `.agents/skills` (pass skill names to select a subset, `--dir <path>` to choose the folder, or `--force` to overwrite existing files), or let a connected agent call the `skills.list` and `skills.get` MCP tools.
 
 Claude Code users on the hosted service can install every skill and the MCP server as one plugin. Claude Code asks for the agent key when the plugin is enabled and keeps it in secure storage:
 

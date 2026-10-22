@@ -1,7 +1,7 @@
 {
   "name": "vibecms",
   "displayName": "vibecms",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Write and publish vibecms blog posts from Claude: the hosted MCP server plus the vibecms-core, vibecms-writing and vibecms-seo skills. Publishing waits for your approval.",
   "author": {
     "name": "Moinul Moin",

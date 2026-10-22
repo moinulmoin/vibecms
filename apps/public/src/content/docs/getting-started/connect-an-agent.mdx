@@ -79,14 +79,14 @@ The Connect page also offers a one-click Cursor install link once a key exists.
 ## Install the agent skills
 
 ```sh
-npx skills add moinulmoin/vibecms --skill '*'
+npx skills add https://vibecms.dev --skill '*'
 ```
 
-This installs every vibecms skill, including `vibecms-core` (operation order, version binding, approval, and recovery) and `vibecms-writing` (editorial work). Skills never change the key's permissions.
+This installs every vibecms skill, including `vibecms-core` (operation order, version binding, approval, and recovery) and `vibecms-writing` (editorial work). Run `npx skills update` to stay current. Skills never change the key's permissions.
 
 Other ways to get the same skills, always the latest version:
 
-- The CLI saves them to `.agents/skills` (or `--dir .claude/skills`): `npx vibecms-cli skills install`. See [the CLI guide](/docs/cli#agent-skills).
+- The CLI saves every skill to `.agents/skills`: `npx vibecms-cli skills get`. Pass skill names to select a subset, `--dir <path>` to choose the folder, or `--force` to overwrite existing files. Use `npx vibecms-cli skills list` to discover names. See [the CLI guide](/docs/cli#agent-skills).
 - Over MCP or REST, any key can call `skills.list` and `skills.get` (`GET /api/v1/skills`, `GET /api/v1/skills/{name}`). Save each `content` as `<skills folder>/<name>/SKILL.md`.
 - The files are public at `/.well-known/agent-skills/index.json`.
 

@@ -32,10 +32,10 @@ All three skills are located in `skills/` and are designed to be used together f
 Install every vibecms skill for Claude Code or another supported Agent Skills client:
 
 ```bash
-npx skills add moinulmoin/vibecms --skill '*'
+npx skills add https://vibecms.dev --skill '*'
 ```
 
-Or run `npx vibecms-cli skills install`, or call the `skills.list` and `skills.get` MCP tools.
+Run `npx skills update` to stay current. Alternatively, run `npx vibecms-cli skills get` (all skills by default; pass names to select a subset, `--dir <path>` to choose the folder, or `--force` to overwrite), or call the `skills.list` and `skills.get` MCP tools.
 
 Claude Code users can install every skill together with the hosted MCP server as the `vibecms` plugin:
 

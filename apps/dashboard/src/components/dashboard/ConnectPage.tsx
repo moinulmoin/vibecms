@@ -334,10 +334,10 @@ export function ConnectPage() {
         <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
         <details className="group text-sm">
           <summary className="w-fit cursor-pointer text-muted-foreground transition-colors hover:text-foreground">
-            Optional: install the vibecms writing skills
+            Optional: install the vibecms agent skills
           </summary>
           <div className="mt-3 grid gap-2">
-            <p className="text-muted-foreground">They teach your agent this blog’s format and a careful review routine.</p>
+            <p className="text-muted-foreground">They teach your agent the vibecms workflow, writing, and SEO. Run <code>npx skills update</code> to stay current.</p>
             <CodeBlock label="Terminal command" code={SKILLS_INSTALL_COMMAND} copyLabel="Copy command" />
           </div>
         </details>

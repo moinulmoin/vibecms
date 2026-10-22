@@ -284,9 +284,10 @@ after `mnoomnoo/resume-mcp-server` (category choice **[CHECK]**):
 
 - **Submit:** none. Skills are indexed automatically from anonymous install
   telemetry when someone runs
-  `npx skills add moinulmoin/vibecms --skill '*'`
-  (<https://skills.sh/docs/faq>). The CLI discovers the skills in the
-  root `skills/` directory.
+  `npx skills add https://vibecms.dev --skill '*'`
+  (<https://skills.sh/docs/faq>). The CLI discovers the hosted skills through
+  `https://vibecms.dev/.well-known/agent-skills/`. Run
+  `npx skills update` to stay current.
 - **Status:** <https://www.skills.sh/moinulmoin/vibecms/vibecms-core> renders,
   but the site renders a page for any slug, so whether it is indexed is
   **[CHECK]**.
