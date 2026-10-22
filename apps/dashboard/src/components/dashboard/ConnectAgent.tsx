@@ -41,7 +41,8 @@ export const APPROVAL_FIRST_WRITING_PROMPT = `Use the "vibecms" MCP server to pr
 
 Do not call posts.publish in the same turn as drafting, and do not publish unless I explicitly approve in a later message. For posts.update and posts.versions.restore, always send expectedVersionNumber for the current tip; public output stays on publishedVersionNumber until publish. After I approve, call posts.publish with the draft postId and expectedVersionNumber set to the version I approved. If the version changed, stop, preview the latest version, and ask for approval again. When publishing succeeds, return the URL from the tool result.`
 
-export const SKILLS_INSTALL_COMMAND = 'npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing'
+// --skill '*' installs every skill in the repo, so new skills need no change here.
+export const SKILLS_INSTALL_COMMAND = "npx skills add moinulmoin/vibecms --skill '*'"
 
 type ClientConfig = { hint: ReactNode; code: string; label: string }
 
