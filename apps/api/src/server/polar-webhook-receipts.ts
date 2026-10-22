@@ -96,6 +96,19 @@ export function polarCancelAtPeriodEnd(eventType: string, data: Record<string, u
   return typeof value === 'boolean' ? value : null
 }
 
+/**
+ * Whether the event proves a successful payment: a succeeded checkout, or a
+ * subscription Polar reports as `active` (paid; a cancel at period end keeps
+ * it active for the paid period). A trial, an incomplete, unpaid, past-due or
+ * cancelled subscription is not a payment, so a late event of that kind for a
+ * purged blog never asks for a refund.
+ */
+export function polarPaymentEvidence(eventType: string, data: Record<string, unknown>): boolean {
+  if (eventType === 'checkout.updated') return data.status === 'succeeded'
+  if (eventType.startsWith('subscription.')) return data.status === 'active'
+  return false
+}
+
 export type PolarWebhookApplyInput = {
   eventId: string
   workspaceId: string
@@ -113,6 +126,8 @@ export type PolarWebhookApplyInput = {
   currentPeriodEnd: number | null
   /** null leaves the stored flag unchanged (checkout events). */
   cancelAtPeriodEnd: boolean | null
+  /** The event proves a successful payment (see polarPaymentEvidence). */
+  paymentEvidence: boolean
 }
 
 type PriorBillingRow = { status: BillingStatus; webhook_updated_at: number | null; webhook_event_id: string | null }
@@ -248,19 +263,20 @@ export async function applyPolarWebhookAtomically(
   // The conflict record is written in the SAME transaction as the receipt: a
   // paid event for a blog that is purged (or already gone) must never be
   // lost, and if this write fails the receipt is rolled back with it, so
-  // Polar retries instead of us losing the payment. notified_at stays NULL
-  // until the refund notice is accepted.
+  // Polar retries instead of us losing the payment. Every late event is
+  // recorded; payment_evidence marks the ones that owe a refund notice, and
+  // notified_at stays NULL until that notice is accepted.
   const conflictStmt = db
     .prepare(
       `INSERT INTO autoseopilot_purge_conflicts (
          id, workspace_id, site_id, polar_customer_id, polar_subscription_id,
          polar_order_id, polar_checkout_id, event_id, event_type,
-         applied_status, notified_at, created_at
+         applied_status, payment_evidence, notified_at, created_at
        )
        SELECT ?, ?, (
          SELECT p.site_id FROM autoseopilot_purge_intents p
          WHERE p.workspace_id = ? LIMIT 1
-       ), ?, ?, ?, ?, ?, ?, ?, NULL, ?
+       ), ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?
        WHERE EXISTS (
          SELECT 1 FROM autoseopilot_purge_intents p
          WHERE p.workspace_id = ?
@@ -282,6 +298,7 @@ export async function applyPolarWebhookAtomically(
       input.eventId,
       input.eventType,
       input.appliedStatus,
+      input.paymentEvidence ? 1 : 0,
       now,
       input.workspaceId,
     )
@@ -298,7 +315,8 @@ export async function applyPolarWebhookAtomically(
   if (receiptChanges === 0) return { kind: 'duplicate' }
   // The conflict row was written in the same transaction as the receipt, so
   // its presence is the proof that the blog is being purged or is already
-  // gone: the event was not applied, and the customer has to be refunded.
+  // gone: the event was not applied (and, when it carries payment evidence,
+  // the customer has to be refunded).
   if (conflictChanges > 0) return { kind: 'conflict' }
   if (statusChanges === 0) {
     const prior = (priorResult?.results as PriorBillingRow[] | undefined)?.[0]

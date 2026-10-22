@@ -474,9 +474,10 @@ export const autoseopilotClaimCheckouts = sqliteTable("autoseopilot_claim_checko
 }, (table) => [index("idx_autoseopilot_claim_checkouts_expires").on(table.expiresAt)]);
 
 /**
- * A paid Polar event that arrived for a blog the purge is deleting, or has
- * already deleted. The row is the operator's record: the customer paid, so
- * the money has to be refunded by hand. It survives the blog's own rows.
+ * A Polar event that arrived for a blog the purge is deleting, or has already
+ * deleted. The row is the operator's record; when it carries payment
+ * evidence the customer paid, so the money has to be refunded by hand. It
+ * survives the blog's own rows.
  */
 export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_conflicts", {
   id: text("id").primaryKey(),
@@ -490,8 +491,14 @@ export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_confli
   eventType: text("event_type"),
   appliedStatus: text("applied_status"),
   /**
-   * When the refund notice was accepted (epoch seconds). NULL means the
-   * notice is still owed, so it is sent again.
+   * 1 when the event proves a successful payment (an active subscription, a
+   * succeeded checkout). Only those rows owe the refund notice; the others
+   * are kept as the record of a late event.
+   */
+  paymentEvidence: integer("payment_evidence").notNull().default(0),
+  /**
+   * When the refund notice was accepted (epoch seconds). NULL on a row with
+   * payment evidence means the notice is still owed, so it is sent again.
    */
   notifiedAt: integer("notified_at"),
   createdAt: integer("created_at").notNull(),

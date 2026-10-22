@@ -650,7 +650,7 @@ export interface ManagedPurgeIntent {
   updatedAt: number;
 }
 
-/** A paid Polar event that arrived for a blog the purge is deleting or has deleted. */
+/** A Polar event that arrived for a blog the purge is deleting or has deleted. */
 export interface ManagedPurgeConflictInput {
   workspaceId: string;
   siteId?: string | null;
@@ -661,11 +661,16 @@ export interface ManagedPurgeConflictInput {
   eventId?: string | null;
   eventType?: string | null;
   appliedStatus?: string | null;
+  /**
+   * The event proves a successful payment (an active subscription, a
+   * succeeded checkout): only then is a refund notice owed.
+   */
+  paymentEvidence: boolean;
   /** Epoch seconds. */
   now: number;
 }
 
-/** The operator record of a paid event that arrived too late. */
+/** The operator record of a Polar event that arrived too late. */
 export interface ManagedPurgeConflict {
   id: string;
   workspaceId: string;
@@ -677,7 +682,12 @@ export interface ManagedPurgeConflict {
   eventId: string | null;
   eventType: string | null;
   appliedStatus: string | null;
-  /** When the refund notice was accepted; null means it is still owed. */
+  /** The event proved a successful payment; only then is a refund notice owed. */
+  paymentEvidence: boolean;
+  /**
+   * When the refund notice was accepted; null on a row with payment evidence
+   * means it is still owed.
+   */
   notifiedAt: number | null;
   createdAt: number;
 }
@@ -816,11 +826,11 @@ export interface AutoseopilotManagedPurgeIntents {
   deleteExpiredClaimCheckoutAttempts(now: number): Promise<void>;
   /** True while a recorded claim checkout could still become a paid claim. */
   hasUnresolvedClaimCheckout(workspaceId: string, now: number): Promise<boolean>;
-  /** Records a paid Polar event for a blog that is purged or being purged. */
+  /** Records a Polar event for a blog that is purged or being purged. */
   recordPurgeConflict(conflict: ManagedPurgeConflictInput): Promise<ManagedPurgeConflict>;
   /** Marks the refund notice as accepted, so it is not sent again. */
   markPurgeConflictNotified(id: string, now: number): Promise<void>;
-  /** The conflicts whose refund notice is still owed, oldest first. */
+  /** The conflicts with payment evidence whose refund notice is still owed, oldest first. */
   listUnnotifiedPurgeConflicts(limit?: number): Promise<ManagedPurgeConflict[]>;
   /** The recorded conflicts, newest first. */
   listPurgeConflicts(workspaceId?: string): Promise<ManagedPurgeConflict[]>;
@@ -2052,9 +2062,9 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           `INSERT INTO autoseopilot_purge_conflicts (
              id, workspace_id, site_id, polar_customer_id, polar_subscription_id,
              polar_order_id, polar_checkout_id, event_id, event_type,
-             applied_status, notified_at, created_at
+             applied_status, payment_evidence, notified_at, created_at
            )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
            ON CONFLICT(id) DO NOTHING`,
         )
         .bind(
@@ -2068,6 +2078,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
           conflict.eventId ?? null,
           conflict.eventType ?? null,
           conflict.appliedStatus ?? null,
+          conflict.paymentEvidence ? 1 : 0,
           conflict.now,
         )
         .run();
@@ -2090,6 +2101,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         eventId: stored.event_id === null ? null : String(stored.event_id),
         eventType: stored.event_type === null ? null : String(stored.event_type),
         appliedStatus: stored.applied_status === null ? null : String(stored.applied_status),
+        paymentEvidence: Number(stored.payment_evidence) === 1,
         notifiedAt: stored.notified_at === null ? null : Number(stored.notified_at),
         createdAt: Number(stored.created_at),
       };
@@ -2110,7 +2122,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       const { results } = await db
         .prepare(
           `SELECT * FROM autoseopilot_purge_conflicts
-           WHERE notified_at IS NULL
+           WHERE notified_at IS NULL AND payment_evidence = 1
            ORDER BY created_at ASC
            LIMIT ?`,
         )
@@ -2127,6 +2139,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         eventId: row.event_id === null ? null : String(row.event_id),
         eventType: row.event_type === null ? null : String(row.event_type),
         appliedStatus: row.applied_status === null ? null : String(row.applied_status),
+        paymentEvidence: Number(row.payment_evidence) === 1,
         notifiedAt: row.notified_at === null ? null : Number(row.notified_at),
         createdAt: Number(row.created_at),
       }));
@@ -2153,6 +2166,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         eventId: row.event_id === null ? null : String(row.event_id),
         eventType: row.event_type === null ? null : String(row.event_type),
         appliedStatus: row.applied_status === null ? null : String(row.applied_status),
+        paymentEvidence: Number(row.payment_evidence) === 1,
         notifiedAt: row.notified_at === null ? null : Number(row.notified_at),
         createdAt: Number(row.created_at),
       }));

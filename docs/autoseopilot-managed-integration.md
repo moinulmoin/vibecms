@@ -208,7 +208,12 @@ already gone, is answered (so Polar stops retrying) and recorded in
 order and subscription ids, instead of flipping the workspace to paid. That
 record is written in the SAME transaction as the webhook receipt, so a
 payment can never be lost; if it cannot be written, the receipt is rolled
-back with it and Polar retries. The operator is alerted with the same ids so
+back with it and Polar retries. Every late event is recorded, but only one
+that proves a successful payment (a subscription Polar reports as `active`,
+or a succeeded checkout; `payment_evidence`, migration 0041) asks for a
+refund: an unpaid, incomplete, past-due or cancelled event is kept as a
+record and never mailed, on the normal path and on the deleted-workspace
+fallback alike. For a paid one the operator is alerted with the same ids so
 the money can be refunded by hand, and the notice goes to the support
 address (`SUPPORT_EMAIL`) through the same `send_email` binding the reminder
 mail uses, because a log line only reaches someone who goes looking. The

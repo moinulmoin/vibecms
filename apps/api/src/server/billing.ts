@@ -11,6 +11,7 @@ import {
   applyPolarWebhookAtomically,
   polarCancelAtPeriodEnd,
   polarEventId,
+  polarPaymentEvidence,
   polarSourceTimestampMs,
   type WebhookApplyResult,
 } from '@/server/polar-webhook-receipts'
@@ -168,12 +169,14 @@ async function resolveCheckoutAttempt(workspaceId: string, now: number): Promise
 
 /**
  * Sends the refund notice for a paid claim that arrived for a blog the purge
- * is deleting, and marks the record as notified. A failed mail is not fatal:
- * the record stays unnotified, so the claim sweep sends it again until the
- * mail is accepted.
+ * is deleting, and marks the record as notified. Only a record with payment
+ * evidence asks for a refund: an unpaid, incomplete or cancelled event is
+ * kept as a record and never mailed. A failed mail is not fatal: the record
+ * stays unnotified, so the claim sweep sends it again until the mail is
+ * accepted.
  */
 async function notifyPurgeConflict(conflict: ManagedPurgeConflict): Promise<void> {
-  if (conflict.notifiedAt !== null) return
+  if (!conflict.paymentEvidence || conflict.notifiedAt !== null) return
   try {
     await sendPurgeConflictEmail({
       workspaceId: conflict.workspaceId,
@@ -443,6 +446,7 @@ export async function handlePolarWebhook(request: Request) {
   const polarCheckoutId =
     stringField(data, 'checkoutId', 'checkout_id') ??
     (event.type === 'checkout.updated' && typeof data.id === 'string' ? data.id : null)
+  const paymentEvidence = polarPaymentEvidence(event.type, data)
   let result: WebhookApplyResult
   try {
     result = await applyPolarWebhookAtomically(env.DB, {
@@ -457,6 +461,7 @@ export async function handlePolarWebhook(request: Request) {
       polarCheckoutId,
       currentPeriodEnd: epochSeconds(data.currentPeriodEnd ?? data.current_period_end),
       cancelAtPeriodEnd: polarCancelAtPeriodEnd(event.type, data),
+      paymentEvidence,
     })
   } catch (error) {
     // The billing row hangs on the workspace, so an event for a workspace
@@ -482,6 +487,7 @@ export async function handlePolarWebhook(request: Request) {
       eventId,
       eventType: event.type,
       appliedStatus: status,
+      paymentEvidence,
       now: Math.floor(Date.now() / 1000),
     })
     result = { kind: 'conflict' }
@@ -490,10 +496,12 @@ export async function handlePolarWebhook(request: Request) {
     // The blog is being deleted, or it is already gone: a claim must not
     // resurrect it, and the workspace must not become paid behind the purge.
     // The event is not applied, so the customer is never billed for a
-    // deleted blog. But the customer may have PAID for it, so the event is
-    // recorded (durably, in the same transaction as the receipt) and the
-    // operator is alerted: the money has to be refunded by hand. The webhook
-    // is answered, so Polar stops retrying.
+    // deleted blog. Every late event is recorded (durably, in the same
+    // transaction as the receipt), on this path and on the deleted-workspace
+    // fallback above. Only an event with successful-payment evidence means
+    // the customer PAID for it, and only then is the operator asked to
+    // refund by hand; an unpaid, incomplete or cancelled event is a record
+    // only. The webhook is answered, so Polar stops retrying.
     const managed = createDataAccess(env.DB).managedSites
     const intent = await managed.getPurgeIntentByWorkspaceId(workspaceId)
     const conflict = await managed.recordPurgeConflict({
@@ -506,6 +514,7 @@ export async function handlePolarWebhook(request: Request) {
       eventId,
       eventType: event.type,
       appliedStatus: status,
+      paymentEvidence,
       now: Math.floor(Date.now() / 1000),
     })
     console.warn(
@@ -522,7 +531,10 @@ export async function handlePolarWebhook(request: Request) {
         eventId,
         eventType: event.type,
         appliedStatus: status,
-        note: 'a paid event arrived for a managed blog that is purged or being purged: refund by hand',
+        paymentEvidence: conflict.paymentEvidence,
+        note: conflict.paymentEvidence
+          ? 'a paid event arrived for a managed blog that is purged or being purged: refund by hand'
+          : 'a late event without payment evidence arrived for a managed blog that is purged or being purged: recorded, no refund',
       }),
     )
     await notifyPurgeConflict(conflict)
