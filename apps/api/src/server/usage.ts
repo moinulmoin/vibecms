@@ -7,6 +7,8 @@ import { resolveEffectiveEntitlementForWorkspace } from "./effective-entitlement
 
 export type ApiUsageKind = "read" | "write";
 export type ApiUsageStatus = { metric: string; period: string; used: number; limit: number; remaining: number; resetsAt: number };
+/** A counted period with no cap (Cloud's month): `limit` and `remaining` are null. */
+export type ApiUsageCount = { metric: string; period: string; used: number; limit: null; remaining: null; resetsAt: number };
 export type ApiUsageSummary = {
   enforced: boolean;
   billingStatus: BillingStatus;
@@ -14,15 +16,17 @@ export type ApiUsageSummary = {
   effective: boolean;
   access: "self_hosted" | "hosted_paid" | "hosted_free";
   source: "self_hosted" | "polar" | "managed_sponsorship" | "none";
-  calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus };
-  writes: { day: ApiUsageStatus; month: ApiUsageStatus };
+  calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus | ApiUsageCount };
+  writes: { day: ApiUsageStatus; month: ApiUsageStatus | ApiUsageCount };
   token: { minute: ApiUsageStatus } | null;
 };
 
 type PeriodName = "minute" | "day" | "month";
 type PeriodWindow = { name: PeriodName; period: string; resetsAt: number };
-type LimitPlan = { calls: { minute: number; day: number; month: number }; writes: { day: number; month: number }; token: { minute: number } };
-type UsageCounter = { id: string; workspaceId: string; siteId: string | null; metric: string; period: PeriodWindow; limit: number };
+/** A `null` month means counted but uncapped (see API_USAGE_LIMITS). */
+type LimitPlan = { calls: { minute: number; day: number; month: number | null }; writes: { day: number; month: number | null }; token: { minute: number } };
+/** `limit: null` counts the request without capping it. */
+type UsageCounter = { id: string; workspaceId: string; siteId: string | null; metric: string; period: PeriodWindow; limit: number | null };
 
 const CALLS_METRIC = "calls";
 const WRITES_METRIC = "writes";
@@ -86,7 +90,10 @@ function tokenCounterId(tokenId: string, metric: string, period: string) {
   return `token:${tokenId}:${metric}:${period}`;
 }
 
-function status(metric: string, period: PeriodWindow, used: number, limit: number): ApiUsageStatus {
+function status(metric: string, period: PeriodWindow, used: number, limit: number): ApiUsageStatus;
+function status(metric: string, period: PeriodWindow, used: number, limit: number | null): ApiUsageStatus | ApiUsageCount;
+function status(metric: string, period: PeriodWindow, used: number, limit: number | null): ApiUsageStatus | ApiUsageCount {
+  if (limit === null) return { metric, period: period.period, used, limit: null, remaining: null, resetsAt: period.resetsAt };
   return { metric, period: period.period, used, limit, remaining: Math.max(limit - used, 0), resetsAt: period.resetsAt };
 }
 
@@ -94,7 +101,9 @@ async function readCounter(usage: UsageRepository, id: string) {
   return usage.readCounter(id);
 }
 
-async function readStatus(usage: UsageRepository, id: string, metric: string, period: PeriodWindow, limit: number) {
+async function readStatus(usage: UsageRepository, id: string, metric: string, period: PeriodWindow, limit: number): Promise<ApiUsageStatus>;
+async function readStatus(usage: UsageRepository, id: string, metric: string, period: PeriodWindow, limit: number | null): Promise<ApiUsageStatus | ApiUsageCount>;
+async function readStatus(usage: UsageRepository, id: string, metric: string, period: PeriodWindow, limit: number | null) {
   return status(metric, period, await readCounter(usage, id), limit);
 }
 
@@ -109,6 +118,7 @@ async function assertUnderLimit(usage: UsageRepository, counterId: string, metri
 
 async function incrementCounter(usage: UsageRepository, input: UsageCounter) {
   // Guarded upsert: applied=false means the value+1<=limit guard rejected the increment (limit reached => deny).
+  // An uncapped counter (limit null) always applies.
   const { applied } = await usage.incrementCounter({
     id: input.id,
     workspaceId: input.workspaceId,
@@ -117,7 +127,7 @@ async function incrementCounter(usage: UsageRepository, input: UsageCounter) {
     metric: input.metric,
     limit: input.limit,
   });
-  if (!applied) {
+  if (!applied && input.limit !== null) {
     const used = await readCounter(usage, input.id);
     throw errorFor(status(input.metric, input.period, used, input.limit));
   }
@@ -128,7 +138,9 @@ async function releaseCounter(usage: UsageRepository, input: UsageCounter) {
 }
 
 async function reserveCounters(usage: UsageRepository, counters: UsageCounter[]) {
-  for (const counter of counters) await assertUnderLimit(usage, counter.id, counter.metric, counter.period, counter.limit);
+  for (const counter of counters) {
+    if (counter.limit !== null) await assertUnderLimit(usage, counter.id, counter.metric, counter.period, counter.limit);
+  }
   const reserved: UsageCounter[] = [];
   try {
     for (const counter of counters) {

@@ -88,7 +88,11 @@ export function overviewEntitlementBadge(
   return null
 }
 
-function UsageMeter({ label, status }: { label: string; status: DashboardData['apiUsage']['calls']['month'] }) {
+/** This month's count: a meter against the cap, or the plain count when the plan has no monthly cap. */
+function MonthUsage({ label, status }: { label: string; status: DashboardData['apiUsage']['calls']['month'] }) {
+  if (status.limit === null) {
+    return <p>{label} this month: {status.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
+  }
   const limit = Math.max(status.limit, 1)
   const percent = Math.min(100, Math.round((status.used / limit) * 100))
   const near = percent >= 80
@@ -118,7 +122,7 @@ function UsageMeter({ label, status }: { label: string; status: DashboardData['a
   )
 }
 
-function AgentUsage({ usage, tokenCount, canEdit, paid }: { usage: DashboardData['apiUsage']; tokenCount: number; canEdit: boolean; paid: boolean }) {
+function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiUsage']; tokenCount: number; canEdit: boolean }) {
   const keys = `${tokenCount} active ${tokenCount === 1 ? 'key' : 'keys'}`
   return (
     <Section
@@ -134,15 +138,10 @@ function AgentUsage({ usage, tokenCount, canEdit, paid }: { usage: DashboardData
         </Button>
       ) : <span className="text-sm text-muted-foreground">{keys}</span>}
     >
-      {usage.enforced && paid ? (
+      {usage.enforced ? (
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
-          <p>Requests this month: {usage.calls.month.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
-          <p>Writes this month: {usage.writes.month.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
-        </div>
-      ) : usage.enforced ? (
-        <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
-          <UsageMeter label="Requests" status={usage.calls.month} />
-          <UsageMeter label="Writes" status={usage.writes.month} />
+          <MonthUsage label="Requests" status={usage.calls.month} />
+          <MonthUsage label="Writes" status={usage.writes.month} />
         </div>
       ) : null}
     </Section>
@@ -483,7 +482,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         </Section>
       </div>
 
-      <AgentUsage usage={data.apiUsage} tokenCount={data.tokenCount} canEdit={canEdit} paid={entitled} />
+      <AgentUsage usage={data.apiUsage} tokenCount={data.tokenCount} canEdit={canEdit} />
     </>
   )
 }

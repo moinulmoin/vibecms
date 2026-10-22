@@ -55,11 +55,15 @@ export const RESERVED_POST_SLUGS = [
   "docs-search.json", "docs", "__vc-health",
 ] as const;
 
+/**
+ * Agent request budgets (MCP, REST, CLI) per workspace. A `null` monthly cap
+ * means none: Cloud is unlimited (fair use), bounded only by its per-minute and
+ * per-day guardrails. Its monthly totals are still counted for the dashboard.
+ */
 export const API_USAGE_LIMITS = {
   paid: {
-    // Monthly caps cannot bind before the daily fair-use guardrails.
-    calls: { minute: 120, day: 5_000, month: 155_000 },
-    writes: { day: 500, month: 15_500 },
+    calls: { minute: 120, day: 5_000, month: null },
+    writes: { day: 500, month: null },
     token: { minute: 60 },
   },
   free: {

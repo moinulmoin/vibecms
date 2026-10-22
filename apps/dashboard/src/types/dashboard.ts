@@ -42,6 +42,9 @@ export type ApiUsageStatus = {
   resetsAt: number
 }
 
+/** A counted period with no cap (Cloud's month): `limit` and `remaining` are null. */
+export type ApiUsageCount = Omit<ApiUsageStatus, 'limit' | 'remaining'> & { limit: null; remaining: null }
+
 export type ApiUsageSummary = {
   enforced: boolean
   billingStatus?: BillingStatus
@@ -49,8 +52,8 @@ export type ApiUsageSummary = {
   effective?: boolean
   access?: 'self_hosted' | 'hosted_paid' | 'hosted_free'
   source?: 'self_hosted' | 'polar' | 'managed_sponsorship' | 'none'
-  calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus }
-  writes: { day: ApiUsageStatus; month: ApiUsageStatus }
+  calls: { minute: ApiUsageStatus; day: ApiUsageStatus; month: ApiUsageStatus | ApiUsageCount }
+  writes: { day: ApiUsageStatus; month: ApiUsageStatus | ApiUsageCount }
 }
 
 export type DashboardData = {

@@ -9,14 +9,15 @@ export type IncrementUsageInput = {
   siteId: string | null;
   period: string;
   metric: string;
-  limit: number;
+  /** Null counts without a cap: the increment always applies. */
+  limit: number | null;
 };
 
 export interface UsageRepository {
   // Current counter value, 0 when the row does not exist.
   readCounter(id: string): Promise<number>;
-  // Guarded upsert (INSERT value=1 ... ON CONFLICT DO UPDATE value=value+1 WHERE value+excluded.value<=limit).
-  // applied is false when the limit guard rejected the increment (=> caller must deny).
+  // Guarded upsert (INSERT value=1 ... ON CONFLICT DO UPDATE value=value+1 WHERE value+excluded.value<=limit;
+  // no WHERE when limit is null). applied is false when the limit guard rejected the increment (=> caller must deny).
   incrementCounter(input: IncrementUsageInput): Promise<{ applied: boolean }>;
   // Decrement release path: value = MAX(value - 1, 0).
   releaseCounter(id: string): Promise<void>;
@@ -58,7 +59,7 @@ export function createUsageRepository(db: D1Database): UsageRepository {
             value: sql`${usageCounters.value} + 1`,
             updatedAt: sql`excluded.updated_at`,
           },
-          setWhere: sql`${usageCounters.value} + excluded.value <= ${input.limit}`,
+          ...(input.limit === null ? {} : { setWhere: sql`${usageCounters.value} + excluded.value <= ${input.limit}` }),
         })
         .run();
       return { applied: result.meta.changes > 0 };
