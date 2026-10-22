@@ -11,6 +11,10 @@
 - `packages/*` - `core` (domain logic), `db` (D1 repository + drizzle
   migrations), `content` (Markdown rendering), `api-contract` (schemas +
   OpenAPI), `mcp`, `validators`, `ui`, `cli` (`vibecms-cli`, on npm), `config`.
+- `plugins/vibecms` - Claude Code plugin (listed by `.claude-plugin/marketplace.json`)
+  and the canonical agent skills in `plugins/vibecms/skills/`; run
+  `pnpm gen:agent-skills` after editing a skill. `server.json` is the MCP
+  Registry entry; see `docs/directory-listings.md`.
 
 ## Working rules
 

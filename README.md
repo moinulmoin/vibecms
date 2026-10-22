@@ -53,6 +53,15 @@ Install the client-independent safety and writing skills:
 npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing
 ```
 
+Claude Code users on the hosted service can install both skills and the MCP server as one plugin. Claude Code asks for the agent key when the plugin is enabled and keeps it in secure storage:
+
+```sh
+claude plugin marketplace add moinulmoin/vibecms
+claude plugin install vibecms@vibecms
+```
+
+Directory listing copy and submission notes live in [`docs/directory-listings.md`](docs/directory-listings.md).
+
 Verify credentials with a protected read—not `tools/list`, which is intentionally available for tool discovery:
 
 ```sh
