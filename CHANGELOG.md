@@ -4,6 +4,9 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- Free hosted blogs show a small "Published with vibecms" link to vibecms.dev in the page footer, in the blog's own theme colors. Paid blogs (Polar or AutoSEOPilot sponsorship) and self-hosted installs never show it.
+- vibecms Cloud has no monthly cap on agent calls or writes anymore. The per-minute, per-day and per-key guardrails stay; this month's totals are still counted for the dashboard. The free plan's monthly caps are unchanged.
+- Paid media storage is 10 GB, up from 5 GB.
 - The claim-window sweep now runs on the 15-minute cron instead of the daily one and stays inside an explicit D1 query budget of 500 per run (D1 allows 1,000 per invocation): every query it makes is counted, a reminder or purge only starts when the budget still covers its worst case, and the rest waits for the next run.
 - Claim reminders belong to one claim window: a revoke after a resumed AutoSEOPilot plan clears the four reminder markers in the same guarded write, and a reminder is only marked for the window (revoke time and lifecycle revision) the sweep read, so a new window gets all its reminders and an older sweep can never mark a newer window.
 - A late Polar event for a blog that is being (or was) purged is still recorded, but the "refund needed" notice only goes out when the event proves a successful payment (an active subscription or a succeeded checkout; migration 0041 adds `payment_evidence`). Unpaid, incomplete or cancelled events no longer ask for a refund, on the normal path and the deleted-workspace fallback.
