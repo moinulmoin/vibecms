@@ -15,7 +15,7 @@ function surfaces(apiDocsUrl: string): Surface[] {
     {
       tag: "MCP",
       title: `${AGENT_TOOL_COUNT} tools over one endpoint`,
-      body: "Draft, preview, schedule, publish, restore, upload, and run the site. Each tool sits behind a scope.",
+      body: "Draft, preview, schedule, publish, restore, upload, and run the site. Each tool that touches your blog sits behind a scope.",
     },
     {
       tag: "REST",

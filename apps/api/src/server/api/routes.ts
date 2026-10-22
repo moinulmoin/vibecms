@@ -33,6 +33,7 @@ import {
   updateVoiceRequestSchema, updateSignupFormRequestSchema, getAnalyticsRequestSchema,
   setSubpathLocationRequestSchema, siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  getSkillRequestSchema, skillListDtoSchema, skillDtoSchema,
   seoCheckPostRequestSchema, seoCheckPostDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
@@ -187,6 +188,17 @@ export const getAnalyticsRoute = createRoute({
   description: operationsByToolName['analytics.get'].description, security: bearerSecurity,
   request: { query: getAnalyticsRequestSchema },
   responses: { 200: { description: 'Aggregate analytics', content: { 'application/json': { schema: analyticsDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 429, 500) },
+});
+export const listSkillsRoute = createRoute({
+  method: 'get', path: '/skills', operationId: operationsByToolName['skills.list'].operationId,
+  description: operationsByToolName['skills.list'].description, security: bearerSecurity,
+  responses: { 200: { description: 'vibecms agent skills', content: { 'application/json': { schema: skillListDtoSchema } } }, ...routeErrors(401, 429, 500) },
+});
+export const getSkillRoute = createRoute({
+  method: 'get', path: '/skills/{name}', operationId: operationsByToolName['skills.get'].operationId,
+  description: operationsByToolName['skills.get'].description, security: bearerSecurity,
+  request: { params: getSkillRequestSchema },
+  responses: { 200: { description: 'One skill with its full SKILL.md', content: { 'application/json': { schema: skillDtoSchema } } }, ...routeErrors(400, 401, 404, 429, 500) },
 });
 
 export const getSiteLocationRoute = createRoute({
@@ -612,6 +624,7 @@ export const seoCheckPostRoute = createRoute({
 export const apiV1OperationRoutes = [
   getSiteRoute,
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
+  listSkillsRoute, getSkillRoute,
   getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
   listPostsRoute,
   getPostBySlugRoute,

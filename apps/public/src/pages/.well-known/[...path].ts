@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { apiCatalog, mcpServerCard, agentSkillsIndex, skillArtifacts } from "../../lib/agent-discovery";
+import { apiCatalog, mcpServerCard, agentSkillsIndex, isSkillName, skillArtifacts } from "../../lib/agent-discovery";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
 import { publicOrigin } from "../../server/public-url";
@@ -14,7 +14,7 @@ export const GET: APIRoute = async (context) => {
   if (path === "api-catalog") return new Response(JSON.stringify(apiCatalog(env.appUrl, origin)), { headers: { "content-type": "application/linkset+json; charset=utf-8" } });
   if (path === "mcp/server-card.json") return Response.json(mcpServerCard(env.appUrl, rootPackage.version));
   if (path === "agent-skills/index.json") return Response.json(await agentSkillsIndex(origin));
-  const match = /^agent-skills\/(vibecms-core|vibecms-writing)\/SKILL\.md$/.exec(path || "");
-  if (match) return new Response(skillArtifacts[match[1] as keyof typeof skillArtifacts], { headers: { "content-type": "text/markdown; charset=utf-8" } });
+  const name = /^agent-skills\/([^/]+)\/SKILL\.md$/.exec(path || "")?.[1];
+  if (name && isSkillName(name)) return new Response(skillArtifacts[name], { headers: { "content-type": "text/markdown; charset=utf-8" } });
   return Response.json({ error: "Not found" }, { status: 404 });
 };

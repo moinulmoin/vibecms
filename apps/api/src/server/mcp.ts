@@ -255,7 +255,7 @@ async function callTool(name: McpToolName, actor: Actor, siteId: string, workspa
 function listedTools(actor?: Actor) {
   return {
     tools: operations
-      .filter((op) => !actor || can(actor, op.requiredScope))
+      .filter((op) => !actor || op.requiredScope === null || can(actor, op.requiredScope))
       .map((op) => {
         const annotations: Record<string, boolean> = {};
         const hints = op.annotations as OperationAnnotations;

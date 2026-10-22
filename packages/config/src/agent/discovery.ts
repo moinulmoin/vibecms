@@ -1,9 +1,19 @@
 // Agent discovery documents shared by the public and API Workers. Skill
-// artifacts come from skills/*/SKILL.md via `pnpm gen:agent-skills`.
+// artifacts come from skills/*/SKILL.md via `pnpm gen:agent-skills`; every
+// consumer (both .well-known routes, MCP/REST skills.*, the CLI through the
+// index) derives the skill list from them, so a new skill folder needs no code.
 import { agentPitch } from "./pitch";
 import { skillArtifacts } from "./skills.generated";
 
 export { agentPitch, skillArtifacts };
+
+export type SkillName = keyof typeof skillArtifacts;
+export const skillNames = Object.keys(skillArtifacts).sort() as SkillName[];
+
+/** Own keys only, so `constructor` or `__proto__` never resolve to a skill. */
+export function isSkillName(name: string): name is SkillName {
+  return Object.hasOwn(skillArtifacts, name);
+}
 
 export const agentSkillsSchema = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
 
@@ -29,14 +39,22 @@ export function mcpServerCard(appUrl: string, version: string) {
   return { serverInfo: { name: "vibecms", version }, endpoint: `${appUrl.replace(/\/$/, "")}/mcp`, transport: { type: "streamable-http", endpoint: `${appUrl.replace(/\/$/, "")}/mcp` }, capabilities: { tools: {} }, authentication: { type: "bearer", instructions: "Create a scoped agent key under Connect in the dashboard and send Authorization: Bearer <key>." } };
 }
 
+async function skillEntry(origin: string, name: SkillName) {
+  const content: string = skillArtifacts[name];
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
+  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const description = content.match(/^description:\s*(.+)$/m)?.[1] ?? name;
+  return { name, type: "skill-md" as const, description, url: `${origin}/.well-known/agent-skills/${name}/SKILL.md`, digest: `sha256:${hex}` };
+}
+
 export async function agentSkillsIndex(origin: string) {
-  const skills = await Promise.all(Object.entries(skillArtifacts).map(async ([name, content]) => {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
-    const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    const description = content.match(/^description:\s*(.+)$/m)?.[1] ?? name;
-    return { name, type: "skill-md", description, url: `${origin}/.well-known/agent-skills/${name}/SKILL.md`, digest: `sha256:${hex}` };
-  }));
-  return { $schema: agentSkillsSchema, skills };
+  return { $schema: agentSkillsSchema, skills: await Promise.all(skillNames.map((name) => skillEntry(origin, name))) };
+}
+
+/** One skill with its full SKILL.md, or null when no skill has that name. */
+export async function agentSkill(origin: string, name: string) {
+  if (!isSkillName(name)) return null;
+  return { ...(await skillEntry(origin, name)), content: skillArtifacts[name] as string };
 }
 
 export function authMarkdown(appUrl: string, marketingOrigin: string): string {

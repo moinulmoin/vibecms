@@ -13,11 +13,12 @@ const requiredPages = {
 describe('documentation contract', () => {
   it('lists every MCP operation under its required scope', () => {
     const page = read('agent-workflows/scopes-and-tools.mdx');
-    const operations = [...operationsSource.matchAll(/toolName:\s*["']([^"']+)["']\s*,[^\n]*?(?:\n[^\n]*){0,3}?requiredScope:\s*["']([^"']+)["']/g)];
+    // requiredScope: null (any valid key) is listed under the `none` row.
+    const operations = [...operationsSource.matchAll(/toolName:\s*["']([^"']+)["']\s*,[^\n]*?(?:\n[^\n]*){0,3}?requiredScope:\s*(?:["']([^"']+)["']|null)/g)];
     expect(operations).toHaveLength(AGENT_TOOL_COUNT);
     const rows = new Map([...page.matchAll(/^\| `([^`]+)` \| (.+) \|$/gm)].map((match) => [match[1], match[2]]));
     for (const [, name, scope] of operations) {
-      expect(rows.get(scope), `${name} should appear under ${scope}`).toContain(`\`${name}\``);
+      expect(rows.get(scope ?? 'none'), `${name} should appear under ${scope ?? 'none'}`).toContain(`\`${name}\``);
     }
   });
 

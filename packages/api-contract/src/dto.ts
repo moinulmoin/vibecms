@@ -142,6 +142,17 @@ export const siteLocationDtoSchema = z.object({
 export const siteLocationCheckDtoSchema = z.object({ check: subpathCheckDtoSchema, location: siteLocationDtoSchema });
 export type SiteLocationDto = z.infer<typeof siteLocationDtoSchema>;
 export const tagDtoSchema = z.object({ name: z.string(), postCount: z.number().int().nonnegative() });
+/** One vibecms agent skill as listed in /.well-known/agent-skills/index.json. */
+export const skillSummaryDtoSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  url: z.string(),
+  digest: z.string(),
+});
+export const skillListDtoSchema = z.object({ skills: z.array(skillSummaryDtoSchema) });
+export const skillDtoSchema = skillSummaryDtoSchema.extend({ content: z.string() });
+export type SkillSummaryDto = z.infer<typeof skillSummaryDtoSchema>;
+export type SkillDto = z.infer<typeof skillDtoSchema>;
 export const analyticsDtoSchema = z.object({
   status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
   retentionDays: z.number(), views: z.number().optional(), previousViews: z.number().nullable().optional(),

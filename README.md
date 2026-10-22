@@ -47,11 +47,13 @@ Any compatible MCP client uses the same endpoint and bearer credential:
 }
 ```
 
-Install the client-independent safety and writing skills:
+Install the client-independent safety and writing skills (every skill in `skills/`):
 
 ```sh
-npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing
+npx skills add moinulmoin/vibecms --skill '*'
 ```
+
+Or save them with the CLI (`npx vibecms-cli skills install`, default `.agents/skills`), or let a connected agent call the `skills.list` and `skills.get` MCP tools.
 
 Verify credentials with a protected read—not `tools/list`, which is intentionally available for tool discovery:
 

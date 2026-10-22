@@ -20,6 +20,9 @@
 - Prod deploys only from `main`, through the GitHub workflow:
   `gh workflow run deploy-production.yml --ref main -f release_sha=<full sha> -f smoke_mode=authenticated`.
 - Never edit an existing migration in `packages/db/drizzle`; add a new one.
+- Edit agent skills only in root `skills/<name>/`, then run `pnpm gen:agent-skills`.
+  It regenerates `packages/config/src/agent/skills.generated.ts`, `skills-lock.json`
+  and the plugin copies in `plugins/vibecms/skills/`; never edit those by hand.
 - Never commit secrets. `.env*.local` files are gitignored; `pnpm public:audit`
   runs on every commit.
 - Better Auth upgrades must re-audit installed core and `emailOTP` email-sending

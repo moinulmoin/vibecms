@@ -2,16 +2,22 @@
   "version": 1,
   "skills": {
     "vibecms-core": {
-      "source": "./local",
+      "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-core/SKILL.md",
-      "computedHash": "4a42974a92310d6329a2cede2b27a98552b824c971480c77206fd8b1acf7e4fc"
+      "computedHash": "48b26b43a9fc682c8f5f0c5a95c27420d1e0764e26465d25203faf41104d3ecd"
+    },
+    "vibecms-seo": {
+      "source": ".",
+      "sourceType": "local",
+      "skillPath": "skills/vibecms-seo/SKILL.md",
+      "computedHash": "3daa5590da19836713888536caeb88be3bca9ee8046f3f8805d13e25ba05228c"
     },
     "vibecms-writing": {
-      "source": "./local",
+      "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-writing/SKILL.md",
-      "computedHash": "49af39c5a06db0de0f988edd9cee2ab2eda82f8a89dafe96ad4f4e240e0dec5e"
+      "computedHash": "b106e28d47ce1286511d7017c36c84affcbba66056035b8d5d0989bfd60f079e"
     }
   }
 }

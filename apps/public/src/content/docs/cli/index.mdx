@@ -1,6 +1,6 @@
 ---
 title: Command-line client
-description: Use the vibecms CLI for site management, posts, assets, and structured output.
+description: Use the vibecms CLI for site management, posts, assets, agent skills, and structured output.
 ---
 
 Install `vibecms-cli` from npm to get the `vibecms` command:
@@ -77,6 +77,19 @@ vibecms schema publishPost
 ```
 
 Uploads accept PNG, JPEG, WebP, and GIF. `schema` prints operation metadata as JSON.
+
+## Agent skills
+
+```sh
+vibecms skills list
+vibecms skills install
+vibecms skills install --dir .claude/skills
+vibecms skills install --force
+```
+
+`skills list` shows every vibecms agent skill with its description and digest. `skills install` downloads each skill from `/.well-known/agent-skills/` on the API host and saves it as `<dir>/<name>/SKILL.md`. Neither command needs a token.
+
+The default folder is `.agents/skills` in the current directory, which Codex, Cursor, Gemini CLI, GitHub Copilot, and OpenCode read. For Claude Code, pass `--dir .claude/skills` (or `~/.claude/skills` for every project). Skills already up to date are left alone. A skill file that differs from the latest version, because it is older or you edited it, is only replaced with `--force`; without it the command writes nothing and exits with code `5`. So to update skills you installed earlier, run `vibecms skills install --force`. Add `--dry-run` to see what would be written.
 
 ## Global flags and exit codes
 

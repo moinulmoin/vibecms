@@ -25,7 +25,7 @@ import {
   updatePostRequestSchema,
   uploadAssetRequestSchema,
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
-  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema, listSkillsRequestSchema, getSkillRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
   seoCheckPostRequestSchema,
 } from "@vc/api-contract";
@@ -55,7 +55,7 @@ import {
   searchPostsOp,
   updatePostOp,
   uploadAssetOp,
-  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
+  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp, listSkillsOp, getSkillOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
   seoCheckPostOp,
 } from "./operations";
@@ -92,6 +92,11 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
     case 'tags.list':
       listTagsRequestSchema.parse(rawArguments ?? {});
       return listTagsOp(ctx);
+    case 'skills.list':
+      listSkillsRequestSchema.parse(rawArguments ?? {});
+      return listSkillsOp();
+    case 'skills.get':
+      return getSkillOp(getSkillRequestSchema.parse(rawArguments ?? {}));
     case 'analytics.get':
       return getAnalyticsOp(ctx, getAnalyticsRequestSchema.parse(rawArguments ?? {}));
     case "posts.list":

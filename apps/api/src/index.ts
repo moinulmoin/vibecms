@@ -25,7 +25,7 @@ import { logUnhandledException, redactPathSecrets } from '@/server/request-loggi
 import { rpcHandleSubscribe } from '@/rpc/public'
 import { autoseopilotRoutes } from '@/routes/autoseopilot'
 import rootPackage from '../../../package.json'
-import { apiCatalog, mcpServerCard, agentSkillsIndex, skillArtifacts, authMarkdown } from '@vc/config/agent-discovery'
+import { apiCatalog, mcpServerCard, agentSkillsIndex, isSkillName, skillArtifacts, authMarkdown } from '@vc/config/agent-discovery'
 
 type AppEnv = {
   Bindings: Cloudflare.Env
@@ -123,8 +123,8 @@ app.get('/.well-known/mcp/server-card.json', (c) => c.json(mcpServerCard(c.env.A
 app.get('/.well-known/agent-skills/index.json', async (c) => c.json(await agentSkillsIndex(c.env.APP_URL.replace(/\/$/, ''))))
 app.get('/.well-known/agent-skills/:name/SKILL.md', (c) => {
   const name = c.req.param('name')
-  if (!(name in skillArtifacts)) return c.json({ error: 'Not found' }, 404)
-  return c.body(skillArtifacts[name as keyof typeof skillArtifacts], 200, { 'Content-Type': 'text/markdown; charset=utf-8' })
+  if (!isSkillName(name)) return c.json({ error: 'Not found' }, 404)
+  return c.body(skillArtifacts[name], 200, { 'Content-Type': 'text/markdown; charset=utf-8' })
 })
 app.get('/auth.md', (c) => c.body(authMarkdown(c.env.APP_URL, marketingOrigin(c.env)), 200, { 'Content-Type': 'text/markdown; charset=utf-8' }))
 app.get('/openapi.json', (c) => apiV1App.fetch(new Request(new URL('/api/v1/openapi.json', c.req.url), c.req.raw), { requestId: c.get('requestId') }))

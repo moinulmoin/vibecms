@@ -44,6 +44,8 @@ import {
   removeSubpathLocationForApp,
   setSubpathLocationForApp,
 } from "./subpath-locations";
+import { agentSkill, agentSkillsIndex } from "@vc/config/agent-discovery";
+
 export type OperationContext = {
   actor: Actor;
   siteId: string;
@@ -325,6 +327,20 @@ export async function getAnalyticsOp(ctx: OperationContext, input: { range: stri
   const result = await loadAnalyticsForApp(appUser(ctx), range, { postId: input.postId });
   if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', 'Analytics are on the paid plan.', 402);
   return result;
+}
+
+// Skills are public (also served at /.well-known/agent-skills/), so any valid
+// key may read them; no scope check. URLs point at this app host's copy.
+export async function listSkillsOp() {
+  const index = await agentSkillsIndex(String(env.APP_URL).replace(/\/$/, ""));
+  return { skills: index.skills.map(({ name, description, url, digest }) => ({ name, description, url, digest })) };
+}
+
+export async function getSkillOp(input: { name: string }) {
+  const skill = await agentSkill(String(env.APP_URL).replace(/\/$/, ""), input.name);
+  if (!skill) throw new NotFoundError(`No skill named ${input.name}. Call skills.list for the available names.`);
+  const { name, description, url, digest, content } = skill;
+  return { name, description, url, digest, content };
 }
 
 export async function listPostsOp(ctx: OperationContext, input: ListPostsRequest) {

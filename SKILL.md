@@ -26,10 +26,12 @@ Both skills are located in `skills/` and are designed to be used together for a 
 
 ## Installation
 
-Install both skills for Claude Code or another supported Agent Skills client:
+Install every vibecms skill for Claude Code or another supported Agent Skills client:
 
 ```bash
-npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing
+npx skills add moinulmoin/vibecms --skill '*'
 ```
+
+Or run `npx vibecms-cli skills install`, or call the `skills.list` and `skills.get` MCP tools.
 
 Inside a VibeCMS repository checkout, compatible agents can also discover the canonical files directly from `skills/`.

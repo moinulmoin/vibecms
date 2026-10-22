@@ -27,7 +27,7 @@ describe("public agent discovery", () => {
     expect(card.endpoint).toBe(`${app}/mcp`);
     expect(card.capabilities).toEqual({ tools: {} });
     const index = await agentSkillsIndex(origin);
-    expect(index.skills.map((skill) => skill.name)).toEqual(["vibecms-core", "vibecms-seo", "vibecms-writing"]);
+    expect(index.skills.map((skill) => skill.name)).toEqual(Object.keys(skillArtifacts).sort());
     for (const skill of index.skills) {
       const bytes = new TextEncoder().encode(skillArtifacts[skill.name as keyof typeof skillArtifacts]);
       const hash = await crypto.subtle.digest("SHA-256", bytes);
@@ -91,7 +91,7 @@ describe("marketing discovery routes", () => {
       ['/.well-known/api-catalog', 'application/linkset+json'],
       ['/.well-known/mcp/server-card.json', 'application/json'],
       ['/.well-known/agent-skills/index.json', 'application/json'],
-      ['/.well-known/agent-skills/vibecms-core/SKILL.md', 'text/markdown'],
+      ...Object.keys(skillArtifacts).map((name) => [`/.well-known/agent-skills/${name}/SKILL.md`, 'text/markdown']),
     ]) {
       const response = await GET(context(path) as never) as Response;
       expect(response.status).toBe(200);

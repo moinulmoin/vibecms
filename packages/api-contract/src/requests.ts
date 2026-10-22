@@ -99,6 +99,12 @@ export const updateSignupFormRequestSchema = z.object({
   (value) => Object.keys(value).length > 1, 'Send at least one signup form field',
 );
 export const listTagsRequestSchema = z.object({}).strict();
+export const listSkillsRequestSchema = z.object({}).strict();
+// A pattern, not an enum of today's names: the live list comes from skills.list,
+// so adding a skill folder never changes this contract or the OpenAPI document.
+export const getSkillRequestSchema = z.object({
+  name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'name is not a valid skill name. Call skills.list for the available names.'),
+}).strict();
 export const getSiteLocationRequestSchema = z.object({}).strict();
 // The full public location (https://customer.com/blog); validation lives server-side.
 export const setSubpathLocationRequestSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
@@ -260,6 +266,7 @@ export type ListPostVersionsRequest = z.infer<typeof listPostVersionsRequestSche
 export type GetPostVersionRequest = z.infer<typeof getPostVersionRequestSchema>;
 export type RestorePostVersionRequest = z.infer<typeof restorePostVersionRequestSchema>;
 export type GetFormatGuideRequest = z.infer<typeof getFormatGuideRequestSchema>;
+export type GetSkillRequest = z.infer<typeof getSkillRequestSchema>;
 export type PreviewPostRequest = z.infer<typeof previewPostRequestSchema>;
 export type SeoCheckPostRequest = z.infer<typeof seoCheckPostRequestSchema>;
 export type ListAssetsRequest = z.infer<typeof listAssetsRequestSchema>;
