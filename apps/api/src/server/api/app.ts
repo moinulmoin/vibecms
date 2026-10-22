@@ -32,7 +32,7 @@ import {
   uploadAssetOp,
   seoCheckPostOp,
   type OperationContext,
-  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp,
+  updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp, listSkillsOp, getSkillOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, apiRetryAfterSeconds, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
@@ -64,6 +64,7 @@ import {
   updatePostRoute,
   uploadAssetRoute,
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
+  listSkillsRoute, getSkillRoute,
   getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
   seoCheckPostRoute,
 } from "@/server/api/routes";
@@ -214,6 +215,8 @@ apiV1App.openapi(updateVoiceRoute, async (c) => c.json(await updateVoiceOp(c.get
 apiV1App.openapi(updateSignupFormRoute, async (c) => c.json(await updateSignupFormOp(c.get('ctx'), c.req.valid('json')), 200));
 apiV1App.openapi(listTagsRoute, async (c) => c.json(await listTagsOp(c.get('ctx')), 200));
 apiV1App.openapi(getAnalyticsRoute, async (c) => c.json(await getAnalyticsOp(c.get('ctx'), c.req.valid('query')), 200));
+apiV1App.openapi(listSkillsRoute, async (c) => c.json(await listSkillsOp(), 200));
+apiV1App.openapi(getSkillRoute, async (c) => c.json(await getSkillOp(c.req.valid('param')), 200));
 
 apiV1App.openapi(getSiteLocationRoute, async (c) => c.json(await getSiteLocationOp(c.get('ctx')), 200));
 apiV1App.openapi(setSubpathLocationRoute, async (c) => c.json(await setSubpathLocationOp(c.get('ctx'), c.req.valid('json')), 200));

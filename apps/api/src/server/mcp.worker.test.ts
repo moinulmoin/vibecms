@@ -28,7 +28,7 @@ type Tool = {
   inputSchema: Record<string, unknown>;
   outputSchema?: ToolSchema;
   annotations: Record<string, boolean>;
-  _meta: { "vibecms.com/requiredScope": string };
+  _meta: { "vibecms.com/requiredScope": string | null };
 };
 
 type RpcErrorBody = { jsonrpc: string; id: unknown; error: { code: number; message: string } };
@@ -505,8 +505,8 @@ describe("MCP tools/list auth and quota", () => {
     const first = await handleMcpRequest(mcpRequest({ jsonrpc: "2.0", id: 4, method: "tools/list" }, headers));
     expect(first.status).toBe(200);
     const firstJson = (await first.json()) as { result: { tools: Tool[] } };
-    // Read-only scopes: mutating tools are filtered out.
-    expect(firstJson.result.tools.every((tool) => ["sites:read", "posts:read", "activity:read"].includes(tool._meta["vibecms.com/requiredScope"]))).toBe(true);
+    // Read-only scopes: mutating tools are filtered out; the scope-free skills tools (null) stay for every key.
+    expect(firstJson.result.tools.every((tool) => ["sites:read", "posts:read", "activity:read", null].includes(tool._meta["vibecms.com/requiredScope"]))).toBe(true);
     expect(firstJson.result.tools.some((tool) => tool.name === "sites.get")).toBe(true);
     expect(firstJson.result.tools.some((tool) => tool.name === "posts.publish")).toBe(false);
 

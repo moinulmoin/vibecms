@@ -12,7 +12,7 @@ import {
   siteWithSignupFormDtoSchema,
   siteLocationDtoSchema, siteLocationCheckDtoSchema,
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
-  signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema,
+  signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema, skillListDtoSchema, skillDtoSchema,
   seoCheckPostDtoSchema,
 } from "./dto";
 import {
@@ -41,7 +41,7 @@ import {
   updatePostRequestSchema,
   uploadAssetRequestSchema,
   updateSiteRequestSchema, getThemeRequestSchema, updateThemeRequestSchema, revertThemeRequestSchema,
-  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema,
+  updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema, listSkillsRequestSchema, getSkillRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
   seoCheckPostRequestSchema,
 } from "./requests";
@@ -57,16 +57,17 @@ export type OperationDefinition = {
   toolName: string;
   /** OpenAPI-style operation id. */
   operationId: string;
-  requiredScope: Scope;
+  /** null: any valid key may call it (read-only, public content such as the skills). */
+  requiredScope: Scope | null;
   description: string;
   requestSchema: z.ZodTypeAny;
   responseSchema: z.ZodTypeAny;
   annotations: OperationAnnotations;
 };
 
-const scopeSuffix = (scope: Scope) => ` Requires scope: ${scope}.`;
+const scopeSuffix = (scope: Scope | null) => (scope ? ` Requires scope: ${scope}.` : " Any valid key; no scope required.");
 
-function opDescription(body: string, scope: Scope, _errors: string) {
+function opDescription(body: string, scope: Scope | null, _errors: string) {
   return `${body}${scopeSuffix(scope)}`.trim();
 }
 
@@ -148,6 +149,16 @@ export const operations = [
     toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
     description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
     requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'skills.list', operationId: 'listSkills', requiredScope: null,
+    description: opDescription('List the vibecms agent skills: free instructions that teach you how to work with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). Compare digest with your installed copy to see whether it changed; call skills.get for the full text. Example: {}.', null, readErrors),
+    requestSchema: listSkillsRequestSchema, responseSchema: skillListDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'skills.get', operationId: 'getSkill', requiredScope: null,
+    description: opDescription('Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. To install or update it, save content as <your skills folder>/<name>/SKILL.md (for example .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {"name":"vibecms-core"}.', null, readErrors),
+    requestSchema: getSkillRequestSchema, responseSchema: skillDtoSchema, annotations: { readOnly: true },
   },
   {
     toolName: "posts.list",
