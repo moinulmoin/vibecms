@@ -9,6 +9,7 @@ const INCLUDED = [
   "Indexed by search engines",
   `${MEDIA.paidStorageLabel} of media on R2`,
   "Unlimited agent requests (fair use)",
+  "No vibecms link on your blog",
   "MCP, REST API, and CLI",
   "Private previews and scheduling",
   "Versions, restore, activity log",

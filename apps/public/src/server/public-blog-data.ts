@@ -311,6 +311,15 @@ export function isPausedSite(site: SiteRow): boolean {
   return site.effective_entitlement.servingPaused;
 }
 
+/**
+ * True when the blog's pages carry the "Published with vibecms" footer link:
+ * hosted blogs without paid entitlement (Polar or managed sponsorship). Paid
+ * and self-hosted blogs never show it.
+ */
+export function showsPublishedWith(site: SiteRow): boolean {
+  return site.effective_entitlement.access === "hosted_free";
+}
+
 export async function listPublishedPostSummariesByTag(
   db: D1Database,
   siteId: string,
