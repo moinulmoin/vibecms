@@ -497,7 +497,7 @@ describe("public claim window ingress", () => {
     expect((await handleFeed(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(200);
   });
 
-  it("pauses the blog after the grace: the paused page for visitors, 404 for the machines", async () => {
+  it("pauses the blog after the grace: the paused page for visitors and the machines", async () => {
     // Day 8 of the claim window: the blog is paused, not gone. The address
     // still resolves, so every ingress can show the paused page.
     await setManagedEntitlement("revoked", null, NOW - 8 * 24 * 60 * 60);
@@ -517,10 +517,17 @@ describe("public claim window ingress", () => {
       ),
     ).toBe(true);
 
-    // The machine surfaces are gone: no feed, no sitemap, no llms.txt.
-    expect((await handleFeed(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
-    expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
-    expect((await handleLlmsTxt(env.DB, requestFor(DEFAULT_HOST), runtimeEnv)).status).toBe(404);
+    // The machine surfaces serve no content: the feed, the sitemap and
+    // llms.txt answer the paused response, never a bare 404.
+    for (const machine of [
+      await handleFeed(env.DB, requestFor(DEFAULT_HOST), runtimeEnv),
+      await handleSitemap(env.DB, requestFor(DEFAULT_HOST), runtimeEnv),
+      await handleLlmsTxt(env.DB, requestFor(DEFAULT_HOST), runtimeEnv),
+    ]) {
+      expect(machine.status).toBe(503);
+      expect(machine.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+      expect(machine.headers.get("cache-control")).toBe("no-store");
+    }
 
     // A visitor gets the paused page, never a bare 404, and never indexable.
     const paused = await handlePublicPostByHostGet(

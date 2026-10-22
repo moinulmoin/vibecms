@@ -14,6 +14,7 @@ import {
   type SiteRow,
 } from "./public-blog-data";
 import { buildRssXml, buildSitemapXml, buildUrlsetXml } from "./public-feeds-xml";
+import { pausedBlogResponse } from "./paused-blog";
 import { sanitizeLlmsField } from "./llms-text";
 import { publicCacheControlForEntitlement, siteCacheTag } from "./public-blog-cache";
 import { publicOrigin } from "./public-url";
@@ -66,7 +67,8 @@ function productLlmsTxt(origin: string, env: PublicRuntimeEnv): Response {
 export async function handleFeed(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
-  if (isPausedSite(site)) return notFound();
+  // A paused blog answers the paused page here too: never a bare 404.
+  if (isPausedSite(site)) return pausedBlogResponse(request);
   const requestUrl = new URL(request.url);
   const loc = location ?? { origin: publicOrigin(requestUrl), basePath: "", assetOrigin: publicOrigin(requestUrl), proxied: false };
   const homeBase = publicBaseUrl(loc);
@@ -112,7 +114,7 @@ export async function handleSitemap(
   if (!env.selfHosted && isMarketingHost(request, env)) return productSitemap(publicOrigin(request.url), productPages);
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
-  if (isPausedSite(site)) return notFound();
+  if (isPausedSite(site)) return pausedBlogResponse(request);
   if (!isPublicBlogIndexable(site, env)) return notFound();
   const origin = location ? publicBaseUrl(location) : publicOrigin(request.url);
   const posts = await listPublishedPostSummaries(db, site.id, PUBLIC_BLOG_LIMITS.sitemapSummaries);
@@ -174,7 +176,7 @@ function renderLlmsTxt(site: SiteRow, origin: string, basePath: string, posts: P
 export async function handleLlmsTxt(db: D1Database, request: Request, env: PublicRuntimeEnv, location?: PublicLocation): Promise<Response> {
   const site = await resolveSite(request, db, env);
   if (!site) return isMarketingHost(request, env) ? productLlmsTxt(publicOrigin(request.url), env) : notFound();
-  if (isPausedSite(site)) return notFound();
+  if (isPausedSite(site)) return pausedBlogResponse(request);
   const loc = location ?? { origin: publicOrigin(request.url), basePath: "", assetOrigin: publicOrigin(request.url), proxied: false };
   return renderLlmsTxt(
     site,

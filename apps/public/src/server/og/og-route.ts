@@ -17,6 +17,7 @@
 import type { APIContext } from "astro";
 import { buildOgCardModel, ogCardVersion } from "../../lib/og-card";
 import { articleCacheTags, cachedArticleResponseBelongsToSite, siteCacheTag } from "../public-blog-cache";
+import { pausedBlogResponse } from "../paused-blog";
 import { getPublishedPost, isPausedSite, resolveSite } from "../public-blog-data";
 import { ogBinding, publicAssetsBucket, publicDb, publicRuntimeEnv } from "../runtime";
 
@@ -62,7 +63,8 @@ export async function handleOgCardRequest(context: APIContext, slug: string | un
   const site = await resolveSite(request, db, env);
   if (!site) return notFound();
   // A paused blog renders no share card: its content is not public any more.
-  if (isPausedSite(site)) return notFound();
+  // It answers the same paused response as every other ingress.
+  if (isPausedSite(site)) return pausedBlogResponse(request);
   const post = slug === undefined ? null : await getPublishedPost(db, site.id, slug);
   if (slug !== undefined && !post) return notFound();
 
