@@ -22,12 +22,12 @@ The CMS your agents publish into: Markdown posts, versions, and media over scope
 
 ## Connect an MCP client
 
-vibecms exposes standards-based MCP over Streamable HTTP. In the dashboard, open **Connect**, create a scoped token, and copy it once.
+vibecms exposes standards-based MCP over Streamable HTTP. In the dashboard, open **Connect**, create a scoped token, and copy it once. Hosted vibecms uses `https://app.vibecms.dev`; self-hosters use their own API host.
 
 Claude Code is the primary example:
 
 ```sh
-claude mcp add --transport http vibecms https://your-vibecms-domain.com/mcp \
+claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
   --header "Authorization: Bearer vc_..."
 ```
 
@@ -38,7 +38,7 @@ Any compatible MCP client uses the same endpoint and bearer credential:
   "mcpServers": {
     "vibecms": {
       "type": "http",
-      "url": "https://your-vibecms-domain.com/mcp",
+      "url": "https://app.vibecms.dev/mcp",
       "headers": {
         "Authorization": "Bearer vc_..."
       }
@@ -56,7 +56,7 @@ npx skills add moinulmoin/vibecms --skill vibecms-core --skill vibecms-writing
 Verify credentials with a protected read—not `tools/list`, which is intentionally available for tool discovery:
 
 ```sh
-curl https://your-vibecms-domain.com/mcp \
+curl https://app.vibecms.dev/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer vc_..." \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sites.get","arguments":{}}}'
@@ -84,7 +84,7 @@ warning, leaving deterministic findings available.
 The REST `/api/v1` API mirrors the MCP tools with full read/write parity. Post lists return summaries without full Markdown, so fetch a single post body through REST or MCP `posts.get`:
 
 ```sh
-curl "https://your-vibecms-domain.com/api/v1/posts?limit=20&offset=0" \
+curl "https://app.vibecms.dev/api/v1/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
@@ -132,12 +132,6 @@ The repository deploys the same three-Worker topology in hosted and self-hosted 
 - Root `wrangler.public.jsonc` configures the self-hosted Astro public-blog Worker.
 - Root `wrangler.og.jsonc` configures the optional self-hosted OG Worker.
 - `pnpm deploy` builds all configured Workers, applies D1 migrations, then deploys API → OG → public (OG first so public's service bindings resolve).
-
-Deploy button shape, once this repo is public:
-
-```md
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/moinulmoin/vibecms)
-```
 
 During deploy, configure the root Wrangler files (`wrangler.jsonc`,
 `wrangler.public.jsonc`, and `wrangler.og.jsonc` unless you omit OG per
