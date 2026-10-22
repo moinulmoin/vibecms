@@ -421,12 +421,16 @@ export async function runManagedClaimSweep(
       }
       const reminder = latestDueReminder(elapsed)
       if (!reminder || reminderMarker(candidate, reminder.day) !== null) continue
-      // Claim the marker first: at most one reminder per day-slot ever,
-      // even with overlapping cron runs.
+      // Claim the marker first: at most one reminder per day-slot of this
+      // window, even with overlapping cron runs. The claim is bound to the
+      // window the candidate was read in, so a run that read an older window
+      // can never mark (and skip) a slot of a newer one.
+      const window = { revokedAt: candidate.revokedAt, lifecycleRevision: candidate.lifecycleRevision }
       const claimed = await repo.markClaimReminderSent(
         candidate.externalWorkspaceId,
         reminder.day as ManagedClaimReminderDay,
         now,
+        window,
       )
       if (!claimed) continue
       try {
@@ -444,6 +448,7 @@ export async function runManagedClaimSweep(
           candidate.externalWorkspaceId,
           reminder.day as ManagedClaimReminderDay,
           now,
+          window,
         )
         console.warn('[managed-claim-sweep] reminder send failed', {
           workspaceId: candidate.workspaceId,

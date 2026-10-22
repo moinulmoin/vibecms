@@ -563,6 +563,15 @@ export function normalizeManagedOwnerEmail(email: string): string {
 /** Reminder days inside the claim window; each has a durable sent marker. */
 export type ManagedClaimReminderDay = 7 | 14 | 21 | 28;
 
+/**
+ * One claim window: the revoke that opened it and the lifecycle revision it
+ * landed at. A reactivation and a new revoke open a new window.
+ */
+export interface ManagedClaimWindowRef {
+  revokedAt: number;
+  lifecycleRevision: number;
+}
+
 /** One revoked, unclaimed managed blog the claim sweep must act on. */
 export interface ManagedClaimSweepCandidate {
   id: string;
@@ -724,17 +733,24 @@ export interface AutoseopilotManagedSitesClaimSweep {
    * blog that is still waiting.
    */
   markClaimSweepAttempt(externalWorkspaceId: string, timestamp: number): Promise<void>;
-  /** Claims a reminder send; false when already sent (or no longer revoked). */
+  /**
+   * Claims a reminder send for ONE claim window (the revoke and lifecycle the
+   * candidate was selected at); false when already sent, no longer revoked,
+   * or the window changed since (a sweep that read an older window can never
+   * mark a newer one).
+   */
   markClaimReminderSent(
     externalWorkspaceId: string,
     day: ManagedClaimReminderDay,
     timestamp: number,
+    window: ManagedClaimWindowRef,
   ): Promise<boolean>;
-  /** Releases a claimed send whose dispatch definitively failed. */
+  /** Releases a claimed send whose dispatch definitively failed, in the same window. */
   clearClaimReminderSent(
     externalWorkspaceId: string,
     day: ManagedClaimReminderDay,
     timestamp: number,
+    window: ManagedClaimWindowRef,
   ): Promise<void>;
   /**
    * Deletes an unclaimed blog past its deadline: binding, site (cascades
@@ -1524,6 +1540,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
 
     async revoke(input) {
       const nextRevision = input.expectedLifecycleRevision + 1;
+      // A revoke that opens a new claim window (no revoke on record) starts
+      // its reminders from scratch in the same guarded write: the markers of
+      // an earlier window, before a reactivation, must not skip this window's
+      // slots.
       const [updateResult] = await db.batch([
         db
           .prepare(
@@ -1531,6 +1551,10 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
              SET entitlement_status = 'revoked',
                  entitlement_expires_at = NULL,
                  revoked_at = COALESCE(revoked_at, ?),
+                 claim_day7_sent_at = CASE WHEN revoked_at IS NULL THEN NULL ELSE claim_day7_sent_at END,
+                 claim_day14_sent_at = CASE WHEN revoked_at IS NULL THEN NULL ELSE claim_day14_sent_at END,
+                 claim_day21_sent_at = CASE WHEN revoked_at IS NULL THEN NULL ELSE claim_day21_sent_at END,
+                 claim_day28_sent_at = CASE WHEN revoked_at IS NULL THEN NULL ELSE claim_day28_sent_at END,
                  lifecycle_revision = lifecycle_revision + 1,
                  updated_at = ?
              WHERE external_workspace_id = ?
@@ -1741,7 +1765,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
         .run();
     },
 
-    async markClaimReminderSent(externalWorkspaceId, day, timestamp) {
+    async markClaimReminderSent(externalWorkspaceId, day, timestamp, window) {
       const column = claimReminderColumn(day);
       const result = await db
         .prepare(
@@ -1749,6 +1773,8 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
            SET ${column} = ?
            WHERE external_workspace_id = ?
              AND entitlement_status = 'revoked'
+             AND revoked_at = ?
+             AND lifecycle_revision = ?
              AND ${column} IS NULL
              AND NOT EXISTS (
                SELECT 1 FROM billing_customers b
@@ -1757,21 +1783,23 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
                  AND b.status != 'none'
              )`,
         )
-        .bind(timestamp, externalWorkspaceId)
+        .bind(timestamp, externalWorkspaceId, window.revokedAt, window.lifecycleRevision)
         .run();
       return (result.meta.changes ?? 0) > 0;
     },
 
-    async clearClaimReminderSent(externalWorkspaceId, day, timestamp) {
+    async clearClaimReminderSent(externalWorkspaceId, day, timestamp, window) {
       const column = claimReminderColumn(day);
       await db
         .prepare(
           `UPDATE autoseopilot_managed_sites
            SET ${column} = NULL
            WHERE external_workspace_id = ?
+             AND revoked_at = ?
+             AND lifecycle_revision = ?
              AND ${column} = ?`,
         )
-        .bind(externalWorkspaceId, timestamp)
+        .bind(externalWorkspaceId, window.revokedAt, window.lifecycleRevision, timestamp)
         .run();
     },
 

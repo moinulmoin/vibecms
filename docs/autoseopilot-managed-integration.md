@@ -164,9 +164,13 @@ recovery), so a reminder lands within 15 minutes of its day and a purge
 within 15 minutes of day 30. It selects revoked managed sites whose workspace never claimed VibeCMS Cloud
 (no billing row, or status `none`) and, for each one, sends the reminder of
 the day it is on — days 7, 14, 21 and 28 — each guarded by its own durable
-marker column, so a reminder goes out at most once even across replays. All
-reminders stop as soon as the blog is claimed or the AutoSEOPilot plan
-resumes (a resumed plan clears `revoked_at`).
+marker column, so a reminder goes out at most once per claim window even
+across replays. All reminders stop as soon as the blog is claimed or the
+AutoSEOPilot plan resumes (a resumed plan clears `revoked_at`). A revoke after
+a resumed plan opens a new window: the same guarded write that records the
+new `revoked_at` clears the four markers, and a marker is only claimed for
+the window (`revoked_at` and lifecycle revision) the sweep read, so a sweep
+that read an older window can never mark a slot of the newer one.
 
 At day 30 an unclaimed blog is deleted: the Cloudflare custom hostname, the
 site's R2 objects (its media prefix and its OG cards), and the D1 rows

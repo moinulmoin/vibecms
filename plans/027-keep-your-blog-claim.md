@@ -64,7 +64,10 @@ allows 1,000 per invocation); what does not fit waits for the next run:
 - Reminders: days 7/14/21/28, each with its own durable marker column
   (`claim_day7_sent_at` … `claim_day28_sent_at`). The marker is claimed
   before the send, so a reminder goes out at most once; a definitive send
-  failure releases the marker and the next run retries.
+  failure releases the marker and the next run retries. The markers belong
+  to one window: a revoke after a resumed plan clears them in the same
+  guarded write, and a marker is only claimed for the window (`revoked_at`
+  and lifecycle revision) the sweep read.
 - Deletion: at day 30 the blog is purged — Cloudflare custom hostnames, the
   site's R2 prefix (media and OG cards), and the D1 rows (binding, site,
   workspace, and the user row only when that user has no other workspace).
