@@ -24,6 +24,7 @@ function hosted(billing: Partial<BillingSnapshot>, isOwner = true): BillingPageL
     billing: { status: 'none', currentPeriodEnd: null, cancelAtPeriodEnd: null, polarCustomerId: null, pastDueSince: null, graceEndsAt: null, ...billing },
     managed: null,
     claim: null,
+    serving: { state: 'online', pausedAt: null },
   }
 }
 

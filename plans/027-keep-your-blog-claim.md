@@ -89,6 +89,13 @@ allows 1,000 per invocation); what does not fit waits for the next run:
   exact deadline and a link to the plan page.
 - The billing page no longer promises "Your posts stay online" for a revoked
   sponsorship; it states the grace, the pause, the deadline and the upgrade.
+- The billing payload also carries the serving state (`serving`: `online`,
+  `grace` until `pausedAt`, or `paused`), the same gate the public worker
+  uses, separate from deletion eligibility. A blog that was claimed and later
+  lost its subscription has no deadline (it is never deleted), but its old
+  revoke clock still pauses it; the billing page and the banner then say it
+  is paused (or pauses on a date) and that subscribing again brings it back,
+  never a deletion date.
 
 ## What shipped
 

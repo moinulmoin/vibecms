@@ -486,6 +486,15 @@ export async function loadBillingPage(app: AppUserContext) {
           deadline: revokedAt + MANAGED_CLAIM_WINDOW.windowSeconds,
         }
       : null
+  // What public visitors see right now, separate from deletion eligibility:
+  // the same gate the public worker uses. A blog that was claimed and then
+  // lost its subscription is never deleted (no `claim`), but its old revoke
+  // clock still pauses it once no source covers it.
+  const serving = entitlement.servingPaused
+    ? { state: 'paused' as const, pausedAt: entitlement.claim?.pausedAt ?? null }
+    : !entitlement.effective && entitlement.claim?.state === 'grace'
+      ? { state: 'grace' as const, pausedAt: entitlement.claim.pausedAt }
+      : { state: 'online' as const, pausedAt: null }
   return {
     selfHosted: false as const,
     isOwner,
@@ -498,6 +507,7 @@ export async function loadBillingPage(app: AppUserContext) {
         }
       : null,
     claim,
+    serving,
   }
 }
 

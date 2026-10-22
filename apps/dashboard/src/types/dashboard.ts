@@ -219,7 +219,20 @@ export type BillingPageLoadResult =
         pausedAt: number
         deadline: number
       } | null
+      /**
+       * What public visitors see right now, separate from deletion
+       * eligibility (`claim`): `online`, `grace` (online until `pausedAt`,
+       * then paused) or `paused` (the paused page on every address). A blog
+       * that was claimed and later lost its subscription has no `claim` (it
+       * is never deleted) but can still be paused. Epoch seconds.
+       */
+      serving: ServingState
     }
+
+export type ServingState = {
+  state: 'online' | 'grace' | 'paused'
+  pausedAt: number | null
+}
 
 export type CheckoutInterval = 'monthly' | 'yearly'
 

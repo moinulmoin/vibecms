@@ -32,10 +32,11 @@ function boldColumn(container: HTMLElement) {
 
 type Managed = Extract<BillingPageLoadResult, { selfHosted: false }>['managed']
 type Claim = Extract<BillingPageLoadResult, { selfHosted: false }>['claim']
+type Serving = Extract<BillingPageLoadResult, { selfHosted: false }>['serving']
 
 function hosted(
   billing: Partial<BillingSnapshot>,
-  overrides: { isOwner?: boolean; managed?: Managed; claim?: Claim } = {},
+  overrides: { isOwner?: boolean; managed?: Managed; claim?: Claim; serving?: Serving } = {},
 ): BillingPageLoadResult {
   return {
     selfHosted: false,
@@ -43,6 +44,7 @@ function hosted(
     billing: { status: 'none', currentPeriodEnd: null, cancelAtPeriodEnd: null, polarCustomerId: null, pastDueSince: null, graceEndsAt: null, ...billing },
     managed: overrides.managed ?? null,
     claim: overrides.claim ?? null,
+    serving: overrides.serving ?? { state: 'online', pausedAt: null },
   }
 }
 

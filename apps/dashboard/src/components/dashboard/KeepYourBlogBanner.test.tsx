@@ -41,6 +41,7 @@ function revoked(isOwner = true): Extract<BillingPageLoadResult, { selfHosted: f
     billing: { status: 'none', currentPeriodEnd: null, cancelAtPeriodEnd: null, polarCustomerId: null, pastDueSince: null, graceEndsAt: null },
     managed: { status: 'revoked', expiresAt: null, effective: false },
     claim: revokedClaim(),
+    serving: { state: 'grace', pausedAt: REVOKED_AT + 7 * DAY_SECONDS },
   }
 }
 
@@ -108,7 +109,7 @@ describe('KeepYourBlogBanner', () => {
   it('stays hidden once the blog is claimed', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(REVOKED_AT * 1000 + 2 * DAY_MS)
     const claimed = revoked()
-    const { container } = await render({ ...claimed, claim: null })
+    const { container } = await render({ ...claimed, claim: null, serving: { state: 'online', pausedAt: null } })
 
     expect(container.textContent).toBe('')
   })

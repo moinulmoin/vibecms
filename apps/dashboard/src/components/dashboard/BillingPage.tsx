@@ -7,7 +7,7 @@ import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
 import { useBillingRedirect } from '~/components/dashboard/useBillingRedirect'
 import { OWNER_PAYMENT_NOTE, formatBillingDate, pastDueMessage, usePastDueState } from '~/lib/billing-grace'
-import { claimMessage, useClaimWindowState } from '~/lib/claim-window'
+import { claimMessage, servingMessage, useClaimWindowState, useServingState } from '~/lib/claim-window'
 import { billingQuery } from '~/lib/queries'
 
 type Allowance = string | boolean
@@ -75,6 +75,11 @@ export function PlanAndBilling() {
   // sponsorship waits to be claimed.
   const claim = query.data && !query.data.selfHosted ? query.data.claim : null
   const claimState = useClaimWindowState(claim)
+  // What visitors see right now, separate from deletion: a blog that was
+  // claimed and then lost its subscription is never deleted, but it can be
+  // paused.
+  const serving = query.data && !query.data.selfHosted ? query.data.serving : null
+  const servingNow = useServingState(serving)
 
   if (query.isError && !query.data) {
     return <LoadError message="Your plan didn’t load." onRetry={() => void query.refetch()} />
@@ -126,7 +131,8 @@ export function PlanAndBilling() {
                 ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
                 : claim
                   ? claimMessage(claim, claimState ?? 'grace')
-                  : 'Your subscription ended. Posts stay online and nothing was deleted.'
+                  : (serving && servingNow && servingMessage(serving, servingNow)) ||
+                    'Your subscription ended. Posts stay online and nothing was deleted.'
               : active
                 ? ending
                   ? periodEnd

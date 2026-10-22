@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatBillingDate } from '~/lib/billing-grace'
+import type { ServingState } from '~/types/dashboard'
 
 /**
  * The claim window ("keep your blog") for a revoked AutoSEOPilot sponsorship.
@@ -52,4 +53,46 @@ export function claimMessage(claim: ClaimWindow, state: ClaimWindowState, blogNa
     return `Your AutoSEOPilot plan ended and ${blogName.toLowerCase()} is paused. ${keep}`
   }
   return `Your AutoSEOPilot plan ended. ${blogName} stays online until ${formatBillingDate(claim.pausedAt * 1000)}. ${keep}`
+}
+
+/** What visitors see right now: `grace` flips to `paused` at `pausedAt`. */
+export function servingState(serving: ServingState | null, nowMs = Date.now()): ServingState['state'] | null {
+  if (!serving) return null
+  if (serving.state === 'grace' && serving.pausedAt !== null && nowMs >= serving.pausedAt * 1000) return 'paused'
+  return serving.state
+}
+
+/** The serving state that flips from grace to paused on its own, without a refetch. */
+export function useServingState(serving: ServingState | null): ServingState['state'] | null {
+  const [tick, setTick] = useState(0)
+  const state = servingState(serving)
+  useEffect(() => {
+    if (!serving || serving.state !== 'grace' || serving.pausedAt === null) return
+    const nowMs = Date.now()
+    const nextAt = serving.pausedAt * 1000
+    if (nextAt <= nowMs) return
+    const timer = window.setTimeout(() => setTick((value) => value + 1), Math.min(nextAt - nowMs, MAX_TIMER_DELAY_MS))
+    return () => window.clearTimeout(timer)
+  }, [serving?.state, serving?.pausedAt, tick])
+  return state
+}
+
+/**
+ * The sentence for a blog that has no claim window (it was claimed, so it is
+ * never deleted) but whose subscription ended: it is paused, or pauses at
+ * `pausedAt`. Never a deletion deadline. Null while the blog is online.
+ */
+export function servingMessage(
+  serving: ServingState,
+  state: ServingState['state'],
+  blogName = 'This blog',
+): string | null {
+  if (state === 'paused') {
+    const name = blogName === 'This blog' ? 'this blog' : blogName
+    return `Your subscription ended, so ${name} is paused for visitors. Nothing was deleted: subscribe again to bring it back online.`
+  }
+  if (state === 'grace' && serving.pausedAt !== null) {
+    return `Your subscription ended. ${blogName} stays online until ${formatBillingDate(serving.pausedAt * 1000)}, then pauses for visitors. Nothing will be deleted: subscribe again to keep it online.`
+  }
+  return null
 }

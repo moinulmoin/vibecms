@@ -144,6 +144,10 @@ the same blog, posts, media and domain serve again, and a blog that was
 claimed is never deleted by this flow again, even if Cloud is cancelled later.
 The dashboard shows a "Keep your blog" banner with the exact deadline, and
 the billing page states the grace, the pause, the deadline and the upgrade.
+The billing payload carries the serving state (`serving`) separately from
+the claim window: a blog that was claimed and later lost its subscription is
+never deleted and is never shown a deadline, but once no source covers it
+the original revoke clock pauses it, and the banner and billing page say so.
 Claiming is strictly same-email; there is no transfer to another email at
 launch. The owner keeps dashboard access and can read and export during the
 window.
