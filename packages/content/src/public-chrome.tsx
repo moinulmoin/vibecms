@@ -10,7 +10,7 @@
  * them from there.
  */
 import type { ReactNode } from "react";
-import { resolvePresetId } from "@vc/config";
+import { BRAND, resolvePresetId } from "@vc/config";
 import { resolveSiteTheme, templateAttributes, type SiteThemeInput } from "./presented-post.js";
 import styles from "./public-chrome.module.css";
 import subscribeStyles from "./subscribe-form.module.css";
@@ -140,6 +140,8 @@ export interface PublicPageChromeProps {
   layout?: string;
   /** Reader light/dark toggle in the masthead (public pages). */
   modeToggle?: boolean;
+  /** Free hosted blogs: a quiet "Published with vibecms" footer link. Never set for paid or self-hosted blogs. */
+  publishedWith?: boolean;
   /** Sidebar content for templates with sidebar chrome. */
   sidebar?: SidebarData | null;
   children: ReactNode;
@@ -249,6 +251,7 @@ export function PublicPageChrome({
   embedded = false,
   layout,
   modeToggle = false,
+  publishedWith = false,
   sidebar,
   children,
 }: PublicPageChromeProps) {
@@ -388,6 +391,11 @@ export function PublicPageChrome({
           {feedHref ? (
             <a href={feedHref} className={styles.footerLink}>
               RSS
+            </a>
+          ) : null}
+          {publishedWith ? (
+            <a href={BRAND.marketingUrl} className={styles.footerLink}>
+              Published with {BRAND.name}
             </a>
           ) : null}
         </footer>

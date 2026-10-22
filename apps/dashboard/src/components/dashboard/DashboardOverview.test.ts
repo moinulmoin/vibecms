@@ -82,18 +82,20 @@ describe('DashboardOverview recent-post navigation', () => {
 
 describe('DashboardOverview entitlement status', () => {
   it('shows paid month counts without quota meters and keeps free meters', () => {
-    const usage = { ...baseResponse.apiUsage, enforced: true,
-      calls: { ...baseResponse.apiUsage.calls, month: { ...baseResponse.apiUsage.calls.month, used: 42 } },
-      writes: { ...baseResponse.apiUsage.writes, month: { ...baseResponse.apiUsage.writes.month, used: 7 } },
+    // Cloud has no monthly cap: the server sends this month's count with a null limit.
+    const uncapped = { limit: null, remaining: null }
+    const paidUsage = { ...baseResponse.apiUsage, enforced: true,
+      calls: { ...baseResponse.apiUsage.calls, month: { ...baseResponse.apiUsage.calls.month, used: 42, ...uncapped } },
+      writes: { ...baseResponse.apiUsage.writes, month: { ...baseResponse.apiUsage.writes.month, used: 7, ...uncapped } },
     }
-    pageState.response = { ...baseResponse, apiUsage: usage, billing: { status: 'active' } }
+    pageState.response = { ...baseResponse, apiUsage: paidUsage, billing: { status: 'active' } }
     const paid = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
     expect(paid).toContain('Requests this month: 42')
     expect(paid).toContain('Writes this month: 7')
     expect(paid).toContain('Unlimited, fair use')
     expect(paid).not.toContain('role="meter"')
 
-    pageState.response = { ...baseResponse, apiUsage: usage }
+    pageState.response = { ...baseResponse, apiUsage: { ...baseResponse.apiUsage, enforced: true } }
     const free = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
     expect(free).toContain('role="meter"')
   })

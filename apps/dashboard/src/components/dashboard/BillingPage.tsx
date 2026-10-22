@@ -22,6 +22,7 @@ export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance 
   { label: 'Agent requests', free: 'Limited', paid: 'Unlimited (fair use)' },
   { label: 'Found by search engines', free: false, paid: true },
   { label: 'Your own domain', free: false, paid: true },
+  { label: 'No "Published with vibecms" link', free: false, paid: true },
   { label: 'Analytics', free: false, paid: true },
 ]
 

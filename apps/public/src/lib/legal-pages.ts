@@ -8,7 +8,7 @@ type LegalPage = keyof typeof LEGAL;
  */
 export const LEGAL_UPDATED = {
   privacy: "2026-10-22",
-  terms: "2026-08-16",
+  terms: "2026-10-22",
   support: "2026-08-16",
 } as const satisfies Record<LegalPage, string>;
 

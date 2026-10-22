@@ -43,7 +43,7 @@ Last updated: 2026-10-21
 - Image upload (jpeg/png/webp/gif, <=10 MB) to R2, served at `/media-assets/<id>` (immutable 1-year cache).
 - Alt text, list / delete; delete blocked (409) when the asset is a post cover or site social image, and agent deletion requires the dedicated `assets:delete` scope.
 - Media inspector alt-text drafts are protected on dismissal and navigation; confirmed discard returns focus to the image tile.
-- Hosted storage quota: 5 GB (paid) with a live usage meter; free tier includes 10 images.
+- Hosted storage quota: 10 GB (paid) with a live usage meter; free tier includes 10 images.
 
 ### Themes & presentation
 - 4 curated presets (`minimal` default, `editorial`, `technical`, `product`; display labels Minimal/Editorial/Notebook/Magazine), token-driven, light/dark/system.
@@ -127,10 +127,10 @@ Last updated: 2026-10-21
 - Grace transitions: only an accepted status update can change `past_due_since`. Entering `past_due` starts it at the event's ordering timestamp; repeated `past_due` preserves it, including a legacy `NULL` (no retroactive grace). Leaving `past_due` clears it; stale or duplicate status deliveries never alter it. Migration 0037 converts ordering keys to milliseconds, seeds the subscription watermark from the converted status watermark, and leaves legacy grace starts and receipt nonces `NULL`.
 - Accepted delivery-delay limitation: if a later `past_due` event arrives before a delayed initial failure, grace counts from the first one applied, not from receipt-history reconciliation. Delays occur while our endpoint is failing and Polar retries; the error favours the customer by at most that delivery delay.
 - List price $15/month or $150/year; launch offer $9/month or $75/year while displayed.
-- Free tier: drafting + agent tokens + 5 published posts, 5 drafts at a time, 10 images (noindex). Paid: unlimited posts, 5 GB media, search indexing, custom domains, subpath location, reader + AI discovery analytics, higher quotas.
+- Free tier: drafting + agent tokens + 5 published posts, 5 drafts at a time, 10 images (noindex), and a small "Published with vibecms" footer link to vibecms.dev on every tenant blog page. Paid: unlimited posts, 10 GB media, search indexing, custom domains, subpath location, reader + AI discovery analytics, no footer link, unlimited agent requests (fair use). Self-hosted never shows the link.
 
 ### Quotas, security, export
-- API/MCP quota counters (hosted): per-minute/day/month call caps per tier, day/month write caps, and per-token per-minute call caps, with `X-RateLimit-*` headers.
+- API/MCP quota counters (hosted): per-minute/day/month call caps and day/month write caps on free; paid has per-minute/day call caps and a daily write cap with no monthly cap (monthly totals still counted for the dashboard); per-token per-minute call caps on both, with `X-RateLimit-*` headers.
 - MCP write classification comes from the operation registry's read-only annotation, including scheduling, unscheduling, preview rotation, unarchive and asset metadata updates. REST charges equivalent mutations as writes.
 - Same-origin CSRF guards (`rejectCrossOriginBrowserPost`) on the Hono cookie-authenticated dashboard mutations and media POSTs.
 - Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA.

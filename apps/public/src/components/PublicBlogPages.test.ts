@@ -15,6 +15,7 @@ function indexData(listing: PublicIndexLoaderData["listing"]): PublicIndexLoader
       theme_accent: "teal",
       theme_font: "sans",
       theme_mode: "system",
+      effective_entitlement: { access: "hosted_paid" },
     },
     posts: [],
     basePath: "",

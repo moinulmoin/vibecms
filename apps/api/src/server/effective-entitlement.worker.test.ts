@@ -332,10 +332,6 @@ describe('publishing and media paid gates', () => {
 })
 
 describe('usage plan and budget gates', () => {
-  it('keeps monthly paid caps above any month of daily guardrails', () => {
-    expect(API_USAGE_LIMITS.paid.calls.month).toBe(API_USAGE_LIMITS.paid.calls.day * 31)
-    expect(API_USAGE_LIMITS.paid.writes.month).toBe(API_USAGE_LIMITS.paid.writes.day * 31)
-  })
   it('uses effective entitlement for paid/free limits and budget enforcement', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.APP_ENV = 'production'

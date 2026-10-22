@@ -50,7 +50,7 @@ The hosted product is intentionally simple:
 
 - one hosted blog per subscription
 - free: 5 published posts, 5 drafts at a time, 10 images — no card
-- paid: unlimited posts, 5 GB media
+- paid: unlimited posts, 10 GB media
 - image uploads only: JPEG, PNG, WebP, GIF
 - no native video hosting
 - no generic file hosting

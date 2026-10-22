@@ -308,7 +308,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 5 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
+      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
