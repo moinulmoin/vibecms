@@ -3,7 +3,7 @@ import { ForbiddenError } from '@vc/core'
 import { createDataAccess, type ManagedPurgeConflict } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
 import { LAUNCH_OFFER, MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
-import { validateEvent } from '@polar-sh/sdk/webhooks'
+import { validatePolarWebhook } from '@/server/polar-webhook-validation'
 import { HTTPClient } from '@polar-sh/sdk/lib/http.js'
 import { POLAR_API_VERSION } from '@vc/config'
 import { env } from 'cloudflare:workers'
@@ -423,7 +423,7 @@ export async function handlePolarWebhook(request: Request) {
   }
   let event: PolarWebhookEvent
   try {
-    event = validateEvent(payload, headerRecord(request.headers), env.POLAR_WEBHOOK_SECRET) as PolarWebhookEvent
+    event = validatePolarWebhook(payload, headerRecord(request.headers), env.POLAR_WEBHOOK_SECRET) as PolarWebhookEvent
   } catch {
     return new Response('Invalid signature', { status: 401 })
   }

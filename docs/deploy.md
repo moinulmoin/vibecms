@@ -167,6 +167,117 @@ deploy, create a site + read token + one published post, and run
 `PRODUCTION_SMOKE_TOKEN=<token> pnpm production:smoke`. Require the token on
 every later deploy.
 
+## Polar webhook signing-secret rotation
+
+Deploy the dual-format verifier **before** resetting either secret. This runbook
+requires the founder's approval for each environment; preparing the patch does
+not authorize a deploy or secret change. Do not paste secrets or signature
+headers into tickets, chat, logs, shell arguments, or source control.
+
+### Why both encodings are necessary
+
+[Polar's delivery documentation](https://polar.sh/docs/integrate/webhooks/delivery)
+dates the signing-key change to **8 September 2026, 00:00 UTC**:
+
+- Older secrets sign with the UTF-8 bytes of the **entire** secret, including
+  `whsec_` when present. Standard Webhooks libraries need that full string
+  base64-encoded first.
+- New secrets use Standard Webhooks: pass the dashboard secret as-is; the
+  library strips `whsec_` and base64-decodes the suffix.
+- Both generations can start with `whsec_`; the prefix is not a reliable
+  generation detector. The verifier tries as-is first for that prefix, then
+  the legacy encoding (reverse order otherwise). Both go through the same
+  SDK inbound schemas after verification, including camelCase/date conversion.
+
+The installed SDK 0.47.1 `src/webhooks.ts:140-144` always base64-encodes the
+UTF-8 string, verifies it, then parses its inbound schema. That accepts the
+legacy key only, not a new Standard Webhooks key. `standardwebhooks` 1.0.0
+`dist/index.js:25-45` implements raw keys or prefix-stripped base64 keys;
+`:47-72` verifies signatures, and `:89-101` enforces a five-minute tolerance.
+No tolerance or receipt/order behavior changes in our adapter.
+
+Polar documents native support from SDK `1.0.0-alpha.19`. The latest stable
+checked on 2026-10-23, `1.0.2` (published 2026-10-02), clears the 24-hour package
+release-age rule, but removes the existing `/webhooks` and `/lib/http.js`
+exports and changes the SDK API. Keep 0.47.1 for this focused fix; migrate the
+client separately rather than couple secret rotation to a breaking upgrade.
+
+### Sandbox first: `vibecms-api-dev`
+
+1. Obtain approval, run the verification gates above plus `pnpm build`, then
+   deploy the reviewed verifier to development using the normal development
+   procedure. Record its Worker version and the previous version for rollback.
+   Confirm the existing sandbox endpoint still delivers successfully.
+2. Use a dedicated dev QA workspace and Polar **sandbox** endpoint
+   `https://app.basedui.dev/api/polar/webhook`. Record the workspace ID and
+   current billing status/watermark using a read-only D1 query (below).
+   Confirm the endpoint is enabled and subscribed to the existing billing events.
+3. Keep the previous secret in an approved password manager only if it is
+   needed for rollback; do not copy it into an agent transcript. Reset the
+   sandbox endpoint secret in Polar. In the Cloudflare dashboard, update only
+   `POLAR_WEBHOOK_SECRET` for **`vibecms-api-dev`** to the exact newly issued
+   string and deploy that secret update. Do not base64-encode it yourself.
+   Minimize this mismatch window; deliveries during it may fail and need replay.
+4. Complete a fresh sandbox subscription/checkout for the QA workspace to
+   produce a newer `subscription.active` / succeeded `checkout.updated` event.
+   In Polar's delivery view require **HTTP 200**, not merely an enabled endpoint.
+   Query the dev D1 database and require the matching receipt plus the updated
+   billing status, customer/subscription ID, and event watermark. A dashboard
+   "send test" event without this workspace metadata is not billing proof.
+
+   ```sql
+   SELECT workspace_id, status, polar_customer_id, polar_subscription_id,
+          current_period_end, webhook_event_id, webhook_updated_at
+   FROM billing_customers WHERE workspace_id = '<qa-workspace-id>';
+   SELECT event_id, event_type, source_timestamp, applied_status
+   FROM polar_webhook_receipts WHERE workspace_id = '<qa-workspace-id>'
+   ORDER BY created_at DESC LIMIT 5;
+   ```
+
+5. Redeliver the same sandbox event. Require 200, one receipt for its event ID,
+   and unchanged billing watermarks. Redeliver failures from the rotation window
+   through Polar so they receive a fresh signed delivery timestamp; do not replay
+   captured HTTP bytes (the timestamp expires). Retain delivery IDs, response
+   codes, Worker version, and redacted before/after row evidence, never secrets
+   or signature values. Check that the endpoint has not auto-disabled.
+
+### Production, only after sandbox evidence and approval
+
+1. Promote/deploy the reviewed patch through the production workflow above;
+   confirm existing production deliveries still return 200. Record old/new
+   Worker versions and securely preserve the old secret if rollback requires it.
+2. Reset the **production** Polar endpoint secret for
+   `https://app.vibecms.dev/api/polar/webhook`; update and deploy only
+   `POLAR_WEBHOOK_SECRET` on **`vibecms-prod`**, not the public or dev Worker.
+   Keep sandbox and production credentials isolated.
+3. Observe an authorized real production billing event: require Polar HTTP 200,
+   the matching receipt and the correct billing row/watermark using read-only
+   queries above. Do not create charges or alter customer subscriptions just
+   for verification without explicit approval. Until such an event exists,
+   report production billing verification as pending, not complete.
+4. Redeliver any rotation-window failures in Polar and monitor deliveries and
+   billing state. Polar documents ten retries and automatic disabling after
+   ten consecutive failed deliveries; investigate failures before re-enabling.
+   Delete the superseded secret from temporary secure storage after acceptance.
+
+### Recovery / rollback
+
+- A secret mismatch: keep the dual-format code deployed and correct the Worker
+  secret to the endpoint's **current** value, then redeliver failures in Polar.
+  This is safer than reverting working code. Reset again if the new value was
+  lost; never expose it while troubleshooting.
+- Before rotation, code may roll back to the recorded old Worker version while
+  the legacy secret still matches. After rotation, **do not roll back to the
+  old legacy-only verifier** while Standard Webhooks signing is active.
+- If a paired secret rollback is necessary and Polar allows restoring the exact
+  old endpoint secret, restore it on both Polar and the API Worker, then replay
+  failures. Do not assume Polar can restore a generated secret; if it cannot,
+  keep/redeploy the dual-format patch and set the new matching secret instead.
+  Worker-version rollback alone is not a secret rollback; explicitly confirm
+  both bindings and endpoint configuration.
+- Do not roll back D1 or delete receipts: failed authentication writes nothing,
+  and successful redeliveries must retain idempotency and ordering protection.
+
 ## Post-deploy smoke checklist
 
 `pnpm deploy:prod` already runs `production:smoke` (infrastructure always;
