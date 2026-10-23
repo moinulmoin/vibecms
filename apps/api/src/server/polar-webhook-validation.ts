@@ -125,7 +125,10 @@ function parseEvent(parsed: { type: string }) {
 /** Both Polar generations can start with whsec_; the prefix is an ordering hint only. */
 export function validatePolarWebhook(body: string, headers: Record<string, string>, secret: string) {
   const legacySecret = Buffer.from(secret, 'utf-8').toString('base64')
-  const keys = secret.startsWith('whsec_') ? [secret, legacySecret] : [legacySecret, secret]
+  // The Standard Webhooks key is the base64 after `whsec_`. A secret saved as a bare
+  // `whsec_` would decode to an empty HMAC key that anyone can sign with: never try it.
+  const standard = Buffer.from(secret.replace(/^whsec_/, ''), 'base64').length > 0 ? [secret] : []
+  const keys = secret.startsWith('whsec_') ? [...standard, legacySecret] : [legacySecret, ...standard]
   let verified: { type: string } | undefined
   for (const key of keys) {
     try {

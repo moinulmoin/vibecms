@@ -315,19 +315,23 @@ export async function loadAnalyticsForApp(
       ) as Promise<AgentFetchSourceRow[]>,
     ])
 
+    // D1 answers exactly the dates up to the watermark read above and the source
+    // query the dates after it, so a rollup committing mid-request can't count a day twice.
+    const rolledThrough = shiftDate(unrolledFrom, -1)
+    const storedTo = rolledThrough < yesterday ? rolledThrough : yesterday
     const storedRows = rangeDays === 'all'
       ? [
           ...(await data.analytics.listMonthly(app.siteId)),
-          ...(await data.analytics.listDaily(app.siteId, '0000-01-01', yesterday)),
+          ...(await data.analytics.listDaily(app.siteId, '0000-01-01', storedTo)),
         ]
-      : await data.analytics.listDaily(app.siteId, currentStart!, yesterday)
+      : await data.analytics.listDaily(app.siteId, currentStart!, storedTo)
     const records = [...storedRows, ...sourceRecords(sourceRows), ...agentSourceRecords(agentRows)]
 
     let previousViews: number | null = null
     if (rangeDays !== 'all' && rangeDays <= 90) {
       const previousEnd = shiftDate(currentStart!, -1)
       const previousStart = shiftDate(previousEnd, -(rangeDays - 1))
-      const previousStored = await data.analytics.listDaily(app.siteId, previousStart, previousEnd)
+      const previousStored = await data.analytics.listDaily(app.siteId, previousStart, previousEnd < storedTo ? previousEnd : storedTo)
       previousViews = previousStored
         .filter((row) => postId
           ? row.kind === 'post' && row.dimension === postId
