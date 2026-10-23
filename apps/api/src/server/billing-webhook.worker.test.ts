@@ -526,6 +526,18 @@ describe('handlePolarWebhook — signed SDK events with real D1', () => {
     expect((await entitlement(ws)).effective).toBe(true)
   })
 
+  // The Polar account also sells other products; Polar sends their events here too.
+  it("acknowledges another product's paid checkout without writing anything", async () => {
+    const other = {
+      ...checkout('ws-other-product', '2026-10-23T09:53:12.000Z'),
+      metadata: { referenceId: 'other-product-reference' }, customer_metadata: {},
+      external_customer_id: 'other-product-customer', product_id: 'prod_other',
+    }
+    expect(await deliver('other-product-paid', 'checkout.updated', other)).toEqual({ received: true })
+    expect(await env.DB.prepare('SELECT COUNT(*) AS count FROM polar_webhook_receipts WHERE event_id = ?').bind('other-product-paid').first('count')).toBe(0)
+    expect(await record('other-product-customer')).toBeUndefined()
+  })
+
   it('rolls back the receipt when billing fails so a later retry can apply', async () => {
     const ws = 'ws-webhook-atomic-retry'
     const request = await signedRequest('atomic-retry', 'subscription.active', subscription(ws, 'active', '2026-10-15T10:00:00.123Z'))

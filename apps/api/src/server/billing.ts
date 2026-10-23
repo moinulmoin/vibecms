@@ -400,6 +400,9 @@ function stringField(data: Record<string, unknown>, camelKey: string, snakeKey: 
   return typeof snakeValue === 'string' ? snakeValue : undefined
 }
 
+// Only vibecms checkouts tag payments with metadata.workspaceId (Polar copies it
+// to the subscription). The Polar account is shared with other products, so a
+// bare external customer ID is someone else's customer, not a vibecms workspace.
 function workspaceIdFrom(data: Record<string, unknown>) {
   const metadata = data.metadata
   const rootCustomerMetadata = data.customer_metadata
@@ -412,7 +415,7 @@ function workspaceIdFrom(data: Record<string, unknown>) {
       return String((source as Record<string, unknown>).workspaceId)
     }
   }
-  return stringField(data, 'externalCustomerId', 'external_customer_id')
+  return null
 }
 
 export async function handlePolarWebhook(request: Request) {
