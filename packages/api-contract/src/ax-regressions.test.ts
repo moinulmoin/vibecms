@@ -28,8 +28,13 @@ describe('agent operation contract', () => {
   })
 
   it('encodes exclusive preview modes in the tool schema and parser', () => {
+    // MCP tool schemas must be one top-level object (Claude's API rejects
+    // top-level anyOf/oneOf), so exclusivity is stated, and the parser enforces it.
     const schema = zodToInputJsonSchema(previewPostRequestSchema)
-    expect(schema.anyOf ?? schema.oneOf).toHaveLength(2)
+    expect(schema.type).toBe('object')
+    expect(schema.anyOf ?? schema.oneOf).toBeUndefined()
+    expect(Object.keys(schema.properties as Record<string, unknown>)).toEqual(expect.arrayContaining(['postId', 'contentMarkdown']))
+    expect(schema.description).toBe('Send exactly one of: postId, contentMarkdown.')
     expect(previewPostRequestSchema.safeParse({ postId: 'p' }).success).toBe(true)
     expect(previewPostRequestSchema.safeParse({ contentMarkdown: '' }).success).toBe(true)
     expect(previewPostRequestSchema.safeParse({ postId: 'p', contentMarkdown: '' }).success).toBe(false)

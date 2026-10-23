@@ -127,7 +127,7 @@ export const operations = [
   },
   {
     toolName: 'sites.location.set_subpath', operationId: 'setSubpathLocation', requiredScope: 'site:write',
-    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; the owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
+    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
     requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: {},
   },
   {
@@ -308,7 +308,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
+      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. For a file on disk with shell access, prefer the CLI 'vibecms assets upload <path>' so the base64 stays out of your context.",
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
