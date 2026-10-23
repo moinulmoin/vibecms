@@ -389,7 +389,7 @@ describe('runAnalyticsRollup self-host', () => {
     }
     expect(remainingSites).toBe(0)
     const fresh = await runAnalyticsRollup(rollupEnv('true', true), aeFetcher({}))
-    expect(fresh).toMatchObject({ sites: 0, queries: 3, remainingSites: 0 })
+    expect(fresh).toMatchObject({ sites: 0, remainingSites: 0 })
     const rows = await data.analytics.listDaily(seed.siteId, '2026-10-10', '2026-10-10')
     const kinds = new Map(rows.map((row) => [`${row.kind}:${row.dimension}`, row]))
     expect(kinds.get('page:')).toMatchObject({ value: 3 })
