@@ -26,6 +26,7 @@
     "@vc/validators": "workspace:*",
     "better-auth": "^1.6.26",
     "hono": "^4.13.7",
+    "standardwebhooks": "1.0.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
