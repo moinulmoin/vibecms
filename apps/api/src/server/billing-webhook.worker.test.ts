@@ -87,10 +87,13 @@ function checkout(workspaceId: string, modifiedAt: string, subscriptionId = `sub
 
 // Standard Webhooks signs the exact JSON bytes and current delivery timestamp.
 // Object modification/envelope timestamps deliberately differ from delivery time.
-async function signedRequest(eventId: string, type: string, data: unknown, timestamp = '2026-10-15T12:00:00.000Z') {
+async function signedRequest(
+  eventId: string, type: string, data: unknown, timestamp = '2026-10-15T12:00:00.000Z',
+  keyBytes: Uint8Array = new TextEncoder().encode(secret),
+) {
   const payload = JSON.stringify({ type, timestamp, data })
   const deliveryTimestamp = String(Math.floor(Date.now() / 1000))
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${eventId}.${deliveryTimestamp}.${payload}`))
   return new Request('https://app.example.test/api/webhooks/polar', {
     method: 'POST', body: payload,
@@ -495,6 +498,32 @@ describe('handlePolarWebhook — signed SDK events with real D1', () => {
     expect(await record(ws)).toBeUndefined()
     expect(await env.DB.prepare('SELECT COUNT(*) AS count FROM polar_webhook_receipts WHERE workspace_id = ?').bind(ws).first('count')).toBe(0)
     expect((await entitlement(ws)).effective).toBe(false)
+  })
+
+  // polar.sh/docs/integrate/webhooks/delivery: every dashboard secret reads `whsec_…`.
+  // Issued on/after 8 Sep 2026: Standard Webhooks, HMAC key = base64-decoded part after `whsec_`.
+  // Issued before: Polar HMAC, HMAC key = UTF-8 bytes of the whole string. Either may be live.
+  const whsec = `whsec_${btoa('vibecms-regression-signing-key-32b')}`
+  it.each([
+    { scheme: 'Standard Webhooks', ws: 'ws-webhook-standard-secret', key: () => Uint8Array.from(atob(whsec.slice('whsec_'.length)), (c) => c.charCodeAt(0)) },
+    { scheme: 'legacy Polar HMAC', ws: 'ws-webhook-legacy-whsec-secret', key: () => new TextEncoder().encode(whsec) },
+  ])('grants paid access for a $scheme whsec_ secret and rejects a tampered body', async ({ ws, key }) => {
+    mutableEnv.POLAR_WEBHOOK_SECRET = whsec
+    await seedWorkspace(ws)
+    const tampered = await signedRequest(`${ws}-tampered`, 'subscription.active', subscription(ws, 'active', '2026-10-15T10:00:00.123Z'), undefined, key())
+    const forged = new Request(tampered.url, {
+      method: 'POST', headers: tampered.headers,
+      body: (await tampered.text()).replace('"status":"active"', '"status":"trialing"'),
+    })
+    expect((await handlePolarWebhook(forged)).status).toBe(401)
+    expect(await env.DB.prepare('SELECT COUNT(*) AS count FROM polar_webhook_receipts WHERE workspace_id = ?').bind(ws).first('count')).toBe(0)
+    expect((await entitlement(ws)).effective).toBe(false)
+
+    const genuine = await signedRequest(`${ws}-active`, 'subscription.active', subscription(ws, 'active', '2026-10-15T10:00:00.123Z'), undefined, key())
+    const response = await handlePolarWebhook(genuine)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ received: true, result: 'applied' })
+    expect((await entitlement(ws)).effective).toBe(true)
   })
 
   it('rolls back the receipt when billing fails so a later retry can apply', async () => {

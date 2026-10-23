@@ -1,25 +1,24 @@
-import { describe, expect, it } from 'vitest'
-import {
-  ANALYTICS_CRON,
-  MEDIA_RECONCILE_CRON,
-  POST_PUBLISH_CRON,
-  scheduledJobsForCron,
-} from '@/server/scheduled-dispatch'
+import { describe, expect, inject, it } from 'vitest'
+import { scheduledJobsForCron, type ScheduledJob } from '@/server/scheduled-dispatch'
 
-describe('scheduledJobsForCron', () => {
-  it('runs media and the subpath re-check on the daily cron', () => {
-    expect(scheduledJobsForCron(ANALYTICS_CRON)).toEqual(['media', 'subpaths'])
-  })
+declare module 'vitest' {
+  interface ProvidedContext {
+    deployedCrons: Record<'development' | 'production' | 'selfHost', string[]>
+  }
+}
 
-  it('runs media, the claim sweep and resumable analytics on the 15-minute cron', () => {
-    expect(scheduledJobsForCron(MEDIA_RECONCILE_CRON)).toEqual(['media', 'managed-claim', 'analytics'])
-  })
+// A cron string in wrangler config that no longer matches scheduled-dispatch falls
+// back to media-only, so analytics, the claim sweep or publishing would silently stop.
+const EVERY_JOB: ScheduledJob[] = ['analytics', 'media', 'posts', 'subpaths', 'managed-claim']
 
-  it('runs due post publishing on the minute cron', () => {
-    expect(scheduledJobsForCron(POST_PUBLISH_CRON)).toEqual(['posts'])
-  })
-
-  it('does not schedule analytics for an unexpected cron string', () => {
-    expect(scheduledJobsForCron('0 * * * *')).toEqual(['media'])
+describe('deployed cron triggers', () => {
+  it('schedule every background job in every deployment', () => {
+    const missing = Object.fromEntries(
+      Object.entries(inject('deployedCrons')).map(([deployment, crons]) => {
+        const scheduled = new Set(crons.flatMap(scheduledJobsForCron))
+        return [deployment, EVERY_JOB.filter((job) => !scheduled.has(job))]
+      }),
+    )
+    expect(missing).toEqual({ development: [], production: [], selfHost: [] })
   })
 })
