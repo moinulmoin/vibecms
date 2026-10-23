@@ -31,10 +31,15 @@ type RollupRow = {
 };
 
 type DateRow = { last_rolled_date: string | null };
+export type AnalyticsRollupProgress = {
+  siteId: string;
+  lastRolledDate: string | null;
+  nextSourceDate: string | null;
+  refreshedThrough: string | null;
+};
 type MonthRow = { site_id: string; month: string };
 type HostRow = { hostname: string };
 
-const INSERT_CHUNK_SIZE = 75;
 
 function asRecord(row: RollupRow): AnalyticsRollupRecord {
   return {
@@ -50,10 +55,11 @@ function asRecord(row: RollupRow): AnalyticsRollupRecord {
 export interface AnalyticsRepository {
   listActiveCustomHosts(siteId: string): Promise<string[]>;
   getLastRolledDate(siteId: string): Promise<string | null>;
-  replaceDaily(siteId: string, date: string, values: AnalyticsRollupValue[]): Promise<void>;
+  listRollupProgress(): Promise<AnalyticsRollupProgress[]>;
+  replaceDaily(siteId: string, date: string, values: AnalyticsRollupValue[], progress?: { nextSourceDate: string | null; refreshedThrough: string | null }): Promise<void>;
   listDaily(siteId: string, from: string, to: string): Promise<AnalyticsRollupRecord[]>;
   listMonthly(siteId: string, fromMonth?: string, toMonth?: string): Promise<AnalyticsRollupRecord[]>;
-  compactDailyBefore(cutoffDate: string): Promise<number>;
+  compactDailyBefore(cutoffDate: string, maxMonths?: number): Promise<number>;
 }
 
 export function createAnalyticsRepository(db: D1Database): AnalyticsRepository {
@@ -73,8 +79,16 @@ export function createAnalyticsRepository(db: D1Database): AnalyticsRepository {
       ).bind(siteId).first<DateRow>();
       return row?.last_rolled_date ?? null;
     },
+    async listRollupProgress() {
+      const result = await db.prepare(
+        `SELECT site_id AS siteId, last_rolled_date AS lastRolledDate,
+                next_source_date AS nextSourceDate, refreshed_through AS refreshedThrough
+         FROM analytics_rollup_state`,
+      ).all<AnalyticsRollupProgress>();
+      return result.results ?? [];
+    },
 
-    async replaceDaily(siteId, date, values) {
+    async replaceDaily(siteId, date, values, progress) {
       const now = Math.floor(Date.now() / 1000);
       const inserts = values
         .filter((value) => Number.isFinite(value.value) && value.value > 0)
@@ -94,28 +108,27 @@ export function createAnalyticsRepository(db: D1Database): AnalyticsRepository {
           now,
         ));
 
-      const firstChunk = inserts.splice(0, INSERT_CHUNK_SIZE - 1);
       await db.batch([
         db.prepare(
           `DELETE FROM analytics_rollups
            WHERE site_id = ? AND granularity = 'day' AND period_start = ?`,
         ).bind(siteId, date),
-        ...firstChunk,
+        ...inserts,
+        db.prepare(
+          `INSERT INTO analytics_rollup_state
+             (site_id, last_rolled_date, next_source_date, refreshed_through, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(site_id) DO UPDATE SET
+             last_rolled_date = CASE
+               WHEN last_rolled_date IS NULL OR last_rolled_date < excluded.last_rolled_date
+                 THEN excluded.last_rolled_date
+               ELSE last_rolled_date
+             END,
+             next_source_date = CASE WHEN ? THEN excluded.next_source_date ELSE next_source_date END,
+             refreshed_through = COALESCE(excluded.refreshed_through, refreshed_through),
+             updated_at = excluded.updated_at`,
+        ).bind(siteId, date, progress?.nextSourceDate ?? null, progress?.refreshedThrough ?? null, now, now, progress ? 1 : 0),
       ]);
-      while (inserts.length > 0) {
-        await db.batch(inserts.splice(0, INSERT_CHUNK_SIZE));
-      }
-      await db.prepare(
-        `INSERT INTO analytics_rollup_state (site_id, last_rolled_date, created_at, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(site_id) DO UPDATE SET
-           last_rolled_date = CASE
-             WHEN last_rolled_date IS NULL OR last_rolled_date < excluded.last_rolled_date
-               THEN excluded.last_rolled_date
-             ELSE last_rolled_date
-           END,
-           updated_at = excluded.updated_at`,
-      ).bind(siteId, date, now, now).run();
     },
 
     async listDaily(siteId, from, to) {
@@ -148,14 +161,14 @@ export function createAnalyticsRepository(db: D1Database): AnalyticsRepository {
       return (result.results ?? []).map(asRecord);
     },
 
-    async compactDailyBefore(cutoffDate) {
+    async compactDailyBefore(cutoffDate, maxMonths = 100) {
       const result = await db.prepare(
         `SELECT DISTINCT site_id, substr(period_start, 1, 7) AS month
          FROM analytics_rollups
          WHERE granularity = 'day'
            AND date(substr(period_start, 1, 7) || '-01', '+1 month') <= date(?)
-         ORDER BY site_id, month`,
-      ).bind(cutoffDate).all<MonthRow>();
+         ORDER BY month, site_id LIMIT ?`,
+      ).bind(cutoffDate, Math.max(0, maxMonths)).all<MonthRow>();
       const siteMonths = result.results ?? [];
       const now = Math.floor(Date.now() / 1000);
       for (const { site_id: siteId, month } of siteMonths) {

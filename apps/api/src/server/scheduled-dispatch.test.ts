@@ -7,12 +7,12 @@ import {
 } from '@/server/scheduled-dispatch'
 
 describe('scheduledJobsForCron', () => {
-  it('runs analytics, media and the subpath re-check on the daily cron', () => {
-    expect(scheduledJobsForCron(ANALYTICS_CRON)).toEqual(['analytics', 'media', 'subpaths'])
+  it('runs media and the subpath re-check on the daily cron', () => {
+    expect(scheduledJobsForCron(ANALYTICS_CRON)).toEqual(['media', 'subpaths'])
   })
 
-  it('runs media and the claim sweep on the 15-minute cron', () => {
-    expect(scheduledJobsForCron(MEDIA_RECONCILE_CRON)).toEqual(['media', 'managed-claim'])
+  it('runs media, the claim sweep and resumable analytics on the 15-minute cron', () => {
+    expect(scheduledJobsForCron(MEDIA_RECONCILE_CRON)).toEqual(['media', 'managed-claim', 'analytics'])
   })
 
   it('runs due post publishing on the minute cron', () => {

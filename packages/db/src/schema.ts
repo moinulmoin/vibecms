@@ -283,6 +283,8 @@ export const analyticsRollups = sqliteTable("analytics_rollups", {
 export const analyticsRollupState = sqliteTable("analytics_rollup_state", {
   siteId: text("site_id").primaryKey().references(() => sites.id, { onDelete: "cascade" }),
   lastRolledDate: text("last_rolled_date"),
+  nextSourceDate: text("next_source_date"),
+  refreshedThrough: text("refreshed_through"),
   ...timestamps,
 });
 

@@ -284,11 +284,11 @@ export async function loadAnalyticsForApp(
 
   try {
     const lastRolledDate = await data.analytics.getLastRolledDate(app.siteId)
-    const sourceFrom = lastRolledDate
-      ? today
-      : currentStart && currentStart > sourceFloor
-        ? currentStart
-        : sourceFloor
+    // A bounded rollup may only have covered the oldest part of the source window.
+    // Fetch exactly the uncovered suffix, never dates already represented in D1.
+    const unrolledFrom = lastRolledDate ? shiftDate(lastRolledDate, 1) : sourceFloor
+    const sourceFrom = [unrolledFrom, sourceFloor, currentStart ?? sourceFloor]
+      .reduce((latest, date) => date > latest ? date : latest)
     const escapedSite = sqlString(app.siteId)
     const [sourceRows, agentRows] = await Promise.all([
       queryAnalyticsEngine(
@@ -333,8 +333,9 @@ export async function loadAnalyticsForApp(
           ? row.kind === 'post' && row.dimension === postId
           : row.kind === 'page')
         .reduce((sum, row) => sum + row.value, 0)
-      if (!lastRolledDate && previousEnd >= sourceFloor) {
-        const boundedStart = previousStart < sourceFloor ? sourceFloor : previousStart
+      const boundedStart = [previousStart, sourceFloor, unrolledFrom]
+        .reduce((latest, date) => date > latest ? date : latest)
+      if (boundedStart <= previousEnd) {
         const previousRows = await queryAnalyticsEngine(
           `SELECT SUM(_sample_interval) AS views FROM ${dataset}
            WHERE index1 = ${escapedSite}

@@ -67,6 +67,13 @@ host (`customer.com` for proxied). `page_view` points are unchanged.
   `analytics_rollups.kind` CHECK to allow them (table rebuild like 0033; copy rows).
 - Zone-GraphQL crawler counting stays as a read-only fallback for days before 023 shipped
   (existing `crawler` rows), and is no longer queried for new days.
+- Post-launch reliability (migration `0043`): the existing 15-minute cron now
+  drains oldest-unrolled sites under a counted 250-query budget, seven dates
+  per site per tick. Each day atomically commits its rows and durable cursor;
+  completed sites skip until the next UTC day. The normal overlap is unchanged.
+  Retention compacts at most 20 site/months per tick. Claims (500), analytics
+  (250) and media recovery (201 worst case) total at most 951 D1 calls.
+  See `docs/self-hosting.md` for before/after query math and budget events.
 
 ### 5. Self-host
 
