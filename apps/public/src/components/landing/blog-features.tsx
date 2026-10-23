@@ -39,6 +39,7 @@ const GROUPS: { title: string; items: Feature[] }[] = [
       { Icon: Zap, title: "Fast by default", body: "Rendered on Cloudflare's edge, cached close to readers." },
       { Icon: Code, title: "Code and math", body: "Highlighting and formulas, loaded only on posts that use them." },
       { Icon: Search, title: "Tags and search", body: "Readers browse by tag or search every post." },
+      { Icon: Link, title: "Old links keep working", body: "Rename a post and its old URL redirects to the new one." },
     ],
   },
   {
@@ -48,7 +49,6 @@ const GROUPS: { title: string; items: Feature[] }[] = [
       { Icon: Search, title: "SEO & GEO check", body: "31 automatic rules on every plan. No AI model needed." },
       { Icon: Bot, title: "Readable by agents", body: "llms.txt, a Markdown version of every page, and discovery files agents look for." },
       { Icon: ChartColumn, title: "Analytics, AI included", body: "Views and referrers, plus AI crawler hits and visits from AI search." },
-      { Icon: Link, title: "Old links keep working", body: "Rename a post and its old URL redirects to the new one." },
     ],
   },
   {
