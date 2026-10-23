@@ -2,7 +2,7 @@ import { Button, Input } from '@vc/ui'
 import type { ScheduledPublish } from '@vc/core'
 import { Link } from '@tanstack/react-router'
 import type { SeoFinding } from '~/types/dashboard'
-import { AlertTriangle, CalendarClock, Send } from 'lucide-react'
+import { AlertTriangle, CalendarClock, ExternalLink, Send } from 'lucide-react'
 import { useRef, useState, type RefObject } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
@@ -283,8 +283,8 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
             <p>{error}</p>
             {errorCode && PLAN_CAP_CODES.includes(errorCode) ? (
               <Button asChild size="sm" variant="outline" className="justify-self-start">
-                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-                  See plans
+                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
+                  Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
                 </Link>
               </Button>
             ) : null}

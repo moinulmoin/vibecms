@@ -1,4 +1,4 @@
-import { FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
+import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
 import { Check, CreditCard, Minus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { cn, Skeleton } from '@vc/ui'
@@ -19,7 +19,7 @@ export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance 
   { label: 'Versions', free: 'Unlimited', paid: 'Unlimited' },
   { label: 'Agent keys', free: true, paid: true },
   { label: 'Image uploads', free: `${FREE_TIER.images} images`, paid: MEDIA.paidStorageLabel },
-  { label: 'Agent requests', free: 'Limited', paid: 'Unlimited (fair use)' },
+  { label: 'Agent requests', free: `${API_USAGE_LIMITS.free.calls.day.toLocaleString('en-US')}/day, ${API_USAGE_LIMITS.free.calls.month.toLocaleString('en-US')}/month`, paid: `${API_USAGE_LIMITS.paid.calls.day.toLocaleString('en-US')}/day` },
   { label: 'Found by search engines', free: false, paid: true },
   { label: 'Your own domain', free: false, paid: true },
   { label: 'No "Published with vibecms" link', free: false, paid: true },

@@ -124,7 +124,7 @@ describe('SubpathLocationSection', () => {
   it('shows the locked row when the plan does not include it', async () => {
     const { container, root } = await render({ locked: true })
     expect(container.textContent).toContain('part of the paid plan')
-    expect(container.textContent).toContain('See plans')
+    expect(container.textContent).toContain('Upgrade to Cloud')
     expect(container.querySelector('#location-url')).toBeNull()
     await act(async () => root.unmount())
     container.remove()
@@ -262,7 +262,7 @@ describe('SubpathLocationSection', () => {
     const { container, root, feedback } = await render({ location: subpathLocation(), locked: true })
     const text = container.textContent ?? ''
     expect(text).toContain('part of the paid plan')
-    expect(text).toContain('See plans')
+    expect(text).toContain('Upgrade to Cloud')
     // The existing location still renders instead of being hidden behind the upsell.
     expect(text).toContain('customer.example.com/blog')
     expect(text).toContain('Waiting for the proxy')

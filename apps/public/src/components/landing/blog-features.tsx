@@ -35,7 +35,7 @@ const GROUPS: { title: string; items: Feature[] }[] = [
   {
     title: "For your readers",
     items: [
-      { Icon: Globe, title: "Your own domain", body: "Point blog.yours.com at it. Certificates are handled for you." },
+      { Icon: Globe, title: "Your own domain", body: "Publish on your domain, a vibecms subdomain, or at yoursite.com/blog." },
       { Icon: Zap, title: "Fast by default", body: "Rendered on Cloudflare's edge, cached close to readers." },
       { Icon: Code, title: "Code and math", body: "Highlighting and formulas, loaded only on posts that use them." },
       { Icon: Search, title: "Tags and search", body: "Readers browse by tag or search every post." },
@@ -45,6 +45,7 @@ const GROUPS: { title: string; items: Feature[] }[] = [
     title: "For search and AI",
     items: [
       { Icon: Rss, title: "RSS, sitemap, SEO", body: "Feeds, sitemap, canonical URLs, structured data, and social cards." },
+      { Icon: Search, title: "SEO & GEO check", body: "31 automatic rules on every plan. No AI model needed." },
       { Icon: Bot, title: "Readable by agents", body: "llms.txt, a Markdown version of every page, and discovery files agents look for." },
       { Icon: ChartColumn, title: "Analytics, AI included", body: "Views and referrers, plus AI crawler hits and visits from AI search." },
       { Icon: Link, title: "Old links keep working", body: "Rename a post and its old URL redirects to the new one." },
@@ -54,6 +55,7 @@ const GROUPS: { title: string; items: Feature[] }[] = [
     title: "Yours to keep",
     items: [
       { Icon: PenLine, title: "Voice profile", body: "Describe how you write. Agents read it before they draft." },
+      { Icon: Bot, title: "vibecms skills", body: "Your agent fetches writing and publishing guidance over MCP or the CLI." },
       { Icon: ImageIcon, title: "Media on R2", body: `Images up to ${MEDIA.maxImageLabel}, ${MEDIA.paidStorageLabel} of storage, resized at the edge.` },
       { Icon: Mail, title: "Newsletter signups", body: "A subscribe form on your blog. Export the list as CSV." },
       { Icon: Download, title: "Export anytime", body: "Every post as JSON, drafts included, whenever you want it." },

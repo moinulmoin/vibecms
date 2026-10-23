@@ -1,5 +1,5 @@
 import { SegmentedControl } from '~/components/ui/segmented-control'
-import { BarChart3, LockKeyhole } from 'lucide-react'
+import { BarChart3, ExternalLink, LockKeyhole } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Button, cn } from '@vc/ui'
@@ -483,8 +483,8 @@ function LockedAnalytics() {
         </p>
       </div>
       <Button asChild>
-        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-          See plans
+        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
+          Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
         </Link>
       </Button>
     </div>

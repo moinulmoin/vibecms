@@ -1,6 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { BRAND, SUPPORT_EMAIL } from "@vc/config";
+import { API_USAGE_LIMITS, BRAND, SUPPORT_EMAIL } from "@vc/config";
 import { legalUpdatedLabel } from "../../lib/legal-pages";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
@@ -60,7 +60,7 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
   <p>
     The free plan includes 5 published posts, 5 drafts at a time, and 10 images, with no card required.
     Free blogs show a small "Published with vibecms" link at the bottom of each page.
-    Unlimited posts, 10 GB media, analytics, custom domains, search indexing, unlimited agent requests (fair use), and a blog without that link require a
+    Unlimited posts, 10 GB media, analytics, custom domains, search indexing, {API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day, and a blog without that link require a
     subscription, billed in USD by Polar. Subscriptions renew automatically and you can cancel
     anytime; cancellation takes effect at the end of the paid period and unused time is not
     refunded except where required by law.

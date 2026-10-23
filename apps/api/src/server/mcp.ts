@@ -12,6 +12,7 @@ import {
   type OperationAnnotations,
 } from "@vc/api-contract";
 import { authenticateBearerToken } from "./api-keys";
+import { agentErrorDetails, invalidApiKeyMessage } from "./agent-errors";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
 import { UploadError } from "./media";
 import { dispatchOperation } from "./mcp-dispatch";
@@ -240,7 +241,9 @@ function rateLimitRetryAfterSeconds(error: RateLimitError): number | undefined {
 }
 
 function toolError(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {
-  const error = { code, message, ...(details === undefined ? {} : { details }),
+  const presented = agentErrorDetails(code, message, details);
+  const error = { code, message: presented.message,
+    ...(presented.details === undefined ? {} : { details: presented.details }),
     ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) };
   return { content: [{ type: "text" as const, text: JSON.stringify(error) }], structuredContent: error, isError: true as const };
 }
@@ -292,19 +295,25 @@ function zodValidationMessage(error: unknown) {
 function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
   switch (error.code) {
     case "UNAUTHORIZED":
-      return rpcError(id, -32001, "Unauthorized", 401);
+      return rpcError(id, -32001, invalidApiKeyMessage(), 401);
     case "FORBIDDEN":
       return rpcError(id, -32003, error.message, 403);
     case "BILLING_REQUIRED":
-      return rpcError(id, -32004, error.message, 402);
-    case "ANALYTICS_PAID_PLAN":
-      return rpcError(id, -32004, error.message, 402, undefined, { code: error.code });
+    case "ANALYTICS_PAID_PLAN": {
+      const presented = agentErrorDetails(error.code, error.message);
+      return rpcError(id, -32004, presented.message, 402, undefined, {
+        ...(error.code === "ANALYTICS_PAID_PLAN" ? { code: error.code } : {}),
+        details: presented.details,
+      });
+    }
     case "NOT_FOUND":
       return rpcError(id, -32005, error.message, 404);
     case "CONFLICT":
       return rpcError(id, -32009, error.message, 409);
-    case "RATE_LIMIT":
-      return rpcError(id, -32010, rateLimitMessage(error), 429, apiRateLimitHeaders(error));
+    case "RATE_LIMIT": {
+      const presented = agentErrorDetails(error.code, rateLimitMessage(error));
+      return rpcError(id, -32010, presented.message, 429, apiRateLimitHeaders(error), { details: presented.details });
+    }
     case "VALIDATION_ERROR":
       return rpcError(id, -32602, error.message, 400);
     default:
@@ -387,7 +396,7 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
       );
     }
     const auth = await authenticateBearerToken(request);
-    if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
+    if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401);
     try {
       await enforceApiBudget({
         workspaceId: auth.workspaceId,
@@ -415,7 +424,7 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
     return rpcError(body.id, -32601, "Method not found", modern ? 404 : 200);
   }
   const auth = await authenticateBearerToken(request);
-  if (!auth) return rpcError(body.id, -32001, "Unauthorized", 401);
+  if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401);
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);

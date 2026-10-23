@@ -103,7 +103,7 @@ describe('first publish nudge', () => {
     const status = editor.container.querySelector('[role="status"]')
     expect(status?.textContent).toContain('Your first post is live.')
     expect(status?.textContent).toContain('free plan')
-    const plans = [...editor.container.querySelectorAll('a')].find((link) => link.textContent?.includes('See plans'))
+    const plans = [...editor.container.querySelectorAll('a')].find((link) => link.textContent?.includes('Upgrade to Cloud'))
     expect(plans?.getAttribute('href')).toBe('/dashboard/settings?tab=billing')
     expect(window.localStorage.getItem('vc-first-publish-nudge:site-first-free')).toBe('1')
   })

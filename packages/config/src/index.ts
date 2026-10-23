@@ -57,8 +57,8 @@ export const RESERVED_POST_SLUGS = [
 
 /**
  * Agent request budgets (MCP, REST, CLI) per workspace. A `null` monthly cap
- * means none: Cloud is unlimited (fair use), bounded only by its per-minute and
- * per-day guardrails. Its monthly totals are still counted for the dashboard.
+ * means no monthly cap: Cloud is bounded by its per-minute and per-day limits.
+ * Its monthly totals are still counted for the dashboard.
  */
 export const API_USAGE_LIMITS = {
   paid: {
@@ -153,7 +153,7 @@ export const FREE_TIER = {
   drafts: 5,
   images: 10,
   marketingLine:
-    `5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).`,
+    `5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
 } as const;
 
 /**

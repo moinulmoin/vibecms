@@ -46,7 +46,7 @@ export function Hero({ loginUrl }: { loginUrl: string }) {
 
         <div className="mt-9 flex flex-col items-center gap-3">
           <span className="font-mono text-xs text-muted-foreground">
-            Works with
+            Connect your AI agent over MCP (Model Context Protocol)
           </span>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
             {agents.map(([name, file]) => (

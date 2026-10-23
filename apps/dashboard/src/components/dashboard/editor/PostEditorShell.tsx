@@ -1222,7 +1222,7 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{actionError}</span>
           {actionErrorCode && ['draft_limit', 'billing_required', 'media_quota_free'].includes(actionErrorCode) ? (
-            <Link className="shrink-0 text-primary underline underline-offset-4" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>See plans</Link>
+            <Link className="inline-flex shrink-0 items-center gap-1 text-primary underline underline-offset-4" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">Upgrade to Cloud <ExternalLink aria-hidden className="size-4" /></Link>
           ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={() => setActionError(null)}>Dismiss</Button>
         </div>

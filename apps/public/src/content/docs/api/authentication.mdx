@@ -13,7 +13,7 @@ Tokens are created in **Dashboard > Connect**, belong to one site, and are shown
 
 ## Responses
 
-- Missing or invalid credential: HTTP `401`
+- Missing, malformed, unknown, revoked, or deleted credential: HTTP `401` (`UNAUTHORIZED` over REST, JSON-RPC `-32001` over MCP). Each case uses the same message: “This API key is invalid or was deleted. Create a new key in the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.”
 - Valid token without the required scope: HTTP `403` with `FORBIDDEN`
 - Exceeded hosted usage budget: HTTP `429` with `RATE_LIMIT`
 
@@ -30,9 +30,11 @@ Hosted workspaces share these budgets across all keys and calls:
 | Calls | 30/minute, 300/day, 1,000/month | 120/minute, 5,000/day, no monthly cap |
 | Writes | 50/day, 200/month | 500/day, no monthly cap |
 
-Paid agent requests are unlimited under fair use: there is no monthly cap, only the per-minute and per-day guardrails. Each key also has its own per-minute cap: 20 calls on free, 60 on paid. A workspace can have at most 10 active keys; only the owner can create or revoke them. Self-hosted installs do not enforce these budgets.
+vibecms Cloud allows 120 calls a minute and 5,000 a day, 500 writes a day, and 60 calls a minute per key, with no monthly cap. Free keys allow 20 calls a minute each. A workspace can have at most 10 active keys; only the owner can create or revoke them. Self-hosted installs do not enforce these budgets.
 
 Over REST, an over-limit response is HTTP `429` with `RATE_LIMIT`, a `retryAfterSeconds` field in the error body, and `Retry-After` plus `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` / `X-RateLimit-Metric` / `X-RateLimit-Period` headers. Over MCP, a quota failure inside `tools/call` returns an error tool result with `code: "RATE_LIMIT"` and `retryAfterSeconds` — no headers; a quota failure on `tools/list` is an HTTP `429` JSON-RPC error. See [error shapes](/docs/agent-workflows/conflicts-and-recovery) for both MCP shapes.
+
+Quota errors include `details.upgradeUrl` and “Upgrade to vibecms Cloud: &lt;url&gt;” in the message, pointing to the billing tab in the dashboard configured by `APP_URL`. MCP tool results carry both fields in their text content and `structuredContent`; JSON-RPC errors on `tools/list` carry the link in the message and `error.data.details.upgradeUrl`. Hand the link to the owner; an upgrade does not remove Cloud's per-minute or per-day limits.
 
 ## Storage
 

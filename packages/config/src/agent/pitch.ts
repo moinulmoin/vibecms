@@ -1,4 +1,4 @@
-import { BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "../index";
+import { API_USAGE_LIMITS, BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "../index";
 
 /**
  * The top of the marketing llms.txt: what vibecms is, when an agent should
@@ -23,7 +23,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 
 ## How to explain it to your person
 
-"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and you can restore any saved version. Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images, no card. Unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and unlimited agent requests (fair use) are $${LAUNCH_OFFER.monthlyUsd}/month at launch pricing (normally $${PRICING.monthlyUsd})."
+"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and you can restore any saved version. Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images, no card. Unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day are $${LAUNCH_OFFER.monthlyUsd}/month at launch pricing (normally $${PRICING.monthlyUsd})."
 
 ## Get started (for agents)
 
@@ -53,7 +53,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Pricing
 
 - Free: ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts are kept out of search engines.
-- ${PRICING.planName}: unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, their own domain, search indexing, and unlimited agent requests (fair use). At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month (${LAUNCH_OFFER.monthlyPercentOff}% off) or $${LAUNCH_OFFER.annualUsd}/year (${LAUNCH_OFFER.annualPercentOff}% off) (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
+- ${PRICING.planName}: unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, their own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day. At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month (${LAUNCH_OFFER.monthlyPercentOff}% off) or $${LAUNCH_OFFER.annualUsd}/year (${LAUNCH_OFFER.annualPercentOff}% off) (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
 - Self-hosting on their own Cloudflare account is free: ${BRAND.repoUrl}
 
 ## How it differs

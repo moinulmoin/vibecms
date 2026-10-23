@@ -23,11 +23,15 @@ REST errors are machine-readable and use the HTTP status that matches the failur
 | Status | Typical code |
 | --- | --- |
 | `400` | `VALIDATION_ERROR` |
-| `401` | Authentication failure |
+| `401` | `UNAUTHORIZED` |
 | `403` | `FORBIDDEN` |
 | `404` | `NOT_FOUND` |
 | `409` | `CONFLICT` |
 | `402` | `BILLING_REQUIRED` |
 | `429` | `RATE_LIMIT` |
+
+REST errors have an `error` object with `code`, `message`, optional `details`, and optional `retryAfterSeconds`. Plan blockers, including `BILLING_REQUIRED`, draft caps, media quotas, and hosted request quotas, include a dashboard billing link in `details.upgradeUrl` and in the message: “Upgrade to vibecms Cloud: &lt;url&gt;”. The URL uses the installation's `APP_URL` and `/dashboard/settings?tab=billing`.
+
+For MCP `tools/call`, the error tool result has `isError: true`; the same code, message, and details appear in both JSON text content and `structuredContent`. Give the owner the returned upgrade link rather than constructing a URL or attempting billing changes. Leave saved drafts intact.
 
 Do not retry validation, authorization, or conflict failures unchanged. Network failures and rate limits may be retried only while the original user request remains active.

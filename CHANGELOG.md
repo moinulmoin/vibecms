@@ -4,6 +4,11 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- Agent plan-limit errors now include the dashboard upgrade link in their message and details; invalid keys share one clear replacement-key message without changing authorization.
+- Replace unlimited-agent claims with the real plan limits, state launch prices plainly, and explain MCP, SEO & GEO checks, agent skills, and subpath publishing on the landing page.
+- Dashboard upgrade links now say "Upgrade to Cloud" and open billing in a new tab, keeping unsaved editor text in place.
+- Allow 30 seconds for the public-post highlighter's first-load test.
+
 - Analytics rollups now run on the existing 15-minute cron with a counted 250-query budget, oldest-unrolled-first progress, atomic per-day data/cursor batches, and a seven-day per-site backfill cap (migration 0043). Already-refreshed sites skip the rest of that UTC day; retention compaction is capped at 20 site/month batches per tick. Budget deferral logs `analytics_rollup_budget_exhausted` with remaining-site counts. The unchanged 500-query claim sweep and 50-operation media recovery (worst case 201 queries) share a ceiling of 951, below D1's 1,000; daily subpath checks remain separate. Cron expressions are unchanged.
 - Polar webhook verification accepts both legacy full-string HMAC keys and Standard Webhooks keys issued after 8 September 2026, preserving SDK payload validation and existing billing receipt/order behavior. Added a sandbox-first signing-secret rotation and recovery runbook.
 - Polar webhooks only act on payments tagged with a vibecms workspace ID. The Polar account also sells other products; a paid checkout from one of them used to be read as a vibecms workspace through its customer ID, fail, and be retried until Polar could disable the endpoint. Those events are now acknowledged and ignored.

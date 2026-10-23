@@ -8,15 +8,17 @@ On hosted vibecms every blog starts on the free plan. The free plan includes:
 - 5 published posts
 - 5 drafts at a time
 - 10 images
-- Agent keys, with a small daily and monthly request budget
+- Agent keys, with 300 requests a day and 1,000 a month; writes are limited to 50 a day and 200 a month
 - Unlimited version history
 - A small "Published with vibecms" link at the bottom of every blog page
 
-The paid plan removes those ceilings: unlimited posts, 10 GB of media, analytics, a custom domain or subpath location, search indexing, no "Published with vibecms" link, and unlimited agent requests under fair use. Paid agent requests have no monthly cap; per-minute and per-day guardrails still apply (see [API limits](/docs/api/authentication#limits)). Free-plan blogs serve pages with `noindex`, so search engines skip them. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
+vibecms Cloud includes unlimited posts, 10 GB of media, analytics, a custom domain or subpath location, search indexing, no "Published with vibecms" link, and 5,000 agent requests a day. Agent requests are limited to 120 a minute, writes to 500 a day, and each key to 60 requests a minute, with no monthly cap (see [API limits](/docs/api/authentication#limits)). Free-plan blogs serve pages with `noindex`, so search engines skip them. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
 
 ## Upgrade and manage
 
 Open **Dashboard > Settings > Plan & billing**. The owner sees the current plan, the full allowance table, and **Upgrade** / **Yearly** checkout buttons. Once subscribed, **Manage subscription** opens the billing portal for payment details and cancellation; **Invoices and payment details** appears for past customers. Leaving checkout or the portal brings you back to Plan & billing. Checkout and the portal are owner-only actions — editors see "Only the owner can change the plan."
+
+Dashboard **Upgrade to Cloud** links open Plan & billing in a new tab, so unsaved writing stays in the editor without a discard prompt.
 
 ## Canceling and failed payments
 

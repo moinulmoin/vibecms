@@ -184,7 +184,7 @@ describe('AnalyticsPage', () => {
     mocks.loadAnalyticsPage.mockResolvedValue({ status: 'locked', retentionDays: 365 })
     const { container } = await render()
     const text = container.textContent ?? ''
-    expect(text).toContain('See plans')
+    expect(text).toContain('Upgrade to Cloud')
     expect(container.querySelector('[role="tablist"]')).toBeNull()
   })
 

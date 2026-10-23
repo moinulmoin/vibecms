@@ -51,9 +51,10 @@ Draft updates do not require publication approval, but they still invalidate any
 - `CONFLICT` on create/update can also mean a slug collision. Inspect existing posts before choosing whether to update the existing post or propose a different slug.
 - `VALIDATION_ERROR`: correct the rejected input; do not weaken or bypass validation.
 - `FORBIDDEN`: the token lacks the required scope. Explain the missing capability; do not request a broader token unless the user chooses to create one.
+- `UNAUTHORIZED` (HTTP `401`, JSON-RPC `-32001`): stop and give the owner the dashboard key-creation link in the error message. Missing, malformed, unknown, revoked, and deleted keys deliberately share one message; do not infer whether a key existed.
 - `NOT_FOUND`: re-list or re-fetch identifiers before retrying.
-- `RATE_LIMIT`: wait until reset, then retry only the still-requested action.
-- `BILLING_REQUIRED`: leave the draft intact and explain the subscription blocker.
+- `RATE_LIMIT`: wait until reset, then retry only the still-requested action. If the owner wants to review the plan, give them the returned `details.upgradeUrl`; Cloud still has per-minute and per-day limits.
+- `BILLING_REQUIRED`: leave the draft intact, explain the subscription or draft-limit blocker, and give the owner the returned `details.upgradeUrl` (also included in the message). Never subscribe or change billing on the owner's behalf.
 
 ## Scope reference
 

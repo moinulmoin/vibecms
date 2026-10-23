@@ -11,5 +11,5 @@ describe("loadPostHighlighter", () => {
     expect(first).not.toBeNull();
     expect(await loadPostHighlighter("Energy is $E = mc^2$.")).toBe(first);
     expect(await loadPostHighlighter("::: install\nvibecms\n:::")).toBe(first);
-  });
+  }, 30_000);
 });

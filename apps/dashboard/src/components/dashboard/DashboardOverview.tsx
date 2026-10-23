@@ -1,4 +1,4 @@
-import { BRAND, FREE_TIER, MEDIA } from '@vc/config'
+import { API_USAGE_LIMITS, BRAND, FREE_TIER, MEDIA } from '@vc/config'
 import { Activity, Bot, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
@@ -89,9 +89,9 @@ export function overviewEntitlementBadge(
 }
 
 /** This month's count: a meter against the cap, or the plain count when the plan has no monthly cap. */
-function MonthUsage({ label, status }: { label: string; status: DashboardData['apiUsage']['calls']['month'] }) {
+function MonthUsage({ label, status, dailyLimit }: { label: string; status: DashboardData['apiUsage']['calls']['month']; dailyLimit: number }) {
   if (status.limit === null) {
-    return <p>{label} this month: {status.used.toLocaleString()} <span className="text-muted-foreground">· Unlimited, fair use</span></p>
+    return <p>{label} this month: {status.used.toLocaleString()} <span className="text-muted-foreground">· {dailyLimit.toLocaleString('en-US')} a day · No monthly cap</span></p>
   }
   const limit = Math.max(status.limit, 1)
   const percent = Math.min(100, Math.round((status.used / limit) * 100))
@@ -140,8 +140,8 @@ function AgentUsage({ usage, tokenCount, canEdit }: { usage: DashboardData['apiU
     >
       {usage.enforced ? (
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
-          <MonthUsage label="Requests" status={usage.calls.month} />
-          <MonthUsage label="Writes" status={usage.writes.month} />
+          <MonthUsage label="Requests" status={usage.calls.month} dailyLimit={API_USAGE_LIMITS.paid.calls.day} />
+          <MonthUsage label="Writes" status={usage.writes.month} dailyLimit={API_USAGE_LIMITS.paid.writes.day} />
         </div>
       ) : null}
     </Section>

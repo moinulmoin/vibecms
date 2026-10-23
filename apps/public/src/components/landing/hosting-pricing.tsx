@@ -1,4 +1,4 @@
-import { BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import { API_USAGE_LIMITS, BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
 import { Check } from "./icons";
 import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
 import { startFreeUrl } from "../../lib/landing-links";
@@ -8,7 +8,7 @@ const INCLUDED = [
   "Your own domain",
   "Indexed by search engines",
   `${MEDIA.paidStorageLabel} of media on R2`,
-  "Unlimited agent requests (fair use)",
+  `${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
   "No vibecms link on your blog",
   "MCP, REST API, and CLI",
   "Private previews and scheduling",
@@ -36,7 +36,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               Start free: {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, {FREE_TIER.images} images, no card.
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
-              Less than a Claude subscription, and it runs the whole blog.
+              {LAUNCH_OFFER.monthlyLabel} or {LAUNCH_OFFER.annualLabel} at launch pricing.
             </p>
             <p className="mt-8 text-sm leading-[1.6] text-muted-foreground">
               Prefer your own Cloudflare account?{" "}

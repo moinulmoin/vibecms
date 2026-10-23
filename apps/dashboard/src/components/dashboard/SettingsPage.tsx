@@ -1062,8 +1062,8 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                   <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                   <p className="flex-1 text-sm text-muted-foreground">Custom domains are part of the paid plan.</p>
                   <Button asChild size="sm" variant="outline">
-                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-                      See plans
+                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
+                      Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
                     </Link>
                   </Button>
                 </div>

@@ -5,6 +5,7 @@ import { apiReference } from "@scalar/hono-api-reference";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { env } from "cloudflare:workers";
 import { authenticateBearerToken } from "@/server/api-keys";
+import { agentErrorDetails, invalidApiKeyMessage } from "@/server/agent-errors";
 import {
   archivePostOp,
   unarchivePostOp,
@@ -97,11 +98,12 @@ function zodValidationMessage(error: unknown) {
 }
 
 function errorEnvelope(code: string, message: string, details?: unknown, retryAfterSeconds?: number) {
+  const presented = agentErrorDetails(code, message, details);
   return {
     error: {
       code,
-      message,
-      ...(details !== undefined ? { details } : {}),
+      message: presented.message,
+      ...(presented.details !== undefined ? { details: presented.details } : {}),
       ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
     },
   };
@@ -180,7 +182,7 @@ apiV1App.use("*", async (c, next) => {
 
   const auth = await authenticateBearerToken(c.req.raw);
   if (!auth) {
-    return c.json(errorEnvelope("UNAUTHORIZED", "Authentication required. Send Authorization: Bearer <agent key>; the owner creates keys under Connect in the dashboard. See /auth.md."), 401);
+    return c.json(errorEnvelope("UNAUTHORIZED", invalidApiKeyMessage()), 401);
   }
 
   c.set("ctx", {

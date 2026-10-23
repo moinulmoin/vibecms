@@ -92,7 +92,7 @@ describe('DashboardOverview entitlement status', () => {
     const paid = renderToStaticMarkup(createElement(DashboardOverview, { canEdit: true }))
     expect(paid).toContain('Requests this month: 42')
     expect(paid).toContain('Writes this month: 7')
-    expect(paid).toContain('Unlimited, fair use')
+    expect(paid).toContain('5,000 a day · No monthly cap')
     expect(paid).not.toContain('role="meter"')
 
     pageState.response = { ...baseResponse, apiUsage: { ...baseResponse.apiUsage, enforced: true } }

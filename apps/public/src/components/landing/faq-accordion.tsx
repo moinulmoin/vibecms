@@ -1,4 +1,4 @@
-import { FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
 import { AskAi } from "./ask-ai";
 import { Plus } from "./icons";
 import { H2, SectionShell } from "./primitives";
@@ -6,7 +6,7 @@ import { H2, SectionShell } from "./primitives";
 const faqs = [
   {
     question: "What do I get for free?",
-    answer: `A full blog with ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts stay out of search engines, and free blogs show a small "Published with vibecms" link at the bottom. Subscribe to remove the link and get unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and unlimited agent requests (fair use).`,
+    answer: `A full blog with ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts stay out of search engines, and free blogs show a small "Published with vibecms" link at the bottom. Subscribe to remove the link and get unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
   },
   {
     question: "What is launch pricing?",

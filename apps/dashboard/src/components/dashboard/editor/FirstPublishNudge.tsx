@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@vc/ui'
-import { X } from 'lucide-react'
+import { ExternalLink, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { contextQuery, overviewQuery } from '~/lib/queries'
 import { pinnedDashboardSiteId } from '~/lib/site-pin'
@@ -101,8 +101,8 @@ export function FirstPublishNudge({ nudge }: { nudge: Pick<FirstPublishNudgeStat
         Search engines don’t index blogs on the free plan.
       </p>
       <Button asChild size="sm" variant="outline">
-        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }}>
-          See plans
+        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
+          Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
         </Link>
       </Button>
       <Button type="button" size="lg" variant="ghost" className="w-11 px-0" aria-label="Dismiss" onClick={nudge.dismiss}>
