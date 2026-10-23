@@ -123,6 +123,39 @@ describe('agentFetch rollup values', () => {
 })
 
 describe('loadAnalyticsForApp agents section', () => {
+  it('fills uncovered current and previous dates during a partial backfill without double-counting D1', async () => {
+    configureAnalytics()
+    const seed = await seedSite('partial-loader')
+    const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
+    await createDataAccess(env.DB).analytics.replaceDaily(seed.siteId, day(-10), [
+      { kind: 'page', dimension: '', label: null, value: 4 },
+    ], { nextSourceDate: day(-9), refreshedThrough: null })
+    const pages = [
+      { date: day(-10), views: 4 },
+      { date: day(-8), views: 6 },
+      { date: day(-1), views: 8 },
+      { date: day(0), views: 3 },
+    ]
+    const fetcher = (async (_url: unknown, init?: RequestInit) => {
+      const sql = String(init?.body ?? '')
+      const dates = [...sql.matchAll(/toDateTime\('(\d{4}-\d{2}-\d{2}) 00:00:00'\)/g)]
+        .map((match) => match[1]!)
+      const selected = pages.filter((row) => row.date >= dates[0]! && row.date <= dates[1]!)
+      const data = sql.includes("'agent_fetch'")
+        ? (day(-1) >= dates[0]! && day(-1) <= dates[1]!
+          ? [{ date: day(-1), agent_id: 'GPTBot', category: 'ai-training', fetches: 5 }]
+          : [])
+        : sql.includes('GROUP BY')
+          ? selected
+          : [{ views: selected.reduce((sum, row) => sum + row.views, 0) }]
+      return new Response(JSON.stringify({ data }), { headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const result = await loadAnalyticsForApp(appFor(seed), 7, { fetcher })
+    if (result.status !== 'available') throw new Error(`expected available, got ${JSON.stringify(result)}`)
+    expect(result.views).toBe(11)
+    expect(result.trendPercent).toBe(10)
+    expect(result.agents.total).toBe(5)
+  })
   it('returns agent aggregates from source and stored rows', async () => {
     configureAnalytics()
     const seed = await seedSite('loader')
@@ -329,7 +362,7 @@ describe('runAnalyticsRollup self-host', () => {
       rollupEnv('true', false),
       aeFetcher({ page_view: [{ date: '2026-10-10', post_id: '', post_slug: '', referrer: '', views: 3 }] }),
     )
-    expect(skipped).toEqual({ sites: 0, compactedMonths: 0 })
+    expect(skipped).toEqual({ sites: 0, compactedMonths: 0, queries: 0, remainingSites: 0 })
     expect(await data.analytics.listDaily(seed.siteId, '2026-10-10', '2026-10-10')).toEqual([])
 
     // Configured self-host: always entitled, page_view rows roll up.
@@ -341,9 +374,52 @@ describe('runAnalyticsRollup self-host', () => {
       }),
     )
     expect(result.sites).toBeGreaterThanOrEqual(1)
+    // Backfill is deliberately bounded to seven dates per site per invocation.
+    // Drive the persisted cursor to completion rather than expecting 89 dates at once.
+    let remainingSites = result.remainingSites
+    for (let run = 1; remainingSites > 0 && run < 13; run += 1) {
+      const resumed = await runAnalyticsRollup(
+        rollupEnv('true', true),
+        aeFetcher({
+          page_view: [{ date: '2026-10-10', post_id: '', post_slug: '', referrer: '', views: 3 }],
+          agent_fetch: [{ date: '2026-10-10', post_id: '', resource: 'llms', agent_id: 'GPTBot', category: 'ai-training', representation: 'text', signed: '', fetches: 2 }],
+        }),
+      )
+      remainingSites = resumed.remainingSites
+    }
+    expect(remainingSites).toBe(0)
+    const fresh = await runAnalyticsRollup(rollupEnv('true', true), aeFetcher({}))
+    expect(fresh).toMatchObject({ sites: 0, queries: 3, remainingSites: 0 })
     const rows = await data.analytics.listDaily(seed.siteId, '2026-10-10', '2026-10-10')
     const kinds = new Map(rows.map((row) => [`${row.kind}:${row.dimension}`, row]))
     expect(kinds.get('page:')).toMatchObject({ value: 3 })
     expect(kinds.get('agent:GPTBot')).toMatchObject({ value: 2 })
+  })
+  it('persists bounded backfill and gives untouched sites the next budgeted run', async () => {
+    const seeds = []
+    for (let index = 0; index < 20; index += 1) seeds.push(await seedSite(`budget-${index}`))
+    const workerEnv = rollupEnv('true', true)
+    const first = await runAnalyticsRollup(workerEnv, aeFetcher({}))
+    expect(first.queries).toBeLessThanOrEqual(250)
+    expect(first.remainingSites).toBeGreaterThan(0)
+    const data = createDataAccess(env.DB)
+    const seedIds = new Set(seeds.map((seed) => seed.siteId))
+    const progress = (await data.analytics.listRollupProgress()).filter((state) => seedIds.has(state.siteId))
+    expect(progress.length).toBeLessThan(seeds.length)
+    for (const state of progress) {
+      expect(state.nextSourceDate).not.toBeNull()
+      const sourceFloor = new Date(Date.now() - 89 * 86_400_000).toISOString().slice(0, 10)
+      const advancedDays = (Date.parse(state.nextSourceDate!) - Date.parse(sourceFloor)) / 86_400_000
+      expect(advancedDays).toBeGreaterThan(0)
+      expect(advancedDays).toBeLessThanOrEqual(7)
+    }
+    const second = await runAnalyticsRollup(workerEnv, aeFetcher({}))
+    expect(second.queries).toBeLessThanOrEqual(250)
+    const resumed = (await data.analytics.listRollupProgress()).filter((state) => seedIds.has(state.siteId))
+    expect(resumed).toHaveLength(seeds.length)
+    expect(resumed.some((state) => {
+      const before = progress.find((prior) => prior.siteId === state.siteId)
+      return before && state.nextSourceDate! > before.nextSourceDate!
+    })).toBe(true)
   })
 })

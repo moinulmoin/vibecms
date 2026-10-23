@@ -27,11 +27,51 @@ Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 
-The root `wrangler.jsonc` runs three cron triggers on the API Worker — a daily
-`17 2 * * *` analytics rollup plus subpath re-check and media reconcile, a
-`*/15 * * * *` media-recovery sweep, and a `* * * * *` run that publishes due
-scheduled posts. Workers Free allows five cron triggers per account; keep them
-all.
+The root `wrangler.jsonc` keeps three cron triggers on the API Worker: daily
+`17 2 * * *` subpath re-check and media reconcile; `*/15 * * * *` media
+recovery, managed-claim sweep (hosted only), and resumable analytics; and
+`* * * * *` due scheduled publishing. Workers Free allows five cron triggers
+per account; keep all three. Analytics requires Workers Paid's 1,000-query
+invocation allowance for the budgets below.
+
+Analytics commits each site's day (delete, inserts, state and continuation
+cursor) atomically in one D1 batch. One day costs two D1 calls: the legacy
+crawler read and the write batch, regardless of dimension count. A run first
+reads entitled sites and rollup progress (two calls), processes oldest-unrolled
+sites first, caps each site at seven dates, and reserves 21 calls for retention
+compaction (one list plus at most 20 atomic site/month batches). Its counted
+binding stops at 250 D1 calls. Migration 0043 adds durable per-site progress:
+`next_source_date` resumes interrupted backfill without repeating the overlap,
+and `refreshed_through` skips sites already refreshed through yesterday.
+The normal three-date overlap is refreshed once per UTC day. Backfill retains
+the existing source floor (today minus 89 days through yesterday: 89 closed
+dates), so one fresh site takes 13 ticks rather than monopolizing one invocation.
+After downtime only source-retained dates can be recovered.
+Dashboard reads merge stored dates with the still-unrolled source suffix,
+including the previous comparison period, so partial backfills do not hide
+recent people/agent counts or count stored dates twice.
+
+The frequent invocation's worst-case D1 total is **951**: claim sweep 500 +
+analytics 250 + media 201. Media remains capped at 50 operations: one list +
+50 × four calls (claim UPDATE, claimed-row SELECT, finish write, and a failure
+marker if the finish fails). This leaves 49 calls of headroom; analytics no
+longer shares the daily subpath invocation. No cron expressions change.
+When the analytics budget defers sites, the informational structured event
+`analytics_rollup_budget_exhausted` includes `queries`, `queryBudget`, and
+`remainingSites`. Sites left by the seven-day cap also remain pending for the
+next tick. Compaction resumes from the remaining daily rows.
+
+Query comparison (excluding retention work, assuming V positive dimension rows
+per day): the old implementation in this revision already chunked inserts into
+batches of 75, so its actual cost was one site-state read plus
+`D × (2 + ceil((V + 1) / 75))` for D dates, not V individual insert calls.
+For V ≤ 74, one steady-state site cost 10 site-work calls; 100 cost 1,000;
+one new site's 89 dates cost 268. The new implementation needs 6, 600, and
+178 day-work calls respectively, plus three shared overhead calls per run
+(entitled sites, progress, empty compaction list). Thus one steady site uses
+9 calls; 100 drain in three ticks using 609 total; one new site drains in
+13 ticks using 217 total. A conceptual 90-date backfill costs 180 day calls.
+The old per-value model would instead cost `1 + D × (V + 3)` per site.
 
 Replace the placeholder D1 IDs, bucket names, Worker names, service target, and host variables in the root Wrangler configs before deploying.
 

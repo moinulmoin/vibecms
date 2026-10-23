@@ -38,17 +38,17 @@ import {
 } from '@vc/db'
 import { deleteCustomHostname } from '@/server/custom-hostnames'
 import { sendClaimReminderEmail, sendPurgeConflictEmail } from '@/server/email'
+import { budgetedD1, D1QueryBudget } from '@/server/d1-query-budget'
 
 const DAY_SECONDS = 24 * 60 * 60
 
 /**
  * D1 queries one sweep run may make. D1 allows 1,000 per Worker invocation
  * (Workers Paid; a `batch()` counts as one). The sweep shares its invocation
- * with media recovery (`reconcileMediaOperations`: one list plus at most
- * three queries for each of its 50 operations, about 151), so 500 leaves
- * roughly 350 queries of headroom. At 96 runs a day that is 48,000 queries a
- * day for the window: thousands of reminders or purges, far above the
- * revokes the managed plan produces.
+ * with media recovery (one list plus at most four queries per each of its
+ * 50 operations, 201), and analytics (250). Together these jobs use at most
+ * 951 queries, leaving 49 spare. At 96 runs a day the claim sweep has 48,000
+ * queries a day available.
  */
 export const SWEEP_QUERY_BUDGET = 500
 /** Of the budget, what resuming crashed purges may use, so they never starve new work. */
@@ -68,71 +68,6 @@ const REMINDER_QUERY_COST = 3
 const RESUME_QUERY_COST = 3
 const PURGE_QUERY_COST = 3 + RESUME_QUERY_COST
 
-/** Counts the D1 queries of one run against its budget. */
-class D1QueryBudget {
-  used = 0
-  constructor(readonly limit: number) {}
-  remaining(): number {
-    return this.limit - this.used
-  }
-  covers(queries: number): boolean {
-    return this.remaining() >= queries
-  }
-  spend(): void {
-    // A backstop: the unit-of-work checks keep the run below the budget, so
-    // reaching this means a cost above is wrong. Refusing the query keeps the
-    // invocation inside the D1 limit; every step is resumable.
-    if (this.used >= this.limit) throw new Error('managed_claim_sweep_query_budget_exhausted')
-    this.used += 1
-  }
-}
-
-/**
- * The run's D1 binding: every query (a statement's `first`/`run`/`all`/`raw`,
- * a `batch`, an `exec`) is counted against the budget before it is sent.
- */
-function budgetedD1(db: D1Database, budget: D1QueryBudget): D1Database {
-  const unwrapped = new WeakMap<object, D1PreparedStatement>()
-  const wrapStatement = (statement: D1PreparedStatement): D1PreparedStatement => {
-    const counted = new Proxy(statement, {
-      get(target, property) {
-        if (property === 'bind') {
-          return (...values: unknown[]) => wrapStatement(target.bind(...values))
-        }
-        if (property === 'first' || property === 'run' || property === 'all' || property === 'raw') {
-          const method = Reflect.get(target, property, target) as (...args: unknown[]) => unknown
-          return (...args: unknown[]) => {
-            budget.spend()
-            return method.apply(target, args)
-          }
-        }
-        const value = Reflect.get(target, property, target) as unknown
-        return typeof value === 'function' ? value.bind(target) : value
-      },
-    })
-    unwrapped.set(counted, statement)
-    return counted
-  }
-  return new Proxy(db, {
-    get(target, property) {
-      if (property === 'prepare') return (query: string) => wrapStatement(target.prepare(query))
-      if (property === 'batch') {
-        return (statements: D1PreparedStatement[]) => {
-          budget.spend()
-          return target.batch(statements.map((statement) => unwrapped.get(statement) ?? statement))
-        }
-      }
-      if (property === 'exec') {
-        return (query: string) => {
-          budget.spend()
-          return target.exec(query)
-        }
-      }
-      const value = Reflect.get(target, property, target) as unknown
-      return typeof value === 'function' ? value.bind(target) : value
-    },
-  })
-}
 
 function reminderMarker(candidate: ManagedClaimSweepCandidate, day: number): number | null {
   switch (day) {
@@ -305,7 +240,7 @@ export async function runManagedClaimSweep(
     return { skipped: true, candidates: 0, remindersSent: 0, purged: 0, refundNotices: 0, queries: 0 }
   }
   const now = Math.floor(Date.now() / 1000)
-  const budget = new D1QueryBudget(Math.max(0, options?.queryBudget ?? SWEEP_QUERY_BUDGET))
+  const budget = new D1QueryBudget(Math.max(0, options?.queryBudget ?? SWEEP_QUERY_BUDGET), 'managed_claim_sweep_query_budget_exhausted')
   const db = budgetedD1(workerEnv.DB, budget)
   const repo = createDataAccess(db).managedSites
   const maxCandidates = Math.max(1, options?.maxCandidates ?? Number.MAX_SAFE_INTEGER)

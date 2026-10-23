@@ -242,8 +242,10 @@ reminder.
 
 One run is bounded by a D1 query budget: D1 allows 1,000 queries per Worker
 invocation (Workers Paid, a `batch()` counts as one), and the sweep shares
-its invocation with media recovery (at most about 150 queries). The sweep
-counts every D1 query it makes and stops at 500 (`SWEEP_QUERY_BUDGET`):
+its invocation with media recovery (at most 201 queries: one list plus four
+per each of 50 operations) and analytics (250). The combined ceiling is
+951, leaving 49 queries below the 1,000 limit. The sweep counts every D1 query
+it makes and stops at 500 (`SWEEP_QUERY_BUDGET`):
 refund notices take at most 51 (one list, 50 marks), resuming crashed purges
 at most 200 (3 per intent: the guarded delete batch, a site read, the intent
 write), and the rest goes to the due blogs (3 per reminder: attempt marker,

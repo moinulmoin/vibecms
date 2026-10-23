@@ -1,6 +1,12 @@
 import { createDataAccess, type AnalyticsRollupValue } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { agentRollupValues, queryAnalyticsEngine, type AgentFetchSourceRow } from '@/server/analytics'
+import { budgetedD1, D1QueryBudget } from '@/server/d1-query-budget'
+
+// 500 claim sweep + 201 media recovery + 250 analytics = 951 per frequent invocation.
+export const ANALYTICS_QUERY_BUDGET = 250
+const MAX_BACKFILL_DAYS_PER_SITE = 7
+const COMPACTION_QUERY_RESERVE = 21
 
 const SOURCE_RETENTION_DAYS = 90
 const DETAILED_RETENTION_DAYS = 365
@@ -96,6 +102,7 @@ async function rollupSite(
   site: { id: string; slug: string },
   sourceFrom: string,
   sourceTo: string,
+  refreshThrough: string,
   fetcher: typeof fetch,
 ) {
   const data = createDataAccess(workerEnv.DB)
@@ -162,43 +169,71 @@ async function rollupSite(
     values.push(...existing
       .filter((row) => row.kind === 'crawler' && !hasAgentData)
       .map(({ kind, dimension, label, value }) => ({ kind, dimension, label, value })))
-    await data.analytics.replaceDaily(site.id, date, values)
+    await data.analytics.replaceDaily(site.id, date, values, {
+      nextSourceDate: date === refreshThrough ? null : addDays(date, 1),
+      refreshedThrough: date === refreshThrough ? refreshThrough : null,
+    })
   }
 }
 
 export async function runAnalyticsRollup(workerEnv: RollupEnv = env, fetcher: typeof fetch = fetch) {
   const selfHosted = String(workerEnv.SELF_HOSTED) === 'true'
-  // Self-host rolls up only when the AE query env is configured; without it
-  // nothing collects anyway and the loader reports unavailable.
   const configured =
     Boolean(workerEnv.ANALYTICS_ACCOUNT_ID?.trim()) &&
     safeIdentifier(workerEnv.ANALYTICS_DATASET?.trim()) !== null &&
     Boolean(workerEnv.ANALYTICS_API_TOKEN?.trim())
-  if (selfHosted && !configured) return { sites: 0, compactedMonths: 0 }
-  const data = createDataAccess(workerEnv.DB)
+  if (selfHosted && !configured) return { sites: 0, compactedMonths: 0, queries: 0, remainingSites: 0 }
+  const budget = new D1QueryBudget(ANALYTICS_QUERY_BUDGET)
+  const countedEnv = { ...workerEnv, DB: budgetedD1(workerEnv.DB, budget) }
+  const data = createDataAccess(countedEnv.DB)
   const sites = await data.managedSites.listEffectiveEntitledActiveSites({
     selfHosted,
-    // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
     now: Date.now() / 1000,
   })
+  const progress = new Map((await data.analytics.listRollupProgress()).map((state) => [state.siteId, state]))
   const yesterday = utcDate(-1)
   const sourceFloor = utcDate(-(SOURCE_RETENTION_DAYS - 1))
-
+  const pending = sites
+    .filter((site) => (progress.get(site.id)?.refreshedThrough ?? '') < yesterday)
+    .sort((a, b) => {
+      const aDate = progress.get(a.id)?.lastRolledDate ?? sourceFloor
+      const bDate = progress.get(b.id)?.lastRolledDate ?? sourceFloor
+      return aDate.localeCompare(bDate) || a.id.localeCompare(b.id)
+    })
   let completedSites = 0
-  for (const site of sites) {
+  let remainingSites = pending.length
+  let stoppedOnBudget = false
+  for (const site of pending) {
+    const state = progress.get(site.id)
+    const overlapStart = state?.nextSourceDate ??
+      (state?.lastRolledDate ? addDays(state.lastRolledDate, -2) : sourceFloor)
+    const sourceFrom = overlapStart < sourceFloor ? sourceFloor : overlapStart
+    const availableDays = Math.floor((budget.remaining() - COMPACTION_QUERY_RESERVE) / 2)
+    if (availableDays < 1) {
+      stoppedOnBudget = true
+      break
+    }
+    const cappedTo = addDays(sourceFrom, Math.min(MAX_BACKFILL_DAYS_PER_SITE, availableDays) - 1)
+    const sourceTo = cappedTo < yesterday ? cappedTo : yesterday
     try {
-      const lastRolledDate = await data.analytics.getLastRolledDate(site.id)
-      const overlapStart = lastRolledDate ? addDays(lastRolledDate, -2) : sourceFloor
-      const sourceFrom = overlapStart < sourceFloor ? sourceFloor : overlapStart
       if (sourceFrom <= yesterday) {
-        await rollupSite(workerEnv, site, sourceFrom, yesterday, fetcher)
+        await rollupSite(countedEnv, site, sourceFrom, sourceTo, yesterday, fetcher)
       }
       completedSites += 1
+      if (sourceTo === yesterday) remainingSites -= 1
     } catch (error) {
       console.error(JSON.stringify({ level: 'error', event: 'analytics_rollup_failed', siteId: site.id, error: String(error) }))
     }
   }
-
-  const compactedMonths = await data.analytics.compactDailyBefore(utcDate(-DETAILED_RETENTION_DAYS))
-  return { sites: completedSites, compactedMonths }
+  // A bounded, atomic site/month compaction also resumes from the remaining daily rows.
+  const compactedMonths = await data.analytics.compactDailyBefore(
+    utcDate(-DETAILED_RETENTION_DAYS), Math.min(20, budget.remaining() - 1),
+  )
+  if (stoppedOnBudget) {
+    console.log(JSON.stringify({
+      level: 'info', event: 'analytics_rollup_budget_exhausted',
+      queries: budget.used, queryBudget: budget.limit, remainingSites,
+    }))
+  }
+  return { sites: completedSites, compactedMonths, queries: budget.used, remainingSites }
 }
