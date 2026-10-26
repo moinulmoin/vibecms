@@ -15,9 +15,9 @@ const legalLinks: FooterLink[] = [
 ];
 
 const makerLinks = [
+  ["VoiceTypr", "https://voicetypr.com"],
   ["AutoSEOPilot", AUTOSEOPILOT_URL],
   ["Ideaplexa", "https://ideaplexa.com"],
-  ["VoiceTypr", "https://voicetypr.com"],
   ["ChadNext", "https://chadnext.moinulmoin.com"],
 ] as const;
 

@@ -23,11 +23,11 @@ const faqs: readonly { question: string; answer: ReactNode }[] = [
     question: "Does vibecms do SEO, AEO, or GEO for me?",
     answer: (
       <>
-        {"It covers the technical side of every post: sitemap, structured data, canonical URLs, llms.txt, and a 31-rule SEO & GEO check. Deciding what to write so you show up in Google and AI answers is a separate job. That's "}
+        {"It covers the technical side of every post: sitemap, structured data, canonical URLs, llms.txt, and a 31-rule SEO & GEO check. Growing how often you show up in Google and AI answers is a bigger, ongoing job. That's "}
         <a className={TEXT_LINK} href={AUTOSEOPILOT_URL} rel="noopener noreferrer" target="_blank">
           AutoSEOPilot
         </a>
-        {", from the maker of vibecms: it finds your buyers' questions, then writes and publishes the articles, with a vibecms blog included. Early access is opening now."}
+        {", from the maker of vibecms. Every week it learns your business and the questions your buyers ask, picks the work most likely to bring them in (new articles, updates to existing pages, quick fixes), writes and publishes it with real sources, and measures what changed in your own Search Console. A vibecms blog comes included. Early access is opening now."}
       </>
     ),
   },

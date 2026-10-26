@@ -46,7 +46,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               .
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
-              {"Want your blog to bring in customers? AutoSEOPilot, from the maker of vibecms, finds what your buyers search for and ask AI, then writes and publishes the articles. Your vibecms blog comes included. "}
+              {"Want your blog to bring in customers? AutoSEOPilot, from the maker of vibecms, runs your search growth every week: it finds what your buyers ask Google and AI, picks the work most likely to bring them in, writes and publishes it, and measures the results in your own Search Console. Your vibecms blog comes included. "}
               <a className={TEXT_LINK} href={AUTOSEOPILOT_URL} rel="noopener noreferrer" target="_blank">
                 Join early access
               </a>
