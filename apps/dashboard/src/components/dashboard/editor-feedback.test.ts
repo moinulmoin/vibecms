@@ -70,8 +70,9 @@ Nested detail text.
     const bodyTextPos = html.indexOf('Body text under the first section heading.')
     expect(h1Pos).toBeLessThan(deckPos)
     expect(deckPos).toBeLessThan(metaPos)
-    expect(metaPos).toBeLessThan(tagsPos)
-    expect(tagsPos).toBeLessThan(bodyTextPos)
+    // Tags sit at the end of the article, after the body (founder decision 2026-10-26).
+    expect(metaPos).toBeLessThan(bodyTextPos)
+    expect(bodyTextPos).toBeLessThan(tagsPos)
   })
 
   it('renders a TOC with both disclosure and navigation for a structured outline', () => {
