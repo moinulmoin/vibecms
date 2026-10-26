@@ -133,27 +133,29 @@ export function LandingFooter({
           <FooterColumn title="Resources" links={resourceLinks} />
           <FooterColumn title="Account" links={accountLinks} />
         </div>
-        <p className="mt-10 text-pretty font-mono text-xs leading-5 text-muted-foreground">
-          © {year} vibecms - a product of{" "}
-          <a
-            className={`${FOOTER_LINK} whitespace-nowrap align-middle text-muted-foreground`}
-            href="https://ideaplexa.com"
-            {...EXTERNAL}
-          >
-            Ideaplexa LLC
-          </a>
-          .
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 font-mono text-xs leading-5 text-muted-foreground">
-          <span className="w-full sm:w-auto">Also from the maker:</span>
-          {makerLinks.map(([label, href], index) => (
-            <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
-              {index > 0 ? <span aria-hidden="true">·</span> : null}
-              <a className={FOOTER_LINK} href={href} {...EXTERNAL}>
-                {label}
-              </a>
-            </span>
-          ))}
+        <div className="mt-10 flex flex-col gap-2 font-mono text-xs leading-5 text-muted-foreground md:flex-row md:items-center md:justify-between md:gap-6">
+          <p className="text-pretty">
+            © {year} vibecms - a product of{" "}
+            <a
+              className={`${FOOTER_LINK} whitespace-nowrap align-middle text-muted-foreground`}
+              href="https://ideaplexa.com"
+              {...EXTERNAL}
+            >
+              Ideaplexa LLC
+            </a>
+            .
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3">
+            <span className="w-full sm:w-auto">Also from the maker:</span>
+            {makerLinks.map(([label, href], index) => (
+              <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
+                {index > 0 ? <span aria-hidden="true">·</span> : null}
+                <a className={FOOTER_LINK} href={href} {...EXTERNAL}>
+                  {label}
+                </a>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
