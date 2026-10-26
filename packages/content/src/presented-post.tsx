@@ -21,6 +21,21 @@ import prose from "./styles/prose.module.css";
 import { RichContentFrame, type RenderResult } from "./renderer.js";
 import type { OutlineEntry } from "./types.js";
 import styles from "./presented-post.module.css";
+import { ChatGptLogo, ClaudeLogo, CopyIcon, GrokLogo, PerplexityLogo, ShareIcon } from "./reader-icons.js";
+
+/** Assistants a reader can hand the post to; each opens a new chat with the prompt filled in. */
+const AI_ASSISTANTS = [
+  { name: "Claude", Logo: ClaudeLogo, base: "https://claude.ai/new?q=" },
+  { name: "ChatGPT", Logo: ChatGptLogo, base: "https://chatgpt.com/?q=" },
+  { name: "Perplexity", Logo: PerplexityLogo, base: "https://www.perplexity.ai/search?q=" },
+  { name: "Grok", Logo: GrokLogo, base: "https://grok.com/?q=" },
+] as const;
+
+function askAiPrompt({ shareUrl, markdownUrl }: ArticleActions): string {
+  const page = shareUrl ?? markdownUrl;
+  const copy = shareUrl && markdownUrl ? ` A clean Markdown copy is at ${markdownUrl}.` : "";
+  return `Summarize ${page} and answer my questions about it.${copy}`;
+}
 
 /** Raw per-site theme fields, threaded from the site row. */
 export interface SiteThemeInput {
@@ -318,34 +333,38 @@ export function PresentedPostArticle({
       </div>
       {actions && (actions.markdownUrl || actions.shareUrl) ? (
         <div className={styles.actions} data-vc-article-actions="">
-          {actions.shareUrl ? (
-            <button type="button" className={styles.actionButton} data-vc-action="share" data-vc-url={actions.shareUrl}>
-              Share
-            </button>
-          ) : null}
-          {actions.markdownUrl ? (
-            <>
-              <button type="button" className={styles.actionButton} data-vc-action="copy-markdown" data-vc-url={actions.markdownUrl}>
-                Copy as Markdown
+          <div className={styles.askAi}>
+            <p className={styles.actionsLabel}>Ask AI about this post</p>
+            <div className={styles.actionRow}>
+              {AI_ASSISTANTS.map(({ name, Logo, base }) => (
+                <a
+                  key={name}
+                  className={styles.actionButton}
+                  href={`${base}${encodeURIComponent(askAiPrompt(actions))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Logo className={styles.actionIcon} />
+                  {name}
+                  <span className={styles.srOnly}> (opens a new chat)</span>
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className={styles.actionRow}>
+            {actions.shareUrl ? (
+              <button type="button" className={`${styles.actionButton} ${styles.actionQuiet}`} data-vc-action="share" data-vc-url={actions.shareUrl}>
+                <ShareIcon className={styles.actionIcon} />
+                <span data-vc-label="">Share</span>
               </button>
-              <a
-                className={styles.actionButton}
-                href={`https://claude.ai/new?q=${encodeURIComponent(`Read ${actions.markdownUrl} so I can ask you about it.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open in Claude
-              </a>
-              <a
-                className={styles.actionButton}
-                href={`https://chatgpt.com/?q=${encodeURIComponent(`Read ${actions.markdownUrl} so I can ask you about it.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open in ChatGPT
-              </a>
-            </>
-          ) : null}
+            ) : null}
+            {actions.markdownUrl ? (
+              <button type="button" className={`${styles.actionButton} ${styles.actionQuiet}`} data-vc-action="copy-markdown" data-vc-url={actions.markdownUrl}>
+                <CopyIcon className={styles.actionIcon} />
+                <span data-vc-label="">Copy as Markdown</span>
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {hasOutline ? (

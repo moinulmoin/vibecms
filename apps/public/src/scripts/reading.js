@@ -73,12 +73,14 @@
   }
 
   function flash(button, text) {
-    const label = button.dataset.label || button.textContent;
+    // Swap only the text label so the button's icon stays.
+    const target = button.querySelector("[data-vc-label]") || button;
+    const label = button.dataset.label || target.textContent;
     button.dataset.label = label;
-    button.textContent = text;
+    target.textContent = text;
     button.setAttribute("data-state", "done");
     window.setTimeout(() => {
-      button.textContent = label;
+      target.textContent = label;
       button.removeAttribute("data-state");
     }, 1800);
   }

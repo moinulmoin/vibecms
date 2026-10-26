@@ -201,8 +201,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.5rem 0 2.25rem;
-  border-top: 1px solid var(--vc-hairline);
+  padding: 2rem 0 2.25rem;
   color: var(--vc-muted-fg);
   font-size: 0.8125rem;
 }
