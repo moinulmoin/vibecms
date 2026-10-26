@@ -1,6 +1,6 @@
 import { BRAND } from "@vc/config";
 
-export const ASK_AI_PROMPT = `Tell me about vibecms (${BRAND.marketingUrl}), a CMS for AI agents. Read ${BRAND.marketingUrl}/llms.txt first. How would it work with my AI agent, what would it cost, and is it a good fit for my blog?`;
+export const ASK_AI_PROMPT = `Tell me about ${BRAND.marketingUrl.replace(/^https?:\/\//, "")}. How good is it for publishing articles directly with my AI agents? What would it cost, and is it a good fit for me?`;
 
 // Each opens a new chat with the prompt filled in. Logos from svgl.app (Perplexity: LobeHub, filled mark).
 const PROVIDERS = [
@@ -25,8 +25,7 @@ export function AskAi() {
     <div id="ask-ai" className="max-w-[400px]">
       <p className="text-base font-medium text-foreground">Or ask your AI about us.</p>
       <p className="mt-1.5 text-sm leading-[1.6] text-muted-foreground">
-        Everything on this page is in our llms.txt, limits included. Let your
-        favorite model read it and tell you if vibecms fits.
+        Let your favorite model look us up and tell you if vibecms fits.
       </p>
       <ul className="mt-5 flex flex-wrap gap-2">
         {askAiLinks().map(({ name, logo, href }) => (

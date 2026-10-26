@@ -60,8 +60,8 @@ describe("landing URL props", () => {
     expect(html).toContain(`href="${apiDocsUrl}"`);
   });
 
-  it("opens each AI provider with the prompt prefilled and points it at llms.txt", () => {
-    expect(ASK_AI_PROMPT).toContain("https://vibecms.dev/llms.txt");
+  it("opens each AI provider with the prompt prefilled and names the site to look up", () => {
+    expect(ASK_AI_PROMPT).toContain("vibecms.dev");
     const links = askAiLinks();
     for (const { logo } of links) expect(logo).toMatch(/^\/brand\/ai\/[a-z]+\.svg$/);
     for (const { href } of links) {
