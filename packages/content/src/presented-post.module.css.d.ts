@@ -13,6 +13,7 @@ declare const styles: {
   readonly articleTitle: string;
   readonly authorLine: string;
   readonly avatar: string;
+  readonly avatarImage: string;
   readonly byline: string;
   readonly bylineText: string;
   readonly featureBand: string;

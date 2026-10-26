@@ -119,6 +119,8 @@ export interface AdjacentPostLink {
 export interface ArticleAuthor {
   /** Public name (never an email). */
   name: string;
+  /** Image shown in the byline circle instead of the initial (the blog's logo when the blog itself is the author). */
+  imageUrl?: string | null;
 }
 
 /** Reader actions under the post (public pages only). */
@@ -280,7 +282,11 @@ export function PresentedPostArticle({
           <div className={styles.byline}>
             {who ? (
               <span className={styles.avatar} aria-hidden="true">
-                {who.name.trim().charAt(0).toUpperCase() || "·"}
+                {who.imageUrl ? (
+                  <img className={styles.avatarImage} src={who.imageUrl} alt="" width={36} height={36} />
+                ) : (
+                  who.name.trim().charAt(0).toUpperCase() || "·"
+                )}
               </span>
             ) : null}
             <div className={styles.bylineText}>

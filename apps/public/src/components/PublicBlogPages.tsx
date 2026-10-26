@@ -263,9 +263,9 @@ function adjacent(basePath: string, post: PublicPostLoaderData["newer"]) {
   return post ? { title: post.title, href: `${basePath}/${post.slug}`, publishedAt: post.publishedAt ?? null } : null;
 }
 
-/** Public author line: the owner's public name. */
-function postAuthor(data: PublicPostLoaderData): ArticleAuthor {
-  return data.byline;
+/** Public author line: the owner's public name; the blog's logo when the blog itself is the author. */
+function postAuthor(data: PublicPostLoaderData, logoUrl: string | null): ArticleAuthor {
+  return { ...data.byline, imageUrl: data.byline.name === data.site.name ? logoUrl : null };
 }
 
 export function PublicBlogPostView({ data, highlighter = null }: { data: PublicPostLoaderData; highlighter?: CodeHighlighter | null }) {
@@ -288,10 +288,11 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
     ? buildResponsiveMediaUrls(post.cover_asset_id, assetOrigin)
     : undefined;
   const showUpdated = shouldShowUpdatedDate(post.published_at, post.updated_at);
+  const logoUrl = site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null;
 
   return (
     <PublicPageChrome
-      logoUrl={site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null}
+      logoUrl={logoUrl}
       navLinks={site.nav_links}
       socialLinks={site.social_links}
       siteName={site.name}
@@ -334,7 +335,7 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
         tags={parseTags(post.tags_json)}
         basePath={basePath}
         theme={theme}
-        author={postAuthor(data)}
+        author={postAuthor(data, logoUrl)}
         actions={{
           markdownUrl: new URL(`${basePath}/${post.slug}.md`, data.origin).href,
           shareUrl: new URL(data.canonicalUrl, data.origin).href,

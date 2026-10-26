@@ -7,7 +7,7 @@ import {
   type CodeHighlighter,
   type RenderedImageAttributes,
 } from '@vc/content'
-import { PresentedPostArticle, articleHasToc, type SiteThemeInput } from '@vc/content/presented-post'
+import { PresentedPostArticle, articleHasToc, type ArticleAuthor, type SiteThemeInput } from '@vc/content/presented-post'
 import { PublicPageChrome, type SubscribeSettings } from '@vc/content/public-chrome'
 import { resolvePresentation, type Presentation } from '@vc/config'
 import { Monitor, Moon, Smartphone, Sun, Tablet } from 'lucide-react'
@@ -80,6 +80,13 @@ function systemMode(): PreviewMode {
   if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) return 'dark'
   if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
   return 'light'
+}
+
+/** Same byline as the public post: the public name, with the blog's logo when the blog itself is the author. */
+function previewAuthor(site: EditorSiteInfo | null | undefined): ArticleAuthor {
+  const name = site?.bylineName?.trim() || site?.name || 'You'
+  const imageUrl = site?.logoAssetId && name === site.name ? `/media-assets/${site.logoAssetId}` : null
+  return { name, imageUrl }
 }
 
 export function PreviewPane({
@@ -204,7 +211,7 @@ export function PreviewPane({
                 readingMinutes={readingTimeMinutes(source)}
                 tags={metadata.tags}
                 basePath="#"
-                author={{ name: site?.bylineName?.trim() || site?.name || 'You' }}
+                author={previewAuthor(site)}
               />
             </PublicPageChrome>
           ) : (

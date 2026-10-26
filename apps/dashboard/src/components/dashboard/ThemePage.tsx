@@ -798,7 +798,7 @@ export function ThemePage({ canEdit = true }: { canEdit?: boolean } = {}) {
                     tags={article.tags}
                     basePath=""
                     theme={previewTheme}
-                    author={{ name: site.name }}
+                    author={{ name: site.name, imageUrl: site.logoAssetId ? `/media-assets/${site.logoAssetId}` : null }}
                   />
                 </PublicPageChrome>
               )}
