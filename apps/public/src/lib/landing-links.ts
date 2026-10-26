@@ -11,3 +11,6 @@ export function startFreeUrl(loginUrl: string): string {
 export function appApiDocsUrl(appUrl: string): string {
   return `${appUrl.replace(/\/$/, "")}/api/v1/docs`;
 }
+
+/** AutoSEOPilot, the maker's search-growth product (hosted blogs run on vibecms). */
+export const AUTOSEOPILOT_URL = "https://autoseopilot.com";

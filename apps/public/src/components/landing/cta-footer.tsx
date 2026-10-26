@@ -2,7 +2,7 @@ import { BRAND, LEGAL } from "@vc/config";
 import { ArrowRight } from "./icons";
 import { NAV_ITEMS } from "./header-nav";
 import { GHOST_CTA, GREEN_BG, GREEN_CTA, SectionLight, SectionShell } from "./primitives";
-import { startFreeUrl } from "../../lib/landing-links";
+import { AUTOSEOPILOT_URL, startFreeUrl } from "../../lib/landing-links";
 
 type FooterLink = { label: string; href: string; external?: boolean };
 
@@ -15,6 +15,7 @@ const legalLinks: FooterLink[] = [
 ];
 
 const makerLinks = [
+  ["AutoSEOPilot", AUTOSEOPILOT_URL],
   ["Ideaplexa", "https://ideaplexa.com"],
   ["VoiceTypr", "https://voicetypr.com"],
   ["ChadNext", "https://chadnext.moinulmoin.com"],

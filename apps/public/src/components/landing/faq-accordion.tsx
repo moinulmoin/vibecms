@@ -1,9 +1,11 @@
 import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import type { ReactNode } from "react";
+import { AUTOSEOPILOT_URL } from "../../lib/landing-links";
 import { AskAi } from "./ask-ai";
 import { Plus } from "./icons";
-import { H2, SectionShell } from "./primitives";
+import { H2, SectionShell, TEXT_LINK } from "./primitives";
 
-const faqs = [
+const faqs: readonly { question: string; answer: ReactNode }[] = [
   {
     question: "What do I get for free?",
     answer: `A full blog with ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts stay out of search engines, and free blogs show a small "Published with vibecms" link at the bottom. Subscribe to remove the link and get unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
@@ -16,6 +18,18 @@ const faqs = [
     question: "Does vibecms write my posts?",
     answer:
       "No. Your agent or you write. vibecms stores, versions, checks, and publishes. It never generates content.",
+  },
+  {
+    question: "Does vibecms do SEO, AEO, or GEO for me?",
+    answer: (
+      <>
+        {"It covers the technical side of every post: sitemap, structured data, canonical URLs, llms.txt, and a 31-rule SEO & GEO check. Deciding what to write so you show up in Google and AI answers is a separate job. That's "}
+        <a className={TEXT_LINK} href={AUTOSEOPILOT_URL} rel="noopener noreferrer" target="_blank">
+          AutoSEOPilot
+        </a>
+        {", from the maker of vibecms: it finds your buyers' questions, then writes and publishes the articles, with a vibecms blog included. Early access is opening now."}
+      </>
+    ),
   },
   {
     question: "Which agents work with it?",
@@ -37,7 +51,7 @@ const faqs = [
     answer:
       "Yes. Export every post as JSON anytime, or self-host the open-source version on your own Cloudflare account.",
   },
-] as const;
+];
 
 export function FaqAccordion() {
   return (

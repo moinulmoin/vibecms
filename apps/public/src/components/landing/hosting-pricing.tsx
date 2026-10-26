@@ -1,7 +1,7 @@
 import { API_USAGE_LIMITS, BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
 import { Check } from "./icons";
-import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell } from "./primitives";
-import { startFreeUrl } from "../../lib/landing-links";
+import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell, TEXT_LINK } from "./primitives";
+import { AUTOSEOPILOT_URL, startFreeUrl } from "../../lib/landing-links";
 
 const INCLUDED = [
   "Unlimited posts",
@@ -40,13 +40,15 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
             </p>
             <p className="mt-8 text-sm leading-[1.6] text-muted-foreground">
               Prefer your own Cloudflare account?{" "}
-              <a
-                className="text-foreground underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-current"
-                href={BRAND.repoUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
+              <a className={TEXT_LINK} href={BRAND.repoUrl} rel="noopener noreferrer" target="_blank">
                 Self-host it free
+              </a>
+              .
+            </p>
+            <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
+              {"Want your blog to bring in customers? AutoSEOPilot, from the maker of vibecms, finds what your buyers search for and ask AI, then writes and publishes the articles. Your vibecms blog comes included. "}
+              <a className={TEXT_LINK} href={AUTOSEOPILOT_URL} rel="noopener noreferrer" target="_blank">
+                Join early access
               </a>
               .
             </p>

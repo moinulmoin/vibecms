@@ -88,6 +88,10 @@ export const H2 =
 
 export const LEAD = "text-[16.5px] leading-[1.6] text-muted-foreground";
 
+/** Inline text link inside muted copy. */
+export const TEXT_LINK =
+  "text-foreground underline decoration-[color:var(--hairline)] underline-offset-4 hover:decoration-current";
+
 export function SectionShell({ className, children }: Classable) {
   return (
     <div
