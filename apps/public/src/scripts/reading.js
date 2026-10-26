@@ -85,8 +85,20 @@
     }, 1800);
   }
 
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    for (const menu of document.querySelectorAll("details[data-vc-reader-menu][open]")) {
+      menu.removeAttribute("open");
+      menu.querySelector(":scope > summary")?.focus();
+    }
+  });
+
   document.addEventListener("click", async (event) => {
     if (!(event.target instanceof Element)) return;
+
+    for (const menu of document.querySelectorAll("details[data-vc-reader-menu][open]")) {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    }
 
     const toggle = event.target.closest("[data-vc-mode-toggle]");
     if (toggle) {

@@ -118,6 +118,9 @@ a product feature, not app chrome. Source: `packages/content/src/styles/`.
   numbers, `[!code ++/--/highlight/focus]`, diff.
 - **Harness**: `pnpm --filter @vc/content harness` renders the real components
   with a sample post (`?view=post|index&preset=&mode=&font=&accent=&layout=`).
+- **Post reader controls**: a compact native-details “Summarize with AI” menu and
+  Share button share the byline row, wrapping below it on narrow screens. AI chat
+  links and Markdown actions live in that menu; tags follow the article body.
 
 This token set is **deliberately decoupled** from the vibecms app/landing tokens
 above: the user's blog should look like *their* brand, not like vibecms. When

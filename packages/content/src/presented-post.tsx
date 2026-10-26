@@ -21,12 +21,12 @@ import prose from "./styles/prose.module.css";
 import { RichContentFrame, type RenderResult } from "./renderer.js";
 import type { OutlineEntry } from "./types.js";
 import styles from "./presented-post.module.css";
-import { ChatGptLogo, ClaudeLogo, CopyIcon, GrokLogo, PerplexityLogo, ShareIcon } from "./reader-icons.js";
+import { ChatGptLogo, ChevronDownIcon, ClaudeLogo, CopyIcon, DocumentIcon, GrokLogo, PerplexityLogo, ShareIcon } from "./reader-icons.js";
 
 /** Assistants a reader can hand the post to; each opens a new chat with the prompt filled in. */
 const AI_ASSISTANTS = [
-  { name: "Claude", Logo: ClaudeLogo, base: "https://claude.ai/new?q=" },
   { name: "ChatGPT", Logo: ChatGptLogo, base: "https://chatgpt.com/?q=" },
+  { name: "Claude", Logo: ClaudeLogo, base: "https://claude.ai/new?q=" },
   { name: "Perplexity", Logo: PerplexityLogo, base: "https://www.perplexity.ai/search?q=" },
   { name: "Grok", Logo: GrokLogo, base: "https://grok.com/?q=" },
 ] as const;
@@ -138,7 +138,7 @@ export interface ArticleAuthor {
   imageUrl?: string | null;
 }
 
-/** Reader actions under the post (public pages only). */
+/** Reader actions in the post header (public pages only). */
 export interface ArticleActions {
   /** Absolute URL of the post's Markdown twin (…/slug.md). */
   markdownUrl?: string;
@@ -219,6 +219,7 @@ export function PresentedPostArticle({
   const hasToc = articleHasToc(presentation, outline);
   const hasOutline = articleHasOutline(presentation, outline);
   const who: ArticleAuthor | null = author ?? (byline ? { name: byline } : null);
+  const hasActions = Boolean(actions && (actions.markdownUrl || actions.shareUrl));
 
   const published =
     publishedAt != null ? (
@@ -293,28 +294,80 @@ export function PresentedPostArticle({
       <header className={styles.articleHeader}>
         {title ? <h1 className={styles.articleTitle}>{title}</h1> : null}
         {excerpt ? <p className={styles.articleDeck}>{excerpt}</p> : null}
-        {who || metaParts.length > 0 ? (
-          <div className={styles.byline}>
-            {who ? (
-              <span className={styles.avatar} aria-hidden="true">
-                {who.imageUrl ? (
-                  <img className={styles.avatarImage} src={who.imageUrl} alt="" width={36} height={36} />
-                ) : (
-                  who.name.trim().charAt(0).toUpperCase() || "·"
-                )}
-              </span>
+        {who || metaParts.length > 0 || hasActions ? (
+          <div className={styles.headerRow}>
+            {who || metaParts.length > 0 ? (
+              <div className={styles.byline}>
+                {who ? (
+                  <span className={styles.avatar} aria-hidden="true">
+                    {who.imageUrl ? (
+                      <img className={styles.avatarImage} src={who.imageUrl} alt="" width={36} height={36} />
+                    ) : (
+                      who.name.trim().charAt(0).toUpperCase() || "·"
+                    )}
+                  </span>
+                ) : null}
+                <div className={styles.bylineText}>
+                  {who ? (
+                    <p className={styles.authorLine}>
+                      <span>{who.name}</span>
+                    </p>
+                  ) : null}
+                  {metaParts.length > 0 ? <p className={styles.metaLine}>{metaParts}</p> : null}
+                </div>
+              </div>
             ) : null}
-            <div className={styles.bylineText}>
-              {who ? (
-                <p className={styles.authorLine}>
-                  <span>{who.name}</span>
-                </p>
-              ) : null}
-              {metaParts.length > 0 ? <p className={styles.metaLine}>{metaParts}</p> : null}
-            </div>
+            {actions && hasActions ? (
+              <div className={styles.actions} data-vc-article-actions="">
+                <details className={styles.readerMenu} data-vc-reader-menu="">
+                  <summary className={styles.readerSummary}>
+                    <span className={styles.logoStack} aria-hidden="true">
+                      <span><ClaudeLogo className={styles.actionIcon} /></span>
+                      <span><ChatGptLogo className={styles.actionIcon} /></span>
+                      <span><PerplexityLogo className={styles.actionIcon} /></span>
+                    </span>
+                    Summarize with AI
+                    <ChevronDownIcon className={styles.readerChevron} />
+                  </summary>
+                  <div className={styles.readerPanel}>
+                    {AI_ASSISTANTS.map(({ name, Logo, base }) => (
+                      <a
+                        key={name}
+                        className={styles.readerItem}
+                        href={`${base}${encodeURIComponent(askAiPrompt(actions))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Logo className={styles.actionIcon} />
+                        Ask {name}
+                        <span className={styles.srOnly}> (opens a new chat)</span>
+                      </a>
+                    ))}
+                    {actions.markdownUrl ? (
+                      <>
+                        <div className={styles.readerSeparator} />
+                        <button type="button" className={styles.readerItem} data-vc-action="copy-markdown" data-vc-url={actions.markdownUrl}>
+                          <CopyIcon className={styles.actionIcon} />
+                          <span data-vc-label="" aria-live="polite">Copy as Markdown</span>
+                        </button>
+                        <a className={styles.readerItem} href={actions.markdownUrl}>
+                          <DocumentIcon className={styles.actionIcon} />
+                          View as Markdown
+                        </a>
+                      </>
+                    ) : null}
+                  </div>
+                </details>
+                {actions.shareUrl ? (
+                  <button type="button" className={styles.shareButton} aria-label="Share" data-vc-action="share" data-vc-url={actions.shareUrl}>
+                    <ShareIcon className={styles.actionIcon} />
+                    <span className={styles.srOnly} data-vc-label="" aria-live="polite">Share</span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
-        {tagRow}
       </header>
       {isFeature ? null : cover}
       <div className={styles.articleBody}>
@@ -331,42 +384,7 @@ export function PresentedPostArticle({
           </nav>
         ) : null}
       </div>
-      {actions && (actions.markdownUrl || actions.shareUrl) ? (
-        <div className={styles.actions} data-vc-article-actions="">
-          <div className={styles.askAi}>
-            <p className={styles.actionsLabel}>Ask AI about this post</p>
-            <div className={styles.actionRow}>
-              {AI_ASSISTANTS.map(({ name, Logo, base }) => (
-                <a
-                  key={name}
-                  className={styles.actionButton}
-                  href={`${base}${encodeURIComponent(askAiPrompt(actions))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Logo className={styles.actionIcon} />
-                  {name}
-                  <span className={styles.srOnly}> (opens a new chat)</span>
-                </a>
-              ))}
-            </div>
-          </div>
-          <div className={styles.actionRow}>
-            {actions.shareUrl ? (
-              <button type="button" className={`${styles.actionButton} ${styles.actionQuiet}`} data-vc-action="share" data-vc-url={actions.shareUrl}>
-                <ShareIcon className={styles.actionIcon} />
-                <span data-vc-label="">Share</span>
-              </button>
-            ) : null}
-            {actions.markdownUrl ? (
-              <button type="button" className={`${styles.actionButton} ${styles.actionQuiet}`} data-vc-action="copy-markdown" data-vc-url={actions.markdownUrl}>
-                <CopyIcon className={styles.actionIcon} />
-                <span data-vc-label="">Copy as Markdown</span>
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {tagRow}
       {hasOutline ? (
         <details className={styles.tocPill}>
           <summary className={styles.tocPillSummary}>

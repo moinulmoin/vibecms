@@ -1,10 +1,6 @@
 declare const styles: {
-  readonly actionButton: string;
   readonly actionIcon: string;
-  readonly actionQuiet: string;
-  readonly actionRow: string;
   readonly actions: string;
-  readonly actionsLabel: string;
   readonly adjacent: string;
   readonly adjacentLabel: string;
   readonly adjacentLink: string;
@@ -15,7 +11,6 @@ declare const styles: {
   readonly articleDeck: string;
   readonly articleHeader: string;
   readonly articleTitle: string;
-  readonly askAi: string;
   readonly authorLine: string;
   readonly avatar: string;
   readonly avatarImage: string;
@@ -24,8 +19,17 @@ declare const styles: {
   readonly featureBand: string;
   readonly featureCover: string;
   readonly featureMedia: string;
+  readonly headerRow: string;
   readonly heroImage: string;
+  readonly logoStack: string;
   readonly metaLine: string;
+  readonly readerChevron: string;
+  readonly readerItem: string;
+  readonly readerMenu: string;
+  readonly readerPanel: string;
+  readonly readerSeparator: string;
+  readonly readerSummary: string;
+  readonly shareButton: string;
   readonly srOnly: string;
   readonly tagLink: string;
   readonly tagRow: string;
