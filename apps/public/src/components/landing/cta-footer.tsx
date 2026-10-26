@@ -145,11 +145,15 @@ export function LandingFooter({
             </a>
             .
           </p>
-          <div className="flex flex-wrap items-center gap-x-3">
+          <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-3">
             <span className="w-full sm:w-auto">Also from the maker:</span>
             {makerLinks.map(([label, href], index) => (
               <span className="inline-flex items-center gap-3 whitespace-nowrap" key={label}>
-                {index > 0 ? <span aria-hidden="true">·</span> : null}
+                {index > 0 ? (
+                  <span aria-hidden="true" className="hidden sm:inline">
+                    ·
+                  </span>
+                ) : null}
                 <a className={FOOTER_LINK} href={href} {...EXTERNAL}>
                   {label}
                 </a>
