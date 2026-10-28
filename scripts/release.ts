@@ -79,7 +79,8 @@ function showRef(label: string, ref: string): void {
 }
 
 function showStatus(): void {
-  console.log("\nRelease status (local refs; run git fetch origin --tags to refresh):");
+  const fetched = command("git", ["fetch", "--quiet", "--force", "--tags", "origin", "+refs/heads/dev:refs/remotes/origin/dev", "+refs/heads/main:refs/remotes/origin/main"]);
+  console.log(fetched.status === 0 ? "\nRelease status:" : `\nRelease status (fetch failed, showing local refs: ${fetched.stderr.trim()}):`);
   showRef("origin/dev", "refs/remotes/origin/dev");
   showRef("origin/main", "refs/remotes/origin/main");
   showRef("staging", "refs/tags/staging");
