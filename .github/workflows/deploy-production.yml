@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
+      contents: write
+      checks: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,6 +48,26 @@ jobs:
             exit 1
           fi
           echo "Deploying reviewed commit ${CHECKED_OUT_SHA}"
+
+      - name: Require main ancestry and successful CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          sha="${RELEASE_SHA,,}"
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${sha}" --jq .status)"
+          if [ "${status}" != behind ] && [ "${status}" != identical ]; then
+            echo "${sha} is not on main (comparison status: ${status})" >&2
+            exit 1
+          fi
+
+          if ! gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?filter=latest&per_page=100" |
+            jq -e --arg sha "${sha}" 'any(.[] | .check_runs[];
+              .name == "verify" and .head_sha == $sha and .app.slug == "github-actions" and
+              .status == "completed" and .conclusion == "success")' > /dev/null; then
+            echo "No successful GitHub Actions verify check found for ${sha}" >&2
+            exit 1
+          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -110,4 +131,9 @@ jobs:
           PRODUCTION_SMOKE_TOKEN: ${{ inputs.smoke_mode == 'authenticated' && secrets.PRODUCTION_SMOKE_TOKEN || '' }}
           ALLOW_BOOTSTRAP_SMOKE: ${{ inputs.smoke_mode == 'bootstrap' && '1' || '' }}
           PRODUCTION_BOOTSTRAP_SHA: ${{ inputs.smoke_mode == 'bootstrap' && secrets.PRODUCTION_BOOTSTRAP_SHA || '' }}
+
+      - name: Mark deployed production commit
+        run: |
+          git tag --force production "$(git rev-parse HEAD)"
+          git push --force origin refs/tags/production
 

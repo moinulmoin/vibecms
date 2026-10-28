@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [dev, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,10 +15,12 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -32,11 +34,18 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Audit public release
-        run: pnpm public:audit
-
-      - name: Verify OpenAPI artifact
-        run: pnpm openapi:check
+      - name: Static release checks (pnpm check)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${EVENT_NAME}" = pull_request ]; then
+            export CHECK_BASE="origin/${BASE_REF}"
+          elif [ -n "${BEFORE}" ] && [ "${BEFORE}" != 0000000000000000000000000000000000000000 ]; then
+            export CHECK_BASE="${BEFORE}"
+          fi
+          pnpm check
 
       - name: Build
         run: pnpm build
@@ -74,7 +83,7 @@ jobs:
       - name: Test
         run: ${{ matrix.run }}
 
-  # One stable status for "everything passed", whatever the jobs above are called.
+  # One stable status for branch protection and production promotion.
   verify:
     if: always()
     needs: [checks, test]

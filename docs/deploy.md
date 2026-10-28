@@ -34,6 +34,17 @@ The dashboard Vite server proxies same-origin API routes to the local Hono Worke
 
 ## Verification gates
 
+Push work to `dev` to run CI before staging and promotion. CI also runs on
+`main` pushes and pull requests; it runs typecheck, lint, build, tests, and
+`pnpm check`. The latter checks OpenAPI and generated agent-skill freshness,
+the public release audit, append-only migration history, CLI changesets for
+CLI and compiled workspace runtime dependency changes, feature counts, and
+skill directory listings. Locally, it compares against the merge base with
+`origin/main` by default; set `CHECK_BASE` to a committed comparison base
+when needed. CI uses the previous push commit or the PR's base branch. An
+unresolved base fails the check. The production-dependency audit also runs
+daily and can be run manually.
+
 `pnpm deploy:prod` runs these inside `production:preflight` before any D1 mutation:
 
 ```sh
@@ -46,11 +57,21 @@ pnpm openapi:check
 
 Preflight then builds production artifacts (dashboard, API and OG production dry-runs, public with `CLOUDFLARE_ENV=production`). A standalone `pnpm build` remains available for local verification and uses the development API dry-run env.
 
-## Development deploy
+## Development and staging deploy
+
+Commit your changes on `dev` and push them to run CI:
 
 ```sh
+git push origin dev
 pnpm deploy:dev
 ```
+
+Use the staging environment to check the deployed behavior. Deploy from a
+clean checkout of the pushed commit: after the deploy succeeds,
+`deploy:dev` records that commit in the staging tag. A dirty checkout cannot
+be reliably identified with a commit; the command warns and removes the
+remote staging tag instead. Commit and push the changes, then redeploy before
+promoting.
 
 Order is fixed:
 
@@ -61,23 +82,35 @@ Order is fixed:
 5. Deploy `vibecms-og-dev`.
 6. Build and deploy `vibecms-public-dev`.
 
-## Production deploy
+## Promotion and production deploy
 
-Canonical hosted path: the reviewed-commit workflow
-`.github/workflows/deploy-production.yml`, which checks out the exact commit
-and runs `pnpm deploy:prod` (`scripts/deploy-prod.mjs`):
+Once the pushed `dev` commit has passed CI and has been deployed and checked
+in staging, promote it:
 
 ```sh
-gh workflow run deploy-production.yml --ref main -f release_sha=<full 40-char sha> -f smoke_mode=authenticated
+pnpm promote
+pnpm promote --deploy  # alternatively, promote and deploy to production
 ```
 
-`release_sha` must be the full SHA of the reviewed release commit; the
-workflow verifies the checkout matches it before deploying. `smoke_mode` is
-explicit: `authenticated` requires the `PRODUCTION_SMOKE_TOKEN` environment
-secret; `bootstrap` requires a temporary `PRODUCTION_BOOTSTRAP_SHA`
-production environment secret equal to that same commit (first deploy only —
-remove it immediately afterward). The workflow implements no separate gate
-set.
+Choose one command, not both. Promotion requires a clean `dev` checkout at
+`origin/dev`, a successful CI run and matching staging tag for that commit,
+and `main` to be its ancestor. It advances protected `main` without a force
+push; never force-push `main`. `--deploy` also starts and watches the
+production workflow for that exact commit. `pnpm release:status` reports
+release status.
+
+The Changesets release workflow opens or updates a version PR when needed.
+Merge that version PR with admin bypass of branch protection; the bypass is
+for versioning, not a substitute for green CI or the normal promotion path.
+After merging it, reconcile from `dev` with
+`git fetch origin && git merge origin/main && git push origin dev`, wait for
+CI, and redeploy staging before the next promotion.
+
+The production workflow checks the full reviewed commit SHA is on `main` and
+has a successful CI `verify` check before running `pnpm deploy:prod`
+(`scripts/deploy-prod.mjs`). After a successful deploy it updates the
+production tag. The normal `--deploy` path uses authenticated smoke and
+requires the `PRODUCTION_SMOKE_TOKEN` production environment secret.
 
 `pnpm deploy:prod` is also the break-glass fallback when GitHub Actions is
 unavailable: run it only from a clean checkout of the reviewed `main`

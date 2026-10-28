@@ -3,8 +3,8 @@
 #
 # pre-commit: runs on every commit - secrets/placeholders audit (public:audit),
 #             a full typecheck, and the generated agent-skills check.
-# pre-push:   typecheck + build before code leaves your machine. Package
-#             tests run in the parallel CI test jobs, not in this hook.
+# pre-push:   static checks, typecheck and build before code leaves your machine.
+#             Package tests run in the parallel CI test jobs, not in this hook.
 
 pre-commit:
   parallel: true
@@ -19,4 +19,4 @@ pre-commit:
 pre-push:
   commands:
     gates:
-      run: pnpm typecheck && pnpm build
+      run: pnpm check && pnpm typecheck && pnpm build

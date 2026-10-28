@@ -21,11 +21,12 @@
 
 ## Working rules
 
-- Gates: `pnpm typecheck`, `pnpm lint`, `pnpm build`. Run `pnpm openapi:check`
-  after API contract changes. CI runs these plus the test suite in parallel jobs.
-- Dev: `pnpm deploy:dev` deploys the dev environment; check real behavior there.
-- Prod deploys only from `main`, through the GitHub workflow:
-  `gh workflow run deploy-production.yml --ref main -f release_sha=<full sha> -f smoke_mode=authenticated`.
+- Work on `dev` and push it to run CI; deploy the reviewed commit to staging with `pnpm deploy:dev`.
+- Promote staged, green `dev` with `pnpm promote`; use `pnpm promote --deploy` to deploy it to production.
+- `main` is protected: promote only green CI commits, and never force-push it.
+- Merge the Changesets version PR with admin bypass; this is the exception for versioning, not normal promotion.
+- `pnpm check` covers OpenAPI and generated skills freshness, public audit, append-only migrations, CLI changesets, feature counts, and skill listings.
+- CI also runs typecheck, lint, build, and tests; see `docs/deploy.md` for the release process.
 - Never edit an existing migration in `packages/db/drizzle`; add a new one.
 - Edit agent skills only in root `skills/<name>/`, then run `pnpm gen:agent-skills`.
   It regenerates `packages/config/src/agent/skills.generated.ts`, `skills-lock.json`
