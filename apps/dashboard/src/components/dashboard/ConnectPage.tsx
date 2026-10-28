@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { Scope } from '@vc/core'
 import { CopyButton, Field, FieldLabel, Input, cn } from '@vc/ui'
-import { KeyRound, Plus, Trash2 } from 'lucide-react'
+import { KeyRound, Plug, Plus, Trash2 } from 'lucide-react'
 import { Button, LoadError, formatDate, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton, Section } from '~/components/dashboard/blocks'
 import {
@@ -11,6 +11,7 @@ import {
   CodeBlock,
   SKILLS_INSTALL_COMMAND,
   clientFromPreference,
+  isAgentClient,
   type AgentClient,
 } from '~/components/dashboard/ConnectAgent'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
@@ -20,7 +21,7 @@ import { useToast } from '~/components/Toaster'
 import { resolveFormStatus } from '~/components/dashboard/useFormStatusFromSearch'
 import { createApiKeyMutation, revokeApiKeyMutation } from '~/lib/api-client'
 import { clearTokenFlash, consumeTokenFlash, isRevealedKeyGone, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
-import { connectQuery, queryKeys } from '~/lib/queries'
+import { connectQuery, contextQuery, queryKeys } from '~/lib/queries'
 import type { ApiKeyListItem } from '~/types/dashboard'
 
 export type KeyAccess = 'draft' | 'publish' | 'manage'
@@ -132,6 +133,45 @@ function KeyRow({ apiKey, onDelete }: { apiKey: ApiKeyListItem; onDelete: (id: s
   )
 }
 
+function ConnectionRow({ apiKey, blogName, onDisconnect }: {
+  apiKey: ApiKeyListItem
+  blogName: string
+  onDisconnect: (id: string) => Promise<void>
+}) {
+  const connection = apiKey.connection
+  if (!connection) return null
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--hairline)] py-4 last:border-b-0">
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span aria-hidden className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground">
+          <Plug className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-baseline gap-x-2 text-[0.9375rem]">
+            <span className="font-medium text-foreground">{connection.clientName}</span>
+            <span className="break-all text-sm text-muted-foreground">{connection.clientHost}</span>
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {blogName} · {accessLabel(apiKey.scopes)} · Connected {formatDate(apiKey.createdAt)} · {lastUsedLabel(apiKey.lastUsedAt)}
+          </p>
+        </div>
+      </div>
+      <SpaConfirmButton
+        size="sm"
+        variant="ghost"
+        confirmLabel={`Disconnect ${connection.clientName}?`}
+        pendingLabel="Disconnecting…"
+        helperText="It loses access right away. Your posts stay."
+        onConfirm={() => onDisconnect(apiKey.id)}
+        aria-label={`Disconnect ${connection.clientName}`}
+        className="text-muted-foreground hover:text-destructive"
+      >
+        Disconnect
+      </SpaConfirmButton>
+    </li>
+  )
+}
+
 export function NewKeyForm({
   pending,
   onCreate,
@@ -197,8 +237,10 @@ export function ConnectPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const query = useQuery(connectQuery)
+  const { data: context } = useQuery(contextQuery)
   const [flash, setFlash] = useState<TokenFlash | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const connectedAppsRef = useRef<HTMLDivElement>(null)
   const newKeyButtonRef = useRef<HTMLButtonElement>(null)
   // Done and Cancel unmount the button that was pressed; focus goes back to
   // "New key" once it re-renders.
@@ -231,7 +273,7 @@ export function ConnectPage() {
 
   const data = query.data
   const activeClient: AgentClient =
-    client === 'claude_code' || client === 'codex' || client === 'cursor' || client === 'other'
+    isAgentClient(client)
       ? client
       : clientFromPreference(data?.personalization.agentPreference)
 
@@ -260,23 +302,24 @@ export function ConnectPage() {
     }
   }
 
-  async function deleteKey(keyId: string) {
+  async function deleteKey(keyId: string, connection = false) {
     try {
       const result = await revokeApiKeyMutation({ keyId })
       if (result.kind !== 'ok') {
-        toast({ variant: 'error', title: 'Key not deleted', message: 'Try again in a moment.' })
+        toast({ variant: 'error', title: connection ? 'App not disconnected' : 'Key not deleted', message: 'Try again in a moment.' })
         return
       }
       if (flash?.id === keyId) dismissFlash()
       queryClient.setQueryData(queryKeys.connect, (prev: typeof data) =>
         prev ? { ...prev, apiKeys: prev.apiKeys.filter((key) => key.id !== keyId) } : prev,
       )
-      // The deleted row (and its button) is gone.
-      setRefocusNewKey(true)
-      toast({ variant: 'success', title: 'Key deleted', message: 'Agents using it can no longer reach your blog.' })
+      // The removed row and its button are gone.
+      if (connection) connectedAppsRef.current?.focus()
+      else setRefocusNewKey(true)
+      toast({ variant: 'success', title: connection ? 'App disconnected' : 'Key deleted', message: 'It can no longer reach your blog.' })
       void queryClient.invalidateQueries({ queryKey: queryKeys.connect })
     } catch {
-      toast({ variant: 'error', title: 'Key not deleted', message: 'Check your connection and try again.' })
+      toast({ variant: 'error', title: connection ? 'App not disconnected' : 'Key not deleted', message: 'Check your connection and try again.' })
     }
   }
 
@@ -288,7 +331,7 @@ export function ConnectPage() {
   const header = (
     <PageHeader
       title="Connect an agent"
-      description="Give an AI agent its own key so it can write on this blog. You decide what each agent can do."
+      description="Connect an AI agent to this blog. You decide what each agent can do."
     />
   )
 
@@ -296,7 +339,7 @@ export function ConnectPage() {
     return (
       <>
         {header}
-        <LoadError message="Your keys didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
+        <LoadError message="Your connections and keys didn’t load. Check your connection and try again." onRetry={() => void query.refetch()} />
       </>
     )
   }
@@ -309,7 +352,9 @@ export function ConnectPage() {
     )
   }
 
-  const keys = data.apiKeys
+  const keys = data.apiKeys.filter((key) => !key.connection)
+  const connections = data.apiKeys.filter((key) => key.connection)
+  const blogName = context?.siteDisplayName ?? 'This blog'
 
   return (
     <>
@@ -326,8 +371,8 @@ export function ConnectPage() {
         />
       ) : null}
 
-      <Section title="Add vibecms to your agent" description="Pick your agent and copy one thing. That’s the whole setup.">
-        <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} />
+      <Section title="Add vibecms to your agent" description="Choose your agent to see how to connect it.">
+        <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} includeClaudeApp />
       </Section>
 
       <Section title="Try it" description={FIRST_DRAFT_DESCRIPTION}>
@@ -341,6 +386,22 @@ export function ConnectPage() {
             <CodeBlock label="Terminal command" code={SKILLS_INSTALL_COMMAND} copyLabel="Copy command" />
           </div>
         </details>
+      </Section>
+
+      <Section title="Connected apps" description="Apps signed in to this blog.">
+        <div ref={connectedAppsRef} tabIndex={-1} className="outline-none">
+          {!data.canManage ? (
+            <p className="text-sm text-muted-foreground">Only the blog owner can manage connected apps.</p>
+          ) : connections.length ? (
+            <ul aria-label="Connected apps" className="grid">
+              {connections.map((key) => (
+                <ConnectionRow key={key.id} apiKey={key} blogName={blogName} onDisconnect={(id) => deleteKey(id, true)} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No apps connected yet.</p>
+          )}
+        </div>
       </Section>
 
       <Section

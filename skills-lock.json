@@ -7,11 +7,35 @@
       "skillPath": "skills/vibecms-core/SKILL.md",
       "computedHash": "38de560e652b841d7f6d6f267a2dfff0a455f96372ea3256bd7b4390dcab7ac4"
     },
+    "vibecms-cross-post": {
+      "source": ".",
+      "sourceType": "local",
+      "skillPath": "skills/vibecms-cross-post/SKILL.md",
+      "computedHash": "e356a959e32f0d412278200d8c0a0467af218f104222793eb131bcacecfa9931"
+    },
+    "vibecms-import": {
+      "source": ".",
+      "sourceType": "local",
+      "skillPath": "skills/vibecms-import/SKILL.md",
+      "computedHash": "c5b2c0d4708b5f59bf80789cd0efa1e7abf0d6ae8b0ec908fefc5296c341263a"
+    },
+    "vibecms-newsletter": {
+      "source": ".",
+      "sourceType": "local",
+      "skillPath": "skills/vibecms-newsletter/SKILL.md",
+      "computedHash": "d9124e7b29a7f5b9a6c3e4833347a55213bc1ed1d21d04ea99683a515e097744"
+    },
     "vibecms-seo": {
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-seo/SKILL.md",
       "computedHash": "3daa5590da19836713888536caeb88be3bca9ee8046f3f8805d13e25ba05228c"
+    },
+    "vibecms-ship-to-draft": {
+      "source": ".",
+      "sourceType": "local",
+      "skillPath": "skills/vibecms-ship-to-draft/SKILL.md",
+      "computedHash": "5cd45fab274019b0890a27e4412bbcd908e7ee2770b274682cbe54c64592045d"
     },
     "vibecms-writing": {
       "source": ".",

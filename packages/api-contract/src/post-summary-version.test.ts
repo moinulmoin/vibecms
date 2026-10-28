@@ -13,6 +13,7 @@ describe('public post summary boundary', () => {
         coverAssetId: null,
         status: 'draft',
         publishedAt: null,
+        originalPublishedAt: null,
         tags: ['tag1'],
         createdAt: 1234567890,
         updatedAt: 1234567890,

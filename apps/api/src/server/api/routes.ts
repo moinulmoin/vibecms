@@ -35,6 +35,8 @@ import {
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema, tagDtoSchema, analyticsDtoSchema,
   getSkillRequestSchema, skillListDtoSchema, skillDtoSchema,
   seoCheckPostRequestSchema, seoCheckPostDtoSchema,
+  listRedirectsRequestSchema, setRedirectsRequestSchema, deleteRedirectsRequestSchema,
+  listRedirectsDtoSchema, setRedirectsDtoSchema, deleteRedirectsDtoSchema,
 } from "@vc/api-contract";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
@@ -221,6 +223,24 @@ export const removeSiteLocationRoute = createRoute({
   method: 'delete', path: '/site/location', operationId: removeSiteLocationOpDef.operationId,
   description: removeSiteLocationOpDef.description, security: bearerSecurity,
   responses: { 200: { description: 'Resulting location', content: { 'application/json': { schema: siteLocationDtoSchema } } }, ...routeErrors(401, 402, 403, 404, 429, 500) },
+});
+export const listRedirectsRoute = createRoute({
+  method: 'get', path: '/site/redirects', operationId: operationsByToolName['redirects.list'].operationId,
+  description: operationsByToolName['redirects.list'].description, security: bearerSecurity,
+  request: { query: listRedirectsRequestSchema },
+  responses: { 200: { description: 'Redirects and plan limit', content: { 'application/json': { schema: listRedirectsDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
+});
+export const setRedirectsRoute = createRoute({
+  method: 'post', path: '/site/redirects', operationId: operationsByToolName['redirects.set'].operationId,
+  description: operationsByToolName['redirects.set'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: setRedirectsRequestSchema } } } },
+  responses: { 200: { description: 'Redirect results and plan limit', content: { 'application/json': { schema: setRedirectsDtoSchema } } }, ...routeErrors(400, 401, 402, 403, 429, 500) },
+});
+export const deleteRedirectsRoute = createRoute({
+  method: 'post', path: '/site/redirects/delete', operationId: operationsByToolName['redirects.delete'].operationId,
+  description: operationsByToolName['redirects.delete'].description, security: bearerSecurity,
+  request: { body: { required: true, content: { 'application/json': { schema: deleteRedirectsRequestSchema } } } },
+  responses: { 200: { description: 'Deleted redirect count', content: { 'application/json': { schema: deleteRedirectsDtoSchema } } }, ...routeErrors(400, 401, 403, 429, 500) },
 });
 
 export const listPostsRoute = createRoute({
@@ -626,6 +646,7 @@ export const apiV1OperationRoutes = [
   updateSiteRoute, getThemeRoute, updateThemeRoute, revertThemeRoute, updateVoiceRoute, updateSignupFormRoute, listTagsRoute, getAnalyticsRoute,
   listSkillsRoute, getSkillRoute,
   getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
+  listRedirectsRoute, setRedirectsRoute, deleteRedirectsRoute,
   listPostsRoute,
   getPostBySlugRoute,
   getPostRoute,

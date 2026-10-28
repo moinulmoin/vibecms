@@ -166,7 +166,7 @@ export function createApiKeysRepository(db: D1Database): ApiKeysRepository {
         })
         .from(apiKeys)
         .innerJoin(sites, eq(sites.id, apiKeys.siteId))
-        .where(eq(apiKeys.tokenHash, tokenHash))
+        .where(and(eq(apiKeys.tokenHash, tokenHash), isNull(apiKeys.oauthClientId)))
         .limit(1);
       return rows[0] ?? null;
     },

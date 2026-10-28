@@ -1,4 +1,4 @@
-import { navLinksSchema, socialLinksSchema, parseSiteLinks, type NavLink, type SocialLink } from "@vc/validators";
+import { navLinksSchema, socialLinksSchema, parseSiteLinks, newsletterSettingsSchema, type NavLink, type SocialLink } from "@vc/validators";
 import type { Presentation } from "@vc/config";
 import {
   createDataAccess,
@@ -15,7 +15,7 @@ import type { PublicRuntimeEnv } from "../env";
 import { isLocalDefaultHostname, publicBlogBaseDomain } from "./public-url";
 
 export { PUBLIC_BLOG_LIMITS };
-type NewsletterSettings = Required<SubscribeSettings>;
+type NewsletterSettings = Required<Omit<SubscribeSettings, "externalForm">> & Pick<SubscribeSettings, "externalForm">;
 export type SiteRow = {
   id: string;
   workspace_id: string;
@@ -65,6 +65,9 @@ export type PostSummaryRow = {
   excerpt: string | null;
   cover_asset_id: string | null;
   published_at: number | null;
+  /** Real publication time, retained separately from the displayed import date. */
+  real_published_at?: number | null;
+  original_published_at?: number | null;
   updated_at: number;
   seo_title: string | null;
   seo_description: string | null;
@@ -90,21 +93,8 @@ export type PostDetailRow = PostBodyRow & {
 function parseNewsletterSettings(raw: string | null): NewsletterSettings | null {
   if (!raw) return null;
   try {
-    const value: unknown = JSON.parse(raw);
-    if (!value || typeof value !== "object") return null;
-    const candidate = value as Record<string, unknown>;
-    if (
-      typeof candidate.enabled !== "boolean" ||
-      typeof candidate.heading !== "string" ||
-      typeof candidate.subtext !== "string" ||
-      typeof candidate.buttonLabel !== "string"
-    ) return null;
-    return {
-      enabled: candidate.enabled,
-      heading: candidate.heading,
-      subtext: candidate.subtext,
-      buttonLabel: candidate.buttonLabel,
-    };
+    const parsed = newsletterSettingsSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -157,7 +147,9 @@ function toPostSummaryRow(row: PublicPostSummaryRow): PostSummaryRow {
     slug: row.slug,
     excerpt: row.excerpt,
     cover_asset_id: row.coverAssetId,
-    published_at: row.publishedAt,
+    published_at: row.originalPublishedAt ?? row.publishedAt,
+    real_published_at: row.publishedAt,
+    original_published_at: row.originalPublishedAt,
     updated_at: row.updatedAt,
     seo_title: row.seoTitle,
     seo_description: row.seoDescription,

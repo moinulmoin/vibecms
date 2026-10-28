@@ -45,6 +45,7 @@ import {
   setSubpathLocationForApp,
 } from "./subpath-locations";
 import { agentSkill, agentSkillsIndex } from "@vc/config/agent-discovery";
+export { listRedirectsOp, setRedirectsOp, deleteRedirectsOp } from "./redirects";
 
 export type OperationContext = {
   actor: Actor;
@@ -150,7 +151,7 @@ export async function getSiteOp(ctx: OperationContext) {
   if (!site) return site;
   const billingNotice = billingNoticeFor(billing, entitlement, nowMs);
   return { ...site, signupForm: { enabled: form.enabled, heading: form.heading,
-    description: form.subtext, button: form.buttonLabel }, ...(billingNotice ? { billingNotice } : {}) };
+    description: form.subtext, button: form.buttonLabel, externalForm: form.externalForm }, ...(billingNotice ? { billingNotice } : {}) };
 }
 
 function mutationResult(result: { kind: 'ok' | 'error'; code: string }) {
@@ -258,18 +259,19 @@ export async function updateVoiceOp(ctx: OperationContext, input: UpdateVoiceReq
   return getVoiceProfileSettings(appUser(ctx));
 }
 
-export async function updateSignupFormOp(ctx: OperationContext, input: { expectedUpdatedAt: number; enabled?: boolean; heading?: string; description?: string; button?: string }) {
+export async function updateSignupFormOp(ctx: OperationContext, input: { expectedUpdatedAt: number; enabled?: boolean; heading?: string; description?: string; button?: string; externalForm?: { action: string; emailField: string } | null }) {
   requireScope(ctx.actor, 'site:write');
   mutationResult(await updateNewsletterSettingsForApp(appUser(ctx), {
     ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
     ...(input.heading === undefined ? {} : { heading: input.heading }),
     ...(input.description === undefined ? {} : { subtext: input.description }),
     ...(input.button === undefined ? {} : { buttonLabel: input.button }),
+    ...(input.externalForm === undefined ? {} : { externalForm: input.externalForm }),
   }, { expectedUpdatedAt: input.expectedUpdatedAt }));
   const updated = await getNewsletterSettingsForApp(appUser(ctx));
   // Echo the new revision so a follow-up edit doesn't need another sites.get.
   const site = await createDataAccess(env.DB).sites.getSiteSettings(ctx.siteId);
-  return { enabled: updated.enabled, heading: updated.heading, description: updated.subtext, button: updated.buttonLabel,
+  return { enabled: updated.enabled, heading: updated.heading, description: updated.subtext, button: updated.buttonLabel, externalForm: updated.externalForm,
     updatedAt: site?.updatedAt ?? input.expectedUpdatedAt };
 }
 
@@ -449,7 +451,7 @@ export async function updatePostOp(
 
 export async function publishPostOp(
   ctx: OperationContext,
-  input: { postId: string; expectedVersionNumber: number },
+  input: { postId: string; expectedVersionNumber: number; originalPublishedAt?: number },
 ) {
   await assertPostImagesPublishable(ctx.siteId, input.postId);
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
@@ -458,6 +460,7 @@ export async function publishPostOp(
     siteId: ctx.siteId,
     postId: input.postId,
     expectedVersionNumber: input.expectedVersionNumber,
+    originalPublishedAt: input.originalPublishedAt,
     billingStatus: billingStatusForCore(entitlement),
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);

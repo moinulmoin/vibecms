@@ -1,4 +1,4 @@
-import { AppError, RateLimitError, can, type Actor } from "@vc/core";
+import { AGENT_TOKEN_PRESETS, AppError, RateLimitError, can, type Actor, type Scope } from "@vc/core";
 import { env } from "cloudflare:workers";
 import { FORM_STATUS } from "@vc/config";
 import { mcpInstructions } from "@vc/mcp";
@@ -11,7 +11,8 @@ import {
   type McpToolName,
   type OperationAnnotations,
 } from "@vc/api-contract";
-import { authenticateBearerToken } from "./api-keys";
+import { authenticateBearerToken, hashApiToken } from "./api-keys";
+import { createDataAccess } from "@vc/db";
 import { agentErrorDetails, invalidApiKeyMessage } from "./agent-errors";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
 import { UploadError } from "./media";
@@ -165,6 +166,39 @@ function hasBearerAuthorization(request: Request) {
   return Boolean(request.headers.get("authorization")?.startsWith("Bearer "));
 }
 
+function bearerChallenge(invalid: boolean): HeadersInit {
+  const issuer = env.APP_URL.replace(/\/+$/, "");
+  return {
+    "WWW-Authenticate": `Bearer ${invalid ? 'error="invalid_token", ' : ""}resource_metadata="${issuer}/.well-known/oauth-protected-resource/mcp", scope="${AGENT_TOKEN_PRESETS.manage.join(" ")}"`,
+  };
+}
+
+async function authenticateMcp(request: Request): Promise<{ actor: Actor; siteId: string; workspaceId: string; tokenId: string } | null> {
+  const token = request.headers.get("authorization")?.slice("Bearer ".length).trim() ?? "";
+  if (!token.startsWith("vc_oat_")) return authenticateBearerToken(request);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const hash = await hashApiToken(token);
+  const row = await env.DB.prepare(`SELECT k.id, k.site_id, s.workspace_id, k.name, k.actor_name, k.scopes_json
+    FROM oauth_tokens t
+    JOIN api_keys k ON k.id = t.api_key_id
+    JOIN sites s ON s.id = k.site_id
+    JOIN user u ON u.id = k.created_by_user_id
+    JOIN memberships m ON m.workspace_id = s.workspace_id AND m.user_id = k.created_by_user_id AND m.role = 'owner'
+    WHERE t.token_hash = ? AND t.kind = 'access' AND t.revoked_at IS NULL
+      AND t.expires_at > ? AND t.resource = ? AND k.revoked_at IS NULL
+      AND k.oauth_client_id = t.client_id
+    LIMIT 1`).bind(hash, timestamp, `${env.APP_URL.replace(/\/+$/, "")}/mcp`).first<{
+      id: string; site_id: string; workspace_id: string; name: string; actor_name: string; scopes_json: string
+    }>();
+  if (!row) return null;
+  await createDataAccess(env.DB).apiKeys.markUsed(row.id, timestamp);
+  const scopes = JSON.parse(row.scopes_json) as Scope[];
+  return {
+    siteId: row.site_id, workspaceId: row.workspace_id, tokenId: row.id,
+    actor: { type: "api_key", id: row.id, name: scopes.includes("site:write") ? row.name : row.actor_name, scopes },
+  };
+}
+
 /** Validate a parsed JSON value as a single JSON-RPC 2.0 request (batches are not implemented). */
 function validateJsonRpcRequest(value: unknown): { ok: true; body: JsonRpcRequest } | { ok: false; response: Response } {
   // null, primitives, and arrays (batch) are all Invalid Request — not a crash.
@@ -295,7 +329,7 @@ function zodValidationMessage(error: unknown) {
 function appRpcError(id: JsonRpcRequest["id"], error: AppError) {
   switch (error.code) {
     case "UNAUTHORIZED":
-      return rpcError(id, -32001, invalidApiKeyMessage(), 401);
+      return rpcError(id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(true));
     case "FORBIDDEN":
       return rpcError(id, -32003, error.message, 403);
     case "BILLING_REQUIRED":
@@ -359,6 +393,10 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
     if (modernError) return modernError;
   }
 
+  const bearer = hasBearerAuthorization(request);
+  const auth = bearer ? await authenticateMcp(request) : null;
+  if (bearer && !auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(true));
+
   if (!modern && body.method === "initialize") {
     return result(body.id, {
       protocolVersion: negotiateInitializeProtocolVersion(body.params),
@@ -395,8 +433,7 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
         modern,
       );
     }
-    const auth = await authenticateBearerToken(request);
-    if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401);
+    if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(true));
     try {
       await enforceApiBudget({
         workspaceId: auth.workspaceId,
@@ -423,8 +460,7 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
   if (body.method !== "tools/call") {
     return rpcError(body.id, -32601, "Method not found", modern ? 404 : 200);
   }
-  const auth = await authenticateBearerToken(request);
-  if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401);
+  if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(false));
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);

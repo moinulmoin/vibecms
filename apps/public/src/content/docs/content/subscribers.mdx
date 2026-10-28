@@ -3,13 +3,21 @@ title: Subscribers
 description: Collect reader signups with the signup form, then search, filter, and export the list.
 ---
 
-Your blog can show a signup form in the footer and at the end of each post. Signups are stored on the **Subscribers** page in the dashboard, which has two tabs: **People** and **Signup form**.
+Your blog can show a signup form in the footer and at the end of each post. By default, signups are stored on the **Subscribers** page in the dashboard, which has two tabs: **People** and **Signup form**.
 
 ## The signup form
 
 The **Signup form** tab (owner only) toggles the form on and off and edits three fields: **Heading** (80 characters), **Description** (160 characters), and **Button** label (24 characters). **Save changes** updates the live form; a matching `sites.signup_form.update` tool lets a Manage key do the same.
 
-vibecms sends no emails today: no confirmation message and no newsletter. Signups are stored as **pending** — a record of interest, not a verified subscription — so treat the list accordingly.
+With the default form, vibecms sends no emails: no confirmation message and no newsletter. Signups are stored as **pending** — a record of interest, not a verified subscription — so treat the list accordingly.
+
+## Send signups to your newsletter tool
+
+Ask your agent to connect the tool's HTML signup form with `sites.signup_form.update`. The form sends new signups directly to the tool; vibecms does not store them, and the tool handles confirmation emails.
+
+For Buttondown, use action `https://buttondown.com/api/emails/embed-subscribe/<username>` and email field `email`. For Kit, Mailchimp, or another tool, copy the form action and email field name from its HTML embed.
+
+For sending new posts by email, ask your agent to use the `vibecms-newsletter` skill for RSS-to-email setup.
 
 ## The People list
 

@@ -43,14 +43,14 @@ export function buildUrlsetXml(entries: readonly SitemapEntry[]): string {
  */
 export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string {
   const homeEpoch = posts.reduce<number | null>((max, post) => {
-    const epoch = maxPublishEpoch(post.published_at, post.updated_at);
+    const epoch = maxPublishEpoch(post.real_published_at ?? post.published_at, post.updated_at);
     return epoch == null ? max : Math.max(max ?? 0, epoch);
   }, null);
   return buildUrlsetXml([
     { loc: `${origin}/`, lastmod: formatW3CDate(homeEpoch) },
     ...posts.map((post) => ({
       loc: `${origin}/${post.slug}`,
-      lastmod: formatW3CDate(maxPublishEpoch(post.published_at, post.updated_at)),
+      lastmod: formatW3CDate(maxPublishEpoch(post.real_published_at ?? post.published_at, post.updated_at)),
     })),
   ]);
 }
@@ -58,16 +58,15 @@ export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string
 /**
  * Build an RSS 2.0 feed. The root `<rss>` declares `xmlns:atom` and the channel
  * carries an `<atom:link rel="self" type="application/rss+xml">` pointing at the
- * absolute `selfUrl`. Each item's `<pubDate>` is derived from
- * `max(published_at, updated_at)` (omitted when neither timestamp is present).
- * Items are emitted in the order given — the read model already orders by
- * `published_at` desc; this builder never re-sorts.
+ * absolute `selfUrl`. Each item's `<pubDate>` uses the original import date
+ * when present, otherwise `max(published_at, updated_at)`. Items are emitted
+ * in the order given by the read model; this builder never re-sorts.
  */
 export function buildRssXml(site: SiteRow, origin: string, posts: PostBodyRow[], selfUrl: string, renderHtml: (post: PostBodyRow) => string): string {
   const items = posts
     .map((post) => {
       const link = `${origin}/${post.slug}`;
-      const epoch = maxPublishEpoch(post.published_at, post.updated_at);
+      const epoch = post.original_published_at ?? maxPublishEpoch(post.published_at, post.updated_at);
       const pubDate = epoch != null ? new Date(epoch * 1000).toUTCString() : '';
       const description = post.excerpt ? xmlEscape(post.excerpt) : '';
       const html = xmlEscape(renderHtml(post));
@@ -83,7 +82,7 @@ export function buildRssXml(site: SiteRow, origin: string, posts: PostBodyRow[],
     .join('\n');
 
   const lastBuildEpoch = posts.reduce<number | null>((max, post) => {
-    const epoch = maxPublishEpoch(post.published_at, post.updated_at);
+    const epoch = maxPublishEpoch(post.real_published_at ?? post.published_at, post.updated_at);
     return epoch == null ? max : Math.max(max ?? 0, epoch);
   }, null);
   const lastBuildDate = lastBuildEpoch != null ? new Date(lastBuildEpoch * 1000).toUTCString() : '';

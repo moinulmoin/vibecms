@@ -35,6 +35,7 @@ import {
   type OperationContext,
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp, listSkillsOp, getSkillOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
+  listRedirectsOp, setRedirectsOp, deleteRedirectsOp,
 } from "@/server/operations";
 import { apiRateLimitHeaders, apiRetryAfterSeconds, enforceApiBudget, type ApiUsageKind } from "@/server/usage";
 import { logUnhandledException } from "@/server/request-logging";
@@ -68,6 +69,7 @@ import {
   listSkillsRoute, getSkillRoute,
   getSiteLocationRoute, setSubpathLocationRoute, checkSiteLocationRoute, removeSiteLocationRoute,
   seoCheckPostRoute,
+  listRedirectsRoute, setRedirectsRoute, deleteRedirectsRoute,
 } from "@/server/api/routes";
 
 type ApiEnv = {
@@ -223,6 +225,9 @@ apiV1App.openapi(getSiteLocationRoute, async (c) => c.json(await getSiteLocation
 apiV1App.openapi(setSubpathLocationRoute, async (c) => c.json(await setSubpathLocationOp(c.get('ctx'), c.req.valid('json')), 200));
 apiV1App.openapi(checkSiteLocationRoute, async (c) => c.json(await checkSiteLocationOp(c.get('ctx')), 200));
 apiV1App.openapi(removeSiteLocationRoute, async (c) => c.json(await removeSiteLocationOp(c.get('ctx')), 200));
+apiV1App.openapi(listRedirectsRoute, async (c) => c.json(await listRedirectsOp(c.get('ctx'), c.req.valid('query')), 200));
+apiV1App.openapi(setRedirectsRoute, async (c) => c.json(await setRedirectsOp(c.get('ctx'), c.req.valid('json')), 200));
+apiV1App.openapi(deleteRedirectsRoute, async (c) => c.json(await deleteRedirectsOp(c.get('ctx'), c.req.valid('json')), 200));
 apiV1App.openapi(listPostsRoute, async (c) => {
   const query = c.req.valid("query");
   const posts = await listPostsOp(c.get("ctx"), query);
@@ -269,8 +274,7 @@ apiV1App.openapi(updatePostRoute, async (c) => {
 
 apiV1App.openapi(publishPostRoute, async (c) => {
   const { postId } = c.req.valid("param");
-  const { expectedVersionNumber } = c.req.valid("json");
-  const post = await publishPostOp(c.get("ctx"), { postId, expectedVersionNumber });
+  const post = await publishPostOp(c.get("ctx"), { postId, ...c.req.valid("json") });
   return c.json(post, 200);
 });
 

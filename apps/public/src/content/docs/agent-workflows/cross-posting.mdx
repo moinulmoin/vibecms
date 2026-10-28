@@ -1,0 +1,22 @@
+---
+title: Cross-posting
+description: Share a live vibecms post on DEV, Hashnode, or Medium without giving up publication control.
+---
+
+Ask your agent to use the `vibecms-cross-post` skill after your post is live. Tell it which post and destinations you want. It reads the public Markdown version, so unpublished edits in your vibecms draft are not sent elsewhere. It uses the vibecms post URL as the original URL and makes relative links and images usable on the destination.
+
+Free default-domain blogs carry `noindex`, so a cross-posted copy may rank in search instead of the original. You can still cross-post.
+
+## DEV
+
+Set `DEV_API_KEY` in the agent's environment; never paste the key into chat. The agent creates a DEV draft with the original URL as its canonical URL and at most four tags. Review the copy before approving publication. A DEV draft link is public but secret: share it only with people you trust.
+
+## Hashnode
+
+The target Hashnode publication needs [Pro](https://hashnode.com/pro) for GraphQL write access. Set `HASHNODE_PAT` in the agent's environment and tell the agent your publication ID. The agent creates a draft with the original URL in `originalArticleURL`. Review it and explicitly approve before the agent publishes it. The agent reports the returned post URL after publication; if a draft URL is unavailable, it reports the draft ID instead.
+
+## Medium
+
+Open [Medium's import tool](https://medium.com/p/import) and enter your live vibecms post URL. Medium's import tool automatically sets the original source as the canonical link. Review the imported story before publishing. If import fails, [Medium's troubleshooting guide](https://help.medium.com/hc/en-us/articles/360033931713) describes manual copying; the story's author can [set the canonical link manually](https://help.medium.com/hc/en-us/articles/360033930293-Set-a-canonical-link).
+
+Your agent should report the destination URL and whether each copy is a draft or published, or say what remains to be done if no URL is available. Approval to publish on vibecms is not approval to publish a copy elsewhere.

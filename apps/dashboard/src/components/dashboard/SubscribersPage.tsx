@@ -50,7 +50,7 @@ function sourcePath(url: string | null) {
   }
 }
 
-function SubscriberList({ search }: { search: SubscribersSearch }) {
+function SubscriberList({ search, external }: { search: SubscribersSearch; external: boolean }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -147,7 +147,7 @@ function SubscriberList({ search }: { search: SubscribersSearch }) {
           description={
             hasFilters
               ? 'Try another email, or clear the filters.'
-              : 'When readers sign up on your blog, they show up here.'
+              : external ? 'Earlier vibecms signups will show up here.' : 'When readers sign up on your blog, they show up here.'
           }
           action={
             hasFilters ? (
@@ -233,7 +233,7 @@ function SignupForm() {
     if (query.data && !draft) {
       draftRevision.current = query.data.updatedAt
       setDraft({ enabled: query.data.enabled, heading: query.data.heading,
-        subtext: query.data.subtext, buttonLabel: query.data.buttonLabel })
+        subtext: query.data.subtext, buttonLabel: query.data.buttonLabel, externalForm: query.data.externalForm ?? null })
     }
   }, [query.data, draft])
 
@@ -260,7 +260,7 @@ function SignupForm() {
   // saves against the version the owner is looking at instead of conflicting.
   const discard = () => {
     draftRevision.current = saved.updatedAt
-    setDraft({ enabled: saved.enabled, heading: saved.heading, subtext: saved.subtext, buttonLabel: saved.buttonLabel })
+    setDraft({ enabled: saved.enabled, heading: saved.heading, subtext: saved.subtext, buttonLabel: saved.buttonLabel, externalForm: saved.externalForm ?? null })
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -365,13 +365,15 @@ function SignupForm() {
 
 export function SubscribersPage({ search, canExport }: { search: SubscribersSearch; canExport: boolean }) {
   const navigate = useNavigate()
+  const newsletter = useQuery(newsletterQuery)
+  const externalForm = newsletter.data?.externalForm
   const tab = canExport && search.tab === 'form' ? 'form' : 'list'
 
   return (
     <>
       <PageHeader
         title="Subscribers"
-        description="Readers who signed up on your blog. Email sending is coming soon; export any time."
+        description={externalForm ? 'Readers who signed up through vibecms. Export any time.' : 'Readers who signed up on your blog. Email sending is coming soon; export any time.'}
         action={
           canExport ? (
             <Button asChild variant="outline">
@@ -382,6 +384,11 @@ export function SubscribersPage({ search, canExport }: { search: SubscribersSear
           ) : undefined
         }
       />
+      {externalForm ? (
+        <p className="mb-6 text-sm text-muted-foreground">
+          New signups go to {new URL(externalForm.action).host}. vibecms doesn&apos;t store them. Ask your agent to change this.
+        </p>
+      ) : null}
       {canExport ? (
         <Tabs
           value={tab}
@@ -401,12 +408,12 @@ export function SubscribersPage({ search, canExport }: { search: SubscribersSear
             ]}
           />
           <TabsContent value="list">
-            <SubscriberList search={search} />
+            <SubscriberList search={search} external={Boolean(externalForm)} />
           </TabsContent>
           <TabsContent value="form">{tab === 'form' ? <SignupForm /> : null}</TabsContent>
         </Tabs>
       ) : (
-        <SubscriberList search={search} />
+        <SubscriberList search={search} external={Boolean(externalForm)} />
       )}
     </>
   )

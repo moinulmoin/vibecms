@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ACTIVE_WINDOW_SECONDS, activeAgents, newestAgentRequest, presenceLabel } from './AgentPresence'
 
 const key = (id: string, lastUsedAt: number | null, revokedAt: number | null = null) => ({
-  id, name: id, tokenPrefix: `vc_${id}`, scopes: [], createdAt: 0, lastUsedAt, revokedAt,
+  id, name: id, tokenPrefix: `vc_${id}`, scopes: [], createdAt: 0, lastUsedAt, revokedAt, connection: null,
 })
 
 describe('agent presence', () => {

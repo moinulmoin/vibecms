@@ -7,3 +7,4 @@ export * from "./subpath";
 export * from "./commands/posts";
 export * from "./commands/assets";
 export * from "./commands/domains";
+export * from "./redirects";

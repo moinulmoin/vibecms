@@ -11,6 +11,12 @@ Updating a published post does not immediately change its public article. Agent 
 
 This allows an agent or owner to revise a live article without exposing incomplete work.
 
+## Original publication date for imports
+
+When publishing an imported post for the first time, `posts.publish` can include `originalPublishedAt`: an ISO-8601 string or Unix seconds integer on or after 1990-01-01 and strictly before now. For example, `{"postId":"post_...","expectedVersionNumber":1,"originalPublishedAt":"2019-05-04T09:00:00Z"}`. It is rejected if the post has already been published, and scheduled publishing does not accept it. Publishing is still a live change, so get the owner's approval for the exact version; one approval can cover an import batch.
+
+The post DTO exposes `originalPublishedAt` separately from `publishedAt`, which remains the actual vibecms publish time. The original date is displayed on the public post, used for post ordering, Markdown metadata, structured data, and RSS. An import does not get an artificial “Updated” line solely because it was imported, and its RSS date remains the original date rather than the import time.
+
 ## Optimistic concurrency
 
 Updates, restores, and publishing use `expectedVersionNumber`.

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const externalNewsletterFormSchema = z.object({ action: z.string(), emailField: z.string() }).nullable().default(null)
+
 const apiUsageStatusSchema = z.object({
   metric: z.string(),
   period: z.string(),
@@ -93,6 +95,38 @@ const scheduledPublishSchema = z.object({
   status: z.enum(['pending', 'processing', 'published', 'failed']),
   error: z.string().nullable().optional(),
 }).nullable().optional()
+
+export const connectPageDataSchema = z.object({
+  canManage: z.boolean(),
+  mcpUrl: z.string(),
+  apiKeys: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    tokenPrefix: z.string(),
+    scopes: z.array(z.string()),
+    createdAt: z.number(),
+    lastUsedAt: z.number().nullable(),
+    revokedAt: z.number().nullable(),
+    connection: z.object({
+      clientName: z.string(),
+      clientHost: z.string(),
+      registration: z.enum(['dcr', 'cimd']),
+    }).nullable(),
+  })),
+  effectiveEntitlement: z.object({
+    effective: z.boolean(),
+    source: entitlementSourceSchema,
+  }),
+  managed: z.object({
+    status: z.enum(['active', 'revoked']),
+    expiresAt: z.number().nullable(),
+    effective: z.boolean(),
+  }).nullable(),
+  personalization: z.object({
+    agentPreference: z.enum(['claude_code', 'codex', 'cursor', 'droid', 'other']).nullable(),
+    voiceSeedPending: z.boolean(),
+  }),
+})
 
 export const dashboardDataSchema = z.object({
   site: z.object({ name: z.string(), slug: z.string() }).nullable(),
@@ -354,6 +388,7 @@ export const settingsPageDataSchema = z.object({
       heading: z.string(),
       subtext: z.string(),
       buttonLabel: z.string(),
+      externalForm: externalNewsletterFormSchema,
     }),
   }),
   assets: z.array(
@@ -429,6 +464,7 @@ export const newsletterSettingsSchema = z.object({
   heading: z.string(),
   subtext: z.string(),
   buttonLabel: z.string(),
+  externalForm: externalNewsletterFormSchema,
 })
 
 export const subscribersPageLoadSchema = z.object({

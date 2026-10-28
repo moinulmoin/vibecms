@@ -33,6 +33,7 @@ import { z } from 'zod'
 import {
   analyticsPageDataSchema,
   appRouterContextSchema,
+  connectPageDataSchema,
   dashboardDataSchema,
   mutationResultSchema,
   newsletterSettingsSchema,
@@ -441,7 +442,7 @@ export function loadActivityPage(
 }
 
 export function loadConnectPage(signal?: AbortSignal) {
-  return dashboardFetch<ConnectPageData>('/api/dashboard/connect', { method: 'GET', signal })
+  return dashboardFetch<ConnectPageData>('/api/dashboard/connect', { method: 'GET', signal }, connectPageDataSchema)
 }
 
 export function loadOnboardingStatus(options?: { keyId?: string | null; signal?: AbortSignal }) {

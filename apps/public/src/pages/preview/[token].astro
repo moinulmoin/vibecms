@@ -16,6 +16,7 @@ if (missing) return missing;
 const { data, versionNumber } = preview!;
 const { themeAttrs, fontId } = siteDocumentProps(data.site);
 const highlighter = await loadPostHighlighter(data.post.content_markdown);
+Astro.locals.newsletterFormOrigin = data.site.newsletter_settings?.externalForm ? new URL(data.site.newsletter_settings.externalForm.action).origin : undefined;
 ---
 <Base title={`${data.post.title} · Preview`} robots="noindex, nofollow" themeAttrs={themeAttrs} fontId={fontId} faviconAssetId={data.site.favicon_asset_id}>
   <div role="status" style="position:sticky;top:0;z-index:20;padding:.75rem 1rem;text-align:center;background:#272727;color:#fff;font:600 .875rem/1.5 system-ui,sans-serif">

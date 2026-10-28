@@ -52,12 +52,12 @@ export function describeEdit(fields: string[]): string {
 }
 
 export type PostRepository = {
-  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber">, actor: Actor, history: PostMutationHistory, options?: { billingActive: boolean; freeLimit: number }): Promise<Post>;
+  createPostWithHistory(input: Omit<Post, "createdAt" | "updatedAt" | "currentVersionNumber" | "publishedVersionNumber" | "originalPublishedAt">, actor: Actor, history: PostMutationHistory, options?: { billingActive: boolean; freeLimit: number }): Promise<Post>;
   updatePostWithHistory(siteId: string, postId: string, patch: Partial<Post>, actor: Actor, history: PostMutationHistory, expectedVersionNumber: number, options?: { billingActive: boolean; freeLimit: number }): Promise<{ post: Post; versionNumber: number } | null>;
   getPost(siteId: string, postId: string): Promise<Post | null>;
   findPostBySlug(siteId: string, slug: string): Promise<Post | null>;
   listPosts(input: { siteId: string; status?: Post["status"]; search?: string; limit: number; offset: number }): Promise<PostSummary[]>;
-  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number; allowOlderVersion?: boolean; scheduleLeaseToken?: string }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
+  publishPostWithHistory(siteId: string, postId: string, expectedVersionNumber: number, actor: Actor, history: PostMutationHistory, options: { billingActive: boolean; freeLimit: number; allowOlderVersion?: boolean; scheduleLeaseToken?: string; originalPublishedAt?: number }): Promise<{ post: Post | null; capReached: boolean; versionConflict: false } | { post: null; capReached: boolean; versionConflict: true }>;
   listPostVersions(siteId: string, postId: string): Promise<PostVersionSummary[]>;
   getPostVersion(siteId: string, postId: string, versionNumber: number): Promise<PostVersion | null>;
 };
@@ -134,11 +134,17 @@ export async function updatePost(repo: PostRepository, actor: Actor, input: unkn
 export async function publishPost(
   repo: PostRepository,
   actor: Actor,
-  input: { siteId: string; postId: string; expectedVersionNumber: number; billingStatus: BillingStatus },
+  input: { siteId: string; postId: string; expectedVersionNumber: number; billingStatus: BillingStatus; originalPublishedAt?: number },
 ) {
   requireScope(actor, "posts:publish");
+  if (input.originalPublishedAt !== undefined && (!Number.isInteger(input.originalPublishedAt) || input.originalPublishedAt < 631152000 || input.originalPublishedAt >= Date.now() / 1000)) {
+    throw new ValidationError("originalPublishedAt must be a Unix timestamp from 1990-01-01 and strictly in the past.");
+  }
   const before = await repo.getPost(input.siteId, input.postId);
   if (!before) throw new NotFoundError("Post not found");
+  if (input.originalPublishedAt !== undefined && before.publishedAt !== null) {
+    throw new ValidationError("originalPublishedAt only works on a post's first publish.");
+  }
   // The version approval and free-publish cap are enforced in the repository's
   // atomic conditional write. A concurrent edit therefore cannot be published.
   const { post, capReached, versionConflict } = await repo.publishPostWithHistory(
@@ -151,7 +157,7 @@ export async function publishPost(
       activityAction: "post.published",
       activitySummary: `Published ${before.title}`,
     },
-    { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT },
+    { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT, originalPublishedAt: input.originalPublishedAt },
   );
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");

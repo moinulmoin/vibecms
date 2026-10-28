@@ -62,6 +62,7 @@ const description = blog.site.default_seo_description || blog.site.description |
 const socialImage = resolveSocialImage(location.assetOrigin, null, blog.site, env.generatedCards);
 const canonical = publicUrl(location, publicPageCanonicalPath("/", page));
 const { themeAttrs, fontId } = siteDocumentProps(blog.site);
+Astro.locals.newsletterFormOrigin = blog.site.newsletter_settings?.externalForm ? new URL(blog.site.newsletter_settings.externalForm.action).origin : undefined;
 ---
 <Base
   title={title}

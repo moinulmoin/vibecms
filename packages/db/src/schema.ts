@@ -114,6 +114,7 @@ export const posts = sqliteTable("posts", {
   coverAssetId: text("cover_asset_id"),
   status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   publishedAt: integer("published_at"),
+  originalPublishedAt: integer("original_published_at"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   canonicalUrl: text("canonical_url"),
@@ -190,6 +191,17 @@ export const postSlugRedirects = sqliteTable("post_slug_redirects", {
   index("idx_post_slug_redirects_post_id").on(table.postId),
 ]);
 
+export const siteRedirects = sqliteTable("site_redirects", {
+  id: text("id").primaryKey(),
+  siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
+  fromPath: text("from_path").notNull(),
+  toPath: text("to_path").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_site_redirects_site_from").on(table.siteId, table.fromPath),
+]);
+
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -205,6 +217,15 @@ export const assets = sqliteTable("assets", {
   ...timestamps,
 }, (table) => [index("idx_assets_site_id").on(table.siteId)]);
 
+export const oauthClients = sqliteTable("oauth_clients", {
+  id: text("id").primaryKey(),
+  registration: text("registration", { enum: ["dcr", "cimd"] }).notNull(),
+  clientName: text("client_name").notNull(),
+  redirectUrisJson: text("redirect_uris_json").notNull(),
+  metadataFetchedAt: integer("metadata_fetched_at"),
+  ...timestamps,
+});
+
 export const apiKeys = sqliteTable("api_keys", {
   id: text("id").primaryKey(),
   siteId: text("site_id").notNull().references(() => sites.id, { onDelete: "cascade" }),
@@ -216,8 +237,9 @@ export const apiKeys = sqliteTable("api_keys", {
   lastUsedAt: integer("last_used_at"),
   revokedAt: integer("revoked_at"),
   createdByUserId: text("created_by_user_id").notNull(),
+  oauthClientId: text("oauth_client_id").references(() => oauthClients.id, { onDelete: "cascade" }),
   ...timestamps,
-}, (table) => [index("idx_api_keys_site_id").on(table.siteId), index("idx_api_keys_token_hash").on(table.tokenHash)]);
+}, (table) => [index("idx_api_keys_site_id").on(table.siteId), index("idx_api_keys_token_hash").on(table.tokenHash), index("idx_api_keys_oauth_client").on(table.oauthClientId)]);
 
 export const activityEvents = sqliteTable("activity_events", {
   id: text("id").primaryKey(),
@@ -315,6 +337,40 @@ export const user = sqliteTable("user", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 }, (table) => [
   uniqueIndex("idx_user_email_canonical").on(sql`lower(${table.email})`),
+]);
+
+export const oauthAuthorizations = sqliteTable("oauth_authorizations", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => oauthClients.id, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  state: text("state"),
+  scope: text("scope").notNull(),
+  resource: text("resource").notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  status: text("status", { enum: ["pending", "approved", "denied", "exchanged"] }).notNull(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  apiKeyId: text("api_key_id").references(() => apiKeys.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").unique(),
+  codeExpiresAt: integer("code_expires_at"),
+  expiresAt: integer("expires_at").notNull(),
+  ...timestamps,
+}, (table) => [index("idx_oauth_authorizations_expires").on(table.expiresAt)]);
+
+export const oauthTokens = sqliteTable("oauth_tokens", {
+  tokenHash: text("token_hash").primaryKey(),
+  kind: text("kind", { enum: ["access", "refresh"] }).notNull(),
+  apiKeyId: text("api_key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
+  clientId: text("client_id").notNull().references(() => oauthClients.id, { onDelete: "cascade" }),
+  familyId: text("family_id").notNull(),
+  resource: text("resource").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  usedAt: integer("used_at"),
+  revokedAt: integer("revoked_at"),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("idx_oauth_tokens_family").on(table.familyId),
+  index("idx_oauth_tokens_api_key").on(table.apiKeyId),
+  index("idx_oauth_tokens_expires").on(table.expiresAt),
 ]);
 
 export type AuthUser = typeof user.$inferSelect;

@@ -54,7 +54,7 @@ export const siteDtoSchema = z.object({
   /** Owner-collected writing samples; agents offer to build the voice profile from them when unconfigured. */
   voiceSeedUrls: z.array(z.string()),
   voiceProfile: siteVoiceProfileDtoSchema,
-  signupForm: z.object({ enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string() }).optional(),
+  signupForm: z.object({ enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(), externalForm: z.object({ action: z.string(), emailField: z.string() }).nullable() }).optional(),
   /** Blog template (preset) id: minimal, editorial, technical (Notebook), or product (Magazine). */
   template: z.string(),
   /**
@@ -100,6 +100,7 @@ export const voiceSettingsDtoSchema = z.object({
 });
 export const signupFormDtoSchema = z.object({
   enabled: z.boolean(), heading: z.string(), description: z.string(), button: z.string(),
+  externalForm: z.object({ action: z.string(), emailField: z.string() }).nullable(),
 });
 /**
  * Present only while the workspace's paid subscription is past_due (hosted only).
@@ -115,6 +116,21 @@ export const billingNoticeDtoSchema = z.object({
 export const siteWithSignupFormDtoSchema = siteDtoSchema.extend({ signupForm: signupFormDtoSchema, billingNotice: billingNoticeDtoSchema.optional() });
 /** sites.signup_form.update echoes the new site revision for follow-up edits. */
 export const signupFormUpdateDtoSchema = signupFormDtoSchema.extend({ updatedAt: z.number().int() });
+export const listRedirectsDtoSchema = z.object({
+  redirects: z.array(z.object({
+    from: z.string(), to: z.string(), createdAt: z.number().int(), updatedAt: z.number().int(),
+  })),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative(),
+});
+export const setRedirectsDtoSchema = z.object({
+  results: z.array(z.object({
+    from: z.string(), to: z.string(), status: z.enum(["created", "updated", "unchanged"]),
+  })),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative(),
+});
+export const deleteRedirectsDtoSchema = z.object({ deleted: z.number().int().nonnegative() });
 const subpathCheckIssueDtoSchema = z.object({ code: z.string(), message: z.string() });
 const subpathCheckDtoSchema = z.object({
   ok: z.boolean(),
@@ -181,6 +197,7 @@ export const postSummaryDtoSchema = z.object({
   coverAssetId: z.string().nullable(),
   status: postStatusSchema,
   publishedAt: z.number().nullable(),
+  originalPublishedAt: z.number().nullable(),
   tags: z.array(z.string()),
   createdAt: z.number(),
   updatedAt: z.number(),

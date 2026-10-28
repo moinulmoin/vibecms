@@ -1,5 +1,5 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
-import { changedPostFields, DraftLimitError, ConflictError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
+import { changedPostFields, DraftLimitError, ConflictError, ValidationError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
 import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
 
@@ -62,6 +62,7 @@ function mapPost(
     seoDescription: row.seoDescription,
     status: normalizePostStatus(row.status),
     publishedAt: row.publishedAt,
+    originalPublishedAt: row.originalPublishedAt,
     tags: JSON.parse(row.tagsJson) as string[],
     presentation: row.presentationJson ? JSON.parse(row.presentationJson) : null,
     createdAt: row.createdAt,
@@ -83,6 +84,7 @@ type PostSummaryProjection = {
   coverAssetId: string | null;
   status: string;
   publishedAt: number | null;
+  originalPublishedAt: number | null;
   tagsJson: string;
   createdAt: number;
   updatedAt: number;
@@ -98,6 +100,7 @@ const postSummaryFields = {
   coverAssetId: posts.coverAssetId,
   status: posts.status,
   publishedAt: posts.publishedAt,
+  originalPublishedAt: posts.originalPublishedAt,
   tagsJson: posts.tagsJson,
   createdAt: posts.createdAt,
   updatedAt: posts.updatedAt,
@@ -114,6 +117,7 @@ function mapPostSummary(row: PostSummaryProjection): PostSummary {
     coverAssetId: row.coverAssetId,
     status: normalizePostStatus(row.status),
     publishedAt: row.publishedAt,
+    originalPublishedAt: row.originalPublishedAt,
     tags: JSON.parse(row.tagsJson) as string[],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -398,6 +402,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       const timestamp = now();
       const post: Post = {
         ...input,
+        originalPublishedAt: null,
         createdAt: timestamp,
         updatedAt: timestamp,
         currentVersionNumber: 1,
@@ -611,6 +616,9 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
     async publishPostWithHistory(siteId, postId, expectedVersionNumber, actor, history, options) {
       const before = await getPost(siteId, postId);
       if (!before) return { post: null, capReached: false, versionConflict: false };
+      if (options.originalPublishedAt !== undefined && before.publishedAt !== null) {
+        throw new ValidationError("originalPublishedAt only works on a post's first publish.");
+      }
       const approved = await this.getPostVersion(siteId, postId, expectedVersionNumber);
       if (!approved) return { post: null, capReached: false, versionConflict: true };
 
@@ -630,6 +638,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
         status: "published",
         publishedSlug: approved.slug,
         publishedAt: before.status === "published" && before.publishedAt != null ? before.publishedAt : timestamp,
+        originalPublishedAt: options.originalPublishedAt ?? before.originalPublishedAt,
         updatedAt: timestamp,
         publishedVersionNumber: expectedVersionNumber,
         currentVersionNumber: before.currentVersionNumber,
@@ -647,6 +656,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
                  WHEN status = 'published' AND published_at IS NOT NULL THEN published_at
                  ELSE ?
                END,
+               original_published_at = coalesce(?, original_published_at),
                published_version_id = (
                  SELECT pv.id FROM post_versions AS pv
                  WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
@@ -656,6 +666,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
                updated_by_type = ?,
                updated_by_id = ?
              WHERE site_id = ? AND id = ? AND status <> 'archived'
+               AND (? IS NULL OR published_at IS NULL)
                AND (? IS NULL OR EXISTS (SELECT 1 FROM post_schedules AS schedule
                  WHERE schedule.site_id = posts.site_id AND schedule.post_id = posts.id
                    AND schedule.version_number = ? AND schedule.status = 'processing'
@@ -701,12 +712,14 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
                )`,
           ).bind(
             timestamp,
+            options.originalPublishedAt ?? null,
             expectedVersionNumber,
             timestamp,
             actor.type,
             actor.id,
             siteId,
             postId,
+            options.originalPublishedAt ?? null,
             options.scheduleLeaseToken ?? null,
             expectedVersionNumber,
             options.scheduleLeaseToken ?? null,
@@ -791,6 +804,9 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
 
       const current = await getPost(siteId, postId);
       if (!current) return { post: null, capReached: false, versionConflict: false };
+      if (options.originalPublishedAt !== undefined && current.publishedAt !== null) {
+        throw new ValidationError("originalPublishedAt only works on a post's first publish.");
+      }
       if (current.status === "archived") throw new ConflictError("Post is archived; publication was not performed. Confirm restoration with the owner, unarchive, then review and approve the draft.");
       if (options.scheduleLeaseToken) {
         const lease = await db.prepare(`SELECT 1 FROM post_schedules WHERE site_id = ? AND post_id = ?

@@ -111,6 +111,7 @@ function editorPage(contentMarkdown: string, versionNumber: number): PostEditorP
     seoDescription: null,
     status: 'draft',
     publishedAt: null,
+    originalPublishedAt: null,
     tags: [],
     createdAt: 1,
     updatedAt: versionNumber,

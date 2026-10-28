@@ -1,0 +1,34 @@
+---
+title: Import an existing blog
+description: Move posts to vibecms with their original dates and preserve old links where you control the domain.
+---
+
+Your agent can use the `vibecms-import` skill to move posts from Ghost, WordPress, Substack, Medium, or a folder of Markdown files. Connect an agent with access to create and publish posts and upload images. Redirects also require site-management access. Access alone is not permission to publish: you approve the batch.
+
+## Get your content
+
+- **Ghost:** Export content and settings as JSON from Settings → Advanced → Import/Export, and supply media as needed. Alternatively, provide the agent access to the read-only Content API for published content. [Ghost export instructions](https://ghost.org/help/exports/) and [Content API](https://docs.ghost.org/content-api/).
+- **WordPress:** Use Tools → Export to download a WXR XML file, or provide the published posts through the WordPress REST API. [WordPress export instructions](https://wordpress.org/documentation/article/tools-export-screen/) and [posts API](https://developer.wordpress.org/rest-api/reference/posts/).
+- **Substack:** Create a ZIP in Settings → Exports and provide it to the agent. [Substack export instructions](https://support.substack.com/hc/en-us/articles/360037466012-How-do-I-export-my-posts).
+- **Medium:** Export your account data and stories as a ZIP of HTML files. [Medium export instructions](https://help.medium.com/hc/en-us/articles/115004745787-Export-your-account-data).
+- **Markdown:** Give the agent the files and any front matter or old URLs you want preserved.
+
+Exports can include private content and subscriber information. Share only what is needed and tell the agent which posts may become public. A public API may not contain every draft or restricted post.
+
+## Review the import
+
+The agent inventories the posts, dates, slugs, images, old URLs and any missing content. It checks the site's capacity and proposes how to handle collisions, conversion losses and old links. The free plan allows five published posts, five drafts, ten images and twenty redirects; existing items count toward those limits. If the batch will not fit, choose a smaller batch or change your plan before proceeding.
+
+The agent converts the content to Markdown, uploads the agreed images and creates drafts. **Uploaded images are public immediately**, even while posts remain drafts. Review the private previews and the list of exact saved versions, original dates and redirect mappings. One explicit approval can cover publication of that batch and its listed redirects. If a draft changes after approval, the agent must ask again for that changed version.
+
+When a valid original date is available, the agent can preserve it on the post's first publish. The date must be on or after January 1, 1990 and in the past. vibecms still records when the post was actually published here. Ask the agent to flag dates it cannot recover instead of guessing.
+
+## Preserve old links
+
+If your old domain now routes to your vibecms blog, the agent can add redirects from old paths to new post paths. Redirects are applied in batches of up to 100 and only take effect for requests reaching your blog. Existing real pages take precedence; reserved paths and redirect chains cannot be used. If your blog lives under a subpath, redirect paths are relative to that blog's base path.
+
+You must arrange any DNS or proxy change separately. A redirect in vibecms cannot change a URL on a domain you do not control, such as `medium.com` or a `name.substack.com` address. If the old copy stays live, discuss with your agent whether it should remain the canonical version; otherwise the imported post should not point its canonical URL at the old copy.
+
+## Check the result
+
+Ask for the number of posts found, created and live, along with any exclusions, missing images or conversion problems. The agent should check that every returned public post URL responds with HTTP 200. Once the domain or proxy points to vibecms, it should also check that each intended old URL returns HTTP 301 to the right destination. Until the move is complete, those redirect checks remain pending.

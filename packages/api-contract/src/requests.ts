@@ -95,6 +95,7 @@ export const updateSignupFormRequestSchema = z.object({
   heading: newsletterSettingsSchema.shape.heading.optional(),
   description: newsletterSettingsSchema.shape.subtext.optional(),
   button: newsletterSettingsSchema.shape.buttonLabel.optional(),
+  externalForm: newsletterSettingsSchema.shape.externalForm.unwrap().optional(),
 }).strict().refine(
   (value) => Object.keys(value).length > 1, 'Send at least one signup form field',
 );
@@ -110,6 +111,16 @@ export const getSiteLocationRequestSchema = z.object({}).strict();
 export const setSubpathLocationRequestSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
 export const checkSiteLocationRequestSchema = z.object({}).strict();
 export const removeSiteLocationRequestSchema = z.object({}).strict();
+export const listRedirectsRequestSchema = z.object({
+  offset: z.coerce.number().int().nonnegative().optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+}).strict();
+export const setRedirectsRequestSchema = z.object({
+  redirects: z.array(z.object({ from: z.string(), to: z.string() }).strict()).min(1).max(100),
+}).strict();
+export const deleteRedirectsRequestSchema = z.object({
+  from: z.array(z.string()).min(1).max(100),
+}).strict();
 export const getAnalyticsRequestSchema = z.object({
   range: z.enum(['7', '30', '90', '365', 'all']).default('30'),
   /** Scope every per-post number (views, trend, agent fetches) to one post. */
@@ -165,24 +176,27 @@ export const updatePostRequestSchema = z.object({
   presentation: presentationField.optional(),
 }).strict();
 
+const timestampSecondsField = z.union([z.coerce.number().int().positive(), z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?(?:Z|[+-]\d\d:\d\d)$/, 'Use Unix seconds or an ISO-8601 time ending in Z or an explicit offset.')])
+  .transform((value, ctx) => {
+    if (typeof value === 'number') return value;
+    const millis = Date.parse(value);
+    if (!Number.isFinite(millis)) {
+      ctx.addIssue({ code: 'custom', message: 'Use a valid ISO-8601 UTC time ending in Z or an explicit offset.' });
+      return z.NEVER;
+    }
+    return Math.floor(millis / 1000);
+  });
+
 export const publishPostRequestSchema = z.object({
   postId: z.string().min(1),
   expectedVersionNumber: z.coerce.number().int().min(1),
+  originalPublishedAt: timestampSecondsField.optional().describe('For imports on the first publish only: Unix seconds or an ISO-8601 time with a timezone, from 1990-01-01 and strictly in the past.'),
 }).strict();
 
 export const schedulePostRequestSchema = z.object({
   postId: z.string().min(1),
   versionNumber: z.coerce.number().int().min(1),
-  publishAt: z.union([z.coerce.number().int().positive(), z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?(?:Z|[+-]\d\d:\d\d)$/, 'Use Unix seconds or an ISO-8601 time ending in Z or an explicit offset.')])
-    .transform((value, ctx) => {
-      if (typeof value === 'number') return value;
-      const millis = Date.parse(value);
-      if (!Number.isFinite(millis)) {
-        ctx.addIssue({ code: 'custom', message: 'Use a valid ISO-8601 UTC time ending in Z or an explicit offset.' });
-        return z.NEVER;
-      }
-      return Math.floor(millis / 1000);
-    }),
+  publishAt: timestampSecondsField,
 }).strict();
 export const unschedulePostRequestSchema = z.object({ postId: z.string().min(1) }).strict();
 export const rotatePostPreviewRequestSchema = z.object({ postId: z.string().min(1) }).strict();

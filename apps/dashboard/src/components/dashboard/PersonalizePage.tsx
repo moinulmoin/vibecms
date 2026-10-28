@@ -199,7 +199,7 @@ export function PersonalizePage() {
 
   function chooseClient(next: AgentClient) {
     setClient(next)
-    if (connect.data?.canManage) void savePersonalizationMutation({ agentPreference: next }).catch(() => undefined)
+    if (connect.data?.canManage && next !== 'claude') void savePersonalizationMutation({ agentPreference: next }).catch(() => undefined)
   }
 
   if (connect.isError && !connect.data) {

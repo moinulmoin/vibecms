@@ -56,6 +56,7 @@ import { jsonAppError } from '@/server/http-errors'
 import { appSelectionCookie } from '@/server/app-selection'
 import { getNewsletterSettingsWithRevisionForApp, loadPersonalization, updatePersonalizationForApp } from '@/server/onboarding'
 import { seoCheckPostOp, type OperationContext } from '@/server/operations'
+import { dashboardOAuthRoutes } from '@/routes/dashboard-oauth'
 
 function guardDashboardPost(request: Request): Response | undefined {
   if (request.method !== 'POST') return undefined
@@ -67,6 +68,7 @@ function canManageSubscribers(auth: { app: { actor: { type: string; role?: strin
 
 
 export const dashboardRoutes = new Hono()
+dashboardRoutes.route('/oauth', dashboardOAuthRoutes)
 
 // keyId query is optional; when present it must be a UUID (the api_keys.id shape).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

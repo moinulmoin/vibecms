@@ -9,7 +9,7 @@ declare module 'vitest' {
 
 // A cron string in wrangler config that no longer matches scheduled-dispatch falls
 // back to media-only, so analytics, the claim sweep or publishing would silently stop.
-const EVERY_JOB: ScheduledJob[] = ['analytics', 'media', 'posts', 'subpaths', 'managed-claim']
+const EVERY_JOB: ScheduledJob[] = ['analytics', 'media', 'posts', 'subpaths', 'managed-claim', 'oauth-cleanup']
 
 describe('deployed cron triggers', () => {
   it('schedule every background job in every deployment', () => {

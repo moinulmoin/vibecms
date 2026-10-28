@@ -36,6 +36,11 @@
   routes against `auth-guards.ts`: only budgeted sign-in OTP sends are enabled.
   Dashboard documents are asset-first; keep their security policy in
   `apps/dashboard/public/_headers`, not only Hono middleware.
+- Sign in with vibecms (MCP OAuth, plan 029) mints agent-key grants: an
+  `api_keys` row with `oauth_client_id`. Scope presets, quotas and revoke rules
+  apply to keys and connections alike. `CIMD_TRUSTED_HOSTS` in
+  `apps/api/src/server/oauth.ts` is a reviewed allowlist; never fetch client
+  metadata from other hosts. The consent page `/authorize` stays asset-first.
 - Keep docs current in the same change: the docs site
   (`apps/public/src/content/docs`), `docs/*.md`, and plan status in `plans/`.
   Update this file when a working rule changes. Delete docs that no longer

@@ -13,9 +13,19 @@ The three most common `Check setup` errors and their causes:
 
 See [Your blog at example.com/blog](/docs/content/blog-on-your-site) for every check code.
 
+## Agent sign-in fails
+
+- If the sign-in link expired, start the connection again from the app.
+- Sign in as the owner of the blog you want to connect. If you do not have a blog yet, create one in the dashboard first.
+- If you see a localhost return warning, continue only when you started the connection from an app on this computer.
+- If you disconnected the app, reconnect and approve it again. Disconnect takes effect immediately.
+- A blog can have up to 10 active agent keys and connections combined. Disconnect an unused app or revoke an unused key under **Dashboard > Connect** before adding another.
+
+See [Connect an agent](/docs/getting-started/connect-an-agent) for setup and access levels.
+
 ## The client lists tools but cannot read the site
 
-Tool discovery is not an authentication check. Call `sites.get`. Confirm the bearer header is attached to the MCP server request and the token has `sites:read`.
+Tool discovery is not an authentication check. Call `sites.get`. For a signed-in connection, check that the right blog was approved and the connection has not been disconnected. For a key, confirm the bearer header is attached to the MCP request. The credential needs `sites:read`.
 
 ## A write returns `FORBIDDEN`
 

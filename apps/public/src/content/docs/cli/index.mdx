@@ -52,6 +52,16 @@ vibecms sites location remove
 
 Get the owner's explicit approval before changing or removing a live location. Location commands support `--dry-run` to show the request without sending it.
 
+### Old-link redirects
+
+```sh
+vibecms sites redirects list --limit 100 --offset 0
+vibecms sites redirects set --data '{"redirects":[{"from":"/old/article","to":"/article"}]}'
+vibecms sites redirects delete --data '{"from":["/old/article"]}'
+```
+
+Set and delete accept exactly one of `--data` or `--data-file` with a JSON object, without a revision flag; each batch contains 1–100 entries. List accepts an optional `--limit` (up to 500) and `--offset`. Get the owner's explicit approval before adding, changing, or removing live redirects. All three commands support `--dry-run`. See [URLs and redirects](/docs/content/urls-and-redirects) for path rules and plan limits.
+
 ## Posts
 
 ```sh
@@ -70,6 +80,7 @@ vibecms posts versions post_...
 vibecms posts version post_... 2
 vibecms posts restore post_... 1 --expected-version 2
 vibecms posts publish post_... --expected-version 3
+vibecms posts publish post_... --expected-version 3 --original-published-at 2019-05-04T09:00:00Z
 vibecms posts schedule post_... --version-number 4 --at 2027-01-15T09:00:00Z
 vibecms posts unschedule post_...
 vibecms posts rotate-preview post_...
@@ -78,6 +89,8 @@ vibecms posts unarchive post_...
 ```
 
 For `create`, use `--content <markdown>` or `--content-file <path>`. `update` accepts those flags when changing the body. Optional post fields are `--excerpt`, `--tags a,b`, `--cover <assetId|none>`, `--layout standard|essay|feature|wide`, `--toc true|false`, `--seo-title`, `--seo-description`, and `--canonical-url <url|none>`. `create` requires `--title` and `--slug`; `update` can also change them. `--expected-version` binds `update`, `restore`, `publish`, or `archive` to a saved version — for `restore`, the positional version selects the historical snapshot while `--expected-version` guards the current tip. Only `posts schedule` also accepts `--version-number` as an alias for that flag. Schedule `--at` must be an ISO-8601 UTC time ending in `Z` and in the future.
+
+For imports, `posts publish --original-published-at` records the original date on the first publish only; it must be on or after 1990-01-01 and before now. It does not change the real vibecms publication time, and is not available for scheduling. Get the owner's approval before publishing.
 
 `posts seo <postId>` checks the saved post's current tip using deterministic SEO and AI-answer-readiness rules; vibecms does not run an AI model. The response includes `versionNumber` and findings sorted by severity with stable codes and fix hints. Optional `--focus-keyword` (1–80 characters) adds keyword checks. There is no AI option. `posts preview` already includes the same findings in its `seo` field. Use `--dry-run` to inspect the SEO request without sending it.
 

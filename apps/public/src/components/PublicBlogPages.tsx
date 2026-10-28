@@ -287,7 +287,7 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
   const coverMedia = post.cover_asset_id
     ? buildResponsiveMediaUrls(post.cover_asset_id, assetOrigin)
     : undefined;
-  const showUpdated = shouldShowUpdatedDate(post.published_at, post.updated_at);
+  const showUpdated = shouldShowUpdatedDate(post.real_published_at ?? post.published_at, post.updated_at);
   const logoUrl = site.logo_asset_id ? `${assetOrigin}/media-assets/${site.logo_asset_id}` : null;
 
   return (

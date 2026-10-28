@@ -28,6 +28,7 @@ import {
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema, listSkillsRequestSchema, getSkillRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
   seoCheckPostRequestSchema,
+  listRedirectsRequestSchema, setRedirectsRequestSchema, deleteRedirectsRequestSchema,
 } from "@vc/api-contract";
 import type { OperationContext } from "./operations";
 import {
@@ -58,6 +59,7 @@ import {
   updateSiteOp, getThemeOp, updateThemeOp, revertThemeOp, updateVoiceOp, updateSignupFormOp, listTagsOp, getAnalyticsOp, listSkillsOp, getSkillOp,
   getSiteLocationOp, setSubpathLocationOp, checkSiteLocationOp, removeSiteLocationOp,
   seoCheckPostOp,
+  listRedirectsOp, setRedirectsOp, deleteRedirectsOp,
 } from "./operations";
 
 export async function dispatchOperation(toolName: McpToolName, ctx: OperationContext, rawArguments: unknown) {
@@ -89,6 +91,12 @@ export async function dispatchOperation(toolName: McpToolName, ctx: OperationCon
     case 'sites.location.remove':
       removeSiteLocationRequestSchema.parse(rawArguments ?? {});
       return removeSiteLocationOp(ctx);
+    case 'redirects.list':
+      return listRedirectsOp(ctx, listRedirectsRequestSchema.parse(rawArguments ?? {}));
+    case 'redirects.set':
+      return setRedirectsOp(ctx, setRedirectsRequestSchema.parse(rawArguments ?? {}));
+    case 'redirects.delete':
+      return deleteRedirectsOp(ctx, deleteRedirectsRequestSchema.parse(rawArguments ?? {}));
     case 'tags.list':
       listTagsRequestSchema.parse(rawArguments ?? {});
       return listTagsOp(ctx);

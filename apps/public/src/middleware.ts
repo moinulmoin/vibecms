@@ -7,6 +7,7 @@ import {
   markdownRequested,
   isReadableTenantPostSlug,
   isMarketingHost,
+  publicMissingRedirect,
   stripMarkdownSuffix,
 } from "./server/public-blog";
 import { articleResponseForClientAndCache, conditionalCachedArticleResponse, contentEtag } from "./server/public-blog-cache";
@@ -117,6 +118,11 @@ const handleRequest = defineMiddleware(async (context, next) => {
   }
 
   const response = rewrite ? await next(rewrite) : await next();
+  const oldLink = await publicMissingRedirect(env.DB, request, response, pathname, location, publicEnv);
+  if (oldLink) {
+    applyPublicSecurityHeaders(pathname, null, oldLink.headers, location);
+    return oldLink;
+  }
   // Agents probing /api/* here get a JSON pointer to the real API, not a page.
   if (response.status === 404 && pathname.startsWith("/api/")) {
     const apiMissing = Response.json(
@@ -132,10 +138,15 @@ const handleRequest = defineMiddleware(async (context, next) => {
     return missing;
   }
   const headers = new Headers(response.headers);
+  // A newly configured old-link redirect must not be masked by a cached 404.
+  if (response.status === 404) {
+    headers.set("cache-control", "no-store");
+    headers.delete("cdn-cache-control");
+  }
   varyAgentRepresentation(headers);
   const articleHtmlCacheHit = headers.has(ARTICLE_HTML_CACHE_HIT_HEADER);
   headers.delete(ARTICLE_HTML_CACHE_HIT_HEADER);
-  applyPublicSecurityHeaders(pathname, headers.get("content-type"), headers, location);
+  applyPublicSecurityHeaders(pathname, headers.get("content-type"), headers, location, context.locals.newsletterFormOrigin);
 
   const slug = articleSlugCandidate(pathname);
   const article = slug ? stripMarkdownSuffix(slug) : null;

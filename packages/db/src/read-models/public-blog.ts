@@ -91,6 +91,7 @@ export interface PublicPostSummaryRow {
   coverAssetHeight: number | null;
   coverAssetAltText: string | null;
   publishedAt: number | null;
+  originalPublishedAt: number | null;
   updatedAt: number;
   seoTitle: string | null;
   seoDescription: string | null;
@@ -141,6 +142,7 @@ const summaryColumns = {
   excerptPending: sql<number>`(nullif(trim(${postVersions.excerpt}), '') is null and ${postVersions.fallbackExcerpt} is null)`.mapWith(Number),
   coverAssetId: postVersions.coverAssetId,
   publishedAt: posts.publishedAt,
+  originalPublishedAt: posts.originalPublishedAt,
   updatedAt: postVersions.createdAt,
   seoTitle: postVersions.seoTitle,
   seoDescription: postVersions.seoDescription,
@@ -417,7 +419,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(publishedWhere(siteId, now))
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`))
         .limit(capped);
       return fillMissingExcerpts(siteId, rows);
     },
@@ -437,7 +439,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
             sql`exists (select 1 from json_each(${postVersions.tagsJson}) where value = ${tag})`,
           ),
         )
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`))
         .limit(capped);
       return fillMissingExcerpts(siteId, rows);
     },
@@ -460,7 +462,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(where)
-        .orderBy(desc(posts.publishedAt), desc(posts.id))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`), desc(posts.id))
         .limit(size)
         .offset((page - 1) * size);
       return { posts: await fillMissingExcerpts(siteId, pagePosts), total, page };
@@ -495,7 +497,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
             lte(posts.publishedAt, now),
           ),
         )
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`))
         .limit(candidateCap)
         .as("pb_search_candidates");
 
@@ -505,7 +507,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .innerJoin(candidates, eq(candidates.id, posts.id))
         .where(and(publishedWhere(siteId, now), searchMatchSql(pattern)))
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`))
         .limit(capped);
       return fillMissingExcerpts(siteId, rows);
     },
@@ -518,7 +520,7 @@ export function createPublicBlogReadModel(db: D1Database): PublicBlogReadModel {
         .from(posts)
         .innerJoin(postVersions, eq(postVersions.id, posts.publishedVersionId))
         .where(publishedWhere(siteId, now))
-        .orderBy(desc(posts.publishedAt))
+        .orderBy(desc(sql`coalesce(${posts.originalPublishedAt}, ${posts.publishedAt})`))
         .limit(capped);
       return fillMissingExcerpts(siteId, rows);
     },

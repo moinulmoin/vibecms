@@ -5,9 +5,10 @@ import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { PageTabs } from '~/components/dashboard/blocks'
 import type { AgentPreference } from '~/types/dashboard'
 
-export type AgentClient = 'claude_code' | 'codex' | 'cursor' | 'other'
+export type AgentClient = 'claude' | 'claude_code' | 'codex' | 'cursor' | 'other'
 
 export const AGENT_CLIENTS: Array<{ id: AgentClient; label: string }> = [
+  { id: 'claude', label: 'Claude app' },
   { id: 'claude_code', label: 'Claude Code' },
   { id: 'codex', label: 'Codex' },
   { id: 'cursor', label: 'Cursor' },
@@ -15,7 +16,7 @@ export const AGENT_CLIENTS: Array<{ id: AgentClient; label: string }> = [
 ]
 
 export function isAgentClient(value: unknown): value is AgentClient {
-  return value === 'claude_code' || value === 'codex' || value === 'cursor' || value === 'other'
+  return value === 'claude' || value === 'claude_code' || value === 'codex' || value === 'cursor' || value === 'other'
 }
 
 export function clientFromPreference(preference: AgentPreference | null | undefined): AgentClient {
@@ -46,7 +47,7 @@ export const SKILLS_INSTALL_COMMAND = "npx skills add https://vibecms.dev --skil
 
 type ClientConfig = { hint: ReactNode; code: string; label: string }
 
-export function agentConfigs(mcpUrl: string, token?: string): Record<AgentClient, ClientConfig> {
+export function agentConfigs(mcpUrl: string, token?: string): Record<Exclude<AgentClient, 'claude'>, ClientConfig> {
   const key = token ?? TOKEN_PLACEHOLDER
   return {
     claude_code: {
@@ -143,17 +144,31 @@ export function AgentSetup({
   token,
   client,
   onClientChange,
+  includeClaudeApp = false,
 }: {
   mcpUrl: string
   token?: string
   client: AgentClient
   onClientChange: (client: AgentClient) => void
+  includeClaudeApp?: boolean
 }) {
   const configs = agentConfigs(mcpUrl, token)
+  const clients = includeClaudeApp ? AGENT_CLIENTS : AGENT_CLIENTS.filter((item) => item.id !== 'claude')
   return (
     <Tabs value={client} onValueChange={(value) => isAgentClient(value) && onClientChange(value)} className="gap-4">
-      <PageTabs label="Agent" tabs={AGENT_CLIENTS.map((item) => ({ value: item.id, label: item.label }))} />
-      {AGENT_CLIENTS.map(({ id }) => {
+      <PageTabs label="Agent" tabs={clients.map((item) => ({ value: item.id, label: item.label }))} />
+      {clients.map(({ id }) => {
+        if (id === 'claude') {
+          return (
+            <TabsContent key={id} value={id} className="grid min-w-0 gap-3">
+              <p className="text-sm leading-6 text-muted-foreground">
+                In Claude, open Customize → Connectors → Add custom connector. Name it vibecms and use this URL.
+                Sign in when prompted; no key is needed.
+              </p>
+              <CodeBlock label="Connector URL" code={mcpUrl} copyLabel="Copy URL" />
+            </TabsContent>
+          )
+        }
         const config = configs[id]
         return (
           <TabsContent key={id} value={id} className="grid min-w-0 gap-3">

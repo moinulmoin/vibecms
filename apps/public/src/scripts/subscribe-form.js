@@ -1,6 +1,14 @@
 document.addEventListener("submit", async (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.classList.contains("vc-subscribe-form")) return;
+  if (form.dataset.externalForm === "true") {
+    const successEl = form.querySelector("[data-subscribe-success]");
+    if (successEl instanceof HTMLElement) {
+      successEl.textContent = "Finish signing up in the new tab.";
+      successEl.hidden = false;
+    }
+    return;
+  }
   event.preventDefault();
   const siteSlug = form.dataset.siteSlug;
   const emailInput = form.querySelector('input[name="email"]');

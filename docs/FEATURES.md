@@ -6,7 +6,7 @@ Update this whenever a feature is added, removed, or planned.
 - `CHANGELOG.md` = code release notes (per-commit/version).
 - This file = product/feature state and roadmap.
 
-Last updated: 2026-10-21
+Last updated: 2026-10-28
 
 ---
 
@@ -18,6 +18,7 @@ Last updated: 2026-10-21
 - OTP send rate limit: 5/hour per email (D1, fail-closed when the durable budget cannot be checked).
 - Only sign-in OTP sends are enabled and budgeted; unused email-verification, password, account-deletion and email-change send endpoints return 404.
 - Auto-provisioning on first sign-in: workspace + site + owner membership + default domain + billing row (`none`).
+- Sign in with vibecms (plan 029): agent apps that support MCP sign-in (Claude on web, desktop and phone; Claude Code) connect with only the MCP URL. OAuth 2.1 authorization code + S256 PKCE, discovery (RFC 9728/8414), Client ID Metadata Documents from trusted hosts (claude.ai, chatgpt.com) and public-client DCR. Apps are asked for up to Manage; the owner picks one blog and one access level on a consent screen (Write and publish preselected, Write drafts or an explicit Manage choice; levels the app didn't ask for are disabled). The connection is an agent-key record, so scopes, quotas, activity and Disconnect work exactly like keys. Access tokens (`vc_oat_`, 1 hour, MCP only) and rotating refresh tokens (30 days, reuse ends the connection; revoking one disconnects the app) are stored as peppered digests. Expired and abandoned OAuth records are cleaned every 15 minutes.
 
 ### Content / posts
 - Markdown-native posts; status model `draft | published | archived`.
@@ -27,6 +28,7 @@ Last updated: 2026-10-21
 - Per-site unique slugs; slug conflict surfaced as `slug_conflict`; auto-slug from title until the slug is edited manually.
 - Scheduled publishing: `posts.schedule` / `posts.unschedule` (+ REST + dashboard) pin an approved version for a future `publishAt`. Scheduling preserves the current draft/published status — a draft stays private, and a published post keeps serving its current live version until the scheduled run.
 - Scheduled publication retries transient errors up to three attempts; permanent errors fail immediately. Terminal failures appear in Activity and the posts list; structured failure events and per-run counts include crashed final attempts.
+- Original publish date for imports: `posts.publish` accepts `originalPublishedAt` on a post's first publish (from 1990, in the past). The blog shows that date, orders by it and uses it in JSON-LD, the Markdown twin and RSS `pubDate`; `publishedAt` stays the real vibecms publish time and no false "Updated" line appears.
 
 ### Version history
 - Meaningful changes create versions with the actor (human, token, or agent) and a change summary; publish pins the approved existing version (no new row), eligible unpublished draft edits fold into the tip (renumbered), and no-op saves do not create a version. Live and scheduled versions are protected from folding.
@@ -62,6 +64,7 @@ Last updated: 2026-10-21
 - Body search (LIKE over title/excerpt/content/tags); search results are `noindex` + `no-store`.
 - Clean-Markdown delivery of any post (`.md` / `Accept: text/markdown` / `?format=md`) with YAML frontmatter (output only).
 - Footer and end-of-post subscribe form (audience capture); themed not-found page.
+- Old-link redirects: owners' agents add exact path redirects (`redirects.list/set/delete`, Manage access; free 20, paid 5,000 per blog). They answer only would-be 404s with a 301 after real pages and slug redirects, respect subpath base paths, and can't claim system routes or form chains. Tenant 404s are `no-store` so new redirects apply at once.
 
 ### Custom domains
 - Bring-your-own domain per blog (owner + paid): add / list / remove in Settings with a CNAME instruction and live status badges.
@@ -88,11 +91,12 @@ Last updated: 2026-10-21
 - Privacy disclosures distinguish reader beacons from server-side agent reads, essential app sessions, Cloudflare Email Sending, and Polar checkout, and state that vibecms runs no AI model on customer content.
 
 ### Agent surfaces
-- MCP server at `POST /mcp` with 39 tools (sites/theme/voice/signup_form/location, tags, analytics, posts, assets, activity, versions + `posts.format_guide`, `posts.preview`, `posts.seo_check`, and the scope-free `skills.list`/`skills.get` that serve the agent skills to any valid key); JSON-RPC, 4 supported protocol versions (three initialize-era plus modern `2026-07-28`), per-tool scope + read/destructive/idempotent hints.
-- REST API `/api/v1` with 38 OpenAPI operations across 29 paths covering the same capabilities (`posts.search` maps to the posts-list search query) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`.
-- CLI `vibecms-cli` (login/whoami/site/posts/assets/activity/schema/skills, including posts get-by-slug; `--json`/`--ndjson`/`--dry-run`, typed exit codes); update, restore, and publish require an expected version. `skills list` discovers available skills; `skills get [name...] [--dir <path>] [--force]` saves all skills by default or the named subset to `.agents/skills` or the chosen folder, and requires `--force` to overwrite existing files.
+- MCP server at `POST /mcp` with 42 tools (sites/theme/voice/signup_form/location, redirects, tags, analytics, posts, assets, activity, versions + `posts.format_guide`, `posts.preview`, `posts.seo_check`, and the scope-free `skills.list`/`skills.get` that serve the agent skills to any valid key); JSON-RPC, 4 supported protocol versions (three initialize-era plus modern `2026-07-28`), per-tool scope + read/destructive/idempotent hints. `initialize` and keyless `tools/list` stay public; keyless `tools/call` and any invalid credential get HTTP 401 with a `WWW-Authenticate` sign-in challenge.
+- REST API `/api/v1` with 41 OpenAPI operations across 31 paths covering the same capabilities (`posts.search` maps to the posts-list search query) + public `GET /api/v1/openapi.json` and Scalar docs at `/api/v1/docs`. REST accepts agent keys only, not sign-in tokens.
+- CLI `vibecms-cli` (login/whoami/site/posts/assets/activity/schema/skills, including posts get-by-slug, `posts publish --original-published-at` and `sites redirects list|set|delete`; `--json`/`--ndjson`/`--dry-run`, typed exit codes); update, restore, and publish require an expected version. `skills list` discovers available skills; `skills get [name...] [--dir <path>] [--force]` saves all skills by default or the named subset to `.agents/skills` or the chosen folder, and requires `--force` to overwrite existing files.
 - Agent skills: every `skills/<name>/` folder is the only hand-edited source. `pnpm gen:agent-skills` bundles it, updates `skills-lock.json`, and writes exact copies to `plugins/vibecms/skills/<name>/` for the Claude Code plugin (no symlinks); the pre-commit check fails when any of them is stale. With no other code change a new skill is served at `/.well-known/agent-skills/` on the product and app hosts and by MCP/REST `skills.*`; `npx skills add https://vibecms.dev --skill '*'` installs them all. Run `npx skills update` to stay current, or save skills with `npx vibecms-cli skills get`.
-- Bearer tokens `vc_live_...` (HMAC-hashed, peppered, reveal-once, last-used tracking, owner-only management); 11 scopes; 4 key presets (`draft` default / `publish` / `manage` / legacy `full`); `assets:delete` is `full`-only; max 10 active tokens.
+- Seven skills: `vibecms-core`, `vibecms-writing`, `vibecms-seo`, plus task skills `vibecms-import` (Ghost/WordPress/Substack/Medium/Markdown with original dates, one batch approval, redirects and a completeness check), `vibecms-newsletter` (connect the owner's newsletter tool, RSS-to-email drafts), `vibecms-cross-post` (DEV, Hashnode and Medium copies pointing back to the original) and `vibecms-ship-to-draft` (a GitHub Actions workflow that drafts from merged `blog` PRs or releases and revises from `/vibecms` comments; it never publishes).
+- Bearer tokens `vc_live_...` (HMAC-hashed, peppered, reveal-once, last-used tracking, owner-only management); 11 scopes; 4 key presets (`draft` default / `publish` / `manage` / legacy `full`); `assets:delete` is `full`-only; max 10 active keys and sign-in connections per blog.
 - MCP and REST plan-limit errors include the installation's dashboard billing URL in both the message and `details.upgradeUrl` (JSON-RPC discovery errors use `error.data.details`); invalid credentials share one 401 replacement-key message linking to Connect without revealing whether the key existed.
 - Typed `coverAssetId` + `canonicalUrl` on posts.create/update (set/clear cover, set canonical); persisted to posts + version snapshots and reverted by restore.
 
@@ -134,7 +138,7 @@ Last updated: 2026-10-21
 - API/MCP quota counters (hosted): per-minute/day/month call caps and day/month write caps on free; paid has per-minute/day call caps and a daily write cap with no monthly cap (monthly totals still counted for the dashboard); per-token per-minute call caps on both, with `X-RateLimit-*` headers.
 - MCP write classification comes from the operation registry's read-only annotation, including scheduling, unscheduling, preview rotation, unarchive and asset metadata updates. REST charges equivalent mutations as writes.
 - Same-origin CSRF guards (`rejectCrossOriginBrowserPost`) on the Hono cookie-authenticated dashboard mutations and media POSTs.
-- Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA.
+- Subscriber capture with explicit consent text + version, honeypot, rate limiting, and hashed IP/UA. Owners can instead connect their own newsletter tool (`externalForm`: HTTPS form action + email field): the blog form then posts straight to that tool in a new tab, vibecms stores no new signups, and the page CSP `form-action` allows exactly that origin.
 - Owner-only JSON export of every post (`GET /api/export.json`): current and live snapshots plus referenced media metadata/URLs, not full version history, image binaries, subscribers, or all site settings. See the [export boundaries](../apps/public/src/content/docs/content/export.mdx).
 - Self-hosted mode (`SELF_HOSTED=true`): billing always active, no quotas, always indexable.
 - Unexpected REST/MCP exceptions log redacted message, stack and bounded causes once, correlated with the response request ID; responses remain generic.
@@ -151,8 +155,8 @@ Last updated: 2026-10-21
 ## Planned
 
 - **Google/GitHub OAuth sign-in**: code is wired in `auth.ts` and appears only when the corresponding client credentials are provisioned. Email OTP remains the default.
-- **Newsletter delivery** (separate track, currently ON HOLD): audience capture stores pending subscribers today; double opt-in confirmation + sends (Cloudflare Email Sending) are deferred. Not a gap in the current scope.
-- **WebMCP** (plan 025, ON HOLD) and **redirects/import/IndexNow** (plan 026, ON HOLD): design records exist; not started.
+- **Newsletter delivery by vibecms** (ON HOLD): vibecms sends no email. Owners connect their own tool (signup form posts to it; the `vibecms-newsletter` skill sets up RSS-to-email drafts there). Native confirmation/sends stay deferred.
+- **WebMCP** (plan 025, ON HOLD) and **IndexNow** (plan 026, ON HOLD): design records exist; not started. Plan 026's redirects and original dates shipped 2026-10-28; its server-side import parsers were replaced by the agent-driven `vibecms-import` skill.
 
 ---
 

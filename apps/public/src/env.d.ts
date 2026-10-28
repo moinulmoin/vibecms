@@ -26,6 +26,8 @@ declare global {
       publicLocation?: PublicLocation;
       /** Blog-relative path after proxy-ingress stripping ("/…"). */
       publicPath?: string;
+      /** Origin permitted for this rendered site's external signup form. */
+      newsletterFormOrigin?: string;
       /** Set after the first middleware pass records an agent_fetch point. */
       agentFetchRecorded?: boolean;
     }

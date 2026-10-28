@@ -37,6 +37,7 @@ export interface SubscribeSettings {
   subtext?: string;
   buttonLabel?: string;
   enabled?: boolean;
+  externalForm?: { action: string; emailField: string } | null;
 }
 
 export function SubscribeBlock({
@@ -51,25 +52,40 @@ export function SubscribeBlock({
   if (settings?.enabled === false) return null;
   const inert = !siteSlug;
   const idSlug = siteSlug ?? "preview";
+  const externalForm = settings?.externalForm;
+  // Existing sites persist the waitlist defaults, so treat those values as
+  // defaults in external mode while preserving any customized copy.
+  const subtext = externalForm && (!settings?.subtext || settings.subtext === SUBSCRIBE_SUBTEXT)
+    ? "New posts straight to your inbox. Unsubscribe anytime."
+    : settings?.subtext || SUBSCRIBE_SUBTEXT;
+  const buttonLabel = externalForm && (!settings?.buttonLabel || settings.buttonLabel === SUBSCRIBE_BUTTON)
+    ? "Subscribe"
+    : settings?.buttonLabel || SUBSCRIBE_BUTTON;
   return (
     <form
       className={`${subscribeStyles.form} ${variant === "footer" ? subscribeStyles.formFooter : subscribeStyles.formEnd} vc-subscribe-form`}
-      data-site-slug={siteSlug}
-      noValidate
+      data-site-slug={externalForm ? undefined : siteSlug}
+      data-external-form={externalForm ? "true" : undefined}
+      method={externalForm ? "post" : undefined}
+      action={externalForm?.action}
+      target={externalForm ? "_blank" : undefined}
+      noValidate={externalForm ? undefined : true}
       onSubmit={inert ? (event) => event.preventDefault() : undefined}
     >
       <p className={subscribeStyles.heading}>{settings?.heading || SUBSCRIBE_HEADING}</p>
-      <p className={subscribeStyles.subtext}>{settings?.subtext || SUBSCRIBE_SUBTEXT}</p>
-      <div className={subscribeStyles.honeypot} aria-hidden="true">
-        <input name="company" type="text" tabIndex={-1} autoComplete="off" />
-      </div>
+      <p className={subscribeStyles.subtext}>{subtext}</p>
+      {!externalForm ? (
+        <div className={subscribeStyles.honeypot} aria-hidden="true">
+          <input name="company" type="text" tabIndex={-1} autoComplete="off" />
+        </div>
+      ) : null}
       <div className={subscribeStyles.row}>
         <label className={subscribeStyles.emailLabel} htmlFor={`email-${variant}-${idSlug}`}>
           Email address
         </label>
         <input
           id={`email-${variant}-${idSlug}`}
-          name="email"
+          name={externalForm?.emailField ?? "email"}
           type="email"
           required
           className={`${subscribeStyles.emailInput} ${subscribeStyles.input}`}
@@ -77,10 +93,12 @@ export function SubscribeBlock({
           tabIndex={inert ? -1 : undefined}
         />
         <button type="submit" className={subscribeStyles.submitBtn} tabIndex={inert ? -1 : undefined}>
-          {settings?.buttonLabel || SUBSCRIBE_BUTTON}
+          {buttonLabel}
         </button>
       </div>
-      <p className={subscribeStyles.consentNote}>{SUBSCRIBE_CONSENT_TEXT}</p>
+      <p className={subscribeStyles.consentNote}>
+        {externalForm ? `Signing up sends your email to ${new URL(externalForm.action).hostname}.` : SUBSCRIBE_CONSENT_TEXT}
+      </p>
       <p
         className={subscribeStyles.errorMsg}
         role="alert"
@@ -95,7 +113,7 @@ export function SubscribeBlock({
         hidden
         data-subscribe-success
       >
-        {SUBSCRIBE_SUCCESS}
+        {externalForm ? "Finish signing up in the new tab." : SUBSCRIBE_SUCCESS}
       </p>
     </form>
   );

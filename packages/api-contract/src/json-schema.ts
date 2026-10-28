@@ -7,9 +7,11 @@ type JsonSchema = Record<string, unknown>;
  * matching input parsing. MCP requires `type: "object"` at the top, and
  * Claude's API rejects top-level anyOf/oneOf, so a union of object shapes is
  * advertised as one object; the request parser still enforces the union.
+ * `$schema` is dropped: MCP reads a schema without it as JSON Schema 2020-12,
+ * and repeating it on every tool bloats tools/list.
  */
 export function zodToInputJsonSchema(schema: z.ZodTypeAny): JsonSchema {
-  const converted = z.toJSONSchema(schema, { io: "input" }) as JsonSchema;
+  const { $schema: _schema, ...converted } = z.toJSONSchema(schema, { io: "input" }) as JsonSchema;
   const options = (converted.anyOf ?? converted.oneOf) as JsonSchema[] | undefined;
   if (!Array.isArray(options) || !options.every((option) => option.type === "object")) return converted;
 

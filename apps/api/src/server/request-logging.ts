@@ -1,6 +1,8 @@
-/** Preview links carry their secret in the path; never log it. */
+/** Preview links and pending sign-in requests carry their secret in the path; never log them. */
 export function redactPathSecrets(pathname: string) {
-  return pathname.replace(/\/preview\/[^/]+/g, '/preview/[redacted]')
+  return pathname
+    .replace(/\/preview\/[^/]+/g, '/preview/[redacted]')
+    .replace(/\/oauth\/requests\/[^/]+/g, '/oauth/requests/[redacted]')
 }
 
 export function redactErrorText(value: string | undefined) {

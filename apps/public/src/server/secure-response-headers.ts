@@ -32,10 +32,10 @@ export function applyBaselineSecurityHeaders(headers: Headers): void {
  * Frame and navigation restrictions that must be delivered as response headers.
  * Astro owns script/style CSP because it hashes generated island hydration code.
  */
-export function buildHtmlContentSecurityPolicy(): string {
+export function buildHtmlContentSecurityPolicy(formOrigin?: string): string {
   return [
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action 'self'${formOrigin ? ` ${formOrigin}` : ""}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
   ].join("; ");
@@ -63,10 +63,10 @@ function allowInlineStyles(policy: string): string {
 /**
  * Proxied subpath pages (plan 022 §5) load hashed assets from our host: the
  * rewriter absolutizes `/_astro/*`, media, OG and root icons onto
- * `assetOrigin`, so every resource directive must list it. `connect-src` /
- * `form-action` stay `'self'` — beacons, subscribe and markdown fetches go
- * through the proxy. Missing directives fall back to `default-src`, so the
- * extra directives are seeded from it when the merged policy has one.
+ * `assetOrigin`, so every resource directive must list it. `connect-src`
+ * stays `'self'`; form-action is scoped separately to the site's newsletter.
+ * Missing directives fall back to `default-src`, so the extra directives are
+ * seeded from it when the merged policy has one.
  */
 const ASSET_ORIGIN_DIRECTIVES: Record<string, true> = {
   "script-src": true,
@@ -99,8 +99,8 @@ function trustAssetOrigin(policy: string, assetOrigin: string): string {
  * frame/navigation directives. Without an Astro policy, scripts are still
  * limited to this origin: tenant pages render untrusted Markdown.
  */
-export function mergeHtmlContentSecurityPolicy(astroPolicy: string | null, location?: Pick<PublicLocation, "assetOrigin" | "proxied">): string {
-  const ours = buildHtmlContentSecurityPolicy();
+export function mergeHtmlContentSecurityPolicy(astroPolicy: string | null, location?: Pick<PublicLocation, "assetOrigin" | "proxied">, formOrigin?: string): string {
+  const ours = buildHtmlContentSecurityPolicy(formOrigin);
   const existing = allowInlineStyles((astroPolicy ?? "").trim().replace(/;\s*$/, ""));
   let merged: string;
   if (!existing) {
@@ -110,6 +110,13 @@ export function mergeHtmlContentSecurityPolicy(astroPolicy: string | null, locat
     const extra = ours.split("; ").filter((d) => !names.has(d.split(" ")[0]!.toLowerCase()));
     merged = extra.length ? `${existing}; ${extra.join("; ")}` : existing;
   }
+  if (formOrigin) {
+    merged = merged.split(";").map((directive) =>
+      directive.trim().toLowerCase().startsWith("form-action ")
+        ? `form-action 'self' ${formOrigin}`
+        : directive.trim(),
+    ).join("; ");
+  }
   return location?.proxied && location.assetOrigin ? trustAssetOrigin(merged, location.assetOrigin) : merged;
 }
 
@@ -118,6 +125,7 @@ export function applyPublicSecurityHeaders(
   contentType: string | null,
   headers: Headers,
   location?: Pick<PublicLocation, "assetOrigin" | "proxied">,
+  formOrigin?: string,
 ): void {
   applyBaselineSecurityHeaders(headers);
 
@@ -133,6 +141,6 @@ export function applyPublicSecurityHeaders(
 
   const isHtml = (contentType ?? "").toLowerCase().includes("text/html");
   if (isHtml || kind === "html") {
-    headers.set("Content-Security-Policy", mergeHtmlContentSecurityPolicy(headers.get("Content-Security-Policy"), location));
+    headers.set("Content-Security-Policy", mergeHtmlContentSecurityPolicy(headers.get("Content-Security-Policy"), location, formOrigin));
   }
 }

@@ -73,7 +73,7 @@ function editorPage(id: string, title: string, versionNumber: number): PostEdito
   const slug = title.toLowerCase().replace(/\s+/g, '-')
   const post: Post = {
     id, siteId: 'site-a', title, slug, excerpt: null, contentMarkdown: `${title} body`, coverAssetId: null,
-    canonicalUrl: null, seoTitle: null, seoDescription: null, status: 'draft', publishedAt: null, tags: [],
+    canonicalUrl: null, seoTitle: null, seoDescription: null, status: 'draft', publishedAt: null, originalPublishedAt: null, tags: [],
     createdAt: 1, updatedAt: versionNumber, presentation: { layout: 'standard', toc: false },
     currentVersionNumber: versionNumber, publishedVersionNumber: null,
   }

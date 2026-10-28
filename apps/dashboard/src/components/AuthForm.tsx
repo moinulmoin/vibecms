@@ -43,7 +43,7 @@ export function retryMessage(error: unknown): string {
   return `Too many codes requested. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`
 }
 
-export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabled: boolean; githubEnabled: boolean; intent?: AuthIntent }) {
+export function AuthForm({ googleEnabled, githubEnabled, intent, returnTo = '/dashboard' }: { googleEnabled: boolean; githubEnabled: boolean; intent?: AuthIntent; returnTo?: string }) {
   const authClient = setupAuthClient()
   const providers: SocialProvider[] = []
   if (googleEnabled) providers.push('google')
@@ -113,7 +113,7 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
             try {
               const response = await fetch('/api/onboarding/ensure', { method: 'POST' })
               if (!response.ok) throw new Error('ensure failed')
-              window.location.href = '/dashboard'
+              window.location.href = returnTo
             } catch {
               setError('You’re signed in, but your blog didn’t open. Try again.')
               setLoading(false)
@@ -138,7 +138,7 @@ export function AuthForm({ googleEnabled, githubEnabled, intent }: { googleEnabl
     setError(null)
     setLoading(true)
     try {
-      const { error: socialError } = await authClient.signIn.social({ provider, callbackURL: '/dashboard' })
+      const { error: socialError } = await authClient.signIn.social({ provider, callbackURL: returnTo })
       if (socialError) {
         setError(socialError.message ?? `Could not start ${SOCIAL_LABELS[provider]} sign-in.`)
         setLoading(false)

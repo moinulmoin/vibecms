@@ -44,6 +44,17 @@ export function scheduleSitePurge(
   scheduleBackground(purgeSiteCache(siteId, siteSlug, postSlugs, locations));
 }
 
+/** Redirects can have multiple segments, so include their exact paths in the URL fallback. */
+export function scheduleRedirectPurge(siteId: string, siteSlug: string, paths: readonly string[]) {
+  scheduleBackground(
+    (async () => {
+      const data = createDataAccess(env.DB);
+      const encodedPaths = paths.map((path) => path.slice(1).split("/").map(encodeURIComponent).join("/"));
+      await purgeSiteCache(siteId, siteSlug, encodedPaths, await mountedLocations(data, siteId));
+    })(),
+  );
+}
+
 export function scheduleManagedSitePurge(
   database: D1Database,
   siteId: string,

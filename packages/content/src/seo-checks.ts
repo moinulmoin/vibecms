@@ -86,7 +86,7 @@ export interface SeoCheckInput {
     /** Canonical public URL of the blog root, e.g. `https://tenant.dev/blog`; null when unknown. */
     readonly primaryBaseUrl: string | null;
   };
-  /** Complete set of the site's published slugs; candidates not in it are reported broken. */
+  /** Resolved post slugs and exact blog-relative redirect paths. */
   readonly publishedSlugs: readonly string[];
   /**
    * Other published posts of the site for duplicate detection. `title`/
@@ -151,6 +151,8 @@ interface LinkTarget {
    * paths with an extension, `#`/`?` targets, the blog root).
    */
   readonly candidate: string | null;
+  /** Full blog-relative path for an exact site redirect lookup. */
+  readonly redirectPath?: string;
   /**
    * True when the resolved path lives under the site's own base path, so
    * `publishedSlugs` decides whether it resolves. False for root-relative
@@ -202,7 +204,7 @@ function linkTarget(raw: string, base: ParsedBase | null): LinkTarget | null {
   if (!candidate || RESERVED[candidate.toLowerCase()] || candidate.includes(".")) {
     return { candidate: null, inBlogSpace };
   }
-  return { candidate, inBlogSpace };
+  return { candidate, inBlogSpace, redirectPath: inBlogSpace ? path : undefined };
 }
 
 function isEl(node: SeoMarkdownNode): node is SeoMarkdownElement {
@@ -210,11 +212,9 @@ function isEl(node: SeoMarkdownNode): node is SeoMarkdownElement {
 }
 
 /**
- * Every normalized post-slug candidate referenced by `href`, `src`, or
- * `srcSet` in the parsed tree — the lookup set `publishedSlugs` must answer
- * for. Sorted, deduped, uncapped: callers bound DB queries by chunking, not
- * by dropping links, or `link-internal-broken` would invent errors on links
- * that were never checked.
+ * Post-slug candidates and full blog-relative redirect paths referenced by
+ * `href`, `src`, or `srcSet`. Sorted, deduped, uncapped: callers chunk DB
+ * lookups rather than dropping links and inventing broken-link errors.
  */
 export function collectSeoLinkSlugs(tree: SeoMarkdownTree, primaryBaseUrl: string | null): string[] {
   const base = parsePrimaryBaseUrl(primaryBaseUrl);
@@ -223,6 +223,7 @@ export function collectSeoLinkSlugs(tree: SeoMarkdownTree, primaryBaseUrl: strin
     if (typeof value !== "string") return;
     const target = linkTarget(value, base);
     if (target?.candidate) slugs.add(target.candidate);
+    if (target?.candidate && target.redirectPath) slugs.add(target.redirectPath);
   };
   const walk = (children: readonly SeoMarkdownNode[]) => {
     for (const node of children) {
@@ -605,7 +606,7 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
     const target = linkTarget(raw, base);
     if (!target?.candidate) continue;
     if (target.candidate === input.slug) continue; // self-link resolves once published
-    if (published.has(target.candidate)) {
+    if (published.has(target.candidate) || (target.redirectPath && published.has(target.redirectPath))) {
       internalPostLinks += 1;
     } else if (target.inBlogSpace && !seenBroken.has(target.candidate)) {
       // Candidates outside a subpath site's base path keep their "customer

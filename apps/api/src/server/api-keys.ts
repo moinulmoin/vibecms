@@ -13,6 +13,7 @@ export type ApiKeyListItem = {
   actorName: string
   lastUsedAt: number | null
   revokedAt: number | null
+  connection: { clientName: string; clientHost: string; registration: 'dcr' | 'cimd' } | null
   createdAt: number
 }
 
@@ -93,6 +94,7 @@ function mapRow(row: ApiKeyRecord): ApiKeyListItem {
     actorName: row.actorName,
     lastUsedAt: row.lastUsedAt,
     revokedAt: row.revokedAt,
+    connection: null,
     createdAt: row.createdAt,
   }
 }
@@ -102,13 +104,28 @@ export { allScopes }
 export async function listApiKeys(app: AppUserContext) {
   if (!canManageApiKeys(app)) return []
   const db = createDataAccess(env.DB)
-  const [rows, managed] = await Promise.all([
+  const [rows, managed, clients] = await Promise.all([
     db.apiKeys.listActive(app.siteId),
     db.managedSites.getSnapshotBySiteId(app.siteId),
+    env.DB.prepare(`SELECT k.id AS key_id, c.id, c.client_name, c.registration, c.redirect_uris_json,
+      (SELECT a.redirect_uri FROM oauth_authorizations a WHERE a.api_key_id = k.id ORDER BY a.created_at DESC LIMIT 1) AS redirect_uri
+      FROM oauth_clients c JOIN api_keys k ON k.oauth_client_id = c.id
+      WHERE k.site_id = ? AND k.revoked_at IS NULL`).bind(app.siteId).all<{
+        key_id: string; id: string; client_name: string; registration: 'dcr' | 'cimd'; redirect_uris_json: string; redirect_uri: string | null
+      }>(),
   ])
+  const byId = new Map(clients.results.map((client) => [client.key_id, client]))
   return rows
     .filter((row) => row.id !== managed?.apiKeyId)
-    .map(mapRow)
+    .map((row) => {
+      const item = mapRow(row)
+      const client = byId.get(row.id)
+      if (client) {
+        const identity = client.registration === 'cimd' ? client.id : client.redirect_uri ?? (JSON.parse(client.redirect_uris_json) as string[])[0]
+        item.connection = { clientName: client.client_name, clientHost: new URL(identity).hostname, registration: client.registration }
+      }
+      return item
+    })
 }
 
 async function isCurrentManagedApiKey(app: AppUserContext, keyId: string) {

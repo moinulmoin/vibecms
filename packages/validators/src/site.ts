@@ -126,11 +126,24 @@ export const NEWSLETTER_HEADING_MAX_LENGTH = 80;
 export const NEWSLETTER_SUBTEXT_MAX_LENGTH = 160;
 export const NEWSLETTER_BUTTON_LABEL_MAX_LENGTH = 24;
 
+export const externalNewsletterFormSchema = z.object({
+  action: z.string().max(500).url().refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password && url.hostname.includes(".");
+    } catch {
+      return false;
+    }
+  }, "Use an HTTPS URL with a domain and no user information"),
+  emailField: z.string().regex(/^[A-Za-z0-9_\-\[\].:]{1,64}$/),
+}).strict();
+
 export const newsletterSettingsSchema = z.object({
   enabled: z.boolean(),
   heading: z.string().trim().min(1).max(NEWSLETTER_HEADING_MAX_LENGTH),
   subtext: z.string().trim().min(1).max(NEWSLETTER_SUBTEXT_MAX_LENGTH),
   buttonLabel: z.string().trim().min(1).max(NEWSLETTER_BUTTON_LABEL_MAX_LENGTH),
+  externalForm: externalNewsletterFormSchema.nullable().default(null),
 }).strict();
 
 export type NewsletterSettings = z.infer<typeof newsletterSettingsSchema>;

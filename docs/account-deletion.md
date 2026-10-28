@@ -50,6 +50,7 @@ Authoritative ownership: [`schema.ts`](../packages/db/src/schema.ts), plus migra
 | `post_preview_tokens` | `site_id` / `post_id`; cascade, invalidating stored preview tokens. |
 | `post_schedules` | `site_id` / `post_id`; cascade; drain processing leases first. |
 | `post_slug_redirects` | `site_id` / `post_id`; cascade, including old slug mappings. |
+| `site_redirects` | `site_id`; cascade removes imported old-link mappings. |
 | `post_seo_reviews` | `site_id` / `post_id`; cascade; cached review content. See [0035](../packages/db/drizzle/0035_post_seo_reviews.sql). |
 | `site_voice_profiles` | `site_id`; cascade, including writing guidance/samples represented there. |
 | `site_theme_previous_look` | `site_id`; cascade; see [0032](../packages/db/drizzle/0032_site_theme_previous_look.sql). |
@@ -60,6 +61,9 @@ Authoritative ownership: [`schema.ts`](../packages/db/src/schema.ts), plus migra
 | `analytics_rollups` | `site_id`; cascade removes every granularity/kind/dimension. |
 | `analytics_rollup_state` | `site_id`; cascade; prevent rollup recreation. |
 | `api_keys` | `site_id`; revoke selected keys during isolation, cascade deletes all selected-site keys, including revoked/old generations. Never expose token hashes. |
+| `oauth_authorizations` | `api_key_id` cascades with a site's connection; `user_id` cascades for account deletion, including pending consent. |
+| `oauth_tokens` | `api_key_id` cascades with the connection; never expose token hashes. |
+| `oauth_clients` | Shared client registrations are not user or site records; retain them when deleting a customer. Deleting a client cascades its connections, so do not delete one as customer cleanup. |
 | `domains` | `site_id`; cascade removes default/custom/subpath claims, not Cloudflare resources or DNS. |
 | `usage_counters` | `site_id` rows cascade from site; **also** delete via workspace cascade for `workspace_id`, including rows with null `site_id`. |
 | `sites` | Exact IDs and matching `workspace_id`; delete only approved sites. |
@@ -113,6 +117,7 @@ UNION ALL SELECT 'post_versions', count(*) FROM post_versions WHERE site_id = :s
 UNION ALL SELECT 'post_preview_tokens', count(*) FROM post_preview_tokens WHERE site_id = :site_id
 UNION ALL SELECT 'post_schedules', count(*) FROM post_schedules WHERE site_id = :site_id
 UNION ALL SELECT 'post_slug_redirects', count(*) FROM post_slug_redirects WHERE site_id = :site_id
+UNION ALL SELECT 'site_redirects', count(*) FROM site_redirects WHERE site_id = :site_id
 UNION ALL SELECT 'post_seo_reviews', count(*) FROM post_seo_reviews WHERE site_id = :site_id
 UNION ALL SELECT 'site_voice_profiles', count(*) FROM site_voice_profiles WHERE site_id = :site_id
 UNION ALL SELECT 'site_theme_previous_look', count(*) FROM site_theme_previous_look WHERE site_id = :site_id
@@ -123,6 +128,8 @@ UNION ALL SELECT 'activity_events', count(*) FROM activity_events WHERE site_id 
 UNION ALL SELECT 'analytics_rollups', count(*) FROM analytics_rollups WHERE site_id = :site_id
 UNION ALL SELECT 'analytics_rollup_state', count(*) FROM analytics_rollup_state WHERE site_id = :site_id
 UNION ALL SELECT 'api_keys', count(*) FROM api_keys WHERE site_id = :site_id
+UNION ALL SELECT 'oauth_authorizations', count(*) FROM oauth_authorizations WHERE api_key_id IN (SELECT id FROM api_keys WHERE site_id = :site_id)
+UNION ALL SELECT 'oauth_tokens', count(*) FROM oauth_tokens WHERE api_key_id IN (SELECT id FROM api_keys WHERE site_id = :site_id)
 UNION ALL SELECT 'domains', count(*) FROM domains WHERE site_id = :site_id
 UNION ALL SELECT 'usage_counters', count(*) FROM usage_counters WHERE site_id = :site_id
 UNION ALL SELECT 'sites', count(*) FROM sites WHERE id = :site_id;
@@ -143,6 +150,7 @@ SELECT id, payment_evidence, notified_at FROM autoseopilot_purge_conflicts WHERE
 SELECT 'user' AS table_name, count(*) AS rows FROM user WHERE id = :user_id
 UNION ALL SELECT 'session', count(*) FROM session WHERE user_id = :user_id
 UNION ALL SELECT 'account', count(*) FROM account WHERE user_id = :user_id
+UNION ALL SELECT 'oauth_authorizations', count(*) FROM oauth_authorizations WHERE user_id = :user_id
 UNION ALL SELECT 'memberships', count(*) FROM memberships WHERE user_id = :user_id
 UNION ALL SELECT 'managed_ownership', count(*) FROM autoseopilot_managed_sites WHERE owner_user_id = :user_id;
 

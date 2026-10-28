@@ -1,4 +1,6 @@
-import { getPublishedSlugRedirect } from "@vc/db";
+import { normalizeRedirectPath, RESERVED_ROOT_SLUGS } from "@vc/core";
+import { RESERVED_POST_SLUGS } from "@vc/config";
+import { getPublishedSlugRedirect, getSiteRedirect } from "@vc/db";
 import {
   getPublishedPost,
   isPausedSite,
@@ -44,27 +46,11 @@ export function isPublicBlogPaused(
 
 export { isMarketingHost } from "./public-blog-data";
 
-export const RESERVED_ROOT_SLUGS = new Set([
-  "dashboard",
-  "api",
-  "blog",
-  "login",
-  "mcp",
-  "media-assets",
-  "internal",
-  "feed.xml",
-  "sitemap.xml",
-  "robots.txt",
-  "llms.txt",
-  "llms-full.txt",
-  "docs-search.json",
-  "docs",
-  "__vc-health",
-]);
+export { RESERVED_ROOT_SLUGS };
 
 /** These routes gained special handling after tenant posts with these slugs existed. */
 export function isReadableTenantPostSlug(slug: string | undefined): slug is string {
-  return !!slug && (!RESERVED_ROOT_SLUGS.has(slug) || slug === "docs" || slug === "internal");
+  return !!slug && (!(RESERVED_POST_SLUGS as readonly string[]).includes(slug) || slug === "docs" || slug === "internal");
 }
 
 export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: string, request: Request, env: PublicRuntimeEnv, basePath = ""): Promise<Response | null> {
@@ -76,14 +62,38 @@ export async function publicPostRedirect(db: D1Database, site: SiteRow, slug: st
   const markdown = url.pathname.endsWith(".md") || url.searchParams.get("format") === "md";
   url.searchParams.delete("format");
   url.pathname = `${basePath}/${target}${markdown ? ".md" : ""}`;
+  return publicRedirectResponse(site, env, url.href);
+}
+
+function publicRedirectResponse(site: SiteRow, env: PublicRuntimeEnv, target: string): Response {
   const headers = new Headers(publicHtmlResponseHeaders(site, env, [siteCacheTag(site.id)]));
-  headers.set("location", url.href);
+  headers.set("location", target);
   // Browsers must recheck: a remembered 301 would loop once a rename is
   // reversed. The CDN may keep it briefly; site-tag purges clear it there.
   headers.set("cache-control", "no-cache");
   headers.set("cdn-cache-control", "public, max-age=300");
   headers.delete("content-type");
   return new Response(null, { status: 301, headers });
+}
+
+/** Only replace a tenant 404; real pages and the older slug redirects win. */
+export async function publicMissingRedirect(
+  db: D1Database,
+  request: Request,
+  response: Response,
+  pathname: string,
+  location: PublicLocation,
+  env: PublicRuntimeEnv,
+): Promise<Response | null> {
+  if (response.status !== 404 || (request.method !== "GET" && request.method !== "HEAD")) return null;
+  const from = normalizeRedirectPath(pathname);
+  if (!from) return null;
+  const site = await resolveSite(request, db, env);
+  if (!site || isPausedSite(site)) return null;
+  const redirect = await getSiteRedirect(db, site.id, from);
+  if (!redirect) return null;
+  const targetPath = redirect.toPath.split("/").map(encodeURIComponent).join("/");
+  return publicRedirectResponse(site, env, location.origin + location.basePath + targetPath);
 }
 
 export function markdownRequested(request: Request) {

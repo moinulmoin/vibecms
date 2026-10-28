@@ -14,6 +14,7 @@ import {
   updatedSiteDtoSchema, themeDtoSchema, voiceSettingsDtoSchema, signupFormDtoSchema,
   signupFormUpdateDtoSchema, tagDtoSchema, analyticsDtoSchema, skillListDtoSchema, skillDtoSchema,
   seoCheckPostDtoSchema,
+  listRedirectsDtoSchema, setRedirectsDtoSchema, deleteRedirectsDtoSchema,
 } from "./dto";
 import {
   archivePostRequestSchema,
@@ -44,6 +45,7 @@ import {
   updateVoiceRequestSchema, updateSignupFormRequestSchema, listTagsRequestSchema, getAnalyticsRequestSchema, listSkillsRequestSchema, getSkillRequestSchema,
   getSiteLocationRequestSchema, setSubpathLocationRequestSchema, checkSiteLocationRequestSchema, removeSiteLocationRequestSchema,
   seoCheckPostRequestSchema,
+  listRedirectsRequestSchema, setRedirectsRequestSchema, deleteRedirectsRequestSchema,
 } from "./requests";
 
 export type OperationAnnotations = {
@@ -117,7 +119,7 @@ export const operations = [
   },
   {
     toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
-    description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
     requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: {},
   },
   {
@@ -139,6 +141,21 @@ export const operations = [
     toolName: 'sites.location.remove', operationId: 'removeSiteLocation', requiredScope: 'site:write',
     description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}.', 'site:write', writeErrors),
     requestSchema: removeSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
+  },
+  {
+    toolName: 'redirects.list', operationId: 'listRedirects', requiredScope: 'sites:read',
+    description: opDescription('List exact-path redirects with total and plan limit.', 'sites:read', readErrors),
+    requestSchema: listRedirectsRequestSchema, responseSchema: listRedirectsDtoSchema, annotations: { readOnly: true },
+  },
+  {
+    toolName: 'redirects.set', operationId: 'setRedirects', requiredScope: 'site:write',
+    description: opDescription('Upsert up to 100 exact-path redirects to blog paths; all-or-nothing. Live change: needs owner approval (one may cover an import batch).', 'site:write', writeErrors),
+    requestSchema: setRedirectsRequestSchema, responseSchema: setRedirectsDtoSchema, annotations: { idempotent: true },
+  },
+  {
+    toolName: 'redirects.delete', operationId: 'deleteRedirects', requiredScope: 'site:write',
+    description: opDescription('Delete up to 100 redirects by source path. Live change: needs owner approval.', 'site:write', writeErrors),
+    requestSchema: deleteRedirectsRequestSchema, responseSchema: deleteRedirectsDtoSchema, annotations: { destructive: true },
   },
   {
     toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',
@@ -243,7 +260,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Live change: needs explicit owner approval first (see server instructions).",
+      "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first (see server instructions).",
       "posts:publish",
       writeErrors,
     ),

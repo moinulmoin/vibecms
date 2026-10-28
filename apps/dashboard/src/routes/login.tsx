@@ -6,18 +6,23 @@ import { AuthForm, type AuthIntent } from '~/components/AuthForm'
 import { Step, Steps } from '~/components/dashboard/blocks'
 import { clearSessionSecrets } from '~/lib/token-flash'
 
-type LoginSearch = { intent?: AuthIntent }
+type LoginSearch = { intent?: AuthIntent; returnTo?: string }
+
+function safeReturnTo(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(value)) return undefined
+  return value
+}
 
 export const Route = createFileRoute('/login')({
   // "Start free" links from the site arrive with ?intent=start.
-  validateSearch: (search: Record<string, unknown>): LoginSearch =>
-    search.intent === 'start' ? { intent: 'start' } : {},
-  // Already signed in: go to the dashboard instead of showing the sign-in form.
-  // Ask the server, not the cache: an expired session lands here with a stale
-  // cached context, and must see the form rather than bounce back.
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    intent: search.intent === 'start' ? 'start' : undefined,
+    returnTo: safeReturnTo(search.returnTo),
+  }),
+  // Ask the server, not the cache: an expired session must see the form.
+  beforeLoad: async ({ search }) => {
     const fresh = await queryClient.fetchQuery({ ...contextQuery, staleTime: 0 }).catch(() => null)
-    if (fresh?.app) throw redirect({ to: '/dashboard' })
+    if (fresh?.user) throw redirect({ href: search.returnTo ?? '/dashboard' })
   },
   component: LoginPage,
 })
@@ -46,7 +51,7 @@ function HowItWorks() {
 
 function LoginPage() {
   const { googleEnabled, githubEnabled } = Route.useRouteContext()
-  const { intent } = Route.useSearch()
+  const { intent, returnTo } = Route.useSearch()
 
   // Whoever signs in next in this tab must never see the previous session's one-time key.
   useEffect(() => clearSessionSecrets(), [])
@@ -63,7 +68,7 @@ function LoginPage() {
         </a>
         <div className="grid flex-1 content-center items-center gap-12 py-10 lg:grid-cols-[minmax(0,24rem)_minmax(0,22rem)] lg:justify-between lg:gap-16">
           <div className="mx-auto w-full max-w-sm lg:mx-0">
-            <AuthForm googleEnabled={googleEnabled} githubEnabled={githubEnabled} intent={intent} />
+            <AuthForm googleEnabled={googleEnabled} githubEnabled={githubEnabled} intent={intent} returnTo={returnTo} />
           </div>
           <aside aria-label="How vibecms works" className="hidden lg:block">
             <HowItWorks />

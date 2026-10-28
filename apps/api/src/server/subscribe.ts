@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { createDataAccess, createD1SubscriberRepository } from '@vc/db'
+import { newsletterSettingsSchema } from '@vc/validators'
 import { API_BINDING_HOSTNAME } from '@vc/config'
 
 import { SUBSCRIBE_CONSENT_TEXT, SUBSCRIBE_CONSENT_VERSION } from '@/lib/subscribe-consent'
@@ -99,6 +100,17 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
   if (!siteId) {
     // Unknown site -> neutral success (no enumeration)
     return { status: 200, body: { ok: true } }
+  }
+
+  // A stale form or direct request must not keep collecting for an external provider.
+  const settings = await createDataAccess(env.DB).sites.getSiteNewsletterSettings(siteId)
+  if (settings) {
+    try {
+      const parsed = newsletterSettingsSchema.safeParse(JSON.parse(settings))
+      if (parsed.success && parsed.data.externalForm) return { status: 200, body: { ok: true } }
+    } catch {
+      // Existing malformed settings retain the default vibecms behavior.
+    }
   }
 
   // A paused managed blog is not serving; its subscribe form is gone too.

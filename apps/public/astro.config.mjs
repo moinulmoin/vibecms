@@ -25,7 +25,6 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         "base-uri 'self'",
-        "form-action 'self'",
         "object-src 'none'",
         "img-src 'self' data: https:",
         "font-src 'self'",

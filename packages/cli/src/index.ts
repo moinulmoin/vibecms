@@ -37,6 +37,9 @@ Commands:
   sites location set-subpath --data '{"url":"https://example.com/blog"}'  Configure a subpath proxy (or --data-file)
   sites location remove                     Remove the subpath location
   sites location check                      Check the saved proxy and activate on success
+  sites redirects list [--limit <n> --offset <n>]  List old-link redirects
+  sites redirects set --data '<json>'       Add or update redirects (or --data-file)
+  sites redirects delete --data '<json>'    Remove redirects (or --data-file)
   sites signup-form get                     Current form and site updatedAt
   sites signup-form update --expected-updated-at <n> --data '<json>'  Change signup form fields
   tags list                                 Tags in use with post counts
@@ -53,7 +56,7 @@ Commands:
   posts seo <postId> [--focus-keyword <text>]  Deterministic SEO findings for the current tip
   posts versions <postId>                   List versions (who changed what)
   posts version <postId> <versionNumber>    Show one version
-  posts publish <postId> --expected-version <n>
+  posts publish <postId> --expected-version <n> [--original-published-at <ISO-8601>]
   posts schedule <postId> --version-number <n> --at <ISO-8601 UTC time>  (--expected-version alias)
   posts unschedule <postId>
   posts rotate-preview <postId>              Revoke the old private preview link
@@ -112,6 +115,7 @@ const OPTIONS = {
   tags: { type: "string" },
   alt: { type: "string" },
   "expected-version": { type: "string" },
+  "original-published-at": { type: "string" },
   "version-number": { type: "string" },
   "at": { type: "string" },
   cover: { type: "string" },
@@ -164,8 +168,11 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "sites location set-subpath": { usage: "sites location set-subpath --data '<json>'", flags: ["data", "data-file"], fields: { url: "string (https://example.com/blog)" }, values: ["Use exactly one of --data or --data-file; no revision flag is required", "Get the owner's explicit approval before changing the live location; save a returned proxy snippet, then run sites location check"] },
   "sites location remove": { usage: "sites location remove", values: ["Get the owner's explicit approval before removing the live subpath location"] },
   "sites location check": { usage: "sites location check", values: ["Run after saving a returned proxy snippet; a passing check activates the subpath location"] },
+  "sites redirects list": { usage: "sites redirects list [--limit <n> --offset <n>]", flags: ["limit", "offset"] },
+  "sites redirects set": { usage: "sites redirects set --data '<json>'", flags: ["data", "data-file"], fields: { redirects: "array of {from, to} (1–100)" }, values: ["Use exactly one of --data or --data-file", "Get the owner's explicit approval before changing live redirects"] },
+  "sites redirects delete": { usage: "sites redirects delete --data '<json>'", flags: ["data", "data-file"], fields: { from: "array of paths (1–100)" }, values: ["Use exactly one of --data or --data-file", "Get the owner's explicit approval before removing live redirects"] },
   "sites signup-form get": { usage: "sites signup-form get" },
-  "sites signup-form update": { usage: "sites signup-form update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms sites signup-form get` or `vibecms site`", fields: { enabled: "boolean", heading: "string", description: "string", button: "string" } },
+  "sites signup-form update": { usage: "sites signup-form update --expected-updated-at <n> --data '<json>'", flags: DATA, revision: "--expected-updated-at: the updatedAt from `vibecms sites signup-form get` or `vibecms site`", fields: { enabled: "boolean", heading: "string", description: "string", button: "string", externalForm: "object|null" } },
   "tags list": { usage: "tags list" },
   "analytics get": { usage: "analytics get [--range 7|30|90|365|all]", flags: ["range"] },
   "posts list": { usage: "posts list [--status --search --limit --offset]", flags: ["status", "search", "limit", "offset"], values: hint("status") },
@@ -177,7 +184,7 @@ const COMMANDS: Record<string, { usage: string; flags?: string[]; fields?: Recor
   "posts format-guide": { usage: "posts format-guide [--preset <id>]", flags: ["preset"] },
   "posts seo": { usage: "posts seo <postId> [--focus-keyword <text>]", flags: ["focus-keyword"], values: ["Checks the saved current tip with deterministic rules; no AI model is run", "focus-keyword: optional, 1–80 characters"] },
   "posts versions": { usage: "posts versions <postId>" }, "posts version": { usage: "posts version <postId> <versionNumber>" },
-  "posts publish": { usage: "posts publish <postId> --expected-version <n>", flags: ["expected-version"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`" },
+  "posts publish": { usage: "posts publish <postId> --expected-version <n> [--original-published-at <ISO-8601>]", flags: ["expected-version", "original-published-at"], revision: "--expected-version: approved currentVersionNumber from `vibecms posts get <postId>`", values: ["--original-published-at: original date for an import, only on first publish; must be on or after 1990-01-01 and before now"] },
   "posts schedule": { usage: "posts schedule <postId> --version-number <n> --at <ISO-8601 UTC>", flags: ["version-number", "expected-version", "at"], revision: "--version-number: approved saved version from `vibecms posts versions <postId>`; --expected-version is an alias" },
   "posts unschedule": { usage: "posts unschedule <postId>" }, "posts rotate-preview": { usage: "posts rotate-preview <postId>" },
   "posts restore": { usage: "posts restore <postId> <versionNumber> --expected-version <n>", flags: ["expected-version"] },
@@ -394,6 +401,11 @@ async function sitesCommand(action: string | undefined, rest: string[], v: Value
     if (rest[0] === 'remove') return mutate(cfg, 'DELETE', '/api/v1/site/location', undefined, v, fmt);
     if (rest[0] === 'check') return mutate(cfg, 'POST', '/api/v1/site/location/check', undefined, v, fmt);
   }
+  if (action === 'redirects') {
+    if (rest[0] === 'list') return readRequest(cfg, '/api/v1/site/redirects', v, fmt, { limit: str(v.limit), offset: str(v.offset) });
+    if (rest[0] === 'set') return mutate(cfg, 'POST', '/api/v1/site/redirects', await jsonData(v), v, fmt);
+    if (rest[0] === 'delete') return mutate(cfg, 'POST', '/api/v1/site/redirects/delete', await jsonData(v), v, fmt);
+  }
   if (action === 'signup-form' && rest[0] === 'get') {
     if (v['dry-run']) return readRequest(cfg, '/api/v1/site', v, fmt);
     const result = await apiRequest(cfg, 'GET', '/api/v1/site');
@@ -494,7 +506,7 @@ async function postsCommand(
         cfg,
         "POST",
         `/api/v1/posts/${encodeURIComponent(id)}/publish`,
-        { expectedVersionNumber },
+        dropUndefined({ expectedVersionNumber, originalPublishedAt: str(v["original-published-at"]) }),
         v,
         fmt,
       );

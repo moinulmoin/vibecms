@@ -16,7 +16,7 @@ export const BRAND = {
 export const SUPPORT_EMAIL = "support@vibecms.dev";
 
 /** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
-export const AGENT_TOOL_COUNT = 39;
+export const AGENT_TOOL_COUNT = 42;
 
 /**
  * Service-binding hostname the public Worker uses to reach the API Worker
@@ -152,6 +152,7 @@ export const FREE_TIER = {
   publishedPosts: 5,
   drafts: 5,
   images: 10,
+  redirects: 20,
   marketingLine:
     `5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
 } as const;

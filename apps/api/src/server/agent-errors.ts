@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 export function invalidApiKeyMessage() {
   const keysUrl = new URL("/dashboard/connect", env.APP_URL).href;
-  return `This API key is invalid or was deleted. Create a new key in the vibecms dashboard: ${keysUrl}.`;
+  return `This key or sign-in is invalid, expired or was removed. Sign in again, or create a new agent key in the vibecms dashboard: ${keysUrl}.`;
 }
 
 /**

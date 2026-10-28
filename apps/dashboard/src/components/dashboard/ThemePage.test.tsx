@@ -66,6 +66,7 @@ function settings(overrides: Partial<SettingsPageData['site']> = {}): SettingsPa
         heading: 'Stay in the loop',
         subtext: 'Occasional updates.',
         buttonLabel: 'Subscribe',
+        externalForm: null,
       },
       ...overrides,
     },

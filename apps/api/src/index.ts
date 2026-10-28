@@ -24,6 +24,7 @@ import { runWithExecutionContext } from '@/server/execution-scope'
 import { logUnhandledException, redactPathSecrets } from '@/server/request-logging'
 import { rpcHandleSubscribe } from '@/rpc/public'
 import { autoseopilotRoutes } from '@/routes/autoseopilot'
+import { oauthRoutes } from '@/server/oauth'
 import rootPackage from '../../../package.json'
 import { apiCatalog, mcpServerCard, agentSkillsIndex, isSkillName, skillArtifacts, authMarkdown } from '@vc/config/agent-discovery'
 
@@ -109,6 +110,14 @@ app.use('/internal/*', async (c, next) => {
   c.res.headers.set('Cache-Control', NO_STORE)
   await next()
 })
+app.use('/oauth/*', async (c, next) => {
+  await next()
+  c.header('Cache-Control', NO_STORE)
+  c.header('Referrer-Policy', 'no-referrer')
+})
+
+app.route('/', oauthRoutes)
+
 
 app.get('/api/health/live', (c) =>
   c.json({
@@ -220,12 +229,16 @@ app.onError((err, c) => {
     cfRay: c.req.header('cf-ray') ?? null,
     error: err,
   })
+  // OAuth clients expect RFC 6749 error JSON, not the app error envelope.
+  if (c.req.path.startsWith('/oauth/')) {
+    return Response.json({ error: 'server_error', error_description: 'Request failed.' }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
+  }
   return jsonAppError(err, c.get('requestId'))
 })
 
 app.notFound((c) => {
   const path = new URL(c.req.url).pathname
-  if (path.startsWith('/api/') || path === '/mcp' || path.startsWith('/internal/') || path.startsWith('/.well-known/')) {
+  if (path.startsWith('/api/') || path.startsWith('/oauth/') || path === '/mcp' || path.startsWith('/internal/') || path.startsWith('/.well-known/')) {
     const correlationId = c.req.header('X-Correlation-Id') ?? c.get('requestId')
     if (path.startsWith('/internal/')) {
       c.header('Cache-Control', NO_STORE)

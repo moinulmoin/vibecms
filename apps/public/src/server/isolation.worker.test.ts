@@ -2,14 +2,20 @@
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PublicBlogPostView } from "../components/PublicBlogPages";
+import { buildPostHeadContent } from "../lib/seo-meta";
+import { buildRssXml, buildSitemapXml } from "./public-feeds-xml";
 import { parsePublicRuntimeEnv } from "./public-url";
-import { resolveSite, type SiteRow } from "./public-blog-data";
+import { listPublishedPostPage, listPublishedPostsForFeed, resolveSite, type SiteRow } from "./public-blog-data";
 import {
   handlePublicPostByHostGet,
   isPublicBlogPaused,
   loadPublicPostByHost,
   matchCachedPublicPostHtml,
   publicHtmlResponseHeaders,
+  publicMissingRedirect,
 } from "./public-blog";
 import { articleCacheTags, contentEtag, putArticleResponseCache } from "./public-blog-cache";
 
@@ -212,5 +218,72 @@ describe("Accept markdown after HTML response cache", () => {
       runtimeEnv,
     );
     expect(byQuery!.headers.get("content-type")).toContain("text/markdown");
+  });
+});
+
+describe("imported publication dates and old links", () => {
+  it("shows and orders the original date without changing visibility, update labels, or sitemap lastmod", async () => {
+    const real = 1_700_000_000;
+    const original = 1_262_304_000;
+    const future = Math.floor(Date.now() / 1000) + 86_400;
+    for (const row of [
+      { id: "imported", slug: "imported", published: real, original, updated: real },
+      { id: "normal-post", slug: "normal-post", published: real, original: null, updated: real + 100_000 },
+      { id: "future-import", slug: "future-import", published: future, original, updated: future },
+    ]) {
+      await env.DB.prepare("INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, original_published_at, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'published', ?, ?, 'api_key', 'public-test', 'api_key', 'public-test', ?, ?)")
+        .bind(row.id, "site-public-isolation", row.slug, row.slug, "# Imported", row.published, row.original, row.published, row.published).run();
+      await env.DB.prepare("INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, tags_json, status, created_by_type, created_by_id, change_summary, created_at) VALUES (?, ?, ?, 1, ?, ?, ?, ?, 'published', 'api_key', 'public-test', 'seed', ?)")
+        .bind(`${row.id}-version`, row.id, "site-public-isolation", row.slug, row.slug, "# Imported", '["imports"]', row.updated).run();
+      await env.DB.prepare("UPDATE posts SET published_version_id = ? WHERE id = ?").bind(`${row.id}-version`, row.id).run();
+    }
+    const headers = { host: "posts.public.example.com" };
+    const request = new Request("https://posts.public.example.com/imported", { headers });
+    const data = await loadPublicPostByHost(env.DB, request, "imported", runtimeEnv);
+    expect(data && !isPublicBlogPaused(data)).toBe(true);
+    if (!data || isPublicBlogPaused(data)) throw new Error("Imported post was not loaded");
+    expect(data.post.published_at).toBe(original);
+    const html = renderToStaticMarkup(createElement(PublicBlogPostView, { data }));
+    expect(html).toContain("2010");
+    expect(html).not.toContain("Updated");
+    const head = buildPostHeadContent({ post: data.post, site: data.site, origin: data.origin, canonicalUrl: data.canonicalUrl, indexable: data.indexable, generatedCards: false });
+    const originalIso = new Date(original * 1000).toISOString();
+    expect(head.meta).toContainEqual({ property: "article:published_time", content: originalIso });
+    expect(JSON.parse(head.scripts[0]!.children).datePublished).toBe(originalIso);
+    const markdown = await handlePublicPostByHostGet(env.DB, new Request(request.url, { headers: { ...headers, accept: "text/markdown" } }), "imported", runtimeEnv);
+    expect(await markdown!.text()).toContain(`date: ${originalIso}`);
+    const page = await listPublishedPostPage(env.DB, data.site.id, 1, 20);
+    expect(page.posts.map((post) => post.slug)).not.toContain("future-import");
+    expect(page.posts.findIndex((post) => post.slug === "hello")).toBeLessThan(page.posts.findIndex((post) => post.slug === "imported"));
+    const tagPage = await listPublishedPostPage(env.DB, data.site.id, 1, 20, "imports");
+    expect(tagPage.posts.map((post) => post.slug)).toEqual(["normal-post", "imported"]);
+    const feedPosts = await listPublishedPostsForFeed(env.DB, data.site.id);
+    const rss = buildRssXml(data.site, data.origin, feedPosts, `${data.origin}/feed.xml`, () => "");
+    expect(rss).toContain(new Date(original * 1000).toUTCString());
+    const normalItem = rss.split("<item>").find((item) => item.includes("<title>normal-post</title>"));
+    expect(normalItem).toContain(new Date((real + 100_000) * 1000).toUTCString());
+    const sitemap = buildSitemapXml(data.origin, [data.post]);
+    expect(sitemap).toContain(new Date(real * 1000).toISOString().slice(0, 10));
+  });
+
+  it("redirects missing old paths for GET and HEAD at direct and subpath locations, but never replaces a real page", async () => {
+    await env.DB.prepare("INSERT INTO site_redirects (id, site_id, from_path, to_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind("import-old-link", "site-public-isolation", "/2019/old", "/hello", 1_700_000_000, 1_700_000_000).run();
+    const headers = { host: "posts.public.example.com" };
+    for (const method of ["GET", "HEAD"]) {
+      const request = new Request("https://posts.public.example.com/2019/OLD/", { headers, method });
+      for (const location of [
+        { origin: "https://posts.public.example.com", basePath: "", assetOrigin: "https://posts.public.example.com", proxied: false },
+        { origin: "https://customer.example", basePath: "/blog", assetOrigin: "https://posts.public.example.com", proxied: true },
+      ]) {
+        const response = await publicMissingRedirect(env.DB, request, new Response(null, { status: 404 }), "/2019/OLD/", location, runtimeEnv);
+        expect(response?.status).toBe(301);
+        expect(response?.headers.get("location")).toBe(`${location.origin}${location.basePath}/hello`);
+        expect(response?.headers.get("cache-control")).toBe("no-cache");
+        expect(response?.headers.get("cdn-cache-control")).toBe("public, max-age=300");
+        expect(response?.headers.get("cache-tag")).toBe("vc-site:site-public-isolation");
+        expect(await publicMissingRedirect(env.DB, request, new Response("real page"), "/2019/OLD/", location, runtimeEnv)).toBeNull();
+      }
+    }
   });
 });

@@ -3,7 +3,7 @@
   "name": "dev.vibecms/vibecms",
   "title": "vibecms",
   "description": "A blog CMS that AI agents write into over MCP: Markdown drafts, versions, media, human approval.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "websiteUrl": "https://vibecms.dev/docs/getting-started/connect-an-agent",
   "repository": {
     "url": "https://github.com/moinulmoin/vibecms",
@@ -25,23 +25,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://app.vibecms.dev/mcp",
-      "headers": [
-        {
-          "name": "Authorization",
-          "description": "vibecms agent key from Dashboard > Connect, sent as a bearer token.",
-          "isRequired": true,
-          "isSecret": true,
-          "value": "Bearer {vibecms_api_key}",
-          "variables": {
-            "vibecms_api_key": {
-              "description": "Agent key that starts with vc_live_. Create it under Dashboard > Connect; it is shown once.",
-              "isRequired": true,
-              "isSecret": true
-            }
-          }
-        }
-      ]
+      "url": "https://app.vibecms.dev/mcp"
     }
   ]
 }

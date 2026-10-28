@@ -1,8 +1,8 @@
 {
   "name": "vibecms",
   "displayName": "vibecms",
-  "version": "0.2.1",
-  "description": "Write and publish vibecms blog posts from Claude: the hosted MCP server plus the vibecms-core, vibecms-writing and vibecms-seo skills. Publishing waits for your approval.",
+  "version": "0.3.0",
+  "description": "Write and publish vibecms blog posts from Claude: the hosted MCP server and vibecms agent skills. Publishing waits for your approval.",
   "author": {
     "name": "Moinul Moin",
     "url": "https://github.com/moinulmoin"
@@ -16,22 +16,10 @@
   "supportUrl": "https://vibecms.dev/legal/support",
   "privacyPolicyUrl": "https://vibecms.dev/legal/privacy",
   "termsOfServiceUrl": "https://vibecms.dev/legal/terms",
-  "userConfig": {
-    "api_key": {
-      "type": "string",
-      "title": "vibecms agent key",
-      "description": "Agent key from Dashboard > Connect on app.vibecms.dev. It starts with vc_live_ and is shown once.",
-      "required": true,
-      "sensitive": true
-    }
-  },
   "mcpServers": {
     "vibecms": {
       "type": "http",
-      "url": "https://app.vibecms.dev/mcp",
-      "headers": {
-        "Authorization": "Bearer ${user_config.api_key}"
-      }
+      "url": "https://app.vibecms.dev/mcp"
     }
   }
 }

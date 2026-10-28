@@ -1,6 +1,6 @@
 # 026 - Redirects, import, and IndexNow
 
-Status: ON HOLD (owner, 2026-10-12). Depends on 022 (base path aware URLs). No migration reserved — slot 0036 is taken by `0036_domains_hostname_claims.sql`; reserve a fresh slot when implementation starts.
+Status: PARTIALLY SHIPPED 2026-10-28. Shipped: exact old-path redirects (migration 0045 `site_redirects`; `redirects.list/set/delete` with `site:write`; served only on would-be 404s; no prefix/splat rules and no external targets) and original publish dates (`posts.publish` `originalPublishedAt`). Rejected: the server-side import jobs, parsers and dashboard upload below — the customer's agent imports with the `vibecms-import` skill instead (skill-first, founder 2026-10-28). IndexNow (section 3) remains ON HOLD.
 
 ## Why
 

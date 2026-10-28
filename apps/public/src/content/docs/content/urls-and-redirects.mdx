@@ -7,6 +7,20 @@ A post slug uses lowercase letters and numbers separated by hyphens. It is at mo
 
 Changing the slug of a published post changes its private draft first. The public URL stays at the pinned published version until you publish the new version. Then the old URL redirects to the new one with HTTP 301. The redirect also works for `/<old-slug>.md` and `/<old-slug>?format=md`, leading to the new Markdown URL. A slug used only as an old redirect can be reused; a current post at that URL takes precedence over the redirect.
 
+## Redirect old links after an import
+
+Use `redirects.set` to map exact old paths to blog-relative paths. This is a live change: get the owner's explicit approval first. One approval can cover a whole import batch. These redirects matter when the old domain or path points to the vibecms blog; they cannot redirect requests still going to the old host.
+
+```json
+{"redirects":[{"from":"/old/2019/article","to":"/article"}]}
+```
+
+`redirects.set` accepts 1–100 mappings and returns each as `created`, `updated`, or `unchanged`, plus the total and plan limit. It validates the whole batch before writing; if any entry is invalid, nothing is written and the error identifies the entries. `redirects.list` accepts optional `offset` and `limit` (at most 500) and returns mappings with creation and update times, the total, and the plan limit. `redirects.delete` accepts `{"from":["/old/2019/article"]}` with 1–100 paths and returns the number deleted. Removing redirects also changes the live site; get approval first. Free blogs can have 20 redirects; paid and self-hosted blogs can have 5,000.
+
+Paths are exact, not prefixes. The source must start with `/`, cannot be `/` alone, cannot contain a query or fragment, and cannot start with a reserved system route such as `/api`, `/docs`, `/tag`, or `/preview`. The destination must be a blog-relative path beginning with a single `/`; external URLs, queries, and fragments are not allowed. Paths are at most 512 characters. Percent-encoded segments are decoded, repeated slashes collapsed, and trailing slashes removed; sources are lowercased, while destination case is preserved. A destination cannot equal its source or be another redirect source, so chains and loops are rejected.
+
+For GET and HEAD requests, a matching old path redirects with HTTP 301 only when the requested page would otherwise be missing. Real pages and post-slug redirects take precedence. For a blog hosted under a subpath, use paths relative to the blog; vibecms adds the blog's base path to the destination.
+
 ## Primary address redirects
 
 A blog has one primary address: a path of your site wins over a custom domain, which wins over the default vibecms host. Pages fetched on a non-primary address redirect to the same path at the primary one with HTTP 301, so old links keep working after you connect a domain or path. System paths — assets, media, share-card images, previews, and the API — are never redirected.

@@ -235,6 +235,11 @@ export type ApiKeyListItem = {
   createdAt: number
   lastUsedAt: number | null
   revokedAt: number | null
+  connection: {
+    clientName: string
+    clientHost: string
+    registration: 'dcr' | 'cimd'
+  } | null
 }
 
 export type AgentPreference = 'claude_code' | 'codex' | 'cursor' | 'droid' | 'other'
@@ -451,7 +456,7 @@ export type EditorSiteInfo = {
   bylineName?: string | null
   showAgentCredit?: boolean
   /** Subscribe form copy/visibility, as the public end-of-post form uses it. */
-  newsletterSettings?: { enabled: boolean; heading: string; subtext: string; buttonLabel: string } | null
+  newsletterSettings?: NewsletterSettings | null
 }
 
 export type PostEditorPageLoad = {

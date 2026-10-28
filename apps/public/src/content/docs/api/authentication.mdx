@@ -13,7 +13,7 @@ Tokens are created in **Dashboard > Connect**, belong to one site, and are shown
 
 ## Responses
 
-- Missing, malformed, unknown, revoked, or deleted credential: HTTP `401` (`UNAUTHORIZED` over REST, JSON-RPC `-32001` over MCP). Each case uses the same message: “This API key is invalid or was deleted. Create a new key in the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.”
+- Missing, malformed, unknown, expired, revoked, or deleted credential: HTTP `401` (`UNAUTHORIZED` over REST, JSON-RPC `-32001` over MCP). Each case uses the same message: “This key or sign-in is invalid, expired or was removed. Sign in again, or create a new agent key in the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.” MCP 401 responses also carry a `WWW-Authenticate: Bearer` header pointing to the sign-in metadata, so apps that support sign-in (such as Claude) can reconnect on their own.
 - Valid token without the required scope: HTTP `403` with `FORBIDDEN`
 - Exceeded hosted usage budget: HTTP `429` with `RATE_LIMIT`
 

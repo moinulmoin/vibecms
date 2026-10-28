@@ -78,6 +78,7 @@ const head = blog ? buildPostHeadContent({
 }) : null;
 const documentProps = blog ? siteDocumentProps(blog.site) : null;
 const highlighter = blog ? await loadPostHighlighter(blog.post.content_markdown) : null;
+Astro.locals.newsletterFormOrigin = blog?.site.newsletter_settings?.externalForm ? new URL(blog.site.newsletter_settings.externalForm.action).origin : undefined;
 ---
 {blog && head && documentProps ? (
   <Base themeAttrs={documentProps.themeAttrs} fontId={documentProps.fontId} feedHref={`${location.basePath}/feed.xml`} feedTitle={blog.site.name}>

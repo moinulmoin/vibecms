@@ -455,20 +455,20 @@ describe("collectSeoLinkSlugs", () => {
     const tree = parseSeoMarkdown(
       "[a](/hello) [b](/world.md) [c](https://x.test/y) [d](/feed.xml) [t](/tag/seo) [p](/preview/tok) ![i](/media-assets/z) [e](/hello#s) [f](rel) [g](//cdn.example/x)",
     );
-    expect(collectSeoLinkSlugs(tree, "https://blog.example.com")).toEqual(["hello", "world"]);
+    expect(collectSeoLinkSlugs(tree, "https://blog.example.com")).toEqual(["/hello", "/world.md", "hello", "world"]);
   });
 
   it("strips the base path and handles subpath semantics like the checks", () => {
     const tree = parseSeoMarkdown("[a](/blog/inner) [b](/outside) [c](https://site.example/blog/abs) [d](https://site.example/other)");
-    expect(collectSeoLinkSlugs(tree, "https://site.example/blog")).toEqual(["abs", "inner", "outside"]);
+    expect(collectSeoLinkSlugs(tree, "https://site.example/blog")).toEqual(["/abs", "/inner", "abs", "inner", "outside"]);
     // Root-relative targets are candidates even without a base URL; absolute
     // URLs need the host to compare against, so both are dropped here.
-    expect(collectSeoLinkSlugs(tree, null)).toEqual(["outside"]);
+    expect(collectSeoLinkSlugs(tree, null)).toEqual(["/outside", "outside"]);
   });
 
   it("collects from raw HTML srcSet and anchor attributes", () => {
     const tree = parseSeoMarkdown(`<a href="/raw-post">x</a>\n\n<img srcset="/p1 1x, /p2 2x" alt="i">`);
-    expect(collectSeoLinkSlugs(tree, "https://blog.example.com")).toEqual(["p1", "p2", "raw-post"]);
+    expect(collectSeoLinkSlugs(tree, "https://blog.example.com")).toEqual(["/p1", "/p2", "/raw-post", "p1", "p2", "raw-post"]);
   });
 });
 

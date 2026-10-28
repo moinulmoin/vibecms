@@ -11,17 +11,18 @@ Repo files these listings depend on:
 - `.claude-plugin/marketplace.json`: makes this repo a Claude Code plugin
   marketplace named `vibecms`.
 - `plugins/vibecms/`: the `vibecms` plugin. `.claude-plugin/plugin.json`
-  declares the hosted MCP server and asks for the agent key.
-- `skills/`: the only hand-edited copy of the `vibecms-core`,
-  `vibecms-writing` and `vibecms-seo` skills (what `npx skills add` and
+  declares the hosted MCP server; users sign in through OAuth.
+- `skills/`: the only hand-edited copy of `vibecms-core`, `vibecms-writing`,
+  `vibecms-seo`, `vibecms-import`, `vibecms-newsletter`, `vibecms-cross-post`
+  and `vibecms-ship-to-draft` (what `npx skills add` and
   `/.well-known/agent-skills/` serve). The plugin's `plugins/vibecms/skills/`
   is a generated copy produced by `pnpm gen:agent-skills`; never edit it by
   hand.
 
-When the product changes, keep `version` in `server.json` in step with the
-root `package.json`. Claude Code only updates plugin users when the plugin
-`version` in `plugins/vibecms/.claude-plugin/plugin.json` changes, so bump it
-whenever a skill changes, even between product releases.
+Update the `server.json` version when the registry entry changes. Claude Code
+only updates plugin users when the plugin `version` in
+`plugins/vibecms/.claude-plugin/plugin.json` changes, so bump it whenever a
+skill changes, even between product releases.
 
 ## Listing copy
 
@@ -29,9 +30,9 @@ whenever a skill changes, even between product releases.
 - **Tagline (78 chars):** A blog CMS your AI agents publish into over MCP, with you approving each post.
 - **Description:** vibecms is a hosted blog CMS that AI agents write into
   over MCP. Agents draft Markdown posts, upload images and preview versions
-  with a scoped agent key, and the vibecms skills make them stop for your
-  explicit approval before they publish a specific saved version. The code is
-  open source (AGPL-3.0-or-later) and can be self-hosted on Cloudflare.
+  through a scoped sign-in connection or agent key. The vibecms skills tell
+  them to ask for explicit approval before publishing a specific saved version.
+  The code is open source (AGPL-3.0-or-later) and can be self-hosted on Cloudflare.
 - **Short description (96 chars, the registry limit is 100):** A blog CMS that
   AI agents write into over MCP: Markdown drafts, versions, media, human
   approval.
@@ -56,9 +57,10 @@ whenever a skill changes, even between product releases.
 
 ### How to connect
 
-Sign in at <https://app.vibecms.dev>, open **Dashboard > Connect**, create an
-agent key (it starts with `vc_live_` and is shown once), then point the client
-at the MCP URL with the key as a bearer token. There is no OAuth.
+Point an OAuth-capable MCP client at the MCP URL, then sign in and approve a
+blog and access level. Claude Code users can open `/mcp` to sign in. For a
+client using an agent key instead, create one under **Dashboard > Connect**
+(it starts with `vc_live_` and is shown once) and send it as a bearer token:
 
 ```json
 {
@@ -74,13 +76,14 @@ at the MCP URL with the key as a bearer token. There is no OAuth.
 
 Server behavior that directory scanners will see:
 
-- `initialize` and `tools/list` answer without a key, so scanners can index
-  the tools. `tools/list` with an invalid key returns `401`.
-- `tools/call` without a valid key returns HTTP `401` (JSON-RPC error
-  `-32001`). The response has no `WWW-Authenticate` header and the server
-  publishes no OAuth metadata, so OAuth-first directories will treat it as an
-  API-key server.
-- Key levels: Write drafts, Write and publish, Manage. A Write drafts key is
+- `initialize` and `tools/list` answer without a credential, so scanners can
+  index the tools. An invalid bearer returns `401`.
+- `tools/call` without a bearer, or a request with an invalid or expired bearer,
+  returns HTTP `401` with a `WWW-Authenticate` challenge pointing to the OAuth
+  protected-resource metadata. OAuth discovery is available at
+  `/.well-known/oauth-protected-resource/mcp` and
+  `/.well-known/oauth-authorization-server`.
+- Access levels: Write drafts, Write and publish, Manage. A Write drafts key is
   the right one for any test credential a directory asks for.
 
 ## Per-directory notes
@@ -93,9 +96,9 @@ Server behavior that directory scanners will see:
 - **Install the CLI:** `brew install mcp-publisher`, or download the release
   binary from <https://github.com/modelcontextprotocol/registry/releases/latest>.
 - **Entry:** `server.json` (schema `2025-12-11`), name `dev.vibecms/vibecms`,
-  one `streamable-http` remote with a required secret `Authorization` header
-  (`Bearer {vibecms_api_key}`). Remote-only, so no package ownership check.
-  `mcp-publisher validate` (v1.8.1) passes.
+  one `streamable-http` remote using OAuth discovery without a required
+  `Authorization` header. Remote-only, so no package ownership check.
+  Run `mcp-publisher validate` before publishing.
 - **Namespace proof (DNS, preferred).** The registry checks a TXT record on the
   **apex** `vibecms.dev`, not a subdomain. On macOS, use OpenSSL 3 because the
   system LibreSSL lacks Ed25519. Generate the key outside the repo (`.pem`
@@ -138,13 +141,12 @@ Server behavior that directory scanners will see:
 - **Docs:** <https://code.claude.com/docs/en/plugin-marketplaces>,
   <https://code.claude.com/docs/en/plugins/manifest-reference>.
 - **What it installs:** skills `vibecms:vibecms-core`,
-  `vibecms:vibecms-writing` and `vibecms:vibecms-seo`, and the MCP server
-  `vibecms`. The key is a
-  `userConfig` value (`sensitive: true`): Claude Code prompts for it when the
-  plugin is enabled, masks it, and stores it in the system credential store.
-  The header is `Bearer ${user_config.api_key}`; no key is in the repo.
-- **Check:** `claude plugin validate .` and
-  `claude plugin validate ./plugins/vibecms` both pass with no findings.
+  `vibecms:vibecms-writing`, `vibecms:vibecms-seo`, `vibecms:vibecms-import`,
+  `vibecms:vibecms-newsletter`, `vibecms:vibecms-cross-post` and
+  `vibecms:vibecms-ship-to-draft`, and the MCP server `vibecms`. Users sign in
+  and approve access through OAuth rather than entering a key in the plugin.
+- **Check:** run `claude plugin validate .` and
+  `claude plugin validate ./plugins/vibecms` before publishing.
 - **Founder needs:** merge to `main`. Nothing to submit.
 
 ### Anthropic's plugin directory (claude.ai, Cowork, Claude Code)
@@ -154,38 +156,30 @@ Server behavior that directory scanners will see:
   `plugins/vibecms`, branch `main`. Docs:
   <https://claude.com/docs/plugins/submit> and the checklist
   <https://claude.com/docs/plugins/pre-submission-checklist>.
-- **How the plugin meets the checklist:** the plugin folder holds
-  `.claude-plugin/plugin.json` with `name`, `version`, `description`, `author`,
-  `license`, `icon` (`assets/icon.png`, 512 px) and the four listing URLs; a
-  README over 40 words that says what the plugin sends and where; regular
-  files only (no symlinks); about six files; an `https://` MCP URL; the key
-  asked through `userConfig` with `sensitive: true` instead of an environment
-  variable (reading a credential from the environment is held for review).
+- **Plugin contents:** `.claude-plugin/plugin.json` has `name`, `version`,
+  `description`, `author`, `license`, `icon` (`assets/icon.png`, 512 px) and
+  the four listing URLs. The README explains what the plugin sends and where.
+  The MCP URL uses HTTPS, and authentication uses OAuth.
 - **Requirements:** a paid claude.ai plan (Pro or Max from a personal account;
   Owner on Team or Enterprise); GitHub connected to claude.ai with push access
   to the repo; the repo public before the listing goes live; answers to the
   data-handling and compliance steps; a contact email.
 - **Connector pairing:** the docs ask you to also submit the MCP server as an
   **MCP connector** (<https://claude.com/docs/connectors/building/submission>).
-  Connectors are expected to use OAuth 2.0 for account data; a "custom
-  connection where users supply their own credentials" needs coordination
-  with the review team. vibecms has bearer keys only, so the connector
-  submission is likely blocked until OAuth exists **[CHECK]**.
-- **Founder needs:** a paid claude.ai plan, GitHub connected on claude.ai, the
-  portal submission, then **Publish** once the version passes.
+  vibecms supports OAuth sign-in; confirm current submission requirements with
+  the review team.
+- **Founder needs:** a paid claude.ai plan and GitHub connected on claude.ai.
+  Submit the plugin and connector only after production sign-in works, then
+  **Publish** once the version passes.
 
 ### Smithery
 
 - **Submit:** <https://smithery.ai/new>, enter `https://app.vibecms.dev/mcp`
   (URL publishing, "bring your own hosting"). Docs:
   <https://smithery.ai/docs/build/publish>.
-- **Requirements:** Streamable HTTP (met) and "OAuth support (if auth
-  required)". Scanning works because `tools/list` is open. For per-user keys,
-  the CLI path takes a config schema:
-  `smithery mcp publish "https://app.vibecms.dev/mcp" -n @moinulmoin/vibecms --config-schema '<schema>'`
-  with a property read from a header (`x-from`) and forwarded as
-  `Authorization` (`x-to`). Smithery forwards the value as-is, so users would
-  have to enter `Bearer vc_live_...` **[CHECK]**.
+- **Requirements:** Streamable HTTP and "OAuth support (if auth required)".
+  vibecms supports OAuth and allows unauthenticated `tools/list` for scanning.
+  Confirm the directory's current OAuth setup in the publish flow **[CHECK]**.
 - **Founder needs:** a Smithery account (sign-in method **[CHECK]**) and the
   publish flow; optionally the verification checklist under the server's
   **Settings > Verification**.
@@ -240,7 +234,7 @@ Add under **📝 Content Management**, between Storyblok and Webflow:
 ```markdown
 - [vibecms](https://vibecms.dev) `https://app.vibecms.dev/mcp`
   [![vibecms MCP connector](https://glama.ai/mcp/connectors/dev.vibecms/vibecms/badges/score.svg)](https://glama.ai/mcp/connectors/dev.vibecms/vibecms)
-  🔑 - Draft, preview and publish Markdown blog posts and images on a hosted blog, with scoped agent keys.
+  🔑 - Draft, preview and publish Markdown blog posts and images on a hosted blog, with scoped sign-in or agent keys.
 ```
 
 - **Founder needs:** star the repo, fork, open the PR from the founder's

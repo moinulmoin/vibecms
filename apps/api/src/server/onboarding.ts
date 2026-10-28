@@ -306,6 +306,7 @@ export const DEFAULT_NEWSLETTER_SETTINGS: NewsletterSettings = {
   heading: 'Get new posts by email',
   subtext: "Leave your email and you'll hear from us when new-post emails start.",
   buttonLabel: 'Notify me',
+  externalForm: null,
 }
 
 function redactActivityValue(value: unknown): unknown {
@@ -345,7 +346,10 @@ export async function updateNewsletterSettingsForApp(
   options?: { expectedUpdatedAt: number },
 ): Promise<{ kind: 'ok' | 'error'; code: string }> {
   if (!canManageSiteSettings(app)) return { kind: 'error', code: 'owner_required' }
-  const parsed = (options ? newsletterSettingsSchema.partial() : newsletterSettingsSchema).safeParse(payload)
+  const schema = options
+    ? newsletterSettingsSchema.partial().extend({ externalForm: newsletterSettingsSchema.shape.externalForm.unwrap().optional() })
+    : newsletterSettingsSchema
+  const parsed = schema.safeParse(payload)
   if (!parsed.success) return { kind: 'error', code: 'validation_error' }
   if (options && (!Number.isInteger(options.expectedUpdatedAt) || options.expectedUpdatedAt < 1)) {
     return { kind: 'error', code: 'invalid_settings_version' }

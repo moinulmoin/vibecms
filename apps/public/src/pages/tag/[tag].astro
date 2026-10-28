@@ -39,6 +39,7 @@ const socialImage = resolveSocialImage(location.assetOrigin, null, blog.site, en
 const page = blog.page ?? 1;
 const canonical = publicUrl(location, publicPageCanonicalPath(`/tag/${encodeURIComponent(tag)}`, page));
 const { themeAttrs, fontId } = siteDocumentProps(blog.site);
+Astro.locals.newsletterFormOrigin = blog.site.newsletter_settings?.externalForm ? new URL(blog.site.newsletter_settings.externalForm.action).origin : undefined;
 ---
 <Base
   title={title}

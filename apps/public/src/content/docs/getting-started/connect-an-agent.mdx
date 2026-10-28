@@ -1,39 +1,58 @@
 ---
 title: Connect an agent
-description: Create a scoped key, configure MCP, and verify access.
+description: Connect an agent by signing in or using a scoped key.
 ---
 
-Open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once. Only the workspace owner can create or revoke keys.
+## Claude (web, desktop and phone)
+
+1. In Claude, open **Customize > Connectors > Add custom connector**.
+2. Name it `vibecms` and enter `https://app.vibecms.dev/mcp` as the URL.
+3. Sign in to vibecms when prompted. Choose the blog and access level, then select **Allow**.
+
+No agent key is needed. Only a blog owner can connect an app.
+
+## Access levels
 
 | Level | What your agent can do |
 | --- | --- |
 | **Write drafts** | Read the site and posts, create and edit drafts, upload images, and read activity. You publish. |
 | **Write and publish** | Everything in Write drafts, plus publish and schedule posts. |
-| **Manage** | Everything in Write and publish, plus change site settings, theme, voice, and signup form; read tags and analytics; and archive posts. |
+| **Manage** | Everything in Write and publish, plus change site settings, theme, voice, signup form, and old-link redirects; read tags and analytics; and archive posts. |
 
 [See the exact scope strings and tools](/docs/agent-workflows/scopes-and-tools). Choose the smallest level that fits the work. Billing, key management, permanent post deletion, and blog or account deletion remain human actions.
+
+When signing in, you pick the level on the approval screen. Write and publish is preselected; choose Write drafts for less, or Manage only when the job needs it (for example an import with redirects, or connecting your newsletter tool). An app that asks for fewer permissions only gets the levels it asked for. A tool call that lacks permission returns a tool error; it does not automatically request more access. To change the level later, disconnect the app under **Connect → Connected apps** and connect again.
 
 ## Claude Code
 
 ```sh
-claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
-  --header "Authorization: Bearer vc_..."
+claude mcp add --transport http vibecms https://app.vibecms.dev/mcp
 ```
+
+In Claude Code, open `/mcp`, select vibecms, and sign in. Choose a blog and access level on the approval screen.
 
 Self-hosters should replace `https://app.vibecms.dev` with their API and dashboard Worker origin.
 
 ### Claude Code plugin
 
-The vibecms plugin bundles the same MCP server with the `vibecms-core`, `vibecms-writing` and `vibecms-seo` skills:
+The vibecms plugin bundles the hosted MCP server and all vibecms skills:
 
 ```sh
 claude plugin marketplace add moinulmoin/vibecms
 claude plugin install vibecms@vibecms
 ```
 
-When the plugin is enabled, Claude Code asks for your agent key, masks it, and keeps it in secure storage rather than `settings.json`.
+Once the plugin is enabled, use `/mcp` to sign in and approve the connection.
 
 Inside a session, `/plugin marketplace add moinulmoin/vibecms` followed by `/plugin install vibecms@vibecms` does the same. The plugin always connects to `https://app.vibecms.dev/mcp`; self-hosters should use `claude mcp add` with their own origin instead.
+
+## Disconnect
+
+Open **Dashboard > Connect**, find the app under **Connected apps**, and choose **Disconnect**. It loses access right away; your posts stay. Only the blog owner can disconnect an app.
+
+## Use an agent key
+
+For Codex, Cursor, or another client using a bearer key, open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once. Only the blog owner can create or revoke keys.
 
 ## Codex
 
@@ -82,17 +101,17 @@ The Connect page also offers a one-click Cursor install link once a key exists.
 npx skills add https://vibecms.dev --skill '*'
 ```
 
-This installs every vibecms skill, including `vibecms-core` (operation order, version binding, approval, and recovery) and `vibecms-writing` (editorial work). Run `npx skills update` to stay current. Skills never change the key's permissions.
+This installs `vibecms-core`, `vibecms-writing`, `vibecms-seo`, `vibecms-import`, `vibecms-newsletter`, `vibecms-cross-post`, and `vibecms-ship-to-draft`. Run `npx skills update` to stay current. Skills never change the connection's or key's permissions.
 
 Other ways to get the same skills, always the latest version:
 
 - The CLI saves every skill to `.agents/skills`: `npx vibecms-cli skills get`. Pass skill names to select a subset, `--dir <path>` to choose the folder, or `--force` to overwrite existing files. Use `npx vibecms-cli skills list` to discover names. See [the CLI guide](/docs/cli#agent-skills).
-- Over MCP or REST, any key can call `skills.list` and `skills.get` (`GET /api/v1/skills`, `GET /api/v1/skills/{name}`). Save each `content` as `<skills folder>/<name>/SKILL.md`.
+- Over MCP or REST, an authenticated agent can call `skills.list` and `skills.get` (`GET /api/v1/skills`, `GET /api/v1/skills/{name}`). Save each `content` as `<skills folder>/<name>/SKILL.md`. OAuth connections are for MCP; REST uses an agent key.
 - The files are public at `/.well-known/agent-skills/index.json`.
 
 ## Verify the credential
 
-Tool discovery does not prove that the key can access your site. Call `sites.get`:
+Tool discovery does not prove that a connection or key can access your site. Ask the connected agent to call `sites.get`, or check a key with:
 
 ```sh
 curl https://app.vibecms.dev/mcp \
@@ -101,6 +120,6 @@ curl https://app.vibecms.dev/mcp \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sites.get","arguments":{}}}'
 ```
 
-A valid key returns the current site. A missing or invalid key returns `401`; a valid key without `sites:read` returns `FORBIDDEN`.
+A valid key returns the current site. A missing or invalid key returns `401`; a valid credential without `sites:read` returns `FORBIDDEN`.
 
 Keep the key out of source control, published prompts, screenshots, and issues. Delete an unused or exposed key under **Dashboard > Connect** and create a new one.

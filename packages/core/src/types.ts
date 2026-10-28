@@ -39,6 +39,7 @@ export type Post = {
   seoDescription: string | null;
   status: PostStatus;
   publishedAt: number | null;
+  originalPublishedAt: number | null;
   tags: string[];
   createdAt: number;
   updatedAt: number;

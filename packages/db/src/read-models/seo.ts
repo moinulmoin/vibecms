@@ -9,6 +9,8 @@
  * All comparisons read the pinned post_versions row, never the mutable posts
  * tip, so drafts-in-progress never leak into the checks.
  */
+import { normalizeRedirectPath } from "@vc/core";
+
 
 // Each candidate is bound twice (live slug and redirect), plus four scope/time
 // parameters. Forty candidates keep each query below D1's 100-bind limit.
@@ -85,6 +87,17 @@ export function createSeoReadModel(db: D1Database): SeoReadModel {
           .bind(siteId, ...chunk, now, siteId, ...chunk, now)
           .all<{ slug: string }>();
         for (const row of rows.results ?? []) resolved.push(row.slug);
+        const paths = chunk.map((candidate) => candidate.startsWith("/") ? normalizeRedirectPath(candidate) : null);
+        const normalized = paths.filter((path): path is string => path !== null);
+        if (normalized.length) {
+          const matches = await db.prepare(`SELECT from_path AS path FROM site_redirects WHERE site_id = ? AND from_path IN (${normalized.map(() => "?").join(", ")})`)
+            .bind(siteId, ...normalized).all<{ path: string }>();
+          const found = new Set((matches.results ?? []).map((row) => row.path));
+          chunk.forEach((candidate, index) => {
+            const path = paths[index];
+            if (path && found.has(path)) resolved.push(candidate);
+          });
+        }
       }
       return resolved;
     },

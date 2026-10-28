@@ -20,3 +20,4 @@ export * from "./read-models/exports";
 export * from "./repositories/pending-media";
 export * from "./repositories/autoseopilot-managed-sites";
 export * from "./read-models/seo";
+export * from "./repositories/redirects";
