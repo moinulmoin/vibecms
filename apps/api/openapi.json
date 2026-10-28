@@ -4588,7 +4588,7 @@
     "/api/v1/skills/{name}": {
       "get": {
         "operationId": "getSkill",
-        "description": "Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. To install or update it, save content as <your skills folder>/<name>/SKILL.md (for example .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {\"name\":\"vibecms-core\"}. Any valid key; no scope required.",
+        "description": "Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. The content can be installed as <your skills folder>/<name>/SKILL.md (for example in .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {\"name\":\"vibecms-core\"}. Any valid key; no scope required.",
         "security": [
           {
             "bearerAuth": []
@@ -12368,7 +12368,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "uploadAsset",
-        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. For a file on disk with shell access, prefer the CLI 'vibecms assets upload <path>' so the base64 stays out of your context. Requires scope: assets:write.",
+        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. The CLI 'vibecms assets upload <path>' can upload a file without putting base64 in the conversation. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []

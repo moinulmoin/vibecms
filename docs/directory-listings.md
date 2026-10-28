@@ -83,8 +83,9 @@ Server behavior that directory scanners will see:
   protected-resource metadata. OAuth discovery is available at
   `/.well-known/oauth-protected-resource/mcp` and
   `/.well-known/oauth-authorization-server`.
-- Access levels: Write drafts, Write and publish, Manage. A Write drafts key is
-  the right one for any test credential a directory asks for.
+- Access levels: Write drafts, Write and publish, Manage. Choose the access
+  level needed for the directory's tests; a Write drafts key is suitable for
+  Glama's authenticated health check.
 
 ## Per-directory notes
 
@@ -164,10 +165,21 @@ Server behavior that directory scanners will see:
   Owner on Team or Enterprise); GitHub connected to claude.ai with push access
   to the repo; the repo public before the listing goes live; answers to the
   data-handling and compliance steps; a contact email.
-- **Connector pairing:** the docs ask you to also submit the MCP server as an
-  **MCP connector** (<https://claude.com/docs/connectors/building/submission>).
-  vibecms supports OAuth sign-in; confirm current submission requirements with
-  the review team.
+- **Connector pairing:** also submit the MCP server as an **MCP connector**:
+  <https://claude.com/docs/connectors/building/submission>. Every tool needs a
+  human-readable `title` and the applicable annotation: `readOnlyHint: true`
+  for read-only tools, or `destructiveHint: true` for tools that modify or
+  delete data. The portal syncs the tools and flags missing titles or
+  annotations; fix them on the server before submitting. See
+  <https://claude.com/docs/connectors/building/review-criteria>.
+- **Reviewer access:** provide credentials for a fully populated test account
+  in the connector portal's **Test & launch** step, along with every link and
+  step needed to sign in, connect, and run the tools. Use a dedicated test blog
+  populated with representative posts and media, and grant the access needed to
+  exercise all tools, including publishing and management operations. The
+  portal says only reviewers see the credentials. Exercise every tool in MCP
+  Inspector and as a custom connector in Claude before submitting, and confirm
+  the testing in the portal.
 - **Founder needs:** a paid claude.ai plan and GitHub connected on claude.ai.
   Submit the plugin and connector only after production sign-in works, then
   **Publish** once the version passes.

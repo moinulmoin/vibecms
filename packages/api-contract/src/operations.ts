@@ -57,6 +57,8 @@ export type OperationAnnotations = {
 export type OperationDefinition = {
   /** MCP tool name (stable). */
   toolName: string;
+  /** Human-readable MCP tool title. */
+  title: string;
   /** OpenAPI-style operation id. */
   operationId: string;
   /** null: any valid key may call it (read-only, public content such as the skills). */
@@ -80,6 +82,7 @@ const writeErrors =
 
 export const operations = [
   {
+    title: "Get site",
     toolName: "sites.get",
     operationId: "getSite",
     requiredScope: "sites:read",
@@ -93,91 +96,109 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Update site",
     toolName: 'sites.update', operationId: 'updateSite', requiredScope: 'site:write',
     description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
-    requestSchema: updateSiteRequestSchema, responseSchema: updatedSiteDtoSchema, annotations: { idempotent: true },
+    requestSchema: updateSiteRequestSchema, responseSchema: updatedSiteDtoSchema, annotations: { destructive: true, idempotent: true },
   },
   {
+    title: "Get site theme",
     toolName: 'sites.theme.get', operationId: 'getSiteTheme', requiredScope: 'site:write',
     description: opDescription('Read the current blog template and look, plus allowed values with human names. Use its updatedAt for a theme update. Example: {}.', 'site:write', readErrors),
     requestSchema: getThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "Update site theme",
     toolName: 'sites.theme.update', operationId: 'updateSiteTheme', requiredScope: 'site:write',
     description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
-    requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
+    requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Revert site theme",
     toolName: 'sites.theme.revert', operationId: 'revertSiteTheme', requiredScope: 'site:write',
     description: opDescription('Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {"expectedUpdatedAt": 124}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
-    requestSchema: revertThemeRequestSchema, responseSchema: themeDtoSchema, annotations: {},
+    requestSchema: revertThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Update site voice",
     toolName: 'sites.voice.update', operationId: 'updateSiteVoice', requiredScope: 'site:write',
     description: opDescription('Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {"expectedUpdatedAt":0,"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
-    requestSchema: updateVoiceRequestSchema, responseSchema: voiceSettingsDtoSchema, annotations: {},
+    requestSchema: updateVoiceRequestSchema, responseSchema: voiceSettingsDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Update signup form",
     toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
     description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
-    requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: {},
+    requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Get site location",
     toolName: 'sites.location.get', operationId: 'getSiteLocation', requiredScope: 'sites:read',
     description: opDescription('Read where this blog is served: the default host, a custom domain, or a path on the owner\'s site. Subpath rows include status and the last setup check; proxyTarget and snippets only appear for keys that may manage the location. Example: {}.', 'sites:read', readErrors),
     requestSchema: getSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "Set site subpath location",
     toolName: 'sites.location.set_subpath', operationId: 'setSubpathLocation', requiredScope: 'site:write',
     description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
-    requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: {},
+    requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Check site location",
     toolName: 'sites.location.check', operationId: 'checkSiteLocation', requiredScope: 'site:write',
     description: opDescription('Verify the subpath proxy is live: probes https://<hostname><basePath>/_vc/health and compares site id and proxy fingerprint. A pass activates the location; a failure records plain-language errors. Call after the owner saves a snippet. Example: {}.', 'site:write', readErrors),
-    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: {},
+    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "Remove site location",
     toolName: 'sites.location.remove', operationId: 'removeSiteLocation', requiredScope: 'site:write',
     description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}.', 'site:write', writeErrors),
     requestSchema: removeSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "List redirects",
     toolName: 'redirects.list', operationId: 'listRedirects', requiredScope: 'sites:read',
     description: opDescription('List exact-path redirects with total and plan limit.', 'sites:read', readErrors),
     requestSchema: listRedirectsRequestSchema, responseSchema: listRedirectsDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "Set redirects",
     toolName: 'redirects.set', operationId: 'setRedirects', requiredScope: 'site:write',
     description: opDescription('Upsert up to 100 exact-path redirects to blog paths; all-or-nothing. Live change: needs owner approval (one may cover an import batch).', 'site:write', writeErrors),
-    requestSchema: setRedirectsRequestSchema, responseSchema: setRedirectsDtoSchema, annotations: { idempotent: true },
+    requestSchema: setRedirectsRequestSchema, responseSchema: setRedirectsDtoSchema, annotations: { destructive: true, idempotent: true },
   },
   {
+    title: "Delete redirects",
     toolName: 'redirects.delete', operationId: 'deleteRedirects', requiredScope: 'site:write',
     description: opDescription('Delete up to 100 redirects by source path. Live change: needs owner approval.', 'site:write', writeErrors),
     requestSchema: deleteRedirectsRequestSchema, responseSchema: deleteRedirectsDtoSchema, annotations: { destructive: true },
   },
   {
+    title: "List tags",
     toolName: 'tags.list', operationId: 'listTags', requiredScope: 'site:write',
     description: opDescription('List tags currently used by non-archived posts and their post counts. Reuse these spellings when tagging a post. Example: {}.', 'site:write', readErrors),
     requestSchema: listTagsRequestSchema, responseSchema: z.array(tagDtoSchema), annotations: { readOnly: true },
   },
   {
+    title: "Get analytics",
     toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
     description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
     requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "List skills",
     toolName: 'skills.list', operationId: 'listSkills', requiredScope: null,
     description: opDescription('List the vibecms agent skills: free instructions that teach you how to work with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). Compare digest with your installed copy to see whether it changed; call skills.get for the full text. Example: {}.', null, readErrors),
     requestSchema: listSkillsRequestSchema, responseSchema: skillListDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "Get skill",
     toolName: 'skills.get', operationId: 'getSkill', requiredScope: null,
-    description: opDescription('Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. To install or update it, save content as <your skills folder>/<name>/SKILL.md (for example .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {"name":"vibecms-core"}.', null, readErrors),
+    description: opDescription('Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. The content can be installed as <your skills folder>/<name>/SKILL.md (for example in .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {"name":"vibecms-core"}.', null, readErrors),
     requestSchema: getSkillRequestSchema, responseSchema: skillDtoSchema, annotations: { readOnly: true },
   },
   {
+    title: "List posts",
     toolName: "posts.list",
     operationId: "listPosts",
     requiredScope: "posts:read",
@@ -191,6 +212,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Search posts",
     toolName: "posts.search",
     operationId: "searchPosts",
     requiredScope: "posts:read",
@@ -204,6 +226,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Get post",
     toolName: "posts.get",
     operationId: "getPost",
     requiredScope: "posts:read",
@@ -217,6 +240,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Get post by slug",
     toolName: "posts.get_by_slug",
     operationId: "getPostBySlug",
     requiredScope: "posts:read",
@@ -230,6 +254,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Create draft post",
     toolName: "posts.create",
     operationId: "createPost",
     requiredScope: "posts:create",
@@ -240,9 +265,10 @@ export const operations = [
     ),
     requestSchema: createPostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Update post",
     toolName: "posts.update",
     operationId: "updatePost",
     requiredScope: "posts:update",
@@ -253,9 +279,10 @@ export const operations = [
     ),
     requestSchema: updatePostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: { idempotent: true },
+    annotations: { destructive: true, idempotent: true },
   },
   {
+    title: "Publish post",
     toolName: "posts.publish",
     operationId: "publishPost",
     requiredScope: "posts:publish",
@@ -266,9 +293,10 @@ export const operations = [
     ),
     requestSchema: publishPostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Schedule post publication",
     toolName: "posts.schedule",
     operationId: "schedulePost",
     requiredScope: "posts:publish",
@@ -278,27 +306,30 @@ export const operations = [
     ),
     requestSchema: schedulePostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Cancel scheduled publication",
     toolName: "posts.unschedule",
     operationId: "unschedulePost",
     requiredScope: "posts:publish",
     description: opDescription("Cancel a pending or failed scheduled publication.", "posts:publish", writeErrors),
     requestSchema: unschedulePostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Rotate post preview link",
     toolName: "posts.preview.rotate",
     operationId: "rotatePostPreview",
     requiredScope: "posts:update",
     description: opDescription("Rotate a private preview link, immediately revoking the old URL.", "posts:update", writeErrors),
     requestSchema: rotatePostPreviewRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Archive post",
     toolName: "posts.archive",
     operationId: "archivePost",
     requiredScope: "posts:archive",
@@ -312,28 +343,31 @@ export const operations = [
     annotations: { destructive: true },
   },
   {
+    title: "Unarchive post",
     toolName: "posts.unarchive",
     operationId: "unarchivePost",
     requiredScope: "posts:update",
     description: opDescription("Restore an archived post to draft. This saves a new version; use the returned currentVersionNumber for the next edit. Publish again to make it public.", "posts:update", writeErrors),
     requestSchema: unarchivePostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "Upload image asset",
     toolName: "assets.upload",
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. For a file on disk with shell access, prefer the CLI 'vibecms assets upload <path>' so the base64 stays out of your context.",
+      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. The CLI 'vibecms assets upload <path>' can upload a file without putting base64 in the conversation.",
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
     requestSchema: uploadAssetRequestSchema,
     responseSchema: assetDtoSchema,
-    annotations: {},
+    annotations: { destructive: true },
   },
   {
+    title: "List image assets",
     toolName: "assets.list",
     operationId: "listAssets",
     requiredScope: "assets:write",
@@ -347,6 +381,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Get image asset",
     toolName: "assets.get",
     operationId: "getAsset",
     requiredScope: "assets:write",
@@ -360,15 +395,17 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Update image alt text",
     toolName: "assets.update",
     operationId: "updateAsset",
     requiredScope: "assets:write",
     description: opDescription("Update an image asset's alt text.", "assets:write", writeErrors),
     requestSchema: updateAssetRequestSchema,
     responseSchema: assetDtoSchema,
-    annotations: { idempotent: true },
+    annotations: { destructive: true, idempotent: true },
   },
   {
+    title: "Delete image asset",
     toolName: "assets.delete",
     operationId: "deleteAsset",
     requiredScope: "assets:delete",
@@ -382,6 +419,7 @@ export const operations = [
     annotations: { destructive: true },
   },
   {
+    title: "List activity",
     toolName: "activity.list",
     operationId: "listActivity",
     requiredScope: "activity:read",
@@ -395,6 +433,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "List post versions",
     toolName: "posts.versions.list",
     operationId: "listPostVersions",
     requiredScope: "posts:read",
@@ -408,6 +447,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Get post version",
     toolName: "posts.versions.get",
     operationId: "getPostVersion",
     requiredScope: "posts:read",
@@ -421,6 +461,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Restore post version",
     toolName: "posts.versions.restore",
     operationId: "restorePostVersion",
     requiredScope: "posts:update",
@@ -431,9 +472,10 @@ export const operations = [
     ),
     requestSchema: restorePostVersionRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: { idempotent: false },
+    annotations: { destructive: true, idempotent: false },
   },
   {
+    title: "Get post format guide",
     toolName: "posts.format_guide",
     operationId: "getFormatGuide",
     requiredScope: "posts:read",
@@ -447,6 +489,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Preview post",
     toolName: "posts.preview",
     operationId: "previewPost",
     requiredScope: "posts:read",
@@ -460,6 +503,7 @@ export const operations = [
     annotations: { readOnly: true },
   },
   {
+    title: "Check post SEO",
     toolName: "posts.seo_check",
     operationId: "seoCheckPost",
     requiredScope: "posts:read",

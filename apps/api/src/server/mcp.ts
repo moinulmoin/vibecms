@@ -301,6 +301,7 @@ function listedTools(actor?: Actor) {
         if (hints.idempotent) annotations.idempotentHint = true;
         return {
           name: op.toolName,
+          title: op.title,
           description: op.description,
           inputSchema: zodToInputJsonSchema(op.requestSchema),
           // No outputSchema: it was two thirds of tools/list (~48k chars) and

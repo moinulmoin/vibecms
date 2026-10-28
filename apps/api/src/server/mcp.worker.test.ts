@@ -25,6 +25,7 @@ type ToolSchema = {
 };
 type Tool = {
   name: string;
+  title: string;
   inputSchema: Record<string, unknown>;
   outputSchema?: ToolSchema;
   annotations: Record<string, boolean>;
@@ -136,11 +137,48 @@ describe("MCP tools/list inputSchema contract", () => {
     for (const operation of operations) {
       const tool = byName.get(operation.toolName);
       const annotations = operation.annotations as Record<string, boolean>;
+      expect(tool?.title).toBe(operation.title);
+      expect(tool?.title.trim()).toBeTruthy();
       expect(tool?._meta["vibecms.com/requiredScope"]).toBe(operation.requiredScope);
       expect(tool?.annotations.readOnlyHint ?? false).toBe(annotations.readOnly ?? false);
       expect(tool?.annotations.destructiveHint ?? false).toBe(annotations.destructive ?? false);
       expect(tool?.annotations.idempotentHint ?? false).toBe(annotations.idempotent ?? false);
     }
+  });
+
+  it("advertises human-readable titles and marks modifying tools destructive", async () => {
+    const tools = await toolsList();
+    expect(tools).toHaveLength(42);
+    expect(new Set(tools.map((tool) => tool.title)).size).toBe(42);
+    expect(tools.find((tool) => tool.name === "posts.create")?.title).toBe("Create draft post");
+    expect(tools.find((tool) => tool.name === "posts.preview.rotate")?.title).toBe("Rotate post preview link");
+    expect(tools.find((tool) => tool.name === "sites.location.check")?.title).toBe("Check site location");
+    expect(tools.filter((tool) => tool.annotations.destructiveHint === true).map((tool) => tool.name)).toEqual([
+      "assets.delete",
+      "assets.update",
+      "assets.upload",
+      "posts.archive",
+      "posts.create",
+      "posts.preview.rotate",
+      "posts.publish",
+      "posts.schedule",
+      "posts.unarchive",
+      "posts.unschedule",
+      "posts.update",
+      "posts.versions.restore",
+      "redirects.delete",
+      "redirects.set",
+      "sites.location.check",
+      "sites.location.remove",
+      "sites.location.set_subpath",
+      "sites.signup_form.update",
+      "sites.theme.revert",
+      "sites.theme.update",
+      "sites.update",
+      "sites.voice.update",
+    ]);
+    expect(tools.find((tool) => tool.name === "posts.get")?.annotations.readOnlyHint).toBe(true);
+    expect(tools.find((tool) => tool.name === "posts.update")?.annotations.idempotentHint).toBe(true);
   });
 });
 

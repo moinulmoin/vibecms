@@ -22,16 +22,15 @@ The CMS your agents publish into: Markdown posts, versions, and media over scope
 
 ## Connect an MCP client
 
-vibecms exposes standards-based MCP over Streamable HTTP. In the dashboard, open **Connect**, create a scoped token, and copy it once. Hosted vibecms uses `https://app.vibecms.dev`; self-hosters use their own API host.
+vibecms exposes standards-based MCP over Streamable HTTP. Hosted vibecms uses `https://app.vibecms.dev`; self-hosters use their own API host.
 
-Claude Code is the primary example:
+Connect Claude Code with the URL, then open `/mcp` to sign in and approve access:
 
 ```sh
-claude mcp add --transport http vibecms https://app.vibecms.dev/mcp \
-  --header "Authorization: Bearer vc_..."
+claude mcp add --transport http vibecms https://app.vibecms.dev/mcp
 ```
 
-Any compatible MCP client uses the same endpoint and bearer credential:
+For a client using an agent key instead, open **Connect** in the dashboard, create a scoped token, and copy it once. Send it as a bearer credential:
 
 ```json
 {
@@ -55,7 +54,7 @@ npx skills add https://vibecms.dev --skill '*'
 
 Run `npx skills update` to stay current. Alternatively, use `npx vibecms-cli skills get` to save every skill to `.agents/skills` (pass skill names to select a subset, `--dir <path>` to choose the folder, or `--force` to overwrite existing files), or let a connected agent call the `skills.list` and `skills.get` MCP tools.
 
-Claude Code users on the hosted service can install every skill and the MCP server as one plugin. Claude Code asks for the agent key when the plugin is enabled and keeps it in secure storage:
+Claude Code users on the hosted service can install every skill and the MCP server as one plugin. The plugin connects using the server URL; open `/mcp` to sign in and approve access through OAuth:
 
 ```sh
 claude plugin marketplace add moinulmoin/vibecms
