@@ -7,7 +7,7 @@ const OTP_SEND_TYPE = 'sign-in'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Sign-in is email OTP plus optional Google/GitHub; there are no passwords.
-// Every route Better Auth 1.6.x registers (core + emailOTP plugin) that can send
+// Every route Better Auth 1.7.x registers (core + emailOTP plugin) that can send
 // email or set/verify a password is refused here, before auth.handler runs.
 // Re-audit node_modules/better-auth/dist/api/index.mjs (getEndpoints) and
 // dist/plugins/email-otp/index.mjs on every better-auth upgrade.
