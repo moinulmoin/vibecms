@@ -50,11 +50,18 @@ type ClientConfig = { hint: ReactNode; code: string; label: string }
 export function agentConfigs(mcpUrl: string, token?: string): Record<Exclude<AgentClient, 'claude'>, ClientConfig> {
   const key = token ?? TOKEN_PLACEHOLDER
   return {
-    claude_code: {
-      label: 'Terminal command',
-      hint: 'Run this once in your terminal. Then start Claude Code.',
-      code: `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${key}"`,
-    },
+    // Without a fresh key Claude Code signs in through /mcp, so no header is needed.
+    claude_code: token
+      ? {
+          label: 'Terminal command',
+          hint: 'Run this once in your terminal. Then start Claude Code.',
+          code: `claude mcp add --transport http vibecms ${mcpUrl} --header "Authorization: Bearer ${key}"`,
+        }
+      : {
+          label: 'Terminal command',
+          hint: 'Run this once in your terminal. In Claude Code, open /mcp, choose vibecms and sign in. No key is needed.',
+          code: `claude mcp add --transport http vibecms ${mcpUrl}`,
+        },
     codex: {
       label: '~/.codex/config.toml',
       hint: (
@@ -155,7 +162,7 @@ export function AgentSetup({
   const configs = agentConfigs(mcpUrl, token)
   const clients = includeClaudeApp ? AGENT_CLIENTS : AGENT_CLIENTS.filter((item) => item.id !== 'claude')
   return (
-    <Tabs value={client} onValueChange={(value) => isAgentClient(value) && onClientChange(value)} className="gap-4">
+    <Tabs value={client} onValueChange={(value) => isAgentClient(value) && onClientChange(value)} className="min-w-0 gap-4">
       <PageTabs label="Agent" tabs={clients.map((item) => ({ value: item.id, label: item.label }))} />
       {clients.map(({ id }) => {
         if (id === 'claude') {
@@ -195,7 +202,7 @@ export function AgentSetup({
                 </dd>
               </dl>
             ) : null}
-            {!token ? (
+            {!token && id !== 'claude_code' ? (
               <p className="text-sm text-muted-foreground">
                 Replace <code className="font-mono text-foreground">{TOKEN_PLACEHOLDER}</code> with a key you saved, or create a new one below.
               </p>

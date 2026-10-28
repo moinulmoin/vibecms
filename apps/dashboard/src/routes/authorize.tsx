@@ -139,7 +139,7 @@ function AuthorizePage() {
                       const available = isLevelAvailable(option.value, state.request.requestedScopes)
                       return (
                         <label key={option.value} className={`flex items-start gap-3 rounded-lg border border-border p-3 has-[:checked]:border-selected-border has-[:checked]:bg-selected ${available ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                          <input type="radio" name="access" value={option.value} checked={level === option.value} disabled={!available} onChange={() => setLevel(option.value)} className="mt-1 size-4 accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
+                          <input type="radio" name="access" value={option.value} checked={level === option.value} disabled={!available} onChange={() => setLevel(option.value)} className="mt-1 size-4 shrink-0 accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" />
                           <span className="grid gap-1"><span className="text-sm font-medium">{option.label}</span><span className="text-sm leading-6 text-muted-foreground">{option.description}</span>{!available ? <span className="text-sm leading-6 text-muted-foreground">This app didn’t ask for this access.</span> : null}</span>
                         </label>
                       )

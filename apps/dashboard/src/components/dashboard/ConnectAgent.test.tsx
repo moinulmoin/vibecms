@@ -23,11 +23,12 @@ describe('agent setup', () => {
     expect(html).toContain('Bearer vc_secret')
   })
 
-  it('embeds a fresh key in every config and falls back to a placeholder', () => {
+  it('embeds a fresh key in every config; without one Claude Code signs in and the rest use a placeholder', () => {
     const withKey = agentConfigs(MCP, 'vc_secret')
-    const withoutKey = agentConfigs(MCP)
+    const { claude_code: signIn, ...keyed } = agentConfigs(MCP)
     for (const config of Object.values(withKey)) expect(config.code).toContain('vc_secret')
-    for (const config of Object.values(withoutKey)) expect(config.code).toContain(TOKEN_PLACEHOLDER)
+    for (const config of Object.values(keyed)) expect(config.code).toContain(TOKEN_PLACEHOLDER)
+    expect(signIn.code).toBe(`claude mcp add --transport http vibecms ${MCP}`)
     expect(withKey.codex.code).toContain('[mcp_servers.vibecms]')
     expect(withKey.cursor.code).toContain('"mcpServers"')
   })

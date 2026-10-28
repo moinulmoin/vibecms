@@ -27,7 +27,7 @@ import type { ApiKeyListItem } from '~/types/dashboard'
 export type KeyAccess = 'draft' | 'publish' | 'manage'
 
 export const FIRST_DRAFT_PROMPT = "Use vibecms to write a short first post for my blog. Save it as a draft and send me the private preview link. Don't publish until I say so."
-export const FIRST_DRAFT_DESCRIPTION = 'Paste this into your agent. It sends you a private preview to approve. Publish from Posts, or give the agent a publishing key when you want it to publish.'
+export const FIRST_DRAFT_DESCRIPTION = 'Paste this into your agent. It sends you a private preview to approve. Publish from Posts, or give the agent Write and publish access when you want it to publish.'
 
 export const KEY_ACCESS: Array<{ id: KeyAccess; label: string; description: string }> = [
   { id: 'draft', label: 'Write drafts', description: 'Drafts, edits, and image uploads. You publish.' },

@@ -453,6 +453,7 @@ export async function publishPostOp(
   ctx: OperationContext,
   input: { postId: string; expectedVersionNumber: number; originalPublishedAt?: number },
 ) {
+  requireScope(ctx.actor, 'posts:publish');
   await assertPostImagesPublishable(ctx.siteId, input.postId);
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
   const entitlement = await resolveEffectiveEntitlementForSite(ctx.siteId);
