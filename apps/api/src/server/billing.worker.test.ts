@@ -344,6 +344,52 @@ describe('createPortalSessionForApp — intact for active workspaces', () => {
   })
 })
 
+describe('createPortalSessionForApp — Polar customer shared with other products', () => {
+  it("opens the stored Polar customer's portal when that customer carries no external ID for this blog", async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-billing-portal-shared-customer'
+    await seedWorkspace(workspaceId)
+    await createDataAccess(env.DB).billing.upsertFromWebhook({
+      workspaceId,
+      polarCustomerId: 'cust_bought_other_product_first',
+      polarSubscriptionId: 'sub_billing_portal_shared_customer',
+      status: 'active',
+      currentPeriodEnd: 2_000_000_000,
+    })
+    // Polar keeps one customer per email. This person first bought another
+    // product, so their customer has no external ID, and a vibecms checkout
+    // reuses it without setting one. Polar finds a customer session by
+    // customer ID or by external ID, and answers 422 when neither matches.
+    const portalUrl = 'https://polar.example/portal/session'
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const request = new Request(input, init)
+      if (new URL(request.url).pathname !== '/v1/customer-sessions/') return new Response('Not found', { status: 404 })
+      const body = (await request.json()) as { customer_id?: string; external_customer_id?: string }
+      if (body.customer_id !== 'cust_bought_other_product_first') {
+        return Response.json(
+          { detail: [{ loc: ['body', body.customer_id ? 'customer_id' : 'external_customer_id'], msg: 'Customer does not exist.', type: 'value_error' }] },
+          { status: 422 },
+        )
+      }
+      const now = new Date().toISOString()
+      return Response.json({
+        created_at: now, modified_at: null, id: 'cs_shared_customer', token: 'polar_cst_test',
+        expires_at: new Date(Date.now() + 3_600_000).toISOString(), return_url: 'https://app.example.com/dashboard/billing',
+        customer_portal_url: portalUrl, customer_id: 'cust_bought_other_product_first',
+        customer: {
+          id: 'cust_bought_other_product_first', created_at: now, modified_at: null, metadata: {}, external_id: null,
+          email: 'billing-checkout@example.com', email_verified: true, type: 'individual', name: 'Billing Checkout Tester',
+          billing_address: null, tax_id: null, organization_id: 'org_test', deleted_at: null, avatar_url: 'https://polar.example/avatar.png',
+        },
+      }, { status: 201 })
+    })
+
+    expect(await createPortalSessionForApp(ownerApp(workspaceId))).toEqual({ kind: 'ok', url: portalUrl })
+  })
+})
+
 describe('createCheckoutSessionForApp — launch discount', () => {
   it.each([
     ['usd', 1500], ['eur', 900], ['usd', 901],

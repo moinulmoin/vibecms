@@ -1,7 +1,13 @@
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { BillingStatus } from "@vc/core";
 import { createDbClient } from "../client";
-import { billingCustomers, sites, type BillingCustomerRow } from "../schema";
+import {
+  billingCustomers,
+  polarDuplicateSubscriptions,
+  sites,
+  type BillingCustomerRow,
+  type PolarDuplicateSubscriptionRow,
+} from "../schema";
 
 // Input for the Polar webhook upsert; signature verification + Polar SDK stay in the app layer.
 export type UpsertBillingInput = {
@@ -21,6 +27,12 @@ export interface BillingRepository {
   getWorkspaceIdForSite(siteId: string): Promise<string | undefined>;
   // Polar webhook upsert: keep the existing subscription id when the incoming one is null.
   upsertFromWebhook(input: UpsertBillingInput): Promise<void>;
+  // A recorded second subscription for an already-paid blog, by its Polar subscription id.
+  getDuplicateSubscription(id: string): Promise<PolarDuplicateSubscriptionRow | undefined>;
+  // The paid duplicates whose refund notice is still owed, oldest first.
+  listUnnotifiedDuplicateSubscriptions(limit?: number): Promise<PolarDuplicateSubscriptionRow[]>;
+  // Marks the refund notice as accepted, so it is not sent again.
+  markDuplicateSubscriptionNotified(id: string, now: number): Promise<void>;
 }
 
 function nowSeconds(): number {
@@ -91,6 +103,32 @@ export function createBillingRepository(db: D1Database): BillingRepository {
             updatedAt: sql`excluded.updated_at`,
           },
         })
+        .run();
+    },
+
+    async getDuplicateSubscription(id) {
+      const rows = await client
+        .select()
+        .from(polarDuplicateSubscriptions)
+        .where(eq(polarDuplicateSubscriptions.id, id))
+        .limit(1);
+      return rows[0];
+    },
+
+    async listUnnotifiedDuplicateSubscriptions(limit = 50) {
+      return client
+        .select()
+        .from(polarDuplicateSubscriptions)
+        .where(and(eq(polarDuplicateSubscriptions.paymentEvidence, 1), isNull(polarDuplicateSubscriptions.notifiedAt)))
+        .orderBy(asc(polarDuplicateSubscriptions.createdAt))
+        .limit(limit);
+    },
+
+    async markDuplicateSubscriptionNotified(id, now) {
+      await client
+        .update(polarDuplicateSubscriptions)
+        .set({ notifiedAt: now, updatedAt: now })
+        .where(and(eq(polarDuplicateSubscriptions.id, id), isNull(polarDuplicateSubscriptions.notifiedAt)))
         .run();
     },
   };

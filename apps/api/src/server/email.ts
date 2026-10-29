@@ -118,11 +118,58 @@ export async function sendClaimReminderEmail(input: {
 }
 
 /**
+ * An operational alert to the support address, because a log line only
+ * reaches someone who goes looking. Production without the EMAIL binding is a
+ * misconfiguration and throws, so the caller keeps the notice owed; elsewhere
+ * the notice is logged.
+ */
+async function sendSupportNotice(notice: {
+  tag: string
+  subject: string
+  lead: string
+  facts: [string, string][]
+  logLine: string
+}) {
+  const isProd = env.APP_ENV === 'production'
+  const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;"><p style="font-size:15px;line-height:1.6;">${notice.lead}</p><table style="font-size:14px;line-height:1.6;border-collapse:collapse;margin:16px 0;">${notice.facts
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:2px 16px 2px 0;color:#6b7280;">${label}</td><td style="padding:2px 0;">${value}</td></tr>`,
+    )
+    .join('')}</table></body></html>`
+  const text = `${notice.lead}\n\n${notice.facts.map(([label, value]) => `${label}: ${value}`).join('\n')}`
+
+  if (!env.EMAIL) {
+    if (isProd && String(env.SELF_HOSTED) !== 'true') {
+      throw new Error('email not configured: add a send_email binding named EMAIL and onboard the sending domain')
+    }
+    console.log(`[${notice.tag}] ${notice.logLine}`)
+    return
+  }
+  if (!isProd) {
+    console.log(`[${notice.tag}] ${notice.logLine}`)
+  }
+  try {
+    await env.EMAIL.send({
+      to: SUPPORT_EMAIL,
+      from: parseFromAddress(env.EMAIL_FROM ?? DEFAULT_FROM),
+      subject: notice.subject,
+      html,
+      text,
+    })
+  } catch (err) {
+    if (!isProd) {
+      console.warn(`[${notice.tag}] send failed in non-prod (ok locally): ${String(err)}`)
+      return
+    }
+    throw err
+  }
+}
+
+/**
  * Operational alert: a paid claim arrived for a blog that is being deleted,
  * or that has already been deleted. The customer may have paid for a blog
  * that no longer exists, so the money has to be refunded by hand at Polar.
- * It goes to the support address, because a log line only reaches someone
- * who goes looking.
  */
 export async function sendPurgeConflictEmail(input: {
   workspaceId: string
@@ -134,54 +181,52 @@ export async function sendPurgeConflictEmail(input: {
   eventType: string | null
   eventId: string | null
 }) {
-  const isProd = env.APP_ENV === 'production'
-  const subject = `Refund needed: a paid claim arrived for a deleted blog (${input.workspaceId})`
-  const facts: [string, string][] = [
-    ['Workspace', input.workspaceId],
-    ['Site', input.siteId ?? 'unknown'],
-    ['Polar customer', input.polarCustomerId ?? 'unknown'],
-    ['Polar subscription', input.polarSubscriptionId ?? 'unknown'],
-    ['Polar order', input.polarOrderId ?? 'unknown'],
-    ['Polar checkout', input.polarCheckoutId ?? 'unknown'],
-    ['Event', `${input.eventType ?? 'unknown'}${input.eventId ? ` (${input.eventId})` : ''}`],
-  ]
-  const lead =
-    'A paid claim arrived for a blog that is being deleted, or that has already been deleted. The subscription was not applied, so nobody was charged for a blog they do not have. Refund it by hand at Polar.'
-  const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;"><p style="font-size:15px;line-height:1.6;">${lead}</p><table style="font-size:14px;line-height:1.6;border-collapse:collapse;margin:16px 0;">${facts
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:2px 16px 2px 0;color:#6b7280;">${label}</td><td style="padding:2px 0;">${value}</td></tr>`,
-    )
-    .join('')}</table></body></html>`
-  const text = `${lead}\n\n${facts.map(([label, value]) => `${label}: ${value}`).join('\n')}`
+  await sendSupportNotice({
+    tag: 'purge-conflict',
+    subject: `Refund needed: a paid claim arrived for a deleted blog (${input.workspaceId})`,
+    lead:
+      'A paid claim arrived for a blog that is being deleted, or that has already been deleted. The subscription was not applied, so nobody was charged for a blog they do not have. Refund it by hand at Polar.',
+    facts: [
+      ['Workspace', input.workspaceId],
+      ['Site', input.siteId ?? 'unknown'],
+      ['Polar customer', input.polarCustomerId ?? 'unknown'],
+      ['Polar subscription', input.polarSubscriptionId ?? 'unknown'],
+      ['Polar order', input.polarOrderId ?? 'unknown'],
+      ['Polar checkout', input.polarCheckoutId ?? 'unknown'],
+      ['Event', `${input.eventType ?? 'unknown'}${input.eventId ? ` (${input.eventId})` : ''}`],
+    ],
+    logLine: `to=${SUPPORT_EMAIL} workspace=${input.workspaceId} subscription=${input.polarSubscriptionId}`,
+  })
+}
 
-  if (!env.EMAIL) {
-    if (isProd && String(env.SELF_HOSTED) !== 'true') {
-      throw new Error('email not configured: add a send_email binding named EMAIL and onboard the sending domain')
-    }
-    console.log(
-      `[purge-conflict] to=${SUPPORT_EMAIL} workspace=${input.workspaceId} subscription=${input.polarSubscriptionId}`,
-    )
-    return
-  }
-  if (!isProd) {
-    console.log(
-      `[purge-conflict] to=${SUPPORT_EMAIL} workspace=${input.workspaceId} subscription=${input.polarSubscriptionId}`,
-    )
-  }
-  try {
-    await env.EMAIL.send({
-      to: SUPPORT_EMAIL,
-      from: parseFromAddress(env.EMAIL_FROM ?? DEFAULT_FROM),
-      subject,
-      html,
-      text,
-    })
-  } catch (err) {
-    if (!isProd) {
-      console.warn(`[purge-conflict] send failed in non-prod (ok locally): ${String(err)}`)
-      return
-    }
-    throw err
-  }
+/**
+ * Operational alert: a blog that already had a live vibecms subscription was
+ * paid for again from a second checkout (for example monthly and yearly in
+ * two tabs). The second subscription was not applied, so the customer pays
+ * twice until it is refunded and revoked by hand at Polar.
+ */
+export async function sendDuplicateSubscriptionEmail(input: {
+  workspaceId: string
+  keptSubscriptionId: string
+  duplicateSubscriptionId: string
+  polarCustomerId: string | null
+  polarCheckoutId: string | null
+  eventType: string
+  eventId: string
+}) {
+  await sendSupportNotice({
+    tag: 'duplicate-subscription',
+    subject: `Refund needed: a blog was paid for twice (${input.workspaceId})`,
+    lead:
+      'A blog that already had a live vibecms subscription was paid for again from a second checkout. The second subscription was not applied: the blog stays on the kept subscription. Refund the second subscription and revoke it by hand at Polar.',
+    facts: [
+      ['Workspace', input.workspaceId],
+      ['Kept subscription', input.keptSubscriptionId],
+      ['Second subscription (refund and revoke)', input.duplicateSubscriptionId],
+      ['Polar customer', input.polarCustomerId ?? 'unknown'],
+      ['Polar checkout', input.polarCheckoutId ?? 'unknown'],
+      ['Event', `${input.eventType} (${input.eventId})`],
+    ],
+    logLine: `to=${SUPPORT_EMAIL} workspace=${input.workspaceId} kept=${input.keptSubscriptionId} duplicate=${input.duplicateSubscriptionId}`,
+  })
 }

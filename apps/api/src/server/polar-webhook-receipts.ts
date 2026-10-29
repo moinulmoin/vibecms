@@ -7,6 +7,12 @@ export type WebhookApplyResult =
   | { kind: 'stale' }
   /** The workspace's blog is being deleted, or is already gone. */
   | { kind: 'conflict' }
+  /**
+   * The blog already has a live subscription and a subscription event belongs
+   * to another vibecms subscription for it (two checkouts paid). Nothing was
+   * applied; the duplicate is recorded so it can be refunded by hand.
+   */
+  | { kind: 'duplicate_subscription' }
 
 /**
  * A workspace whose blog is being deleted, or whose blog is already gone.
@@ -25,6 +31,18 @@ const PURGED_BLOG_GUARD = `
       )
   )
 `
+
+/**
+ * The blog's stored subscription is live (active or past due) and is not the
+ * event's subscription. Two placeholders, both the event's subscription id;
+ * NULL (a checkout event, or no subscription id) never matches.
+ */
+const LIVE_OTHER_SUBSCRIPTION = `(
+  ? IS NOT NULL
+  AND billing_customers.polar_subscription_id IS NOT NULL
+  AND billing_customers.polar_subscription_id <> ?
+  AND billing_customers.status IN ('active', 'past_due')
+)`
 
 /**
  * Deterministic event ID for a Polar webhook.
@@ -152,6 +170,14 @@ type PriorBillingRow = { status: BillingStatus; webhook_updated_at: number | nul
  * Result: no receipt inserted → duplicate; either group changed → applied;
  * otherwise → stale.
  *
+ * One live subscription per blog: while the stored subscription is active or
+ * past due, a subscription event for a different vibecms subscription of the
+ * same blog changes neither group. It is recorded once per duplicate
+ * subscription (payment evidence, once seen, stays) and the result is
+ * duplicate_subscription, so the duplicate can be refunded by hand. Checkout
+ * events keep their status-only effect; the duplicate's own subscription
+ * events follow them.
+ *
  * An equal-timestamp status conflict is retained and logged as a structured
  * warning, even when the subscription-field group applies independently.
  *
@@ -165,6 +191,8 @@ export async function applyPolarWebhookAtomically(
   const now = Math.floor(Date.now() / 1000)
   const subscriptionEvent = input.eventType.startsWith('subscription.')
   const applyNonce = crypto.randomUUID()
+  // Only a subscription event speaks for its subscription; see LIVE_OTHER_SUBSCRIPTION.
+  const incomingSubscription = subscriptionEvent ? input.polarSubscriptionId : null
 
   const priorStmt = db
     .prepare('SELECT status, webhook_updated_at, webhook_event_id FROM billing_customers WHERE workspace_id = ?')
@@ -214,6 +242,7 @@ export async function applyPolarWebhookAtomically(
        WHERE workspace_id = ?
          AND (webhook_updated_at IS NULL OR webhook_updated_at < ?)
          AND ${PURGED_BLOG_GUARD}
+         AND NOT ${LIVE_OTHER_SUBSCRIPTION}
          AND EXISTS (
            SELECT 1 FROM polar_webhook_receipts WHERE event_id = ? AND apply_nonce = ?
          )`,
@@ -228,6 +257,8 @@ export async function applyPolarWebhookAtomically(
       now,
       input.workspaceId,
       input.sourceTimestamp,
+      incomingSubscription,
+      incomingSubscription,
       input.eventId,
       applyNonce,
     )
@@ -243,6 +274,7 @@ export async function applyPolarWebhookAtomically(
        WHERE workspace_id = ? AND ?
          AND (subscription_updated_at IS NULL OR subscription_updated_at < ?)
          AND ${PURGED_BLOG_GUARD}
+         AND NOT ${LIVE_OTHER_SUBSCRIPTION}
          AND EXISTS (
            SELECT 1 FROM polar_webhook_receipts WHERE event_id = ? AND apply_nonce = ?
          )`,
@@ -256,6 +288,45 @@ export async function applyPolarWebhookAtomically(
       input.workspaceId,
       subscriptionEvent ? 1 : 0,
       input.sourceTimestamp,
+      incomingSubscription,
+      incomingSubscription,
+      input.eventId,
+      applyNonce,
+    )
+
+  // The duplicate was not applied above. One record per duplicate
+  // subscription, keyed by its id; payment evidence, once seen, stays.
+  const duplicateStmt = db
+    .prepare(
+      `INSERT INTO polar_duplicate_subscriptions (
+         id, workspace_id, kept_subscription_id, polar_customer_id, polar_checkout_id,
+         event_id, event_type, payment_evidence, notified_at, created_at, updated_at
+       )
+       SELECT ?, billing_customers.workspace_id, billing_customers.polar_subscription_id, ?, ?, ?, ?, ?, NULL, ?, ?
+       FROM billing_customers
+       WHERE billing_customers.workspace_id = ?
+         AND ${LIVE_OTHER_SUBSCRIPTION}
+         AND ${PURGED_BLOG_GUARD}
+         AND EXISTS (
+           SELECT 1 FROM polar_webhook_receipts WHERE event_id = ? AND apply_nonce = ?
+         )
+       ON CONFLICT(id) DO UPDATE SET
+         payment_evidence = MAX(polar_duplicate_subscriptions.payment_evidence, excluded.payment_evidence),
+         polar_checkout_id = COALESCE(polar_duplicate_subscriptions.polar_checkout_id, excluded.polar_checkout_id),
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      incomingSubscription,
+      input.polarCustomerId,
+      input.polarCheckoutId,
+      input.eventId,
+      input.eventType,
+      input.paymentEvidence ? 1 : 0,
+      now,
+      now,
+      input.workspaceId,
+      incomingSubscription,
+      incomingSubscription,
       input.eventId,
       applyNonce,
     )
@@ -303,14 +374,15 @@ export async function applyPolarWebhookAtomically(
       input.workspaceId,
     )
 
-  const [priorResult, receiptResult, , statusResult, subscriptionResult, conflictResult] = await db.batch([
-    priorStmt, receiptStmt, createStmt, statusStmt, subscriptionStmt, conflictStmt,
+  const [priorResult, receiptResult, , statusResult, subscriptionResult, duplicateResult, conflictResult] = await db.batch([
+    priorStmt, receiptStmt, createStmt, statusStmt, subscriptionStmt, duplicateStmt, conflictStmt,
   ])
 
   const receiptChanges = receiptResult?.meta?.changes ?? 0
   const statusChanges = statusResult?.meta?.changes ?? 0
   const subscriptionChanges = subscriptionResult?.meta?.changes ?? 0
   const conflictChanges = conflictResult?.meta?.changes ?? 0
+  const duplicateChanges = duplicateResult?.meta?.changes ?? 0
 
   if (receiptChanges === 0) return { kind: 'duplicate' }
   // The conflict row was written in the same transaction as the receipt, so
@@ -318,6 +390,7 @@ export async function applyPolarWebhookAtomically(
   // gone: the event was not applied (and, when it carries payment evidence,
   // the customer has to be refunded).
   if (conflictChanges > 0) return { kind: 'conflict' }
+  if (duplicateChanges > 0) return { kind: 'duplicate_subscription' }
   if (statusChanges === 0) {
     const prior = (priorResult?.results as PriorBillingRow[] | undefined)?.[0]
     if (prior && prior.webhook_updated_at === input.sourceTimestamp && prior.status !== input.appliedStatus) {

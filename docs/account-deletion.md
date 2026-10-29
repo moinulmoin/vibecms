@@ -12,7 +12,7 @@ Operator-only manual runbook for hosted vibecms. This is not a self-service endp
 
 ## 2. Cancel money first; retain invoices
 
-Before removing `billing_customers` or its workspace, open Polar using the captured customer/subscription IDs and confirm its external customer/workspace mapping. Cancel **every** applicable subscription and any pending checkout through Polar's supported controls. A cancellation scheduled for period end still has a future effective date: record it and settle the intended timing before claiming billing has stopped. Check outstanding payments, refunds and disputes; resolve them with the billing owner. Deleting a D1 billing row does not cancel a Polar subscription or refund a payment.
+Before removing `billing_customers` or its workspace, open Polar using the captured customer/subscription IDs. Polar keeps one customer per email for the whole organization, so that customer may also pay for the person's other blogs and for other products: a subscription belongs to this workspace only when its metadata `workspaceId` is this workspace. Cancel **every** such subscription and any pending checkout through Polar's supported controls, and nothing else on the customer. A cancellation scheduled for period end still has a future effective date: record it and settle the intended timing before claiming billing has stopped. Check outstanding payments, refunds and disputes, including unresolved `polar_duplicate_subscriptions` rows; resolve them with the billing owner. Deleting a D1 billing row does not cancel a Polar subscription or refund a payment.
 
 Retain invoices, orders and legally required financial records in Polar/the approved restricted accounting system according to the actual retention policy. Do not delete invoices to satisfy content deletion; do not promise erasure of records subject to legal retention. Record only minimal references and the retention basis in the ticket. Do not copy an entire customer profile into a new permanent deletion log.
 
@@ -75,6 +75,7 @@ Authoritative ownership: [`schema.ts`](../packages/db/src/schema.ts), plus migra
 | `polar_webhook_receipts` | Exact `workspace_id`; no FK, survives purge. [0013](../packages/db/drizzle/0013_polar_webhook_receipts.sql). Retain minimal receipts while replay/deduplication/accounting obligations require them; record retention and expiry rather than silently deleting them. |
 | `autoseopilot_purge_intents` | Exact `workspace_id` / `site_id` / `owner_user_id`; no FK. Retain the genuine completed intent for late-webhook safety; review retained identifying IDs/prefixes under retention policy. Do not create fake records or delete active intents. |
 | `autoseopilot_purge_conflicts` | Exact `workspace_id` / `site_id`; no FK. Retain restricted refund/payment evidence and resolve notification/refund obligations. |
+| `polar_duplicate_subscriptions` | Exact `workspace_id`; no FK, survives purge. A second paid subscription that was never applied: retain restricted refund evidence and resolve notification/refund obligations. |
 | `session` | Exact `user_id`; delete for account-wide deletion, including all devices/IP/user-agent records; user cascade also covers it. Do not log `token`. |
 | `account` | Exact `user_id`; delete all linked provider accounts/tokens for account-wide deletion; user cascade also covers it. Remove vibecms's provider authorization where supported/authorized, not the customer's Google/GitHub account. |
 | `user` | Exact ID only, and only approved account-wide scope. Shared login survives workspace-only deletion. Guard against remaining memberships and managed ownership. |
@@ -145,6 +146,7 @@ UNION ALL SELECT 'workspaces', count(*) FROM workspaces WHERE id = :workspace_id
 SELECT event_id, event_type, applied_status FROM polar_webhook_receipts WHERE workspace_id = :workspace_id;
 SELECT id, site_id, completed_at FROM autoseopilot_purge_intents WHERE workspace_id = :workspace_id;
 SELECT id, payment_evidence, notified_at FROM autoseopilot_purge_conflicts WHERE workspace_id = :workspace_id;
+SELECT id, kept_subscription_id, payment_evidence, notified_at FROM polar_duplicate_subscriptions WHERE workspace_id = :workspace_id;
 
 -- Account scope only; workspace-only deletion must preserve unrelated access.
 SELECT 'user' AS table_name, count(*) AS rows FROM user WHERE id = :user_id

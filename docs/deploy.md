@@ -192,6 +192,19 @@ vars, and point Polar's webhook at
 `https://app.vibecms.dev/api/polar/webhook` with a signing secret matching
 `POLAR_WEBHOOK_SECRET`.
 
+The Polar organization may also sell other products; customers (one per
+email) and webhook deliveries are shared with them. The API acts only on
+subscription and checkout events for `POLAR_MONTHLY_PRODUCT_ID` or
+`POLAR_YEARLY_PRODUCT_ID`, takes the workspace only from the checkout
+metadata that Polar copies to the subscription, and never writes Polar
+customer metadata. Turn on **Allow multiple subscriptions** in the Polar
+organization settings when those products share customers; otherwise Polar
+refuses a second subscription from the same customer for any product. With it
+on, a blog that already has a live vibecms subscription and is paid for again
+(two checkouts) keeps its first subscription: the second is recorded in
+`polar_duplicate_subscriptions`, and support gets a "Refund needed" email to
+refund and revoke it at Polar.
+
 Bootstrap smoke (no tenant token yet): deploy with `ALLOW_BOOTSTRAP_SMOKE=1`
 and `PRODUCTION_BOOTSTRAP_SHA=$(git rev-parse HEAD)` instead of
 `PRODUCTION_SMOKE_TOKEN`. Preflight rejects bootstrap unless that full

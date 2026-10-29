@@ -4,6 +4,7 @@ All notable changes to vibecms will be documented in this file.
 
 ## Unreleased
 
+- Billing is safe in a Polar organization shared with other products. Webhooks act only on vibecms's monthly and yearly products and take the blog only from the checkout metadata, so another product's subscription on the same Polar customer can no longer make a blog paid or cancel it. Checkout stops writing Polar customer metadata. One person can pay for several blogs (migration 0046), and Manage billing opens for the stored Polar customer, including customers who first bought another product. A second subscription for a blog that is already paid is not applied; support gets a refund email until it is handled.
 - Agent plan-limit errors now include the dashboard upgrade link in their message and details; invalid keys share one clear replacement-key message without changing authorization.
 - Replace unlimited-agent claims with the real plan limits, state launch prices plainly, and explain MCP, SEO & GEO checks, agent skills, and subpath publishing on the landing page.
 - Dashboard upgrade links now say "Upgrade to Cloud" and open billing in a new tab, keeping unsaved editor text in place.

@@ -37,7 +37,7 @@ import {
   type ManagedPurgeIntent,
 } from '@vc/db'
 import { deleteCustomHostname } from '@/server/custom-hostnames'
-import { sendClaimReminderEmail, sendPurgeConflictEmail } from '@/server/email'
+import { sendClaimReminderEmail, sendDuplicateSubscriptionEmail, sendPurgeConflictEmail } from '@/server/email'
 import { budgetedD1, D1QueryBudget } from '@/server/d1-query-budget'
 
 const DAY_SECONDS = 24 * 60 * 60
@@ -280,6 +280,31 @@ export async function runManagedClaimSweep(
     } catch (error) {
       console.warn('[managed-claim-sweep] refund notice failed', {
         conflictId: conflict.id,
+        error: String(error),
+      })
+    }
+  }
+
+  // The same for a blog that was paid for twice: the second subscription was
+  // not applied, and its refund notice is sent again until it is accepted.
+  if (!budget.covers(1 + REFUND_NOTICES_PER_RUN)) return result()
+  const billing = createDataAccess(db).billing
+  for (const duplicate of await billing.listUnnotifiedDuplicateSubscriptions(REFUND_NOTICES_PER_RUN)) {
+    try {
+      await sendDuplicateSubscriptionEmail({
+        workspaceId: duplicate.workspaceId,
+        keptSubscriptionId: duplicate.keptSubscriptionId,
+        duplicateSubscriptionId: duplicate.id,
+        polarCustomerId: duplicate.polarCustomerId,
+        polarCheckoutId: duplicate.polarCheckoutId,
+        eventType: duplicate.eventType,
+        eventId: duplicate.eventId,
+      })
+      await billing.markDuplicateSubscriptionNotified(duplicate.id, now)
+      refundNotices += 1
+    } catch (error) {
+      console.warn('[managed-claim-sweep] duplicate subscription notice failed', {
+        duplicateSubscriptionId: duplicate.id,
         error: String(error),
       })
     }

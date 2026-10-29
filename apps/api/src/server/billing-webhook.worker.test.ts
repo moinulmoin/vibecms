@@ -4,7 +4,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, inject, it, vi } from 'vitest'
 import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
-import { PAST_DUE_GRACE_DAYS } from '@vc/config'
+import { PAST_DUE_GRACE_DAYS, SUPPORT_EMAIL } from '@vc/config'
 import { createDataAccess } from '@vc/db'
 import { ensureBillingRow, getBilling, handlePolarWebhook } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
@@ -15,7 +15,12 @@ const periodEnd = '2026-11-01T00:00:00.000Z'
 const DAY_MS = 86_400_000
 const graceDeadline = (pastDueSince: string) => Date.parse(pastDueSince) + PAST_DUE_GRACE_DAYS * DAY_MS
 const mutableEnv = env as unknown as Record<string, unknown>
-const saved = { SELF_HOSTED: mutableEnv.SELF_HOSTED, POLAR_WEBHOOK_SECRET: mutableEnv.POLAR_WEBHOOK_SECRET }
+const saved = {
+  SELF_HOSTED: mutableEnv.SELF_HOSTED,
+  POLAR_WEBHOOK_SECRET: mutableEnv.POLAR_WEBHOOK_SECRET,
+  POLAR_MONTHLY_PRODUCT_ID: mutableEnv.POLAR_MONTHLY_PRODUCT_ID,
+  EMAIL: mutableEnv.EMAIL,
+}
 
 beforeAll(async () => {
   await applyD1Migrations(env.DB, inject('migrations') as D1Migration[])
@@ -23,10 +28,14 @@ beforeAll(async () => {
 beforeEach(() => {
   mutableEnv.SELF_HOSTED = 'false'
   mutableEnv.POLAR_WEBHOOK_SECRET = secret
+  // The fixtures below are vibecms's own monthly product.
+  mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
 })
 afterEach(() => {
   mutableEnv.SELF_HOSTED = saved.SELF_HOSTED
   mutableEnv.POLAR_WEBHOOK_SECRET = saved.POLAR_WEBHOOK_SECRET
+  mutableEnv.POLAR_MONTHLY_PRODUCT_ID = saved.POLAR_MONTHLY_PRODUCT_ID
+  mutableEnv.EMAIL = saved.EMAIL
   vi.restoreAllMocks()
 })
 
@@ -382,9 +391,11 @@ describe('handlePolarWebhook — signed SDK events with real D1', () => {
     const before = await rawRow(ws)
     expect(await deliver('cf-oldest', 'subscription.updated', subscription(ws, 'canceled', '2026-10-15T10:00:00.050Z'))).toEqual({ received: true, result: 'stale' })
     expect(await rawRow(ws)).toEqual(before)
-    // Newer than both: status and subscription fields update together.
+    // Newer than both: status and subscription fields update together. It is
+    // the same subscription: a different one for a live blog is a second
+    // payment and is not applied (see the shared-organization tests below).
     const renewedAt = '2026-10-15T10:00:00.300Z'
-    const renewed = { ...subscription(ws, 'active', renewedAt), id: `sub_replacement_${ws}`, current_period_end: '2026-12-01T00:00:00.000Z' }
+    const renewed = { ...subscription(ws, 'active', renewedAt), current_period_end: '2026-12-01T00:00:00.000Z' }
     expect(await deliver('cf-newer-subscription', 'subscription.updated', renewed)).toEqual({ received: true, result: 'applied' })
     expect(await record(ws)).toMatchObject({
       status: 'active',
@@ -547,5 +558,78 @@ describe('handlePolarWebhook — signed SDK events with real D1', () => {
     await seedWorkspace(ws)
     expect(await (await handlePolarWebhook(request.clone())).json()).toEqual({ received: true, result: 'applied' })
     expect((await entitlement(ws)).effective).toBe(true)
+  })
+})
+
+// The Polar organization also sells other products. Customers (one per email)
+// and webhook deliveries are shared with them.
+describe('handlePolarWebhook — Polar organization shared with other products', () => {
+  function otherProductSubscription(workspaceId: string, status: string, modifiedAt: string) {
+    const base = subscription(workspaceId, status, modifiedAt)
+    return {
+      ...base,
+      id: 'sub_other_product',
+      product_id: 'prod_other',
+      product: { ...base.product, id: 'prod_other', name: 'Other product' },
+      // The other product tags its own payments. The shared customer still
+      // carries the workspace ID that an earlier vibecms checkout left on it.
+      metadata: { referenceId: 'other-product-reference' },
+    }
+  }
+
+  it("another product's subscription on the same Polar customer never changes a vibecms blog's billing", async () => {
+    const ws = 'ws-shared-org-other-product'
+    await seedWorkspace(ws)
+    expect(await deliver('shared-own-active', 'subscription.active', subscription(ws, 'active', '2026-10-15T10:00:00.000Z'))).toEqual({ received: true, result: 'applied' })
+    const paid = await rawRow(ws)
+
+    expect(await deliver('shared-other-active', 'subscription.active', otherProductSubscription(ws, 'active', '2026-10-16T10:00:00.000Z'))).toEqual({ received: true })
+    expect(await deliver('shared-other-revoked', 'subscription.revoked', otherProductSubscription(ws, 'canceled', '2026-10-17T10:00:00.000Z'))).toEqual({ received: true })
+
+    expect(await rawRow(ws)).toEqual(paid)
+    expect((await entitlement(ws)).effective).toBe(true)
+  })
+
+  it('a second vibecms subscription for a paid blog is not applied, and support is asked once to refund it', async () => {
+    const ws = 'ws-shared-org-second-subscription'
+    await seedWorkspace(ws)
+    const sent: { to: string; subject: string; text: string }[] = []
+    mutableEnv.EMAIL = {
+      send: async (message: { to: string; subject: string; text: string }) => {
+        sent.push(message)
+        return { messageId: 'm1' }
+      },
+    }
+    expect(await deliver('second-tab-first-active', 'subscription.active', subscription(ws, 'active', '2026-10-15T10:00:00.000Z'))).toEqual({ received: true, result: 'applied' })
+    const kept = await rawRow(ws)
+
+    // The same blog paid again from a second checkout (say monthly and yearly in two tabs).
+    const second = (status: string, modifiedAt: string) => ({ ...subscription(ws, status, modifiedAt), id: 'sub_second_tab' })
+    await deliver('second-tab-active', 'subscription.active', second('active', '2026-10-15T10:05:00.000Z'))
+    await deliver('second-tab-updated', 'subscription.updated', second('active', '2026-10-15T10:06:00.000Z'))
+    // Support refunds and revokes it at Polar.
+    await deliver('second-tab-revoked', 'subscription.revoked', second('canceled', '2026-10-16T09:00:00.000Z'))
+
+    expect(await rawRow(ws)).toEqual(kept)
+    expect((await entitlement(ws)).effective).toBe(true)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].to).toBe(SUPPORT_EMAIL)
+    expect(sent[0].text).toContain('sub_second_tab')
+  })
+
+  it('one Polar customer can pay for two blogs', async () => {
+    const blogOne = 'ws-shared-org-blog-one'
+    const blogTwo = 'ws-shared-org-blog-two'
+    await seedWorkspace(blogOne)
+    await seedWorkspace(blogTwo)
+    // Polar keeps one customer per email, so both blogs' subscriptions belong to it.
+    const samePerson = (ws: string) => {
+      const base = subscription(ws, 'active', '2026-10-15T10:00:00.000Z')
+      return { ...base, customer_id: 'cust_one_person', customer: { ...base.customer, id: 'cust_one_person' } }
+    }
+    expect(await deliver('one-person-blog-one', 'subscription.active', samePerson(blogOne))).toEqual({ received: true, result: 'applied' })
+    expect(await deliver('one-person-blog-two', 'subscription.active', samePerson(blogTwo))).toEqual({ received: true, result: 'applied' })
+    expect((await entitlement(blogOne)).effective).toBe(true)
+    expect((await entitlement(blogTwo)).effective).toBe(true)
   })
 })

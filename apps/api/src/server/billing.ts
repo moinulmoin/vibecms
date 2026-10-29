@@ -1,6 +1,6 @@
 import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
-import { createDataAccess, type ManagedPurgeConflict } from '@vc/db'
+import { createDataAccess, type ManagedPurgeConflict, type PolarDuplicateSubscriptionRow } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
 import { LAUNCH_OFFER, MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
 import { validatePolarWebhook } from '@/server/polar-webhook-validation'
@@ -16,7 +16,7 @@ import {
   type WebhookApplyResult,
 } from '@/server/polar-webhook-receipts'
 import type { AppUserContext } from '@/server/onboarding'
-import { sendPurgeConflictEmail } from '@/server/email'
+import { sendDuplicateSubscriptionEmail, sendPurgeConflictEmail } from '@/server/email'
 
 type PolarWebhookEvent = { id?: unknown; type: string; timestamp?: unknown; data?: Record<string, unknown> }
 
@@ -153,7 +153,6 @@ export type CreatePolarCheckout = (
     customerEmail: string
     customerName: string
     metadata: { workspaceId: string }
-    customerMetadata: { workspaceId: string }
   },
   options?: { headers?: HeadersInit },
 ) => Promise<PolarOpenCheckout>
@@ -195,6 +194,36 @@ async function notifyPurgeConflict(conflict: ManagedPurgeConflict): Promise<void
   } catch (error) {
     console.warn('[polar-webhook] purge conflict notice failed', {
       conflictId: conflict.id,
+      error: String(error),
+    })
+  }
+}
+
+/**
+ * Sends the refund notice for a second subscription that was paid for a blog
+ * that already had a live one, and marks it as notified. A duplicate without
+ * payment evidence is a record only. A failed mail is not fatal: the record
+ * stays unnotified, so the claim sweep sends it again until it is accepted.
+ */
+async function notifyDuplicateSubscription(duplicate: PolarDuplicateSubscriptionRow): Promise<void> {
+  if (duplicate.paymentEvidence !== 1 || duplicate.notifiedAt !== null) return
+  try {
+    await sendDuplicateSubscriptionEmail({
+      workspaceId: duplicate.workspaceId,
+      keptSubscriptionId: duplicate.keptSubscriptionId,
+      duplicateSubscriptionId: duplicate.id,
+      polarCustomerId: duplicate.polarCustomerId,
+      polarCheckoutId: duplicate.polarCheckoutId,
+      eventType: duplicate.eventType,
+      eventId: duplicate.eventId,
+    })
+    await createDataAccess(env.DB).billing.markDuplicateSubscriptionNotified(
+      duplicate.id,
+      Math.floor(Date.now() / 1000),
+    )
+  } catch (error) {
+    console.warn('[polar-webhook] duplicate subscription notice failed', {
+      duplicateSubscriptionId: duplicate.id,
       error: String(error),
     })
   }
@@ -319,7 +348,6 @@ export async function createCheckoutSessionForApp(
         customerEmail: app.user.email,
         customerName: app.user.name,
         metadata: { workspaceId: app.workspaceId },
-        customerMetadata: { workspaceId: app.workspaceId },
       },
       { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval, productId, discountId) } },
     )
@@ -357,10 +385,15 @@ export async function createPortalSessionForApp(app: AppUserContext): Promise<Bi
   const client = polar()
   if (!client) return { kind: 'error', code: 'polar_unconfigured' }
   try {
-    const session = await client.customerSessions.create({
-      externalCustomerId: app.workspaceId,
-      returnUrl: `${env.APP_URL}/dashboard/billing`,
-    })
+    // Polar keeps one customer per email, shared with the organization's other
+    // products. A checkout that reuses a customer by email never sets its
+    // external ID, so the stored Polar customer is the reliable handle; the
+    // workspace ID only finds a customer that a vibecms checkout created.
+    const session = await client.customerSessions.create(
+      billing.polarCustomerId
+        ? { customerId: billing.polarCustomerId, returnUrl: `${env.APP_URL}/dashboard/billing` }
+        : { externalCustomerId: app.workspaceId, returnUrl: `${env.APP_URL}/dashboard/billing` },
+    )
     if (!session.customerPortalUrl) return { kind: 'error', code: 'polar_unconfigured' }
     return { kind: 'ok', url: session.customerPortalUrl }
   } catch {
@@ -400,22 +433,25 @@ function stringField(data: Record<string, unknown>, camelKey: string, snakeKey: 
   return typeof snakeValue === 'string' ? snakeValue : undefined
 }
 
-// Only vibecms checkouts tag payments with metadata.workspaceId (Polar copies it
-// to the subscription). The Polar account is shared with other products, so a
-// bare external customer ID is someone else's customer, not a vibecms workspace.
+/**
+ * The Polar organization also sells other products, and Polar sends every
+ * product's events here. Only vibecms's own products may change a blog's
+ * billing; a plan switch in the customer portal keeps the subscription on one
+ * of them.
+ */
+function isVibecmsProduct(productId: string | undefined) {
+  return Boolean(productId) && (productId === env.POLAR_MONTHLY_PRODUCT_ID || productId === env.POLAR_YEARLY_PRODUCT_ID)
+}
+
+// Only vibecms checkouts put workspaceId in the checkout metadata, and Polar
+// copies checkout metadata to the order and the subscription. The Polar
+// customer (one per email) is shared with the organization's other products,
+// so neither its metadata nor its external ID names a blog.
 function workspaceIdFrom(data: Record<string, unknown>) {
   const metadata = data.metadata
-  const rootCustomerMetadata = data.customer_metadata
-  const customerMetadata =
-    typeof data.customer === 'object' && data.customer
-      ? (data.customer as Record<string, unknown>).metadata
-      : undefined
-  for (const source of [metadata, rootCustomerMetadata, customerMetadata]) {
-    if (typeof source === 'object' && source && 'workspaceId' in source) {
-      return String((source as Record<string, unknown>).workspaceId)
-    }
-  }
-  return null
+  if (typeof metadata !== 'object' || !metadata) return null
+  const workspaceId = (metadata as Record<string, unknown>).workspaceId
+  return typeof workspaceId === 'string' && workspaceId ? workspaceId : null
 }
 
 export async function handlePolarWebhook(request: Request) {
@@ -432,14 +468,21 @@ export async function handlePolarWebhook(request: Request) {
   }
   const data = event.data
   if (!data) return Response.json({ received: true })
-  const workspaceId = workspaceIdFrom(data)
-  if (!workspaceId) return Response.json({ received: true })
   const status = event.type.startsWith('subscription.')
     ? subscriptionStatus(data.status)
     : event.type === 'checkout.updated' && data.status === 'succeeded'
       ? 'active'
       : undefined
   if (!status) return Response.json({ received: true })
+  const productId = stringField(data, 'productId', 'product_id')
+  if (!isVibecmsProduct(productId)) {
+    if (!productId) {
+      console.warn(JSON.stringify({ level: 'warn', event: 'polar_webhook_without_product', eventType: event.type }))
+    }
+    return Response.json({ received: true })
+  }
+  const workspaceId = workspaceIdFrom(data)
+  if (!workspaceId) return Response.json({ received: true })
   const sourceTimestamp = polarSourceTimestampMs(event, data, request.headers)
   const eventId = await polarEventId(event, payload, request.headers)
   const subscriptionId =
@@ -541,6 +584,30 @@ export async function handlePolarWebhook(request: Request) {
       }),
     )
     await notifyPurgeConflict(conflict)
+    return Response.json({ received: true, result: result.kind })
+  }
+  if (result.kind === 'duplicate_subscription') {
+    // The blog already had a live subscription and was paid for again from a
+    // second checkout. The second subscription was not applied, so the blog
+    // stays on the kept one; support refunds and revokes the duplicate.
+    const duplicate = subscriptionId
+      ? await createDataAccess(env.DB).billing.getDuplicateSubscription(subscriptionId)
+      : undefined
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        event: 'polar_webhook_duplicate_subscription',
+        workspaceId,
+        keptSubscriptionId: duplicate?.keptSubscriptionId ?? null,
+        duplicateSubscriptionId: subscriptionId,
+        eventId,
+        eventType: event.type,
+        paymentEvidence: duplicate?.paymentEvidence === 1,
+      }),
+    )
+    if (duplicate) await notifyDuplicateSubscription(duplicate)
+    // The checkout ended; any claim it was for already landed on the kept subscription.
+    await resolveCheckoutAttempt(workspaceId, Math.floor(Date.now() / 1000))
     return Response.json({ received: true, result: result.kind })
   }
   if (result.kind === 'applied') {

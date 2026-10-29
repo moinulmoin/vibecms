@@ -262,7 +262,8 @@ export const activityEvents = sqliteTable("activity_events", {
 export const billingCustomers = sqliteTable("billing_customers", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id").notNull().unique().references(() => workspaces.id, { onDelete: "cascade" }),
-  polarCustomerId: text("polar_customer_id").unique(),
+  // Not unique: Polar keeps one customer per email, and one person may pay for several blogs.
+  polarCustomerId: text("polar_customer_id"),
   polarSubscriptionId: text("polar_subscription_id").unique(),
   status: text("status", { enum: ["active", "past_due", "canceled", "unpaid", "none"] }).notNull().default("none"),
   // Polar's current_period_end, epoch SECONDS (shared with entitlement checks).
@@ -553,6 +554,32 @@ export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_confli
   index("idx_autoseopilot_purge_conflicts_created").on(table.createdAt),
 ]);
 
+/**
+ * A second vibecms subscription for a blog that already has a live one (two
+ * checkouts paid). It is not applied; the blog stays on the kept
+ * subscription, and the duplicate has to be refunded and revoked by hand at
+ * Polar. The id is the duplicate's Polar subscription id. It survives the
+ * blog's own rows.
+ */
+export const polarDuplicateSubscriptions = sqliteTable("polar_duplicate_subscriptions", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  keptSubscriptionId: text("kept_subscription_id").notNull(),
+  polarCustomerId: text("polar_customer_id"),
+  polarCheckoutId: text("polar_checkout_id"),
+  /** The first event that showed the duplicate. */
+  eventId: text("event_id").notNull(),
+  eventType: text("event_type").notNull(),
+  /** 1 once an event proved the duplicate was paid; only then is a refund notice owed. */
+  paymentEvidence: integer("payment_evidence").notNull().default(0),
+  /** When the refund notice was accepted (epoch seconds); NULL means it is still owed. */
+  notifiedAt: integer("notified_at"),
+  ...timestamps,
+}, (table) => [
+  index("idx_polar_duplicate_subscriptions_workspace").on(table.workspaceId),
+  index("idx_polar_duplicate_subscriptions_created").on(table.createdAt),
+]);
+
 export const pendingMediaOperations = sqliteTable("pending_media_operations", {
   id: text("id").primaryKey(),
   kind: text("kind", { enum: ["upload_cleanup", "delete"] }).notNull(),
@@ -610,6 +637,7 @@ export type ActivityEventRow = typeof activityEvents.$inferSelect;
 export type ActivityEventInsert = typeof activityEvents.$inferInsert;
 export type BillingCustomerRow = typeof billingCustomers.$inferSelect;
 export type BillingCustomerInsert = typeof billingCustomers.$inferInsert;
+export type PolarDuplicateSubscriptionRow = typeof polarDuplicateSubscriptions.$inferSelect;
 export type AnalyticsRollupRow = typeof analyticsRollups.$inferSelect;
 export type AnalyticsRollupInsert = typeof analyticsRollups.$inferInsert;
 export type AnalyticsRollupStateRow = typeof analyticsRollupState.$inferSelect;
