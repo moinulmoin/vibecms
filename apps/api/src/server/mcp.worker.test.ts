@@ -3,7 +3,7 @@ import { operationsByToolName, zodToJsonSchema } from "@vc/api-contract";
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
 import { operations, zodToInputJsonSchema } from "@vc/api-contract";
-import { describe, it, expect, beforeAll, inject } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, inject } from "vitest";
 import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { createD1PostRepository } from "@vc/db";
@@ -34,10 +34,68 @@ type Tool = {
 
 type RpcErrorBody = { jsonrpc: string; id: unknown; error: { code: number; message: string } };
 
+const DISCOVERY_TOKEN = "vc_live_mcp_authenticated_discovery";
+const DISCOVERY_HEADERS = {
+  "content-type": "application/json",
+  authorization: `Bearer ${DISCOVERY_TOKEN}`,
+};
+
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, inject("migrations") as D1Migration[]);
+  const ts = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    "INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+  )
+    .bind("ws-mcp-discovery", "MCP Discovery", "ws-mcp-discovery", ts, ts)
+    .run();
+  await env.DB.prepare(
+    "INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+  )
+    .bind("site-mcp-discovery", "ws-mcp-discovery", "MCP Discovery", "site-mcp-discovery", ts, ts)
+    .run();
+  await env.DB.prepare(
+    "INSERT INTO api_keys (id, site_id, name, token_prefix, token_hash, scopes_json, actor_name, last_used_at, revoked_at, created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)",
+  )
+    .bind(
+      "key-mcp-discovery",
+      "site-mcp-discovery",
+      "MCP Discovery",
+      DISCOVERY_TOKEN.slice(0, 18),
+      await hashToken(DISCOVERY_TOKEN),
+      JSON.stringify([...new Set(operations.flatMap((operation) => operation.requiredScope ? [operation.requiredScope] : []))]),
+      "MCP Discovery",
+      "owner-mcp-discovery",
+      ts,
+      ts,
+    )
+    .run();
+});
+
+beforeEach(async () => {
+  // Catalog contract cases each get the one-read test budget; quota cases use a separate workspace.
+  await env.DB.prepare("DELETE FROM usage_counters WHERE workspace_id = ?")
+    .bind("ws-mcp-discovery")
+    .run();
+});
+
+async function expectSignInChallenge(response: Response, id: number | null) {
+  expect(response.status).toBe(401);
+  expect(response.headers.get("www-authenticate")).toMatch(/^Bearer /i);
+  expect(response.headers.get("www-authenticate")).toContain(
+    `resource_metadata="${env.APP_URL.replace(/\/+$/, "")}/.well-known/oauth-protected-resource/mcp"`,
+  );
+  expect(response.headers.get("www-authenticate")).not.toContain('error="invalid_token"');
+  expect((await response.json()) as RpcErrorBody).toMatchObject({
+    jsonrpc: "2.0",
+    id,
+    error: { code: -32001 },
+  });
+}
+
 async function toolsList(): Promise<Tool[]> {
   const request = new Request("https://app.vibecms.dev/mcp", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: DISCOVERY_HEADERS,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
   });
   const response = await handleMcpRequest(request);
@@ -49,7 +107,7 @@ async function toolsList(): Promise<Tool[]> {
 async function initialize(): Promise<string> {
   const request = new Request("https://app.vibecms.dev/mcp", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: DISCOVERY_HEADERS,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
   });
   const response = await handleMcpRequest(request);
@@ -278,7 +336,10 @@ describe("MCP initialize safety contract", () => {
 
 describe("MCP 2026-07-28 stateless transport", () => {
   it("discovers supported versions and server capabilities per request", async () => {
-    const response = await handleMcpRequest(modernMcpRequest("server/discover"));
+    const request = modernMcpRequest("server/discover");
+    await expectSignInChallenge(await handleMcpRequest(request.clone()), 1);
+    request.headers.set("authorization", DISCOVERY_HEADERS.authorization);
+    const response = await handleMcpRequest(request);
     expect(response.status).toBe(200);
     const json = (await response.json()) as {
       result: {
@@ -305,7 +366,10 @@ describe("MCP 2026-07-28 stateless transport", () => {
   });
 
   it("returns cacheable, deterministic tools with modern result metadata", async () => {
-    const response = await handleMcpRequest(modernMcpRequest("tools/list"));
+    const request = modernMcpRequest("tools/list");
+    await expectSignInChallenge(await handleMcpRequest(request.clone()), 1);
+    request.headers.set("authorization", DISCOVERY_HEADERS.authorization);
+    const response = await handleMcpRequest(request);
     expect(response.status).toBe(200);
     const json = (await response.json()) as {
       result: { resultType: string; tools: Tool[]; ttlMs: number; cacheScope: string };
@@ -314,7 +378,7 @@ describe("MCP 2026-07-28 stateless transport", () => {
     expect(json.result).toMatchObject({
       resultType: "complete",
       ttlMs: 300_000,
-      cacheScope: "public",
+      cacheScope: "private",
     });
     expect(names).toEqual([...names].sort((left, right) => left.localeCompare(right)));
   });
@@ -369,7 +433,9 @@ describe("MCP 2026-07-28 stateless transport", () => {
   });
 
   it("keeps initialize available for standard MCP protocol negotiation", async () => {
-    const modernResponse = await handleMcpRequest(modernMcpRequest("initialize"));
+    const modernRequest = modernMcpRequest("initialize");
+    modernRequest.headers.set("authorization", DISCOVERY_HEADERS.authorization);
+    const modernResponse = await handleMcpRequest(modernRequest);
     expect(modernResponse.status).toBe(404);
     expect((await modernResponse.json()) as RpcErrorBody).toMatchObject({ error: { code: -32601 } });
 
@@ -379,12 +445,17 @@ describe("MCP 2026-07-28 stateless transport", () => {
         id: 2,
         method: "initialize",
         params: { protocolVersion: "2025-11-25" },
-      }),
+      }, DISCOVERY_HEADERS),
     );
     const initializeJson = (await initializeResponse.json()) as { result: { protocolVersion: string; resultType?: string } };
     expect(initializeResponse.status).toBe(200);
     expect(initializeJson.result).toMatchObject({ protocolVersion: "2025-11-25" });
     expect(initializeJson.result.resultType).toBeUndefined();
+
+    const initialized = mcpRequest({ jsonrpc: "2.0", method: "notifications/initialized" });
+    await expectSignInChallenge(await handleMcpRequest(initialized.clone()), null);
+    initialized.headers.set("authorization", DISCOVERY_HEADERS.authorization);
+    expect((await handleMcpRequest(initialized)).status).toBe(202);
   });
 
   it("rejects cross-origin browser requests", async () => {
@@ -514,13 +585,13 @@ describe("MCP tools/list auth and quota", () => {
       .run();
   });
 
-  it("allows unauthenticated tools/list for discovery", async () => {
-    const response = await handleMcpRequest(
-      mcpRequest({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-    );
-    expect(response.status).toBe(200);
-    const json = (await response.json()) as { result: { tools: Tool[] } };
-    expect(json.result.tools.length).toBe(operations.length);
+  it("requires sign-in before initialize or tools/list discovery", async () => {
+    for (const method of ["initialize", "tools/list"]) {
+      const response = await handleMcpRequest(
+        mcpRequest({ jsonrpc: "2.0", id: 2, method }),
+      );
+      await expectSignInChallenge(response, 2);
+    }
   });
 
   it("rejects an invalid bearer on tools/list instead of swallowing auth failure", async () => {
@@ -531,6 +602,8 @@ describe("MCP tools/list auth and quota", () => {
       ),
     );
     expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toContain('error="invalid_token"');
+    expect(response.headers.get("www-authenticate")).toContain("resource_metadata=");
     const json = (await response.json()) as RpcErrorBody;
     expect(json).toMatchObject({ jsonrpc: "2.0", id: 3, error: { code: -32001 } });
   });

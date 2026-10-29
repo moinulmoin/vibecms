@@ -188,6 +188,28 @@ async function call(f: Fixture, token: string | null, name: string, args: Json =
   })
 }
 
+function discovery(method: 'initialize' | 'tools/list' | 'server/discover' | 'notifications/initialized', token: string | null = null) {
+  const modern = method === 'server/discover' || method === 'tools/list'
+  const version = '2026-07-28'
+  const headers = new Headers({ 'content-type': 'application/json' })
+  if (token !== null) headers.set('authorization', `Bearer ${token}`)
+  if (modern) {
+    headers.set('MCP-Protocol-Version', version)
+    headers.set('Mcp-Method', method)
+  }
+  return request('/mcp', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      jsonrpc: '2.0', ...(method === 'notifications/initialized' ? {} : { id: 1 }), method,
+      ...(modern ? { params: { _meta: {
+        'io.modelcontextprotocol/protocolVersion': version,
+        'io.modelcontextprotocol/clientInfo': { name: 'oauth-test', version: '1.0.0' },
+        'io.modelcontextprotocol/clientCapabilities': {},
+      } } } : {}),
+    }),
+  })
+}
+
 async function tool(response: Response) {
   expect(response.status).toBe(200)
   return (await body(response)).result as Json
@@ -221,6 +243,7 @@ async function expectChallenge(response: Response, invalid = true) {
   expect(metadata.status).toBe(200)
   expect(metadata.headers.get('access-control-allow-origin')).toBe('*')
   expect(await body(metadata)).toMatchObject({ resource, authorization_servers: [issuer] })
+  expect(await body(response)).toMatchObject({ jsonrpc: '2.0', error: { code: -32001 } })
 }
 
 describe('OAuth sign-in approved behaviors', () => {
@@ -422,6 +445,9 @@ describe('OAuth sign-in approved behaviors', () => {
   it('7: missing, invalid and expired bearer challenges point to exact MCP resource metadata', async () => {
     const f = await fixture()
     await expectChallenge(await call(f, null, 'sites.get'), false)
+    for (const method of ['initialize', 'tools/list', 'server/discover', 'notifications/initialized'] as const) {
+      await expectChallenge(await discovery(method), false)
+    }
     await expectChallenge(await call(f, 'vc_oat_invalid', 'sites.get'))
     const auth = await connect(f)
     const hash = await hashApiToken(auth.tokens.access_token, env.TOKEN_PEPPER)
@@ -473,5 +499,25 @@ describe('OAuth sign-in approved behaviors', () => {
     const oauthCall = await tool(await call(f, auth.tokens.access_token, 'sites.get'))
     expect(oauthCall.isError).not.toBe(true)
     expect(oauthCall.structuredContent.result.id).toBe(f.site)
+    for (const token of [f.key, auth.tokens.access_token]) {
+      await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(f.workspace).run()
+      const initialized = await discovery('initialize', token)
+      expect(initialized.status).toBe(200)
+      expect((await body(initialized)).result.protocolVersion).toBe('2025-11-25')
+      const discovered = await discovery('server/discover', token)
+      expect(discovered.status).toBe(200)
+      expect((await body(discovered)).result).toMatchObject({ resultType: 'complete', cacheScope: 'public' })
+      const listed = await discovery('tools/list', token)
+      expect(listed.status).toBe(200)
+      const catalog = (await body(listed)).result
+      expect(catalog).toMatchObject({ resultType: 'complete', cacheScope: 'private' })
+      expect(catalog.tools.length).toBeGreaterThan(0)
+      expect(catalog.tools.every((tool: Json) => {
+        const scope = tool._meta['vibecms.com/requiredScope']
+        return scope === null || AGENT_TOKEN_PRESETS.draft.includes(scope)
+      })).toBe(true)
+      expect(catalog.tools.some((tool: Json) => tool.name === 'posts.publish')).toBe(false)
+      expect((await discovery('notifications/initialized', token)).status).toBe(202)
+    }
   })
 })

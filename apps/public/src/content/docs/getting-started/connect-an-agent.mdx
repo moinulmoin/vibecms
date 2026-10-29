@@ -7,9 +7,9 @@ description: Connect an agent by signing in or using a scoped key.
 
 1. In Claude, open **Customize > Connectors > Add custom connector**.
 2. Name it `vibecms` and enter `https://app.vibecms.dev/mcp` as the URL.
-3. Sign in to vibecms when prompted. Choose the blog and access level, then select **Allow**.
+3. Choose **Connect** or **Sign in** when prompted. Sign in to vibecms, choose the blog and access level, then select **Allow**.
 
-No agent key is needed. Only a blog owner can connect an app.
+Sign-in happens before MCP discovery or tool use, not only when you first call a tool. No agent key is needed. Only a blog owner can connect an app.
 
 ## Access levels
 
@@ -52,7 +52,7 @@ Open **Dashboard > Connect**, find the app under **Connected apps**, and choose 
 
 ## Use an agent key
 
-For Codex, Cursor, or another client using a bearer key, open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once. Only the blog owner can create or revoke keys.
+For Codex, Cursor, or another client using a bearer key, open **Dashboard > Connect**, choose a key level, create the key, and copy it immediately. vibecms reveals each key once. Only the blog owner can create or revoke keys. Existing API-key users do not need OAuth sign-in; keep sending the key on every MCP request, including discovery.
 
 ## Codex
 
@@ -111,7 +111,7 @@ Other ways to get the same skills, always the latest version:
 
 ## Verify the credential
 
-Tool discovery does not prove that a connection or key can access your site. Ask the connected agent to call `sites.get`, or check a key with:
+Tool discovery requires authentication, but it does not prove that the credential has permission to read your site. Ask the connected agent to call `sites.get`, or check a key with:
 
 ```sh
 curl https://app.vibecms.dev/mcp \

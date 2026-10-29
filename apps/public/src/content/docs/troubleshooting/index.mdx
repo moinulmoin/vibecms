@@ -25,7 +25,7 @@ See [Connect an agent](/docs/getting-started/connect-an-agent) for setup and acc
 
 ## The client lists tools but cannot read the site
 
-Tool discovery is not an authentication check. Call `sites.get`. For a signed-in connection, check that the right blog was approved and the connection has not been disconnected. For a key, confirm the bearer header is attached to the MCP request. The credential needs `sites:read`.
+Tool discovery requires authentication, but listing tools does not prove that the credential can read your site. Call `sites.get`. For a signed-in connection, check that the right blog was approved and the connection has not been disconnected. For a key, confirm the bearer header is attached to every MCP request, including discovery. The credential needs `sites:read`.
 
 ## A write returns `FORBIDDEN`
 

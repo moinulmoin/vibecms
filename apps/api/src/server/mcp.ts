@@ -13,7 +13,7 @@ import {
 } from "@vc/api-contract";
 import { authenticateBearerToken, hashApiToken } from "./api-keys";
 import { createDataAccess } from "@vc/db";
-import { agentErrorDetails, invalidApiKeyMessage } from "./agent-errors";
+import { agentErrorDetails, invalidApiKeyMessage, signInRequiredMessage } from "./agent-errors";
 import { apiRateLimitHeaders, enforceApiBudget, type ApiUsageKind } from "./usage";
 import { UploadError } from "./media";
 import { dispatchOperation } from "./mcp-dispatch";
@@ -289,10 +289,10 @@ async function callTool(name: McpToolName, actor: Actor, siteId: string, workspa
   return structuredToolResult(wrap ? { result: dto } : dto);
 }
 
-function listedTools(actor?: Actor) {
+function listedTools(actor: Actor) {
   return {
     tools: operations
-      .filter((op) => !actor || op.requiredScope === null || can(actor, op.requiredScope))
+      .filter((op) => op.requiredScope === null || can(actor, op.requiredScope))
       .map((op) => {
         const annotations: Record<string, boolean> = {};
         const hints = op.annotations as OperationAnnotations;
@@ -397,6 +397,7 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
   const bearer = hasBearerAuthorization(request);
   const auth = bearer ? await authenticateMcp(request) : null;
   if (bearer && !auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(true));
+  if (!auth) return rpcError(body.id, -32001, signInRequiredMessage(), 401, bearerChallenge(false));
 
   if (!modern && body.method === "initialize") {
     return result(body.id, {
@@ -423,18 +424,6 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
     );
   }
   if (body.method === "tools/list") {
-    // Unauthenticated discovery is allowed; a Bearer header requires auth + read budget.
-    if (!hasBearerAuthorization(request)) {
-      return result(
-        body.id,
-        {
-          ...listedTools(),
-          ...(modern ? { ttlMs: DISCOVERY_TTL_MS, cacheScope: "public" } : {}),
-        },
-        modern,
-      );
-    }
-    if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(true));
     try {
       await enforceApiBudget({
         workspaceId: auth.workspaceId,
@@ -461,7 +450,6 @@ export async function handleMcpRequest(request: Request, requestId: string | nul
   if (body.method !== "tools/call") {
     return rpcError(body.id, -32601, "Method not found", modern ? 404 : 200);
   }
-  if (!auth) return rpcError(body.id, -32001, invalidApiKeyMessage(), 401, bearerChallenge(false));
   const params = asObject(body.params);
   const name = stringParam(params, "name");
   if (!name) return rpcError(body.id, -32602, "Tool name is required", 400);

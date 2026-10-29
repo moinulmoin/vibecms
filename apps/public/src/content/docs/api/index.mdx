@@ -31,6 +31,10 @@ Use this guide for authentication, concurrency, and workflow semantics. Use the 
 
 The MCP endpoint is `POST /mcp` on the same origin — stateless JSON-RPC 2.0 over HTTP, no session handshake. Legacy clients can still send `initialize`; newer clients should use `server/discover` with protocol version `2026-07-28`.
 
+Authenticate every MCP request with an agent key or OAuth access token, including `initialize`, `tools/list`, `server/discover` and legacy `notifications/initialized`. Missing credentials return HTTP `401` / JSON-RPC `-32001` with a bearer challenge pointing to public OAuth metadata, so OAuth-capable clients can offer sign-in up front. Invalid bearers retain the `invalid_token` challenge. API-key clients keep using their existing bearer key.
+
+`tools/list` is scope-filtered and privately cached. `server/discover` also requires authentication, even though its successful response declares `cacheScope: "public"` because it is identical across principals; response caching is not an anonymous-access exemption. OAuth metadata, trusted CIMD/public-client registration, the static server card and HTTP agent skill files remain public.
+
 Modern-protocol requests must mirror the request into headers or they fail even with a valid key:
 
 - `MCP-Protocol-Version: 2026-07-28` must match `_meta["io.modelcontextprotocol/protocolVersion"]`

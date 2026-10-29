@@ -24,6 +24,8 @@ The CMS your agents publish into: Markdown posts, versions, and media over scope
 
 vibecms exposes standards-based MCP over Streamable HTTP. Hosted vibecms uses `https://app.vibecms.dev`; self-hosters use their own API host.
 
+Sign-in is required before MCP discovery or tool use: `initialize`, `tools/list`, `server/discover`, and legacy `notifications/initialized` all require authentication. OAuth clients such as Claude web, desktop and Code offer **Connect** or **Sign in** up front. Requests without a bearer receive HTTP `401` with an OAuth resource-metadata challenge; existing API-key users continue sending their bearer key as before. OAuth metadata, trusted CIMD/public-client registration, the static server card and HTTP agent skill files remain public.
+
 Connect Claude Code with the URL, then open `/mcp` to sign in and approve access:
 
 ```sh
@@ -63,7 +65,7 @@ claude plugin install vibecms@vibecms
 
 Directory listing copy and submission notes live in [`docs/directory-listings.md`](docs/directory-listings.md).
 
-Verify credentials with a protected read—not `tools/list`, which is intentionally available for tool discovery:
+Verify that the credential can read your site with a protected tool call (`tools/list` now also requires authentication, but only lists tools allowed by its scopes):
 
 ```sh
 curl https://app.vibecms.dev/mcp \

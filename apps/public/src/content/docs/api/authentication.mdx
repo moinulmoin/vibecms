@@ -11,9 +11,14 @@ Authorization: Bearer vc_...
 
 Tokens are created in **Dashboard > Connect**, belong to one site, and are shown once.
 
+MCP also accepts OAuth sign-in connections; REST continues to use agent keys only. MCP requires authentication up front for `initialize`, `tools/list`, `server/discover`, legacy `notifications/initialized` and tool calls. OAuth-capable clients such as Claude web, desktop and Code offer **Connect** or **Sign in** before tools are available. Existing API-key users keep sending their bearer key on every request.
+
+OAuth protected-resource and authorization-server metadata, trusted Client ID Metadata Documents (CIMD) and public-client registration (DCR) remain public. The static MCP server card and HTTP files under `/.well-known/agent-skills/` also remain public; this does not make MCP tool discovery anonymous.
+
 ## Responses
 
-- Missing, malformed, unknown, expired, revoked, or deleted credential: HTTP `401` (`UNAUTHORIZED` over REST, JSON-RPC `-32001` over MCP). Each case uses the same message: “This key or sign-in is invalid, expired or was removed. Sign in again, or create a new agent key in the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.” MCP 401 responses also carry a `WWW-Authenticate: Bearer` header pointing to the sign-in metadata, so apps that support sign-in (such as Claude) can reconnect on their own.
+- No credential: HTTP `401` (`UNAUTHORIZED` over REST, JSON-RPC `-32001` over MCP). MCP answers “Sign in required. Connect vibecms in your agent to sign in, or use an agent key from the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.” with the sign-in challenge `WWW-Authenticate: Bearer resource_metadata="https://app.vibecms.dev/.well-known/oauth-protected-resource/mcp"` (using the deployment's API origin on self-hosted installs), without `error="invalid_token"`. REST uses the invalid-credential message below.
+- Malformed, unknown, expired, revoked, or deleted credential: HTTP `401` with the same message on both transports: “This key or sign-in is invalid, expired or was removed. Sign in again, or create a new agent key in the vibecms dashboard: &lt;APP_URL&gt;/dashboard/connect.” Over MCP the challenge also includes `error="invalid_token"`.
 - Valid token without the required scope: HTTP `403` with `FORBIDDEN`
 - Exceeded hosted usage budget: HTTP `429` with `RATE_LIMIT`
 

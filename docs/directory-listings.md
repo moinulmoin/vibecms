@@ -57,10 +57,11 @@ skill changes, even between product releases.
 
 ### How to connect
 
-Point an OAuth-capable MCP client at the MCP URL, then sign in and approve a
-blog and access level. Claude Code users can open `/mcp` to sign in. For a
-client using an agent key instead, create one under **Dashboard > Connect**
-(it starts with `vc_live_` and is shown once) and send it as a bearer token:
+Point an OAuth-capable MCP client at the MCP URL, then choose **Connect** or
+**Sign in** and approve a blog and access level before discovery or tool use.
+Claude Code users can open `/mcp` to sign in. Existing agent-key users are
+unchanged: create one under **Dashboard > Connect** (it starts with `vc_live_`
+and is shown once) and send it as a bearer token on every MCP request:
 
 ```json
 {
@@ -76,16 +77,28 @@ client using an agent key instead, create one under **Dashboard > Connect**
 
 Server behavior that directory scanners will see:
 
-- `initialize` and `tools/list` answer without a credential, so scanners can
-  index the tools. An invalid bearer returns `401`.
-- `tools/call` without a bearer, or a request with an invalid or expired bearer,
-  returns HTTP `401` with a `WWW-Authenticate` challenge pointing to the OAuth
-  protected-resource metadata. OAuth discovery is available at
-  `/.well-known/oauth-protected-resource/mcp` and
-  `/.well-known/oauth-authorization-server`.
-- Access levels: Write drafts, Write and publish, Manage. Choose the access
-  level needed for the directory's tests; a Write drafts key is suitable for
-  Glama's authenticated health check.
+- `initialize`, `tools/list`, modern `server/discover`, legacy
+  `notifications/initialized` and tool calls require authentication up front.
+  Without a bearer, valid requests return HTTP `401`, JSON-RPC `-32001`, and a
+  `WWW-Authenticate: Bearer` resource-metadata challenge without `invalid_token`.
+  Invalid or expired bearers retain `401` with `error="invalid_token"`.
+- Anonymous Smithery, MCP Registry and Anthropic scanners see that challenge,
+  not an enumerable tool list. Where supported, use OAuth or supply a dedicated
+  least-privilege test key for a dedicated test blog; never a production key.
+  Confirm each directory's authenticated scan flow before submission **[CHECK]**.
+  If it only supports anonymous enumeration, tool scanning is incompatible.
+- Authenticated `tools/list` is scope-filtered with private caching.
+  `server/discover` also requires authentication; its successful response keeps
+  `cacheScope: "public"` because it is identical across principals, not because
+  anonymous requests are allowed.
+- OAuth metadata at `/.well-known/oauth-protected-resource/mcp`,
+  `/.well-known/oauth-protected-resource` and
+  `/.well-known/oauth-authorization-server`, trusted CIMD/public-client DCR,
+  HTTP agent skill files and `/.well-known/mcp/server-card.json` remain public.
+  The static server card is not anonymous live MCP tool enumeration.
+- Access levels: Write drafts, Write and publish, Manage. Choose the smallest
+  level needed for the directory's tests; a dedicated Write drafts key is
+  suitable for Glama's authenticated health check.
 
 ## Per-directory notes
 
@@ -97,8 +110,12 @@ Server behavior that directory scanners will see:
 - **Install the CLI:** `brew install mcp-publisher`, or download the release
   binary from <https://github.com/modelcontextprotocol/registry/releases/latest>.
 - **Entry:** `server.json` (schema `2025-12-11`), name `dev.vibecms/vibecms`,
-  one `streamable-http` remote using OAuth discovery without a required
-  `Authorization` header. Remote-only, so no package ownership check.
+  one `streamable-http` remote using OAuth discovery, without a static required
+  `Authorization` header in the listing. Clients authenticate through OAuth;
+  the absence of a listed header does not permit anonymous MCP discovery.
+  Registry scanners receive `401`; use OAuth or a dedicated least-privilege
+  test key where supported, and confirm authenticated scanning **[CHECK]**.
+  Remote-only, so no package ownership check.
   Run `mcp-publisher validate` before publishing.
 - **Namespace proof (DNS, preferred).** The registry checks a TXT record on the
   **apex** `vibecms.dev`, not a subdomain. On macOS, use OpenSSL 3 because the
@@ -170,13 +187,16 @@ Server behavior that directory scanners will see:
   human-readable `title` and the applicable annotation: `readOnlyHint: true`
   for read-only tools, or `destructiveHint: true` for tools that modify or
   delete data. The portal syncs the tools and flags missing titles or
-  annotations; fix them on the server before submitting. See
-  <https://claude.com/docs/connectors/building/review-criteria>.
+  annotations; fix them on the server before submitting. An anonymous portal
+  scan receives `401`, not a tool inventory. Use its OAuth flow or a dedicated
+  least-privilege test key where supported; confirm authenticated tool sync
+  **[CHECK]**. See <https://claude.com/docs/connectors/building/review-criteria>.
 - **Reviewer access:** provide credentials for a fully populated test account
   in the connector portal's **Test & launch** step, along with every link and
   step needed to sign in, connect, and run the tools. Use a dedicated test blog
-  populated with representative posts and media, and grant the access needed to
-  exercise all tools, including publishing and management operations. The
+  populated with representative posts and media, and grant only the access
+  needed for the requested review scenarios, including publishing and
+  management operations when those are being reviewed. The
   portal says only reviewers see the credentials. Exercise every tool in MCP
   Inspector and as a custom connector in Claude before submitting, and confirm
   the testing in the portal.
@@ -190,8 +210,10 @@ Server behavior that directory scanners will see:
   (URL publishing, "bring your own hosting"). Docs:
   <https://smithery.ai/docs/build/publish>.
 - **Requirements:** Streamable HTTP and "OAuth support (if auth required)".
-  vibecms supports OAuth and allows unauthenticated `tools/list` for scanning.
-  Confirm the directory's current OAuth setup in the publish flow **[CHECK]**.
+  vibecms supports OAuth and challenges anonymous discovery with `401`.
+  Use Smithery's OAuth flow or a dedicated least-privilege test key where
+  supported; anonymous `tools/list` enumeration is not available. Confirm the
+  current authenticated scan setup in the publish flow **[CHECK]**.
 - **Founder needs:** a Smithery account (sign-in method **[CHECK]**) and the
   publish flow; optionally the verification checklist under the server's
   **Settings > Verification**.
@@ -240,6 +262,12 @@ requires: a public endpoint that answers `initialize` (CI checks it), public
 sign-up, a Glama connector badge (so publish to the registry and get the
 Glama connector first), alphabetical order, and that the PR author has
 starred the repo.
+
+vibecms now returns a sign-in `401` for anonymous `initialize`. Confirm that
+the directory's CI accepts an OAuth challenge or supports authenticated
+checks before opening the PR **[CHECK]**; a check that requires anonymous
+successful initialization is incompatible with this policy. Do not bypass
+authentication to satisfy a directory scan.
 
 Add under **📝 Content Management**, between Storyblok and Webflow:
 
