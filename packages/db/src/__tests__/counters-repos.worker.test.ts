@@ -36,9 +36,7 @@ import {
   type IncrementRateLimitInput,
 } from "@vc/db";
 
-// Workspace FK target for usage_counters.workspace_id. Every counter below uses
-// this workspace; counters are disambiguated by a unique `metric` per id so the
-// (workspace_id, site_id, period, metric) unique index never collides.
+// Workspace FK target shared by the usage counters below; id identifies each counter.
 const WS = "ctr-ws";
 
 // Fixed epoch-second anchors. The rate-limits repo takes an explicit now +
@@ -69,11 +67,9 @@ beforeAll(async () => {
 // helpers
 // ---------------------------------------------------------------------------
 
-// Build a usage increment input for a counter. `metric` is forced equal to the
-// id so the (workspace_id, site_id, period, metric) unique index stays distinct
-// across every counter this file creates.
+// Build a usage increment input; counters may share the same metric and period.
 function usageInput(id: string, limit: number): IncrementUsageInput {
-  return { id, workspaceId: WS, siteId: null, period: "2024-01", metric: id, limit };
+  return { id, workspaceId: WS, siteId: null, period: "2024-01", metric: "calls", limit };
 }
 
 // Read a raw rate_limits row by id for direct count/expires_at inspection. Raw

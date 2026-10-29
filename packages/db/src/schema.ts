@@ -319,7 +319,7 @@ export const usageCounters = sqliteTable("usage_counters", {
   metric: text("metric").notNull(),
   value: integer("value").notNull().default(0),
   ...timestamps,
-}, (table) => [uniqueIndex("idx_usage_unique").on(table.workspaceId, table.siteId, table.period, table.metric)]);
+}, (table) => [index("idx_usage_workspace_site_period_metric").on(table.workspaceId, table.siteId, table.period, table.metric)]);
 
 export const rateLimits = sqliteTable("rate_limits", {
   id: text("id").primaryKey(),

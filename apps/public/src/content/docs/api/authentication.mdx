@@ -32,6 +32,8 @@ Hosted workspaces share these budgets across all keys and calls:
 
 vibecms Cloud allows 120 calls a minute and 5,000 a day, 500 writes a day, and 60 calls a minute per key, with no monthly cap. Free keys allow 20 calls a minute each. A workspace can have at most 10 active keys; only the owner can create or revoke them. Self-hosted installs do not enforce these budgets.
 
+Each key's per-minute count is independent, including keys on the same blog. Exhausting one key's minute budget does not block another key while the shared workspace budgets still have room.
+
 Over REST, an over-limit response is HTTP `429` with `RATE_LIMIT`, a `retryAfterSeconds` field in the error body, and `Retry-After` plus `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` / `X-RateLimit-Metric` / `X-RateLimit-Period` headers. Over MCP, a quota failure inside `tools/call` returns an error tool result with `code: "RATE_LIMIT"` and `retryAfterSeconds` — no headers; a quota failure on `tools/list` is an HTTP `429` JSON-RPC error. See [error shapes](/docs/agent-workflows/conflicts-and-recovery) for both MCP shapes.
 
 Quota errors include `details.upgradeUrl` and “Upgrade to vibecms Cloud: &lt;url&gt;” in the message, pointing to the billing tab in the dashboard configured by `APP_URL`. MCP tool results carry both fields in their text content and `structuredContent`; JSON-RPC errors on `tools/list` carry the link in the message and `error.data.details.upgradeUrl`. Hand the link to the owner; an upgrade does not remove Cloud's per-minute or per-day limits.
