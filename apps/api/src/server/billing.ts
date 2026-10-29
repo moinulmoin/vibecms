@@ -394,9 +394,13 @@ export async function createPortalSessionForApp(app: AppUserContext): Promise<Bi
         ? { customerId: billing.polarCustomerId, returnUrl: `${env.APP_URL}/dashboard/billing` }
         : { externalCustomerId: app.workspaceId, returnUrl: `${env.APP_URL}/dashboard/billing` },
     )
-    if (!session.customerPortalUrl) return { kind: 'error', code: 'polar_unconfigured' }
+    if (!session.customerPortalUrl) {
+      console.error('polar portal session has no portal URL', { workspaceId: app.workspaceId })
+      return { kind: 'error', code: 'polar_unconfigured' }
+    }
     return { kind: 'ok', url: session.customerPortalUrl }
-  } catch {
+  } catch (error) {
+    console.error('polar portal session failed', { workspaceId: app.workspaceId, error: String(error) })
     return { kind: 'error', code: 'polar_unconfigured' }
   }
 }
