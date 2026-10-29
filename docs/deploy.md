@@ -372,6 +372,13 @@ pnpm --filter @vc/api exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env p
 pnpm --filter @vc/api exec wrangler secret put AUTOSEOPILOT_INTERNAL_SECRET --env production
 ```
 
+`POLAR_ACCESS_TOKEN` is an organization access token with two scopes:
+`checkouts:write` (create checkouts and reuse open ones) and
+`customer_sessions:write` (Manage billing). Without the second, Manage billing
+fails and the API log shows `polar portal session failed` with Polar's
+`403 insufficient_scope`. Polar asks you to sign in again before it saves a scope
+change; the token value stays the same, so no secret update is needed.
+
 Generate `BETTER_AUTH_SECRET` and `TOKEN_PEPPER` independently with
 `openssl rand -hex 32`; rotating `TOKEN_PEPPER` invalidates every issued
 agent token. The three Cloudflare API tokens are narrowly scoped to their
