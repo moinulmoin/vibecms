@@ -21,6 +21,17 @@ const trustedOrigins =
         'http://app.basedui.dev',
       ].filter(Boolean)
 
+// Directory reviewers (OpenAI, Anthropic) must sign in without receiving
+// email. When both secrets are set, REVIEWER_EMAIL alone gets REVIEWER_OTP as
+// its sign-in code and no email is sent; send budgets and attempt limits still
+// apply. Read per request so rotating or deleting the secrets takes effect.
+function reviewerCode(email: string): string | undefined {
+  const reviewer = env.REVIEWER_EMAIL?.trim().toLowerCase()
+  const code = env.REVIEWER_OTP
+  if (!reviewer || !code || !/^\d{6}$/.test(code)) return undefined
+  return email.toLowerCase() === reviewer ? code : undefined
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(createDbClient(env.DB), {
     provider: 'sqlite',
@@ -48,7 +59,11 @@ export const auth = betterAuth({
     emailOTP({
       otpLength: 6,
       expiresIn: 600,
+      generateOTP({ email, type }) {
+        return type === 'sign-in' ? reviewerCode(email) : undefined
+      },
       async sendVerificationOTP({ email, otp, type }) {
+        if (type === 'sign-in' && reviewerCode(email)) return
         await sendOtpEmail(email, otp, type)
       },
     }),

@@ -100,6 +100,27 @@ Server behavior that directory scanners will see:
   level needed for the directory's tests; a dedicated Write drafts key is
   suitable for Glama's authenticated health check.
 
+### Reviewer sign-in
+
+OpenAI requires reviewer credentials that work without email or SMS codes,
+and Anthropic asks for a test account too. Sign-in is email OTP only, so the
+API Worker has one reviewer address with a fixed code:
+
+```sh
+cd apps/api
+pnpm exec wrangler secret put REVIEWER_EMAIL --env production   # review@vibecms.dev
+pnpm exec wrangler secret put REVIEWER_OTP --env production     # six digits
+```
+
+With both set, that address signs in at `https://app.vibecms.dev/login` with
+the fixed code; no email is sent. Every other address is unchanged. The usual
+limits still apply (5 code requests an hour, 3 tries per code). A code that is
+not exactly six digits, or a missing secret, turns the path off. After
+deleting or rotating a secret, an already-issued code works until it expires
+(10 minutes). The account owns only the reviewer test blog; keep real data out
+of it. The current values live outside the repo in
+`~/.config/vibecms/reviewer.txt` on the founder's Mac.
+
 ## Per-directory notes
 
 ### Official MCP Registry
@@ -147,8 +168,12 @@ Server behavior that directory scanners will see:
   `mcp-publisher publish`. Pick one namespace before the first publish: a
   remote URL can belong to only one server name.
 - **Verify:** <https://registry.modelcontextprotocol.io/v0/servers?search=vibecms>
-- **Founder needs:** the TXT record (or a GitHub device-code login), and one
-  `publish` run.
+- **Status (2026-10-31):** the key exists at
+  `~/.config/mcp-registry/vibecms-dev.pem` on the founder's Mac; its TXT value
+  is `v=MCPv1; k=ed25519; p=sWrTv/VCHKtsp/9sNw7Iqpz4aCKle+D49UG0eCloaX4=`
+  (public key, safe to share). `mcp-publisher validate` passes.
+- **Founder needs:** add that TXT record on the apex; then run the login and
+  `publish` commands above.
 
 ### Claude Code plugin marketplace (self-hosted, this repo)
 

@@ -17,7 +17,7 @@ export function AgentsDemo({ apiDocsUrl }: { apiDocsUrl: string }) {
             shown once, stored as a hash, and revoked in one click.
           </p>
           <p className="mt-5 max-w-[440px] text-sm leading-[1.6] text-muted-foreground">
-            New keys can only write drafts. The same keys work over MCP, the{" "}
+            You pick the level: write drafts, write and publish, or manage. The same keys work over MCP, the{" "}
             <a
               className="font-medium text-brand-bright underline-offset-4 hover:underline"
               href={apiDocsUrl}
