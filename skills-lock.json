@@ -5,7 +5,7 @@
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-core/SKILL.md",
-      "computedHash": "38de560e652b841d7f6d6f267a2dfff0a455f96372ea3256bd7b4390dcab7ac4"
+      "computedHash": "bcab0c6ae8759a304f06be12ccef85d39aba7d49468d8487ae3c68179edb7243"
     },
     "vibecms-cross-post": {
       "source": ".",

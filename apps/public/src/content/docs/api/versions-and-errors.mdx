@@ -30,8 +30,8 @@ REST errors are machine-readable and use the HTTP status that matches the failur
 | `402` | `BILLING_REQUIRED` |
 | `429` | `RATE_LIMIT` |
 
-REST errors have an `error` object with `code`, `message`, optional `details`, and optional `retryAfterSeconds`. Plan blockers, including `BILLING_REQUIRED`, draft caps, media quotas, and hosted request quotas, include a dashboard billing link in `details.upgradeUrl` and in the message: “Upgrade to vibecms Cloud: &lt;url&gt;”. The URL uses the installation's `APP_URL` and `/dashboard/settings?tab=billing`.
+REST errors have an `error` object with `code`, `message`, optional `details`, and optional `retryAfterSeconds`. Free-plan blockers (`BILLING_REQUIRED`, draft caps, the free image limit, and paid-only analytics) include the public pricing link in `details.plansUrl` and in the message: “Plans: &lt;url&gt;”. It is an information page, not a checkout.
 
-For MCP `tools/call`, the error tool result has `isError: true`; the same code, message, and details appear in both JSON text content and `structuredContent`. Give the owner the returned upgrade link rather than constructing a URL or attempting billing changes. Leave saved drafts intact.
+For MCP `tools/call`, the error tool result has `isError: true`; the same code, message, and details appear in both JSON text content and `structuredContent`. Explain the limit to the owner, share the returned plans link if they ask about plans, and never attempt billing changes. Leave saved drafts intact.
 
 Do not retry validation, authorization, or conflict failures unchanged. Network failures and rate limits may be retried only while the original user request remains active.

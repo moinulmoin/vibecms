@@ -20,6 +20,7 @@ declare namespace Cloudflare {
     GITHUB_CLIENT_SECRET?: string;
     REVIEWER_EMAIL?: string;
     REVIEWER_OTP?: string;
+    OPENAI_APPS_CHALLENGE?: string;
     API_USAGE_TEST_LIMIT?: string;
     POLAR_ACCESS_TOKEN?: string;
     POLAR_MONTHLY_PRODUCT_ID?: string;

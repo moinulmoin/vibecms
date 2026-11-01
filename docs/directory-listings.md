@@ -229,6 +229,67 @@ of it. The current values live outside the repo in
   Submit the plugin and connector only after production sign-in works, then
   **Publish** once the version passes.
 
+### ChatGPT and Codex plugin directory (OpenAI)
+
+One listing covers ChatGPT and Codex. Docs:
+<https://developers.openai.com/plugins/deploy/submission>, rules:
+<https://developers.openai.com/plugins/plugin-guidelines>.
+
+- **Package:** `plugins/vibecms` is also the OpenAI package. Root
+  `plugin.json` (Agent Plugins schema, listing text, the five positive and
+  three negative review cases, release notes), `mcp.json` (the remote server;
+  OAuth comes from discovery: trusted CIMD for `chatgpt.com`, DCR fallback),
+  `skills/` and `assets/icon.png`. Claude ignores both root files. Build the
+  ZIP outside the repo:
+
+  ```sh
+  cd plugins/vibecms && zip -r ~/Desktop/vibecms-plugin.zip plugin.json mcp.json README.md skills assets
+  ```
+
+- **Rules the server follows for this listing:** every tool has explicit
+  `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` booleans;
+  agent guidance never promotes upgrades; free-plan errors link to the public
+  pricing section (`details.plansUrl`), never a checkout. Keep it that way:
+  OpenAI rejects plugins that show plans, start upgrades or link to checkout.
+- **Domain check:** the portal shows a token. Store it as a secret (no
+  deploy needed): `pnpm exec wrangler secret put OPENAI_APPS_CHALLENGE --env
+  production` in `apps/api`. `https://app.vibecms.dev/.well-known/openai-apps-challenge`
+  then returns exactly that token (404 while unset).
+- **Reviewer access:** the reviewer sign-in above, on the blog
+  `https://review-demo.vibecms.dev` (owner `review@vibecms.dev`, free plan).
+  It holds "Welcome to the test blog" and "How we write release notes"
+  (published) and "Draft: Release checklist" (draft, no description, so the
+  SEO check has findings), which the review cases use. A review run publishes
+  that draft and adds one; before a re-review, sign in as the reviewer and
+  move the blog back to that state (free plan: 5 published posts, 5 drafts).
+- **Founder needs:** verify Ideaplexa LLC under
+  <https://platform.openai.com/settings/organization/general>; upload the ZIP
+  at <https://platform.openai.com/plugins> > **Upload new or existing
+  plugin**; send the domain token; enter the reviewer email and code under
+  **Review details**; record the video below and paste its link; submit.
+
+#### Video walkthrough (2 to 3 minutes)
+
+Record ChatGPT with vibecms connected as the reviewer, and the public blog
+in a second tab. Say each step out loud or add captions.
+
+1. Show **Plugins**, vibecms connected, and the sign-in screen with the
+   access level choice (Write drafts, Write and publish, Manage).
+2. "What posts are on my vibecms blog?" Show the three posts.
+3. "Write a short vibecms draft titled 'What we learned this week' with
+   three bullet points about shipping small changes. Don't publish it."
+   Open the preview link; show the public blog does not list it.
+4. "Run the SEO check on my draft 'Draft: Release checklist' and tell me
+   what to fix."
+5. "Change the title of my post 'Welcome to the test blog' to 'Welcome to
+   our test blog', but don't publish the change." Show the live page still
+   has the old title.
+6. "Publish my draft 'Draft: Release checklist'." Show ChatGPT asking to
+   confirm the version, confirm, then open the live URL.
+7. The three refusals: "Delete my vibecms account and all my posts.",
+   "Upgrade my vibecms blog to the paid plan and charge my card.", "Show me
+   the drafts on someone else's vibecms blog, example.vibecms.dev."
+
 ### Smithery
 
 - **Submit:** <https://smithery.ai/new>, enter `https://app.vibecms.dev/mcp`

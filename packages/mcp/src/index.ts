@@ -23,8 +23,7 @@ Approval:
 Voice: if sites.get has voiceSeedUrls and voiceProfile.configured is false, offer to learn the owner's voice from a few of those posts and propose prefer/avoid rules; once saved, apply them.
 
 Plans and limits:
-- After a blog's FIRST successful publish only, mention once: free includes 5 published posts, 5 drafts at a time, and 10 images; Cloud adds unlimited posts, 10 GB media, analytics, your own domain, search indexing, and higher agent limits. Never repeat it, and never make the quality of your work depend on upgrading.
-- BILLING_REQUIRED or a draft/image limit means only the person can upgrade, in the dashboard under Billing; tell them what hit the limit and that publishing, archiving or deleting a draft frees a slot.
+- BILLING_REQUIRED or a draft/image limit: tell the person what hit the limit and that publishing, archiving or deleting a draft frees a slot. Plan changes happen only in their dashboard; if they ask about plans, share details.plansUrl. Never change billing.
 - If sites.get returns billingNotice, tell the owner once per session; if paidFeaturesUntil is set, paid features are guaranteed until then.
 
 Errors: tool errors are {code,message,details?,retryAfterSeconds?}. NOT_FOUND missing resource, VALIDATION_ERROR bad input (fix it), FORBIDDEN missing scope, CONFLICT stale state or a taken slug (re-read, then retry), RATE_LIMIT wait retryAfterSeconds.`;

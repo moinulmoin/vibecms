@@ -294,11 +294,17 @@ function listedTools(actor: Actor) {
     tools: operations
       .filter((op) => op.requiredScope === null || can(actor, op.requiredScope))
       .map((op) => {
-        const annotations: Record<string, boolean> = {};
+        // OpenAI review requires explicit readOnly/destructive/openWorld
+        // booleans. A write without an explicit `destructive: false` counts as
+        // destructive. idempotentHint is optional, so it is listed only when true.
         const hints = op.annotations as OperationAnnotations;
-        if (hints.readOnly) annotations.readOnlyHint = true;
-        if (hints.destructive) annotations.destructiveHint = true;
-        if (hints.idempotent) annotations.idempotentHint = true;
+        const readOnly = hints.readOnly === true;
+        const annotations = {
+          readOnlyHint: readOnly,
+          destructiveHint: !readOnly && hints.destructive !== false,
+          openWorldHint: hints.openWorld === true,
+          ...(hints.idempotent ? { idempotentHint: true } : {}),
+        };
         return {
           name: op.toolName,
           title: op.title,

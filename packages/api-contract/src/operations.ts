@@ -52,6 +52,8 @@ export type OperationAnnotations = {
   readOnly?: boolean;
   destructive?: boolean;
   idempotent?: boolean;
+  /** Reaches a host outside vibecms, such as the owner's own website. */
+  openWorld?: boolean;
 };
 
 export type OperationDefinition = {
@@ -147,7 +149,7 @@ export const operations = [
     title: "Check site location",
     toolName: 'sites.location.check', operationId: 'checkSiteLocation', requiredScope: 'site:write',
     description: opDescription('Verify the subpath proxy is live: probes https://<hostname><basePath>/_vc/health and compares site id and proxy fingerprint. A pass activates the location; a failure records plain-language errors. Call after the owner saves a snippet. Example: {}.', 'site:write', readErrors),
-    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: { destructive: true },
+    requestSchema: checkSiteLocationRequestSchema, responseSchema: siteLocationCheckDtoSchema, annotations: { destructive: true, openWorld: true },
   },
   {
     title: "Remove site location",

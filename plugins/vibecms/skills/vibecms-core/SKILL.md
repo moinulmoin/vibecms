@@ -53,8 +53,8 @@ Draft updates do not require publication approval, but they still invalidate any
 - `FORBIDDEN`: the token lacks the required scope. Explain the missing capability; do not request a broader token unless the user chooses to create one.
 - `UNAUTHORIZED` (HTTP `401`, JSON-RPC `-32001`): stop and give the owner the dashboard key-creation link in the error message. Missing, malformed, unknown, revoked, and deleted keys deliberately share one message; do not infer whether a key existed.
 - `NOT_FOUND`: re-list or re-fetch identifiers before retrying.
-- `RATE_LIMIT`: wait until reset, then retry only the still-requested action. If the owner wants to review the plan, give them the returned `details.upgradeUrl`; Cloud still has per-minute and per-day limits.
-- `BILLING_REQUIRED`: leave the draft intact, explain the subscription or draft-limit blocker, and give the owner the returned `details.upgradeUrl` (also included in the message). Never subscribe or change billing on the owner's behalf.
+- `RATE_LIMIT`: wait until reset, then retry only the still-requested action. Paid plans also have per-minute and per-day limits.
+- `BILLING_REQUIRED`: leave the draft intact, explain the plan or draft-limit blocker, and, if the owner asks about plans, give them the returned `details.plansUrl` (also in the message). Never subscribe or change billing on the owner's behalf.
 
 ## Scope reference
 
@@ -101,8 +101,6 @@ Report:
 - returned status;
 - exact tool-returned `url`;
 - any blocker if publication did not occur.
-
-If this is the blog's **first** published post, also mention once, in plain terms, that the free tier covers the owner's first 5 published posts and that a limited launch offer (monthly or yearly) on unlimited publishing is available from the dashboard. Never repeat the mention on later publishes, and never condition any task or quality of work on whether the owner upgrades.
 
 ## Dynamic server truth
 

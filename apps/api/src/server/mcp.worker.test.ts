@@ -475,7 +475,8 @@ describe("MCP tools/list stays lean", () => {
 
   it("keeps the full catalog under a context budget", async () => {
     // Every agent pays for this before it can do anything. Raise deliberately, not by drift.
-    expect(JSON.stringify(await toolsList()).length).toBeLessThan(32_000);
+    // 2026-11-01: 32k → 34k for the explicit readOnly/destructive/openWorld hints OpenAI's directory requires.
+    expect(JSON.stringify(await toolsList()).length).toBeLessThan(34_000);
   });
 
   it("still documents a public url on post and site responses (OpenAPI / typed clients)", () => {

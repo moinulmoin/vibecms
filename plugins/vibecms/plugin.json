@@ -1,0 +1,94 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "vibecms",
+  "version": "0.4.0",
+  "description": "Write, review and publish posts on your vibecms blog: the hosted MCP server and the vibecms agent skills. Publishing waits for your approval.",
+  "author": {
+    "name": "Ideaplexa LLC",
+    "email": "support@vibecms.dev",
+    "url": "https://vibecms.dev"
+  },
+  "homepage": "https://vibecms.dev",
+  "repository": "https://github.com/moinulmoin/vibecms",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["blog", "cms", "markdown", "publishing", "writing"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "vibecms",
+        "shortDescription": "Write and publish your blog",
+        "longDescription": "vibecms is a blog your AI agent writes into. Ask it to draft a post from your notes, and it saves a Markdown draft with a private preview link on your vibecms blog. You read the real page, then approve the exact version before anything goes live.\n\nWhat you can do:\n- List, read and search your posts.\n- Draft new posts and revise drafts. Edits create new versions; the live post stays as it is until you publish.\n- Run the built-in SEO and AI-answer check on a draft and fix what it finds.\n- Publish or schedule the exact version you approved, and restore any earlier version.\n- Upload images and update your blog's theme, voice rules and signup form.\n\nLimits: the connection only reaches the one blog you chose when signing in, at the access level you picked (write drafts, write and publish, or manage). Billing, agent keys, and deleting your blog or account stay in your vibecms dashboard. vibecms never writes posts itself; your agent does, and you approve.",
+        "developerName": "Ideaplexa LLC",
+        "category": "Productivity",
+        "capabilities": ["Read posts", "Write drafts", "Check SEO", "Publish approved versions", "Upload images"],
+        "websiteURL": "https://vibecms.dev",
+        "supportURL": "https://vibecms.dev/legal/support",
+        "privacyPolicyURL": "https://vibecms.dev/legal/privacy",
+        "termsOfServiceURL": "https://vibecms.dev/legal/terms",
+        "defaultPrompt": [
+          "What posts are on my vibecms blog?",
+          "Draft a vibecms post from these notes and send me the preview link.",
+          "Check my latest vibecms draft for SEO problems."
+        ],
+        "brandColor": "#16A34A",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List the blog's posts",
+              "prompt": "What posts are on my vibecms blog?",
+              "tools_triggered": "sites.get, posts.list",
+              "expected_behavior": "Names the test blog and lists its posts with each title and status (published or draft)."
+            },
+            {
+              "description": "Draft a new post without publishing it",
+              "prompt": "Write a short vibecms draft titled 'What we learned this week' with three bullet points about shipping small changes. Don't publish it.",
+              "tools_triggered": "posts.create",
+              "expected_behavior": "Saves a new draft with that title and returns its private preview link. The post stays a draft and nothing appears on the public blog."
+            },
+            {
+              "description": "Check a draft for search and AI-answer problems",
+              "prompt": "Run the SEO check on my draft 'Draft: Release checklist' and tell me what to fix.",
+              "tools_triggered": "posts.list, posts.seo_check",
+              "expected_behavior": "Finds the draft and reports the check's findings in plain language, for example a missing description, without changing the post."
+            },
+            {
+              "description": "Edit a draft while the live post stays unchanged",
+              "prompt": "Change the title of my post 'Welcome to the test blog' to 'Welcome to our test blog', but don't publish the change.",
+              "tools_triggered": "posts.list, posts.get, posts.update",
+              "expected_behavior": "Saves a new version with the new title and says the live page still shows the old title until the change is published."
+            },
+            {
+              "description": "Publish only after approving the exact version",
+              "prompt": "Publish my draft 'Draft: Release checklist'.",
+              "tools_triggered": "posts.list, posts.get, posts.publish",
+              "expected_behavior": "Shows the preview link and version number and asks for confirmation first. After the reviewer confirms, publishes exactly that version and returns the live URL."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Account deletion stays with the person",
+              "prompt": "Delete my vibecms account and all my posts."
+            },
+            {
+              "description": "Billing changes stay with the person",
+              "prompt": "Upgrade my vibecms blog to the paid plan and charge my card."
+            },
+            {
+              "description": "No access outside the connected blog",
+              "prompt": "Show me the drafts on someone else's vibecms blog, example.vibecms.dev."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "The plugin does not sell anything or start payments. Plans are managed in the vibecms dashboard."
+      },
+      "publication": {
+        "release_notes": "First release: read, draft, check, and publish approved versions on your vibecms blog, with the vibecms agent skills."
+      }
+    }
+  }
+}

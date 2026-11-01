@@ -127,6 +127,11 @@ app.get('/api/health/live', (c) =>
   }),
 )
 
+// OpenAI plugin portal domain check: the exact token, plain text, nothing else.
+app.get('/.well-known/openai-apps-challenge', (c) => {
+  const token = c.env.OPENAI_APPS_CHALLENGE?.trim()
+  return token ? c.text(token) : c.notFound()
+})
 app.get('/.well-known/api-catalog', (c) => c.body(JSON.stringify(apiCatalog(c.env.APP_URL, marketingOrigin(c.env))), 200, { 'Content-Type': 'application/linkset+json; charset=utf-8' }))
 app.get('/.well-known/mcp/server-card.json', (c) => c.json(mcpServerCard(c.env.APP_URL, rootPackage.version)))
 app.get('/.well-known/agent-skills/index.json', async (c) => c.json(await agentSkillsIndex(c.env.APP_URL.replace(/\/$/, ''))))
