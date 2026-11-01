@@ -235,6 +235,10 @@ One listing covers ChatGPT and Codex. Docs:
 <https://developers.openai.com/plugins/deploy/submission>, rules:
 <https://developers.openai.com/plugins/plugin-guidelines>.
 
+- **Plugin version:** the plugin (Claude + OpenAI manifests) has its own
+  version, separate from the product. It started at 1.0.0 for the first store
+  release. Bump it only when a new plugin version ships (an OpenAI submission
+  or a merge to `main`); re-uploading an unsubmitted draft keeps the number.
 - **Package:** `plugins/vibecms` is also the OpenAI package. Root
   `plugin.json` (Agent Plugins schema, listing text, the five positive and
   three negative review cases, release notes), `mcp.json` (the remote server;
