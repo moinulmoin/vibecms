@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "vibecms",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Write, review and publish posts on your vibecms blog: the hosted MCP server and the vibecms agent skills. Publishing waits for your approval.",
   "author": {
     "name": "Ideaplexa LLC",
