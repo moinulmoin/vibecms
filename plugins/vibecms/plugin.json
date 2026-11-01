@@ -35,6 +35,7 @@
         "logo": "./assets/icon.png"
       },
       "review": {
+        "demo_recording_url": "https://cap.so/s/2dhstbmedh08h9r",
         "test_cases": {
           "positive": [
             {

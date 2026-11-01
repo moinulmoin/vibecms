@@ -261,17 +261,20 @@ One listing covers ChatGPT and Codex. Docs:
   (published) and "Draft: Release checklist" (draft, no description, so the
   SEO check has findings), which the review cases use. A review run publishes
   that draft and adds one; before a re-review, sign in as the reviewer and
-  move the blog back to that state (free plan: 5 published posts, 5 drafts).
-- **Founder needs:** verify Ideaplexa LLC under
-  <https://platform.openai.com/settings/organization/general>; upload the ZIP
-  at <https://platform.openai.com/plugins> > **Upload new or existing
-  plugin**; send the domain token; enter the reviewer email and code under
-  **Review details**; record the video below and paste its link; submit.
+  move the blog back: restore "Welcome to the test blog" to version 1, archive
+  and unarchive "Draft: Release checklist" (back to draft), archive the added
+  post and delete it in the dashboard (free plan: 5 published posts, 5 drafts).
+- **Status (2026-11-01):** org verified; draft 0.4.1 uploaded, domain
+  verified, tools scanned. Video: <https://cap.so/s/2dhstbmedh08h9r> (also
+  `review.demo_recording_url` in `plugin.json`). Left for the founder:
+  reviewer email and code under **Review details**, then submit.
 
 #### Video walkthrough (2 to 3 minutes)
 
-Record ChatGPT with vibecms connected as the reviewer, and the public blog
-in a second tab. Say each step out loud or add captions.
+Record ChatGPT with vibecms connected as the reviewer; open blog pages in the
+same tab. Add captions per step. The current video was recorded with `cap`
+(window capture) while `aside repl` drove ChatGPT, then trimmed and captioned
+with ffmpeg.
 
 1. Show **Plugins**, vibecms connected, and the sign-in screen with the
    access level choice (Write drafts, Write and publish, Manage).

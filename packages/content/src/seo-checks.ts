@@ -842,7 +842,7 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
       "info",
       "site",
       "Site is not indexable — search engines are told to skip every post.",
-      "Upgrade/enable indexing for this site when the content should rank.",
+      "Search indexing is off for this blog. The owner decides in the dashboard whether to turn it on; content changes alone won't make posts rank.",
     );
   }
 
