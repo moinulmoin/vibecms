@@ -168,12 +168,12 @@ of it. The current values live outside the repo in
   `mcp-publisher publish`. Pick one namespace before the first publish: a
   remote URL can belong to only one server name.
 - **Verify:** <https://registry.modelcontextprotocol.io/v0/servers?search=vibecms>
-- **Status (2026-10-31):** the key exists at
-  `~/.config/mcp-registry/vibecms-dev.pem` on the founder's Mac; its TXT value
-  is `v=MCPv1; k=ed25519; p=sWrTv/VCHKtsp/9sNw7Iqpz4aCKle+D49UG0eCloaX4=`
-  (public key, safe to share). `mcp-publisher validate` passes.
-- **Founder needs:** add that TXT record on the apex; then run the login and
-  `publish` commands above.
+- **Status (2026-11-02):** published and active as `dev.vibecms/vibecms`
+  0.2.0 (remote `https://app.vibecms.dev/mcp`). The key is at
+  `~/.config/mcp-registry/vibecms-dev.pem` on the founder's Mac; the apex TXT
+  record `v=MCPv1; k=ed25519; p=sWrTv/VCHKtsp/9sNw7Iqpz4aCKle+D49UG0eCloaX4=`
+  is live. For a new version, bump `version` in `server.json`, then run the
+  login and `publish` commands above.
 
 ### Claude Code plugin marketplace (self-hosted, this repo)
 
