@@ -52,7 +52,7 @@ export type OperationAnnotations = {
   readOnly?: boolean;
   destructive?: boolean;
   idempotent?: boolean;
-  /** Reaches a host outside vibecms, such as the owner's own website. */
+  /** Makes content public on the internet or reaches a host outside vibecms, such as the owner's own website. */
   openWorld?: boolean;
 };
 
@@ -295,7 +295,7 @@ export const operations = [
     ),
     requestSchema: publishPostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: { destructive: true },
+    annotations: { destructive: true, openWorld: true },
   },
   {
     title: "Schedule post publication",
@@ -308,7 +308,7 @@ export const operations = [
     ),
     requestSchema: schedulePostRequestSchema,
     responseSchema: postDtoSchema,
-    annotations: { destructive: true },
+    annotations: { destructive: true, openWorld: true },
   },
   {
     title: "Cancel scheduled publication",
@@ -366,7 +366,7 @@ export const operations = [
     ),
     requestSchema: uploadAssetRequestSchema,
     responseSchema: assetDtoSchema,
-    annotations: { destructive: true },
+    annotations: { destructive: true, openWorld: true },
   },
   {
     title: "List image assets",

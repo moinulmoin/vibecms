@@ -5,7 +5,7 @@ description: Connect a blog signup form to the owner's newsletter tool and guide
 
 # Connect a newsletter tool
 
-Use this skill when the owner wants blog signups sent to an external newsletter tool or wants to turn published posts into newsletter drafts. Follow `vibecms-core` for approval, scope, and error handling. If `skills.get` is available, read the latest version of this skill at the start of the session.
+Use this skill when the owner wants blog signups sent to an external newsletter tool or wants to turn published posts into newsletter drafts. Follow `vibecms-core` for approval, scope, and error handling.
 
 ## Connect the signup form
 

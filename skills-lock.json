@@ -5,7 +5,7 @@
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-core/SKILL.md",
-      "computedHash": "bcab0c6ae8759a304f06be12ccef85d39aba7d49468d8487ae3c68179edb7243"
+      "computedHash": "5d50caf1d1b31ca13c730e373310637fbc76bbf3038105c55ac0625bd38d4617"
     },
     "vibecms-cross-post": {
       "source": ".",
@@ -23,7 +23,7 @@
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-newsletter/SKILL.md",
-      "computedHash": "d9124e7b29a7f5b9a6c3e4833347a55213bc1ed1d21d04ea99683a515e097744"
+      "computedHash": "3087bfa741ae67e35562a69066181adf9b8adeb0f1b438afc4582d75c3319420"
     },
     "vibecms-seo": {
       "source": ".",
