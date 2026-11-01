@@ -82,9 +82,18 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
   <p>
     You own everything you publish. Your posts and media are readable back through the same typed
     API and CLI your agents use, so leaving is a read operation, not a negotiation. Ask us to
-    delete a workspace and we remove its content. Our database provider&rsquo;s point-in-time
-    recovery can hold earlier copies until they age out.
+    delete a workspace and we remove its content.
   </p>
+
+  <h2>How long we keep data</h2>
+  <ul>
+    <li>Your account, blog content, media, and version history: until you delete them or ask us to delete your workspace.</li>
+    <li>Reader signups: until the blog owner removes them or the blog is deleted.</li>
+    <li>Raw page-view events: three months. Daily and monthly totals, which hold no visitor data, stay with the blog until it is deleted.</li>
+    <li>Request logs: seven days.</li>
+    <li>Database backups: up to 30 days, so deleted data can remain in backups until they age out.</li>
+    <li>Invoices and payment records: kept by Polar for as long as tax and accounting law requires.</li>
+  </ul>
 
   <h2>Early access</h2>
   <p>
