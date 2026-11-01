@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "vibecms",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Write, review and publish posts on your vibecms blog: the hosted MCP server and the vibecms agent skills. Publishing waits for your approval.",
   "author": {
     "name": "Ideaplexa LLC",
@@ -16,7 +16,7 @@
     "com.openai": {
       "interface": {
         "displayName": "vibecms",
-        "shortDescription": "Write and publish your blog using your AI",
+        "shortDescription": "Write your blog using your AI",
         "longDescription": "vibecms is a blog your AI agent writes into. Ask it to draft a post from your notes, and it saves a Markdown draft with a private preview link on your vibecms blog. You read the real page, then approve the exact version before anything goes live.\n\nWhat you can do:\n- List, read and search your posts.\n- Draft new posts and revise drafts. Edits create new versions; the live post stays as it is until you publish.\n- Run the built-in SEO and AI-answer check on a draft and fix what it finds.\n- Publish or schedule the exact version you approved, and restore any earlier version.\n- Upload images and update your blog's theme, voice rules and signup form.\n\nLimits: the connection only reaches the one blog you chose when signing in, at the access level you picked (write drafts, write and publish, or manage). Billing, agent keys, and deleting your blog or account stay in your vibecms dashboard. vibecms never writes posts itself; your agent does, and you approve.",
         "developerName": "Ideaplexa LLC",
         "category": "Productivity",
