@@ -540,7 +540,7 @@
       },
       "patch": {
         "operationId": "updateSite",
-        "description": "Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {\"expectedUpdatedAt\": 123, \"name\": \"Field Notes\"}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {\"expectedUpdatedAt\": 123, \"name\": \"Field Notes\"}. Live change: needs explicit owner approval first. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -1804,7 +1804,7 @@
       },
       "patch": {
         "operationId": "updateSiteTheme",
-        "description": "Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {\"expectedUpdatedAt\": 123, \"template\": \"editorial\", \"keepLook\": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -2447,7 +2447,7 @@
     "/api/v1/site/theme/revert": {
       "post": {
         "operationId": "revertSiteTheme",
-        "description": "Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {\"expectedUpdatedAt\": 124}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {\"expectedUpdatedAt\": 124}. Live change: needs explicit owner approval first. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -2969,7 +2969,7 @@
     "/api/v1/site/voice": {
       "put": {
         "operationId": "updateSiteVoice",
-        "description": "Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {\"expectedUpdatedAt\":0,\"audience\":\"Developers\",\"tone\":\"Clear\",\"doRules\":[\"Use examples\"],\"dontRules\":[],\"representativePostIds\":[]}. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {\"expectedUpdatedAt\":0,\"audience\":\"Developers\",\"tone\":\"Clear\",\"doRules\":[\"Use examples\"],\"dontRules\":[],\"representativePostIds\":[]}. Live change: needs explicit owner approval first. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -3348,7 +3348,7 @@
     "/api/v1/site/signup-form": {
       "patch": {
         "operationId": "updateSignupForm",
-        "description": "Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {\"expectedUpdatedAt\":123,\"enabled\":true,\"heading\":\"Get new posts\"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: site:write.",
+        "description": "Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {\"expectedUpdatedAt\":123,\"enabled\":true,\"heading\":\"Get new posts\"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -5115,7 +5115,7 @@
       },
       "put": {
         "operationId": "setSubpathLocation",
-        "description": "Serve this blog at a path of the owner's site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {\"url\":\"https://customer.com/blog\"}. Requires scope: site:write.",
+        "description": "Serve this blog at a path of the owner's site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first. Example: {\"url\":\"https://customer.com/blog\"}. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -5570,7 +5570,7 @@
       },
       "delete": {
         "operationId": "removeSiteLocation",
-        "description": "Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}. Requires scope: site:write.",
+        "description": "Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first. Example: {}. Requires scope: site:write.",
         "security": [
           {
             "bearerAuth": []
@@ -9491,7 +9491,7 @@
     "/api/v1/posts/{postId}/publish": {
       "post": {
         "operationId": "publishPost",
-        "description": "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:publish.",
+        "description": "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -10024,7 +10024,7 @@
     "/api/v1/posts/{postId}/schedule": {
       "post": {
         "operationId": "schedulePost",
-        "description": "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:publish.",
+        "description": "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -11452,7 +11452,7 @@
     "/api/v1/posts/{postId}/archive": {
       "post": {
         "operationId": "archivePost",
-        "description": "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit; an already archived post comes back unchanged. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions). Requires scope: posts:archive.",
+        "description": "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit; an already archived post comes back unchanged. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first. Requires scope: posts:archive.",
         "security": [
           {
             "bearerAuth": []
@@ -13556,7 +13556,7 @@
       },
       "delete": {
         "operationId": "deleteAsset",
-        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first (see server instructions). Requires scope: assets:delete.",
+        "description": "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first. Requires scope: assets:delete.",
         "security": [
           {
             "bearerAuth": []

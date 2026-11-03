@@ -6,7 +6,9 @@ import {
   zodToInputJsonSchema, zodToJsonSchema,
 } from './index'
 
-const approval = 'Live change: needs explicit owner approval first (see server instructions).'
+// Claude's directory rejects tool descriptions that point the agent at other instruction sources, so the
+// approval rule is stated on each live tool without the old "(see server instructions)" pointer (2026-11-04).
+const approval = 'Live change: needs explicit owner approval first.'
 
 describe('agent operation contract', () => {
   it('requires voice revision, defines the unconfigured revision, and permits a version bound archive', () => {

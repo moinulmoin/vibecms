@@ -100,7 +100,7 @@ export const operations = [
   {
     title: "Update site",
     toolName: 'sites.update', operationId: 'updateSite', requiredScope: 'site:write',
-    description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Change only the sent site fields, such as name, byline, SEO, images, navigation, or social links. First read sites.get and send its updatedAt as expectedUpdatedAt; stale values return CONFLICT. Example: {"expectedUpdatedAt": 123, "name": "Field Notes"}. Live change: needs explicit owner approval first.', 'site:write', writeErrors),
     requestSchema: updateSiteRequestSchema, responseSchema: updatedSiteDtoSchema, annotations: { destructive: true, idempotent: true },
   },
   {
@@ -112,25 +112,25 @@ export const operations = [
   {
     title: "Update site theme",
     toolName: 'sites.theme.update', operationId: 'updateSiteTheme', requiredScope: 'site:write',
-    description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Change any part of the blog look. Templates: minimal (Minimal), editorial (Editorial), technical (Notebook), product (Magazine); display names are accepted too. A new template applies its curated accent, font, radius, width, and mode unless keepLook=true. Navigation, home page, and article header reset to that template; each can be set independently or null to use its default. Example: {"expectedUpdatedAt": 123, "template": "editorial", "keepLook": true}. The previous look is saved for one-step revert; changes are live immediately. Live change: needs explicit owner approval first.', 'site:write', writeErrors),
     requestSchema: updateThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { destructive: true },
   },
   {
     title: "Revert site theme",
     toolName: 'sites.theme.revert', operationId: 'revertSiteTheme', requiredScope: 'site:write',
-    description: opDescription('Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {"expectedUpdatedAt": 124}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Undo the last theme change and restore the exact previous look only when sites.theme.get.canRevert is true. Intervening site-setting changes can invalidate the saved revert. Example: {"expectedUpdatedAt": 124}. Live change: needs explicit owner approval first.', 'site:write', writeErrors),
     requestSchema: revertThemeRequestSchema, responseSchema: themeDtoSchema, annotations: { destructive: true },
   },
   {
     title: "Update site voice",
     toolName: 'sites.voice.update', operationId: 'updateSiteVoice', requiredScope: 'site:write',
-    description: opDescription('Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {"expectedUpdatedAt":0,"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Replace the writing profile. First read sites.get.voiceProfile; preserve existing fields unless the owner requested changes. Send its revision as expectedUpdatedAt (zero means never configured). Concurrent edits return CONFLICT. Example: {"expectedUpdatedAt":0,"audience":"Developers","tone":"Clear","doRules":["Use examples"],"dontRules":[],"representativePostIds":[]}. Live change: needs explicit owner approval first.', 'site:write', writeErrors),
     requestSchema: updateVoiceRequestSchema, responseSchema: voiceSettingsDtoSchema, annotations: { destructive: true },
   },
   {
     title: "Update signup form",
     toolName: 'sites.signup_form.update', operationId: 'updateSignupForm', requiredScope: 'site:write',
-    description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first (see server instructions).', 'site:write', writeErrors),
+    description: opDescription('Read the current signup form from sites.get and its updatedAt first. Update only supplied fields. externalForm posts signups to the owner’s newsletter tool (vibecms stores none); null restores vibecms storage. Example: {"expectedUpdatedAt":123,"enabled":true,"heading":"Get new posts"}. Returns the updated form. Concurrent changes return CONFLICT. Live change: needs explicit owner approval first.', 'site:write', writeErrors),
     requestSchema: updateSignupFormRequestSchema, responseSchema: signupFormUpdateDtoSchema, annotations: { destructive: true },
   },
   {
@@ -142,7 +142,7 @@ export const operations = [
   {
     title: "Set site subpath location",
     toolName: 'sites.location.set_subpath', operationId: 'setSubpathLocation', requiredScope: 'site:write',
-    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first (see server instructions). Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
+    description: opDescription('Serve this blog at a path of the owner\'s site (https://customer.com/blog). Replaces any existing subpath location. Returns the proxy target and ready-to-paste snippets for Cloudflare/Vercel/Next.js/Netlify/nginx/Caddy; they are setup secrets, so share them only with the owner. The owner must save one, then call sites.location.check. Live change: needs explicit owner approval first. Example: {"url":"https://customer.com/blog"}.', 'site:write', writeErrors),
     requestSchema: setSubpathLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
   },
   {
@@ -154,7 +154,7 @@ export const operations = [
   {
     title: "Remove site location",
     toolName: 'sites.location.remove', operationId: 'removeSiteLocation', requiredScope: 'site:write',
-    description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first (see server instructions). Example: {}.', 'site:write', writeErrors),
+    description: opDescription('Remove the subpath location and stop serving the blog at the customer path. Live change: needs explicit owner approval first. Example: {}.', 'site:write', writeErrors),
     requestSchema: removeSiteLocationRequestSchema, responseSchema: siteLocationDtoSchema, annotations: { destructive: true },
   },
   {
@@ -289,7 +289,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first (see server instructions).",
+      "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first.",
       "posts:publish",
       writeErrors,
     ),
@@ -303,7 +303,7 @@ export const operations = [
     operationId: "schedulePost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first (see server instructions).",
+      "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first.",
       "posts:publish", writeErrors,
     ),
     requestSchema: schedulePostRequestSchema,
@@ -336,7 +336,7 @@ export const operations = [
     operationId: "archivePost",
     requiredScope: "posts:archive",
     description: opDescription(
-      "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit; an already archived post comes back unchanged. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first (see server instructions).",
+      "Take a post off the blog (or shelve a draft); returns the archived post. Archiving saves a new version, so use the returned currentVersionNumber for any follow-up edit; an already archived post comes back unchanged. Restore with posts.unarchive. Send posts.get.currentVersionNumber as expectedVersionNumber after approval; a changed tip returns CONFLICT. Live change: needs explicit owner approval first.",
       "posts:archive",
       writeErrors,
     ),
@@ -412,7 +412,7 @@ export const operations = [
     operationId: "deleteAsset",
     requiredScope: "assets:delete",
     description: opDescription(
-      "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first (see server instructions).",
+      "Delete an image asset (file + metadata). CONFLICT if it is a post cover or site social image. Live change: needs explicit owner approval first.",
       "assets:delete",
       writeErrors,
     ),
