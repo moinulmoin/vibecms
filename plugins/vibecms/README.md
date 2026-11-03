@@ -25,6 +25,16 @@ The plugin declares one remote MCP server, `https://app.vibecms.dev/mcp` (Stream
 
 The skills tell Claude to stop before publishing and ask you to approve the exact saved version. The connection's access level is the hard limit: billing, key management, and permanently deleting posts or blogs stay human actions. To remove access, disconnect the app under **Dashboard > Connect**.
 
+### Other services, only when you ask
+
+Three skills can reach services other than vibecms, and only for a task you request:
+
+- `vibecms-cross-post` sends a published post's public text and URL to DEV (`https://dev.to/api`) or Hashnode (`https://gql-beta.hashnode.com`) as a draft, using your own `DEV_API_KEY` or `HASHNODE_PAT` from your environment. For Medium it gives you Medium's import link and sends nothing.
+- `vibecms-import` reads your existing posts from Ghost or WordPress through their read APIs (with Ghost's read-only Content API key, if you use that route). It sends nothing to them.
+- `vibecms-ship-to-draft` writes a GitHub Actions workflow into your repository. That workflow runs in GitHub, not on your machine, and sends your repository changes to Claude (with your `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`) and the resulting draft to `https://app.vibecms.dev/mcp` with your own vibecms agent key, stored as the `VIBECMS_KEY` repository secret. That key is issued by vibecms and only goes to vibecms.
+
+`vibecms-newsletter` saves your newsletter tool's signup form address in your vibecms settings; readers' signups then go to that tool. Keys stay in your environment or repository secrets and are never written to files or chat.
+
 ## Links
 
 - Docs: <https://vibecms.dev/docs/getting-started/connect-an-agent>
