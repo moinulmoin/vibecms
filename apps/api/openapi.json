@@ -4429,7 +4429,7 @@
     "/api/v1/skills": {
       "get": {
         "operationId": "listSkills",
-        "description": "List the vibecms agent skills: free instructions that teach you how to work with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). Compare digest with your installed copy to see whether it changed; call skills.get for the full text. Example: {}. Any valid key; no scope required.",
+        "description": "List the vibecms agent skills: Markdown guides for working with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). skills.get returns the full text. Example: {}. Any valid key; no scope required.",
         "security": [
           {
             "bearerAuth": []
@@ -4588,7 +4588,7 @@
     "/api/v1/skills/{name}": {
       "get": {
         "operationId": "getSkill",
-        "description": "Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. The content can be installed as <your skills folder>/<name>/SKILL.md (for example in .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {\"name\":\"vibecms-core\"}. Any valid key; no scope required.",
+        "description": "Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. Unknown names return NOT_FOUND. Example: {\"name\":\"vibecms-core\"}. Any valid key; no scope required.",
         "security": [
           {
             "bearerAuth": []
@@ -12368,7 +12368,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "uploadAsset",
-        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. The CLI 'vibecms assets upload <path>' can upload a file without putting base64 in the conversation. Requires scope: assets:write.",
+        "description": "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -15318,7 +15318,7 @@
     "/api/v1/posts/format-guide": {
       "get": {
         "operationId": "getFormatGuide",
-        "description": "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware. Requires scope: posts:read.",
+        "description": "Returns the post-formatting syntax, recommended components, examples, and layout options for this site's theme. Use it before drafting or publishing a post. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []
@@ -16056,7 +16056,7 @@
     "/api/v1/posts/{postId}/seo": {
       "get": {
         "operationId": "seoCheckPost",
-        "description": "Check a saved post's SEO and AI-answer readiness on the current tip with deterministic rules; vibecms runs no AI model on the post. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same findings in its seo field. Optional focusKeyword adds keyword checks. Judgment calls (does the opening answer the title, which claims need a source) are for your own agent; see the vibecms-seo skill. Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}. Requires scope: posts:read.",
+        "description": "Check a saved post's SEO and AI-answer readiness on the current tip with deterministic rules; vibecms runs no AI model on the post. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same findings in its seo field. Optional focusKeyword adds keyword checks. It does not judge whether the opening answers the title or which claims need a source. Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}. Requires scope: posts:read.",
         "security": [
           {
             "bearerAuth": []

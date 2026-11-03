@@ -295,11 +295,13 @@ function listedTools(actor: Actor) {
       .filter((op) => op.requiredScope === null || can(actor, op.requiredScope))
       .map((op) => {
         // OpenAI review requires explicit readOnly/destructive/openWorld
-        // booleans. A write without an explicit `destructive: false` counts as
-        // destructive. idempotentHint is optional, so it is listed only when true.
+        // booleans; Anthropic's directory reads the display name from
+        // annotations.title. A write without an explicit `destructive: false`
+        // counts as destructive. idempotentHint is listed only when true.
         const hints = op.annotations as OperationAnnotations;
         const readOnly = hints.readOnly === true;
         const annotations = {
+          title: op.title,
           readOnlyHint: readOnly,
           destructiveHint: !readOnly && hints.destructive !== false,
           openWorldHint: hints.openWorld === true,

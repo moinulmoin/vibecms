@@ -190,13 +190,13 @@ export const operations = [
   {
     title: "List skills",
     toolName: 'skills.list', operationId: 'listSkills', requiredScope: null,
-    description: opDescription('List the vibecms agent skills: free instructions that teach you how to work with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). Compare digest with your installed copy to see whether it changed; call skills.get for the full text. Example: {}.', null, readErrors),
+    description: opDescription('List the vibecms agent skills: Markdown guides for working with vibecms. Each has name, description, url, and digest (sha256 of its SKILL.md). skills.get returns the full text. Example: {}.', null, readErrors),
     requestSchema: listSkillsRequestSchema, responseSchema: skillListDtoSchema, annotations: { readOnly: true },
   },
   {
     title: "Get skill",
     toolName: 'skills.get', operationId: 'getSkill', requiredScope: null,
-    description: opDescription('Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. The content can be installed as <your skills folder>/<name>/SKILL.md (for example in .agents/skills or .claude/skills). Unknown names return NOT_FOUND. Example: {"name":"vibecms-core"}.', null, readErrors),
+    description: opDescription('Get one vibecms agent skill by a name from skills.list, including its full SKILL.md as content. Unknown names return NOT_FOUND. Example: {"name":"vibecms-core"}.', null, readErrors),
     requestSchema: getSkillRequestSchema, responseSchema: skillDtoSchema, annotations: { readOnly: true },
   },
   {
@@ -360,7 +360,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. The CLI 'vibecms assets upload <path>' can upload a file without putting base64 in the conversation.",
+      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
@@ -482,7 +482,7 @@ export const operations = [
     operationId: "getFormatGuide",
     requiredScope: "posts:read",
     description: opDescription(
-      "Returns supported post-formatting syntax + guidance; CALL BEFORE DRAFTING OR PUBLISHING. Site-theme-aware.",
+      "Returns the post-formatting syntax, recommended components, examples, and layout options for this site's theme. Use it before drafting or publishing a post.",
       "posts:read",
       readErrors,
     ),
@@ -510,7 +510,7 @@ export const operations = [
     operationId: "seoCheckPost",
     requiredScope: "posts:read",
     description: opDescription(
-      "Check a saved post's SEO and AI-answer readiness on the current tip with deterministic rules; vibecms runs no AI model on the post. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same findings in its seo field. Optional focusKeyword adds keyword checks. Judgment calls (does the opening answer the title, which claims need a source) are for your own agent; see the vibecms-seo skill. Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
+      "Check a saved post's SEO and AI-answer readiness on the current tip with deterministic rules; vibecms runs no AI model on the post. Returns versionNumber plus findings sorted by severity (error, warn, info); each finding has a stable code and a fix hint. posts.preview already returns the same findings in its seo field. Optional focusKeyword adds keyword checks. It does not judge whether the opening answers the title or which claims need a source. Example: {\"postId\": \"post_1\", \"focusKeyword\": \"release notes\"}.",
       "posts:read",
       readErrors,
     ),
