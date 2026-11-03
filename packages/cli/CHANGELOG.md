@@ -1,5 +1,12 @@
 # vibecms-cli
 
+## 0.2.1
+
+### Patch Changes
+
+- 27c4a6a: Refresh the bundled API description: live-change operations state the owner-approval rule without pointing to the server instructions.
+- bbf4edc: Refresh the bundled API description: the format guide, SEO check, skill and image upload operations describe what they do without pointing the agent at other instructions or tools.
+
 ## 0.2.0
 
 ### Minor Changes
