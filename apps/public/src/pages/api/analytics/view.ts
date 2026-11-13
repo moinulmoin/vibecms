@@ -60,7 +60,6 @@ export const POST: APIRoute = async (context) => {
   if (!blog) return emptyResponse();
   // A paused managed blog is not serving: the beacon records nothing.
   if (isPublicBlogPaused(blog)) return emptyResponse();
-   if (!blog.indexable) return emptyResponse();
 
   writePageView(worker.ANALYTICS, {
     siteId: blog.site.id,

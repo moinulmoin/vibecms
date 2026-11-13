@@ -154,7 +154,7 @@ describe("cache tags and SEO headers", () => {
     ).toBe("public, max-age=50, s-maxage=50");
     expect(
       publicCacheControlForEntitlement(
-        { ...site.effective_entitlement, effective: false, servingAllowed: false, effectiveUntil: null },
+        { ...site.effective_entitlement, effective: false, servingAllowed: false, servingPaused: true, effectiveUntil: null },
         950,
       ),
     ).toBe("no-store");
@@ -182,7 +182,7 @@ describe("cache tags and SEO headers", () => {
     expect(cachedArticleResponseBelongsToSite(new Response("untagged"), site.id)).toBe(false);
   });
 
-  it("noindexes unpaid blogs", () => {
+  it("keeps unpaid blogs open to search engines", () => {
     const unpaid: SiteRow = {
       ...site,
       billing_status: "inactive",
@@ -196,8 +196,8 @@ describe("cache tags and SEO headers", () => {
       },
     };
     const headers = publicHtmlResponseHeaders(unpaid, env);
-    expect(headers["x-robots-tag"]).toBe("noindex, nofollow");
-    expect(headers["content-signal"]).toContain("search=no");
+    expect(headers["x-robots-tag"]).toBeUndefined();
+    expect(headers["content-signal"]).toContain("search=yes");
   });
 });
 

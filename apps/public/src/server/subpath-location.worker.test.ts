@@ -376,11 +376,11 @@ describe("review fixes: entitlement and rewrite passes", () => {
   const freeRequest = (path: string, init?: RequestInit) =>
     new Request(`https://${FREE_HOST}${path}`, { ...init, headers: { host: FREE_HOST, ...init?.headers } });
 
-  it("404s proxied ingress when the site's entitlement is gone", async () => {
+  it("serves proxied ingress for a free site's subpath mount", async () => {
     const path = `/_vc/p/${FREE_PROXY_ID}/hello`;
     expect(await resolvePublicLocationIngress(env.DB, freeRequest(path), path, runtimeEnv))
-      .toEqual({ kind: "not-found" });
-    // Self-host is always entitled: the same id resolves.
+      .toMatchObject({ kind: "proxied", path: "/hello" });
+    // Self-host serves the same id.
     const selfHosted = await resolvePublicLocationIngress(
       env.DB, freeRequest(path), path, { ...runtimeEnv, selfHosted: true },
     );
@@ -391,13 +391,14 @@ describe("review fixes: entitlement and rewrite passes", () => {
       .toMatchObject({ kind: "proxied" });
   });
 
-  it("serves unentitled sites on their default host without redirecting to paid mounts", async () => {
-    // Subpath primary: no redirect, the default host page loads instead.
-    expect(await primaryLocationRedirect(env.DB, freeRequest("/hello"), "/hello", runtimeEnv, freeLocation)).toBeNull();
-    // Custom-domain primary: same rule — resolveSite already 404s the custom
-    // host; the default host must not 301 readers into it.
+  it("redirects free sites from their default host to their own mounts", async () => {
+    // Subpath primary: the default host 301s to the customer's /blog.
+    const toSubpath = await primaryLocationRedirect(env.DB, freeRequest("/hello"), "/hello", runtimeEnv, freeLocation);
+    expect(toSubpath?.headers.get("location")).toBe("https://free.example.com/blog/hello");
+    // Custom-domain primary: the default host 301s to the own domain.
     const freeCustomRequest = new Request(`https://${FREE_CUSTOM_HOST}/post`, { headers: { host: FREE_CUSTOM_HOST } });
-    expect(await primaryLocationRedirect(env.DB, freeCustomRequest, "/post", runtimeEnv, freeLocation)).toBeNull();
+    const toCustom = await primaryLocationRedirect(env.DB, freeCustomRequest, "/post", runtimeEnv, freeLocation);
+    expect(toCustom?.headers.get("location")).toBe("https://blog.free-custom.com/post");
     // Entitled counterparts still redirect (sanity).
     const entitled = await primaryLocationRedirect(env.DB, request("/hello"), "/hello", runtimeEnv, freeLocation);
     expect(entitled?.headers.get("location")).toBe(`${CUSTOMER}/blog/hello`);
@@ -476,7 +477,7 @@ describe("past_due grace on the subpath mount", () => {
     vi.restoreAllMocks();
   });
 
-  it("serves and redirects to the subpath mount until the exact millisecond deadline", async () => {
+  it("serves and redirects to the subpath mount before and after the exact millisecond deadline", async () => {
     for (const ms of [SINCE, DEADLINE - 1]) {
       clockAt(ms);
       expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
@@ -484,22 +485,13 @@ describe("past_due grace on the subpath mount", () => {
       const redirect = await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation);
       expect(redirect?.headers.get("location")).toBe("https://grace.example.com/blog/hello");
     }
+    // The free plan keeps the /blog mount: leaving Cloud takes nothing offline.
     for (const ms of [DEADLINE, DEADLINE + 1]) {
       clockAt(ms);
       expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
-        .toEqual({ kind: "not-found" });
-      expect(await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation)).toBeNull();
-    }
-  });
-
-  it("does not mount the subpath when the past_due start is unknown", async () => {
-    await env.DB.prepare("UPDATE billing_customers SET past_due_since = NULL WHERE workspace_id = ?").bind("ws-spl-grace").run();
-    try {
-      clockAt(SINCE);
-      expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))
-        .toEqual({ kind: "not-found" });
-    } finally {
-      await env.DB.prepare("UPDATE billing_customers SET past_due_since = ? WHERE workspace_id = ?").bind(SINCE, "ws-spl-grace").run();
+        .toMatchObject({ kind: "proxied", path: "/hello" });
+      const redirect = await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation);
+      expect(redirect?.headers.get("location")).toBe("https://grace.example.com/blog/hello");
     }
   });
 });

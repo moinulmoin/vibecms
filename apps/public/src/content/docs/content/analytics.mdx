@@ -5,11 +5,11 @@ description: See how people and AI agents read your blog, in one dashboard view.
 
 Analytics counts two different readers. **People** are counted by a small JavaScript beacon on post pages. **Agents** — AI assistants, AI crawlers, search engines, and other bots — are counted on the server, because most of them never run JavaScript.
 
-Analytics is part of the paid plan on hosted vibecms. Self-hosted installs turn it on by configuring the Analytics Engine binding and query vars (below).
+On the free plan the dashboard and `analytics.get` show the last 7 days: readers and agent reads per day, as site totals. vibecms Cloud shows the full history with top posts, referrers, per-post numbers, and the agent breakdowns below. Self-hosted installs turn analytics on by configuring the Analytics Engine binding and query vars (below).
 
 ## What counts as a page view
 
-A script on each published post page sends one beacon per view. It does not send when the browser asks not to be tracked (Do Not Track or Global Privacy Control). Beacons from known bots and non-indexable pages may still be sent, but the server drops them — they are not counted.
+A script on each published post page sends one beacon per view. It does not send when the browser asks not to be tracked (Do Not Track or Global Privacy Control). Beacons from known bots and paused blogs may still be sent, but the server drops them — they are not counted.
 
 ## What counts as an agent read
 
@@ -42,7 +42,7 @@ Numbers for the current day update as requests arrive; the stored history is rol
 {"range": "30", "postId": "post_..."}
 ```
 
-The response's `agents` object carries `total`, `byCategory`, `topAgents`, `topPosts`, `markdownShare`, `signedShare`, and `llmsReads`. Per-site numbers that have no per-post source come back empty when you pass `postId`. Free-plan sites get `ANALYTICS_PAID_PLAN`. REST mirrors this at `GET /api/v1/analytics?postId=`.
+The response's `agents` object carries `total`, `byCategory`, `topAgents`, `topPosts`, `markdownShare`, `signedShare`, and `llmsReads`. Per-site numbers that have no per-post source come back empty when you pass `postId`. Free-plan sites get `status: "limited"` with `views`, `agentReads`, and the 7-day `series`; passing `postId` on a free plan returns `ANALYTICS_PAID_PLAN`. REST mirrors this at `GET /api/v1/analytics?postId=`.
 
 ## Privacy
 

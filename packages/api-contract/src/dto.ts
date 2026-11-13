@@ -170,7 +170,7 @@ export const skillDtoSchema = skillSummaryDtoSchema.extend({ content: z.string()
 export type SkillSummaryDto = z.infer<typeof skillSummaryDtoSchema>;
 export type SkillDto = z.infer<typeof skillDtoSchema>;
 export const analyticsDtoSchema = z.object({
-  status: z.enum(['available', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
+  status: z.enum(['available', 'limited', 'unavailable']), rangeDays: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365), z.literal('all')]).optional(),
   retentionDays: z.number(), views: z.number().optional(), previousViews: z.number().nullable().optional(),
   trendPercent: z.number().nullable().optional(), seriesGranularity: z.enum(['day', 'month']).optional(),
   aiReferralViews: z.number().optional(), series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })).optional(),
@@ -185,6 +185,8 @@ export const analyticsDtoSchema = z.object({
     markdownShare: z.number(), signedShare: z.number(), llmsReads: z.number(),
   }).optional(),
   reason: z.enum(['self_hosted', 'not_configured', 'query_failed']).optional(),
+  /** `limited` (free plan): agent reads over the returned days. */
+  agentReads: z.number().optional(),
 });
 
 export const postSummaryDtoSchema = z.object({

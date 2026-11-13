@@ -43,7 +43,7 @@ function HowItWorks() {
         ))}
       </Steps>
       <p className="mt-6 border-t border-[color:var(--hairline)] pt-4 text-sm text-muted-foreground">
-        Free to try, no card. Your first {FREE_TIER.publishedPosts} posts are on us.
+        Free forever, no card: {FREE_TIER.publishedPosts} published posts and a custom domain.
       </p>
     </div>
   )

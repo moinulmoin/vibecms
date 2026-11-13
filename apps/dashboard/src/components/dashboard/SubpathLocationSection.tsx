@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { ExternalLink, LoaderCircle, LockKeyhole } from 'lucide-react'
+import { ExternalLink, LoaderCircle } from 'lucide-react'
 import { CopyButton, Field, FieldLabel, Input } from '@vc/ui'
 import { Button, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { PageTabs, Section, StatusBadge, Step, Steps } from '~/components/dashboard/blocks'
@@ -61,14 +60,12 @@ function snippetFor(snippets: SubpathSnippets, platform: (typeof PLATFORM_TABS)[
 
 export function SubpathLocationSection({
   location,
-  locked,
   customDomainActive,
   feedback,
   refresh,
 }: {
   /** Missing on stale settings payloads: treated as "no subpath" like the API default. */
   location?: SiteLocationView | null
-  locked: boolean
   customDomainActive: boolean
   feedback: (result: { ok?: string; error?: string }) => void
   refresh: () => Promise<unknown>
@@ -166,21 +163,7 @@ export function SubpathLocationSection({
       title="On a path of your site"
       description="Serve the blog at a path of the site you already run, like example.com/blog. Search engines treat it as part of your main site."
     >
-      {/* Paid-plan gate: connects/checks/rotates only. Disconnect stays reachable
-          because removing a location is authorization-only, not a paid op. */}
-      {locked ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
-          <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <p className="flex-1 text-sm text-muted-foreground">A blog on your site’s path is part of the paid plan.</p>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
-              Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
-            </Link>
-          </Button>
-        </div>
-      ) : null}
       {!subpath ? (
-        locked ? null : (
           <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleConnect(event)}>
             <Field className="min-w-0 flex-1">
               <FieldLabel htmlFor="location-url">Blog URL</FieldLabel>
@@ -206,7 +189,6 @@ export function SubpathLocationSection({
               Connect
             </PendingSubmitButton>
           </form>
-        )
       ) : (
         <>
           <div className="grid gap-3">
@@ -268,7 +250,7 @@ export function SubpathLocationSection({
               detail="We fetch your path’s health address through the proxy and compare it with this blog."
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" size="sm" disabled={locked || pending === 'check'} onClick={() => void handleCheck()}>
+                <Button type="button" variant="outline" size="sm" disabled={pending === 'check'} onClick={() => void handleCheck()}>
                   {pending === 'check' ? <LoaderCircle aria-hidden data-icon="inline-start" className="animate-spin" /> : null}
                   {pending === 'check' ? 'Checking…' : 'Check setup'}
                 </Button>
@@ -326,7 +308,7 @@ export function SubpathLocationSection({
               variant="ghost"
               confirmLabel="Rotate the link"
               helperText="The old link stops working at once. Update your proxy right after."
-              disabled={locked || pending !== null}
+              disabled={pending !== null}
               onConfirm={handleRotate}
               className="text-muted-foreground"
             >

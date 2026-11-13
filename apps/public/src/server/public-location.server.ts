@@ -33,17 +33,16 @@ export type PublicLocationIngress =
   | { kind: "not-found" };
 
 /**
- * Serving state for a site row (the same rule `resolveSite` gates custom
- * domains with; self-host is always entitled). `entitled` covers paid
- * effectiveness and the post-revoke claim grace; `paused` is a managed blog
- * past its grace with no other source — every ingress shows the paused page.
+ * Serving state for a site row. Every address (default host, own domain,
+ * subpath) serves on every plan; `paused` is a managed blog past its claim
+ * grace with no other source — every ingress shows the paused page.
  */
 async function hostedServingState(
   db: D1Database,
   siteId: string,
   env: PublicRuntimeEnv,
-): Promise<"entitled" | "paused" | "no"> {
-  if (env.selfHosted) return "entitled";
+): Promise<"serving" | "paused" | "no"> {
+  if (env.selfHosted) return "serving";
   const entitlement = await createDataAccess(db).managedSites.resolveSite(siteId, {
     selfHosted: false,
     // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
@@ -51,7 +50,7 @@ async function hostedServingState(
   });
   if (!entitlement) return "no";
   if (entitlement.servingPaused) return "paused";
-  return entitlement.servingAllowed ? "entitled" : "no";
+  return "serving";
 }
 
 /**
@@ -92,10 +91,7 @@ export async function resolvePublicLocationIngress(
   // A saved-but-unverified mount never serves pages: the dashboard check
   // verifies through health, then flips the row to active.
   if (subpath.status !== "active") return { kind: "not-connected" };
-  // The subpath mount is a paid location: once serving is no longer allowed
-  // it stops serving even though `resolveSiteByHost` still resolves the
-  // default host (free reads stay allowed there). A paused managed blog
-  // answers with the paused page instead of a bare 404.
+  // A paused managed blog answers with the paused page instead of a bare 404.
   const servingState = await hostedServingState(db, site.id, env);
   if (servingState === "paused") return { kind: "paused" };
   if (servingState === "no") return { kind: "not-found" };
@@ -141,17 +137,16 @@ export async function primaryLocationRedirect(
   const site = host ? await createDataAccess(db).publicBlog.resolveSiteByHost(host) : null;
   const primary = site?.primaryLocation;
   if (!primary) return null;
-  // Paid mounts (custom domain, subpath) are only canonical while the site is
-  // entitled; an unentitled site keeps serving its default host instead of
-  // 301ing readers at a location that 404s.
-  if (primary.type !== "default" && (await hostedServingState(db, site.id, env)) !== "entitled") return null;
+  // Own domains and subpath mounts are canonical on every plan. A paused site
+  // keeps answering on its default host instead of 301ing readers elsewhere.
+  if (primary.type !== "default" && (await hostedServingState(db, site.id, env)) !== "serving") return null;
   if (primary.hostname.toLowerCase() === host && primary.basePath === "") return null;
   const target = `https://${primary.hostname}${primary.basePath}${pathname}${new URL(request.url).search}`;
   return new Response(null, {
     status: 301,
-    // The destination depends on the site's entitlement; `no-cache` forces
-    // revalidation on reuse so an expiry never strands readers on a cached
-    // redirect to a mount that now 404s.
+    // The destination depends on the site's mounts and pause state;
+    // `no-cache` forces revalidation on reuse so a removed mount never
+    // strands readers on a cached redirect.
     headers: { location: target, "cache-control": "no-cache" },
   });
 }

@@ -11,13 +11,13 @@
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-cross-post/SKILL.md",
-      "computedHash": "e356a959e32f0d412278200d8c0a0467af218f104222793eb131bcacecfa9931"
+      "computedHash": "db7cfe0b1a4cfda4546fd03b266b3605133419986f92631f4f9c9a4dfe614212"
     },
     "vibecms-import": {
       "source": ".",
       "sourceType": "local",
       "skillPath": "skills/vibecms-import/SKILL.md",
-      "computedHash": "c5b2c0d4708b5f59bf80789cd0efa1e7abf0d6ae8b0ec908fefc5296c341263a"
+      "computedHash": "4acef3d1b3844d01413018f9632453f840d359287c134dfd50f1b73915f3bb91"
     },
     "vibecms-newsletter": {
       "source": ".",

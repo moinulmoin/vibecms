@@ -15,7 +15,7 @@ export function publicCacheControlForEntitlement(
   // or the claim-grace pause moment, whichever ends serving first.
   now = Date.now() / 1000,
 ): string {
-  if (!entitlement.servingAllowed) return "no-store";
+  if (entitlement.servingPaused) return "no-store";
   const horizon = entitlement.effectiveUntil ?? entitlement.claim?.pausedAt ?? null;
   if (horizon === null) return publicCacheControl;
   const remaining = Math.floor(Math.max(0, horizon - now));

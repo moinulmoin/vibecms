@@ -1,5 +1,5 @@
-import { AppError, archivePost, BillingRequiredError, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
-import { ACCENTS, FONTS, MEDIA, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
+import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
+import { ACCENTS, FONTS, FREE_TIER, MEDIA, PRICING, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { BillingNoticeDto, ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import { normalizeThemeChoice } from "@vc/api-contract";
@@ -288,7 +288,6 @@ export async function listTagsOp(ctx: OperationContext) {
 // family REST/MCP already translate (billing, owner, conflicts, validation).
 function locationMutationResult<T extends { ok: boolean; code?: string }>(result: T): asserts result is Extract<T, { ok: true }> {
   if (result.ok) return;
-  if (result.code === 'billing_required') throw new BillingRequiredError('Hosting the blog on your site requires an active subscription.');
   if (result.code === 'owner_required') throw new AppError('FORBIDDEN', 'Owner access required', 403);
   if (result.code === 'domain_conflict') throw new ConflictError('That domain is already connected to another blog.');
   if (result.code === 'not_found') throw new NotFoundError('No subpath location is set up for this blog.');
@@ -327,7 +326,7 @@ export async function getAnalyticsOp(ctx: OperationContext, input: { range: stri
   requireScope(ctx.actor, 'analytics:read');
   const range = input.range === 'all' ? 'all' : Number(input.range) as AnalyticsRange;
   const result = await loadAnalyticsForApp(appUser(ctx), range, { postId: input.postId });
-  if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', 'Analytics are on the paid plan.', 402);
+  if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', `Per-post analytics are on ${PRICING.planName}. The free plan reads site totals for the last ${FREE_TIER.analyticsDays} days: call again without postId.`, 402);
   return result;
 }
 
@@ -668,7 +667,8 @@ async function deterministicPostSeo(
       canonicalUrl: post?.canonicalUrl,
       coverAssetId: post?.coverAssetId,
       tree,
-      site: { indexable: entitlement.effective, primaryBaseUrl },
+      // Same rule as the public worker: every plan is indexable; only a paused blog is not.
+      site: { indexable: !entitlement.servingPaused, primaryBaseUrl },
       publishedSlugs,
       otherPosts,
       metadataKnown: post !== null,

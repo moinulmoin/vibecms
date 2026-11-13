@@ -41,11 +41,9 @@ if (!marketing) {
   const site = await resolveSite(Astro.request, db, env);
   if (!site) return new Response("Not found", { status: 404 });
   if (isPausedSite(site)) return pausedBlogResponse(Astro.request);
-  if (site.effective_entitlement.servingAllowed) {
-     const cachedHtml = await matchCachedPublicPostHtml(pubRequest, site.id);
-     if (cachedHtml) return cachedHtml;
-   }
-   blog = await loadPublicPostForSite(db, location, site, "docs", env);
+  const cachedHtml = await matchCachedPublicPostHtml(pubRequest, site.id);
+  if (cachedHtml) return cachedHtml;
+  blog = await loadPublicPostForSite(db, location, site, "docs", env);
   if (isPublicBlogPaused(blog)) return pausedBlogResponse(Astro.request);
   if (!blog) {
     // A legacy post that used to live at /docs may have moved.

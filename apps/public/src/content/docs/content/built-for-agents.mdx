@@ -11,7 +11,7 @@ Your published blog serves both HTML and Markdown. Drafts and private previews a
 | `/<slug>.md` | The published version's Markdown with `title` and `canonical` always in frontmatter; `description`, `date`, and `tags` appear only when set, and a `vibecms` key carries presentation metadata when present. |
 | `/<slug>` with `Accept: text/markdown` | The same Markdown representation. `?format=md` also requests Markdown. |
 | `/robots.txt` | `Content-Signal: search=yes, ai-input=yes, ai-train=no` for tenant blogs. |
-| `/sitemap.xml` | Published post URLs when the blog is indexable. |
+| `/sitemap.xml` | Published post URLs. |
 | `/feed.xml` | An RSS feed of published posts, bounded to 50 full-body items. |
 
 HTML and Markdown article responses use `Vary: Accept` and an alternate `Link` header for the `.md` URL. A missing Markdown page returns a Markdown 404 instead of an HTML page. The blog home page also sends `Link` headers for `llms.txt`, the sitemap, and RSS. Blog pages include JSON-LD for the site and article.
@@ -24,7 +24,7 @@ curl https://your-blog.example/robots.txt
 curl https://your-blog.example/feed.xml
 ```
 
-On a free default-domain blog, public pages remain readable but carry `noindex`; the sitemap is unavailable. A paid or self-hosted blog can be indexed.
+Every blog, free or paid, is open to search engines and AI assistants on every address: no `noindex`, and the sitemap lists every published post. Only a paused blog answers with a `noindex` page.
 
 ## Index, tags, and search
 

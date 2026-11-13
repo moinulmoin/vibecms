@@ -82,20 +82,25 @@ describe('scheduled exact-version publishing', () => {
     expect(event?.summary).toContain('Scheduled by Owner');
   });
 
-  it('free-plan cap blocks the sixth scheduled publication', async () => {
-    for (let index = 0; index < 4; index++) {
+  it('free-plan cap blocks the 26th scheduled publication', async () => {
+    // One post is already live from the test above; 24 more reach the cap of 25.
+    const scheduled = await create();
+    await publishScheduledPost(repo, scheduler, {
+      siteId: SITE, postId: scheduled.id, versionNumber: 1, billingStatus: 'none', scheduledBy: actor.name,
+      leaseToken: await leaseFor(scheduled.id),
+    });
+    for (let index = 0; index < 23; index++) {
       const post = await create();
-      const leaseToken = await leaseFor(post.id);
-      await publishScheduledPost(repo, scheduler, {
-        siteId: SITE, postId: post.id, versionNumber: 1, billingStatus: 'none', scheduledBy: actor.name, leaseToken,
-      });
+      await repo.publishPostWithHistory(SITE, post.id, 1, actor,
+        { changeSummary: 'Published', activityAction: 'post.published', activitySummary: 'Published' },
+        { billingActive: false, freeLimit: 25 });
     }
-    const sixth = await create();
-    const leaseToken = await leaseFor(sixth.id);
+    const overCap = await create();
+    const leaseToken = await leaseFor(overCap.id);
     await expect(publishScheduledPost(repo, scheduler, {
-      siteId: SITE, postId: sixth.id, versionNumber: 1, billingStatus: 'none', scheduledBy: actor.name, leaseToken,
+      siteId: SITE, postId: overCap.id, versionNumber: 1, billingStatus: 'none', scheduledBy: actor.name, leaseToken,
     })).rejects.toBeInstanceOf(BillingRequiredError);
-    expect((await repo.getPost(SITE, sixth.id))?.status).toBe('draft');
+    expect((await repo.getPost(SITE, overCap.id))?.status).toBe('draft');
   });
 
   it('never folds a human autosave into a scheduled version', async () => {

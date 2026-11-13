@@ -1,3 +1,4 @@
+import { FREE_LIMIT_MESSAGES, FREE_TIER } from "@vc/config";
 import { type DomainRecord, validateCustomHostname } from "../domains";
 import { BillingRequiredError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 
@@ -106,7 +107,7 @@ export type AddCustomDomainInput = {
   hostname: string;
   /** Caller-computed: the acting user is a human workspace owner. */
   isOwner: boolean;
-  /** Caller-computed: the workspace has an active subscription. */
+  /** Caller-computed: the workspace has paid hosted entitlement (no own-domain cap). */
   isPaid: boolean;
   appHost: string;
   platformZone: string;
@@ -119,11 +120,19 @@ export async function addCustomDomain(
   input: AddCustomDomainInput,
 ): Promise<{ record: DomainRecord; reclaimedCfHostnameId: string | null; reclaimedSiteId: string | null }> {
   if (!input.isOwner) throw new ForbiddenError("Only workspace owners can manage domains.");
-  if (!input.isPaid) throw new BillingRequiredError("Custom domains require an active subscription.");
 
   const validation = validateCustomHostname(input.hostname, { appHost: input.appHost, platformZone: input.platformZone });
   if (!validation.ok) throw new ValidationError(validation.error);
   const hostname = validation.hostname;
+
+  // The free plan connects one own domain. Any custom row counts (pending
+  // included); re-adding the domain already on this blog stays idempotent.
+  if (!input.isPaid) {
+    const custom = await listCustomDomains(repo, input.siteId);
+    if (custom.length >= FREE_TIER.customDomains && !custom.some((row) => row.hostname === hostname)) {
+      throw new BillingRequiredError(FREE_LIMIT_MESSAGES.customDomain);
+    }
+  }
 
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const staleBefore = now - (input.staleTtlSeconds ?? DEFAULT_STALE_TTL_SECONDS);

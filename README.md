@@ -233,7 +233,7 @@ Recommended sandbox product setup:
 - Recurring subscription product.
 - Price: $15/month list, or $150/year if you create a yearly product/price in Polar (launch offer: $9/month, $75/year via discounts).
 - Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`. Set both launch discount ids too, or checkout sends the committed sandbox discounts.
-- In hosted mode the free boundary is 5 published posts, 5 drafts at a time, and 10 images — no card required — and free blogs show a small "Published with vibecms" link; a subscription unlocks unlimited posts, 10 GB media, analytics, and custom domains, and removes the link. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely and never shows the link.
+- In hosted mode the free plan is free forever with no card: 25 published posts, 10 drafts at a time, 100 images (250 MB), a custom domain or `/blog` subpath, 7-day analytics totals, and standard support; free blogs are open to search engines and AI assistants and show a small "Published with vibecms" link. vibecms Cloud adds unlimited posts, 10 GB media, full analytics, priority support, and removes the link. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely and never shows the link.
 - Launch entitlement: 1 hosted blog, unlimited posts, 10 GB media, scoped agent access with no monthly request cap (per-minute and per-day guardrails only), activity and version history, and reader + AI discovery analytics.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 

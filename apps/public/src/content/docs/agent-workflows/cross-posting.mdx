@@ -5,8 +5,6 @@ description: Share a live vibecms post on DEV, Hashnode, or Medium without givin
 
 Ask your agent to use the `vibecms-cross-post` skill after your post is live. Tell it which post and destinations you want. It reads the public Markdown version, so unpublished edits in your vibecms draft are not sent elsewhere. It uses the vibecms post URL as the original URL and makes relative links and images usable on the destination.
 
-Free default-domain blogs carry `noindex`, so a cross-posted copy may rank in search instead of the original. You can still cross-post.
-
 ## DEV
 
 Set `DEV_API_KEY` in the agent's environment; never paste the key into chat. The agent creates a DEV draft with the original URL as its canonical URL and at most four tags. Review the copy before approving publication. A DEV draft link is public but secret: share it only with people you trust.

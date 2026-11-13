@@ -110,6 +110,7 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
       skipQuota: quota.skipQuota,
       limit: quota.limit,
       quotaType: quota.quotaType,
+      byteLimit: quota.byteLimit,
     })
   } catch (error) {
     if (error instanceof MediaQuotaExceededError) throw new UploadError(error.code)

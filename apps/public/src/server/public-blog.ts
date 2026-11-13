@@ -161,7 +161,7 @@ export function publicHtmlResponseHeaders(
 /**
  * Listing routes must resolve entitlement on every request. Unlike article
  * routes, Astro's page cache can return a listing before route code runs, so a
- * stale paid response could outlive managed sponsorship expiry or revocation.
+ * stale response could outlive a managed revoke's pause.
  */
 export function publicListingResponseHeaders(
   site: SiteRow,
@@ -227,9 +227,10 @@ export async function tryPublicPostMarkdownResponse(
   if (!markdown && !markdownRequested(request)) return null;
   if (!slug) return markdownNotFound();
 
+  const cacheable = isPublicBlogIndexable(site, env);
   const cached = await matchArticleResponseCache(request.url, "markdown");
   if (
-    site.effective_entitlement.effective
+    cacheable
     && cached
     && cachedArticleResponseBelongsToSite(cached, site.id)
     && hasContentEtag(cached)
@@ -238,7 +239,7 @@ export async function tryPublicPostMarkdownResponse(
   }
 
   const response = await publicPostMarkdownResponse(db, site, slug, request, basePath, env);
-  if (response.ok && site.effective_entitlement.effective) {
+  if (response.ok && cacheable) {
     await putArticleResponseCache(request.url, "markdown", response);
   }
   return response;

@@ -180,14 +180,6 @@ describe('AnalyticsPage', () => {
     expect(text).toContain('No agent reads yet')
   })
 
-  it('keeps the locked upsell unchanged', async () => {
-    mocks.loadAnalyticsPage.mockResolvedValue({ status: 'locked', retentionDays: 365 })
-    const { container } = await render()
-    const text = container.textContent ?? ''
-    expect(text).toContain('Upgrade to Cloud')
-    expect(container.querySelector('[role="tablist"]')).toBeNull()
-  })
-
   it('keeps the People tab and metric strip when the payload has no agents block', async () => {
     const data = availableData()
     delete data.agents

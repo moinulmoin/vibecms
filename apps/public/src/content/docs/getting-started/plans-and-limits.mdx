@@ -3,16 +3,20 @@ title: Plans and limits
 description: What the free plan includes, what paid adds, and what happens when paid access ends.
 ---
 
-On hosted vibecms every blog starts on the free plan. The free plan includes:
+On hosted vibecms every blog starts on the free plan, free forever. The free plan includes:
 
-- 5 published posts
-- 5 drafts at a time
-- 10 images
+- 25 published posts
+- 10 drafts at a time
+- 100 images and 250 MB of media, whichever is reached first
+- A custom domain (one per blog) or the blog under `/blog` of your own site, plus `name.vibecms.dev`
+- Open to search engines and AI assistants: pages, sitemap, robots.txt, feeds, and llms.txt are the same as on Cloud
+- Analytics for the last 7 days: readers and agent reads per day, site totals only
 - Agent keys, with 300 requests a day and 1,000 a month; writes are limited to 50 a day and 200 a month
-- Unlimited version history
+- Unlimited version history, themes, SEO checks, redirects, and JSON export
+- Standard support
 - A small "Published with vibecms" link at the bottom of every blog page
 
-vibecms Cloud includes unlimited posts, 10 GB of media, analytics, a custom domain or subpath location, search indexing, no "Published with vibecms" link, and 5,000 agent requests a day. Agent requests are limited to 120 a minute, writes to 500 a day, and each key to 60 requests a minute, with no monthly cap (see [API limits](/docs/api/authentication#limits)). Free-plan blogs serve pages with `noindex`, so search engines skip them. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
+vibecms Cloud includes unlimited posts and drafts, 10 GB of media, full analytics (all history, per-post numbers, referrers, and agent breakdowns), no "Published with vibecms" link, priority support, and 5,000 agent requests a day. Agent requests are limited to 120 a minute, writes to 500 a day, and each key to 60 requests a minute, with no monthly cap (see [API limits](/docs/api/authentication#limits)). Address options are the same on both plans. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
 
 ## Upgrade and manage
 
@@ -30,10 +34,10 @@ If a renewal payment fails, the subscription is past due and paid features stay 
 
 The grace clock starts with the first accepted past-due notification and does not restart on repeated failures. If notifications are delayed while our endpoint is failing, the clock can start later, extending grace by at most that delay. Older or duplicate notifications never change the current clock. Legacy past-due subscriptions with an unknown failure date receive no retroactive grace. An accepted successful payment, including a completed checkout, ends that past-due episode; a later failed payment starts a new grace period.
 
-If the payment is still failing when the grace period ends, the free plan applies (see below) and the notice changes to "Your last payment failed. Paid features are paused." Nothing is deleted, including custom domain and subpath location settings. Once the payment goes through, the subscription is active again and paid features return immediately. A subscription that ends — canceled, unpaid after the retries run out, or revoked — drops to the free plan with no grace period.
+If the payment is still failing when the grace period ends, the free plan applies (see below) and the notice changes to "Your last payment failed. Paid features are paused." Nothing is deleted or taken offline. Once the payment goes through, the subscription is active again and paid features return immediately. A subscription that ends — canceled, unpaid after the retries run out, or revoked — drops to the free plan with no grace period.
 
 ## When paid access ends
 
-Nothing is deleted. Posts stay online and the blog keeps working, but paid features pause: the analytics dashboard and API lock and people-view collection pauses (server-side agent-read counting continues on the still-readable default-domain blog), custom domains and subpath locations stop serving, pages get `noindex` again, and free-plan limits apply once more. Posts over the free published limit stay published; the cap only blocks *new* publishes beyond five.
+Nothing is deleted, unpublished, or hidden from search engines. Every published post stays online and editable, the custom domain and `/blog` location keep serving, and the blog stays open to search engines and AI assistants. The free plan applies again: the "Published with vibecms" link returns, analytics show the last 7 days of site totals, and new publishes, drafts, and uploads are refused until the blog is back under the free limits or on Cloud. Posts over the free published limit stay published; the cap only blocks *new* publishes past 25. Editing and republishing a post that is already live always works.
 
-Actions that need an active plan fail with distinct codes — the same over REST and in the MCP tool error result: publishing past the free cap or adding a draft past five → `BILLING_REQUIRED`; reading analytics → `ANALYTICS_PAID_PLAN`; uploading past the free image count → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Resubscribing unlocks everything again; a paused custom domain returns when the plan is active.
+Free-plan limits fail with distinct codes — the same over REST and in the MCP tool error result: publishing past 25 posts or adding a draft past 10 → `BILLING_REQUIRED`; per-post analytics (`postId`) → `ANALYTICS_PAID_PLAN`; uploading past 100 images or 250 MB → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Each message says the limit, that existing posts stay online and editable, and that vibecms Cloud removes the limit. Resubscribing lifts the limits at once.

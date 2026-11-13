@@ -1,8 +1,9 @@
 import { SegmentedControl } from '~/components/ui/segmented-control'
-import { BarChart3, ExternalLink, LockKeyhole } from 'lucide-react'
+import { BarChart3 } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Button, cn } from '@vc/ui'
+import { PRICING } from '@vc/config'
 import { AGENT_CATEGORY_LABELS } from '@vc/config/agents'
 import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
@@ -142,7 +143,9 @@ function MetricStrip({ data }: { data: Extract<AnalyticsPageData, { status: 'ava
   return <SharedMetricStrip metrics={metrics} columns={3} />
 }
 
-function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+type AnalyticsTotals = Pick<Extract<AnalyticsPageData, { status: 'available' | 'limited' }>, 'views' | 'series'>
+
+function TrafficChart({ data }: { data: AnalyticsTotals }) {
   const chartData = data.series.map((point) => ({
     date: formatDate(point.date),
     views: point.views,
@@ -193,12 +196,11 @@ function TrafficChart({ data }: { data: Extract<AnalyticsPageData, { status: 'av
 
 /** Daily agent reads. The API merges legacy crawler counts into this series so
  *  days before agent classification shipped still show traffic. */
-function AgentReadsChart({ data }: { data: Extract<AnalyticsPageData, { status: 'available' }> }) {
+function AgentReadsChart({ data, hasLegacy = false }: { data: AnalyticsTotals; hasLegacy?: boolean }) {
   const chartData = data.series.map((point) => ({
     date: formatDate(point.date),
     agentReads: point.aiCrawlerRequests,
   }))
-  const hasLegacy = data.aiCrawlers.requests > 0
 
   return (
     <Panel
@@ -378,7 +380,7 @@ function AgentsTab({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
   if (!agents) {
     return (
       <>
-        <AgentReadsChart data={data} />
+        <AgentReadsChart data={data} hasLegacy={data.aiCrawlers.requests > 0} />
         <Panel title="Agent reads">
           <EmptyState
             icon={<BarChart3 />}
@@ -403,7 +405,7 @@ function AgentsTab({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
 
   return (
     <>
-      <AgentReadsChart data={data} />
+      <AgentReadsChart data={data} hasLegacy={data.aiCrawlers.requests > 0} />
       <div className="grid gap-6 xl:grid-cols-2">
         <TopAgents agents={agents} />
         <ReadsByCategory agents={agents} />
@@ -468,25 +470,22 @@ function Referrers({ data }: { data: Extract<AnalyticsPageData, { status: 'avail
 }
 
 
-function LockedAnalytics() {
+/** Free plan: the last few days of site totals; no per-post detail or sources. */
+function LimitedAnalytics({ data }: { data: Extract<AnalyticsPageData, { status: 'limited' }> }) {
   return (
-    <div className="flex max-w-xl flex-col items-start gap-4 py-6">
-      <span className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground">
-        <LockKeyhole className="size-4" aria-hidden />
-      </span>
-      <div className="space-y-2">
-        <h2 className="font-display text-lg font-semibold tracking-[-0.02em] text-foreground">
-          See who reads, and which AI tools find you
-        </h2>
-        <p className="text-[0.9375rem] leading-7 text-muted-foreground">
-          Page views, top posts, where readers come from, and AI crawler visits. Included with the paid plan.
-        </p>
-      </div>
-      <Button asChild>
-        <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
-          Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
-        </Link>
-      </Button>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <SharedMetricStrip
+        columns={2}
+        metrics={[
+          { label: 'Page views', value: compactNumber.format(data.views), detail: `Last ${data.rangeDays} days` },
+          { label: 'Agent reads', value: compactNumber.format(data.agentReads), detail: 'Fetches by AI assistants, crawlers, and bots' },
+        ]}
+      />
+      <TrafficChart data={data} />
+      <AgentReadsChart data={data} />
+      <p className="text-sm leading-6 text-muted-foreground">
+        The free plan shows site totals for the last {data.rangeDays} days. {PRICING.planName} adds full history, top posts, and where readers come from.
+      </p>
     </div>
   )
 }
@@ -527,7 +526,7 @@ export function AnalyticsPage({ range = 30, tab = 'people' }: { range?: Analytic
         action={data.status === 'available' ? headerAction : undefined}
       />
 
-      {data.status === 'locked' ? <LockedAnalytics /> : null}
+      {data.status === 'limited' ? <LimitedAnalytics data={data} /> : null}
       {data.status === 'unavailable' ? (
         <div className="flex max-w-2xl flex-col items-start gap-4 py-4">
           <p className="text-[0.9375rem] leading-7 text-muted-foreground">

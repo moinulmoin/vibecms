@@ -1,7 +1,6 @@
 import { env } from 'cloudflare:workers'
 import {
   AppError,
-  BillingRequiredError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -14,7 +13,6 @@ import {
   can,
 } from '@vc/core'
 import { createDataAccess, type DataAccess } from '@vc/db'
-import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 import { isPurgeableMount, scheduleSitePurge } from '@/server/purge-scheduler'
 import { appHost, publicBlogBaseDomain } from '@/server/public-url'
@@ -46,7 +44,6 @@ const ROTATE_WARNING =
 
 function errorCode(error: AppError): string {
   if (error instanceof ForbiddenError) return 'owner_required'
-  if (error instanceof BillingRequiredError) return 'billing_required'
   if (error instanceof ConflictError) return 'domain_conflict'
   if (error instanceof NotFoundError) return 'not_found'
   return 'domain_invalid'
@@ -125,17 +122,6 @@ async function assertAuthorized(actor: Actor): Promise<void> {
   }
 }
 
-// Subpath hosting is a paid entitlement on hosted vibecms; self-host is free.
-// Only SETTING a location gates on it — removal stays authorization-only so an
-// expired subscription can still disconnect (and release) the hostname.
-async function assertCanWrite(actor: Actor, workspaceId: string): Promise<void> {
-  await assertAuthorized(actor)
-  const entitlement = await resolveEffectiveEntitlementForWorkspace(workspaceId)
-  if (!entitlement.effective) {
-    throw new BillingRequiredError('Hosting the blog on your site requires an active subscription.')
-  }
-}
-
 async function requireSubpathRow(data: DataAccess, siteId: string): Promise<DomainRecord> {
   const row = (await data.domains.listBySite(siteId)).find((domain) => domain.type === 'subpath')
   if (!row) throw new NotFoundError('No subpath location is set up for this blog.')
@@ -155,7 +141,7 @@ export async function getSiteLocationForApp(app: AppUserContext): Promise<Subpat
 
 export async function setSubpathLocationForApp(app: AppUserContext, url: string): Promise<LocationResult> {
   try {
-    await assertCanWrite(app.actor, app.workspaceId)
+    await assertAuthorized(app.actor)
     const validation = validateSubpathLocation(url, { appHost: appHost(), platformZone: publicBlogBaseDomain() ?? '' })
     if (!validation.ok) {
       return { ok: false, code: 'location_invalid' }
@@ -188,7 +174,7 @@ export type CheckLocationResult =
 /** The owner-facing manual check: promotes pending->active on pass, records failures otherwise. */
 export async function checkSubpathLocationForApp(app: AppUserContext): Promise<CheckLocationResult> {
   try {
-    await assertCanWrite(app.actor, app.workspaceId)
+    await assertAuthorized(app.actor)
     const data = createDataAccess(env.DB)
     const slug = await data.sites.getSiteSlug(app.siteId)
     if (!slug) throw new NotFoundError('Site not found')
@@ -246,7 +232,7 @@ export type RotateLocationResult =
 /** New proxy id. Dashboard only — rotating breaks the customer's snippet instantly. */
 export async function rotateSubpathProxyLinkForApp(app: AppUserContext): Promise<RotateLocationResult> {
   try {
-    await assertCanWrite(app.actor, app.workspaceId)
+    await assertAuthorized(app.actor)
     const data = createDataAccess(env.DB)
     const slug = await data.sites.getSiteSlug(app.siteId)
     if (!slug) throw new NotFoundError('Site not found')

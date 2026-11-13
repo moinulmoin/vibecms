@@ -1,4 +1,4 @@
-import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA } from '@vc/config'
+import { LAUNCH_OFFER, PLAN_SUMMARY, PRICING } from '@vc/config'
 import { CopyButton, Skeleton } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -227,7 +227,7 @@ export function PersonalizePage() {
           </Button>
           {!connect.data.effectiveEntitlement.effective ? (
             <p className="text-[13px] leading-5 text-muted-foreground">
-              Free includes {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, and {FREE_TIER.images} images. Unlimited posts, {MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and {API_USAGE_LIMITS.paid.calls.day.toLocaleString('en-US')} agent requests a day are{' '}
+              Free includes {PLAN_SUMMARY.free}. {PRICING.planName} adds {PLAN_SUMMARY.cloud} for{' '}
               {LAUNCH_OFFER.monthlyLabel} at launch pricing.
             </p>
           ) : null}

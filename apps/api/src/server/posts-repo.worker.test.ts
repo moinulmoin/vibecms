@@ -137,10 +137,10 @@ beforeAll(async () => {
     )
     .run();
 
-  // ---- cap test seed: FIVE already-published posts on the cap site ----------
-  // This puts the cap site at the free published limit (5) from the start.
-  for (let i = 1; i <= 5; i++) {
-    await seedPost(`pr-post-pub${i}`, "pr-site-cap", `Published ${["One", "Two", "Three", "Four", "Five"][i - 1]}`, `pr-post-pub${i}`, {
+  // ---- cap test seed: 25 already-published posts on the cap site -----------
+  // This puts the cap site at the free published limit (25) from the start.
+  for (let i = 1; i <= 25; i++) {
+    await seedPost(`pr-post-pub${i}`, "pr-site-cap", `Published ${i}`, `pr-post-pub${i}`, {
       status: "published",
       publishedAt: T0,
       updatedAt: T0,
@@ -159,7 +159,7 @@ beforeAll(async () => {
         `pr-post-pub${i}`,
         "pr-site-cap",
         1,
-        `Published ${["One", "Two", "Three", "Four", "Five"][i - 1]}`,
+        `Published ${i}`,
         `pr-post-pub${i}`,
         "# seed",
         "published",
@@ -241,36 +241,36 @@ it("guards free drafts on create and unarchive while paid drafts remain unlimite
   const siteId = "pr-site-drafts";
   const draft = (number: number) => ({ siteId, title: `Draft ${number}`, slug: `pr-draft-${number}`, contentMarkdown: "# Draft" });
   const first = await createPost(repo, fullApiActor, draft(1), "none");
-  await Promise.all([2, 3, 4, 5].map((number) => createPost(repo, fullApiActor, draft(number), "none")));
-  await expect(createPost(repo, fullApiActor, draft(6), "none")).rejects.toMatchObject({
+  await Promise.all([2, 3, 4, 5, 6, 7, 8, 9, 10].map((number) => createPost(repo, fullApiActor, draft(number), "none")));
+  await expect(createPost(repo, fullApiActor, draft(11), "none")).rejects.toMatchObject({
     code: "BILLING_REQUIRED",
-    message: "Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts.",
+    message: expect.stringContaining("Free plan: up to 10 drafts at a time"),
   });
 
   await publishPost(repo, fullApiActor, { siteId, postId: first.id, expectedVersionNumber: 1, billingStatus: "none" });
-  const sixth = await createPost(repo, fullApiActor, draft(6), "none");
-  await archivePost(repo, fullApiActor, { siteId, postId: sixth.id });
-  await createPost(repo, fullApiActor, draft(7), "none");
-  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: sixth.id, billingStatus: "none" }))
+  const eleventh = await createPost(repo, fullApiActor, draft(11), "none");
+  await archivePost(repo, fullApiActor, { siteId, postId: eleventh.id });
+  await createPost(repo, fullApiActor, draft(12), "none");
+  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: eleventh.id, billingStatus: "none" }))
     .rejects.toMatchObject({ code: "BILLING_REQUIRED" });
-  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: sixth.id, billingStatus: "active" }))
+  await expect(unarchivePost(repo, fullApiActor, { siteId, postId: eleventh.id, billingStatus: "active" }))
     .resolves.toMatchObject({ status: "draft" });
-  await expect(createPost(repo, fullApiActor, draft(8), "active")).resolves.toMatchObject({ status: "draft" });
+  await expect(createPost(repo, fullApiActor, draft(13), "active")).resolves.toMatchObject({ status: "draft" });
 });
 
 it("admits only one of two concurrent free drafts for the last slot", async () => {
   const repo = createD1PostRepository(env.DB);
   const siteId = "pr-site-draft-race";
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 9; i++) {
     await createPost(repo, fullApiActor, { siteId, title: `Race ${i}`, slug: `pr-race-${i}`, contentMarkdown: "# Race" }, "none");
   }
-  const results = await Promise.allSettled([4, 5].map((i) => createPost(repo, fullApiActor,
+  const results = await Promise.allSettled([9, 10].map((i) => createPost(repo, fullApiActor,
     { siteId, title: `Race ${i}`, slug: `pr-race-${i}`, contentMarkdown: "# Race" }, "none")));
   expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
   expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
   const count = await env.DB.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'")
     .bind(siteId).first<{ count: number }>();
-  expect(count?.count).toBe(5);
+  expect(count?.count).toBe(10);
 });
 
 // ---------------------------------------------------------------------------
@@ -278,25 +278,25 @@ it("admits only one of two concurrent free drafts for the last slot", async () =
 // ---------------------------------------------------------------------------
 
 describe("publish — guarded free-published-post cap (CAS)", () => {
-  it("rejects a 6th publish at the free cap (5) when billing is NOT active; the draft is left untouched", async () => {
+  it("rejects a 26th publish at the free cap (25) when billing is NOT active; the draft is left untouched", async () => {
     const repo = createD1PostRepository(env.DB);
-    // The cap site already has 5 published posts -> AT the free cap.
-    const sixth = await createPost(repo, fullApiActor, {
+    // The cap site already has 25 published posts -> AT the free cap.
+    const overCap = await createPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
       title: "Cap Rejected",
       slug: "pr-cap-rejected",
       contentMarkdown: "# rejected",
     });
-    expect(sixth.status).toBe("draft");
+    expect(overCap.status).toBe("draft");
 
-    // The guarded UPDATE must match 0 rows (count=5, limit=5, billing flag=0)
+    // The guarded UPDATE must match 0 rows (count=25, limit=25, billing flag=0)
     // and the command must surface BillingRequiredError. Asserting the real
     // class identity (not just a name string) so a raw D1/SQLite error reddens it.
     let caught: unknown;
     try {
       await publishPost(repo, fullApiActor, {
         siteId: "pr-site-cap",
-        postId: sixth.id,
+        postId: overCap.id,
         expectedVersionNumber: 1,
         billingStatus: "none",
       });
@@ -304,18 +304,18 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(BillingRequiredError);
-    expect((caught as Error).message).toMatch(/more posts/i);
+    expect((caught as Error).message).toMatch(/up to 25 published posts/i);
 
     // Teeth: the rejected publish must NOT have mutated the draft.
-    const stillDraft = await repo.getPost("pr-site-cap", sixth.id);
+    const stillDraft = await repo.getPost("pr-site-cap", overCap.id);
     expect(stillDraft?.status).toBe("draft");
-    // And the cap site still has exactly five published posts.
-    expect(await countPublished("pr-site-cap")).toBe(5);
+    // And the cap site still has exactly 25 published posts.
+    expect(await countPublished("pr-site-cap")).toBe(25);
   });
 
-  it("publishes the 6th post once billing is active (cap bypassed)", async () => {
+  it("publishes the 26th post once billing is active (cap bypassed)", async () => {
     const repo = createD1PostRepository(env.DB);
-    const sixth = await createPost(repo, fullApiActor, {
+    const overCap = await createPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
       title: "Cap Allowed",
       slug: "pr-cap-allowed",
@@ -324,15 +324,15 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
 
     const published = await publishPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
-      postId: sixth.id,
+      postId: overCap.id,
       expectedVersionNumber: 1,
       billingStatus: "active",
     });
 
     expect(published.status).toBe("published");
-    expect(published.id).toBe(sixth.id);
-    // Billing-active bypassed the cap -> now six published posts.
-    expect(await countPublished("pr-site-cap")).toBe(6);
+    expect(published.id).toBe(overCap.id);
+    // Billing-active bypassed the cap -> now 26 published posts.
+    expect(await countPublished("pr-site-cap")).toBe(26);
   });
 
   it("rejects publish when expectedVersionNumber is stale (intervening edit)", async () => {

@@ -1,4 +1,5 @@
 import type { Scope } from "@vc/core";
+import { FREE_TIER } from "@vc/config";
 import { z } from "zod";
 import {
   activityDtoSchema,
@@ -184,7 +185,7 @@ export const operations = [
   {
     title: "Get analytics",
     toolName: 'analytics.get', operationId: 'getAnalytics', requiredScope: 'analytics:read',
-    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans return ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
+    description: opDescription('Read aggregate views, trend, top posts, referrers, AI referrals, and agent fetches (agents.total/byCategory/topAgents/topPosts/markdownShare/llmsReads: AI crawlers, assistants, and search engines reading the blog server-side). Pass optional postId to scope per-post numbers to one post. Example: {"range":"30"}; ranges: 7, 30, 90, 365, all. No visitor data. Free plans get status "limited": views, agentReads and the daily series for the last 7 days only; postId on a free plan returns ANALYTICS_PAID_PLAN.', 'analytics:read', readErrors),
     requestSchema: getAnalyticsRequestSchema, responseSchema: analyticsDtoSchema, annotations: { readOnly: true },
   },
   {
@@ -261,7 +262,7 @@ export const operations = [
     operationId: "createPost",
     requiredScope: "posts:create",
     description: opDescription(
-      "Create a draft post from a Markdown body. Free sites may keep 5 drafts at a time; publishing or archiving frees a slot. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.",
+      `Create a draft post from a Markdown body. Free sites may keep ${FREE_TIER.drafts} drafts at a time; publishing or archiving frees a slot. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.`,
       "posts:create",
       writeErrors,
     ),
@@ -289,7 +290,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Publish exactly the approved draft version. Free sites may keep 5 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first.",
+      `Publish exactly the approved draft version. Free sites may keep ${FREE_TIER.publishedPosts} published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first.`,
       "posts:publish",
       writeErrors,
     ),
@@ -360,7 +361,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      "Upload an image from base64 data. Free sites may keep 10 images; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.",
+      `Upload an image from base64 data. Free sites may keep ${FREE_TIER.images} images and ${FREE_TIER.storageBytes / 1024 / 1024} MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.`,
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),

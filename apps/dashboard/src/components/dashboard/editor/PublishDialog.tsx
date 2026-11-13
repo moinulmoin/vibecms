@@ -79,9 +79,7 @@ const PLAN_CAP_CODES = ['billing_required', 'draft_limit', 'media_quota_free']
 
 /** Final human approval: names the exact version, what it replaces, and when it goes live. */
 export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNumber, liveUrl, warnings, seoFindings, onReviewSeo, pending, error, errorCode, scheduledPublish, returnFocusRef, onConfirm, onSchedule }: PublishDialogProps) {
-  // Only free sites are non-indexable; like SeoSection, that finding gets the plan reason and a billing link instead of the generic check copy.
-  const siteNotIndexable = (seoFindings ?? []).some((finding) => finding.code === 'site-not-indexable')
-  const seoErrors = (seoFindings ?? []).filter((finding) => finding.severity === 'error' && finding.code !== 'site-not-indexable')
+  const seoErrors = (seoFindings ?? []).filter((finding) => finding.severity === 'error')
   // Long findings lists (dozens of broken links) used to push the footer off
   // the viewport; cap the visible rows and point the rest at the rail.
   const visibleSeoErrors = seoErrors.slice(0, MAX_SEO_ERRORS_SHOWN)
@@ -263,20 +261,6 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
               </p>
             ) : null}
           </div>
-        ) : null}
-        {siteNotIndexable ? (
-          <p className="text-[13px] leading-5 text-muted-foreground">
-            <span className="block text-foreground">Search engines don’t index posts on the free plan.</span>
-            Subscribe in{' '}
-            <Link
-              to="/dashboard/settings"
-              search={{ ok: undefined, error: undefined, tab: 'billing' }}
-              className="text-foreground underline underline-offset-4 hover:text-primary"
-            >
-              Settings &gt; Billing
-            </Link>{' '}
-            so this post can appear in search results.
-          </p>
         ) : null}
         {error ? (
           <div role="alert" className="grid gap-2 text-sm text-destructive">

@@ -13,6 +13,7 @@ import {
   BillingRequiredError,
   createPost,
   publishPost,
+  updatePost,
   RateLimitError,
   type Actor,
   type BillingStatus,
@@ -29,6 +30,7 @@ import {
   resolveEffectiveEntitlementForWorkspace,
 } from './effective-entitlement'
 import { assertMediaUploadAllowed } from './media-quota'
+import { uploadAsset } from './media'
 import { listApiKeys, revokeApiKeyForApp } from './api-keys'
 import { enforceApiBudget, getApiUsageSummary } from './usage'
 import type { AppUserContext } from './onboarding'
@@ -286,7 +288,7 @@ describe('publishing and media paid gates', () => {
       }),
     ).resolves.toMatchObject({ status: 'published' })
 
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 25; index += 1) {
       const post = await createPost(repo, fullActor, {
         siteId: free.siteId,
         title: `Free publish ${index}`,
@@ -300,17 +302,17 @@ describe('publishing and media paid gates', () => {
         billingStatus: 'none',
       })
     }
-    const sixth = await createPost(repo, fullActor, {
+    const overCap = await createPost(repo, fullActor, {
       siteId: free.siteId,
-      title: 'Free publish 5',
-      slug: 'free-publish-5',
-      contentMarkdown: '# Free publish 5',
+      title: 'Free publish 25',
+      slug: 'free-publish-25',
+      contentMarkdown: '# Free publish 25',
     }, 'none')
     await expect(
       publishPost(repo, fullActor, {
         siteId: free.siteId,
-        postId: sixth.id,
-        expectedVersionNumber: sixth.currentVersionNumber,
+        postId: overCap.id,
+        expectedVersionNumber: overCap.currentVersionNumber,
         billingStatus: 'none',
       }),
     ).rejects.toBeInstanceOf(BillingRequiredError)
@@ -324,7 +326,7 @@ describe('publishing and media paid gates', () => {
     mutableEnv.SELF_HOSTED = 'false'
     await expect(assertMediaUploadAllowed(managed.siteId)).resolves.toMatchObject({ skipQuota: false })
     await expect(assertMediaUploadAllowed(polar.siteId)).resolves.toMatchObject({ skipQuota: false })
-    await expect(assertMediaUploadAllowed(free.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 10 })
+    await expect(assertMediaUploadAllowed(free.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 100, byteLimit: 250 * 1024 * 1024 })
 
     mutableEnv.SELF_HOSTED = 'true'
     await expect(assertMediaUploadAllowed(free.siteId)).resolves.toEqual({ skipQuota: true, limit: 0 })
@@ -415,7 +417,7 @@ describe('usage plan and budget gates', () => {
 })
 
 describe('analytics and custom-domain gates', () => {
-  it('opens analytics for managed sponsorship and locks expired/free sites', async () => {
+  it('opens analytics for managed sponsorship and keeps only per-post detail locked for expired/free sites', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     const managed = await seedSite('analytics-managed', { managedStatus: 'active' })
     const expired = await seedSite('analytics-expired', {
@@ -428,14 +430,12 @@ describe('analytics and custom-domain gates', () => {
       status: 'unavailable',
       reason: 'not_configured',
     })
-    expect(await loadAnalyticsForApp(appFor(expired), 7)).toEqual({
-      status: 'locked',
-      retentionDays: 365,
-    })
-    expect(await loadAnalyticsForApp(appFor(free), 7)).toEqual({
-      status: 'locked',
-      retentionDays: 365,
-    })
+    for (const site of [expired, free]) {
+      expect(await loadAnalyticsForApp(appFor(site), 7, { postId: 'entitlement-post' })).toEqual({
+        status: 'locked',
+        retentionDays: 7,
+      })
+    }
 
     mutableEnv.SELF_HOSTED = 'true'
     expect(await loadAnalyticsForApp(appFor(free), 7)).toEqual({
@@ -445,7 +445,7 @@ describe('analytics and custom-domain gates', () => {
     })
   })
 
-  it('allows custom domains for managed access and denies expired sponsorship', async () => {
+  it('allows custom domains for managed access and one for an expired sponsorship (free)', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     const managed = await seedSite('domain-managed', { managedStatus: 'active' })
     const expired = await seedSite('domain-expired', {
@@ -455,13 +455,11 @@ describe('analytics and custom-domain gates', () => {
 
     const added = await addCustomDomainForApp(appFor(managed), 'managed.example.test')
     expect(added).toMatchObject({ ok: true, domain: { hostname: 'managed.example.test' } })
-    await expect(addCustomDomainForApp(appFor(expired), 'expired.example.test')).resolves.toEqual({
-      ok: false,
-      code: 'domain_billing',
-    })
+    await expect(addCustomDomainForApp(appFor(expired), 'expired.example.test'))
+      .resolves.toMatchObject({ ok: true, domain: { hostname: 'expired.example.test' } })
   })
 
-  it('does not retry custom-hostname provisioning after sponsorship expires', async () => {
+  it('keeps provisioning a custom hostname after sponsorship expires', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.CLOUDFLARE_ZONE_ID = 'zone-entitlement-test'
     mutableEnv.CUSTOM_HOSTNAME_API_TOKEN = 'credential-placeholder'
@@ -497,13 +495,17 @@ describe('analytics and custom-domain gates', () => {
 
     const panel = await listCustomDomainsForApp(appFor(expired))
 
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(fetchSpy).toHaveBeenCalled()
     expect(panel.domains).toContainEqual(
       expect.objectContaining({
         hostname: 'retry-expired.example.test',
         status: 'pending',
       }),
     )
+    const row = await env.DB.prepare('SELECT cloudflare_custom_hostname_id AS id FROM domains WHERE id = ?')
+      .bind('entitlement-domain-retry-expired')
+      .first<{ id: string | null }>()
+    expect(row?.id).toBe('provider-host-placeholder')
   })
 
   it('selects active managed and Polar sites for rollup, excluding expired, revoked, and free sites', async () => {
@@ -709,40 +711,38 @@ describe('past_due grace through real entitlement paths', () => {
       contentMarkdown: '# Grace draft',
     })
 
+    const publish = async (post: { id: string; currentVersionNumber: number }) => publishPost(repo, fullActor, {
+      siteId: site.siteId,
+      postId: post.id,
+      expectedVersionNumber: post.currentVersionNumber,
+      billingStatus: await getCoreBillingStatusForSite(site.siteId),
+    })
+
     clockAt(DEADLINE)
     const drafts = []
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 10; index += 1) {
       drafts.push(await createPost(repo, fullActor, draft(index), await getCoreBillingStatusForSite(site.siteId)))
     }
-    await expect(createPost(repo, fullActor, draft(5), await getCoreBillingStatusForSite(site.siteId)))
+    await expect(createPost(repo, fullActor, draft(10), await getCoreBillingStatusForSite(site.siteId)))
       .rejects.toBeInstanceOf(BillingRequiredError)
 
     clockAt(DEADLINE - 1)
-    const sixth = await createPost(repo, fullActor, draft(5), await getCoreBillingStatusForSite(site.siteId))
-    expect(sixth.status).toBe('draft')
+    const overCap = await createPost(repo, fullActor, draft(10), await getCoreBillingStatusForSite(site.siteId))
+    expect(overCap.status).toBe('draft')
 
-    // Publish cap: five live posts at the deadline, a sixth only within grace.
+    // Publish cap: 25 live posts at the deadline, a 26th only within grace.
     clockAt(DEADLINE)
-    for (const post of drafts) {
-      await publishPost(repo, fullActor, {
-        siteId: site.siteId,
-        postId: post.id,
-        expectedVersionNumber: post.currentVersionNumber,
-        billingStatus: await getCoreBillingStatusForSite(site.siteId),
-      })
+    for (const post of drafts) await publish(post)
+    for (let index = 11; index < 26; index += 1) {
+      await publish(await createPost(repo, fullActor, draft(index), await getCoreBillingStatusForSite(site.siteId)))
     }
-    await expect(publishPost(repo, fullActor, {
-      siteId: site.siteId,
-      postId: sixth.id,
-      expectedVersionNumber: sixth.currentVersionNumber,
-      billingStatus: await getCoreBillingStatusForSite(site.siteId),
-    })).rejects.toBeInstanceOf(BillingRequiredError)
+    await expect(publish(overCap)).rejects.toBeInstanceOf(BillingRequiredError)
 
     clockAt(DEADLINE - 1)
     await expect(publishPost(repo, fullActor, {
       siteId: site.siteId,
-      postId: sixth.id,
-      expectedVersionNumber: sixth.currentVersionNumber,
+      postId: overCap.id,
+      expectedVersionNumber: overCap.currentVersionNumber,
       billingStatus: await getCoreBillingStatusForSite(site.siteId),
     })).resolves.toMatchObject({ status: 'published' })
   })
@@ -801,10 +801,11 @@ describe('past_due grace through real entitlement paths', () => {
     expect(await loadAnalyticsForApp(appFor(site), 7)).toMatchObject({ status: 'unavailable', reason: 'not_configured' })
 
     clockAt(DEADLINE)
-    await expect(assertMediaUploadAllowed(site.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 10 })
+    await expect(assertMediaUploadAllowed(site.siteId)).resolves.toMatchObject({ quotaType: 'images', limit: 100 })
+    // Free keeps the domain it has and connects no second one.
     await expect(addCustomDomainForApp(appFor(site), 'grace-expired.example.test'))
       .resolves.toEqual({ ok: false, code: 'domain_billing' })
-    expect(await loadAnalyticsForApp(appFor(site), 7)).toEqual({ status: 'locked', retentionDays: 365 })
+    expect(await loadAnalyticsForApp(appFor(site), 7, { postId: 'grace-post' })).toEqual({ status: 'locked', retentionDays: 7 })
   })
 
   it('rolls up analytics for a site within grace and skips one at its exact deadline', async () => {
@@ -834,5 +835,92 @@ describe('past_due grace through real entitlement paths', () => {
         .first<{ count: number }>())?.count
     expect(await rolled(within.siteId)).toBeGreaterThan(0)
     expect(await rolled(expired.siteId)).toBe(0)
+  })
+})
+
+describe('free plan offer through the real handlers', () => {
+  // 1x1 PNG.
+  const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (char) => char.charCodeAt(0))
+  const png = (name: string) => new File([PNG], `${name}.png`, { type: 'image/png' })
+  const publishedCount = async (siteId: string) =>
+    (await env.DB.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'published'")
+      .bind(siteId).first<{ count: number }>())?.count
+  const createAndPublish = async (siteId: string, index: number) => {
+    const repo = createD1PostRepository(env.DB)
+    const post = await createPost(repo, fullActor, {
+      siteId, title: `Offer post ${index}`, slug: `offer-post-${index}`, contentMarkdown: `# Offer post ${index}`,
+    }, await getCoreBillingStatusForSite(siteId))
+    return publishPost(repo, fullActor, {
+      siteId, postId: post.id, expectedVersionNumber: post.currentVersionNumber,
+      billingStatus: await getCoreBillingStatusForSite(siteId),
+    })
+  }
+
+  it('publishes the 25th post on a free blog and refuses the 26th with the limit error', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const free = await seedSite('offer-publish')
+    for (let index = 0; index < 25; index += 1) {
+      await expect(createAndPublish(free.siteId, index)).resolves.toMatchObject({ status: 'published' })
+    }
+    const refused = createAndPublish(free.siteId, 25)
+    await expect(refused).rejects.toBeInstanceOf(BillingRequiredError)
+    await expect(refused).rejects.toMatchObject({
+      code: 'BILLING_REQUIRED',
+      message: expect.stringMatching(/up to 25 published posts\..*stay online and editable\..*removes this limit/),
+    })
+    expect(await publishedCount(free.siteId)).toBe(25)
+  })
+
+  it('accepts the 100th image on a free blog, refuses the 101st, and refuses an upload past 250 MB', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const free = await seedSite('offer-media')
+    const app = appFor(free)
+    for (let index = 0; index < 100; index += 1) {
+      await expect(uploadAsset(app, png(`image-${index}`), `Image ${index}`)).resolves.toMatchObject({ siteId: free.siteId })
+    }
+    await expect(uploadAsset(app, png('image-100'), 'Image 100')).rejects.toMatchObject({ code: 'media_quota_free' })
+
+    // Storage: one image short of the count cap, a few bytes short of 250 MB.
+    const bytes = await seedSite('offer-media-bytes')
+    await env.DB.prepare(`INSERT INTO assets (id, site_id, r2_key, filename, mime_type, size_bytes, created_by_type, created_by_id, created_at, updated_at)
+      VALUES (?, ?, ?, 'big.png', 'image/png', ?, 'human', 'seed', ?, ?)`)
+      .bind('offer-media-big', bytes.siteId, `${bytes.siteId}/big.png`, 250 * 1024 * 1024 - 10, NOW, NOW).run()
+    await expect(uploadAsset(appFor(bytes), png('over-bytes'), 'Over')).rejects.toMatchObject({ code: 'media_quota_free' })
+    const count = await env.DB.prepare('SELECT count(*) AS count FROM assets WHERE site_id = ?').bind(bytes.siteId).first<{ count: number }>()
+    expect(count?.count).toBe(1)
+  })
+
+  it('lets a free owner connect one own domain and refuses a second', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const free = await seedSite('offer-domain')
+    await expect(addCustomDomainForApp(appFor(free), 'blog.offer-free.test'))
+      .resolves.toMatchObject({ ok: true, domain: { hostname: 'blog.offer-free.test', status: 'pending' } })
+    await expect(addCustomDomainForApp(appFor(free), 'second.offer-free.test'))
+      .resolves.toEqual({ ok: false, code: 'domain_billing' })
+    expect((await listCustomDomainsForApp(appFor(free))).domains.map((domain) => domain.hostname)).toEqual(['blog.offer-free.test'])
+  })
+
+  it('keeps every post and the own domain when a Cloud subscription ends, and refuses the 31st publish', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    const cloud = await seedSite('offer-ending', { polarStatus: 'active' })
+    for (let index = 0; index < 30; index += 1) await createAndPublish(cloud.siteId, index)
+    await expect(addCustomDomainForApp(appFor(cloud), 'blog.offer-ending.test')).resolves.toMatchObject({ ok: true })
+
+    await env.DB.prepare("UPDATE billing_customers SET status = 'canceled' WHERE workspace_id = ?").bind(cloud.workspaceId).run()
+    expect(await getCoreBillingStatusForSite(cloud.siteId)).toBe('canceled')
+
+    expect(await publishedCount(cloud.siteId)).toBe(30)
+    expect((await listCustomDomainsForApp(appFor(cloud))).domains.map((domain) => domain.hostname)).toEqual(['blog.offer-ending.test'])
+    await expect(createAndPublish(cloud.siteId, 30)).rejects.toBeInstanceOf(BillingRequiredError)
+    expect(await publishedCount(cloud.siteId)).toBe(30)
+
+    // A live post stays editable: the edit republishes over the cap.
+    const repo = createD1PostRepository(env.DB)
+    const live = await repo.findPostBySlug(cloud.siteId, 'offer-post-0')
+    const edited = await updatePost(repo, fullActor, { siteId: cloud.siteId, postId: live!.id, title: 'Offer post 0, edited', expectedVersionNumber: live!.currentVersionNumber })
+    await expect(publishPost(repo, fullActor, {
+      siteId: cloud.siteId, postId: live!.id, expectedVersionNumber: edited.versionNumber,
+      billingStatus: await getCoreBillingStatusForSite(cloud.siteId),
+    })).resolves.toMatchObject({ status: 'published', title: 'Offer post 0, edited' })
   })
 })

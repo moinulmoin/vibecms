@@ -244,11 +244,11 @@ describe('location app operations', () => {
     expect(publicView?.snippets).toBeUndefined()
   })
 
-  it('rejects non-owners and unentitled workspaces', async () => {
+  it('rejects non-owners and lets a free owner host the blog on their site', async () => {
     const editor = await setSubpathLocationForApp(appFor(editorActor), 'https://customer.sloc.test/blog')
     expect(editor).toEqual({ ok: false, code: 'owner_required' })
-    const free = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://customer.sloc.test/blog')
-    expect(free).toEqual({ ok: false, code: 'billing_required' })
+    const free = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://free-blog.sloc.test/blog')
+    expect(free).toMatchObject({ ok: true, location: { type: 'subpath', status: 'pending', url: 'https://free-blog.sloc.test/blog' } })
   })
 
   it('check promotes pending to active and records the result', async () => {
@@ -351,11 +351,11 @@ describe('location app operations', () => {
     expect(stored.proxyId).not.toBe(record.proxyId)
   })
 
-  it('owners can remove the location after their subscription lapses', async () => {
+  it('owners on the free plan can change and remove the location', async () => {
     const repo = createDataAccess(env.DB).domains
     await repo.insertSubpath({ siteId: FREE_SITE, hostname: 'free.sloc.test', basePath: '/blog' })
-    const set = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://free.sloc.test/blog')
-    expect(set).toEqual({ ok: false, code: 'billing_required' }) // setting still gates on entitlement
+    const set = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://free.sloc.test/news')
+    expect(set.ok).toBe(true)
     const removed = await removeSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))
     expect(removed.ok).toBe(true)
     expect(await repo.listBySite(FREE_SITE)).toEqual([])

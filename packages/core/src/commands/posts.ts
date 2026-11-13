@@ -1,5 +1,5 @@
 import { createPostInput, listPostsInput, updatePostInput } from "@vc/validators";
-import { FREE_TIER, isPaidBilling } from "@vc/config";
+import { FREE_LIMIT_MESSAGES, FREE_TIER, isPaidBilling } from "@vc/config";
 import { BillingRequiredError, ConflictError, NotFoundError, ValidationError } from "../errors";
 import { requireScope } from "../policies";
 import type { Actor, BillingStatus, Post, PostSummary, PostVersion, PostVersionSummary } from "../types";
@@ -162,7 +162,7 @@ export async function publishPost(
   if (versionConflict) {
     throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
   }
-  if (capReached) throw new BillingRequiredError("Subscribe to publish more posts");
+  if (capReached) throw new BillingRequiredError(FREE_LIMIT_MESSAGES.publishedPosts);
   if (!post) throw new NotFoundError("Post not found");
   return post;
 }
@@ -183,7 +183,7 @@ export async function publishScheduledPost(
     activityAction: "post.published",
     activitySummary: `Published scheduled v${input.versionNumber} of ${version.title} · Scheduled by ${input.scheduledBy}`,
   }, { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT, allowOlderVersion: true, scheduleLeaseToken: input.leaseToken });
-  if (result.capReached) throw new BillingRequiredError("Subscribe to publish more posts");
+  if (result.capReached) throw new BillingRequiredError(FREE_LIMIT_MESSAGES.publishedPosts);
   if (!result.post) throw new NotFoundError("Post not found");
   return result.post;
 }

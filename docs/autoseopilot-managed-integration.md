@@ -91,10 +91,10 @@ source for:
 
 - the published-content cap and publishing writes;
 - media upload and related media gates;
-- indexing, sitemap, robots, and llms output;
 - API usage plan and quota;
-- analytics;
-- custom domains when they are included by Standard;
+- analytics history and detail (free sees the last 7 days of totals);
+- the custom-domain count (free connects one);
+- the "Published with vibecms" footer link;
 - every other existing `requireBillableSite` or equivalent paid gate.
 
 When a managed sponsorship is revoked, or its expiry passes, the helper
@@ -103,9 +103,10 @@ an independent entitlement. New paid writes MUST fail before mutation with the
 existing billing error shape and code `BILLING_REQUIRED`. The managed API key
 is also revoked by the revoke endpoint, so subsequent calls with that key
 fail authentication. Existing posts, versions, media, activity, workspace,
-site, default domain, and public URL MUST remain intact. Public output follows
-the existing unpaid-site behavior, including noindex and disabled paid feeds
-where those gates apply. VibeCMS MUST NOT delete or purge remote content.
+site, default domain, custom domains, subpath location, and public URL MUST
+remain intact. Public output follows the free-plan behavior: indexable like any
+blog, with the footer link; the claim window below decides when it pauses.
+VibeCMS MUST NOT delete or purge remote content.
 
 ## Claim window (keep your blog)
 

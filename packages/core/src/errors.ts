@@ -1,3 +1,5 @@
+import { FREE_LIMIT_MESSAGES } from "@vc/config";
+
 export class AppError extends Error {
   constructor(
     readonly code: string,
@@ -29,8 +31,8 @@ export class BillingRequiredError extends AppError {
 }
 /** Free plan draft cap; same BILLING_REQUIRED code agents already handle, its own message. */
 export class DraftLimitError extends BillingRequiredError {
-  constructor(limit: number) {
-    super(`Free plan: up to ${limit} drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts.`);
+  constructor() {
+    super(FREE_LIMIT_MESSAGES.drafts);
   }
 }
 export class RateLimitError extends AppError {

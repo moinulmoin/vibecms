@@ -246,7 +246,7 @@ export function SetupPage() {
               Continue
             </PendingSubmitButton>
             <p className="text-sm text-muted-foreground">
-              {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, {FREE_TIER.images} images. No card.
+              Free forever: {FREE_TIER.publishedPosts} published posts, a custom domain, no card.
             </p>
           </div>
         </form>
