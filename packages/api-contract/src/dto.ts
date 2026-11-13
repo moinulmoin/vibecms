@@ -237,9 +237,9 @@ export const assetDtoSchema = z.object({
 
 /**
  * Present once, on the publish or upload that brings a free blog to 20 of its
- * 25 published posts or 80 of its 100 images: one sentence for the agent to
- * pass on to the owner (how many are left, that everything stays online, the
- * upgrade link).
+ * 25 published posts or 80 of its 100 images: what the agent passes on to the
+ * owner (how many are left, that everything stays online). No plan name, no
+ * link.
  */
 const planNoticeSchema = z.string().optional();
 export const publishedPostDtoSchema = postDtoSchema.extend({ planNotice: planNoticeSchema });

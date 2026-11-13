@@ -40,6 +40,12 @@ skill changes, even between product releases.
   remote-mcp, ai-agents, agent-skills, cloudflare
 - **Icon:** <https://vibecms.dev/icon-512.png> (512x512 PNG),
   <https://vibecms.dev/favicon.svg>
+- **Free plan line (not for the ChatGPT and Codex listing):** "Free plan: 25
+  published posts on your own domain, open to search engines and AI
+  assistants." Add it to the description where a directory has a pricing or
+  description field. OpenAI's rules forbid pricing, free plans, trials and
+  discounts in a plugin's name, subtitle and description, so that listing
+  keeps the copy above unchanged.
 
 ### Links
 

@@ -25,7 +25,6 @@ import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
 import { assertSiteNotSuspended } from "./site-suspension";
-import { plansUrl } from "./agent-errors";
 import { getSiteAssetBaseUrl, getSitePublicBaseUrl } from "./site-public-url";
 import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
@@ -123,7 +122,7 @@ async function freeCloseNoticeFor(siteId: string, kind: keyof typeof FREE_CLOSE_
   // The notice is optional: a failed lookup never turns a finished publish or upload into an error.
   try {
     const usage = await createDataAccess(env.DB).sites.getFreePlanUsage(siteId);
-    return usage[kind] === FREE_CLOSE_MARKS[kind] ? freeCloseNotice(kind, plansUrl()) : undefined;
+    return usage[kind] === FREE_CLOSE_MARKS[kind] ? freeCloseNotice(kind) : undefined;
   } catch (error) {
     console.warn(`free plan notice skipped (${error instanceof Error ? error.message : String(error)})`);
     return undefined;
