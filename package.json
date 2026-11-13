@@ -60,6 +60,8 @@
     "production:backup": "tsx scripts/production-backup.ts",
     "production:rollback": "tsx scripts/production-rollback.ts",
     "dev:sync-pepper": "tsx scripts/dev-token.ts --sync-pepper",
+    "blog:suspend": "tsx scripts/blog-suspend.ts suspend",
+    "blog:unsuspend": "tsx scripts/blog-suspend.ts clear",
     "deploy": "pnpm build:self-host && pnpm db:migrate:self-host:remote && pnpm --filter @vc/api exec wrangler deploy --config ../../wrangler.jsonc && pnpm --filter @vc/og exec wrangler deploy --config ../../wrangler.og.jsonc && pnpm --filter @vc/public exec wrangler deploy --config dist/server/wrangler.json",
     "deploy:dev": "pnpm dev:sync-pepper && pnpm db:migrate:dev && pnpm --filter @vc/dashboard build && pnpm --filter @vc/api deploy && pnpm --filter @vc/og deploy && pnpm --filter @vc/public build && node scripts/assert-public-build-target.mjs vibecms-public-dev vibecms_dev && pnpm --filter @vc/public exec wrangler deploy --config dist/server/wrangler.json && tsx scripts/release.ts mark-staging",
     "deploy:prod": "node scripts/deploy-prod.mjs",

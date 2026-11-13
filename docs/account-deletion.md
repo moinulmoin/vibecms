@@ -1,6 +1,6 @@
 # Hosted workspace and account deletion
 
-Operator-only manual runbook for hosted vibecms. This is not a self-service endpoint, a script to paste into production, or permission to delete data. All examples use bound placeholders, never real customer data. Do not disable foreign keys, edit migrations, delete a whole shared bucket/database/dataset, or run a broad email/hostname substring deletion.
+Operator-only manual runbook for hosted vibecms. To take an abusive blog offline without deleting anything, suspend it instead: [blog suspension](blog-suspension.md). This is not a self-service endpoint, a script to paste into production, or permission to delete data. All examples use bound placeholders, never real customer data. Do not disable foreign keys, edit migrations, delete a whole shared bucket/database/dataset, or run a broad email/hostname substring deletion.
 
 ## 1. Authorize, inventory, and stop writers
 

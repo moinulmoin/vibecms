@@ -11,6 +11,18 @@ import {
 
 type ActorType = "human" | "agent" | "api_key" | "system";
 
+/** A suspended blog whose owner has not had the one suspension email yet. */
+export interface UnnotifiedSuspension {
+  siteId: string;
+  siteName: string;
+  siteSlug: string;
+  /** Epoch seconds. */
+  suspendedAt: number;
+  reason: string | null;
+  /** The workspace owner's sign-in email; null when the workspace has no owner login. */
+  ownerEmail: string | null;
+}
+
 /** The chosen blog address (site slug or its default hostname) belongs to another blog. */
 export class SiteAddressTakenError extends Error {
   constructor() {
@@ -236,6 +248,20 @@ export interface SitesRepository {
   updateNewsletterSettings(input: UpdateNewsletterSettingsInput): Promise<boolean>;
   getActiveDefaultHostname(siteId: string, preferredHostname?: string): Promise<string | null>;
   repairDefaultHostname(input: RepairDefaultHostnameInput): Promise<string>;
+  /** What a free blog has used of its plan caps: published posts and images. */
+  getFreePlanUsage(siteId: string): Promise<{ publishedPosts: number; images: number }>;
+  /** Operator abuse suspension (epoch seconds and the reason the owner reads), or null while the blog serves normally. */
+  getSuspension(siteId: string): Promise<{ suspendedAt: number; reason: string | null } | null>;
+  /** Suspended blogs still owed their one owner email, oldest suspension first. */
+  listUnnotifiedSuspensions(limit: number): Promise<UnnotifiedSuspension[]>;
+  /**
+   * Claims the owner email for exactly this suspension before it is sent, so
+   * a second sweep never sends it again. False when it was already claimed or
+   * the suspension was cleared or replaced meanwhile.
+   */
+  claimSuspensionNotice(siteId: string, suspendedAt: number, now: number): Promise<boolean>;
+  /** Gives a claimed notice back after a failed send, so the next sweep retries it. */
+  releaseSuspensionNotice(siteId: string, claimedAt: number): Promise<void>;
 }
 
 // Sites/workspaces/memberships/default-domain persistence extracted from onboarding, operations,
@@ -733,6 +759,75 @@ export function createSitesRepository(db: D1Database): SitesRepository {
         )
         .run();
       return input.newHostname;
+    },
+
+    async getFreePlanUsage(siteId) {
+      const row = await db
+        .prepare(
+          `SELECT (SELECT count(*) FROM posts WHERE site_id = ?1 AND status = 'published') AS published_posts,
+                  (SELECT count(*) FROM assets WHERE site_id = ?1) AS images`,
+        )
+        .bind(siteId)
+        .first<{ published_posts: number; images: number }>();
+      return { publishedPosts: row?.published_posts ?? 0, images: row?.images ?? 0 };
+    },
+
+    async getSuspension(siteId) {
+      const row = await db
+        .prepare("SELECT suspended_at, suspension_reason FROM sites WHERE id = ?")
+        .bind(siteId)
+        .first<{ suspended_at: number | null; suspension_reason: string | null }>();
+      return row?.suspended_at == null ? null : { suspendedAt: row.suspended_at, reason: row.suspension_reason };
+    },
+
+    async listUnnotifiedSuspensions(limit) {
+      const { results } = await db
+        .prepare(
+          `SELECT s.id AS site_id, s.name AS site_name, s.slug AS site_slug,
+                  s.suspended_at, s.suspension_reason,
+                  (SELECT u.email FROM memberships m JOIN user u ON u.id = m.user_id
+                    WHERE m.workspace_id = s.workspace_id AND m.role = 'owner'
+                    ORDER BY m.created_at ASC LIMIT 1) AS owner_email
+             FROM sites s
+            WHERE s.suspended_at IS NOT NULL AND s.suspension_notified_at IS NULL
+            ORDER BY s.suspended_at ASC
+            LIMIT ?`,
+        )
+        .bind(limit)
+        .all<{
+          site_id: string;
+          site_name: string;
+          site_slug: string;
+          suspended_at: number;
+          suspension_reason: string | null;
+          owner_email: string | null;
+        }>();
+      return results.map((row) => ({
+        siteId: row.site_id,
+        siteName: row.site_name,
+        siteSlug: row.site_slug,
+        suspendedAt: row.suspended_at,
+        reason: row.suspension_reason,
+        ownerEmail: row.owner_email,
+      }));
+    },
+
+    async claimSuspensionNotice(siteId, suspendedAt, now) {
+      const result = await db
+        .prepare(
+          `UPDATE sites SET suspension_notified_at = ?
+            WHERE id = ? AND suspended_at = ? AND suspension_notified_at IS NULL`,
+        )
+        .bind(now, siteId, suspendedAt)
+        .run();
+      return (result.meta.changes ?? 0) > 0;
+    },
+
+    async releaseSuspensionNotice(siteId, claimedAt) {
+      await db
+        .prepare("UPDATE sites SET suspension_notified_at = NULL WHERE id = ? AND suspension_notified_at = ?")
+        .bind(siteId, claimedAt)
+        .run();
     },
   };
 }

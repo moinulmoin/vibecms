@@ -5,6 +5,7 @@ import { cn, Skeleton } from '@vc/ui'
 import { LoadError } from '~/components/dashboard/DashboardLayout'
 import { StatusBadge } from '~/components/dashboard/blocks'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { MessageFounderLink } from '~/components/dashboard/PlanActions'
 import { useBillingRedirect } from '~/components/dashboard/useBillingRedirect'
 import { OWNER_PAYMENT_NOTE, formatBillingDate, pastDueMessage, usePastDueState } from '~/lib/billing-grace'
 import { claimMessage, servingMessage, useClaimWindowState, useServingState } from '~/lib/claim-window'
@@ -149,6 +150,7 @@ export function PlanAndBilling() {
                     ? 'Your subscription ended. Posts stay online and nothing was deleted.'
                     : `Free includes ${PLAN_SUMMARY.free}.`}
           </p>
+          {pastDue ? <MessageFounderLink /> : null}
         </div>
         {!data.isOwner ? (
           <p className="text-sm text-muted-foreground">{pastDue ? OWNER_PAYMENT_NOTE : 'Only the owner can change the plan.'}</p>

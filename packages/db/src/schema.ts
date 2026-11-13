@@ -63,6 +63,11 @@ export const sites = sqliteTable("sites", {
   onboardingNote: text("onboarding_note"),
   // Newsletter copy and visibility are nullable for backwards-compatible defaults.
   newsletterSettings: text("newsletter_settings"),
+  // Operator abuse suspension (docs/blog-suspension.md): NULL = serving. Set
+  // and cleared only by the operator script; the owner is emailed once.
+  suspendedAt: integer("suspended_at"),
+  suspensionReason: text("suspension_reason"),
+  suspensionNotifiedAt: integer("suspension_notified_at"),
   ...timestamps,
 }, (table) => [index("idx_sites_workspace_id").on(table.workspaceId)]);
 

@@ -167,7 +167,8 @@ export function recordAgentFetch(args: {
         ? await data.publicBlog.resolveSingleSite()
         : await data.publicBlog.resolveSiteByHost(requestHost(request));
       if (!site) return;
-      // A paused managed blog records nothing: the beacon is part of serving.
+      // A paused managed or suspended blog records nothing: the beacon is part of serving.
+      if (site.suspendedAt !== null) return;
       const entitlement = await data.managedSites.resolveSite(site.id, {
         selfHosted: runtime.selfHosted,
         now: Date.now() / 1000,

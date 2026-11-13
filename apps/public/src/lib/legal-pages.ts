@@ -9,7 +9,7 @@ type LegalPage = keyof typeof LEGAL;
 export const LEGAL_UPDATED = {
   privacy: "2026-11-02",
   terms: "2026-10-22",
-  support: "2026-08-16",
+  support: "2026-11-13",
 } as const satisfies Record<LegalPage, string>;
 
 /** "2026-10-15" -> "October 15, 2026" for the page's "Last updated" line. */

@@ -9495,7 +9495,7 @@
     "/api/v1/posts/{postId}/publish": {
       "post": {
         "operationId": "publishPost",
-        "description": "Publish exactly the approved draft version. Free sites may keep 25 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
+        "description": "Publish exactly the approved draft version. Free sites may keep 25 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to 20 published posts: pass it on to the owner. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []
@@ -9712,6 +9712,9 @@
                         "null"
                       ],
                       "format": "uri"
+                    },
+                    "planNotice": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -12372,7 +12375,7 @@
     "/api/v1/assets": {
       "post": {
         "operationId": "uploadAsset",
-        "description": "Upload an image from base64 data. Free sites may keep 100 images and 250 MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. Requires scope: assets:write.",
+        "description": "Upload an image from base64 data. Free sites may keep 100 images and 250 MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. planNotice appears once, when this upload brings a free site to 80 images: pass it on to the owner. Requires scope: assets:write.",
         "security": [
           {
             "bearerAuth": []
@@ -12464,6 +12467,9 @@
                     },
                     "updatedAt": {
                       "type": "number"
+                    },
+                    "planNotice": {
+                      "type": "string"
                     }
                   },
                   "required": [

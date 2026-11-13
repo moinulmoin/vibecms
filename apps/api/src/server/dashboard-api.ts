@@ -461,10 +461,16 @@ export async function loadPostEditorPage(app: AppUserContext, postId?: string) {
 
 export async function loadBillingPage(app: AppUserContext) {
   const isOwner = app.actor.type === 'human' && app.actor.role === 'owner'
+  // The blog's address, for "Message the founder" (support mail with the blog filled in).
+  const sites = createDataAccess(env.DB).sites
+  const [siteSlug, suspension] = await Promise.all([sites.getSiteSlug(app.siteId), sites.getSuspension(app.siteId)])
+  const publicUrl = siteSlug ? await getSitePublicBaseUrl(app.siteId, siteSlug) : null
   if (isSelfHosted()) {
     return {
       selfHosted: true as const,
       isOwner,
+      publicUrl,
+      suspension,
       billing: { status: 'active' as const, currentPeriodEnd: null, cancelAtPeriodEnd: null, pastDueSince: null, graceEndsAt: null },
     }
   }
@@ -498,6 +504,8 @@ export async function loadBillingPage(app: AppUserContext) {
   return {
     selfHosted: false as const,
     isOwner,
+    publicUrl,
+    suspension,
     billing,
     managed: managedSnapshot
       ? {

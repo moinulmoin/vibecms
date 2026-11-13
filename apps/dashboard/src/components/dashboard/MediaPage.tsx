@@ -1,4 +1,4 @@
-import { FREE_TIER, MEDIA } from '@vc/config'
+import { FREE_LIMIT_MESSAGES, FREE_TIER, MEDIA } from '@vc/config'
 import type { Asset } from '@vc/core'
 import { Image as ImageIcon, Search, Trash2, Upload, X } from 'lucide-react'
 import { CopyButton, Field, FieldLabel, Input, Select, Textarea, cn } from '@vc/ui'
@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+import { GetCloudButton } from '~/components/dashboard/PlanActions'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
@@ -181,6 +182,8 @@ export function MediaPage() {
   const [dragActive, setDragActive] = useState(false)
   const [uploadQueue, setUploadQueue] = useState<UploadEntry[]>([])
   const [uploading, setUploading] = useState(false)
+  // The free image cap refused an upload: said where the upload failed, with checkout.
+  const [limitRefused, setLimitRefused] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [liveAnnounce, setLiveAnnounce] = useState<string | null>(null)
@@ -211,6 +214,7 @@ export function MediaPage() {
   async function uploadFiles(files: File[]) {
     if (!files.length || uploading) return
     setUploading(true)
+    setLimitRefused(false)
     setUploadQueue(files.map((file, index) => ({ key: `${index}:${file.name}`, name: file.name, progress: 0, status: 'pending' })))
     const patch = (key: string, next: Partial<UploadEntry>) =>
       setUploadQueue((prev) => prev.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)))
@@ -247,7 +251,9 @@ export function MediaPage() {
       notifyDashboardMutation()
       await queryClient.invalidateQueries({ queryKey: queryKeys.media })
     }
-    if (failures) {
+    if (errorCode === 'media_quota_free') {
+      setLimitRefused(true)
+    } else if (failures) {
       toast(
         resolveFormStatus({ error: errorCode ?? 'unknown' }) ?? {
           variant: 'error',
@@ -452,6 +458,16 @@ export function MediaPage() {
             onChange={(event) => void uploadFiles(Array.from(event.currentTarget.files ?? []))}
           />
       </div>
+
+      {limitRefused ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span className="min-w-0">{FREE_LIMIT_MESSAGES.media}</span>
+          <span className="flex shrink-0 items-center gap-2">
+            <GetCloudButton />
+            <Button type="button" variant="ghost" size="sm" onClick={() => setLimitRefused(false)}>Dismiss</Button>
+          </span>
+        </div>
+      ) : null}
 
       {uploadQueue.length ? (
         <ul className="grid gap-2" aria-label="Uploads">

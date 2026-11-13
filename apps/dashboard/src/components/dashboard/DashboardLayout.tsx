@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
+  MessageSquare,
   Monitor,
   Moon,
   Palette,
@@ -52,6 +53,8 @@ import { AgentPresence } from '~/components/dashboard/AgentPresence'
 import { CommandPalette } from '~/components/dashboard/CommandPalette'
 import { PastDueBanner } from '~/components/dashboard/PastDueBanner'
 import { KeepYourBlogBanner } from '~/components/dashboard/KeepYourBlogBanner'
+import { useFounderMailto } from '~/components/dashboard/PlanActions'
+import { SuspendedBanner } from '~/components/dashboard/SuspendedBanner'
 import { setupAuthClient } from '~/lib/auth-client'
 import { selectDashboardApp, suspendDashboardMutations } from '~/lib/api-client'
 import { queryClient } from '~/lib/queries'
@@ -171,6 +174,7 @@ const themeOptions: Array<{ value: AppTheme; label: string; Icon: IconType }> = 
 
 function UserMenu({ userEmail }: { userEmail?: string }) {
   const [isPending, startTransition] = useTransition()
+  const founderMailto = useFounderMailto()
   const initials = (userEmail?.[0] ?? 'U').toUpperCase()
 
   const signOut = () => {
@@ -216,6 +220,12 @@ function UserMenu({ userEmail }: { userEmail?: string }) {
               {userEmail ?? 'Account'}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href={founderMailto}>
+                <MessageSquare />
+                Message the founder
+              </a>
+            </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isPending}
               onSelect={(event) => {
@@ -467,6 +477,7 @@ export function AppShell({
                 : 'mx-auto flex w-full max-w-[1120px] flex-1 flex-col gap-8 px-4 py-7 outline-none sm:px-8 sm:py-10 lg:px-10'
             }
           >
+            <SuspendedBanner />
             <KeepYourBlogBanner siteName={siteName} />
             <PastDueBanner />
             {children}

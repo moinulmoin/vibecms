@@ -1,4 +1,4 @@
-import { FREE_LIMIT_MESSAGES } from "@vc/config";
+import { FREE_LIMIT_MESSAGES, SITE_SUSPENDED_MESSAGE } from "@vc/config";
 
 export class AppError extends Error {
   constructor(
@@ -33,6 +33,15 @@ export class BillingRequiredError extends AppError {
 export class DraftLimitError extends BillingRequiredError {
   constructor() {
     super(FREE_LIMIT_MESSAGES.drafts);
+  }
+}
+/**
+ * An operator suspended the blog (docs/blog-suspension.md): publish, schedule
+ * and upload are refused. FORBIDDEN so every surface passes the message on.
+ */
+export class SiteSuspendedError extends ForbiddenError {
+  constructor() {
+    super(SITE_SUSPENDED_MESSAGE);
   }
 }
 export class RateLimitError extends AppError {

@@ -64,6 +64,7 @@ const site = {
     servingAllowed: true,
     servingPaused: false,
   },
+  suspended: false,
 } satisfies SiteRow;
 
 const env = { appUrl: "https://app.example.com", publicBlogDomain: "example.com", selfHosted: false, generatedCards: false };

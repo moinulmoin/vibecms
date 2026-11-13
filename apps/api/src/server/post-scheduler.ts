@@ -5,6 +5,7 @@ import {
 } from '@vc/db';
 import { billingStatusForCore, resolveEffectiveEntitlementForSite } from './effective-entitlement';
 import { assertPostImagesPublishable } from './publishing-images';
+import { assertSiteNotSuspended } from './site-suspension';
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from './post-live-purge';
 import { redactErrorText } from './request-logging';
 
@@ -65,6 +66,7 @@ export async function processDueSchedules(
   db: D1Database,
   now: number = Math.floor(Date.now() / 1000),
   publish: (schedule: PostSchedule) => Promise<void> = async (schedule) => {
+    await assertSiteNotSuspended(schedule.siteId, db);
     const repo = createD1PostRepository(db);
     const previousLiveSlug = await resolvePublishedVersionSlug(repo, schedule.siteId, schedule.postId);
     await assertPostImagesPublishable(schedule.siteId, schedule.postId, schedule.versionNumber);

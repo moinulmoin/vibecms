@@ -1,5 +1,5 @@
 import { navLinksSchema, socialLinksSchema, parseSiteLinks, newsletterSettingsSchema, type NavLink, type SocialLink } from "@vc/validators";
-import type { Presentation } from "@vc/config";
+import { supportMailto, type Presentation } from "@vc/config";
 import {
   createDataAccess,
   PUBLIC_BLOG_LIMITS,
@@ -52,6 +52,8 @@ export type SiteRow = {
   current_period_end: number | null;
   published_count: number | null;
   effective_entitlement: EffectiveHostedEntitlement;
+  /** Operator abuse suspension: the paused page on every address (docs/blog-suspension.md). */
+  suspended: boolean;
   resolved_domain_type?: "default" | "custom" | null;
   /** Canonical public mount (subpath > custom > default); null when no active domain. */
   primary_location?: { type: string; hostname: string; basePath: string } | null;
@@ -135,6 +137,7 @@ function toSiteRow(row: PublicSiteRow, effectiveEntitlement: EffectiveHostedEnti
     current_period_end: row.currentPeriodEnd,
     published_count: row.publishedCount,
     effective_entitlement: effectiveEntitlement,
+    suspended: row.suspendedAt !== null,
     resolved_domain_type: row.resolvedDomainType ?? null,
     primary_location: row.primaryLocation ?? null,
   };
@@ -293,12 +296,15 @@ export function isPublicBlogIndexable(site: SiteRow, _env: PublicRuntimeEnv) {
   // Every plan is open to search engines and AI assistants, free included,
   // and days 0-7 after a managed revoke stay indexed as normal. Only the
   // paused page is never indexable.
-  return !site.effective_entitlement.servingPaused;
+  return !isPausedSite(site);
 }
 
-/** True when this site must answer with the paused page on every ingress. */
+/**
+ * True when this site must answer with the paused page on every ingress: a
+ * managed blog past its claim grace, or a blog an operator suspended.
+ */
 export function isPausedSite(site: SiteRow): boolean {
-  return site.effective_entitlement.servingPaused;
+  return site.effective_entitlement.servingPaused || site.suspended;
 }
 
 /**
@@ -308,6 +314,18 @@ export function isPausedSite(site: SiteRow): boolean {
  */
 export function showsPublishedWith(site: SiteRow): boolean {
   return site.effective_entitlement.access === "hosted_free";
+}
+
+/**
+ * The footer "Report abuse" link: free hosted blogs only, never Cloud,
+ * self-hosted or AutoSEOPilot-managed ones. It opens the support address with
+ * the blog's address filled in; there is no form and nothing is stored.
+ */
+export function reportAbuseHref(site: SiteRow): string | null {
+  if (!showsPublishedWith(site) || site.effective_entitlement.managedSponsorship.status !== null) return null;
+  const location = site.primary_location;
+  const address = location ? `https://${location.hostname}${location.basePath}` : site.slug;
+  return supportMailto(`Abuse report: ${address}`, [`Blog: ${address}`, "What is wrong:"]);
 }
 
 export async function listPublishedPostSummariesByTag(

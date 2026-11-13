@@ -12,22 +12,30 @@ export function signInRequiredMessage() {
 }
 
 /**
+ * The upgrade link agents pass on: the public pricing section, never a
+ * checkout, because agent directories (ChatGPT, Claude) forbid tools that
+ * start upgrades.
+ */
+export function plansUrl() {
+  return `https://${env.PUBLIC_BLOG_DOMAIN}/#pricing`;
+}
+
+/**
  * Keep the plans link in the text agents read as well as structured error
- * details. It points at the public pricing section, never a checkout: agent
- * directories (ChatGPT, Claude) forbid tools that start upgrades. Only
- * free-plan limits get it: RATE_LIMIT and media_quota_paid also reach paying
- * Cloud customers.
+ * details, and tell the agent to hand the limit to the owner instead of
+ * retrying a call that cannot succeed. Only free-plan limits get it:
+ * RATE_LIMIT and media_quota_paid also reach paying Cloud customers.
  */
 export function agentErrorDetails(code: string, message: string, details?: unknown) {
   if (!["BILLING_REQUIRED", "ANALYTICS_PAID_PLAN", "billing_required", "media_quota_free"].includes(code)) {
     return { message, details };
   }
-  const plansUrl = `https://${env.PUBLIC_BLOG_DOMAIN}/#pricing`;
+  const url = plansUrl();
   return {
-    message: `${message} Plans: ${plansUrl}`,
+    message: `${message} Do not retry; tell the blog owner. Plans: ${url}`,
     details: {
       ...(details && typeof details === "object" && !Array.isArray(details) ? details : {}),
-      plansUrl,
+      plansUrl: url,
     },
   };
 }

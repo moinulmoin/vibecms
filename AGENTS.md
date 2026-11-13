@@ -18,6 +18,8 @@
   `server.json` is the MCP Registry entry; see `docs/directory-listings.md`.
 - `docs/account-deletion.md` - operator runbook for safe hosted workspace/account
   deletion, external cleanup, billing retention, and backup/PITR handling.
+- `docs/blog-suspension.md` - operator runbook to suspend and clear one abusive
+  blog (`pnpm blog:suspend` / `pnpm blog:unsuspend`); nothing is deleted.
 - `design/vibecms.pen` - Pencil canvas for design proposals the founder approves
   before they are built (edit it through the Pencil MCP tools, never by hand).
 

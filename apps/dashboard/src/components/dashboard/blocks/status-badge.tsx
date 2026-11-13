@@ -18,6 +18,7 @@ const STATUS_TONES: Record<string, StatusTone> = {
   stalled: 'warning',
   recovery: 'warning',
   failed: 'error',
+  suspended: 'error',
   error: 'error',
   draft: 'draft',
   new: 'draft',

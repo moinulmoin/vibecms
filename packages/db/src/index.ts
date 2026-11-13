@@ -21,3 +21,4 @@ export * from "./repositories/pending-media";
 export * from "./repositories/autoseopilot-managed-sites";
 export * from "./read-models/seo";
 export * from "./repositories/redirects";
+export * from "./site-suspension-sql";

@@ -9,6 +9,7 @@ import { AlertTriangle, ArrowLeft, ExternalLink, PanelRightClose, PanelRightOpen
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Panel } from '~/components/dashboard/blocks'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
+import { GetCloudButton } from '~/components/dashboard/PlanActions'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { useMediaQuery } from '~/hooks/use-media-query'
 import {
@@ -799,10 +800,20 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
     setActionSuccess('Your Markdown is copied.')
   }
 
-  const uploadMedia = useCallback((file: File, altText?: string) => uploadEditorMedia(file, altText, () => assetsRef.current, (nextAssets) => {
-    assetsRef.current = nextAssets
-    setAssets(nextAssets)
-  }, () => navigate({ to: '/login' })), [navigate])
+  const uploadMedia = useCallback(async (file: File, altText?: string) => {
+    try {
+      return await uploadEditorMedia(file, altText, () => assetsRef.current, (nextAssets) => {
+        assetsRef.current = nextAssets
+        setAssets(nextAssets)
+      }, () => navigate({ to: '/login' }))
+    } catch (error) {
+      if (error instanceof PostActionError) {
+        setActionError(error.message)
+        setActionErrorCode(error.code)
+      }
+      throw error
+    }
+  }, [navigate])
   const editorUpload = useCallback(async (file: File) => {
     const asset = await uploadMedia(file)
     if (!asset) throw new Error('Upload did not return an image.')
@@ -1216,7 +1227,10 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{actionError}</span>
           {actionErrorCode && ['draft_limit', 'billing_required', 'media_quota_free'].includes(actionErrorCode) ? (
-            <Link className="inline-flex shrink-0 items-center gap-1 text-primary underline underline-offset-4" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">Upgrade to Cloud <ExternalLink aria-hidden className="size-4" /></Link>
+            <span className="flex shrink-0 items-center gap-3">
+              <GetCloudButton newTab />
+              <Link className="text-muted-foreground underline underline-offset-4 hover:text-foreground" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">Compare plans</Link>
+            </span>
           ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={() => setActionError(null)}>Dismiss</Button>
         </div>

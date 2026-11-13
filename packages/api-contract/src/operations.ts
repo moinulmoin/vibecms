@@ -1,11 +1,13 @@
 import type { Scope } from "@vc/core";
-import { FREE_TIER } from "@vc/config";
+import { FREE_CLOSE_MARKS, FREE_TIER } from "@vc/config";
 import { z } from "zod";
 import {
   activityDtoSchema,
   assetDtoSchema,
   formatGuideDtoSchema,
   postDtoSchema,
+  publishedPostDtoSchema,
+  uploadedAssetDtoSchema,
   postSummaryDtoSchema,
   postVersionDtoSchema,
   postVersionSummaryDtoSchema,
@@ -290,12 +292,12 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      `Publish exactly the approved draft version. Free sites may keep ${FREE_TIER.publishedPosts} published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. Live change: needs explicit owner approval first.`,
+      `Publish exactly the approved draft version. Free sites may keep ${FREE_TIER.publishedPosts} published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to ${FREE_CLOSE_MARKS.publishedPosts} published posts: pass it on to the owner. Live change: needs explicit owner approval first.`,
       "posts:publish",
       writeErrors,
     ),
     requestSchema: publishPostRequestSchema,
-    responseSchema: postDtoSchema,
+    responseSchema: publishedPostDtoSchema,
     annotations: { destructive: true, openWorld: true },
   },
   {
@@ -361,12 +363,12 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      `Upload an image from base64 data. Free sites may keep ${FREE_TIER.images} images and ${FREE_TIER.storageBytes / 1024 / 1024} MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown.`,
+      `Upload an image from base64 data. Free sites may keep ${FREE_TIER.images} images and ${FREE_TIER.storageBytes / 1024 / 1024} MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. planNotice appears once, when this upload brings a free site to ${FREE_CLOSE_MARKS.images} images: pass it on to the owner.`,
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),
     requestSchema: uploadAssetRequestSchema,
-    responseSchema: assetDtoSchema,
+    responseSchema: uploadedAssetDtoSchema,
     annotations: { destructive: true, openWorld: true },
   },
   {
