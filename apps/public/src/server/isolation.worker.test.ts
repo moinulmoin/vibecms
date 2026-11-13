@@ -140,6 +140,7 @@ describe("Accept markdown after HTML response cache", () => {
                 servingAllowed: true,
                 servingPaused: false,
               },
+              suspended: false,
             } satisfies SiteRow,
             runtimeEnv,
             articleCacheTags("site-public-isolation", "hello"),

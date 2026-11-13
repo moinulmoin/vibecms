@@ -35,15 +35,17 @@ export type PublicLocationIngress =
 /**
  * Serving state for a site row. Every address (default host, own domain,
  * subpath) serves on every plan; `paused` is a managed blog past its claim
- * grace with no other source — every ingress shows the paused page.
+ * grace with no other source, or a blog an operator suspended — every
+ * ingress shows the paused page.
  */
 async function hostedServingState(
   db: D1Database,
-  siteId: string,
+  site: { id: string; suspendedAt: number | null },
   env: PublicRuntimeEnv,
 ): Promise<"serving" | "paused" | "no"> {
+  if (site.suspendedAt !== null) return "paused";
   if (env.selfHosted) return "serving";
-  const entitlement = await createDataAccess(db).managedSites.resolveSite(siteId, {
+  const entitlement = await createDataAccess(db).managedSites.resolveSite(site.id, {
     selfHosted: false,
     // Unfloored epoch seconds: the past_due grace deadline is exact to the millisecond.
     now: Date.now() / 1000,
@@ -91,8 +93,8 @@ export async function resolvePublicLocationIngress(
   // A saved-but-unverified mount never serves pages: the dashboard check
   // verifies through health, then flips the row to active.
   if (subpath.status !== "active") return { kind: "not-connected" };
-  // A paused managed blog answers with the paused page instead of a bare 404.
-  const servingState = await hostedServingState(db, site.id, env);
+  // A paused managed or suspended blog answers with the paused page instead of a bare 404.
+  const servingState = await hostedServingState(db, site, env);
   if (servingState === "paused") return { kind: "paused" };
   if (servingState === "no") return { kind: "not-found" };
   const location = proxiedLocation(subpath, request);
@@ -139,7 +141,7 @@ export async function primaryLocationRedirect(
   if (!primary) return null;
   // Own domains and subpath mounts are canonical on every plan. A paused site
   // keeps answering on its default host instead of 301ing readers elsewhere.
-  if (primary.type !== "default" && (await hostedServingState(db, site.id, env)) !== "serving") return null;
+  if (primary.type !== "default" && (await hostedServingState(db, site, env)) !== "serving") return null;
   if (primary.hostname.toLowerCase() === host && primary.basePath === "") return null;
   const target = `https://${primary.hostname}${primary.basePath}${pathname}${new URL(request.url).search}`;
   return new Response(null, {

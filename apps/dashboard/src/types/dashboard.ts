@@ -189,11 +189,19 @@ export type BillingPageLoadResult =
   | {
       selfHosted: true
       isOwner: boolean
+      /** The blog's public address, for "Message the founder". */
+      publicUrl?: string | null
+      /** Operator abuse suspension (docs/blog-suspension.md): when and why; null while the blog serves. */
+      suspension?: { suspendedAt: number; reason: string | null } | null
       billing: { status: BillingStatus; currentPeriodEnd: null; cancelAtPeriodEnd: null; pastDueSince: null; graceEndsAt: null }
     }
   | {
       selfHosted: false
       isOwner: boolean
+      /** The blog's public address, for "Message the founder". */
+      publicUrl?: string | null
+      /** Operator abuse suspension (docs/blog-suspension.md): when and why; null while the blog serves. */
+      suspension?: { suspendedAt: number; reason: string | null } | null
       billing: BillingSnapshot
       managed: {
         status: 'active' | 'revoked'

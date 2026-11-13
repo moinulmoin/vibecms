@@ -5,6 +5,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  SiteSuspendedError,
   ValidationError,
   archivePost,
   createPost,
@@ -19,6 +20,7 @@ import { getCoreBillingStatusForSite } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from '@/server/post-live-purge'
 import { assertPostImagesPublishable } from '@/server/publishing-images'
+import { assertSiteNotSuspended } from '@/server/site-suspension'
 import { schedulePostOp, unschedulePostOp } from '@/server/operations'
 
 export type MutationResult = { kind: 'ok' | 'error'; code: string; postId?: string; versionNumber?: number }
@@ -28,6 +30,7 @@ function repository() {
 }
 
 export function postMutationErrorCode(error: unknown): string {
+  if (error instanceof SiteSuspendedError) return 'site_suspended'
   if (error instanceof DraftLimitError) return 'draft_limit'
   if (error instanceof BillingRequiredError) return 'billing_required'
   if (error instanceof NotFoundError) return 'not_found'
@@ -127,6 +130,7 @@ export async function publishPostForApp(
   expectedVersionNumber: number,
 ): Promise<MutationResult> {
   try {
+    await assertSiteNotSuspended(app.siteId)
     await assertPostImagesPublishable(app.siteId, postId)
     const previousLiveSlug = await resolvePublishedVersionSlug(repository(), app.siteId, postId)
     const published = await publishPost(repository(), app.actor, {

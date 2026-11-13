@@ -1,11 +1,12 @@
 import { Button, Input } from '@vc/ui'
 import type { ScheduledPublish } from '@vc/core'
-import { Link } from '@tanstack/react-router'
 import type { SeoFinding } from '~/types/dashboard'
-import { AlertTriangle, CalendarClock, ExternalLink, Send } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Send } from 'lucide-react'
 import { useRef, useState, type RefObject } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
+import { Link } from '@tanstack/react-router'
+import { GetCloudButton } from '~/components/dashboard/PlanActions'
 
 export type PublishDialogProps = {
   open: boolean
@@ -20,7 +21,7 @@ export type PublishDialogProps = {
   onReviewSeo?: () => void
   pending: boolean
   error: string | null
-  /** Mutation code behind `error`; plan caps (`billing_required`, `draft_limit`, `media_quota_free`) link straight to plans. */
+  /** Mutation code behind `error`; plan caps (`billing_required`, `draft_limit`, `media_quota_free`) offer one-click Cloud checkout. */
   errorCode?: string | null
   /** The post's current schedule, so a pending one is explained before it is replaced or bypassed. */
   scheduledPublish?: ScheduledPublish | null
@@ -74,7 +75,7 @@ const MAX_SEO_ERRORS_SHOWN = 5
 const OPTION =
   'flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-brand-bright/50 has-[[data-state=checked]]:bg-brand-bright/[0.04]'
 
-/** Plan caps the dashboard resolves on the billing tab (same set as the editor action error). */
+/** Plan caps answered with one-click Cloud checkout (same set as the editor action error). */
 const PLAN_CAP_CODES = ['billing_required', 'draft_limit', 'media_quota_free']
 
 /** Final human approval: names the exact version, what it replaces, and when it goes live. */
@@ -266,11 +267,12 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
           <div role="alert" className="grid gap-2 text-sm text-destructive">
             <p>{error}</p>
             {errorCode && PLAN_CAP_CODES.includes(errorCode) ? (
-              <Button asChild size="sm" variant="outline" className="justify-self-start">
-                <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
-                  Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
+              <div className="flex flex-wrap items-center gap-3 justify-self-start">
+                <GetCloudButton newTab />
+                <Link className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
+                  Compare plans
                 </Link>
-              </Button>
+              </div>
             ) : null}
           </div>
         ) : null}

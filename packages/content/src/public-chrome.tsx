@@ -160,6 +160,8 @@ export interface PublicPageChromeProps {
   modeToggle?: boolean;
   /** Free hosted blogs: a quiet "Published with vibecms" footer link. Never set for paid or self-hosted blogs. */
   publishedWith?: boolean;
+  /** Free hosted blogs (not AutoSEOPilot-managed): a quiet "Report abuse" mailto next to "Published with". */
+  reportAbuseHref?: string | null;
   /** Sidebar content for templates with sidebar chrome. */
   sidebar?: SidebarData | null;
   children: ReactNode;
@@ -270,6 +272,7 @@ export function PublicPageChrome({
   layout,
   modeToggle = false,
   publishedWith = false,
+  reportAbuseHref = null,
   sidebar,
   children,
 }: PublicPageChromeProps) {
@@ -414,6 +417,11 @@ export function PublicPageChrome({
           {publishedWith ? (
             <a href={BRAND.marketingUrl} className={styles.footerLink}>
               Published with {BRAND.name}
+            </a>
+          ) : null}
+          {reportAbuseHref ? (
+            <a href={reportAbuseHref} className={styles.footerLink}>
+              Report abuse
             </a>
           ) : null}
         </footer>

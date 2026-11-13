@@ -24,7 +24,11 @@ Open **Dashboard > Settings > Plan & billing**. The owner sees the current plan,
 
 Each blog has its own subscription. One person can pay for several blogs with the same email; the billing portal then lists every subscription paid with that email, including other products from the same seller. If one blog is paid for twice by mistake (for example two checkouts open in two tabs), it stays on the first subscription and support refunds the second.
 
-Dashboard **Upgrade to Cloud** links open Plan & billing in a new tab, so unsaved writing stays in the editor without a discard prompt.
+## Getting close and reaching a limit
+
+From 20 published posts or 80 images, the dashboard Overview shows one line with what is left ("5 posts left on Free") and **Get Cloud**. Dismissing it keeps it away for that blog. The agent hears it once too: the publish that brings the blog to 20 posts, or the upload that brings it to 80 images, returns a `planNotice` sentence to pass on to the owner, with how many are left, that everything stays online, and the [pricing link](https://vibecms.dev/#pricing).
+
+When a free limit refuses a publish, a draft or an upload, the place where it failed says the limit, that published posts stay online and editable, and offers **Get Cloud**: one click opens checkout (owner only). In the editor it opens in a new tab, so unsaved writing stays put. The free Analytics screen says what Cloud adds next to the same button.
 
 ## Canceling and failed payments
 
@@ -40,4 +44,4 @@ If the payment is still failing when the grace period ends, the free plan applie
 
 Nothing is deleted, unpublished, or hidden from search engines. Every published post stays online and editable, the custom domain and `/blog` location keep serving, and the blog stays open to search engines and AI assistants. The free plan applies again: the "Published with vibecms" link returns, analytics show the last 7 days of site totals, and new publishes, drafts, and uploads are refused until the blog is back under the free limits or on Cloud. Posts over the free published limit stay published; the cap only blocks *new* publishes past 25. Editing and republishing a post that is already live always works.
 
-Free-plan limits fail with distinct codes — the same over REST and in the MCP tool error result: publishing past 25 posts or adding a draft past 10 → `BILLING_REQUIRED`; per-post analytics (`postId`) → `ANALYTICS_PAID_PLAN`; uploading past 100 images or 250 MB → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Each message says the limit, that existing posts stay online and editable, and that vibecms Cloud removes the limit. Resubscribing lifts the limits at once.
+Free-plan limits fail with distinct codes — the same over REST and in the MCP tool error result: publishing past 25 posts or adding a draft past 10 → `BILLING_REQUIRED`; per-post analytics (`postId`) → `ANALYTICS_PAID_PLAN`; uploading past 100 images or 250 MB → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Each message says the limit, that existing posts stay online and editable, that vibecms Cloud removes the limit, and tells the agent not to retry but to tell the blog owner, with the pricing link. Resubscribing lifts the limits at once.

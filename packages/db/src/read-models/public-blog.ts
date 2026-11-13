@@ -74,6 +74,8 @@ export interface PublicSiteRow {
   billingStatus: string | null;
   currentPeriodEnd: number | null;
   publishedCount: number;
+  /** Operator abuse suspension (epoch seconds); non-null = paused page on every address. */
+  suspendedAt: number | null;
   resolvedDomainType?: "default" | "custom";
   /** Canonical public mount (subpath > custom > default); drives primary-host redirects. */
   primaryLocation: PrimaryPublicLocation | null;
@@ -246,6 +248,7 @@ const siteResolveColumns = {
   billingStatus: billingCustomers.status,
   currentPeriodEnd: billingCustomers.currentPeriodEnd,
   publishedCount: sql<number>`(select count(*) from ${posts} where ${posts.siteId} = ${sites.id} and ${posts.status} = 'published')`.mapWith(Number),
+  suspendedAt: sites.suspendedAt,
   primaryLocationJson,
 };
 

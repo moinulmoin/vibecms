@@ -1,4 +1,4 @@
-import { FREE_LIMIT_MESSAGES } from '@vc/config'
+import { FREE_LIMIT_MESSAGES, SITE_SUSPENDED_MESSAGE } from '@vc/config'
 
 /** Plain-language messages for post mutation codes. Never show raw codes. */
 const MESSAGES: Record<string, string> = {
@@ -7,6 +7,7 @@ const MESSAGES: Record<string, string> = {
   billing_required: FREE_LIMIT_MESSAGES.publishedPosts,
   draft_limit: FREE_LIMIT_MESSAGES.drafts,
   media_quota_free: FREE_LIMIT_MESSAGES.media,
+  site_suspended: SITE_SUSPENDED_MESSAGE,
   image_alt_required: 'Every image needs alt text before this can go live. Add a short description to each image.',
   invalid_cover_asset: 'That cover image is no longer in your media library. Pick another one.',
   not_found: 'This post no longer exists.',

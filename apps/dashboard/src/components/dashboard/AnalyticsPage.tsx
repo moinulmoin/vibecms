@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Button, cn } from '@vc/ui'
 import { PRICING } from '@vc/config'
+import { GetCloudButton } from '~/components/dashboard/PlanActions'
 import { AGENT_CATEGORY_LABELS } from '@vc/config/agents'
 import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
@@ -483,9 +484,12 @@ function LimitedAnalytics({ data }: { data: Extract<AnalyticsPageData, { status:
       />
       <TrafficChart data={data} />
       <AgentReadsChart data={data} />
-      <p className="text-sm leading-6 text-muted-foreground">
-        The free plan shows site totals for the last {data.rangeDays} days. {PRICING.planName} adds full history, top posts, and where readers come from.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <p className="min-w-0 text-sm leading-6 text-muted-foreground">
+          Free shows site totals for the last {data.rangeDays} days. {PRICING.planName} adds full history, per-post numbers, and where readers come from.
+        </p>
+        <GetCloudButton />
+      </div>
     </div>
   )
 }

@@ -16,6 +16,8 @@ import {
   operationsByToolName,
   paginationMetaSchema,
   postDtoSchema,
+  publishedPostDtoSchema,
+  uploadedAssetDtoSchema,
   postSummaryDtoSchema,
   postVersionDtoSchema,
   postVersionSummaryDtoSchema,
@@ -356,7 +358,7 @@ export const publishPostRoute = createRoute({
   responses: {
     200: {
       description: "Published post",
-      content: { "application/json": { schema: postDtoSchema } },
+      content: { "application/json": { schema: publishedPostDtoSchema } },
     },
     ...routeErrors(400, 401, 402, 403, 404, 409, 429, 500),
   },
@@ -434,7 +436,7 @@ export const uploadAssetRoute = createRoute({
   responses: {
     201: {
       description: "Uploaded asset",
-      content: { "application/json": { schema: assetDtoSchema } },
+      content: { "application/json": { schema: uploadedAssetDtoSchema } },
     },
     ...routeErrors(400, 401, 402, 403, 429, 500),
   },

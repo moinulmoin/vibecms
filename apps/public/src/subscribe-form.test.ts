@@ -232,6 +232,7 @@ const site = {
     servingAllowed: false,
     servingPaused: false,
   },
+  suspended: false,
 } satisfies SiteRow;
 
 const post = {

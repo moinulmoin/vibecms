@@ -118,6 +118,61 @@ export async function sendClaimReminderEmail(input: {
 }
 
 /**
+ * The one email an owner gets when an operator suspends their blog
+ * (docs/blog-suspension.md): what happened and why (the terms promise to say
+ * why), that nothing was deleted, and how to reach support. Same delivery
+ * rules as the OTP mail.
+ */
+export async function sendSuspensionEmail(input: {
+  to: string
+  siteName: string
+  /** The blog's public address. */
+  address: string
+  reason: string | null
+}) {
+  const isProd = env.APP_ENV === 'production'
+  const subject = `Your blog "${input.siteName}" is suspended`
+  const lines = [
+    `We suspended your vibecms blog ${input.address}.${input.reason ? ` Reason: ${input.reason.replace(/[.!?]?$/, '.')}` : ''}`,
+    'Visitors now see a paused page, and publishing, scheduling and uploads are refused. Nothing was deleted: your posts, drafts, images and settings are kept, and you can still sign in and read them.',
+    `If you think this is a mistake, or to resolve it, reply to this email or write to ${SUPPORT_EMAIL}.`,
+  ]
+  const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;">${lines
+    .map((line) => `<p style="font-size:15px;line-height:1.6;">${escapeHtml(line)}</p>`)
+    .join('')}</body></html>`
+  const text = lines.join('\n\n')
+
+  if (!env.EMAIL) {
+    if (isProd && String(env.SELF_HOSTED) !== 'true') {
+      throw new Error('email not configured: add a send_email binding named EMAIL and onboard the sending domain')
+    }
+    console.log(`[suspension] to=${input.to} site=${input.siteName}`)
+    return
+  }
+  if (!isProd) console.log(`[suspension] to=${input.to} site=${input.siteName}`)
+  try {
+    await env.EMAIL.send({
+      to: input.to,
+      from: parseFromAddress(env.EMAIL_FROM ?? DEFAULT_FROM),
+      replyTo: SUPPORT_EMAIL,
+      subject,
+      html,
+      text,
+    })
+  } catch (err) {
+    if (!isProd) {
+      console.warn(`[suspension] send failed in non-prod (ok locally): ${String(err)}`)
+      return
+    }
+    throw err
+  }
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/**
  * An operational alert to the support address, because a log line only
  * reaches someone who goes looking. Production without the EMAIL binding is a
  * misconfiguration and throws, so the caller keeps the notice owed; elsewhere

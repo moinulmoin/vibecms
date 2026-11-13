@@ -41,7 +41,7 @@ Each key's per-minute count is independent, including keys on the same blog. Exh
 
 Over REST, an over-limit response is HTTP `429` with `RATE_LIMIT`, a `retryAfterSeconds` field in the error body, and `Retry-After` plus `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` / `X-RateLimit-Metric` / `X-RateLimit-Period` headers. Over MCP, a quota failure inside `tools/call` returns an error tool result with `code: "RATE_LIMIT"` and `retryAfterSeconds` — no headers; a quota failure on `tools/list` is an HTTP `429` JSON-RPC error. See [error shapes](/docs/agent-workflows/conflicts-and-recovery) for both MCP shapes.
 
-Free-plan limit errors include `details.plansUrl` and “Plans: &lt;url&gt;” in the message, pointing to the public pricing section. MCP tool results carry both fields in their text content and `structuredContent`; JSON-RPC errors on `tools/list` carry the link in the message and `error.data.details.plansUrl`. Share the link only if the owner asks about plans; plan changes happen in the dashboard. Paid plans also have per-minute and per-day limits.
+Free-plan limit errors include `details.plansUrl` and “Do not retry; tell the blog owner. Plans: &lt;url&gt;” in the message, pointing to the public pricing section. MCP tool results carry both fields in their text content and `structuredContent`; JSON-RPC errors on `tools/list` carry the link in the message and `error.data.details.plansUrl`. Tell the owner about the limit instead of retrying; plan changes happen in the dashboard. Paid plans also have per-minute and per-day limits.
 
 ## Storage
 

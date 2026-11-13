@@ -30,7 +30,7 @@ REST errors are machine-readable and use the HTTP status that matches the failur
 | `402` | `BILLING_REQUIRED` |
 | `429` | `RATE_LIMIT` |
 
-REST errors have an `error` object with `code`, `message`, optional `details`, and optional `retryAfterSeconds`. Free-plan blockers (`BILLING_REQUIRED`, draft caps, the free media limit, and per-post analytics on the free plan) include the public pricing link in `details.plansUrl` and in the message: “Plans: &lt;url&gt;”. It is an information page, not a checkout.
+REST errors have an `error` object with `code`, `message`, optional `details`, and optional `retryAfterSeconds`. Free-plan blockers (`BILLING_REQUIRED`, draft caps, the free media limit, and per-post analytics on the free plan) include the public pricing link in `details.plansUrl` and in the message: “Do not retry; tell the blog owner. Plans: &lt;url&gt;”. It is an information page, not a checkout. A suspended blog refuses publish, schedule and upload with `FORBIDDEN` and a message naming the support address.
 
 For MCP `tools/call`, the error tool result has `isError: true`; the same code, message, and details appear in both JSON text content and `structuredContent`. Explain the limit to the owner, share the returned plans link if they ask about plans, and never attempt billing changes. Leave saved drafts intact.
 

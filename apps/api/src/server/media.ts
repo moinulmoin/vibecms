@@ -4,6 +4,7 @@ import {
   listAssets,
   NotFoundError,
   requireScope,
+  SiteSuspendedError,
   updateAssetAltText,
   type Asset,
 } from '@vc/core'
@@ -19,6 +20,7 @@ import { env } from 'cloudflare:workers'
 import type { AppUserContext } from './onboarding'
 import { readImageDimensions, validateDeclaredImageMime } from '@/server/media-bytes'
 import { assertMediaUploadAllowed } from '@/server/media-quota'
+import { assertSiteNotSuspended } from '@/server/site-suspension'
 
 type UploadErrorCode =
   | 'upload_missing_file'
@@ -65,6 +67,7 @@ export async function uploadAsset(app: AppUserContext, file: File, altText?: str
   if (!imageDimensions) throw new UploadError('upload_type')
 
   requireScope(app.actor, 'assets:write')
+  await assertSiteNotSuspended(app.siteId)
 
   const filename = safeFilename(file.name)
   const assetId = crypto.randomUUID()
@@ -159,6 +162,7 @@ export async function uploadAssetForApp(
     return { kind: 'ok', code: 'media_uploaded', asset: mapAsset(asset, `/media-assets/${asset.id}`) }
   } catch (error) {
     if (error instanceof UploadError) return { kind: 'error', code: error.code }
+    if (error instanceof SiteSuspendedError) return { kind: 'error', code: 'site_suspended' }
     return { kind: 'error', code: 'unknown' }
   }
 }

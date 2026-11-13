@@ -15,6 +15,16 @@ export const BRAND = {
  */
 export const SUPPORT_EMAIL = "support@vibecms.dev";
 
+/**
+ * A `mailto:` link to the support address with the subject and the context
+ * lines (blog address, plan) filled in. Every "contact us" entry uses it: the
+ * public "Report abuse" link and the dashboard's "Message the founder".
+ */
+export function supportMailto(subject: string, lines: readonly string[]): string {
+  const body = lines.length ? `${lines.join("\n")}\n\n` : "";
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 /** Number of agent tools (MCP) in the operation registry; shown on the landing page. Kept in sync by an api-contract test. */
 export const AGENT_TOOL_COUNT = 42;
 
@@ -187,6 +197,34 @@ export const FREE_LIMIT_MESSAGES = {
 } as const;
 
 /**
+ * "Getting close" on the free plan: the publish that brings a free blog to
+ * this many published posts, and the upload that brings it to this many
+ * images, tell the owner once how many are left.
+ */
+export const FREE_CLOSE_MARKS = {
+  publishedPosts: 20,
+  images: 80,
+} as const;
+
+/**
+ * The one sentence an agent passes on when its publish or upload reached a
+ * free-plan mark: how many are left, that everything stays online, and where
+ * to upgrade.
+ */
+export function freeCloseNotice(kind: keyof typeof FREE_CLOSE_MARKS, plansUrl: string): string {
+  const what = kind === "publishedPosts" ? "published posts" : "images";
+  const limit = FREE_TIER[kind];
+  return `This blog has ${limit - FREE_CLOSE_MARKS[kind]} of its ${limit} free ${what} left; everything already published stays online, and ${PRICING.planName} removes the limit: ${plansUrl}`;
+}
+
+/**
+ * What the dashboard, the API and agents say when an operator suspended the
+ * blog (docs/blog-suspension.md): what is refused, that nothing was deleted,
+ * and where to resolve it.
+ */
+export const SITE_SUSPENDED_MESSAGE = `This blog is suspended, so publishing, scheduling and uploads are refused. Nothing was deleted. Contact ${SUPPORT_EMAIL} to resolve it.`;
+
+/**
  * Post-revoke claim window for AutoSEOPilot-managed blogs (day 0 = VibeCMS
  * `revoked_at`). Days 0-7 the blog stays fully online on every address; after
  * the grace it serves a neutral paused page; unclaimed blogs are deleted at
@@ -291,6 +329,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
   already_active: { variant: "error", title: "Subscription already active", message: "This workspace already has an active plan. Manage it from the customer portal." },
   payment_past_due: { variant: "error", title: "Payment overdue", message: "Your last payment failed. Update your payment method in billing settings." },
+  site_suspended: { variant: "error", title: "Blog suspended", message: SITE_SUSPENDED_MESSAGE },
   purge_in_progress: { variant: "error", title: "Blog is being deleted", message: "This blog is past its claim deadline and is being deleted. Contact support if you paid to keep it." },
   not_found: { variant: "error", title: "Not found", message: "We could not find what you were looking for." },
   slug_conflict: { variant: "error", title: "Slug already exists", message: "Choose a different post slug." },

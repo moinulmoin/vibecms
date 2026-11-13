@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { OnboardingFrame } from '~/components/dashboard/OnboardingFrame'
 import { Step, Steps, type StepState } from '~/components/dashboard/blocks'
+import { MessageFounderLink } from '~/components/dashboard/PlanActions'
 import { AgentSetup, CodeBlock, clientFromPreference, type AgentClient } from '~/components/dashboard/ConnectAgent'
 import { createApiKeyMutation, savePersonalizationMutation } from '~/lib/api-client'
 import { emptyDashboardStatusSearch, emptyPostEditorSearch } from '~/lib/dashboard-search'
@@ -231,6 +232,7 @@ export function PersonalizePage() {
               {LAUNCH_OFFER.monthlyLabel} at launch pricing.
             </p>
           ) : null}
+          <MessageFounderLink />
         </>
       ) : null}
     </div>

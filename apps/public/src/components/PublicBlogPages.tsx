@@ -14,7 +14,7 @@ import type {
   PublicListingContext,
   PublicPostLoaderData,
 } from "../server/public-blog";
-import { showsPublishedWith } from "../server/public-blog-data";
+import { reportAbuseHref, showsPublishedWith } from "../server/public-blog-data";
 import { readingTimeMinutes } from "../lib/reading-time";
 import { shouldShowUpdatedDate } from "../lib/seo-meta";
 import {
@@ -139,6 +139,7 @@ export function PublicShell({
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
       publishedWith={showsPublishedWith(site)}
+      reportAbuseHref={reportAbuseHref(site)}
     >
       {children}
     </PublicPageChrome>
@@ -185,6 +186,7 @@ export function PublicBlogIndexView({
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
       publishedWith={showsPublishedWith(site)}
+      reportAbuseHref={reportAbuseHref(site)}
     >
       {listing.kind === "tag" ? (
         <header className={styles.listingHeader}>
@@ -310,6 +312,7 @@ export function PublicBlogPostView({ data, highlighter = null }: { data: PublicP
       subscribeSiteSlug={site.slug}
       subscribeSettings={site.newsletter_settings}
       publishedWith={showsPublishedWith(site)}
+      reportAbuseHref={reportAbuseHref(site)}
     >
       <PresentedPostArticle
         renderResult={renderResult}
@@ -370,6 +373,7 @@ export function PublicNotFoundView({
       feedHref={`${basePath}/feed.xml`}
       modeToggle
       publishedWith={showsPublishedWith(site)}
+      reportAbuseHref={reportAbuseHref(site)}
     >
       <div className={styles.notFound}>
         <p className={styles.listingEyebrow}>404</p>

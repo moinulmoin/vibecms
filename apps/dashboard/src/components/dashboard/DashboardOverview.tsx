@@ -3,13 +3,14 @@ import { Activity, Bot, FileText, Pencil, Plus, Rocket } from 'lucide-react'
 import { isAgentActor, reviewLabel } from '~/lib/post-review'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { contextQuery, overviewQuery } from '~/lib/queries'
+import { billingQuery, contextQuery, overviewQuery } from '~/lib/queries'
 import { personLabel } from '~/lib/people'
 import { activitySummary, isSystemActor } from '~/lib/activity-copy'
 import type { DashboardData } from '~/types/dashboard'
 import type { z } from 'zod'
 import { dashboardDataSchema } from '~/lib/dashboard-response-schemas'
 import { scheduledLabel } from './editor/schedule-label'
+import { FreePlanNudge } from './FreePlanNudge'
 
 type DashboardApiResponse = z.infer<typeof dashboardDataSchema>
 type DashboardPostStatus = DashboardData['recentPosts'][number]['status']
@@ -244,6 +245,8 @@ function GetStarted({ data, canEdit, onlyDraft }: { data: DashboardData; canEdit
 export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
   const query = useQuery(overviewQuery)
   const me = useQuery(contextQuery).data?.app?.user
+  // An operator suspension: the blog is not publicly visible, whatever its domain says.
+  const suspended = Boolean(useQuery(billingQuery).data?.suspension)
   const data = query.data ? narrowDashboardData(query.data) : null
   const error = query.isError && !query.data ? 'Could not load dashboard data.' : null
 
@@ -297,8 +300,8 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
               <span>Your blog address appears once its domain is active.</span>
             )}
             <StatusBadge
-              status={isLive ? 'live' : data.publicUrl ? 'none' : 'pending'}
-              label={isLive ? 'Live' : data.publicUrl ? 'Local only' : 'Domain pending'}
+              status={suspended ? 'suspended' : isLive ? 'live' : data.publicUrl ? 'none' : 'pending'}
+              label={suspended ? 'Suspended' : isLive ? 'Live' : data.publicUrl ? 'Local only' : 'Domain pending'}
             />
             {showBillingBadge && billingBadgeLabel ? (
               <StatusBadge status={billingBadgeLabel.toLowerCase().replaceAll(' ', '_')} label={billingBadgeLabel} />
@@ -314,6 +317,10 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
           </Button>
         ) : undefined}
       />
+
+      {freePlan && data.site && !suspended ? (
+        <FreePlanNudge siteKey={data.site.slug} publishedPosts={data.counts.published} images={data.media.count} />
+      ) : null}
 
       {firstRun ? <GetStarted data={data} canEdit={canEdit} onlyDraft={onlyDraft} /> : null}
 

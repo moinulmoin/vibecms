@@ -1,5 +1,5 @@
 import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
-import { ACCENTS, FONTS, FREE_TIER, MEDIA, PRICING, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
+import { ACCENTS, FONTS, FREE_CLOSE_MARKS, FREE_TIER, freeCloseNotice, MEDIA, PRICING, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { BillingNoticeDto, ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import { normalizeThemeChoice } from "@vc/api-contract";
@@ -24,6 +24,8 @@ import { getBilling, type BillingSnapshot } from "./billing";
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
 import { assertPostImagesPublishable } from "./publishing-images";
+import { assertSiteNotSuspended } from "./site-suspension";
+import { plansUrl } from "./agent-errors";
 import { getSiteAssetBaseUrl, getSitePublicBaseUrl } from "./site-public-url";
 import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
@@ -109,6 +111,28 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
   } catch {
     throw new AppError("VALIDATION_ERROR", "Invalid base64 asset payload", 400);
   }
+}
+
+/**
+ * The one "getting close" sentence for a free blog whose usage just reached a
+ * free-plan mark (20 published posts, 80 images); undefined otherwise. Callers
+ * only ask when this request added exactly one post or image, so reaching the
+ * mark means this request crossed it.
+ */
+async function freeCloseNoticeFor(siteId: string, kind: keyof typeof FREE_CLOSE_MARKS): Promise<string | undefined> {
+  // The notice is optional: a failed lookup never turns a finished publish or upload into an error.
+  try {
+    const usage = await createDataAccess(env.DB).sites.getFreePlanUsage(siteId);
+    return usage[kind] === FREE_CLOSE_MARKS[kind] ? freeCloseNotice(kind, plansUrl()) : undefined;
+  } catch (error) {
+    console.warn(`free plan notice skipped (${error instanceof Error ? error.message : String(error)})`);
+    return undefined;
+  }
+}
+
+/** Free-plan notices are for free hosted blogs only, never Cloud, self-hosted or AutoSEOPilot-managed ones. */
+function getsFreeNotices(entitlement: ApiEffectiveEntitlement): boolean {
+  return entitlement.access === "hosted_free" && entitlement.managedSponsorship.status === null;
 }
 
 const BILLING_NOTICE_ACTION = "Update the payment method in the dashboard: Settings > Billing";
@@ -453,9 +477,13 @@ export async function publishPostOp(
   input: { postId: string; expectedVersionNumber: number; originalPublishedAt?: number },
 ) {
   requireScope(ctx.actor, 'posts:publish');
+  await assertSiteNotSuspended(ctx.siteId);
   await assertPostImagesPublishable(ctx.siteId, input.postId);
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
   const entitlement = await resolveEffectiveEntitlementForSite(ctx.siteId);
+  // Free blogs only: was the post already live? Republishing adds no post.
+  const free = getsFreeNotices(entitlement);
+  const wasLive = free && (await repository().getPost(ctx.siteId, input.postId))?.status === "published";
   const published = await publishPost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
@@ -466,11 +494,13 @@ export async function publishPostOp(
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, published.slug);
   const base = siteSlug ? await getSitePublicBaseUrl(ctx.siteId, siteSlug) : null;
-  return mapPostWithPreview(published, postPublicUrl(base, published));
+  const planNotice = free && !wasLive ? await freeCloseNoticeFor(ctx.siteId, "publishedPosts") : undefined;
+  return { ...(await mapPostWithPreview(published, postPublicUrl(base, published))), ...(planNotice ? { planNotice } : {}) };
 }
 
 export async function schedulePostOp(ctx: OperationContext, input: { postId: string; versionNumber: number; publishAt: number }) {
   requireScope(ctx.actor, 'posts:publish');
+  await assertSiteNotSuspended(ctx.siteId);
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isInteger(input.publishAt) || input.publishAt <= now) throw new ValidationError('publishAt must be a future Unix timestamp in seconds. Confirm a new UTC time with the owner before rescheduling.');
   const post = await repository().getPost(ctx.siteId, input.postId);
@@ -536,7 +566,13 @@ export async function uploadAssetOp(
   input: { filename: string; mimeType: string; dataBase64: string; altText?: string },
 ) {
   const asset = await uploadAsset(appUser(ctx), base64File(input), input.altText);
-  return mapAsset(asset, `/media-assets/${asset.id}`);
+  let planNotice: string | undefined;
+  try {
+    if (getsFreeNotices(await resolveEffectiveEntitlementForSite(ctx.siteId))) planNotice = await freeCloseNoticeFor(ctx.siteId, "images");
+  } catch (error) {
+    console.warn(`free plan notice skipped (${error instanceof Error ? error.message : String(error)})`);
+  }
+  return { ...mapAsset(asset, `/media-assets/${asset.id}`), ...(planNotice ? { planNotice } : {}) };
 }
 
 function assetRepository() {

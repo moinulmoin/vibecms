@@ -113,13 +113,13 @@ export async function handleSubscribe(request: Request): Promise<SubscribeResult
     }
   }
 
-  // A paused managed blog is not serving; its subscribe form is gone too.
+  // A paused managed or suspended blog is not serving; its subscribe form is gone too.
   // Neutral success keeps the slug non-enumerable.
   const entitlement = await createDataAccess(env.DB).managedSites.resolveSite(siteId, {
     selfHosted: String(env.SELF_HOSTED) === 'true',
     now: Date.now() / 1000,
   })
-  if (entitlement?.servingPaused) {
+  if (entitlement?.servingPaused || (await createDataAccess(env.DB).sites.getSuspension(siteId)) !== null) {
     return { status: 200, body: { ok: true } }
   }
 
