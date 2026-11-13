@@ -23,6 +23,7 @@ import { createApiKeyMutation, revokeApiKeyMutation } from '~/lib/api-client'
 import { clearTokenFlash, consumeTokenFlash, isRevealedKeyGone, saveTokenFlash, type TokenFlash } from '~/lib/token-flash'
 import { connectQuery, contextQuery, queryKeys } from '~/lib/queries'
 import type { ApiKeyListItem } from '~/types/dashboard'
+import { newestAgentRequest } from '~/components/dashboard/AgentPresence'
 
 export type KeyAccess = 'draft' | 'publish' | 'manage'
 
@@ -230,13 +231,53 @@ export function NewKeyForm({
   )
 }
 
+/** The key or connected app that reached the blog last, if any has. */
+export function lastConnectedAgent(keys: ApiKeyListItem[]) {
+  const newest = newestAgentRequest(keys)
+  if (!newest) return null
+  const key = keys.find((item) => item.revokedAt == null && item.lastUsedAt === newest)!
+  return { name: key.connection?.clientName ?? key.name, lastUsedAt: newest }
+}
+
+/**
+ * How you know it worked: a live line, not a paragraph. Waiting until any
+ * agent's first request reaches the blog, then who reached it and when.
+ */
+function ConnectionLine({ keys }: { keys: ApiKeyListItem[] }) {
+  const last = lastConnectedAgent(keys)
+  return (
+    <p role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.9375rem] leading-6">
+      <span aria-hidden className="relative flex size-2 shrink-0">
+        {last ? null : <span className="absolute inline-flex size-full rounded-full bg-muted-foreground/50 motion-safe:animate-ping" />}
+        <span className={cn('relative inline-flex size-2 rounded-full', last ? 'bg-brand-bright' : 'bg-muted-foreground')} />
+      </span>
+      {last ? (
+        <>
+          <span className="font-medium text-foreground">Connected</span>
+          <span className="text-muted-foreground">{last.name} last reached your blog {formatRelative(last.lastUsedAt)}.</span>
+        </>
+      ) : (
+        <>
+          <span className="font-medium text-foreground">Waiting for your agent</span>
+          <span className="text-muted-foreground">Add vibecms below, then ask your agent anything. This line changes on its first request.</span>
+        </>
+      )}
+    </p>
+  )
+}
+
 export function ConnectPage() {
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as { client?: string }
   const client = search.client
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const query = useQuery(connectQuery)
+  // Until an agent's first request arrives, check every few seconds so the
+  // connection line flips on its own.
+  const query = useQuery({
+    ...connectQuery,
+    refetchInterval: (current) => (current.state.data && newestAgentRequest(current.state.data.apiKeys) ? false : 4000),
+  })
   const { data: context } = useQuery(contextQuery)
   const [flash, setFlash] = useState<TokenFlash | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -371,7 +412,9 @@ export function ConnectPage() {
         />
       ) : null}
 
-      <Section title="Add vibecms to your agent" description="Choose your agent to see how to connect it.">
+      {data.canManage ? <ConnectionLine keys={data.apiKeys} /> : null}
+
+      <Section title="Add vibecms to your agent" description="Pick the agent you use. Each tab says where to paste and what to run.">
         <AgentSetup mcpUrl={data.mcpUrl} token={flash?.token} client={activeClient} onClientChange={setClient} includeClaudeApp />
       </Section>
 

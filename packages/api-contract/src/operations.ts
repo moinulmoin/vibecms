@@ -264,7 +264,7 @@ export const operations = [
     operationId: "createPost",
     requiredScope: "posts:create",
     description: opDescription(
-      `Create a draft post from a Markdown body. Free sites may keep ${FREE_TIER.drafts} drafts at a time; publishing or archiving frees a slot. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.`,
+      `Create a draft post from a Markdown body. Free sites may keep ${FREE_TIER.drafts} drafts at a time; publishing or archiving frees a slot. At that limit it returns BILLING_REQUIRED and saves nothing: do not retry; tell the owner. Returns id, currentVersionNumber, and previewUrl. Omitted presentation uses the active preset default layout; call posts.format_guide for supportedLayouts. previewUrl is a secret bearer link to the current saved tip, not an immutable version. Share only with the owner or explicitly authorized reviewers; never put it in public content. Rotate it if exposed.`,
       "posts:create",
       writeErrors,
     ),
@@ -292,7 +292,7 @@ export const operations = [
     operationId: "publishPost",
     requiredScope: "posts:publish",
     description: opDescription(
-      `Publish exactly the approved draft version. Free sites may keep ${FREE_TIER.publishedPosts} published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to ${FREE_CLOSE_MARKS.publishedPosts} published posts: pass it on to the owner. Live change: needs explicit owner approval first.`,
+      `Publish exactly the approved draft version. Free sites may keep ${FREE_TIER.publishedPosts} published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to ${FREE_CLOSE_MARKS.publishedPosts} published posts: pass it on to the owner. BILLING_REQUIRED (free limit) or FORBIDDEN (missing scope or suspended blog) means nothing was published: do not retry; tell the owner. Live change: needs explicit owner approval first.`,
       "posts:publish",
       writeErrors,
     ),
@@ -306,7 +306,7 @@ export const operations = [
     operationId: "schedulePost",
     requiredScope: "posts:publish",
     description: opDescription(
-      "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. Live change: needs explicit owner approval first.",
+      "Schedule an approved saved version. versionNumber selects the approved saved version; it is not a current-tip precondition. publishAt accepts Unix seconds or an ISO-8601 UTC string ending in Z or an explicit offset. Approve that exact version and time; later edits do not alter it. FORBIDDEN (missing scope or suspended blog) means nothing was scheduled: do not retry; tell the owner. Live change: needs explicit owner approval first.",
       "posts:publish", writeErrors,
     ),
     requestSchema: schedulePostRequestSchema,
@@ -363,7 +363,7 @@ export const operations = [
     operationId: "uploadAsset",
     requiredScope: "assets:write",
     description: opDescription(
-      `Upload an image from base64 data. Free sites may keep ${FREE_TIER.images} images and ${FREE_TIER.storageBytes / 1024 / 1024} MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. planNotice appears once, when this upload brings a free site to ${FREE_CLOSE_MARKS.images} images: pass it on to the owner.`,
+      `Upload an image from base64 data. Free sites may keep ${FREE_TIER.images} images and ${FREE_TIER.storageBytes / 1024 / 1024} MB; paid sites have 10 GB media storage. Decoded image must be 10 MB or smaller. Uploading makes the image public before post publication. Returns asset metadata and a public URL for Markdown. planNotice appears once, when this upload brings a free site to ${FREE_CLOSE_MARKS.images} images: pass it on to the owner. media_quota_free, media_quota_paid or FORBIDDEN means nothing was uploaded: do not retry; tell the owner.`,
       "assets:write",
       `${writeErrors} Upload validation failures surface as VALIDATION_ERROR or billing/quota messages.`,
     ),

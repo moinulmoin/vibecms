@@ -1,12 +1,13 @@
 import { Button, Input } from '@vc/ui'
+import { FREE_TIER } from '@vc/config'
 import type { ScheduledPublish } from '@vc/core'
 import type { SeoFinding } from '~/types/dashboard'
 import { AlertTriangle, CalendarClock, Send } from 'lucide-react'
-import { useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
-import { Link } from '@tanstack/react-router'
-import { GetCloudButton } from '~/components/dashboard/PlanActions'
+import { GetCloudButton, PlanLimitNotice, isPlanCapCode, type PlanCapCode } from '~/components/dashboard/PlanActions'
+import { overviewQuery, queryClient } from '~/lib/queries'
 
 export type PublishDialogProps = {
   open: boolean
@@ -29,6 +30,20 @@ export type PublishDialogProps = {
   returnFocusRef?: RefObject<HTMLElement | null>
   onConfirm: () => void
   onSchedule: (publishAt: number) => void
+}
+
+type PlanState = {
+  billing: { effective?: boolean; status: string }
+  counts: { published: number; draft: number }
+  media: { bytes: number; count: number }
+}
+
+/** Whether the refused free-plan cap still holds, read from the overview's live counts. */
+function stillAtCap(code: PlanCapCode, plan: PlanState) {
+  if (plan.billing.effective ?? plan.billing.status === 'active') return false
+  if (code === 'billing_required') return plan.counts.published >= FREE_TIER.publishedPosts
+  if (code === 'draft_limit') return plan.counts.draft >= FREE_TIER.drafts
+  return plan.media.count >= FREE_TIER.images || plan.media.bytes >= FREE_TIER.storageBytes
 }
 
 type Mode = 'now' | 'schedule'
@@ -75,9 +90,6 @@ const MAX_SEO_ERRORS_SHOWN = 5
 const OPTION =
   'flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-brand-bright/50 has-[[data-state=checked]]:bg-brand-bright/[0.04]'
 
-/** Plan caps answered with one-click Cloud checkout (same set as the editor action error). */
-const PLAN_CAP_CODES = ['billing_required', 'draft_limit', 'media_quota_free']
-
 /** Final human approval: names the exact version, what it replaces, and when it goes live. */
 export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNumber, liveUrl, warnings, seoFindings, onReviewSeo, pending, error, errorCode, scheduledPublish, returnFocusRef, onConfirm, onSchedule }: PublishDialogProps) {
   const seoErrors = (seoFindings ?? []).filter((finding) => finding.severity === 'error')
@@ -86,12 +98,26 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
   const visibleSeoErrors = seoErrors.slice(0, MAX_SEO_ERRORS_SHOWN)
   const hiddenSeoErrors = seoErrors.length - visibleSeoErrors.length
   const label = versionNumber ? `v${versionNumber}` : 'this version'
+  // Set once the plan was re-read and the blog is no longer at the cap (the
+  // owner upgraded or made room in another tab); the refusal then goes away.
+  const [capCleared, setCapCleared] = useState(false)
+  // A new refusal from the caller (a fresh publish attempt) counts again.
+  const [seenError, setSeenError] = useState(error)
+  if (error !== seenError) {
+    setSeenError(error)
+    setCapCleared(false)
+  }
+  const shownError = capCleared ? null : error
+  // A free-plan cap refusal: neither Now nor Schedule can go through, so the
+  // dialog turns from the approval into the way forward.
+  const planCap = shownError && isPlanCapCode(errorCode) ? errorCode : null
   const [mode, setMode] = useState<Mode>('now')
   const picks = quickPicks()
   const [date, setDate] = useState(() => dateValue(picks[1]!.at))
   const [time, setTime] = useState(() => timeValue(picks[1]!.at))
   const [timeError, setTimeError] = useState<string | null>(null)
-  // Every opening is a fresh approval: start from Now with a fresh default time.
+  // Every opening is a fresh approval: start from Now with a fresh default time,
+  // and no refusal left over from the last opening.
   // Adjusted during render (not in an effect) so there is no extra commit or loop.
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
@@ -101,8 +127,27 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
       setDate(dateValue(picks[1]!.at))
       setTime(timeValue(picks[1]!.at))
       setTimeError(null)
+    } else if (isPlanCapCode(errorCode)) {
+      setCapCleared(true)
     }
   }
+
+  // Get Cloud opens checkout in a new tab. When the owner comes back to this
+  // one, re-read the plan; if the blog is no longer at the cap, offer publish again.
+  useEffect(() => {
+    if (!open || !planCap) return
+    const code = planCap
+    async function recheck() {
+      try {
+        const overview = await queryClient.fetchQuery({ ...overviewQuery, staleTime: 0 })
+        if (!stillAtCap(code, overview)) setCapCleared(true)
+      } catch {
+        // Keep the notice; the next focus tries again.
+      }
+    }
+    window.addEventListener('focus', recheck)
+    return () => window.removeEventListener('focus', recheck)
+  }, [open, planCap])
   // Callers open this after an async save, so there is no DialogTrigger to
   // return to; remember what had focus when it opened.
   const openerRef = useRef<HTMLElement | null>(null)
@@ -158,68 +203,70 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
           </DialogDescription>
         </DialogHeader>
 
-        <fieldset className="grid gap-3">
-          <legend className="sr-only">When to publish</legend>
-          <RadioGroup value={mode} onValueChange={(value) => setMode(value as Mode)} className="grid gap-2 sm:grid-cols-2">
-            <label htmlFor="publish-now" className={OPTION}>
-              <RadioGroupItem id="publish-now" value="now" className="mt-0.5" />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">Now</span>
-                <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">Goes live right away</span>
-              </span>
-            </label>
-            <label htmlFor="publish-schedule" className={OPTION}>
-              <RadioGroupItem id="publish-schedule" value="schedule" className="mt-0.5" />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">Schedule</span>
-                <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">Pick when it goes live</span>
-              </span>
-            </label>
-          </RadioGroup>
-
-          {mode === 'schedule' ? (
-            <div className="grid gap-3 rounded-lg bg-muted/40 p-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-200">
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick picks">
-                {picks.map((pick) => {
-                  const selected = dateValue(pick.at) === date && timeValue(pick.at) === time
-                  return (
-                    <button
-                      key={pick.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => choose(pick.at)}
-                      className="min-h-8 rounded-md border border-border bg-background px-2.5 text-[13px] text-foreground transition-colors hover:bg-muted aria-pressed:border-brand-bright/50 aria-pressed:bg-brand-bright/10"
-                    >
-                      {pick.label}
-                    </button>
-                  )
-                })}
+        {planCap ? null : (
+          <fieldset className="grid gap-3">
+            <legend className="sr-only">When to publish</legend>
+            <RadioGroup value={mode} onValueChange={(value) => setMode(value as Mode)} className="grid gap-2 sm:grid-cols-2">
+              <label htmlFor="publish-now" className={OPTION}>
+                <RadioGroupItem id="publish-now" value="now" className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Now</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">Goes live right away</span>
+                </span>
+              </label>
+              <label htmlFor="publish-schedule" className={OPTION}>
+                <RadioGroupItem id="publish-schedule" value="schedule" className="mt-0.5" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Schedule</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">Pick when it goes live</span>
+                </span>
+              </label>
+            </RadioGroup>
+  
+            {mode === 'schedule' ? (
+              <div className="grid gap-3 rounded-lg bg-muted/40 p-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-200">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick picks">
+                  {picks.map((pick) => {
+                    const selected = dateValue(pick.at) === date && timeValue(pick.at) === time
+                    return (
+                      <button
+                        key={pick.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => choose(pick.at)}
+                        className="min-h-8 rounded-md border border-border bg-background px-2.5 text-[13px] text-foreground transition-colors hover:bg-muted aria-pressed:border-brand-bright/50 aria-pressed:bg-brand-bright/10"
+                      >
+                        {pick.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-2">
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Date
+                    <Input type="date" value={date} min={dateValue(new Date())} onChange={(event) => { setDate(event.target.value); setTimeError(null) }} className="h-9 tabular-nums" />
+                  </label>
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Time
+                    <Input type="time" value={time} step={300} onChange={(event) => { setTime(event.target.value); setTimeError(null) }} className="h-9 tabular-nums" />
+                  </label>
+                </div>
+                <p className="flex items-start gap-2 text-[13px] leading-5 text-muted-foreground" aria-live="polite">
+                  <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-brand-bright" />
+                  {whenText ? (
+                    <span>
+                      Goes live <span className="font-medium text-foreground">{whenText}</span>, {timezoneLabel()} ({relative(at)}). Your agent can move or cancel it.
+                    </span>
+                  ) : (
+                    <span>Pick a date and time in the future ({timezoneLabel()}).</span>
+                  )}
+                </p>
               </div>
-              <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-2">
-                <label className="grid gap-1 text-xs text-muted-foreground">
-                  Date
-                  <Input type="date" value={date} min={dateValue(new Date())} onChange={(event) => { setDate(event.target.value); setTimeError(null) }} className="h-9 tabular-nums" />
-                </label>
-                <label className="grid gap-1 text-xs text-muted-foreground">
-                  Time
-                  <Input type="time" value={time} step={300} onChange={(event) => { setTime(event.target.value); setTimeError(null) }} className="h-9 tabular-nums" />
-                </label>
-              </div>
-              <p className="flex items-start gap-2 text-[13px] leading-5 text-muted-foreground" aria-live="polite">
-                <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-brand-bright" />
-                {whenText ? (
-                  <span>
-                    Goes live <span className="font-medium text-foreground">{whenText}</span>, {timezoneLabel()} ({relative(at)}). Your agent can move or cancel it.
-                  </span>
-                ) : (
-                  <span>Pick a date and time in the future ({timezoneLabel()}).</span>
-                )}
-              </p>
-            </div>
-          ) : null}
-        </fieldset>
+            ) : null}
+          </fieldset>
+        )}
 
-        {activeSchedule ? (
+        {activeSchedule && !planCap ? (
           <p className="flex items-start gap-2 rounded-lg border border-border px-3 py-2.5 text-[13px] leading-5 text-muted-foreground">
             <CalendarClock aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
             <span>
@@ -233,7 +280,7 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
           </p>
         ) : null}
 
-        {warnings.length > 0 ? (
+        {warnings.length > 0 && !planCap ? (
           <div className="grid gap-1.5 rounded-lg border border-warning/35 bg-warning/10 px-3 py-2.5 text-sm">
             <p className="flex items-center gap-2 font-medium text-foreground">
               <AlertTriangle aria-hidden className="size-4 text-warning" /> Check before publishing
@@ -243,7 +290,7 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
             </ul>
           </div>
         ) : null}
-        {seoErrors.length > 0 ? (
+        {seoErrors.length > 0 && !planCap ? (
           <div className="grid gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm">
             <p className="flex items-center gap-2 font-medium text-foreground">
               <AlertTriangle aria-hidden className="size-4 text-destructive" /> SEO {seoErrors.length === 1 ? 'issue' : 'issues'} to fix
@@ -263,27 +310,26 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
             ) : null}
           </div>
         ) : null}
-        {error ? (
-          <div role="alert" className="grid gap-2 text-sm text-destructive">
-            <p>{error}</p>
-            {errorCode && PLAN_CAP_CODES.includes(errorCode) ? (
-              <div className="flex flex-wrap items-center gap-3 justify-self-start">
-                <GetCloudButton newTab />
-                <Link className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
-                  Compare plans
-                </Link>
-              </div>
-            ) : null}
-          </div>
+        {shownError && planCap ? (
+          <PlanLimitNotice code={planCap} message={shownError} plansInNewTab />
+        ) : shownError ? (
+          <p role="alert" className="text-sm text-destructive">{shownError}</p>
         ) : null}
         {timeError ? <p role="alert" className="text-sm text-destructive">{timeError}</p> : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" disabled={pending || !versionNumber || (mode === 'schedule' && !valid)} onClick={confirm}>
-            {mode === 'now' ? <Send aria-hidden className="size-4" /> : <CalendarClock aria-hidden className="size-4" />}
-            {pending ? 'Saving…' : mode === 'now' ? `Publish ${label} now` : `Schedule ${label}${shortWhen ? ` · ${shortWhen}` : ''}`}
-          </Button>
+          <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>{planCap ? 'Not now' : 'Cancel'}</Button>
+          {planCap ? (
+            // The server refused at a free-plan cap: offer the way forward
+            // instead of a publish button that would fail the same way.
+            // Focus moves here: the button that had it is gone.
+            <GetCloudButton variant="default" size="default" newTab autoFocus />
+          ) : (
+            <Button type="button" disabled={pending || !versionNumber || (mode === 'schedule' && !valid)} onClick={confirm}>
+              {mode === 'now' ? <Send aria-hidden className="size-4" /> : <CalendarClock aria-hidden className="size-4" />}
+              {pending ? 'Saving…' : mode === 'now' ? `Publish ${label} now` : `Schedule ${label}${shortWhen ? ` · ${shortWhen}` : ''}`}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

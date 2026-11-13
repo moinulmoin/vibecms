@@ -482,14 +482,16 @@ function LimitedAnalytics({ data }: { data: Extract<AnalyticsPageData, { status:
           { label: 'Agent reads', value: compactNumber.format(data.agentReads), detail: 'Fetches by AI assistants, crawlers, and bots' },
         ]}
       />
-      <TrafficChart data={data} />
-      <AgentReadsChart data={data} />
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <p className="min-w-0 text-sm leading-6 text-muted-foreground">
-          Free shows site totals for the last {data.rangeDays} days. {PRICING.planName} adds full history, per-post numbers, and where readers come from.
+      {/* Right under the numbers it explains, in the same words and weight as the overview's free-plan line. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] leading-6">
+        <p className="min-w-0 text-muted-foreground">
+          <span className="font-medium text-foreground">Free shows the last {data.rangeDays} days of site totals.</span>{' '}
+          {PRICING.planName} adds full history, per-post numbers, and where readers come from.
         </p>
         <GetCloudButton />
       </div>
+      <TrafficChart data={data} />
+      <AgentReadsChart data={data} />
     </div>
   )
 }

@@ -73,12 +73,15 @@ export function OnboardingFrame({
   step,
   title,
   description,
+  meta,
   aside,
 }: {
   children: ReactNode
   step?: { current: number; total: number }
   title: string
   description?: ReactNode
+  /** One quiet line under the description, such as the blog's address. */
+  meta?: ReactNode
   aside?: ReactNode
 }) {
   return (
@@ -110,6 +113,7 @@ export function OnboardingFrame({
                 {title}
               </h1>
               {description ? <p className="max-w-[46ch] text-pretty text-[1.0625rem] leading-7 text-muted-foreground">{description}</p> : null}
+              {meta ? <div className="pt-1">{meta}</div> : null}
             </header>
             {children}
           </div>

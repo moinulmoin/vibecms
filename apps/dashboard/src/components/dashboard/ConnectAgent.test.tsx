@@ -43,7 +43,7 @@ describe('agent setup', () => {
   it('maps the saved client preference to a tab', () => {
     expect(clientFromPreference('cursor')).toBe('cursor')
     expect(clientFromPreference('droid')).toBe('other')
-    expect(clientFromPreference(null)).toBe('claude_code')
+    expect(clientFromPreference(null)).toBe('claude')
   })
 })
 

@@ -87,7 +87,7 @@ async function mapPostWithPreview(post: Parameters<typeof mapPost>[0], url: stri
 async function assertCoverAssetOwnedBySite(siteId: string, coverAssetId: string | null | undefined) {
   if (!coverAssetId) return;
   const exists = await createDataAccess(env.DB).assets.existsForSite(siteId, coverAssetId);
-  if (!exists) throw new ValidationError("Cover image must belong to this site");
+  if (!exists) throw new ValidationError("That cover image is not in this blog's media library, so nothing was saved. Upload it with assets.upload or pick one from assets.list, then send its id.");
 }
 
 function decodedBase64Length(dataBase64: string) {
@@ -101,15 +101,15 @@ function isAllowedMimeType(type: string): type is (typeof allowedImageMimeTypes)
 }
 
 function base64File(input: { filename: string; mimeType: string; dataBase64: string }) {
-  if (!isAllowedMimeType(input.mimeType)) throw new AppError("VALIDATION_ERROR", "Unsupported image MIME type", 400);
+  if (!isAllowedMimeType(input.mimeType)) throw new AppError("VALIDATION_ERROR", "Unsupported image type, so nothing was uploaded. Send a JPEG, PNG, WebP or GIF.", 400);
   if (decodedBase64Length(input.dataBase64) > MEDIA.maxImageBytes) {
-    throw new AppError("VALIDATION_ERROR", "Asset payload exceeds 10 MB", 400);
+    throw new AppError("VALIDATION_ERROR", "The image is larger than 10 MB, so nothing was uploaded. Resize or compress it, then upload again.", 400);
   }
   try {
     const bytes = Uint8Array.from(atob(input.dataBase64), (char) => char.charCodeAt(0));
     return new File([bytes], input.filename, { type: input.mimeType });
   } catch {
-    throw new AppError("VALIDATION_ERROR", "Invalid base64 asset payload", 400);
+    throw new AppError("VALIDATION_ERROR", "The image data is not valid base64, so nothing was uploaded. Base64-encode the file bytes and upload again.", 400);
   }
 }
 
@@ -506,12 +506,12 @@ export async function schedulePostOp(ctx: OperationContext, input: { postId: str
   const post = await repository().getPost(ctx.siteId, input.postId);
   if (!post) throw new NotFoundError('Post not found');
   if (post.status === 'archived') throw new ValidationError('Post is archived. If the owner intends to restore it, call posts.unarchive, inspect the draft, then obtain approval for a saved version and future time.');
-  if (post.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Schedule is already publishing', 409);
+  if (post.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'This post is going live on its schedule right now, so this request did nothing. Wait a minute, then call posts.get to see the result.', 409);
   const saved = await schedulePost(env.DB, ctx.siteId, input.postId, input.versionNumber, input.publishAt, ctx.actor, now);
   if (!saved) {
     const current = await repository().getPost(ctx.siteId, input.postId);
-    if (current?.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'Schedule is already publishing', 409);
-    throw new ValidationError('Saved post version not found');
+    if (current?.scheduledPublish?.status === 'processing') throw new AppError('CONFLICT', 'This post is going live on its schedule right now, so this request did nothing. Wait a minute, then call posts.get to see the result.', 409);
+    throw new ValidationError('This post has no saved version with that number. Call posts.versions.list and use one of its versionNumbers.');
   }
   const updated = await repository().getPost(ctx.siteId, input.postId);
   if (!updated) throw new NotFoundError('Post not found');

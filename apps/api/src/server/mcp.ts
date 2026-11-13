@@ -254,9 +254,12 @@ function rateLimitMessage(error: unknown): string {
     error instanceof RateLimitError
       ? (error as RateLimitError & { usageStatus?: { resetsAt: number; metric: string; period: string } }).usageStatus
       : undefined
-  if (!status) return "Rate limit exceeded. Wait for the limit to reset, then retry."
+  if (!status) return "Rate limit reached, so the call did not run. Wait for the limit to reset, then retry."
   const seconds = Math.max(1, status.resetsAt - Math.floor(Date.now() / 1000))
-  return `Rate limit exceeded on ${status.metric} (${status.period}). Retry after ${seconds}s.`
+  // A daily or monthly budget can take hours to reset: the owner should know rather than an agent waiting silently.
+  return seconds > 3600
+    ? `Rate limit reached on ${status.metric} (${status.period}), so the call did not run. It resets in ${seconds}s; tell the blog owner instead of waiting.`
+    : `Rate limit reached on ${status.metric} (${status.period}), so the call did not run. Retry after ${seconds}s.`
 }
 
 function rateLimitRetryAfterSeconds(error: RateLimitError): number | undefined {

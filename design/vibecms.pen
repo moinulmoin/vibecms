@@ -1,4 +1,1375 @@
 {
-  "version": "2.21",
-  "children": []
+  "version": "2.22",
+  "children": [
+    {
+      "type": "frame",
+      "id": "h2tyE3",
+      "x": 0,
+      "y": 0,
+      "name": "Start here / Design pass 13 Nov",
+      "width": 640,
+      "fill": "$bg",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 14,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "SGNoE",
+          "name": "Line",
+          "fill": "$fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Design pass: the four screens that decide whether someone stays",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 20,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "bKJZk",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Limits v2: a plan cap is guidance, not an error. Neutral surface, foreground title, usage meter, one primary action (Get Cloud). The action that was refused leaves the footer, so there is no second failing click.",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        },
+        {
+          "type": "text",
+          "id": "B1rERT",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Billing v2: one bounded card, two columns: what Free gives you now, what Cloud adds and what it costs today. One filled button; yearly is a quiet link. Table below uses the words Free and Cloud.",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        },
+        {
+          "type": "text",
+          "id": "bDgJH",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Connect v2: a live connection line at the top of Connect. Waiting dot pulses until the first request; then it names the agent and when it last reached the blog.",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        },
+        {
+          "type": "text",
+          "id": "RnOZF",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Onboarding v2: the blog address is visible on the connect step; the Claude connector URL is the first tab; copy no longer says on the right (wrong on phone).",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        },
+        {
+          "type": "text",
+          "id": "xbXZg",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Analytics v2: the free line moves under the numbers, where it is seen, same pattern as the overview line.",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        },
+        {
+          "type": "text",
+          "id": "WgxTh",
+          "name": "Line",
+          "fill": "$muted-fg",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "Rules held: Geist + Geist Mono, green only on primary action, dots, checkmarks. No nested cards. No tier tags.",
+          "lineHeight": 1.5,
+          "fontFamily": "$sans",
+          "fontSize": 14
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "YuHwx",
+      "x": 720,
+      "y": 0,
+      "name": "Limits v2 / Publish dialog at the cap",
+      "fill": "#050607",
+      "cornerRadius": 12,
+      "gap": 48,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "S5eFw",
+          "name": "Desktop dialog 480",
+          "width": 480,
+          "fill": "$card",
+          "cornerRadius": 12,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "FLDsp",
+              "name": "Header",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Ryxcw",
+                  "name": "Title",
+                  "fill": "$fg",
+                  "content": "Publish v1",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "vQbfT",
+                  "name": "Description",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "This post goes live on your blog.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XCDLI",
+              "name": "When",
+              "width": "fill_container",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "fjmnK",
+                  "name": "Option Now",
+                  "width": "fill_container",
+                  "fill": "#5BE08E0A",
+                  "cornerRadius": 8,
+                  "stroke": "#5BE08E80",
+                  "strokeWidth": 1,
+                  "gap": 10,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "f41vb1",
+                      "name": "Radio",
+                      "width": 16,
+                      "height": 16,
+                      "stroke": "$brand",
+                      "strokeWidth": 5
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KaaeB",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "t7nONN",
+                          "name": "Label",
+                          "fill": "$fg",
+                          "content": "Now",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "g5Z8X",
+                          "name": "Hint",
+                          "fill": "$muted-fg",
+                          "content": "Goes live right away",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 13
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "E00vt",
+                  "name": "Option Schedule",
+                  "width": "fill_container",
+                  "cornerRadius": 8,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 10,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "cHmVs",
+                      "name": "Radio",
+                      "width": 16,
+                      "height": 16,
+                      "stroke": "$border",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EGGev",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XAnVI",
+                          "name": "Label",
+                          "fill": "$fg",
+                          "content": "Schedule",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DcvKe",
+                          "name": "Hint",
+                          "fill": "$muted-fg",
+                          "content": "Pick when it goes live",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 13
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "peP37",
+              "name": "Plan limit notice",
+              "width": "fill_container",
+              "fill": "#191C1E99",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                12,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FqcJm",
+                  "name": "Notice title",
+                  "fill": "$fg",
+                  "content": "Published post limit reached",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "zHWCd",
+                  "name": "Notice message",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Free plan: up to 25 published posts. Your published posts stay online and editable. vibecms Cloud removes this limit.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "azfaX",
+                  "name": "Compare link",
+                  "fill": "$muted-fg",
+                  "content": "Compare plans",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KM50x",
+              "name": "Footer",
+              "width": "fill_container",
+              "gap": 8,
+              "justifyContent": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "xL4So",
+                  "name": "Button outline",
+                  "fill": "$bg",
+                  "cornerRadius": 8,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    9,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "evT4j",
+                      "name": "Label",
+                      "fill": "$fg",
+                      "content": "Not now",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BB9a1",
+                  "name": "Button primary",
+                  "fill": "$brand",
+                  "cornerRadius": 8,
+                  "gap": 8,
+                  "padding": [
+                    9,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JIc0H",
+                      "name": "Label",
+                      "fill": "$brand-ink",
+                      "content": "Get Cloud",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "o6F7ew",
+          "name": "Phone dialog 358",
+          "width": 358,
+          "fill": "$card",
+          "cornerRadius": 12,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Bh9gt",
+              "name": "Header",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y9mplc",
+                  "name": "Title",
+                  "fill": "$fg",
+                  "content": "Publish v1",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "xRSQg",
+                  "name": "Description",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "This post goes live on your blog.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZiKGx",
+              "name": "When",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "LytTq",
+                  "name": "Option Now",
+                  "width": "fill_container",
+                  "fill": "#5BE08E0A",
+                  "cornerRadius": 8,
+                  "stroke": "#5BE08E80",
+                  "strokeWidth": 1,
+                  "gap": 10,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "jZHu7",
+                      "name": "Radio",
+                      "width": 16,
+                      "height": 16,
+                      "stroke": "$brand",
+                      "strokeWidth": 5
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EVROE",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Oheat",
+                          "name": "Label",
+                          "fill": "$fg",
+                          "content": "Now",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "XtADN",
+                          "name": "Hint",
+                          "fill": "$muted-fg",
+                          "content": "Goes live right away",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 13
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "T4Yx2b",
+                  "name": "Option Schedule",
+                  "width": "fill_container",
+                  "cornerRadius": 8,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 10,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "u7Rxs",
+                      "name": "Radio",
+                      "width": 16,
+                      "height": 16,
+                      "stroke": "$border",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HLoA3",
+                      "name": "Copy",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uueBR",
+                          "name": "Label",
+                          "fill": "$fg",
+                          "content": "Schedule",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "P7Uzw",
+                          "name": "Hint",
+                          "fill": "$muted-fg",
+                          "content": "Pick when it goes live",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$sans",
+                          "fontSize": 13
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nfbnd",
+              "name": "Plan limit notice",
+              "width": "fill_container",
+              "fill": "#191C1E99",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                12,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "h9j0o1",
+                  "name": "Notice title",
+                  "fill": "$fg",
+                  "content": "Published post limit reached",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "GnHEs",
+                  "name": "Notice message",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Free plan: up to 25 published posts. Your published posts stay online and editable. vibecms Cloud removes this limit.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "I0tT2Z",
+                  "name": "Compare link",
+                  "fill": "$muted-fg",
+                  "content": "Compare plans",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZdDT2",
+              "name": "Footer",
+              "width": "fill_container",
+              "gap": 8,
+              "justifyContent": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "KAgGi",
+                  "name": "Button outline",
+                  "fill": "$bg",
+                  "cornerRadius": 8,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    9,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QO0cW",
+                      "name": "Label",
+                      "fill": "$fg",
+                      "content": "Not now",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "c54ACw",
+                  "name": "Button primary",
+                  "fill": "$brand",
+                  "cornerRadius": 8,
+                  "gap": 8,
+                  "padding": [
+                    9,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Y77j3n",
+                      "name": "Label",
+                      "fill": "$brand-ink",
+                      "content": "Get Cloud",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "AiJNf",
+      "x": 1782,
+      "y": 0,
+      "name": "Billing v2 / Free plan, step into Cloud",
+      "fill": "#050607",
+      "cornerRadius": 12,
+      "gap": 48,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "noFOR",
+          "name": "Desktop card 760",
+          "clip": true,
+          "width": 760,
+          "fill": "$bg",
+          "cornerRadius": 12,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "children": [
+            {
+              "type": "frame",
+              "id": "lsxGh",
+              "name": "Your plan",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ITRAl",
+                  "name": "Eyebrow",
+                  "fill": "$muted-fg",
+                  "content": "YOUR PLAN",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$mono",
+                  "fontSize": 11
+                },
+                {
+                  "type": "text",
+                  "id": "v3eAyc",
+                  "name": "Plan",
+                  "fill": "$fg",
+                  "content": "Free",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "u9DO2",
+                  "name": "Summary",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "25 published posts, 10 drafts at a time, 100 images, a custom domain, 7-day analytics, and standard support.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "krpK8",
+              "name": "Cloud",
+              "width": "fill_container",
+              "fill": "$card",
+              "stroke": "$border",
+              "strokeWidth": {
+                "left": 1
+              },
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FfVA9",
+                  "name": "Eyebrow",
+                  "fill": "$muted-fg",
+                  "content": "VIBECMS CLOUD",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$mono",
+                  "fontSize": 11
+                },
+                {
+                  "type": "frame",
+                  "id": "u8ltuM",
+                  "name": "Price",
+                  "gap": 8,
+                  "alignItems": "end",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jUKWM",
+                      "name": "Amount",
+                      "fill": "$fg",
+                      "content": "$9",
+                      "lineHeight": 1.1,
+                      "fontFamily": "$sans",
+                      "fontSize": 32,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "FJIxE",
+                      "name": "Per",
+                      "fill": "$muted-fg",
+                      "content": "/month",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "e9M1e",
+                      "name": "Was",
+                      "fill": "$muted-fg",
+                      "content": "$15",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "YRq9a",
+                  "name": "Price note",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Launch price, 40% off. Locked while you stay subscribed.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "pMfCx",
+                  "name": "Adds",
+                  "fill": "$fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Adds unlimited posts, 10 GB of media, full analytics, no vibecms branding, priority support, and 5,000 agent requests a day.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                },
+                {
+                  "type": "frame",
+                  "id": "VaIej",
+                  "name": "Upgrade button",
+                  "fill": "$brand",
+                  "cornerRadius": 8,
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RHjl5",
+                      "name": "Label",
+                      "fill": "$brand-ink",
+                      "content": "Upgrade to Cloud",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "v2J8v",
+                  "name": "Yearly link",
+                  "fill": "$muted-fg",
+                  "content": "Or pay yearly: $75/year (50% off)",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hC9gv",
+          "name": "Phone card 358",
+          "clip": true,
+          "width": 358,
+          "fill": "$bg",
+          "cornerRadius": 12,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "SD3fC",
+              "name": "Your plan",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ODzSG",
+                  "name": "Eyebrow",
+                  "fill": "$muted-fg",
+                  "content": "YOUR PLAN",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$mono",
+                  "fontSize": 11
+                },
+                {
+                  "type": "text",
+                  "id": "fq9mm",
+                  "name": "Plan",
+                  "fill": "$fg",
+                  "content": "Free",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "cTqHQ",
+                  "name": "Summary",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "25 published posts, 10 drafts at a time, 100 images, a custom domain, 7-day analytics, and standard support.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uHWBl",
+              "name": "Cloud",
+              "width": "fill_container",
+              "fill": "$card",
+              "stroke": "$border",
+              "strokeWidth": {
+                "top": 1
+              },
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "p3Hkv",
+                  "name": "Eyebrow",
+                  "fill": "$muted-fg",
+                  "content": "VIBECMS CLOUD",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$mono",
+                  "fontSize": 11
+                },
+                {
+                  "type": "frame",
+                  "id": "d62zGC",
+                  "name": "Price",
+                  "gap": 8,
+                  "alignItems": "end",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "P8zDH",
+                      "name": "Amount",
+                      "fill": "$fg",
+                      "content": "$9",
+                      "lineHeight": 1.1,
+                      "fontFamily": "$sans",
+                      "fontSize": 32,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nztCU",
+                      "name": "Per",
+                      "fill": "$muted-fg",
+                      "content": "/month",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "VrKih",
+                      "name": "Was",
+                      "fill": "$muted-fg",
+                      "content": "$15",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "eAsvF",
+                  "name": "Price note",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Launch price, 40% off. Locked while you stay subscribed.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "Y0eNff",
+                  "name": "Adds",
+                  "fill": "$fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Adds unlimited posts, 10 GB of media, full analytics, no vibecms branding, priority support, and 5,000 agent requests a day.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14
+                },
+                {
+                  "type": "frame",
+                  "id": "fG48o",
+                  "name": "Upgrade button",
+                  "width": "fill_container",
+                  "fill": "$brand",
+                  "cornerRadius": 8,
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Wemfl",
+                      "name": "Label",
+                      "fill": "$brand-ink",
+                      "content": "Upgrade to Cloud",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$sans",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "DKJkH",
+                  "name": "Yearly link",
+                  "fill": "$muted-fg",
+                  "content": "Or pay yearly: $75/year (50% off)",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "o0WChf",
+      "x": 3124,
+      "y": 0,
+      "name": "Connect v2 / Live connection line",
+      "fill": "#050607",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 28,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "fRBmE",
+          "name": "Status / Waiting",
+          "width": 760,
+          "cornerRadius": 10,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            14,
+            16
+          ],
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "nJyvY",
+              "name": "Dot",
+              "fill": "$warning",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "frame",
+              "id": "YFjDS",
+              "name": "Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tPz5o",
+                  "name": "Title",
+                  "fill": "$fg",
+                  "content": "Waiting for your agent",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "zbilI",
+                  "name": "Detail",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Add vibecms below, then ask your agent anything. This line turns green on its first request.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mPlgQ",
+          "name": "Status / Connected",
+          "width": 760,
+          "cornerRadius": 10,
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "gap": 12,
+          "padding": [
+            14,
+            16
+          ],
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "V9MuI",
+              "name": "Dot",
+              "fill": "$brand",
+              "width": 8,
+              "height": 8
+            },
+            {
+              "type": "frame",
+              "id": "BawJx",
+              "name": "Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "GyKV8",
+                  "name": "Title",
+                  "fill": "$fg",
+                  "content": "Claude is connected",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "i8S8t",
+                  "name": "Detail",
+                  "fill": "$muted-fg",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Last reached your blog 2 minutes ago · Write drafts",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gAiGY",
+          "name": "Tabs, Claude first",
+          "width": 760,
+          "stroke": "$hairline",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "gap": 24,
+          "padding": [
+            0,
+            0,
+            10,
+            0
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "qRrGN",
+              "name": "Tab Claude",
+              "fill": "$fg",
+              "content": "Claude",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14,
+              "fontWeight": "500"
+            },
+            {
+              "type": "text",
+              "id": "xUhC7",
+              "name": "Tab Claude Code",
+              "fill": "$muted-fg",
+              "content": "Claude Code",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14
+            },
+            {
+              "type": "text",
+              "id": "tr9uS",
+              "name": "Tab Codex",
+              "fill": "$muted-fg",
+              "content": "Codex",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14
+            },
+            {
+              "type": "text",
+              "id": "mA4xS",
+              "name": "Tab Cursor",
+              "fill": "$muted-fg",
+              "content": "Cursor",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14
+            },
+            {
+              "type": "text",
+              "id": "Uu64j",
+              "name": "Tab Other",
+              "fill": "$muted-fg",
+              "content": "Other",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "F64hHR",
+          "name": "Onboarding step 2 header",
+          "width": 760,
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "SzVv4",
+              "name": "Title",
+              "fill": "$fg",
+              "content": "Connect your agent",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 28,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "d8fxo",
+              "name": "Address",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FHPQN",
+                  "name": "Url",
+                  "fill": "$fg",
+                  "content": "free-demo.basedui.dev",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$mono",
+                  "fontSize": 14
+                },
+                {
+                  "type": "ellipse",
+                  "id": "NFrjF",
+                  "name": "Live dot",
+                  "fill": "$brand",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "i0qrBZ",
+                  "name": "Live",
+                  "fill": "$muted-fg",
+                  "content": "Live",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$sans",
+                  "fontSize": 13
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "Wf2uT",
+              "name": "Description",
+              "fill": "$muted-fg",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Add vibecms to your agent and ask for a first post. You will see it arrive here.",
+              "lineHeight": 1.5,
+              "fontFamily": "$sans",
+              "fontSize": 14
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "bg": {
+      "type": "color",
+      "value": "#0A0C0F"
+    },
+    "card": {
+      "type": "color",
+      "value": "#101315"
+    },
+    "muted": {
+      "type": "color",
+      "value": "#191C1E"
+    },
+    "border": {
+      "type": "color",
+      "value": "#2A2E30"
+    },
+    "hairline": {
+      "type": "color",
+      "value": "#FFFFFF1F"
+    },
+    "fg": {
+      "type": "color",
+      "value": "#E9EEEA"
+    },
+    "muted-fg": {
+      "type": "color",
+      "value": "#A7B0AA"
+    },
+    "brand": {
+      "type": "color",
+      "value": "#5BE08E"
+    },
+    "brand-ink": {
+      "type": "color",
+      "value": "#0B1F14"
+    },
+    "warning": {
+      "type": "color",
+      "value": "#E8B04B"
+    },
+    "sans": {
+      "type": "string",
+      "value": "Geist"
+    },
+    "mono": {
+      "type": "string",
+      "value": "Geist Mono"
+    }
+  },
+  "fileToken": "d7426ea2-9d0e-4bde-938a-f8ef6e65a7cb"
 }

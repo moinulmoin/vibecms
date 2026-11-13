@@ -160,7 +160,7 @@ export async function publishPost(
     { billingActive: isPaidBilling({ status: input.billingStatus }), freeLimit: FREE_PUBLISHED_LIMIT, originalPublishedAt: input.originalPublishedAt },
   );
   if (versionConflict) {
-    throw new ConflictError("Post changed since approval; review and approve the latest version before publishing");
+    throw new ConflictError("This post changed since approval, so nothing was published. Preview the latest version with posts.get and posts.preview, and ask the owner to approve it before publishing.");
   }
   if (capReached) throw new BillingRequiredError(FREE_LIMIT_MESSAGES.publishedPosts);
   if (!post) throw new NotFoundError("Post not found");

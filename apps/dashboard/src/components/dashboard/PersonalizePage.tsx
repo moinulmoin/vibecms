@@ -27,10 +27,13 @@ export function FirstPostStatus({
   status,
   keyName,
   hasKey,
+  client,
 }: {
   status: OnboardingConnectStatus | undefined
   keyName?: string
   hasKey?: boolean
+  /** The Claude app signs in instead of using the key, so its steps differ. */
+  client?: AgentClient
 }) {
   const first = status?.firstPost
   if (first?.state === 'live') {
@@ -91,7 +94,18 @@ export function FirstPostStatus({
   const keyReady = Boolean(hasKey || status?.key)
   const connected = status?.connection === 'connected'
   const revoked = status?.connection === 'revoked'
-  const steps: Array<{ title: string; detail: string; state: StepState }> = [
+  const steps: Array<{ title: string; detail: string; state: StepState }> = client === 'claude' ? [
+    {
+      title: connected ? 'Claude connected' : 'Add vibecms in Claude',
+      detail: connected ? 'It can reach your blog.' : 'Paste the connector URL, then sign in when Claude asks.',
+      state: connected ? 'done' : 'current',
+    },
+    {
+      title: 'First draft',
+      detail: connected ? 'Paste the prompt. The draft shows up here.' : 'Ask for your first post.',
+      state: connected ? 'current' : 'upcoming',
+    },
+  ] : [
     {
       title: 'Key created',
       detail: keyReady ? `${keyName ?? 'My agent'} · can write drafts` : 'Making a key for your agent…',
@@ -189,14 +203,16 @@ export function PersonalizePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connect.data, flash])
 
+  const activeClient = client ?? clientFromPreference(connect.data?.personalization.agentPreference)
   const status = useQuery({
-    ...onboardingStatusQuery(flash?.id ?? null),
+    // The Claude app signs in and gets its own grant, the newest key, so watch
+    // the newest key instead of the one made here.
+    ...onboardingStatusQuery(activeClient === 'claude' ? null : flash?.id ?? null),
     refetchInterval: (query) => (query.state.data?.firstPost.state === 'live' ? false : 3000),
     refetchIntervalInBackground: false,
   })
 
   const live = status.data?.firstPost.state === 'live'
-  const activeClient = client ?? clientFromPreference(connect.data?.personalization.agentPreference)
 
   function chooseClient(next: AgentClient) {
     setClient(next)
@@ -214,10 +230,11 @@ export function PersonalizePage() {
   const draft = status.data?.firstPost.state === 'draft'
   const connected = status.data?.connection === 'connected'
   const keyName = flash?.name ?? status.data?.key?.name ?? undefined
+  const blogUrl = status.data?.publicBaseUrl ?? null
   const panel = connect.data ? (
     <div className="grid gap-4">
       <div aria-live="polite">
-        <FirstPostStatus status={status.data} keyName={keyName} hasKey={Boolean(flash)} />
+        <FirstPostStatus status={status.data} keyName={keyName} hasKey={Boolean(flash)} client={activeClient} />
       </div>
       {live ? (
         <>
@@ -247,8 +264,20 @@ export function PersonalizePage() {
           ? 'Your agent can draft here. You choose whether to give it publishing access.'
           : draft
             ? 'Its first draft is waiting for you. Nothing goes live until you say so.'
-            : 'Add vibecms to your agent and ask for a first post. You’ll see it arrive on the right.'
+            : 'Add vibecms to your agent, then ask for a first post. Progress updates live as you go.'
       }
+      meta={blogUrl ? (
+        <a
+          href={blogUrl}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex max-w-full items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground"
+        >
+          <span className="min-w-0 truncate font-mono text-foreground underline decoration-border underline-offset-4">{blogUrl.replace(/^https?:\/\//, '')}</span>
+          <ExternalLink aria-hidden className="size-3.5 shrink-0" />
+          <span className="sr-only">Open your blog in a new tab</span>
+        </a>
+      ) : null}
       aside={panel}
     >
       {!connect.data ? (
@@ -262,7 +291,7 @@ export function PersonalizePage() {
           <Steps>
           <Step n={1} state={connected ? 'done' : 'current'} titleAs="h2" titleId="onboarding-add" title="Add vibecms to your agent">
             {flash ? (
-              <AgentSetup mcpUrl={connect.data.mcpUrl} token={flash.token} client={activeClient} onClientChange={chooseClient} />
+              <AgentSetup mcpUrl={connect.data.mcpUrl} token={flash.token} client={activeClient} onClientChange={chooseClient} includeClaudeApp />
             ) : creating ? (
               <Skeleton className="h-36 rounded-lg" />
             ) : connect.data.canManage ? (
@@ -279,7 +308,7 @@ export function PersonalizePage() {
             ) : (
               <p className="text-sm text-muted-foreground">Ask the blog owner for an agent key.</p>
             )}
-            {flash ? (
+            {flash && activeClient !== 'claude' ? (
               <p className="text-sm leading-6 text-muted-foreground">
                 Your key is inside the command and won’t be shown again. Keep this tab open until you’ve pasted it.
               </p>
@@ -288,7 +317,9 @@ export function PersonalizePage() {
           <Step n={2} state={connected ? 'current' : 'upcoming'} titleAs="h2" titleId="onboarding-try" title="Ask for your first post">
             <CodeBlock label="Paste into your agent" code={FIRST_DRAFT_PROMPT} copyLabel="Copy prompt" />
             <p className="text-sm leading-6 text-muted-foreground">
-              This key can save drafts. You approve and publish, or give an agent publishing access later in Connect.
+              {activeClient === 'claude'
+                ? 'Claude asks what it may do when you sign in. You can change that later in Connect.'
+                : 'This key can save drafts. You approve and publish, or give an agent publishing access later in Connect.'}
             </p>
           </Step>
           </Steps>
