@@ -91,7 +91,6 @@ async function render(props: Partial<Parameters<typeof SubpathLocationSection>[0
   await act(async () => root.render(
     <SubpathLocationSection
       location={null}
-      locked={false}
       customDomainActive={false}
       feedback={feedback}
       refresh={refresh}
@@ -119,15 +118,6 @@ describe('SubpathLocationSection', () => {
   afterEach(() => {
     vi.clearAllMocks()
     document.body.innerHTML = ''
-  })
-
-  it('shows the locked row when the plan does not include it', async () => {
-    const { container, root } = await render({ locked: true })
-    expect(container.textContent).toContain('part of the paid plan')
-    expect(container.textContent).toContain('Upgrade to Cloud')
-    expect(container.querySelector('#location-url')).toBeNull()
-    await act(async () => root.unmount())
-    container.remove()
   })
 
   it('connects a URL through the subpath route', async () => {
@@ -252,32 +242,6 @@ describe('SubpathLocationSection', () => {
     expect(container.textContent).toContain('the old link stops working at once')
     await click(container, 'Disconnect')
     expect(api.removeSubpathLocationMutation).toHaveBeenCalled()
-    expect(feedback).toHaveBeenCalledWith({ ok: 'location_removed' })
-    await act(async () => root.unmount())
-    container.remove()
-  })
-
-  it('keeps the connected location and Disconnect reachable when the plan locks', async () => {
-    api.removeSubpathLocationMutation.mockResolvedValue({ ok: true, location: { type: 'default', url: 'https://agent-journal.vibecms.test', status: 'active' } })
-    const { container, root, feedback } = await render({ location: subpathLocation(), locked: true })
-    const text = container.textContent ?? ''
-    expect(text).toContain('part of the paid plan')
-    expect(text).toContain('Upgrade to Cloud')
-    // The existing location still renders instead of being hidden behind the upsell.
-    expect(text).toContain('customer.example.com/blog')
-    expect(text).toContain('Waiting for the proxy')
-    expect(container.querySelector('#location-url')).toBeNull()
-
-    const button = (label: string) => [...container.querySelectorAll('button')].find((item) => item.textContent?.trim() === label)
-    // Paid operations are locked; removal is authorization-only and stays live.
-    expect(button('Check setup')?.disabled).toBe(true)
-    expect(button('New proxy link')?.disabled).toBe(true)
-    expect(button('Disconnect')?.disabled).toBe(false)
-
-    await click(container, 'Disconnect')
-    expect(api.removeSubpathLocationMutation).toHaveBeenCalled()
-    expect(api.checkSubpathLocationMutation).not.toHaveBeenCalled()
-    expect(api.rotateSubpathLocationMutation).not.toHaveBeenCalled()
     expect(feedback).toHaveBeenCalledWith({ ok: 'location_removed' })
     await act(async () => root.unmount())
     container.remove()

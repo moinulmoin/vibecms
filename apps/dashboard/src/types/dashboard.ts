@@ -128,7 +128,8 @@ export type AgentAnalytics = {
 export type AnalyticsRange = 7 | 30 | 90 | 365 | 'all'
 
 export type AnalyticsPageData =
-  | { status: 'locked'; retentionDays: number }
+  /** Free plan: site totals per day for the last `rangeDays` days. */
+  | { status: 'limited'; rangeDays: number; retentionDays: number; views: number; agentReads: number; series: Array<{ date: string; views: number; aiCrawlerRequests: number }> }
   | { status: 'unavailable'; retentionDays: number; reason: 'self_hosted' | 'not_configured' | 'query_failed' }
   | {
       status: 'available'

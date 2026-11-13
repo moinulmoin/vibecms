@@ -147,14 +147,43 @@ export const LAUNCH_OFFER = {
   applyNote: "Launch pricing applies automatically at checkout.",
 } as const;
 
-/** Hosted free boundary, disclosed on marketing prices/upgrades. */
+/**
+ * Hosted free plan ("Free forever"). Free blogs get the same addresses and are
+ * open to search engines and AI assistants like Cloud blogs. Cloud removes
+ * these caps and the footer link and adds full analytics (free sees 7 days of
+ * totals).
+ */
 export const FREE_TIER = {
-  publishedPosts: 5,
-  drafts: 5,
-  images: 10,
+  publishedPosts: 25,
+  drafts: 10,
+  images: 100,
+  storageBytes: 250 * 1024 * 1024,
+  storageLabel: "250\u00a0MB",
+  customDomains: 1,
   redirects: 20,
-  marketingLine:
-    `5 published posts, 5 drafts at a time, 10 images, no card. Subscribe for unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
+  /** Analytics on free: site totals per day for this many days, no per-post detail or sources. */
+  analyticsDays: 7,
+} as const;
+
+/**
+ * The one plan story every surface tells (landing, dashboard, legal, agent
+ * pitch). Address options are the same on both plans, so they never appear as
+ * a difference.
+ */
+export const PLAN_SUMMARY = {
+  free: `${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, a custom domain, ${FREE_TIER.analyticsDays}-day analytics, and standard support`,
+  cloud: `unlimited posts, ${MEDIA.paidStorageLabel} of media, full analytics, no vibecms branding, priority support, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
+} as const;
+
+/**
+ * What an agent, the API and the dashboard say at a free-plan cap: the limit,
+ * that nothing already online goes away, and that Cloud removes the limit.
+ */
+export const FREE_LIMIT_MESSAGES = {
+  publishedPosts: `Free plan: up to ${FREE_TIER.publishedPosts} published posts. Your published posts stay online and editable. ${PRICING.planName} removes this limit.`,
+  drafts: `Free plan: up to ${FREE_TIER.drafts} drafts at a time; publish, archive or delete one to start another. Your existing posts stay online and editable. ${PRICING.planName} removes this limit.`,
+  media: `Free plan: up to ${FREE_TIER.images} images and ${FREE_TIER.storageLabel} of media. Your existing posts and images stay online and editable. ${PRICING.planName} removes this limit.`,
+  customDomain: "Free plan: one own domain per blog. Your connected domain stays online; remove it first to connect a different one.",
 } as const;
 
 /**
@@ -196,14 +225,6 @@ export const MANAGED_CLAIM_CHECKOUT_TTL_SECONDS = 2 * 60 * 60;
  */
 export const MANAGED_CLAIM_CHECKOUT_GUARD_SECONDS = 48 * 60 * 60;
 
-export const ENTITLEMENTS = [
-  "1 hosted blog",
-  "Unlimited posts",
-  "Scoped MCP access",
-  "Activity & version history",
-  "Reader & AI discovery analytics",
-] as const;
-
 export type FormStatusVariant = "success" | "error";
 
 export interface FormStatus {
@@ -240,7 +261,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   voice_profile_invalid: { variant: "error", title: "Voice Profile not saved", message: "Check the field limits and use no more than 12 prefer/avoid rules." },
   domain_invalid: { variant: "error", title: "Invalid domain", message: "Enter a domain you own, for example blog.example.com." },
   domain_conflict: { variant: "error", title: "Domain in use", message: "That domain is already connected to another blog." },
-  domain_billing: { variant: "error", title: "Subscription required", message: "Custom domains are a paid feature. Subscribe to connect your own domain." },
+  domain_billing: { variant: "error", title: "Domain limit reached", message: FREE_LIMIT_MESSAGES.customDomain },
   domain_provisioning: {
     variant: "error",
     title: "Domain provisioning failed",
@@ -262,9 +283,9 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   upload_type: { variant: "error", title: "Unsupported file type", message: "Upload a JPEG, PNG, WebP, or GIF image." },
   upload_too_large: { variant: "error", title: "Image too large", message: "Images must be 10\u00a0MB or smaller." },
   media_quota_paid: { variant: "error", title: "Storage full", message: `You have reached the ${MEDIA.paidStorageLabel} media limit.` },
-  media_quota_free: { variant: "error", title: "Image limit reached", message: `Free plan: up to 10 images. Subscribe for ${MEDIA.paidStorageLabel} of media.` },
-  draft_limit: { variant: "error", title: "Draft limit reached", message: "Free plan: up to 5 drafts at a time. Publish, archive, or delete a draft, or subscribe for unlimited drafts." },
-  billing_required: { variant: "error", title: "Subscription required", message: "Free plan: up to 5 published posts. Subscribe for unlimited posts." },
+  media_quota_free: { variant: "error", title: "Media limit reached", message: FREE_LIMIT_MESSAGES.media },
+  draft_limit: { variant: "error", title: "Draft limit reached", message: FREE_LIMIT_MESSAGES.drafts },
+  billing_required: { variant: "error", title: "Published post limit reached", message: FREE_LIMIT_MESSAGES.publishedPosts },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },

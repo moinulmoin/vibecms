@@ -871,45 +871,6 @@ describe('PostEditorShell', () => {
     await editor.unmount()
   })
 
-  it('opens approval and publishes while optional upgrade eligibility remains unavailable', async () => {
-    const overview = deferred<never>()
-    api.loadDashboardOverview.mockReturnValue(overview.promise)
-    const savedPage = pageFor('post-nudge', 'Hello', 'Body', 1)
-    const livePage = pageFor('post-nudge', 'Hello', 'Body', 1)
-    livePage.post = { ...livePage.post!, status: 'published', publishedVersionNumber: 1, publishedAt: 2 }
-    let live = false
-    api.loadPostEditorPage.mockImplementation(async () => live ? livePage : savedPage)
-    api.publishPostMutation.mockImplementation(async () => {
-      live = true
-      return { kind: 'ok', code: 'post_published' }
-    })
-    const editor = mountEditor()
-    const user = { id: 'owner-nudge', name: 'Owner', email: 'owner@example.test' }
-    editor.client.setQueryData(contextQuery.queryKey, {
-      googleEnabled: false, githubEnabled: false, user, apps: [],
-      siteSetupComplete: true, siteDisplayName: 'Nudge blog',
-      app: {
-        siteId: 'site-nudge', workspaceId: 'workspace-nudge', user,
-        actor: { type: 'human', id: user.id, name: user.name, role: 'owner' },
-      },
-    })
-    await editor.render('post-nudge')
-    await settle()
-    await act(async () => buttonWithText(editor.container.querySelector('header')!, 'Publish')!.click())
-    await settle()
-    expect(api.loadDashboardOverview).toHaveBeenCalled()
-    const dialog = document.querySelector('[role="dialog"]')
-    expect(dialog).not.toBeNull()
-    await act(async () => buttonWithText(dialog!, 'Publish v1 now')!.click())
-    await settle()
-
-    expect(live).toBe(true)
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
-    expect(buttonWithText(editor.container.querySelector('header')!, 'Publish')).toBeUndefined()
-    expect(window.localStorage.getItem('vc-first-publish-nudge:site-nudge')).toBeNull()
-    await editor.unmount()
-  })
-
   it('keeps an unsaved post at the draft cap out of Publish and links straight to billing', async () => {
     api.loadPostEditorPage.mockResolvedValue(newPostPage())
     api.createPostMutation.mockResolvedValue({ kind: 'error', code: 'draft_limit' })

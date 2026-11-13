@@ -342,7 +342,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         <Stat
           label="Media"
           value={formatBytes(data.media.bytes)}
-          detail={data.billing.access === 'self_hosted' ? `${images} · Unlimited` : freePlan ? `${images} of ${FREE_TIER.images} images on the free plan` : `${images} of ${MEDIA.paidStorageLabel}`}
+          detail={data.billing.access === 'self_hosted' ? `${images} · Unlimited` : freePlan ? `${images} of ${FREE_TIER.images} · ${FREE_TIER.storageLabel} on the free plan` : `${images} of ${MEDIA.paidStorageLabel}`}
           to={canEdit ? '/dashboard/media' : undefined}
           search={emptyDashboardStatusSearch}
         />

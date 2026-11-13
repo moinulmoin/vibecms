@@ -262,13 +262,66 @@ describe('loadAnalyticsForApp agents section', () => {
     expect(unscoped.agents.total).toBe(11)
   })
 
-  it('keeps paid gating and reports self-host as unconfigured without AE credentials', async () => {
+  it('gives a free owner the last 7 days of totals per day, no per-post detail, nothing older', async () => {
+    configureAnalytics()
+    const seed = await seedSite('free-limited', { paid: false })
+    const postId = await seedPost(seed.siteId, 'free-limited-post')
+    const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
+    // A blog that left Cloud still has rolled-up history from 10 days ago.
+    await createDataAccess(env.DB).analytics.replaceDaily(seed.siteId, day(-10), [
+      { kind: 'page', dimension: '', label: null, value: 1000 },
+      { kind: 'post', dimension: postId, label: 'free-limited-post', value: 1000 },
+      { kind: 'agent', dimension: 'GPTBot', label: 'GPTBot', value: 500 },
+    ], { nextSourceDate: day(-9), refreshedThrough: null })
+    // Analytics Engine answers by date window, like the real dataset.
+    const pages = [
+      { date: day(-9), post_id: postId, post_slug: 'free-limited-post', referrer: 'news.example', views: 700 },
+      { date: day(-6), post_id: postId, post_slug: 'free-limited-post', referrer: 'chatgpt.com', views: 4 },
+      { date: day(0), post_id: postId, post_slug: 'free-limited-post', referrer: '', views: 3 },
+    ]
+    const agents = [
+      { date: day(-8), post_id: postId, resource: 'post', agent_id: 'ClaudeBot', category: 'ai-training', representation: 'html', signed: '', fetches: 90 },
+      { date: day(-2), post_id: postId, resource: 'post', agent_id: 'ChatGPT-User', category: 'ai-assistant', representation: 'markdown', signed: '', fetches: 5 },
+    ]
+    const fetcher = (async (_url: unknown, init?: RequestInit) => {
+      const sql = String(init?.body ?? '')
+      const [from, to] = [...sql.matchAll(/toDateTime\('(\d{4}-\d{2}-\d{2}) 00:00:00'\)/g)].map((match) => match[1]!)
+      const rows = sql.includes("'agent_fetch'") ? agents : pages
+      const data = rows.filter((row) => row.date >= from! && row.date <= to!)
+      return new Response(JSON.stringify({ data }), { headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+
+    // Asking for a year still returns the free 7-day window.
+    const result = await loadAnalyticsForApp(appFor(seed), 365, { fetcher }) as Record<string, unknown>
+    expect(result).toEqual({
+      status: 'limited',
+      rangeDays: 7,
+      retentionDays: 7,
+      views: 7,
+      agentReads: 5,
+      series: Array.from({ length: 7 }, (_, index) => {
+        const date = day(index - 6)
+        return {
+          date,
+          views: date === day(-6) ? 4 : date === day(0) ? 3 : 0,
+          aiCrawlerRequests: date === day(-2) ? 5 : 0,
+        }
+      }),
+    })
+    expect(result).not.toHaveProperty('topPosts')
+    expect(result).not.toHaveProperty('referrers')
+    expect(result).not.toHaveProperty('agents')
+    // Per-post detail stays a Cloud feature.
+    expect(await loadAnalyticsForApp(appFor(seed), 7, { postId, fetcher })).toEqual({ status: 'locked', retentionDays: 7 })
+  })
+
+  it('keeps per-post gating and reports self-host as unconfigured without AE credentials', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.ANALYTICS_ACCOUNT_ID = undefined
     mutableEnv.ANALYTICS_DATASET = undefined
     mutableEnv.ANALYTICS_API_TOKEN = undefined
     const free = await seedSite('agents-free', { paid: false })
-    expect(await loadAnalyticsForApp(appFor(free), 7)).toEqual({ status: 'locked', retentionDays: 365 })
+    expect(await loadAnalyticsForApp(appFor(free), 7, { postId: 'agents-free-post' })).toEqual({ status: 'locked', retentionDays: 7 })
 
     // Self-host with no AE config: unavailable/self_hosted, entitlement skipped.
     mutableEnv.SELF_HOSTED = 'true'

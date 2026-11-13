@@ -18,7 +18,7 @@ Create a **Manage** key in **Dashboard > Connect** when you want your agent to c
 | `sites.location.set_subpath` | Serves the blog at a path of the owner's site (`https://customer.com/blog`). Returns the proxy target and ready-to-paste snippets for Cloudflare, Vercel, Next.js, Netlify, nginx, and Caddy. Needs explicit owner approval first; the owner must save a snippet, then call `sites.location.check`. |
 | `sites.location.check` | Probes the path's health address and compares it with this blog. A pass activates the location; a failure returns plain-language errors. |
 | `sites.location.remove` | Removes the subpath location. The blog's address falls back to the custom domain if one is active, otherwise the default host. Needs explicit owner approval first. |
-| `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and agent reads (AI assistants, crawlers, and search engines seen server-side) with Markdown and llms.txt shares. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Pass `postId` to scope per-post numbers to one post. Analytics requires a paid plan. |
+| `analytics.get` | Returns aggregate views, trends, top posts, referrers, AI referrals, and agent reads (AI assistants, crawlers, and search engines seen server-side) with Markdown and llms.txt shares. Ranges are `7`, `30`, `90`, `365`, and `all`; the default is `30`. Pass `postId` to scope per-post numbers to one post. On the free plan it returns the last 7 days of site totals (`status: "limited"`) and refuses `postId`. |
 
 ## Avoid overwriting a newer change
 

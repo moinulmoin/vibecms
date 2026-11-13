@@ -17,6 +17,7 @@ import {
   isPublicBlogPaused,
   loadPublicIndexByHost,
   loadPublicPostByHost,
+  publicHtmlResponseHeaders,
 } from "./public-blog";
 import { parsePublicRuntimeEnv } from "./public-url";
 import { isPublicBlogIndexable, resolveSite } from "./public-blog-data";
@@ -138,6 +139,47 @@ async function seedPost(): Promise<void> {
   await env.DB.prepare("UPDATE posts SET published_version_id = ? WHERE id = ?").bind(versionId, postId).run();
 }
 
+/** A hosted blog with no managed binding: free unless `polarStatus` says otherwise. */
+async function seedHostedSite(
+  suffix: string,
+  options: { polarStatus?: "active" | "canceled"; customHost?: string; posts?: number } = {},
+): Promise<{ siteId: string; workspaceId: string; host: string }> {
+  const workspaceId = `ws-${suffix}`;
+  const siteId = `site-${suffix}`;
+  const host = `${suffix}.example.test`;
+  const statements = [
+    env.DB.prepare("INSERT INTO workspaces (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(workspaceId, suffix, workspaceId, NOW - 100, NOW - 100),
+    env.DB.prepare("INSERT INTO sites (id, workspace_id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(siteId, workspaceId, `Blog ${suffix}`, suffix, NOW - 100, NOW - 100),
+    env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'default', 'active', ?, ?)")
+      .bind(`domain-${suffix}`, siteId, host, NOW - 100, NOW - 100),
+  ];
+  if (options.customHost) {
+    statements.push(env.DB.prepare("INSERT INTO domains (id, site_id, hostname, type, status, created_at, updated_at) VALUES (?, ?, ?, 'custom', 'active', ?, ?)")
+      .bind(`domain-custom-${suffix}`, siteId, options.customHost, NOW - 100, NOW - 100));
+  }
+  if (options.polarStatus) {
+    statements.push(env.DB.prepare("INSERT INTO billing_customers (id, workspace_id, status, current_period_end, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(`billing-${suffix}`, workspaceId, options.polarStatus, NOW + 1000, NOW - 100, NOW - 100));
+  }
+  for (let index = 0; index < (options.posts ?? 1); index += 1) {
+    const postId = `post-${suffix}-${index}`;
+    const versionId = `version-${suffix}-${index}`;
+    statements.push(
+      env.DB.prepare(`INSERT INTO posts (id, site_id, title, slug, content_markdown, status, published_at, published_version_id, created_by_type, created_by_id, updated_by_type, updated_by_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'published', ?, NULL, 'api_key', 'seed', 'api_key', 'seed', ?, ?)`)
+        .bind(postId, siteId, `Post ${index}`, `post-${index}`, `# Post ${index}`, NOW - 50, NOW - 50, NOW - 50),
+      env.DB.prepare(`INSERT INTO post_versions (id, post_id, site_id, version_number, title, slug, content_markdown, status, created_by_type, created_by_id, change_summary, created_at)
+        VALUES (?, ?, ?, 1, ?, ?, ?, 'published', 'api_key', 'seed', 'seed', ?)`)
+        .bind(versionId, postId, siteId, `Post ${index}`, `post-${index}`, `# Post ${index}`, NOW - 50),
+      env.DB.prepare("UPDATE posts SET published_version_id = ? WHERE id = ?").bind(versionId, postId),
+    );
+  }
+  await env.DB.batch(statements);
+  return { siteId, workspaceId, host };
+}
+
 beforeAll(async () => {
   await applyD1Migrations(env.DB, inject("migrations") as D1Migration[]);
   await data.managedSites.firstProvision(provisionInput());
@@ -201,7 +243,7 @@ describe("public effective entitlement resolution", () => {
     expect(isPublicBlogIndexable(defaultSite!, runtimeEnv)).toBe(true);
   });
 
-  it("serves expired sponsorship content on the default host but denies custom domains", async () => {
+  it("serves expired sponsorship content on the default host and its custom domain", async () => {
     const expiration = NOW + 100;
     await setManagedEntitlement("active", expiration);
     const exactExpiry = await data.managedSites.resolveSite(SITE_ID, {
@@ -218,7 +260,10 @@ describe("public effective entitlement resolution", () => {
       resolved_domain_type: "default",
       effective_entitlement: { effective: false, access: "hosted_free", activeSources: [] },
     });
-    expect(customSite).toBeNull();
+    expect(customSite).toMatchObject({
+      resolved_domain_type: "custom",
+      effective_entitlement: { effective: false, access: "hosted_free" },
+    });
   });
 
   it("keeps a revoked custom domain online during the claim grace and lets a Polar subscription restore paid access", async () => {
@@ -255,55 +300,6 @@ describe("public effective entitlement resolution", () => {
         effectiveUntil: NOW + 100,
       },
     });
-  });
-
-  it("keeps free default output readable but disables indexing, sitemap, and feed discovery", async () => {
-    // An expired sponsorship (not a revoke): no claim window, so the blog is
-    // an ordinary unpaid blog again.
-    await setManagedEntitlement("active", Math.floor(Date.now() / 1000) - 1);
-
-    const site = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
-    expect(site).toMatchObject({ effective_entitlement: { effective: false } });
-    const blog = await loadPublicPostByHost(env.DB, requestFor(DEFAULT_HOST, "/hello"), "hello", runtimeEnv);
-    const article = blog && !isPublicBlogPaused(blog) ? blog : null;
-    expect(article).toMatchObject({ indexable: false, site: { effective_entitlement: { effective: false } } });
-
-    const head = buildPostHeadContent({
-      post: article!.post,
-      site: article!.site,
-      canonicalUrl: article!.canonicalUrl,
-      origin: article!.origin,
-      indexable: article!.indexable,
-      generatedCards: true,
-    });
-    expect(head.meta).toContainEqual({ name: "robots", content: "noindex,nofollow" });
-
-    const markdown = await handlePublicPostByHostGet(
-      env.DB,
-      requestFor(DEFAULT_HOST, "/hello?format=md"),
-      "hello",
-      runtimeEnv,
-    );
-    expect(markdown?.status).toBe(200);
-    expect(markdown?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-
-    const sitemap = await handleSitemap(env.DB, requestFor(DEFAULT_HOST, "/sitemap.xml"), runtimeEnv);
-    expect(sitemap.status).toBe(404);
-
-    const robots = await handleRobots(env.DB, requestFor(DEFAULT_HOST, "/robots.txt"), runtimeEnv);
-    const robotsBody = await robots.text();
-    expect(robotsBody).not.toContain("Sitemap:");
-    expect(robotsBody).toContain("Content-Signal: search=yes, ai-input=yes, ai-train=no");
-    expect(robots.headers.get("cache-tag")).toBe(`vc-site:${SITE_ID}`);
-
-    const feed = await handleFeed(env.DB, requestFor(DEFAULT_HOST, "/feed.xml"), runtimeEnv);
-    expect(feed.status).toBe(200);
-    expect(feed.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-
-    const llms = await handleLlmsTxt(env.DB, requestFor(DEFAULT_HOST, "/llms.txt"), runtimeEnv);
-    expect(llms.status).toBe(200);
-    expect(llms.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(await llms.text()).toContain("Entitlement post");
   });
 
   it("preserves marketing-host isolation for product output", async () => {
@@ -371,7 +367,7 @@ describe("public past_due grace", () => {
     vi.restoreAllMocks();
   });
 
-  it("serves the custom domain and indexes the blog until the exact millisecond deadline", async () => {
+  it("serves the custom domain and indexes the blog before and after the exact millisecond deadline", async () => {
     clockAt(DEADLINE - 1);
     const customSite = await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv);
     expect(customSite).toMatchObject({
@@ -392,23 +388,24 @@ describe("public past_due grace", () => {
     const blog = await loadPublicPostByHost(env.DB, requestFor(CUSTOM_HOST, "/hello"), "hello", runtimeEnv);
     expect(blog).toMatchObject({ indexable: true, site: { resolved_domain_type: "custom" } });
 
+    // Past the deadline the free plan applies; nothing goes offline or out of search.
     for (const ms of [DEADLINE, DEADLINE + 1]) {
       clockAt(ms);
-      expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toBeNull();
+      expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toMatchObject({ resolved_domain_type: "custom" });
       const expired = await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv);
       expect(expired).toMatchObject({
         billing_status: "past_due",
         resolved_domain_type: "default",
         effective_entitlement: { effective: false, access: "hosted_free", activeSources: [] },
       });
-      expect(isPublicBlogIndexable(expired!, runtimeEnv)).toBe(false);
-      expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST, "/sitemap.xml"), runtimeEnv)).status).toBe(404);
+      expect(isPublicBlogIndexable(expired!, runtimeEnv)).toBe(true);
+      expect((await handleSitemap(env.DB, requestFor(DEFAULT_HOST, "/sitemap.xml"), runtimeEnv)).status).toBe(200);
       expect(await loadPublicPostByHost(env.DB, requestFor(DEFAULT_HOST, "/hello"), "hello", runtimeEnv))
-        .toMatchObject({ indexable: false });
+        .toMatchObject({ indexable: true });
     }
   });
 
-  it("never lets a cached response outlive the grace deadline", async () => {
+  it("never lets a paid cached response outlive the grace deadline", async () => {
     const cacheControl = async () =>
       (await handleFeed(env.DB, requestFor(DEFAULT_HOST, "/feed.xml"), runtimeEnv)).headers.get("cache-control");
     clockAt(DEADLINE - 1_500);
@@ -416,14 +413,14 @@ describe("public past_due grace", () => {
     // Still paid, but less than one whole second remains.
     clockAt(DEADLINE - 500);
     expect(await cacheControl()).toBe("no-store");
+    // From the deadline the blog is an ordinary free blog with ordinary caching.
     clockAt(DEADLINE);
-    expect(await cacheControl()).toBe("no-store");
+    expect(await cacheControl()).toBe("public, max-age=300, s-maxage=300, stale-while-revalidate=86400");
   });
 
   it("grants no grace when the past_due start is unknown", async () => {
     await setPolar("past_due", NOW + 100, null);
     clockAt(SINCE);
-    expect(await resolveSite(requestFor(CUSTOM_HOST), env.DB, runtimeEnv)).toBeNull();
     expect(await resolveSite(requestFor(DEFAULT_HOST), env.DB, runtimeEnv)).toMatchObject({
       effective_entitlement: { effective: false, polar: { active: false, graceEndsAt: null } },
     });
@@ -438,7 +435,7 @@ describe("public analytics effective entitlement gate", () => {
     (env as unknown as Record<string, unknown>).ANALYTICS = { writeDataPoint };
   });
 
-  it("records managed and Polar-entitled views but not free, expired, or privacy-opted views", async () => {
+  it("records views on every serving plan but not paused or privacy-opted views", async () => {
     const managed = await analyticsPost(analyticsContext(DEFAULT_HOST));
     expect(managed.status).toBe(204);
     expect(writeDataPoint).toHaveBeenCalledTimes(1);
@@ -447,7 +444,10 @@ describe("public analytics effective entitlement gate", () => {
     await setManagedEntitlement("active", Math.floor(Date.now() / 1000) - 1);
     const expired = await analyticsPost(analyticsContext(DEFAULT_HOST));
     expect(expired.status).toBe(204);
-    expect(writeDataPoint).not.toHaveBeenCalled();
+    // Free blogs collect too: they see the last 7 days of totals.
+    expect(writeDataPoint).toHaveBeenCalledTimes(1);
+
+    writeDataPoint.mockReset();
 
     await setManagedEntitlement("revoked", null);
     await setPolar("active", NOW + 100);
@@ -539,5 +539,76 @@ describe("public claim window ingress", () => {
     expect(paused?.status).toBe(503);
     expect(paused?.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     expect(paused?.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+// Runs last: these seed extra sites, and self-hosted resolution expects one.
+describe("free plan offer on the public worker", () => {
+  it("opens a free blog to search engines and AI assistants: post page, robots, and sitemap", async () => {
+    const free = await seedHostedSite("free-indexable");
+    const site = await resolveSite(requestFor(free.host), env.DB, runtimeEnv);
+    expect(site).toMatchObject({ effective_entitlement: { effective: false, access: "hosted_free" } });
+
+    // Post page: no robots meta, no X-Robots-Tag, search allowed in the content signal.
+    const blog = await loadPublicPostByHost(env.DB, requestFor(free.host, "/post-0"), "post-0", runtimeEnv);
+    const article = blog && !isPublicBlogPaused(blog) ? blog : null;
+    expect(article).not.toBeNull();
+    const head = buildPostHeadContent({
+      post: article!.post,
+      site: article!.site,
+      canonicalUrl: article!.canonicalUrl,
+      origin: article!.origin,
+      indexable: article!.indexable,
+      generatedCards: true,
+    });
+    expect(head.meta.filter((entry) => "name" in entry && entry.name === "robots")).toEqual([]);
+    const pageHeaders = publicHtmlResponseHeaders(article!.site, runtimeEnv, article!.cacheTags);
+    expect(pageHeaders["x-robots-tag"]).toBeUndefined();
+    expect(pageHeaders["content-signal"]).toContain("search=yes");
+    expect(pageHeaders["cache-control"]).not.toBe("no-store");
+
+    const markdown = await handlePublicPostByHostGet(env.DB, requestFor(free.host, "/post-0?format=md"), "post-0", runtimeEnv);
+    expect(markdown?.status).toBe(200);
+    expect(markdown?.headers.get("x-robots-tag")).toBeNull();
+
+    // robots.txt allows everything and points at the sitemap.
+    const robots = await handleRobots(env.DB, requestFor(free.host, "/robots.txt"), runtimeEnv);
+    const robotsBody = await robots.text();
+    expect(robotsBody).toContain("Allow: /");
+    expect(robotsBody).not.toContain("Disallow");
+    expect(robotsBody).toContain(`Sitemap: https://${free.host}/sitemap.xml`);
+    expect(robots.headers.get("x-robots-tag")).toBeNull();
+
+    // The sitemap answers and lists the post.
+    const sitemap = await handleSitemap(env.DB, requestFor(free.host, "/sitemap.xml"), runtimeEnv);
+    expect(sitemap.status).toBe(200);
+    expect(sitemap.headers.get("x-robots-tag")).toBeNull();
+    expect(await sitemap.text()).toContain(`<loc>https://${free.host}/post-0</loc>`);
+
+    for (const machine of [
+      await handleFeed(env.DB, requestFor(free.host, "/feed.xml"), runtimeEnv),
+      await handleLlmsTxt(env.DB, requestFor(free.host, "/llms.txt"), runtimeEnv),
+    ]) {
+      expect(machine.status).toBe(200);
+      expect(machine.headers.get("x-robots-tag")).toBeNull();
+    }
+  });
+
+  it("keeps a blog that left Cloud online, indexable, and on its own domain with every post", async () => {
+    const ended = await seedHostedSite("left-cloud", { polarStatus: "canceled", customHost: "own.left-cloud.test", posts: 30 });
+    const custom = await resolveSite(requestFor("own.left-cloud.test"), env.DB, runtimeEnv);
+    expect(custom).toMatchObject({ resolved_domain_type: "custom", effective_entitlement: { effective: false, access: "hosted_free" } });
+    expect(isPublicBlogIndexable(custom!, runtimeEnv)).toBe(true);
+
+    const sitemap = await handleSitemap(env.DB, requestFor("own.left-cloud.test", "/sitemap.xml"), runtimeEnv);
+    expect(sitemap.status).toBe(200);
+    const xml = await sitemap.text();
+    for (let index = 0; index < 30; index += 1) {
+      expect(xml).toContain(`<loc>https://own.left-cloud.test/post-${index}</loc>`);
+    }
+    const last = await handlePublicPostByHostGet(env.DB, requestFor("own.left-cloud.test", "/post-29.md"), "post-29.md", runtimeEnv);
+    expect(last?.status).toBe(200);
+    expect(last?.headers.get("x-robots-tag")).toBeNull();
+    expect(ended.siteId).toBe(custom!.id);
   });
 });

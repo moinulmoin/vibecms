@@ -224,15 +224,4 @@ describe('PublishDialog', () => {
     expect(document.querySelector('[role="alert"] a')).toBeNull()
     await view.cleanup()
   })
-
-  it('links a site-not-indexable finding to the billing tab', async () => {
-    const view = await renderHarness({
-      seoFindings: [{ code: 'site-not-indexable', severity: 'info', field: 'site', message: 'Site is not indexable', fix: 'fix' }],
-    })
-    await view.open()
-    const billing = [...document.querySelectorAll<HTMLAnchorElement>('[data-slot="dialog-content"] a')]
-      .find((a) => JSON.parse(a.dataset.search ?? '{}').tab === 'billing')
-    expect(billing?.getAttribute('href')).toBe('/dashboard/settings')
-    await view.cleanup()
-  })
 })

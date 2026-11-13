@@ -212,11 +212,8 @@ export async function resolveSite(request: Request, db: D1Database, env: PublicR
     });
     if (!effectiveEntitlement) return null;
     // A managed blog past its 7-day claim grace resolves (so every ingress
-    // can render the paused page) but never serves content.
-    if (effectiveEntitlement.servingPaused) return toSiteRow(row, effectiveEntitlement);
-    // Custom domains are a paid location: they serve while entitlement is
-    // effective or inside the claim grace, and stop otherwise.
-    if (row.resolvedDomainType === "custom" && !effectiveEntitlement.servingAllowed) return null;
+    // can render the paused page) but never serves content. Own domains are
+    // on every plan: a free blog, or one that left Cloud, keeps serving there.
     return toSiteRow(row, effectiveEntitlement);
   }
 
@@ -293,9 +290,10 @@ export async function resolvePublishedLinkSlugs(
 }
 
 export function isPublicBlogIndexable(site: SiteRow, _env: PublicRuntimeEnv) {
-  // Serving gate, not paid effectiveness: days 0-7 after a managed revoke
-  // stay indexed as normal; the paused page is never indexable.
-  return site.effective_entitlement.servingAllowed;
+  // Every plan is open to search engines and AI assistants, free included,
+  // and days 0-7 after a managed revoke stay indexed as normal. Only the
+  // paused page is never indexable.
+  return !site.effective_entitlement.servingPaused;
 }
 
 /** True when this site must answer with the paused page on every ingress. */

@@ -167,7 +167,7 @@ describe('Manage key', () => {
     const analytics = await request(tokens.paid, 'GET', '/analytics?range=30')
     expect(analytics.status).toBe(200)
     expect(await analytics.json()).toMatchObject({ status: 'unavailable', reason: 'not_configured' })
-    const free = await request(tokens.manage, 'GET', '/analytics?range=30')
+    const free = await request(tokens.manage, 'GET', '/analytics?range=30&postId=manage-free-post')
     expect(free.status).toBe(402)
     expect((await free.json() as { error: { code: string } }).error.code).toBe('ANALYTICS_PAID_PLAN')
   })
@@ -301,8 +301,8 @@ describe('Manage key', () => {
     expect(row?.afterJson).not.toContain(secret)
   })
 
-  it('returns a clear paid-plan code on free sites and analytics data on entitled sites', async () => {
-    await expect(getAnalyticsOp(ctx, { range: '7' })).rejects.toMatchObject({ code: 'ANALYTICS_PAID_PLAN', status: 402 })
+  it('returns a clear paid-plan code for per-post analytics on free sites and analytics data on entitled sites', async () => {
+    await expect(getAnalyticsOp(ctx, { range: '7', postId: 'manage-free-post' })).rejects.toMatchObject({ code: 'ANALYTICS_PAID_PLAN', status: 402 })
     const paid = await getAnalyticsOp({ ...ctx, siteId: paidSiteId, workspaceId: paidWorkspaceId }, { range: '30' })
     expect(paid).toMatchObject({ status: 'unavailable', reason: 'not_configured' })
   })

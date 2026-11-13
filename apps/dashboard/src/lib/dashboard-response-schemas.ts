@@ -234,8 +234,16 @@ export const dashboardDataSchema = z.object({
 
 const analyticsBaseSchema = z.object({ retentionDays: z.number().int().positive() })
 
+const analyticsSeriesSchema = z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() }))
+
 export const analyticsPageDataSchema = z.discriminatedUnion('status', [
-  analyticsBaseSchema.extend({ status: z.literal('locked') }),
+  analyticsBaseSchema.extend({
+    status: z.literal('limited'),
+    rangeDays: z.number().int().positive(),
+    views: z.number(),
+    agentReads: z.number(),
+    series: analyticsSeriesSchema,
+  }),
   analyticsBaseSchema.extend({
     status: z.literal('unavailable'),
     reason: z.enum(['self_hosted', 'not_configured', 'query_failed']),
@@ -248,7 +256,7 @@ export const analyticsPageDataSchema = z.discriminatedUnion('status', [
     trendPercent: z.number().nullable(),
     seriesGranularity: z.enum(['day', 'month']),
     aiReferralViews: z.number(),
-    series: z.array(z.object({ date: z.string(), views: z.number(), aiCrawlerRequests: z.number() })),
+    series: analyticsSeriesSchema,
     topPosts: z.array(
       z.object({ postId: z.string(), slug: z.string(), title: z.string(), views: z.number() }),
     ),

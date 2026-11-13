@@ -81,7 +81,7 @@ export interface SeoCheckInput {
   /** Tree from `parseSeoMarkdown(markdown)`. */
   readonly tree: SeoMarkdownTree;
   readonly site: {
-    /** False when search/AI indexing is off for this site (hosted free). */
+    /** False when search engines and AI assistants are told to skip this site (a paused blog). */
     readonly indexable: boolean;
     /** Canonical public URL of the blog root, e.g. `https://tenant.dev/blog`; null when unknown. */
     readonly primaryBaseUrl: string | null;
@@ -841,8 +841,8 @@ export function seoChecks(input: SeoCheckInput): SeoFinding[] {
       "site-not-indexable",
       "info",
       "site",
-      "Site is not indexable — search engines are told to skip every post.",
-      "Search indexing is off for this blog. The owner decides in the dashboard whether to turn it on; content changes alone won't make posts rank.",
+      "Site is not indexable — search engines and AI assistants are told to skip every post.",
+      "This blog is paused. The owner can bring it back from the dashboard; content changes alone won't make posts rank.",
     );
   }
 

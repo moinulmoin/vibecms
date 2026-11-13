@@ -1,4 +1,5 @@
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
+import { FREE_TIER } from "@vc/config";
 import { changedPostFields, DraftLimitError, ConflictError, ValidationError, firstParagraph, type Actor, type Post, type PostMutationHistory, type PostRepository, type PostSummary, type PostVersion, type PostVersionSummary } from "@vc/core";
 import { createDbClient } from "../client";
 import { apiKeys, postVersions, posts, user, type PostRow } from "../schema";
@@ -425,7 +426,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             post.presentation ? JSON.stringify(post.presentation) : null,
             actor.type, actor.id, actor.type, actor.id, timestamp, timestamp,
             ...slugBinds(post.siteId, post.id, post.slug),
-            options?.billingActive === false ? 0 : 1, post.siteId, options?.freeLimit ?? 5,
+            options?.billingActive === false ? 0 : 1, post.siteId, options?.freeLimit ?? FREE_TIER.drafts,
           ),
           db.prepare(`INSERT INTO post_versions (
             id, post_id, site_id, version_number, title, slug, excerpt, fallback_excerpt, content_markdown,
@@ -449,7 +450,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
         ]);
         if (!insertResult.meta.changes) {
           const count = await db.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'").bind(post.siteId).first<{ count: number }>();
-          if (options?.billingActive === false && (count?.count ?? 0) >= (options?.freeLimit ?? 5)) throw new DraftLimitError(options.freeLimit);
+          if (options?.billingActive === false && (count?.count ?? 0) >= (options?.freeLimit ?? FREE_TIER.drafts)) throw new DraftLimitError();
           throw new ConflictError("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
         }
       } catch (error) {
@@ -534,7 +535,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
             postId,
             expectedVersionNumber,
             ...lifecycleBinds,
-            ...(patch.status === "draft" && before.status === "archived" ? [options?.billingActive === false ? 0 : 1, siteId, options?.freeLimit ?? 5] : []),
+            ...(patch.status === "draft" && before.status === "archived" ? [options?.billingActive === false ? 0 : 1, siteId, options?.freeLimit ?? FREE_TIER.drafts] : []),
             ...slugBinds(siteId, postId, after.slug),
           ),
           db.prepare(
@@ -581,7 +582,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
       if ((versionResult.meta.changes ?? 0) === 0) {
         if (patch.status === "draft" && before.status === "archived" && options?.billingActive === false) {
           const count = await db.prepare("SELECT count(*) AS count FROM posts WHERE site_id = ? AND status = 'draft'").bind(siteId).first<{ count: number }>();
-          if ((count?.count ?? 0) >= (options?.freeLimit ?? 5)) throw new DraftLimitError(options?.freeLimit ?? 5);
+          if ((count?.count ?? 0) >= (options?.freeLimit ?? FREE_TIER.drafts)) throw new DraftLimitError();
         }
         const available = await db.prepare(`SELECT ${slugAvailable} AS available`)
           .bind(...slugBinds(siteId, postId, after.slug)).first<{ available: number }>();

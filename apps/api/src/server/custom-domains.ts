@@ -131,11 +131,10 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
   const cnameTarget = customHostnameCnameTarget()
   if (!isOwner(app)) return { domains: [], cnameTarget }
   const repo = createD1DomainRepository(env.DB)
-  const [rows, entitlement] = await Promise.all([
-    listCustomDomains(repo, app.siteId),
-    resolveEffectiveEntitlementForWorkspace(app.workspaceId),
-  ])
-  const provisioning = entitlement.effective && customHostnameProvisioningEnabled()
+  const rows = await listCustomDomains(repo, app.siteId)
+  // Own domains are on every plan (free connects one), so provisioning never
+  // depends on paid entitlement: a blog leaving Cloud keeps its domain.
+  const provisioning = customHostnameProvisioningEnabled()
 
   const domains: CustomDomainView[] = []
   for (const row of rows) {

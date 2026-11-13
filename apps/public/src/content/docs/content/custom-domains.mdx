@@ -3,7 +3,7 @@ title: Custom domains
 description: Serve your blog on a domain you own with a CNAME record and managed HTTPS.
 ---
 
-A custom domain serves your blog at an address you control, like `blog.example.com`, instead of `<slug>.vibecms.dev`. On hosted vibecms it requires the paid plan; self-hosted installs always can. Only the owner can add or remove a domain — the **Settings > Domain** tab is hidden from editors.
+A custom domain serves your blog at an address you control, like `blog.example.com`, instead of `<slug>.vibecms.dev`. It works on every plan: a free blog connects one custom domain, and leaving Cloud never disconnects it. Only the owner can add or remove a domain — the **Settings > Domain** tab is hidden from editors.
 
 ## Connect a domain
 
@@ -18,7 +18,7 @@ A custom domain serves your blog at an address you control, like `blog.example.c
 | **Pending** | Waiting for the DNS record. |
 | **Active** | Live, with HTTPS. |
 | **Failed** | Verification failed; the page lists the errors. Fix the record and choose **Check again**. |
-| **Disabled** | Paused because paid access ended; it returns when the plan is active again. |
+| **Disabled** | Turned off. Remove it and add it again, or contact support. |
 
 Verification errors appear under the domain so you can see exactly what failed. **Remove** detaches the domain; if an active subpath location remains it stays the blog's primary address, otherwise the blog goes back to its default `<slug>.<zone>` address.
 

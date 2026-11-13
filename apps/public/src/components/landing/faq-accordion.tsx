@@ -1,4 +1,4 @@
-import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import { LAUNCH_OFFER, PLAN_SUMMARY, PRICING } from "@vc/config";
 import type { ReactNode } from "react";
 import { AUTOSEOPILOT_URL } from "../../lib/landing-links";
 import { AskAi } from "./ask-ai";
@@ -8,7 +8,7 @@ import { H2, SectionShell, TEXT_LINK } from "./primitives";
 const faqs: readonly { question: string; answer: ReactNode }[] = [
   {
     question: "What do I get for free?",
-    answer: `A full blog with ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, no card. Free posts stay out of search engines, and free blogs show a small "Published with vibecms" link at the bottom. Subscribe to remove the link and get unlimited posts, ${MEDIA.paidStorageLabel} media, analytics, your own domain, search indexing, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day.`,
+    answer: `A full blog, free forever: ${PLAN_SUMMARY.free}, no card. It is open to search engines and AI assistants like any Cloud blog, and shows a small "Published with vibecms" link at the bottom. ${PRICING.planName} adds ${PLAN_SUMMARY.cloud}.`,
   },
   {
     question: "What is launch pricing?",
@@ -23,7 +23,7 @@ const faqs: readonly { question: string; answer: ReactNode }[] = [
     question: "Does vibecms do SEO, AEO, or GEO for me?",
     answer: (
       <>
-        {"It covers the technical side of every post: sitemap, structured data, canonical URLs, llms.txt, and a 31-rule SEO & GEO check. Growing how often you show up in Google and AI answers is a bigger, ongoing job. That's "}
+        {"It covers the technical side of every post: sitemap, structured data, canonical URLs, llms.txt, and a 31-rule SEO & GEO check. Growing how often you show up in search engines and AI assistants is a bigger, ongoing job. That's "}
         <a className={TEXT_LINK} href={AUTOSEOPILOT_URL} rel="noopener noreferrer" target="_blank">
           AutoSEOPilot
         </a>

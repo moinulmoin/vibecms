@@ -183,10 +183,8 @@ const handleRequest = defineMiddleware(async (context, next) => {
   // articleResponseForClientAndCache). Cache hits stream straight through.
   if (isArticleHtml && buffered) {
     const split = articleResponseForClientAndCache(response, headers, buffered, location.proxied);
-    // Non-indexable default-domain pages must remain readable but should not
-    // poison the shared article cache with noindex metadata. Entitlement is
-    // resolved on every uncached public read; paid/self-hosted responses are
-    // the only article variants persisted here.
+    // A noindex response (never an ordinary article on any plan) must not
+    // poison the shared article cache.
     if (!headers.has("x-robots-tag")) {
       const waitUntil = context.locals.cfContext?.waitUntil.bind(context.locals.cfContext);
       // Cache key = customer-facing location URL, so proxied and direct views

@@ -1,4 +1,4 @@
-import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from '@vc/config'
+import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PLAN_SUMMARY, PRICING } from '@vc/config'
 import { Check, CreditCard, Minus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { cn, Skeleton } from '@vc/ui'
@@ -18,12 +18,13 @@ export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance 
   { label: 'Drafts', free: `${FREE_TIER.drafts} at a time`, paid: 'Unlimited' },
   { label: 'Versions', free: 'Unlimited', paid: 'Unlimited' },
   { label: 'Agent keys', free: true, paid: true },
-  { label: 'Image uploads', free: `${FREE_TIER.images} images`, paid: MEDIA.paidStorageLabel },
+  { label: 'Media', free: `${FREE_TIER.images} images, ${FREE_TIER.storageLabel}`, paid: MEDIA.paidStorageLabel },
   { label: 'Agent requests', free: `${API_USAGE_LIMITS.free.calls.day.toLocaleString('en-US')}/day, ${API_USAGE_LIMITS.free.calls.month.toLocaleString('en-US')}/month`, paid: `${API_USAGE_LIMITS.paid.calls.day.toLocaleString('en-US')}/day` },
-  { label: 'Found by search engines', free: false, paid: true },
-  { label: 'Your own domain', free: false, paid: true },
-  { label: 'No "Published with vibecms" link', free: false, paid: true },
-  { label: 'Analytics', free: false, paid: true },
+  { label: 'Custom domain or /blog path', free: true, paid: true },
+  { label: 'Search engines and AI assistants', free: true, paid: true },
+  { label: 'Analytics', free: `Last ${FREE_TIER.analyticsDays} days`, paid: 'Full history' },
+  { label: 'Remove branding', free: false, paid: true },
+  { label: 'Support', free: 'Standard', paid: 'Priority' },
 ]
 
 function AllowanceCell({ value }: { value: Allowance }) {
@@ -146,7 +147,7 @@ export function PlanAndBilling() {
                   ? pastDueMessage(pastDueState, sponsored)
                   : billing.status === 'canceled'
                     ? 'Your subscription ended. Posts stay online and nothing was deleted.'
-                    : `Free includes ${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, and ${FREE_TIER.images} images. Subscribe for unlimited posts.`}
+                    : `Free includes ${PLAN_SUMMARY.free}.`}
           </p>
         </div>
         {!data.isOwner ? (

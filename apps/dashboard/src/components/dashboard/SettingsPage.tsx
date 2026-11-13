@@ -9,7 +9,7 @@ import {
   type PresetId,
   type ThemeMode,
 } from '@vc/config'
-import { ArrowDown, ArrowUp, Download, ExternalLink, Globe2, LockKeyhole, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, ExternalLink, Globe2, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
 import type { Asset, BillingStatus } from '@vc/core'
 import type { CustomDomainsPanel, CustomDomainView, NewsletterSettings, SiteLocationView, VoiceProfileSettings } from '~/types/dashboard'
 import { Alert, CopyButton, Field, FieldError, FieldLabel, FieldLegend, FieldSet, Input, Select, Textarea } from '@vc/ui'
@@ -231,7 +231,7 @@ const DOMAIN_STATUS_COPY: Record<CustomDomainView['status'], string> = {
   pending: 'Waiting for the DNS record. This usually takes a few minutes, sometimes up to an hour.',
   active: 'Live, with HTTPS.',
   failed: 'We couldn’t verify this domain. Check the record below, then check again.',
-  disabled: 'Paused. It comes back when your plan is active.',
+  disabled: 'Turned off. Remove it and add it again, or contact support.',
 }
 
 function DnsRecord({ hostname, target }: { hostname: string; target: string }) {
@@ -585,8 +585,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
   const { customDomains, isOwner } = data
   const editable = isOwner && (canEdit ?? isOwner)
   const site = siteBaseline ?? data.site
-  // Free hosted plans see the lock; a missing field (stale payload) stays unlocked.
-  const domainLocked = data.effectiveEntitlement?.effective === false
   const tabs = (['site', 'voice', 'domain', 'billing', 'export'] as const).filter(
     (tab) => isOwner || (tab !== 'domain' && tab !== 'export'),
   )
@@ -1038,7 +1036,6 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
 
             <SubpathLocationSection
               location={data.location}
-              locked={domainLocked}
               customDomainActive={customDomains.domains.some((domain) => domain.status === 'active')}
               feedback={feedback}
               refresh={reload}
@@ -1057,17 +1054,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
                 ) : undefined
               }
             >
-              {domainLocked ? (
-                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
-                  <LockKeyhole aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                  <p className="flex-1 text-sm text-muted-foreground">Custom domains are part of the paid plan.</p>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">
-                      Upgrade to Cloud <ExternalLink aria-hidden data-icon="inline-end" />
-                    </Link>
-                  </Button>
-                </div>
-              ) : customDomains.domains.length === 0 ? (
+              {customDomains.domains.length === 0 ? (
                 <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleAddDomain(event)}>
                   <Field className="min-w-0 flex-1">
                     <FieldLabel htmlFor="domain-hostname">Domain</FieldLabel>

@@ -1,20 +1,21 @@
-import { API_USAGE_LIMITS, BRAND, FREE_TIER, LAUNCH_OFFER, MEDIA, PRICING } from "@vc/config";
+import { API_USAGE_LIMITS, BRAND, LAUNCH_OFFER, MEDIA, PLAN_SUMMARY, PRICING } from "@vc/config";
 import { Check } from "./icons";
 import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell, TEXT_LINK } from "./primitives";
 import { AUTOSEOPILOT_URL, startFreeUrl } from "../../lib/landing-links";
 
 const INCLUDED = [
   "Unlimited posts",
-  "Your own domain",
-  "Indexed by search engines",
+  "Custom domain or /blog on your site",
+  "Open to search engines and AI assistants",
   `${MEDIA.paidStorageLabel} of media on R2`,
   `${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
-  "No vibecms link on your blog",
+  "Remove branding",
+  "Analytics, full history",
+  "Priority support",
   "MCP, REST API, and CLI",
   "Private previews and scheduling",
   "Versions, restore, activity log",
   "A key per agent, with its own access",
-  "Analytics, including AI traffic",
   "Newsletter signups",
   "Four themes, your accent and fonts",
   "JSON export, anytime",
@@ -33,7 +34,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               serious blog.
             </h2>
             <p className={`mt-4 max-w-md ${LEAD}`}>
-              Start free: {FREE_TIER.publishedPosts} published posts, {FREE_TIER.drafts} drafts at a time, {FREE_TIER.images} images, no card.
+              Free forever: {PLAN_SUMMARY.free}. No card.
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
               {LAUNCH_OFFER.monthlyLabel} or {LAUNCH_OFFER.annualLabel} at launch pricing.

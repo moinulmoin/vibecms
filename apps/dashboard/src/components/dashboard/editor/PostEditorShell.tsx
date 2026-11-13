@@ -36,7 +36,6 @@ import { readFocusKeyword, usePostSeoCheck } from './SeoSection'
 import { parseTags } from './post-fields'
 import { PreviewPane } from './PreviewPane'
 import { PublishDialog } from './PublishDialog'
-import { FirstPublishNudge, useFirstPublishNudge, type FirstPublishTicket } from './FirstPublishNudge'
 import { scheduledLabel } from './schedule-label'
 import { ReviewView } from './ReviewView'
 import { uploadEditorMedia } from './media-upload'
@@ -248,8 +247,6 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishVersion, setPublishVersion] = useState<number | null>(null)
   const publishTriggerRef = useRef<HTMLElement | null>(null)
-  const firstPublishTicketRef = useRef<FirstPublishTicket>(null)
-  const firstPublishNudge = useFirstPublishNudge()
   const [publishPending, setPublishPending] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [archivePending, setArchivePending] = useState(false)
@@ -560,14 +557,12 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
     publishTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setPublishError(null)
     setPublishErrorCode(null)
-    firstPublishTicketRef.current = null
     setActionError(null)
     const saved = await saveNow()
     if (!saved || versionRef.current == null || !activePostIdRef.current) {
       if (saved) setActionError('Save the post before publishing.')
       return
     }
-    firstPublishTicketRef.current = firstPublishNudge.prepare()
     if (!mountedRef.current) return
     setPublishVersion(versionRef.current)
     setPublishOpen(true)
@@ -605,7 +600,6 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
       setPublishOpen(false)
       setView((current) => (current === 'review' ? 'edit' : current))
       setActionSuccess(`v${approvedVersion} is live.`)
-      firstPublishNudge.confirm(firstPublishTicketRef.current)
     } catch (error) {
       if (error instanceof EditorVersionConflict) {
         setPublishOpen(false)
@@ -1240,7 +1234,6 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
           {actionSuccess.endsWith('is live.') && liveUrl ? <a className="text-primary underline-offset-4 hover:underline" href={liveUrl} target="_blank" rel="noreferrer">View post</a> : null}
         </p>
       ) : null}
-      <FirstPublishNudge nudge={firstPublishNudge} />
 
       <div className={showRail && isDesktop ? 'grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_19rem]' : 'grid'}>
         {!isDesktop && mobileSettings ? null : <div className="min-w-0">{main}</div>}

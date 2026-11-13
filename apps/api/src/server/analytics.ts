@@ -7,6 +7,7 @@ import {
   AI_AGENTS,
   type AgentCategory,
 } from '@vc/config/agents'
+import { FREE_TIER } from '@vc/config'
 import { ValidationError } from '@vc/core'
 import { isSelfHosted } from '@/server/billing'
 import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
@@ -30,7 +31,17 @@ export type AgentAnalytics = {
 }
 
 export type AnalyticsPageData =
+  /** Per-post analytics asked for on the free plan. */
   | { status: 'locked'; retentionDays: number }
+  /** Free plan: site totals per day for the last `FREE_TIER.analyticsDays` days. */
+  | {
+      status: 'limited'
+      rangeDays: typeof FREE_TIER.analyticsDays
+      retentionDays: number
+      views: number
+      agentReads: number
+      series: Array<{ date: string; views: number; aiCrawlerRequests: number }>
+    }
   | { status: 'unavailable'; retentionDays: number; reason: 'self_hosted' | 'not_configured' | 'query_failed' }
   | {
       status: 'available'
@@ -247,7 +258,7 @@ function monthSeriesKey(periodStart: string) {
 
 export async function loadAnalyticsForApp(
   app: AppUserContext,
-  rangeDays: AnalyticsRange,
+  requestedRange: AnalyticsRange,
   options: { fetcher?: Fetcher; postId?: string } = {},
 ): Promise<AnalyticsPageData> {
   const fetcher = options.fetcher ?? fetch
@@ -255,12 +266,16 @@ export async function loadAnalyticsForApp(
   // postId reaches Analytics Engine SQL, which has no bind parameters.
   if (postId !== undefined && !isAnalyticsPostId(postId)) throw new ValidationError('postId is not a valid post id.')
   const selfHosted = isSelfHosted()
+  // Free: the last few days of site totals only, whatever range was asked for.
+  let limited = false
   if (!selfHosted) {
     const entitlement = await resolveEffectiveEntitlementForWorkspace(app.workspaceId)
     if (!entitlement.effective) {
-      return { status: 'locked', retentionDays: ANALYTICS_RETENTION_DAYS }
+      if (postId !== undefined) return { status: 'locked', retentionDays: FREE_TIER.analyticsDays }
+      limited = true
     }
   }
+  const rangeDays: AnalyticsRange = limited ? FREE_TIER.analyticsDays : requestedRange
 
   const accountId = env.ANALYTICS_ACCOUNT_ID?.trim()
   const dataset = sqlIdentifier(env.ANALYTICS_DATASET?.trim() ?? '')
@@ -328,7 +343,7 @@ export async function loadAnalyticsForApp(
     const records = [...storedRows, ...sourceRecords(sourceRows), ...agentSourceRecords(agentRows)]
 
     let previousViews: number | null = null
-    if (rangeDays !== 'all' && rangeDays <= 90) {
+    if (!limited && rangeDays !== 'all' && rangeDays <= 90) {
       const previousEnd = shiftDate(currentStart!, -1)
       const previousStart = shiftDate(previousEnd, -(rangeDays - 1))
       const previousStored = await data.analytics.listDaily(app.siteId, previousStart, previousEnd < storedTo ? previousEnd : storedTo)
@@ -438,6 +453,22 @@ export async function loadAnalyticsForApp(
           category: crawler ? AGENT_CATEGORY_LABELS[crawler.category] : 'AI crawler',
           requests: row.value,
         })
+      }
+    }
+
+    if (limited) {
+      const series = dateRange(FREE_TIER.analyticsDays).map((date) => ({
+        date,
+        views: pageSeries.get(date) ?? 0,
+        aiCrawlerRequests: crawlerSeries.get(date) ?? 0,
+      }))
+      return {
+        status: 'limited',
+        rangeDays: FREE_TIER.analyticsDays,
+        retentionDays: FREE_TIER.analyticsDays,
+        views,
+        agentReads: series.reduce((sum, point) => sum + point.aiCrawlerRequests, 0),
+        series,
       }
     }
 

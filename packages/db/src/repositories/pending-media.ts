@@ -23,9 +23,12 @@ export type ReserveUploadInput = {
   sizeBytes: number;
   /** When true (self-host), skip quota reservation and only insert the op. */
   skipQuota: boolean;
-  /** Paid storage byte limit; ignored when skipQuota is true. */
+  /** Byte limit (`bytes`, the default) or image count (`images`); ignored when skipQuota is true. */
   limit: number;
+  /** `images` is the free plan: an image count plus `byteLimit`, whichever is reached first. */
   quotaType?: "bytes" | "images";
+  /** Storage cap that also applies under the `images` quota. */
+  byteLimit?: number;
   now?: number;
 };
 
@@ -141,21 +144,24 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
         return;
       }
 
+      const images = input.quotaType === "images";
+      const byteLimit = images ? input.byteLimit ?? null : input.limit;
       const [insertResult] = await db.batch([
         db
           .prepare(
             `INSERT INTO pending_media_operations
               (id, kind, site_id, storage_key, size_bytes, created_at, updated_at, claimed_at, attempts, last_error)
              SELECT ?, 'upload_cleanup', ?, ?, ?, ?, ?, NULL, 0, NULL
-             WHERE ${input.quotaType === "images" ? `(
+             WHERE ${images ? `(
                SELECT count(*) FROM assets WHERE site_id = ?
              ) + (
                SELECT count(*) FROM pending_media_operations WHERE site_id = ? AND kind = 'upload_cleanup'
-             ) + ? <= ?` : `(
+             ) + 1 <= ?` : "1 = 1"}
+             AND (? IS NULL OR (
                SELECT COALESCE(SUM(size_bytes), 0) FROM assets WHERE site_id = ?
              ) + (
                SELECT media_pending_bytes FROM sites WHERE id = ?
-             ) + ? <= ?`}`,
+             ) + ? <= ?)`,
           )
           .bind(
             input.opId,
@@ -164,10 +170,12 @@ export function createPendingMediaRepository(db: D1Database): PendingMediaReposi
             input.sizeBytes,
             now,
             now,
+            ...(images ? [input.siteId, input.siteId, input.limit] : []),
+            byteLimit,
             input.siteId,
             input.siteId,
-            input.quotaType === "images" ? 1 : input.sizeBytes,
-            input.limit,
+            input.sizeBytes,
+            byteLimit,
           ),
         db
           .prepare(

@@ -343,7 +343,10 @@ export function MediaPage() {
 
   const freePlan = data?.mediaGate?.effective === false && !data.mediaGate.selfHosted
   const usedBytes = assets.reduce((total, asset) => total + asset.sizeBytes, 0)
-  const usagePercent = MEDIA.paidStorageBytes > 0 ? Math.min(100, Math.round((usedBytes / MEDIA.paidStorageBytes) * 100)) : 0
+  // Free has two caps (image count and storage); the closer one decides.
+  const usagePercent = Math.min(100, Math.round(100 * (freePlan
+    ? Math.max(assets.length / FREE_TIER.images, usedBytes / FREE_TIER.storageBytes)
+    : usedBytes / MEDIA.paidStorageBytes)))
   const nearLimit = usagePercent > 80
   const trimmed = searchQuery.trim().toLowerCase()
   const filteredAssets = assets.filter(
@@ -434,8 +437,10 @@ export function MediaPage() {
             )}
           </p>
           <p className={cn('tabular-nums', nearLimit ? 'text-warning' : 'text-muted-foreground')}>
-            {freePlan ? `${assets.length} of ${FREE_TIER.images} images on the free plan` : `${formatBytes(usedBytes)} of ${MEDIA.paidStorageLabel} used`}
-            {!freePlan && nearLimit ? ' · almost full' : ''}
+            {freePlan
+              ? `${assets.length} of ${FREE_TIER.images} images · ${formatBytes(usedBytes)} of ${FREE_TIER.storageLabel} on the free plan`
+              : `${formatBytes(usedBytes)} of ${MEDIA.paidStorageLabel} used`}
+            {nearLimit ? ' · almost full' : ''}
           </p>
           <input
             ref={fileInputRef}

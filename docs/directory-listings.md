@@ -267,7 +267,7 @@ One listing covers ChatGPT and Codex. Docs:
   that draft and adds one; before a re-review, sign in as the reviewer and
   move the blog back: restore "Welcome to the test blog" to version 1, archive
   and unarchive "Draft: Release checklist" (back to draft), archive the added
-  post and delete it in the dashboard (free plan: 5 published posts, 5 drafts).
+  post and delete it in the dashboard (free plan: 25 published posts, 10 drafts).
 - **Status (2026-11-01):** org verified; draft 0.4.1 uploaded, domain
   verified, tools scanned. Video: <https://cap.so/s/2dhstbmedh08h9r> (also
   `review.demo_recording_url` in `plugin.json`). Left for the founder:

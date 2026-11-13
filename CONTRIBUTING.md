@@ -49,7 +49,7 @@ It prints the token once plus ready-to-paste REST, CLI, and MCP config. The hash
 The hosted product is intentionally simple:
 
 - one hosted blog per subscription
-- free: 5 published posts, 5 drafts at a time, 10 images — no card
+- free: 25 published posts, 10 drafts at a time, 100 images / 250 MB — no card
 - paid: unlimited posts, 10 GB media
 - image uploads only: JPEG, PNG, WebP, GIF
 - no native video hosting
