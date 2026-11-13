@@ -95,9 +95,9 @@ describe('PlanAndBilling', () => {
       hosted({ status: 'past_due', currentPeriodEnd: PERIOD_END, polarCustomerId: 'cus_1', pastDueSince: graceEndsAt - 7 * DAY_MS, graceEndsAt }),
     )
 
-    expect(container.textContent).toContain('Paid plan')
+    expect(container.textContent).toContain('vibecms Cloud')
     expect(container.textContent).toContain('Paid features stay on until October 22, 2026.')
-    expect(boldColumn(container)).toMatch(/^Paid/)
+    expect(boldColumn(container)).toMatch(/^Cloud/)
     expect(findButton('Upgrade')).toBeUndefined()
     expect(findButton('Yearly')).toBeUndefined()
     expect(findButton('Invoices and payment details')).toBeUndefined()
@@ -128,12 +128,12 @@ describe('PlanAndBilling', () => {
     const { container } = await render(hosted({ status: 'past_due', pastDueSince: graceEndsAt - 7 * DAY_MS, graceEndsAt }))
 
     expect(container.textContent).toContain('Paid features stay on until October 22, 2026.')
-    expect(boldColumn(container)).toMatch(/^Paid/)
+    expect(boldColumn(container)).toMatch(/^Cloud/)
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(999)
     })
-    expect(boldColumn(container)).toMatch(/^Paid/)
+    expect(boldColumn(container)).toMatch(/^Cloud/)
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1)
@@ -149,7 +149,7 @@ describe('PlanAndBilling', () => {
     )
 
     expect(container.textContent).not.toContain('Your last payment failed')
-    expect(boldColumn(container)).toMatch(/^Paid/)
+    expect(boldColumn(container)).toMatch(/^Cloud/)
     expect(findButton('Update payment')).toBeUndefined()
     requireButton('Manage subscription')
   })
@@ -200,9 +200,9 @@ describe('PlanAndBilling', () => {
       hosted({ status: 'past_due' }, { managed: { status: 'active', expiresAt: null, effective: true } }),
     )
 
-    expect(container.textContent).toContain('Paid plan')
+    expect(container.textContent).toContain('vibecms Cloud')
     expect(container.textContent).not.toContain('Paid features are paused.')
-    expect(boldColumn(container)).toMatch(/^Paid/)
+    expect(boldColumn(container)).toMatch(/^Cloud/)
     requireButton('Update payment')
     expect(findButton('Upgrade')).toBeUndefined()
     expect(findButton('Yearly')).toBeUndefined()

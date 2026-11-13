@@ -36,17 +36,17 @@ function AllowanceCell({ value }: { value: Allowance }) {
 
 function PlanTable({ paidActive }: { paidActive: boolean }) {
   return (
-    <table className="w-full max-w-2xl text-left text-[0.9375rem]">
+    <table className="w-full max-w-3xl text-left text-[0.9375rem]">
       <thead>
         <tr className="border-b border-[color:var(--hairline)] text-sm text-muted-foreground">
           <th scope="col" className="py-2.5 font-normal">
             <span className="sr-only">Feature</span>
           </th>
-          <th scope="col" className={cn('w-28 py-2.5 font-normal', !paidActive && 'font-medium text-foreground')}>
+          <th scope="col" className={cn('w-24 py-2.5 font-normal sm:w-28', !paidActive && 'font-medium text-foreground')}>
             Free
           </th>
-          <th scope="col" className={cn('w-36 py-2.5 font-normal', paidActive && 'font-medium text-foreground')}>
-            Paid · {LAUNCH_OFFER.monthlyLabel}
+          <th scope="col" className={cn('w-28 py-2.5 font-normal sm:w-36', paidActive && 'font-medium text-foreground')}>
+            Cloud · {LAUNCH_OFFER.monthlyLabel}
           </th>
         </tr>
       </thead>
@@ -118,63 +118,88 @@ export function PlanAndBilling() {
   const paidActive = active || sponsored || pastDueState?.kind === 'grace'
   const periodEnd = active && billing.currentPeriodEnd ? formatBillingDate(billing.currentPeriodEnd * 1000) : null
   const ending = active && billing.cancelAtPeriodEnd === true
+  // The owner of a blog without a running subscription: the card offers Cloud next to what they have.
+  const offer = data.isOwner && !pastDue && !active && !managed?.effective
 
   return (
     <div className="grid gap-8">
-      <div className="flex max-w-2xl flex-wrap items-start justify-between gap-4 rounded-xl border border-border p-5">
-        <div className="min-w-0 space-y-1">
-          <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
-            {managed ? 'Sponsored plan' : active || pastDue ? 'Paid plan' : 'Free plan'}
-            {billing.status !== 'none' && !managed ? <StatusBadge status={billing.status} /> : null}
-            {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'Active' : 'Ended'} /> : null}
-          </p>
-          <p className={cn('text-[0.9375rem] leading-7', ending || pastDue ? 'text-foreground' : 'text-muted-foreground')}>
-            {managed
-              ? managed.effective
-                ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
-                : claim
-                  ? claimMessage(claim, claimState ?? 'grace')
-                  : (serving && servingNow && servingMessage(serving, servingNow)) ||
-                    'Your subscription ended. Posts stay online and nothing was deleted.'
-              : active
-                ? ending
-                  ? periodEnd
-                    ? `Ends ${periodEnd}. Everything stays unlocked until then.`
-                    : 'Your subscription is set to end. Everything stays unlocked until then.'
-                  : periodEnd
-                    ? `Renews ${periodEnd}.`
-                    : 'Everything is unlocked.'
-                : pastDueState
-                  ? pastDueMessage(pastDueState, sponsored)
-                  : billing.status === 'canceled'
-                    ? 'Your subscription ended. Posts stay online and nothing was deleted.'
-                    : `Free includes ${PLAN_SUMMARY.free}.`}
-          </p>
-          {pastDue ? <MessageFounderLink /> : null}
-        </div>
-        {!data.isOwner ? (
-          <p className="text-sm text-muted-foreground">{pastDue ? OWNER_PAYMENT_NOTE : 'Only the owner can change the plan.'}</p>
-        ) : pastDue ? (
-          <PendingSubmitButton type="button" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
-            <CreditCard aria-hidden data-icon="inline-start" /> Update payment
-          </PendingSubmitButton>
-        ) : active ? (
-          <PendingSubmitButton type="button" variant="outline" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
-            <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
-          </PendingSubmitButton>
-        ) : managed?.effective ? null : (
-          <div className="flex flex-wrap gap-2">
-            <PendingSubmitButton type="button" pending={pending === 'monthly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('monthly')}>
-              Upgrade · {LAUNCH_OFFER.monthlyLabel} ({LAUNCH_OFFER.monthlyPercentOff}% off)
-            </PendingSubmitButton>
-            <PendingSubmitButton type="button" variant="outline" pending={pending === 'yearly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('yearly')}>
-              Yearly · {LAUNCH_OFFER.annualLabel} ({LAUNCH_OFFER.annualPercentOff}% off)
-            </PendingSubmitButton>
-            <p className="basis-full text-xs text-muted-foreground">
-              Launch price (normally {PRICING.monthlyLabel}). {LAUNCH_OFFER.lockNote}
+      <div className={cn('grid max-w-3xl overflow-hidden rounded-xl border border-border', offer && 'md:grid-cols-2')}>
+        <div className="flex flex-wrap items-start justify-between gap-4 p-5">
+          <div className="min-w-0 space-y-1">
+            <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-foreground">
+              {managed ? 'Sponsored plan' : active || pastDue ? PRICING.planName : 'Free plan'}
+              {billing.status !== 'none' && !managed ? <StatusBadge status={billing.status} /> : null}
+              {managed ? <StatusBadge status={managed.effective ? 'active' : managed.status === 'revoked' ? 'canceled' : 'unknown'} label={managed.effective ? 'Active' : 'Ended'} /> : null}
             </p>
+            <p className={cn('text-[0.9375rem] leading-7', ending || pastDue ? 'text-foreground' : 'text-muted-foreground')}>
+              {managed
+                ? managed.effective
+                  ? 'AutoSEOPilot covers this blog. Everything is unlocked.'
+                  : claim
+                    ? claimMessage(claim, claimState ?? 'grace')
+                    : (serving && servingNow && servingMessage(serving, servingNow)) ||
+                      'Your subscription ended. Posts stay online and nothing was deleted.'
+                : active
+                  ? ending
+                    ? periodEnd
+                      ? `Ends ${periodEnd}. Everything stays unlocked until then.`
+                      : 'Your subscription is set to end. Everything stays unlocked until then.'
+                    : periodEnd
+                      ? `Renews ${periodEnd}.`
+                      : 'Everything is unlocked.'
+                  : pastDueState
+                    ? pastDueMessage(pastDueState, sponsored)
+                    : billing.status === 'canceled'
+                      ? 'Your subscription ended. Posts stay online and nothing was deleted.'
+                      : `Free includes ${PLAN_SUMMARY.free}.`}
+            </p>
+            {pastDue ? <MessageFounderLink /> : null}
           </div>
-        )}
+          {!data.isOwner ? (
+            <p className="text-sm text-muted-foreground">{pastDue ? OWNER_PAYMENT_NOTE : 'Only the owner can change the plan.'}</p>
+          ) : pastDue ? (
+            <PendingSubmitButton type="button" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
+              <CreditCard aria-hidden data-icon="inline-start" /> Update payment
+            </PendingSubmitButton>
+          ) : active ? (
+            <PendingSubmitButton type="button" variant="outline" pending={pending === 'portal'} pendingText="Opening…" onClick={() => void redirectTo('portal')}>
+              <CreditCard aria-hidden data-icon="inline-start" /> Manage subscription
+            </PendingSubmitButton>
+          ) : null}
+        </div>
+
+        {offer ? (
+          // What Cloud adds and what it costs today, with one button. The
+          // standard price stays visible as the anchor; yearly is the quiet option.
+          <div className="grid content-start gap-3 border-t border-border bg-card p-5 md:border-l md:border-t-0">
+            <h3 className="text-lg font-semibold text-foreground">{PRICING.planName}</h3>
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums text-foreground">${LAUNCH_OFFER.monthlyUsd}</span>
+              <span className="text-muted-foreground">/month</span>
+              <s className="text-sm tabular-nums text-muted-foreground">
+                <span className="sr-only">normally </span>
+                ${PRICING.monthlyUsd}
+              </s>
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {LAUNCH_OFFER.slotsLabel}, {LAUNCH_OFFER.monthlyPercentOff}% off. {LAUNCH_OFFER.lockNote}
+            </p>
+            <p className="text-[0.9375rem] leading-6 text-foreground">Adds {PLAN_SUMMARY.cloud}.</p>
+            <div className="mt-1 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+              <PendingSubmitButton type="button" pending={pending === 'monthly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('monthly')}>
+                Upgrade to Cloud
+              </PendingSubmitButton>
+              <button
+                type="button"
+                disabled={pending !== null}
+                onClick={() => void redirectTo('yearly')}
+                className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+              >
+                {pending === 'yearly' ? 'Opening checkout…' : `Or pay yearly: ${LAUNCH_OFFER.annualLabel} (${LAUNCH_OFFER.annualPercentOff}% off)`}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <PlanTable paidActive={paidActive} />

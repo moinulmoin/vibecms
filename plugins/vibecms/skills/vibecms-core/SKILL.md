@@ -48,11 +48,11 @@ Draft updates do not require publication approval, but they still invalidate any
 - `CONFLICT` while publishing, updating, or restoring means the expected tip version is stale or another write won a race. Do not retry blindly. Read the post, preview the current content, get the newest version, and request fresh approval when publishing.
 - `CONFLICT` on create/update can also mean a slug collision. Inspect existing posts before choosing whether to update the existing post or propose a different slug.
 - `VALIDATION_ERROR`: correct the rejected input; do not weaken or bypass validation.
-- `FORBIDDEN`: the token lacks the required scope. Explain the missing capability; do not request a broader token unless the user chooses to create one.
+- `FORBIDDEN`: the token lacks the required scope, or an operator suspended the blog (the message says which). Nothing changed and a retry cannot succeed: tell the owner. Do not request a broader token unless the user chooses to create one.
 - `UNAUTHORIZED` (HTTP `401`, JSON-RPC `-32001`): stop and give the owner the dashboard key-creation link in the error message. Missing, malformed, unknown, revoked, and deleted keys deliberately share one message; do not infer whether a key existed.
 - `NOT_FOUND`: re-list or re-fetch identifiers before retrying.
-- `RATE_LIMIT`: wait until reset, then retry only the still-requested action. Paid plans also have per-minute and per-day limits.
-- `BILLING_REQUIRED`: leave the draft intact, explain the plan or draft-limit blocker, and, if the owner asks about plans, give them the returned `details.plansUrl` (also in the message). Never subscribe or change billing on the owner's behalf.
+- `RATE_LIMIT`: wait until reset, then retry only the still-requested action. When the reset is hours away, tell the owner instead of waiting. Paid plans also have per-minute and per-day limits.
+- `BILLING_REQUIRED` (and `media_quota_free` / `media_quota_paid` on uploads): nothing was saved and a retry cannot succeed. Leave the draft intact, explain the plan or draft-limit blocker, and, if the owner asks about plans, give them the returned `details.plansUrl` (also in the message). Never subscribe or change billing on the owner's behalf.
 
 ## Scope reference
 

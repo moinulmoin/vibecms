@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { GetCloudButton } from '~/components/dashboard/PlanActions'
+import { GetCloudButton, PlanLimitNotice } from '~/components/dashboard/PlanActions'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
@@ -41,7 +41,7 @@ function assetUrl(asset: Pick<Asset, 'id'>) {
   return `/media-assets/${asset.id}`
 }
 
-type UploadEntry = { key: string; name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error' }
+type UploadEntry = { key: string; name: string; progress: number; status: 'pending' | 'uploading' | 'done' | 'error'; overLimit?: boolean }
 
 function uploadFileWithProgress(file: File, onProgress: (progress: number) => void): Promise<ParsedMutationResult> {
   return new Promise<ParsedMutationResult>((resolve, reject) => {
@@ -228,7 +228,8 @@ export function MediaPage() {
         const result = await uploadFileWithProgress(file, (progress) => patch(key, { progress }))
         if (result.kind === 'ok') patch(key, { status: 'done', progress: 1 })
         else {
-          patch(key, { status: 'error' })
+          // A free-plan cap is not a broken upload; the notice above explains it.
+          patch(key, { status: 'error', overLimit: result.code === 'media_quota_free' })
           failures += 1
           errorCode = result.code
         }
@@ -460,13 +461,7 @@ export function MediaPage() {
       </div>
 
       {limitRefused ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <span className="min-w-0">{FREE_LIMIT_MESSAGES.media}</span>
-          <span className="flex shrink-0 items-center gap-2">
-            <GetCloudButton />
-            <Button type="button" variant="ghost" size="sm" onClick={() => setLimitRefused(false)}>Dismiss</Button>
-          </span>
-        </div>
+        <PlanLimitNotice code="media_quota_free" message={FREE_LIMIT_MESSAGES.media} action={<GetCloudButton />} onDismiss={() => setLimitRefused(false)} />
       ) : null}
 
       {uploadQueue.length ? (
@@ -477,11 +472,11 @@ export function MediaPage() {
               <span
                 className={cn(
                   'tabular-nums',
-                  entry.status === 'error' ? 'text-destructive' : entry.status === 'done' ? 'text-primary' : 'text-muted-foreground',
+                  entry.status === 'error' && !entry.overLimit ? 'text-destructive' : entry.status === 'done' ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
                 {entry.status === 'error'
-                  ? 'Failed'
+                  ? entry.overLimit ? 'Not uploaded' : 'Failed'
                   : entry.status === 'done'
                     ? 'Uploaded'
                     : entry.status === 'pending'

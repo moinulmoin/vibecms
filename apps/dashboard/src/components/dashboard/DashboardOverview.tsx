@@ -328,7 +328,7 @@ export function DashboardOverview({ canEdit }: { canEdit: boolean }) {
         <Stat
           label="Published"
           value={data.counts.published}
-          detail={data.counts.archived ? `${data.counts.archived} archived` : 'Live on your blog'}
+          detail={freePlan ? `of ${FREE_TIER.publishedPosts} on the free plan${data.counts.archived ? ` · ${data.counts.archived} archived` : ''}` : data.counts.archived ? `${data.counts.archived} archived` : 'Live on your blog'}
           to="/dashboard/posts"
           search={postsListSearch({ status: 'published' })}
         />

@@ -41,8 +41,9 @@ describe('PersonalizePage', () => {
 
   it('creates the onboarding key with draft access', async () => {
     mocks.loadConnectPage.mockResolvedValue({
+      // A person who chose Claude Code: with no saved choice the Claude app tab opens (lead, 13 Nov).
       canManage: true, apiKeys: [], mcpUrl: 'https://example.test/mcp',
-      effectiveEntitlement: { effective: false }, personalization: { agentPreference: null },
+      effectiveEntitlement: { effective: false }, personalization: { agentPreference: 'claude_code' },
     })
     mocks.loadOnboardingStatus.mockResolvedValue({ connection: 'waiting', firstPost: { state: 'none' } })
     mocks.createApiKeyMutation.mockResolvedValue({ kind: 'ok', token: 'vc_test', id: 'key-1', name: 'My agent' })

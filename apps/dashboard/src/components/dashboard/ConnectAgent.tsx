@@ -20,7 +20,8 @@ export function isAgentClient(value: unknown): value is AgentClient {
 }
 
 export function clientFromPreference(preference: AgentPreference | null | undefined): AgentClient {
-  return preference && isAgentClient(preference) ? preference : preference === 'droid' ? 'other' : 'claude_code'
+  // No saved choice: the one-URL Claude connector, first in the row (lead, 13 Nov).
+  return preference && isAgentClient(preference) ? preference : preference === 'droid' ? 'other' : 'claude'
 }
 
 export const TOKEN_PLACEHOLDER = 'YOUR_KEY'

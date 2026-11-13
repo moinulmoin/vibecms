@@ -25,5 +25,5 @@ export function can(actor: Actor, scope: Scope): boolean {
 }
 
 export function requireScope(actor: Actor, scope: Scope): void {
-  if (!can(actor, scope)) throw new ForbiddenError(`Missing required scope: ${scope}. This key cannot perform the action. Explain the missing capability to the owner; do not retry or widen access automatically.`);
+  if (!can(actor, scope)) throw new ForbiddenError(`Missing required scope: ${scope}, so nothing changed. Do not retry: tell the owner what you tried; only they can give this key more access, in the vibecms dashboard under Connect.`);
 }

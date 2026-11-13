@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowLeft, ExternalLink, PanelRightClose, PanelRightOpen
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Panel } from '~/components/dashboard/blocks'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { GetCloudButton } from '~/components/dashboard/PlanActions'
+import { GetCloudButton, PlanLimitNotice, isPlanCapCode } from '~/components/dashboard/PlanActions'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { useMediaQuery } from '~/hooks/use-media-query'
 import {
@@ -1121,7 +1121,8 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
           <span aria-hidden className={`size-2 shrink-0 rounded-full ${liveState === 'live' ? 'bg-brand-bright' : liveState === 'unpublished' ? 'bg-warning' : 'bg-muted-foreground/40'}`} />
           <span className={pendingSchedule ? 'text-warning' : 'text-foreground'}>{pendingSchedule ? scheduledLabel(pendingSchedule.publishAt) : STATE_LABEL[liveState]}</span>
           {post?.scheduledPublish?.status === 'failed' ? <span className="text-destructive" title={post.scheduledPublish.error ?? undefined}>· Schedule failed: {post.scheduledPublish.error}</span> : null}
-          <span role="status" className={`text-xs sm:text-sm ${autosave.status === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>· {autosaveLabel}</span>
+          {/* At a free-plan cap the notice below explains it; the status stays quiet. */}
+          <span role="status" className={`text-xs sm:text-sm ${autosave.status === 'error' && !isPlanCapCode(actionErrorCode) ? 'text-destructive' : 'text-muted-foreground'}`}>· {autosaveLabel}</span>
           {autosave.status === 'error' ? <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={autosave.retry}>Retry</Button> : null}
         </span>
         <div className="ms-auto flex flex-wrap items-center gap-1.5">
@@ -1223,15 +1224,11 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
           </div>
         </section>
       ) : null}
-      {actionError ? (
+      {actionError && isPlanCapCode(actionErrorCode) ? (
+        <PlanLimitNotice code={actionErrorCode} message={actionError} action={<GetCloudButton newTab />} plansInNewTab onDismiss={() => setActionError(null)} />
+      ) : actionError ? (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{actionError}</span>
-          {actionErrorCode && ['draft_limit', 'billing_required', 'media_quota_free'].includes(actionErrorCode) ? (
-            <span className="flex shrink-0 items-center gap-3">
-              <GetCloudButton newTab />
-              <Link className="text-muted-foreground underline underline-offset-4 hover:text-foreground" to="/dashboard/settings" search={{ ok: undefined, error: undefined, tab: 'billing' }} target="_blank" rel="noopener noreferrer">Compare plans</Link>
-            </span>
-          ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={() => setActionError(null)}>Dismiss</Button>
         </div>
       ) : null}

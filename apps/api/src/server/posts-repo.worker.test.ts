@@ -710,7 +710,7 @@ describe("createPost — slug conflict", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(ConflictError);
-    expect((caught as Error).message).toBe("Use posts.get_by_slug to inspect it. Choose another slug for a new article; update the existing post only if that was intended.");
+    expect((caught as Error).message).toBe("Another post already uses this slug, so nothing was saved. Look at it with posts.get_by_slug, then choose a new slug for a new article, or update that post only if that was intended.");
   });
 
   it("allows the same slug on a different site (uniqueness is per-site, not global)", async () => {
