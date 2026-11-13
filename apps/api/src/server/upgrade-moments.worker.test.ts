@@ -115,7 +115,7 @@ beforeAll(async () => {
 })
 
 describe('free plan upgrade moments for agents', () => {
-  it('tells the agent at the 20th published post, with 5 left and the upgrade link, and not at the 19th', async () => {
+  it('tells the agent at the 20th published post that 5 are left, without promoting an upgrade, and not at the 19th', async () => {
     const blog = await seedBlog('close', 'free')
     await seedPublishedUpTo(blog, 18)
 
@@ -127,7 +127,10 @@ describe('free plan upgrade moments for agents', () => {
     const twentieth = await publishNew(blog, 'post-twenty')
     expect(twentieth.status).toBe(200)
     expect(twentieth.body.planNotice).toContain('5')
-    expect(twentieth.body.planNotice).toContain(UPGRADE_LINK)
+    // A publish that succeeded names no plan and links nowhere: the ChatGPT
+    // directory rejects connectors that promote an upgrade.
+    expect(JSON.stringify(twentieth.body)).not.toContain(UPGRADE_LINK)
+    expect(twentieth.body.planNotice).not.toMatch(/cloud/i)
   })
 
   it('refuses the 26th post naming the limit of 25, that published posts stay online, and the upgrade link', async () => {

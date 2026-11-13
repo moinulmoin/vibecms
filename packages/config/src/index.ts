@@ -207,14 +207,16 @@ export const FREE_CLOSE_MARKS = {
 } as const;
 
 /**
- * The one sentence an agent passes on when its publish or upload reached a
- * free-plan mark: how many are left, that everything stays online, and where
- * to upgrade.
+ * What an agent passes on when its publish or upload reached a free-plan
+ * mark: how many are left and that everything stays online. It names no plan
+ * and carries no link: agent directories (ChatGPT) reject connectors that
+ * promote an upgrade on a request that succeeded. Refusals at the limit may
+ * link to the plans page (apps/api agent-errors.ts).
  */
-export function freeCloseNotice(kind: keyof typeof FREE_CLOSE_MARKS, plansUrl: string): string {
+export function freeCloseNotice(kind: keyof typeof FREE_CLOSE_MARKS): string {
   const what = kind === "publishedPosts" ? "published posts" : "images";
   const limit = FREE_TIER[kind];
-  return `This blog has ${limit - FREE_CLOSE_MARKS[kind]} of its ${limit} free ${what} left; everything already published stays online, and ${PRICING.planName} removes the limit: ${plansUrl}`;
+  return `This blog has ${limit - FREE_CLOSE_MARKS[kind]} of its ${limit} free ${what} left. Everything already published stays online. Tell the blog owner.`;
 }
 
 /**
@@ -325,8 +327,8 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   draft_limit: { variant: "error", title: "Draft limit reached", message: FREE_LIMIT_MESSAGES.drafts },
   billing_required: { variant: "error", title: "Published post limit reached", message: FREE_LIMIT_MESSAGES.publishedPosts },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
-  polar_unconfigured: { variant: "error", title: "Billing unavailable", message: "Billing is not configured right now. Please try again later." },
-  checkout_failed: { variant: "error", title: "Checkout unavailable", message: "We could not start checkout. Please try again." },
+  polar_unconfigured: { variant: "error", title: "Billing unavailable", message: `Billing is not available right now. Write to ${SUPPORT_EMAIL} and we will sort it out.` },
+  checkout_failed: { variant: "error", title: "Checkout unavailable", message: `We could not start checkout. Try again, or write to ${SUPPORT_EMAIL} and we will sort it out.` },
   already_active: { variant: "error", title: "Subscription already active", message: "This workspace already has an active plan. Manage it from the customer portal." },
   payment_past_due: { variant: "error", title: "Payment overdue", message: "Your last payment failed. Update your payment method in billing settings." },
   site_suspended: { variant: "error", title: "Blog suspended", message: SITE_SUSPENDED_MESSAGE },
