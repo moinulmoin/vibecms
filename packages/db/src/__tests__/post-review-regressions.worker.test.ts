@@ -92,6 +92,17 @@ describe("post review regressions", () => {
     expect((await repo.getPost(siteId, post.id))?.status).toBe("published");
   });
 
+  it("keeps the first publish date when an archived post is published again", async () => {
+    const post = await create();
+    await publish(post.id);
+    await env.DB.prepare("UPDATE posts SET published_at = 1700000000 WHERE id = ?").bind(post.id).run();
+    await repo.updatePostWithHistory(siteId, post.id, { status: "archived" }, actor, history, 1);
+    await repo.updatePostWithHistory(siteId, post.id, { status: "draft" }, actor, history, 2);
+    const { post: republished } = await publish(post.id, 3);
+    expect(republished).toMatchObject({ status: "published", publishedVersionNumber: 3, publishedAt: 1700000000 });
+    expect((await repo.getPost(siteId, post.id))?.publishedAt).toBe(1700000000);
+  });
+
   it("reserves a live pinned slug after its draft is renamed, including at publish", async () => {
     const first = await create();
     await publish(first.id);

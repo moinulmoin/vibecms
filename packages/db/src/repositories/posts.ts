@@ -638,7 +638,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
         ...before,
         status: "published",
         publishedSlug: approved.slug,
-        publishedAt: before.status === "published" && before.publishedAt != null ? before.publishedAt : timestamp,
+        publishedAt: before.publishedAt ?? timestamp,
         originalPublishedAt: options.originalPublishedAt ?? before.originalPublishedAt,
         updatedAt: timestamp,
         publishedVersionNumber: expectedVersionNumber,
@@ -653,10 +653,7 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
           db.prepare(
             `UPDATE posts
              SET status = 'published',
-               published_at = CASE
-                 WHEN status = 'published' AND published_at IS NOT NULL THEN published_at
-                 ELSE ?
-               END,
+               published_at = coalesce(published_at, ?),
                original_published_at = coalesce(?, original_published_at),
                published_version_id = (
                  SELECT pv.id FROM post_versions AS pv
