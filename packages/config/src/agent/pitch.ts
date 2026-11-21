@@ -53,7 +53,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Pricing
 
 - Free: ${PLAN_SUMMARY.free}, no card. Open to search engines and AI assistants, with a small "Published with vibecms" link.
-- ${PRICING.planName}: ${PLAN_SUMMARY.cloud}. It is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year. ${EARLY_USER_OFFER.note}
+- ${PRICING.planName}: ${PLAN_SUMMARY.cloud}. It is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year.${EARLY_USER_OFFER.active ? ` ${EARLY_USER_OFFER.note}` : ""}
 - Self-hosting on their own Cloudflare account is free: ${BRAND.repoUrl}
 
 ## How it differs

@@ -38,7 +38,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               Free forever: {PLAN_SUMMARY.free}. No card.
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
-              {PRICING.planName} is {PRICING.monthlyLabel} or {PRICING.annualLabel}. {EARLY_USER_OFFER.note}
+              {PRICING.planName} is {PRICING.monthlyLabel} or {PRICING.annualLabel}.{EARLY_USER_OFFER.active ? ` ${EARLY_USER_OFFER.note}` : null}
             </p>
             <p className="mt-8 text-sm leading-[1.6] text-muted-foreground">
               Prefer your own Cloudflare account?{" "}
@@ -60,10 +60,12 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
               <div>
                 <p className="text-[15px] font-medium text-foreground">{PRICING.planName}</p>
-                <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
-                  <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
-                  {EARLY_USER_OFFER.label} discount while spots last
-                </p>
+                {EARLY_USER_OFFER.active ? (
+                  <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
+                    <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
+                    {EARLY_USER_OFFER.label} discount while spots last
+                  </p>
+                ) : null}
               </div>
               <div className="text-left sm:text-right">
                 <p className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">

@@ -580,6 +580,8 @@ describe('claim window — the claim', () => {
       url: 'https://polar.example/claim',
       productId: 'prod_monthly',
       currency: 'usd',
+      amount: 1500,
+      product: { recurringInterval: 'month', recurringIntervalCount: 1 },
       netAmount: 1500,
     })
 
@@ -611,6 +613,8 @@ describe('claim window — the claim', () => {
         url: 'https://polar.example/claim',
         productId: 'prod_monthly',
         currency: 'usd',
+        amount: 1500,
+        product: { recurringInterval: 'month', recurringIntervalCount: 1 },
         netAmount: 1500,
       }),
       listOpenCheckouts: vi.fn().mockResolvedValue([]),
@@ -827,6 +831,8 @@ describe('claim window — the claim', () => {
       url: 'https://polar.example/resubscribe',
       productId: 'prod_monthly',
       currency: 'usd',
+      amount: 1500,
+      product: { recurringInterval: 'month', recurringIntervalCount: 1 },
       netAmount: 1500,
     })
     const result = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {

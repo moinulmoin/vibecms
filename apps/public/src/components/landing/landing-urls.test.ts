@@ -50,6 +50,19 @@ describe("landing URL props", () => {
     expect(html).toContain(`${FREE_TIER.images} images`);
   });
 
+  it("stops promising the early-user discount once the offer is switched off", () => {
+    const offer = EARLY_USER_OFFER as { active: boolean };
+    offer.active = false;
+    try {
+      const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
+      expect(html).not.toContain(EARLY_USER_OFFER.note);
+      expect(html).not.toContain(EARLY_USER_OFFER.label);
+      expect(html).toContain(`$${PRICING.monthlyUsd}`);
+    } finally {
+      offer.active = true;
+    }
+  });
+
   it("keeps FAQ pricing copy in sync with config", () => {
     const html = renderToStaticMarkup(createElement(FaqAccordion));
     expect(html).toContain(`$${PRICING.monthlyUsd}/month`);

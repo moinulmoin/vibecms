@@ -179,7 +179,7 @@ export function PlanAndBilling() {
               <span className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums text-foreground">${PRICING.monthlyUsd}</span>
               <span className="text-muted-foreground">/month</span>
             </p>
-            {data.earlyUserOffer?.monthly || data.earlyUserOffer?.yearly ? (
+            {EARLY_USER_OFFER.active && (data.earlyUserOffer?.monthly || data.earlyUserOffer?.yearly) ? (
               <p className="text-sm leading-6 text-muted-foreground">
                 {EARLY_USER_OFFER.note}
               </p>

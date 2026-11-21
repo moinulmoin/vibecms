@@ -71,7 +71,9 @@ dev vars of `apps/api/wrangler.jsonc`.
 Checkout applies a configured discount and, when Polar refuses it (deleted,
 ended or out of redemptions), checks out at the list price instead. To end the
 offer: switch the discount off in Polar (checkout falls back at once), then
-remove the two vars and `EARLY_USER_OFFER` copy in `packages/config`.
+unset the two vars and set `EARLY_USER_OFFER.active` to `false` in
+`packages/config`, which hides the offer on the landing page, the FAQ, the
+agent pitch and Plan & billing.
 Existing subscribers keep whatever duration their discount had.
 
 ## Legacy data (every deploy)

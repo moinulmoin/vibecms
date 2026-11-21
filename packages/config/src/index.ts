@@ -152,6 +152,8 @@ export const POLAR_API_VERSION = "2026-04";
  * this copy.
  */
 export const EARLY_USER_OFFER = {
+  /** Turn off with the Polar discount: hides the offer everywhere it is promised. */
+  active: true as boolean,
   label: "Early user",
   note: "Early users get a discount, applied automatically at checkout while early spots last.",
 } as const;
