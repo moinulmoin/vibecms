@@ -10,3 +10,5 @@ CREATE TABLE billing_payment_reminders (
   sent_at INTEGER NOT NULL,
   PRIMARY KEY (workspace_id, past_due_since, day)
 );
+-- The reminder sweep reads past-due episodes by their start.
+CREATE INDEX idx_billing_customers_past_due ON billing_customers(status, past_due_since);

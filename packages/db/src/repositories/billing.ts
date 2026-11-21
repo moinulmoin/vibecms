@@ -33,22 +33,51 @@ export interface BillingRepository {
   listUnnotifiedDuplicateSubscriptions(limit?: number): Promise<PolarDuplicateSubscriptionRow[]>;
   // Marks the refund notice as accepted, so it is not sent again.
   markDuplicateSubscriptionNotified(id: string, now: number): Promise<void>;
-  // Past-due episodes still inside their grace, with the owner's email, the blog's name and the days already sent.
-  listPastDueForReminders(nowMs: number, graceMs: number, limit: number): Promise<PastDueReminderCandidate[]>;
-  // Claims one email of a still-current episode before it is sent; false when it was already claimed or the episode ended.
-  claimPaymentReminder(workspaceId: string, pastDueSince: number, day: number, now: number): Promise<boolean>;
+  // Past-due episodes in their grace whose latest due email is not sent yet, oldest first; never a sponsored or ownerless one.
+  listDuePaymentReminders(input: { nowMs: number; graceMs: number; days: readonly number[]; limit: number }): Promise<DuePaymentReminder[]>;
+  // Claims one email right before it is sent, only while its episode is still past due, inside its grace, unsponsored,
+  // and no email of this day or later was claimed; false otherwise.
+  claimPaymentReminder(input: { workspaceId: string; pastDueSince: number; day: number; nowMs: number; graceMs: number }): Promise<boolean>;
   // Gives a claimed email back after a failed send, so the next sweep retries it.
   releasePaymentReminder(workspaceId: string, pastDueSince: number, day: number): Promise<void>;
 }
 
-export type PastDueReminderCandidate = {
+export type DuePaymentReminder = {
   workspaceId: string;
   /** Epoch milliseconds of the failed renewal that opened the episode. */
   pastDueSince: number;
-  ownerEmail: string | null;
+  /** The latest reminder day that is due now. */
+  day: number;
+  ownerEmail: string;
+  siteId: string | null;
   siteName: string | null;
-  sentDays: number[];
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Day N of the grace begins N-1 days after the failed renewal; the latest begun day is due.
+function dueDaySql(days: readonly number[]): string {
+  const latestFirst = [...days].sort((left, right) => right - left);
+  return `CASE ${latestFirst.map(() => "WHEN ? - b.past_due_since >= ? THEN ?").join(" ")} END`;
+}
+
+function dueDayBinds(nowMs: number, days: readonly number[]): number[] {
+  return [...days].sort((left, right) => right - left).flatMap((day) => [nowMs, (day - 1) * DAY_MS, day]);
+}
+
+// A past-due episode inside its grace whose blog AutoSEOPilot does not sponsor
+// (an active sponsorship as in evaluateEffectiveHostedEntitlement keeps paid features on).
+const dueEpisodeSql = `b.status = 'past_due' AND b.past_due_since IS NOT NULL
+  AND b.past_due_since <= ? AND b.past_due_since > ? - ?
+  AND NOT EXISTS (
+    SELECT 1 FROM autoseopilot_managed_sites ms
+     WHERE ms.workspace_id = b.workspace_id AND ms.entitlement_status = 'active'
+       AND (ms.entitlement_expires_at IS NULL OR ms.entitlement_expires_at > ?)
+  )`;
+
+function dueEpisodeBinds(nowMs: number, graceMs: number): number[] {
+  return [nowMs, nowMs, graceMs, nowMs / 1000];
+}
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -147,51 +176,74 @@ export function createBillingRepository(db: D1Database): BillingRepository {
         .run();
     },
 
-    async listPastDueForReminders(nowMs, graceMs, limit) {
+    async listDuePaymentReminders({ nowMs, graceMs, days, limit }) {
       const { results } = await db
         .prepare(
-          `SELECT b.workspace_id, b.past_due_since,
-                  (SELECT u.email FROM memberships m JOIN user u ON u.id = m.user_id
-                    WHERE m.workspace_id = b.workspace_id AND m.role = 'owner'
-                    ORDER BY m.created_at ASC LIMIT 1) AS owner_email,
-                  (SELECT s.name FROM sites s WHERE s.workspace_id = b.workspace_id
-                    ORDER BY s.created_at ASC LIMIT 1) AS site_name,
-                  (SELECT group_concat(r.day) FROM billing_payment_reminders r
-                    WHERE r.workspace_id = b.workspace_id AND r.past_due_since = b.past_due_since) AS sent_days
-             FROM billing_customers b
-            WHERE b.status = 'past_due' AND b.past_due_since IS NOT NULL
-              AND b.past_due_since + ? > ?
-            ORDER BY b.past_due_since ASC
-            LIMIT ?`,
+          `SELECT c.* FROM (
+             SELECT b.workspace_id, b.past_due_since, ${dueDaySql(days)} AS day,
+                    (SELECT u.email FROM memberships m JOIN user u ON u.id = m.user_id
+                      WHERE m.workspace_id = b.workspace_id AND m.role = 'owner'
+                      ORDER BY m.created_at ASC, m.id ASC LIMIT 1) AS owner_email,
+                    (SELECT s.id FROM sites s WHERE s.workspace_id = b.workspace_id
+                      ORDER BY s.created_at ASC, s.id ASC LIMIT 1) AS site_id,
+                    (SELECT s.name FROM sites s WHERE s.workspace_id = b.workspace_id
+                      ORDER BY s.created_at ASC, s.id ASC LIMIT 1) AS site_name
+               FROM billing_customers b
+              WHERE ${dueEpisodeSql}
+           ) c
+           WHERE c.owner_email IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM billing_payment_reminders r
+                WHERE r.workspace_id = c.workspace_id AND r.past_due_since = c.past_due_since AND r.day >= c.day
+             )
+           ORDER BY c.past_due_since ASC
+           LIMIT ?`,
         )
-        .bind(graceMs, nowMs, limit)
+        .bind(...dueDayBinds(nowMs, days), ...dueEpisodeBinds(nowMs, graceMs), limit)
         .all<{
           workspace_id: string;
           past_due_since: number;
-          owner_email: string | null;
+          day: number;
+          owner_email: string;
+          site_id: string | null;
           site_name: string | null;
-          sent_days: string | null;
         }>();
       return results.map((row) => ({
         workspaceId: row.workspace_id,
         pastDueSince: row.past_due_since,
+        day: row.day,
         ownerEmail: row.owner_email,
+        siteId: row.site_id,
         siteName: row.site_name,
-        sentDays: row.sent_days ? row.sent_days.split(",").map(Number) : [],
       }));
     },
 
-    async claimPaymentReminder(workspaceId, pastDueSince, day, now) {
+    async claimPaymentReminder({ workspaceId, pastDueSince, day, nowMs, graceMs }) {
       const result = await db
         .prepare(
           `INSERT OR IGNORE INTO billing_payment_reminders (workspace_id, past_due_since, day, sent_at)
            SELECT ?, ?, ?, ?
             WHERE EXISTS (
-              SELECT 1 FROM billing_customers
-               WHERE workspace_id = ? AND status = 'past_due' AND past_due_since = ?
-            )`,
+              SELECT 1 FROM billing_customers b
+               WHERE b.workspace_id = ? AND b.past_due_since = ? AND ${dueEpisodeSql}
+            )
+              AND NOT EXISTS (
+                SELECT 1 FROM billing_payment_reminders r
+                 WHERE r.workspace_id = ? AND r.past_due_since = ? AND r.day >= ?
+              )`,
         )
-        .bind(workspaceId, pastDueSince, day, now, workspaceId, pastDueSince)
+        .bind(
+          workspaceId,
+          pastDueSince,
+          day,
+          Math.floor(nowMs / 1000),
+          workspaceId,
+          pastDueSince,
+          ...dueEpisodeBinds(nowMs, graceMs),
+          workspaceId,
+          pastDueSince,
+          day,
+        )
         .run();
       return (result.meta.changes ?? 0) > 0;
     },

@@ -8,9 +8,10 @@ import { contextQuery } from '~/lib/queries'
 
 export const Route = createFileRoute('/dashboard')({
   ssr: false,
-  beforeLoad: ({ context }) => {
+  beforeLoad: ({ context, location }) => {
     if (!context.app) {
-      throw redirect({ to: '/login' })
+      // Back to the page asked for after sign-in, such as a billing email's link.
+      throw redirect({ to: '/login', search: { intent: undefined, returnTo: location.href } })
     }
     if (!context.siteSetupComplete) {
       throw redirect({ to: '/dashboard/setup', search: emptyDashboardStatusSearch })

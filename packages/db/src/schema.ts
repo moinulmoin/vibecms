@@ -284,7 +284,7 @@ export const billingCustomers = sqliteTable("billing_customers", {
   // Subscription-only fields use a separate strictly-newer millisecond watermark.
   subscriptionUpdatedAt: integer("subscription_updated_at"),
   ...timestamps,
-});
+}, (table) => [index("idx_billing_customers_past_due").on(table.status, table.pastDueSince)]);
 
 export const analyticsRollups = sqliteTable("analytics_rollups", {
   id: text("id").primaryKey(),

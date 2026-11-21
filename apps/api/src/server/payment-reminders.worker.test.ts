@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { beforeAll, describe, expect, inject, it } from 'vitest'
 import { createDataAccess } from '@vc/db'
-import { runPaymentReminders } from './payment-reminders'
+import { PAYMENT_REMINDERS_PER_RUN, runPaymentReminders } from './payment-reminders'
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -117,6 +117,38 @@ describe('failed-payment reminders', () => {
       .run()
     await runPaymentReminders(env, next + 60_000)
     expect(await sentDays(workspaceId, next)).toEqual([1])
+  })
+
+  it('reaches a new failed renewal however many older episodes are already emailed', async () => {
+    const older = START - DAY_MS
+    const emailed: string[] = []
+    for (let index = 0; index <= PAYMENT_REMINDERS_PER_RUN; index += 1) {
+      emailed.push(await seedPastDue(`older-${index}`, older))
+    }
+    await runPaymentReminders(env, older + 60_000)
+    await runPaymentReminders(env, older + 120_000)
+    for (const workspaceId of emailed) expect(await sentDays(workspaceId, older)).toEqual([1])
+
+    const fresh = await seedPastDue('fresh', START - 60_000)
+    await runPaymentReminders(env, START)
+
+    expect(await sentDays(fresh, START - 60_000)).toEqual([1])
+  })
+
+  it('hands off nothing once the payment went through after the episode was read', async () => {
+    const workspaceId = await seedPastDue('raced')
+    const billing = createDataAccess(env.DB).billing
+    const graceMs = 7 * DAY_MS
+    const [due] = (await billing.listDuePaymentReminders({ nowMs: START + 60_000, graceMs, days: [1, 3, 6], limit: 50 })).filter(
+      (reminder) => reminder.workspaceId === workspaceId,
+    )
+    expect(due).toMatchObject({ day: 1, ownerEmail: 'raced@reminder.example.test', siteId: 'reminder-site-raced' })
+    await env.DB.prepare("UPDATE billing_customers SET status = 'active', past_due_since = NULL WHERE workspace_id = ?")
+      .bind(workspaceId)
+      .run()
+
+    expect(await billing.claimPaymentReminder({ workspaceId, pastDueSince: START, day: 1, nowMs: START + 60_000, graceMs })).toBe(false)
+    expect(await sentDays(workspaceId)).toEqual([])
   })
 
   it('never emails a blog AutoSEOPilot sponsors', async () => {
