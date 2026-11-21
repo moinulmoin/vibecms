@@ -73,7 +73,8 @@ ended or out of redemptions), checks out at the list price instead. To end the
 offer: switch the discount off in Polar (checkout falls back at once), then
 unset the two vars and set `EARLY_USER_OFFER.active` to `false` in
 `packages/config`, which hides the offer on the landing page, the FAQ, the
-agent pitch and Plan & billing.
+agent pitch, the terms and Plan & billing. Then run `pnpm gen:agent-skills` and
+`pnpm check` before committing.
 Existing subscribers keep whatever duration their discount had.
 
 ## Legacy data (every deploy)

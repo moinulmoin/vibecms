@@ -1,6 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { BRAND, PLAN_SUMMARY, PRICING, SUPPORT_EMAIL } from "@vc/config";
+import { BRAND, EARLY_USER_OFFER, PLAN_SUMMARY, PRICING, SUPPORT_EMAIL } from "@vc/config";
 import { legalUpdatedLabel } from "../../lib/legal-pages";
 import { isMarketingHost } from "../../server/public-blog";
 import { publicRuntimeEnv } from "../../server/runtime";
@@ -66,12 +66,17 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
     refunded except where required by law.
   </p>
 
-  <h2>Early user offer</h2>
-  <p>
-    While early spots last, a discount for early users is applied automatically at checkout. The
-    discount and how long it applies are shown at checkout before you pay. We may end or change this
-    offer for new subscriptions at any time. Checkout never adds a fee on top of the listed price.
-  </p>
+  {EARLY_USER_OFFER.active && (
+    <>
+      <h2>Early user offer</h2>
+      <p>
+        While early spots last, a discount for early users is applied automatically at checkout. The
+        discount and how long it applies are shown at checkout before you pay. We may end or change this
+        offer for new subscriptions at any time.
+      </p>
+    </>
+  )}
+  <p>Checkout never adds a fee on top of the listed price.</p>
 
   <h2>Availability and changes</h2>
   <p>

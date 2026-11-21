@@ -43,23 +43,23 @@ describe("landing URL props", () => {
     expect(html).toContain(`href="${loginUrl}?intent=start"`);
     expect(html).toContain(`$${PRICING.monthlyUsd}`);
     expect(html).toContain(`$${PRICING.annualUsd}`);
-    expect(html).toContain(EARLY_USER_OFFER.note);
     expect(html).toContain("/blog on your own site");
     expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
     expect(html).toContain(`${FREE_TIER.drafts} drafts at a time`);
     expect(html).toContain(`${FREE_TIER.images} images`);
   });
 
-  it("stops promising the early-user discount once the offer is switched off", () => {
+  it.each([true, false])("promises the early-user discount only while the offer is on (active: %s)", (active) => {
     const offer = EARLY_USER_OFFER as { active: boolean };
-    offer.active = false;
+    const original = offer.active;
+    offer.active = active;
     try {
       const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
-      expect(html).not.toContain(EARLY_USER_OFFER.note);
-      expect(html).not.toContain(EARLY_USER_OFFER.label);
+      expect(html.includes(EARLY_USER_OFFER.note)).toBe(active);
+      expect(html.includes(`${EARLY_USER_OFFER.label} discount`)).toBe(active);
       expect(html).toContain(`$${PRICING.monthlyUsd}`);
     } finally {
-      offer.active = true;
+      offer.active = original;
     }
   });
 
