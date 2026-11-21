@@ -15,7 +15,7 @@ import type { ServingState } from '~/types/dashboard'
  * "Keep your blog" notice above every dashboard page, shown while an
  * AutoSEOPilot-sponsored blog waits to be claimed: the plan ended, the blog
  * is online for a few more days and then pauses, and an unclaimed blog is
- * deleted on the deadline. Claiming it is a vibecms Cloud upgrade on this
+ * deleted on the deadline. Claiming it is a vibecms Pro upgrade on this
  * same workspace — the same blog, posts and domain, nothing moves.
  *
  * A blog that was claimed and later lost its subscription has no deadline

@@ -594,7 +594,7 @@ describe("free plan offer on the public worker", () => {
     }
   });
 
-  it("keeps a blog that left Cloud online, indexable, and on its own domain with every post", async () => {
+  it("keeps a blog that left Pro online, indexable, and on its own domain with every post", async () => {
     const ended = await seedHostedSite("left-cloud", { polarStatus: "canceled", customHost: "own.left-cloud.test", posts: 30 });
     const custom = await resolveSite(requestFor("own.left-cloud.test"), env.DB, runtimeEnv);
     expect(custom).toMatchObject({ resolved_domain_type: "custom", effective_entitlement: { effective: false, access: "hosted_free" } });

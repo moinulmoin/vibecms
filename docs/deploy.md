@@ -1,4 +1,4 @@
-# Deploy vibecms Cloud
+# Deploy hosted vibecms
 
 Hosted vibecms uses three Cloudflare Workers with separate failure domains:
 

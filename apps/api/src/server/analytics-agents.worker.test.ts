@@ -267,7 +267,7 @@ describe('loadAnalyticsForApp agents section', () => {
     const seed = await seedSite('free-limited', { paid: false })
     const postId = await seedPost(seed.siteId, 'free-limited-post')
     const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
-    // A blog that left Cloud still has rolled-up history from 10 days ago.
+    // A blog that left Pro still has rolled-up history from 10 days ago.
     await createDataAccess(env.DB).analytics.replaceDaily(seed.siteId, day(-10), [
       { kind: 'page', dimension: '', label: null, value: 1000 },
       { kind: 'post', dimension: postId, label: 'free-limited-post', value: 1000 },
@@ -311,7 +311,7 @@ describe('loadAnalyticsForApp agents section', () => {
     expect(result).not.toHaveProperty('topPosts')
     expect(result).not.toHaveProperty('referrers')
     expect(result).not.toHaveProperty('agents')
-    // Per-post detail stays a Cloud feature.
+    // Per-post detail stays a Pro feature.
     expect(await loadAnalyticsForApp(appFor(seed), 7, { postId, fetcher })).toEqual({ status: 'locked', retentionDays: 7 })
   })
 

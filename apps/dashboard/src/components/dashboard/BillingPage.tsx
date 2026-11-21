@@ -1,4 +1,4 @@
-import { API_USAGE_LIMITS, FREE_TIER, LAUNCH_OFFER, MEDIA, PLAN_SUMMARY, PRICING } from '@vc/config'
+import { API_USAGE_LIMITS, EARLY_USER_OFFER, FREE_TIER, MEDIA, PLAN_SUMMARY, PRICING } from '@vc/config'
 import { Check, CreditCard, Minus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { cn, Skeleton } from '@vc/ui'
@@ -21,7 +21,8 @@ export const PLAN_ROWS: Array<{ label: string; free: Allowance; paid: Allowance 
   { label: 'Agent keys', free: true, paid: true },
   { label: 'Media', free: `${FREE_TIER.images} images, ${FREE_TIER.storageLabel}`, paid: MEDIA.paidStorageLabel },
   { label: 'Agent requests', free: `${API_USAGE_LIMITS.free.calls.day.toLocaleString('en-US')}/day, ${API_USAGE_LIMITS.free.calls.month.toLocaleString('en-US')}/month`, paid: `${API_USAGE_LIMITS.paid.calls.day.toLocaleString('en-US')}/day` },
-  { label: 'Custom domain or /blog path', free: true, paid: true },
+  { label: 'Custom domain', free: true, paid: true },
+  { label: '/blog path on your own site', free: false, paid: true },
   { label: 'Search engines and AI assistants', free: true, paid: true },
   { label: 'Analytics', free: `Last ${FREE_TIER.analyticsDays} days`, paid: 'Full history' },
   { label: 'Remove branding', free: false, paid: true },
@@ -46,7 +47,7 @@ function PlanTable({ paidActive }: { paidActive: boolean }) {
             Free
           </th>
           <th scope="col" className={cn('w-28 py-2.5 font-normal sm:w-36', paidActive && 'font-medium text-foreground')}>
-            Cloud · {LAUNCH_OFFER.monthlyLabel}
+            Pro · {PRICING.monthlyLabel}
           </th>
         </tr>
       </thead>
@@ -118,7 +119,7 @@ export function PlanAndBilling() {
   const paidActive = active || sponsored || pastDueState?.kind === 'grace'
   const periodEnd = active && billing.currentPeriodEnd ? formatBillingDate(billing.currentPeriodEnd * 1000) : null
   const ending = active && billing.cancelAtPeriodEnd === true
-  // The owner of a blog without a running subscription: the card offers Cloud next to what they have.
+  // The owner of a blog without a running subscription: the card offers Pro next to what they have.
   const offer = data.isOwner && !pastDue && !active && !managed?.effective
 
   return (
@@ -169,25 +170,24 @@ export function PlanAndBilling() {
         </div>
 
         {offer ? (
-          // What Cloud adds and what it costs today, with one button. The
-          // standard price stays visible as the anchor; yearly is the quiet option.
+          // What Pro adds and what it costs, with one button; yearly is the
+          // quiet option. The early-user discount shows only as a note: its size
+          // lives in Polar and checkout applies it.
           <div className="grid content-start gap-3 border-t border-border bg-card p-5 md:border-l md:border-t-0">
             <h3 className="text-lg font-semibold text-foreground">{PRICING.planName}</h3>
             <p className="flex flex-wrap items-baseline gap-x-2">
-              <span className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums text-foreground">${LAUNCH_OFFER.monthlyUsd}</span>
+              <span className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums text-foreground">${PRICING.monthlyUsd}</span>
               <span className="text-muted-foreground">/month</span>
-              <s className="text-sm tabular-nums text-muted-foreground">
-                <span className="sr-only">normally </span>
-                ${PRICING.monthlyUsd}
-              </s>
             </p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {LAUNCH_OFFER.slotsLabel}, {LAUNCH_OFFER.monthlyPercentOff}% off. {LAUNCH_OFFER.lockNote}
-            </p>
+            {data.earlyUserOffer?.monthly || data.earlyUserOffer?.yearly ? (
+              <p className="text-sm leading-6 text-muted-foreground">
+                {EARLY_USER_OFFER.note}
+              </p>
+            ) : null}
             <p className="text-[0.9375rem] leading-6 text-foreground">Adds {PLAN_SUMMARY.cloud}.</p>
             <div className="mt-1 grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
               <PendingSubmitButton type="button" pending={pending === 'monthly'} pendingText="Opening checkout…" disabled={pending !== null} onClick={() => void redirectTo('monthly')}>
-                Upgrade to Cloud
+                Upgrade to Pro
               </PendingSubmitButton>
               <button
                 type="button"
@@ -195,7 +195,7 @@ export function PlanAndBilling() {
                 onClick={() => void redirectTo('yearly')}
                 className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
               >
-                {pending === 'yearly' ? 'Opening checkout…' : `Or pay yearly: ${LAUNCH_OFFER.annualLabel} (${LAUNCH_OFFER.annualPercentOff}% off)`}
+                {pending === 'yearly' ? 'Opening checkout…' : `Or pay yearly: ${PRICING.annualLabel}`}
               </button>
             </div>
           </div>

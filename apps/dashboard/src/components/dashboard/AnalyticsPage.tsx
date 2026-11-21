@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Button, cn } from '@vc/ui'
 import { PRICING } from '@vc/config'
-import { GetCloudButton } from '~/components/dashboard/PlanActions'
+import { GetProButton } from '~/components/dashboard/PlanActions'
 import { AGENT_CATEGORY_LABELS } from '@vc/config/agents'
 import type { ReactNode } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
@@ -24,7 +24,7 @@ const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximum
 const dateLabel = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 
 export function analyticsUnavailableMessage(reason: Extract<AnalyticsPageData, { status: 'unavailable' }>['reason']) {
-  if (reason === 'self_hosted') return 'Managed analytics is a vibecms Cloud feature. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
+  if (reason === 'self_hosted') return 'Managed analytics comes with hosted vibecms. Self-hosted sites can use Cloudflare Web Analytics or their own analytics stack.'
   // The server has no Analytics Engine read credentials (ANALYTICS_ACCOUNT_ID/_DATASET/_API_TOKEN):
   // an operator fix, so say what is happening and let the owner check again.
   if (reason === 'not_configured') return 'Your plan includes analytics, but this server isn’t connected to its analytics data yet, so there’s nothing to show. Check again in a few minutes.'
@@ -488,7 +488,7 @@ function LimitedAnalytics({ data }: { data: Extract<AnalyticsPageData, { status:
           <span className="font-medium text-foreground">Free shows the last {data.rangeDays} days of site totals.</span>{' '}
           {PRICING.planName} adds full history, per-post numbers, and where readers come from.
         </p>
-        <GetCloudButton />
+        <GetProButton />
       </div>
       <TrafficChart data={data} />
       <AgentReadsChart data={data} />

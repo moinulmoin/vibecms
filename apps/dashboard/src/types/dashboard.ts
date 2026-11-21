@@ -42,7 +42,7 @@ export type ApiUsageStatus = {
   resetsAt: number
 }
 
-/** A counted period with no cap (Cloud's month): `limit` and `remaining` are null. */
+/** A counted period with no cap (Pro's month): `limit` and `remaining` are null. */
 export type ApiUsageCount = Omit<ApiUsageStatus, 'limit' | 'remaining'> & { limit: null; remaining: null }
 
 export type ApiUsageSummary = {
@@ -203,6 +203,8 @@ export type BillingPageLoadResult =
       /** Operator abuse suspension (docs/blog-suspension.md): when and why; null while the blog serves. */
       suspension?: { suspendedAt: number; reason: string | null } | null
       billing: BillingSnapshot
+      /** Whether checkout tries the early-user Polar discount for each interval; missing on older payloads. */
+      earlyUserOffer?: { monthly: boolean; yearly: boolean }
       managed: {
         status: 'active' | 'revoked'
         expiresAt: number | null

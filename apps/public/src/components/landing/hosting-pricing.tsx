@@ -1,11 +1,12 @@
-import { API_USAGE_LIMITS, BRAND, LAUNCH_OFFER, MEDIA, PLAN_SUMMARY, PRICING } from "@vc/config";
+import { API_USAGE_LIMITS, BRAND, EARLY_USER_OFFER, MEDIA, PLAN_SUMMARY, PRICING } from "@vc/config";
 import { Check } from "./icons";
 import { GREEN_BG, GREEN_CTA, H2, LEAD, PANEL, SectionLight, SectionShell, TEXT_LINK } from "./primitives";
 import { AUTOSEOPILOT_URL, startFreeUrl } from "../../lib/landing-links";
 
 const INCLUDED = [
   "Unlimited posts",
-  "Custom domain or /blog on your site",
+  "Your blog at /blog on your own site",
+  "Custom domain",
   "Open to search engines and AI assistants",
   `${MEDIA.paidStorageLabel} of media on R2`,
   `${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
@@ -37,7 +38,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
               Free forever: {PLAN_SUMMARY.free}. No card.
             </p>
             <p className="mt-4 max-w-md text-sm leading-[1.6] text-muted-foreground">
-              {LAUNCH_OFFER.monthlyLabel} or {LAUNCH_OFFER.annualLabel} at launch pricing.
+              {PRICING.planName} is {PRICING.monthlyLabel} or {PRICING.annualLabel}. {EARLY_USER_OFFER.note}
             </p>
             <p className="mt-8 text-sm leading-[1.6] text-muted-foreground">
               Prefer your own Cloudflare account?{" "}
@@ -61,29 +62,23 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 <p className="text-[15px] font-medium text-foreground">{PRICING.planName}</p>
                 <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
                   <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
-                  {LAUNCH_OFFER.phaseLabel}
+                  {EARLY_USER_OFFER.label} discount at checkout
                 </p>
               </div>
               <div className="text-left sm:text-right">
                 <p className="font-display text-4xl font-semibold tracking-[-0.03em] text-foreground">
                   <span data-for-period="monthly">
-                    <span className="sr-only">Now </span>${LAUNCH_OFFER.monthlyUsd}
+                    ${PRICING.monthlyUsd}
                     <span className="text-base font-medium text-muted-foreground">/month</span>
                   </span>
                   <span data-for-period="yearly">
-                    <span className="sr-only">Now </span>${LAUNCH_OFFER.annualUsd}
+                    ${PRICING.annualUsd}
                     <span className="text-base font-medium text-muted-foreground">/year</span>
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  <span data-for-period="monthly">
-                    <span className="font-medium text-brand-bright">{LAUNCH_OFFER.monthlyPercentOff}% off</span> · normally{" "}
-                    <s className="decoration-muted-foreground/60">${PRICING.monthlyUsd}</s>
-                  </span>
-                  <span data-for-period="yearly">
-                    <span className="font-medium text-brand-bright">{LAUNCH_OFFER.annualPercentOff}% off</span> · normally{" "}
-                    <s className="decoration-muted-foreground/60">${PRICING.annualUsd}</s> · ${(LAUNCH_OFFER.annualUsd / 12).toFixed(2)}/month
-                  </span>
+                  <span data-for-period="monthly">Billed monthly</span>
+                  <span data-for-period="yearly">${(PRICING.annualUsd / 12).toFixed(2)}/month, billed yearly</span>
                 </p>
               </div>
             </div>
@@ -124,7 +119,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 Start free
               </a>
               <p className="text-[13px] leading-5 text-muted-foreground">
-                {LAUNCH_OFFER.applyNote} {LAUNCH_OFFER.lockNote}
+                Start on Free and move to {PRICING.planName} when your blog is ready for more.
               </p>
             </div>
           </div>

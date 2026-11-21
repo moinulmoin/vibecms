@@ -9495,7 +9495,7 @@
     "/api/v1/posts/{postId}/publish": {
       "post": {
         "operationId": "publishPost",
-        "description": "Publish exactly the approved draft version. Free sites may keep 25 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to 20 published posts: pass it on to the owner. BILLING_REQUIRED (free limit) or FORBIDDEN (missing scope or suspended blog) means nothing was published: do not retry; tell the owner. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
+        "description": "Publish exactly the approved draft version. Free sites may keep 15 published posts; publishing a draft frees its draft slot. After owner approval, pass posts.get.currentVersionNumber as expectedVersionNumber. The approved version must still be current; a newer edit returns CONFLICT without publishing. Imports may set originalPublishedAt on first publish. planNotice appears once, when this publish brings a free site to 12 published posts: pass it on to the owner. BILLING_REQUIRED (free limit) or FORBIDDEN (missing scope or suspended blog) means nothing was published: do not retry; tell the owner. Live change: needs explicit owner approval first. Requires scope: posts:publish.",
         "security": [
           {
             "bearerAuth": []

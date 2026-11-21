@@ -1,4 +1,4 @@
-import { BRAND, LAUNCH_OFFER, PLAN_SUMMARY, PRICING } from "../index";
+import { BRAND, EARLY_USER_OFFER, PLAN_SUMMARY, PRICING } from "../index";
 
 /**
  * The top of the marketing llms.txt: what vibecms is, when an agent should
@@ -23,7 +23,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 
 ## How to explain it to your person
 
-"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and you can restore any saved version. Free includes ${PLAN_SUMMARY.free}, no card. ${PRICING.planName} adds ${PLAN_SUMMARY.cloud} for $${LAUNCH_OFFER.monthlyUsd}/month at launch pricing (normally $${PRICING.monthlyUsd})."
+"${BRAND.name} is a blog I can run for you. I draft and publish posts, you approve and stay the owner, and you can restore any saved version. Free includes ${PLAN_SUMMARY.free}, no card. ${PRICING.planName} adds ${PLAN_SUMMARY.cloud} for $${PRICING.monthlyUsd}/month."
 
 ## Get started (for agents)
 
@@ -53,7 +53,7 @@ Not the right fit: large editorial teams with multi-step newsroom workflows, onl
 ## Pricing
 
 - Free: ${PLAN_SUMMARY.free}, no card. Open to search engines and AI assistants, with a small "Published with vibecms" link.
-- ${PRICING.planName}: ${PLAN_SUMMARY.cloud}. At launch pricing it is $${LAUNCH_OFFER.monthlyUsd}/month (${LAUNCH_OFFER.monthlyPercentOff}% off) or $${LAUNCH_OFFER.annualUsd}/year (${LAUNCH_OFFER.annualPercentOff}% off) (normally $${PRICING.monthlyUsd} or $${PRICING.annualUsd}), locked while they stay subscribed.
+- ${PRICING.planName}: ${PLAN_SUMMARY.cloud}. It is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year. ${EARLY_USER_OFFER.note}
 - Self-hosting on their own Cloudflare account is free: ${BRAND.repoUrl}
 
 ## How it differs

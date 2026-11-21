@@ -7,7 +7,7 @@ import { resolveEffectiveEntitlementForWorkspace } from "./effective-entitlement
 
 export type ApiUsageKind = "read" | "write";
 export type ApiUsageStatus = { metric: string; period: string; used: number; limit: number; remaining: number; resetsAt: number };
-/** A counted period with no cap (Cloud's month): `limit` and `remaining` are null. */
+/** A counted period with no cap (Pro's month): `limit` and `remaining` are null. */
 export type ApiUsageCount = { metric: string; period: string; used: number; limit: null; remaining: null; resetsAt: number };
 export type ApiUsageSummary = {
   enforced: boolean;

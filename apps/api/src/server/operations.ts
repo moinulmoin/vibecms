@@ -1,5 +1,5 @@
 import { AppError, archivePost, ConflictError, createPost, getAsset, getPost, getPostBySlug, getPostVersion, listAssets, listPostVersions, listPosts, NotFoundError, publishPost, requireScope, restorePostVersion, unarchivePost, updateAssetAltText, updatePost, ValidationError, type Actor } from "@vc/core";
-import { ACCENTS, FONTS, FREE_CLOSE_MARKS, FREE_TIER, freeCloseNotice, MEDIA, PRICING, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
+import { ACCENTS, FONTS, FREE_CLOSE_MARKS, FREE_LIMIT_MESSAGES, FREE_TIER, freeCloseNotice, MEDIA, PRICING, THEME_MODES, THEME_PRESETS, THEME_RADII, THEME_WIDTHS, TEMPLATE_CHROMES, TEMPLATE_INDEXES, TEMPLATE_HEADERS, CHROME_LABELS, INDEX_LABELS, HEADER_LABELS, resolvePresetId, resolvePresentation, type Presentation } from "@vc/config";
 import { createDataAccess, createD1AssetRepository, createD1PostRepository, schedulePost, unschedulePost } from "@vc/db";
 import type { BillingNoticeDto, ListPostsRequest, UpdateSiteRequest, UpdateThemeRequest, UpdateVoiceRequest } from "@vc/api-contract";
 import { normalizeThemeChoice } from "@vc/api-contract";
@@ -114,7 +114,7 @@ function base64File(input: { filename: string; mimeType: string; dataBase64: str
 
 /**
  * The one "getting close" sentence for a free blog whose usage just reached a
- * free-plan mark (20 published posts, 80 images); undefined otherwise. Callers
+ * free-plan mark (12 published posts, 80 images); undefined otherwise. Callers
  * only ask when this request added exactly one post or image, so reaching the
  * mark means this request crossed it.
  */
@@ -129,7 +129,7 @@ async function freeCloseNoticeFor(siteId: string, kind: keyof typeof FREE_CLOSE_
   }
 }
 
-/** Free-plan notices are for free hosted blogs only, never Cloud, self-hosted or AutoSEOPilot-managed ones. */
+/** Free-plan notices are for free hosted blogs only, never Pro, self-hosted or AutoSEOPilot-managed ones. */
 function getsFreeNotices(entitlement: ApiEffectiveEntitlement): boolean {
   return entitlement.access === "hosted_free" && entitlement.managedSponsorship.status === null;
 }
@@ -312,6 +312,7 @@ export async function listTagsOp(ctx: OperationContext) {
 function locationMutationResult<T extends { ok: boolean; code?: string }>(result: T): asserts result is Extract<T, { ok: true }> {
   if (result.ok) return;
   if (result.code === 'owner_required') throw new AppError('FORBIDDEN', 'Owner access required', 403);
+  if (result.code === 'subpath_paid_plan') throw new AppError('BILLING_REQUIRED', FREE_LIMIT_MESSAGES.subpath, 402);
   if (result.code === 'domain_conflict') throw new ConflictError('That domain is already connected to another blog.');
   if (result.code === 'not_found') throw new NotFoundError('No subpath location is set up for this blog.');
   throw new ValidationError('That location is not valid. Use https://customer.com/blog — no platform or app host.');

@@ -1,7 +1,7 @@
 import { FREE_CLOSE_MARKS, FREE_TIER } from '@vc/config'
 import { useState } from 'react'
 import { Button } from '@vc/ui'
-import { GetCloudButton } from '~/components/dashboard/PlanActions'
+import { GetProButton } from '~/components/dashboard/PlanActions'
 
 type Kind = keyof typeof FREE_CLOSE_MARKS
 
@@ -23,10 +23,10 @@ function leftAfterMark(kind: Kind, used: number): number | null {
 }
 
 /**
- * The free plan on the overview, one calm line with Get Cloud, never a modal:
- * - From 20 of 25 published posts or 80 of 100 images: what is left. Dismissing
+ * The free plan on the overview, one calm line with Get Pro, never a modal:
+ * - From 12 of 15 published posts or 80 of 100 images: what is left. Dismissing
  *   it keeps it away for this blog and that cap.
- * - At 25 of 25 or 100 of 100: that the limit is reached. Not dismissible, so
+ * - At 15 of 15 or 100 of 100: that the limit is reached. Not dismissible, so
  *   the owner learns it here before a publish or upload is refused.
  */
 export function FreePlanNudge({ siteKey, publishedPosts, images }: { siteKey: string; publishedPosts: number; images: number }) {
@@ -44,7 +44,7 @@ export function FreePlanNudge({ siteKey, publishedPosts, images }: { siteKey: st
         <p className="min-w-0 text-muted-foreground">
           <span className="font-medium text-foreground">You’ve reached {reached.join(' and ')} on Free.</span> Everything you published stays online.
         </p>
-        <GetCloudButton />
+        <GetProButton />
       </div>
     )
   }
@@ -75,7 +75,7 @@ export function FreePlanNudge({ siteKey, publishedPosts, images }: { siteKey: st
       <p className="min-w-0 text-muted-foreground">
         <span className="font-medium text-foreground">{parts.join(' and ')} left on Free.</span> Everything you published stays online.
       </p>
-      <GetCloudButton />
+      <GetProButton />
       <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={dismiss}>
         Dismiss
       </Button>

@@ -17,7 +17,7 @@ The CMS your agents publish into: Markdown posts, versions, and media over scope
 - Post version history
 - Scoped, reveal-once agent tokens with `vc_live_` prefixes
 - MCP endpoint for trusted agents
-- Polar billing for hosted vibecms Cloud
+- Polar billing for hosted vibecms (Free and Pro plans)
 - `SELF_HOSTED=true` mode without Polar
 
 ## Connect an MCP client
@@ -100,7 +100,7 @@ curl "https://app.vibecms.dev/api/v1/posts?limit=20&offset=0" \
   -H "Authorization: Bearer vc_..."
 ```
 
-Hosted vibecms Cloud counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
+Hosted vibecms counts MCP and REST against the same workspace API quota. Rate-limit failures are machine-readable: REST returns `429` with `RATE_LIMIT`, and MCP returns a JSON-RPC rate-limit error.
 
 ## License
 
@@ -212,14 +212,14 @@ pnpm deploy:dev
 `pnpm deploy:dev` syncs the development token pepper, applies remote D1 migrations, builds the dashboard assets, deploys the Hono API Worker, deploys the OG Worker, then builds and deploys the Astro public Worker.
 
 For Polar billing, create a sandbox product in Polar and update the dev vars.
-The committed dev vars already carry sandbox product and launch-discount
+The committed dev vars already carry sandbox product and early-user discount
 ids; if you use your own Polar sandbox products, set all four —
 `POLAR_MONTHLY_PRODUCT_ID`, `POLAR_YEARLY_PRODUCT_ID`,
 `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, and `POLAR_LAUNCH_DISCOUNT_YEARLY_ID` —
-in `apps/api/wrangler.jsonc` under `env.development.vars`. Checkout selects
-the configured discounts automatically, so create matching forever-duration
-discounts that produce $9/month and $75/year, or remove the two discount
-vars to test list-price checkout:
+in `apps/api/wrangler.jsonc` under `env.development.vars`. Checkout tries
+the configured discounts automatically and falls back to the list price when
+Polar refuses one; any discount below the list price works, or remove the two
+discount vars to test list-price checkout:
 
 ```sh
 pnpm --filter @vc/api exec wrangler secret put POLAR_ACCESS_TOKEN
@@ -231,9 +231,9 @@ pnpm deploy:dev
 Recommended sandbox product setup:
 
 - Recurring subscription product.
-- Price: $15/month list, or $150/year if you create a yearly product/price in Polar (launch offer: $9/month, $75/year via discounts).
-- Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`. Set both launch discount ids too, or checkout sends the committed sandbox discounts.
-- In hosted mode the free plan is free forever with no card: 25 published posts, 10 drafts at a time, 100 images (250 MB), a custom domain or `/blog` subpath, 7-day analytics totals, and standard support; free blogs are open to search engines and AI assistants and show a small "Published with vibecms" link. vibecms Cloud adds unlimited posts, 10 GB media, full analytics, priority support, and removes the link. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely and never shows the link.
+- Price: $15/month list, or $150/year if you create a yearly product/price in Polar (early-user discounts are optional Polar discounts).
+- Set the monthly product as `POLAR_MONTHLY_PRODUCT_ID`. If yearly is a separate Polar product, set it as `POLAR_YEARLY_PRODUCT_ID`. Set both early-user discount ids too, or checkout sends the committed sandbox discounts.
+- In hosted mode the free plan is free forever with no card: 15 published posts, 10 drafts at a time, 100 images (250 MB), a custom domain, 7-day analytics totals, and standard support; free blogs are open to search engines and AI assistants and show a small "Published with vibecms" link. vibecms Pro adds unlimited posts, a `/blog` path on your own site, 10 GB media, full analytics, priority support, and removes the link. In self-host mode, `SELF_HOSTED=true` bypasses billing gates entirely and never shows the link.
 - Launch entitlement: 1 hosted blog, unlimited posts, 10 GB media, scoped agent access with no monthly request cap (per-minute and per-day guardrails only), activity and version history, and reader + AI discovery analytics.
 - Upload policy enforced by the app: JPEG/PNG/WebP/GIF only, 10MB max image size, no video hosting, no generic file hosting.
 

@@ -131,34 +131,43 @@ function mockPolar(overrides: Record<string, Record<string, unknown>> = {}, serv
   };
 }
 
-test("Polar pricing accepts list prices and forever discounts yielding launch prices", async () => {
+test("Polar pricing accepts list prices and early-user discounts below the list price", async () => {
   mockPolar();
   await checkPricing(env);
 });
 
-test("Polar pricing fails on wrong interval, amount, duration, and effective launch amount", async () => {
+test("Polar pricing fails on wrong interval, amount, a discount for another product, and a discount that is free or not a discount", async () => {
   for (const [path, override, expected] of [
     ["/v1/products/monthly", { recurring_interval: "year" }, /monthly Polar product.*interval/],
     ["/v1/products/monthly", { prices: [{ amount_type: "fixed", price_currency: "usd", price_amount: 900 }] }, /1500 cents/],
-    ["/v1/discounts/monthly-discount", { duration: "once" }, /duration forever/],
-    ["/v1/discounts/yearly-discount", { amounts: { usd: 7000 } }, /7500 cents after discount/],
+    ["/v1/discounts/monthly-discount", { products: [{ id: "yearly" }] }, /does not apply to product monthly/],
+    ["/v1/discounts/yearly-discount", { amounts: { usd: 15000 } }, /above 0 and below 15000 cents/],
+    ["/v1/discounts/yearly-discount", { amounts: { usd: 0 } }, /above 0 and below 15000 cents/],
   ] as const) {
     mockPolar({ [path]: override });
-    await assert.rejects(checkPricing(env), expected);
+    await assert.rejects(checkPricing(env, () => {}), expected);
   }
-  mockPolar();
-  await assert.rejects(checkPricing({ ...env, POLAR_LAUNCH_DISCOUNT_MONTHLY_ID: "" }), /POLAR_LAUNCH_DISCOUNT_MONTHLY_ID is required/);
 });
 
-test("production pricing rejects shell-only discounts while sandbox pricing accepts shell values", async () => {
+test("Polar pricing only warns when the early-user discount is unset or used up, since checkout falls back to the list price", async () => {
+  const warnings: string[] = [];
+  mockPolar({ "/v1/discounts/yearly-discount": { max_redemptions: 100, redemptions_count: 100 } });
+  await checkPricing({ ...env, POLAR_LAUNCH_DISCOUNT_MONTHLY_ID: "" }, (message) => warnings.push(message));
+  assert.deepEqual(warnings.map((message) => message.split(" ")[0]), ["monthly:", "yearly"]);
+  assert.match(warnings[1] ?? "", /not redeemable right now/);
+});
+
+test("production pricing reads the early-user discounts from the production config, never the shell", async () => {
+  const warnings: string[] = [];
   mockPolar({}, "production");
   const production = productionPolarEnv('"POLAR_SERVER": "production", "POLAR_MONTHLY_PRODUCT_ID": "monthly", "POLAR_YEARLY_PRODUCT_ID": "yearly"', env.POLAR_ACCESS_TOKEN);
-  await assert.rejects(checkPricing(production), /POLAR_LAUNCH_DISCOUNT_MONTHLY_ID is required/);
+  await checkPricing(production, (message) => warnings.push(message));
+  assert.equal(warnings.filter((message) => /no early-user discount configured/.test(message)).length, 2);
   mockPolar();
-  await checkPricing(env);
+  await checkPricing(env, () => {});
 });
 
-test("Polar percentage discounts (40% monthly, 50% yearly) yield the launch prices", async () => {
+test("Polar percentage discounts (40% monthly, 50% yearly) pass as early-user discounts", async () => {
   mockPolar({
     "/v1/discounts/monthly-discount": { type: "percentage", basis_points: 4000, amounts: undefined },
     "/v1/discounts/yearly-discount": { type: "percentage", basis_points: 5000, amounts: undefined },

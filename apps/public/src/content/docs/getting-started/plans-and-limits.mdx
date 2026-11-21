@@ -5,18 +5,18 @@ description: What the free plan includes, what paid adds, and what happens when 
 
 On hosted vibecms every blog starts on the free plan, free forever. The free plan includes:
 
-- 25 published posts
+- 15 published posts
 - 10 drafts at a time
 - 100 images and 250 MB of media, whichever is reached first
-- A custom domain (one per blog) or the blog under `/blog` of your own site, plus `name.vibecms.dev`
-- Open to search engines and AI assistants: pages, sitemap, robots.txt, feeds, and llms.txt are the same as on Cloud
+- A custom domain (one per blog), plus `name.vibecms.dev`
+- Open to search engines and AI assistants: pages, sitemap, robots.txt, feeds, and llms.txt are the same as on Pro
 - Analytics for the last 7 days: readers and agent reads per day, site totals only
 - Agent keys, with 300 requests a day and 1,000 a month; writes are limited to 50 a day and 200 a month
 - Unlimited version history, themes, SEO checks, redirects, and JSON export
 - Standard support
 - A small "Published with vibecms" link at the bottom of every blog page
 
-vibecms Cloud includes unlimited posts and drafts, 10 GB of media, full analytics (all history, per-post numbers, referrers, and agent breakdowns), no "Published with vibecms" link, priority support, and 5,000 agent requests a day. Agent requests are limited to 120 a minute, writes to 500 a day, and each key to 60 requests a minute, with no monthly cap (see [API limits](/docs/api/authentication#limits)). Address options are the same on both plans. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
+vibecms Pro includes unlimited posts and drafts, your blog at a `/blog` path on your own site (like `example.com/blog`), 10 GB of media, full analytics (all history, per-post numbers, referrers, and agent breakdowns), no "Published with vibecms" link, priority support, and 5,000 agent requests a day. Agent requests are limited to 120 a minute, writes to 500 a day, and each key to 60 requests a minute, with no monthly cap (see [API limits](/docs/api/authentication#limits)). Both plans get `name.vibecms.dev` and one custom domain. Self-hosted installs never show the link. Prices live on the [pricing section](https://vibecms.dev/#pricing) of the site and are not repeated here.
 
 ## Upgrade and manage
 
@@ -26,9 +26,9 @@ Each blog has its own subscription. One person can pay for several blogs with th
 
 ## Getting close and reaching a limit
 
-From 20 published posts or 80 images, the dashboard Overview shows one line with what is left ("5 posts left on Free") and **Get Cloud**. Dismissing it keeps it away for that blog. The agent hears it once too: the publish that brings the blog to 20 posts, or the upload that brings it to 80 images, returns a `planNotice` to pass on to the owner: how many are left and that everything stays online. It names no plan and has no link.
+From 12 published posts or 80 images, the dashboard Overview shows one line with what is left ("3 posts left on Free") and **Get Pro**. Dismissing it keeps it away for that blog. The agent hears it once too: the publish that brings the blog to 12 posts, or the upload that brings it to 80 images, returns a `planNotice` to pass on to the owner: how many are left and that everything stays online. It names no plan and has no link.
 
-When a free limit refuses a publish, a draft or an upload, the place where it failed says the limit, that published posts stay online and editable, and offers **Get Cloud**: one click opens checkout (owner only). In the editor it opens in a new tab, so unsaved writing stays put. The free Analytics screen says what Cloud adds next to the same button.
+When a free limit refuses a publish, a draft or an upload, the place where it failed says the limit, that published posts stay online and editable, and offers **Get Pro**: one click opens checkout (owner only). In the editor it opens in a new tab, so unsaved writing stays put. The free Analytics screen says what Pro adds next to the same button.
 
 ## Canceling and failed payments
 
@@ -42,6 +42,6 @@ If the payment is still failing when the grace period ends, the free plan applie
 
 ## When paid access ends
 
-Nothing is deleted, unpublished, or hidden from search engines. Every published post stays online and editable, the custom domain and `/blog` location keep serving, and the blog stays open to search engines and AI assistants. The free plan applies again: the "Published with vibecms" link returns, analytics show the last 7 days of site totals, and new publishes, drafts, and uploads are refused until the blog is back under the free limits or on Cloud. Posts over the free published limit stay published; the cap only blocks *new* publishes past 25. Editing and republishing a post that is already live always works.
+Nothing is deleted, unpublished, or hidden from search engines. Every published post stays online and editable, the custom domain and a `/blog` location that is already connected keep serving, and the blog stays open to search engines and AI assistants. The free plan applies again: the "Published with vibecms" link returns, analytics show the last 7 days of site totals, and new publishes, drafts, and uploads are refused until the blog is back under the free limits or on Pro. Posts over the free published limit stay published; the cap only blocks *new* publishes past 15. Connecting a new `/blog` location needs Pro again. Editing and republishing a post that is already live always works.
 
-Free-plan limits fail with distinct codes — the same over REST and in the MCP tool error result: publishing past 25 posts or adding a draft past 10 → `BILLING_REQUIRED`; per-post analytics (`postId`) → `ANALYTICS_PAID_PLAN`; uploading past 100 images or 250 MB → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Each message says the limit, that existing posts stay online and editable, that vibecms Cloud removes the limit, and tells the agent not to retry but to tell the blog owner, with the pricing link. Resubscribing lifts the limits at once.
+Free-plan limits fail with distinct codes — the same over REST and in the MCP tool error result: publishing past 15 posts, adding a draft past 10, or connecting a `/blog` path → `BILLING_REQUIRED`; per-post analytics (`postId`) → `ANALYTICS_PAID_PLAN`; uploading past 100 images or 250 MB → `media_quota_free`; uploading past paid storage → `media_quota_paid`. Each message says the limit, that existing posts stay online and editable, that vibecms Pro removes the limit, and tells the agent not to retry but to tell the blog owner, with the pricing link. Resubscribing lifts the limits at once.

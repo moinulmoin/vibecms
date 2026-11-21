@@ -67,7 +67,7 @@ export const RESERVED_POST_SLUGS = [
 
 /**
  * Agent request budgets (MCP, REST, CLI) per workspace. A `null` monthly cap
- * means no monthly cap: Cloud is bounded by its per-minute and per-day limits.
+ * means no monthly cap: Pro is bounded by its per-minute and per-day limits.
  * Its monthly totals are still counted for the dashboard.
  */
 export const API_USAGE_LIMITS = {
@@ -129,7 +129,7 @@ export function isPaidBilling(billing: PaidBillingState, nowMs: number = Date.no
 export const API_TOKENS_MAX = 10;
 
 export const PRICING = {
-  planName: "vibecms Cloud",
+  planName: "vibecms Pro",
   monthlyUsd: 15,
   annualUsd: 150,
   monthlyLabel: "$15/month",
@@ -137,41 +137,33 @@ export const PRICING = {
 } as const;
 
 /**
- * Public Early Access launch offer. The operator prices the Polar monthly and
- * yearly products directly at the offer during the launch window (no checkout
- * eligibility enforcement). The offer remains available while it is displayed,
- * and the rate is retained while the subscription stays active. Standard prices
- * remain the visual anchor.
- */
-/**
  * Polar API contract our billing code is written against. Polar moves its
  * default contract every quarter; unpinned requests would change shape under
  * us. Upgrade deliberately after reviewing Polar's changelog.
  */
 export const POLAR_API_VERSION = "2026-04";
 
-export const LAUNCH_OFFER = {
-  phaseLabel: "Launch pricing",
-  slotsLabel: "Launch price",
-  monthlyUsd: 9,
-  annualUsd: 75,
-  monthlyLabel: "$9/month",
-  annualLabel: "$75/year",
-  /** Shown as "40% off" / "50% off"; Polar discounts are these percentages. */
-  monthlyPercentOff: 40,
-  annualPercentOff: 50,
-  lockNote: "Locked while you stay subscribed.",
-  applyNote: "Launch pricing applies automatically at checkout.",
+/**
+ * The early-user offer: a Polar discount (POLAR_EARLY_USER_DISCOUNT_*_ID) that
+ * checkout applies on its own for the first customers, on top of the list
+ * price. Its size, redemption cap and end live in Polar, so no surface states
+ * an amount; when the discount is unset, disabled or used up, checkout charges
+ * the list price. Removing the offer is deleting the discount in Polar and
+ * this copy.
+ */
+export const EARLY_USER_OFFER = {
+  label: "Early user",
+  note: "Early users get a discount, applied automatically at checkout while early spots last.",
 } as const;
 
 /**
- * Hosted free plan ("Free forever"). Free blogs get the same addresses and are
- * open to search engines and AI assistants like Cloud blogs. Cloud removes
- * these caps and the footer link and adds full analytics (free sees 7 days of
- * totals).
+ * Hosted free plan ("Free forever"). Free blogs get their own subdomain and one
+ * custom domain and are open to search engines and AI assistants like Pro
+ * blogs. Pro removes these caps and the footer link, adds a /blog path on the
+ * owner's own site, and adds full analytics (free sees 7 days of totals).
  */
 export const FREE_TIER = {
-  publishedPosts: 25,
+  publishedPosts: 15,
   drafts: 10,
   images: 100,
   storageBytes: 250 * 1024 * 1024,
@@ -184,23 +176,24 @@ export const FREE_TIER = {
 
 /**
  * The one plan story every surface tells (landing, dashboard, legal, agent
- * pitch). Address options are the same on both plans, so they never appear as
- * a difference.
+ * pitch). Both plans get a subdomain and one custom domain; a /blog path on
+ * the owner's own site is Pro's.
  */
 export const PLAN_SUMMARY = {
   free: `${FREE_TIER.publishedPosts} published posts, ${FREE_TIER.drafts} drafts at a time, ${FREE_TIER.images} images, a custom domain, ${FREE_TIER.analyticsDays}-day analytics, and standard support`,
-  cloud: `unlimited posts, ${MEDIA.paidStorageLabel} of media, full analytics, no vibecms branding, priority support, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
+  cloud: `unlimited posts, a /blog path on your own site, ${MEDIA.paidStorageLabel} of media, full analytics, no vibecms branding, priority support, and ${API_USAGE_LIMITS.paid.calls.day.toLocaleString("en-US")} agent requests a day`,
 } as const;
 
 /**
  * What an agent, the API and the dashboard say at a free-plan cap: the limit,
- * that nothing already online goes away, and that Cloud removes the limit.
+ * that nothing already online goes away, and that Pro removes the limit.
  */
 export const FREE_LIMIT_MESSAGES = {
   publishedPosts: `Free plan: up to ${FREE_TIER.publishedPosts} published posts. Your published posts stay online and editable. ${PRICING.planName} removes this limit.`,
   drafts: `Free plan: up to ${FREE_TIER.drafts} drafts at a time; publish, archive or delete one to start another. Your existing posts stay online and editable. ${PRICING.planName} removes this limit.`,
   media: `Free plan: up to ${FREE_TIER.images} images and ${FREE_TIER.storageLabel} of media. Your existing posts and images stay online and editable. ${PRICING.planName} removes this limit.`,
   customDomain: "Free plan: one own domain per blog. Your connected domain stays online; remove it first to connect a different one.",
+  subpath: `${PRICING.planName} serves your blog at a /blog path on your own site, where search engines count it as part of your main site. Until then, your blog keeps serving at its current address.`,
 } as const;
 
 /**
@@ -209,7 +202,7 @@ export const FREE_LIMIT_MESSAGES = {
  * images, tell the owner once how many are left.
  */
 export const FREE_CLOSE_MARKS = {
-  publishedPosts: 20,
+  publishedPosts: 12,
   images: 80,
 } as const;
 
@@ -237,7 +230,7 @@ export const SITE_SUSPENDED_MESSAGE = `This blog is suspended, so publishing, sc
  * Post-revoke claim window for AutoSEOPilot-managed blogs (day 0 = VibeCMS
  * `revoked_at`). Days 0-7 the blog stays fully online on every address; after
  * the grace it serves a neutral paused page; unclaimed blogs are deleted at
- * the deadline. Claiming (VibeCMS Cloud on the same workspace) or the
+ * the deadline. Claiming (vibecms Pro on the same workspace) or the
  * AutoSEOPilot plan resuming clears the clock.
  */
 export const MANAGED_CLAIM_WINDOW = {
@@ -333,6 +326,7 @@ export const FORM_STATUS: Record<string, FormStatus> = {
   media_quota_free: { variant: "error", title: "Media limit reached", message: FREE_LIMIT_MESSAGES.media },
   draft_limit: { variant: "error", title: "Draft limit reached", message: FREE_LIMIT_MESSAGES.drafts },
   billing_required: { variant: "error", title: "Published post limit reached", message: FREE_LIMIT_MESSAGES.publishedPosts },
+  subpath_paid_plan: { variant: "error", title: "A /blog path comes with Pro", message: FREE_LIMIT_MESSAGES.subpath },
   owner_required: { variant: "error", title: "Owner access required", message: "Only the workspace owner can do that." },
   polar_unconfigured: { variant: "error", title: "Billing unavailable", message: `Billing is not available right now. Write to ${SUPPORT_EMAIL} and we will sort it out.` },
   checkout_failed: { variant: "error", title: "Checkout unavailable", message: `We could not start checkout. Try again, or write to ${SUPPORT_EMAIL} and we will sort it out.` },

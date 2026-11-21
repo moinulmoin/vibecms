@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { GetCloudButton, PlanLimitNotice } from '~/components/dashboard/PlanActions'
+import { GetProButton, PlanLimitNotice } from '~/components/dashboard/PlanActions'
 import { UnsavedNavigationGuard } from '~/components/dashboard/UnsavedNavigationGuard'
 import { Button, LoadError } from '~/components/dashboard/DashboardLayout'
 import { EmptyState, PageHeader, PageSkeleton } from '~/components/dashboard/blocks'
@@ -461,7 +461,7 @@ export function MediaPage() {
       </div>
 
       {limitRefused ? (
-        <PlanLimitNotice code="media_quota_free" message={FREE_LIMIT_MESSAGES.media} action={<GetCloudButton />} onDismiss={() => setLimitRefused(false)} />
+        <PlanLimitNotice code="media_quota_free" message={FREE_LIMIT_MESSAGES.media} action={<GetProButton />} onDismiss={() => setLimitRefused(false)} />
       ) : null}
 
       {uploadQueue.length ? (

@@ -139,10 +139,10 @@ page with `X-Robots-Tag: noindex, nofollow` and `cache-control: no-store`.
 
 ### Claiming
 
-Claiming is signing in with the same email and buying VibeCMS Cloud. The
+Claiming is signing in with the same email and buying VibeCMS Pro. The
 sponsor's own day-0 email points the customer at that flow. Nothing moves:
 the same blog, posts, media and domain serve again, and a blog that was
-claimed is never deleted by this flow again, even if Cloud is cancelled later.
+claimed is never deleted by this flow again, even if Pro is cancelled later.
 The dashboard shows a "Keep your blog" banner with the exact deadline, and
 the billing page states the grace, the pause, the deadline and the upgrade.
 The billing payload carries the serving state (`serving`) separately from
@@ -154,7 +154,7 @@ launch. The owner keeps dashboard access and can read and export during the
 window.
 
 A revoked managed workspace can therefore start a checkout: buying VibeCMS
-Cloud there is exactly how the customer keeps the blog. A workspace with a
+Pro there is exactly how the customer keeps the blog. A workspace with a
 LIVE sponsorship is not for sale (the plan already includes the blog), and a
 blog whose purge is under way must not take money at all. The checkout
 attempt is written BEFORE the checkout is handed out and carries a 48-hour
@@ -166,7 +166,7 @@ pays for.
 One job (`apps/api/src/server/managed-claim-sweep.ts`) owns the window. It
 runs on the existing 15-minute cron (`*/15 * * * *`, next to media
 recovery), so a reminder lands within 15 minutes of its day and a purge
-within 15 minutes of day 30. It selects revoked managed sites whose workspace never claimed VibeCMS Cloud
+within 15 minutes of day 30. It selects revoked managed sites whose workspace never claimed VibeCMS Pro
 (no billing row, or status `none`) and, for each one, sends the reminder of
 the day it is on — days 7, 14, 21 and 28 — each guarded by its own durable
 marker column, so a reminder goes out at most once per claim window even
@@ -189,7 +189,7 @@ Deleting a blog is irreversible, so it happens in three steps:
    still revoked, still past its own deadline (`revoked_at + 30 days <= now`,
    never a deadline carried over from an earlier candidate), still the same
    lifecycle the candidate was selected at, its workspace still never claimed
-   VibeCMS Cloud, and no claim checkout for that workspace was opened in the
+   VibeCMS Pro, and no claim checkout for that workspace was opened in the
    last 48 hours. The 48 hours are counted from the moment the checkout was
    opened and cover the checkout whether it is still open or already
    resolved: Polar's checkout expiry and a delayed webhook can land anywhere

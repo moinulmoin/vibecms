@@ -25,7 +25,7 @@ export function plansUrl() {
 const FREE_LIMIT_CODES = ["BILLING_REQUIRED", "ANALYTICS_PAID_PLAN", "billing_required", "media_quota_free"];
 
 /**
- * Refusals a retry cannot fix that also reach paying Cloud customers, so no
+ * Refusals a retry cannot fix that also reach paying Pro customers, so no
  * plans link: a full 10 GB media library, and a blog an operator suspended.
  */
 const OWNER_ONLY_CODES = ["media_quota_paid"];

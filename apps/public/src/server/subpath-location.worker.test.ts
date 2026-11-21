@@ -485,7 +485,7 @@ describe("past_due grace on the subpath mount", () => {
       const redirect = await primaryLocationRedirect(env.DB, graceRequest("/hello"), "/hello", runtimeEnv, graceLocation);
       expect(redirect?.headers.get("location")).toBe("https://grace.example.com/blog/hello");
     }
-    // The free plan keeps the /blog mount: leaving Cloud takes nothing offline.
+    // The free plan keeps the /blog mount: leaving Pro takes nothing offline.
     for (const ms of [DEADLINE, DEADLINE + 1]) {
       clockAt(ms);
       expect(await resolvePublicLocationIngress(env.DB, graceRequest(ingressPath), ingressPath, runtimeEnv))

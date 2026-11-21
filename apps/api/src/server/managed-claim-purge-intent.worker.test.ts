@@ -121,7 +121,7 @@ async function seedMedia(siteId: string): Promise<void> {
   await env.ASSETS_BUCKET.put(`og/${siteId}/card.png`, new Uint8Array([4, 5, 6]))
 }
 
-/** The claim: VibeCMS Cloud on the managed workspace. */
+/** The claim: VibeCMS Pro on the managed workspace. */
 async function claimWorkspace(workspaceId: string): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO billing_customers (id, workspace_id, status, current_period_end, created_at, updated_at)
@@ -574,7 +574,7 @@ describe('claim window — the purge intent', () => {
 })
 
 describe('claim window — the claim', () => {
-  it('sells VibeCMS Cloud to a revoked managed blog and guards the purge for 48 hours', async () => {
+  it('sells VibeCMS Pro to a revoked managed blog and guards the purge for 48 hours', async () => {
     const blog = await seedRevokedBlog('claim', 10)
     const createCheckout = vi.fn().mockResolvedValue({
       url: 'https://polar.example/claim',
@@ -605,7 +605,7 @@ describe('claim window — the claim', () => {
     const blog = await seedRevokedBlog('claimpaid', 10)
     await seedMedia(blog.siteId)
 
-    // The customer buys VibeCMS Cloud.
+    // The customer buys VibeCMS Pro.
     const checkout = await createCheckoutSessionForApp(ownerApp(blog.workspaceId), 'monthly', {
       createCheckout: vi.fn().mockResolvedValue({
         url: 'https://polar.example/claim',

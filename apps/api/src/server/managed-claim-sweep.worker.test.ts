@@ -154,7 +154,7 @@ describe('managed claim sweep — reminders', () => {
     expect(again.remindersSent).toBe(0)
   })
 
-  it('stops all reminders once the blog is claimed with Cloud', async () => {
+  it('stops all reminders once the blog is claimed with Pro', async () => {
     const seeded = await seedManagedSite({ suffix: 'rclaimed', revokedDaysAgo: 10, polarStatus: 'active' })
     const result = await runManagedClaimSweep(env)
     const markers = await markersFor(seeded.externalWorkspaceId)

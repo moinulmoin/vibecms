@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowLeft, ExternalLink, PanelRightClose, PanelRightOpen
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Panel } from '~/components/dashboard/blocks'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
-import { GetCloudButton, PlanLimitNotice, isPlanCapCode } from '~/components/dashboard/PlanActions'
+import { GetProButton, PlanLimitNotice, isPlanCapCode } from '~/components/dashboard/PlanActions'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { useMediaQuery } from '~/hooks/use-media-query'
 import {
@@ -1225,7 +1225,7 @@ function PostEditorSession({ postId, onCreated }: { postId?: string; onCreated: 
         </section>
       ) : null}
       {actionError && isPlanCapCode(actionErrorCode) ? (
-        <PlanLimitNotice code={actionErrorCode} message={actionError} action={<GetCloudButton newTab />} plansInNewTab onDismiss={() => setActionError(null)} />
+        <PlanLimitNotice code={actionErrorCode} message={actionError} action={<GetProButton newTab />} plansInNewTab onDismiss={() => setActionError(null)} />
       ) : actionError ? (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{actionError}</span>

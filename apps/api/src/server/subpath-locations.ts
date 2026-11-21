@@ -18,6 +18,7 @@ import { isPurgeableMount, scheduleSitePurge } from '@/server/purge-scheduler'
 import { appHost, publicBlogBaseDomain } from '@/server/public-url'
 import { checkSubpathSetup, type SubpathCheckResult } from '@/server/subpath-setup'
 import { defaultHostBaseUrl } from '@/server/site-public-url'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 
 /**
  * The site's public location (plans/022 phase 3): default host, custom domain,
@@ -142,6 +143,12 @@ export async function getSiteLocationForApp(app: AppUserContext): Promise<Subpat
 export async function setSubpathLocationForApp(app: AppUserContext, url: string): Promise<LocationResult> {
   try {
     await assertAuthorized(app.actor)
+    // A /blog path on the owner's own site is Pro's (or a sponsorship's). Only
+    // connecting one is gated: a path already connected keeps serving, and can
+    // be checked, rotated or removed, on any plan.
+    if (!(await resolveEffectiveEntitlementForWorkspace(app.workspaceId)).effective) {
+      return { ok: false, code: 'subpath_paid_plan' }
+    }
     const validation = validateSubpathLocation(url, { appHost: appHost(), platformZone: publicBlogBaseDomain() ?? '' })
     if (!validation.ok) {
       return { ok: false, code: 'location_invalid' }

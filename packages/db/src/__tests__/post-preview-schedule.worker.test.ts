@@ -82,18 +82,18 @@ describe('scheduled exact-version publishing', () => {
     expect(event?.summary).toContain('Scheduled by Owner');
   });
 
-  it('free-plan cap blocks the 26th scheduled publication', async () => {
-    // One post is already live from the test above; 24 more reach the cap of 25.
+  it('free-plan cap blocks the 16th scheduled publication', async () => {
+    // One post is already live from the test above; 14 more reach the cap of 15.
     const scheduled = await create();
     await publishScheduledPost(repo, scheduler, {
       siteId: SITE, postId: scheduled.id, versionNumber: 1, billingStatus: 'none', scheduledBy: actor.name,
       leaseToken: await leaseFor(scheduled.id),
     });
-    for (let index = 0; index < 23; index++) {
+    for (let index = 0; index < 13; index++) {
       const post = await create();
       await repo.publishPostWithHistory(SITE, post.id, 1, actor,
         { changeSummary: 'Published', activityAction: 'post.published', activitySummary: 'Published' },
-        { billingActive: false, freeLimit: 25 });
+        { billingActive: false, freeLimit: 15 });
     }
     const overCap = await create();
     const leaseToken = await leaseFor(overCap.id);

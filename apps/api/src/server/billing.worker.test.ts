@@ -11,8 +11,10 @@ import {
   createCheckoutSessionForApp,
   createPortalSessionForApp,
   pickReusableOpenCheckoutUrl,
+  isOfferNetAmount,
   pinnedPolarHttpClient,
 } from '@/server/billing'
+import { HTTPValidationError } from '@polar-sh/sdk/models/errors/httpvalidationerror.js'
 import type { AppUserContext } from '@/server/onboarding'
 
 declare module 'vitest' {
@@ -390,23 +392,44 @@ describe('createPortalSessionForApp — Polar customer shared with other product
   })
 })
 
-describe('createCheckoutSessionForApp — launch discount', () => {
+function polarValidationError(field: string) {
+  return new HTTPValidationError(
+    { detail: [{ loc: ['body', field], msg: 'Discount is not applicable.', type: 'value_error' }] },
+    { request: new Request('https://sandbox-api.polar.sh/v1/checkouts/'), response: new Response('', { status: 422 }), body: '' },
+  )
+}
+
+describe('isOfferNetAmount', () => {
+  it('allows only the list price without a discount and only less than list with one, never more', () => {
+    expect(isOfferNetAmount(1500, 1500, false)).toBe(true)
+    expect(isOfferNetAmount(900, 1500, false)).toBe(false)
+    expect(isOfferNetAmount(1501, 1500, false)).toBe(false)
+    expect(isOfferNetAmount(900, 1500, true)).toBe(true)
+    expect(isOfferNetAmount(1499, 1500, true)).toBe(true)
+    expect(isOfferNetAmount(1500, 1500, true)).toBe(false)
+    expect(isOfferNetAmount(1501, 1500, true)).toBe(false)
+    expect(isOfferNetAmount(0, 1500, true)).toBe(false)
+    expect(isOfferNetAmount(null, 1500, false)).toBe(false)
+  })
+})
+
+describe('createCheckoutSessionForApp — early-user discount', () => {
   it.each([
-    ['usd', 1500], ['eur', 900], ['usd', 901],
-  ])('skips reused checkout with currency %s and net amount %i when launch price is 900', async (currency, netAmount) => {
+    ['usd', 1500], ['eur', 900], ['usd', 0], ['usd', 1600],
+  ])('skips reused checkout with currency %s and net amount %i when the early-user discount is on', async (currency, netAmount) => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
-    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
     const workspaceId = `ws-reuse-price-${currency}-${netAmount}`
     await seedWorkspace(workspaceId)
     const createCheckout = vi.fn().mockResolvedValue({
       url: 'https://polar.example/correct', productId: 'prod_monthly',
-      discountId: 'disc_launch_monthly', currency: 'usd', netAmount: 900,
+      discountId: 'disc_early_monthly', currency: 'usd', netAmount: 900,
     })
     const listOpenCheckouts = vi.fn().mockResolvedValue([{
       url: 'https://polar.example/wrong', status: 'open', productId: 'prod_monthly',
-      discountId: 'disc_launch_monthly', currency, netAmount,
+      discountId: 'disc_early_monthly', currency, netAmount,
     }])
     expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts }))
       .toEqual({ kind: 'ok', url: 'https://polar.example/correct' })
@@ -414,11 +437,11 @@ describe('createCheckoutSessionForApp — launch discount', () => {
   })
 
   it.each([
-    ['eur', 900], ['usd', 901],
-  ])('rejects a created checkout with currency %s and net amount %i', async (currency, netAmount) => {
+    ['eur', 900], ['usd', 1500], ['usd', 1501], ['usd', 0],
+  ])('rejects a discounted checkout with currency %s and net amount %i', async (currency, netAmount) => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
-    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
     const workspaceId = `ws-created-price-${currency}-${netAmount}`
     await seedWorkspace(workspaceId)
@@ -427,26 +450,60 @@ describe('createCheckoutSessionForApp — launch discount', () => {
       listOpenCheckouts: async () => [],
       createCheckout: async () => ({
         url: 'https://polar.example/wrong', productId: 'prod_monthly',
-        discountId: 'disc_launch_monthly', currency, netAmount,
+        discountId: 'disc_early_monthly', currency, netAmount,
       }),
     })).toEqual({ kind: 'error', code: 'checkout_failed' })
     expect(log).toHaveBeenCalledWith('polar checkout offer mismatch', expect.objectContaining({ currency, netAmount }))
   })
 
-  it('applies the launch discount when configured and charges list price when not', async () => {
+  it('falls back to a list-price checkout when Polar refuses the early-user discount', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-early-user-used-up'
+    await seedWorkspace(workspaceId)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const createCheckout = vi.fn(async (body: { discountId?: string }, _options?: unknown) => {
+      if (body.discountId) throw polarValidationError('discount_id')
+      return { url: 'https://polar.example/list-price', productId: 'prod_monthly', discountId: null, currency: 'usd', netAmount: 1500 }
+    })
+    expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts: async () => [] }))
+      .toEqual({ kind: 'ok', url: 'https://polar.example/list-price' })
+    expect(createCheckout).toHaveBeenCalledTimes(2)
+    expect(createCheckout.mock.calls[0]?.[0]).toMatchObject({ discountId: 'disc_early_monthly' })
+    expect(createCheckout.mock.calls[1]?.[0]).not.toHaveProperty('discountId')
+    expect(createCheckout.mock.calls[1]?.[1]).toEqual({ headers: { 'Idempotency-Key': checkoutIdempotencyKey(workspaceId, 'monthly', 'prod_monthly') } })
+  })
+
+  it('does not retry a refusal that is not about the discount', async () => {
+    mutableEnv.SELF_HOSTED = 'false'
+    mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
+    mutableEnv.APP_URL = 'https://app.example.com'
+    const workspaceId = 'ws-early-user-other-422'
+    await seedWorkspace(workspaceId)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const createCheckout = vi.fn(async () => { throw polarValidationError('customer_email') })
+    expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts: async () => [] }))
+      .toEqual({ kind: 'error', code: 'checkout_failed' })
+    expect(createCheckout).toHaveBeenCalledOnce()
+  })
+
+  it('applies the early-user discount when configured and charges list price when not', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
     mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
-    const workspaceId = 'ws-billing-launch'
+    const workspaceId = 'ws-billing-early-user'
     await seedWorkspace(workspaceId)
     const createCheckout = vi.fn(async (body: { discountId?: string }, _options?: unknown) => ({ url: 'https://polar.example/checkout', productId: 'prod_monthly', discountId: body.discountId ?? null, currency: 'usd', netAmount: body.discountId ? 900 : 1500 }))
     const listOpenCheckouts = vi.fn(async () => [])
 
-    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
     await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { createCheckout, listOpenCheckouts })
     expect(createCheckout).toHaveBeenLastCalledWith(
-      expect.objectContaining({ products: ['prod_monthly'], discountId: 'disc_launch_monthly' }),
+      expect.objectContaining({ products: ['prod_monthly'], discountId: 'disc_early_monthly' }),
       expect.anything(),
     )
 
@@ -459,12 +516,12 @@ describe('createCheckoutSessionForApp — launch discount', () => {
     mutableEnv.SELF_HOSTED = 'false'
     mutableEnv.POLAR_ACCESS_TOKEN = 'polar_test_token'
     mutableEnv.POLAR_MONTHLY_PRODUCT_ID = 'prod_monthly'
-    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_launch_monthly'
+    mutableEnv.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID = 'disc_early_monthly'
     mutableEnv.APP_URL = 'https://app.example.com'
     const workspaceId = 'ws-billing-offer-mismatch'
     await seedWorkspace(workspaceId)
     const listOpenCheckouts = vi.fn().mockResolvedValue([
-      { url: 'https://polar.example/wrong-product', status: 'open', productId: 'other', discountId: 'disc_launch_monthly' },
+      { url: 'https://polar.example/wrong-product', status: 'open', productId: 'other', discountId: 'disc_early_monthly' },
       { url: 'https://polar.example/wrong-discount', status: 'open', productId: 'prod_monthly', discountId: null },
     ])
     const createCheckout = vi.fn().mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: null })
@@ -472,8 +529,8 @@ describe('createCheckoutSessionForApp — launch discount', () => {
     const result = await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { listOpenCheckouts, createCheckout })
     expect(result).toEqual({ kind: 'error', code: 'checkout_failed' })
     expect(createCheckout).toHaveBeenCalledOnce()
-    expect(log).toHaveBeenCalledWith('polar checkout offer mismatch', expect.objectContaining({ requestedDiscountId: 'disc_launch_monthly', returnedDiscountId: null }))
-    createCheckout.mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: 'disc_launch_monthly', currency: 'usd', netAmount: 900 })
+    expect(log).toHaveBeenCalledWith('polar checkout offer mismatch', expect.objectContaining({ requestedDiscountId: 'disc_early_monthly', returnedDiscountId: null }))
+    createCheckout.mockResolvedValue({ url: 'https://polar.example/new', productId: 'prod_monthly', discountId: 'disc_early_monthly', currency: 'usd', netAmount: 900 })
     expect(await createCheckoutSessionForApp(ownerApp(workspaceId), 'monthly', { listOpenCheckouts, createCheckout }))
       .toEqual({ kind: 'ok', url: 'https://polar.example/new' })
   })

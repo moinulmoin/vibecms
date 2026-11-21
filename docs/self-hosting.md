@@ -4,7 +4,7 @@ vibecms runs without Polar when `SELF_HOSTED=true`. Hosted billing gates and wor
 
 ## Topology
 
-Self-hosting uses the same Worker layout as vibecms Cloud, with the OG Worker optional:
+Self-hosting uses the same Worker layout as hosted vibecms, with the OG Worker optional:
 
 1. **API + dashboard Worker**: Hono, Better Auth, REST, MCP, billing adapter, media writes, and the static TanStack Router SPA.
 2. **Public Worker**: Astro SSR for blog pages, feeds, search, Markdown negotiation, and newsletter form forwarding.

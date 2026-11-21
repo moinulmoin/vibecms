@@ -8,6 +8,7 @@ import { env } from 'cloudflare:workers'
 import {
   createCheckoutSessionForApp,
   createPortalSessionForApp,
+  earlyUserDiscountId,
   getBilling,
   isSelfHosted,
   type CheckoutInterval,
@@ -481,7 +482,7 @@ export async function loadBillingPage(app: AppUserContext) {
   ])
   // The claim window ("keep your blog"): day 0 is the managed revoke, day 7 the
   // blog pauses, day 30 an unclaimed blog is deleted. It only exists while the
-  // workspace has never claimed vibecms Cloud — exactly when the claim sweep
+  // workspace has never claimed vibecms Pro — exactly when the claim sweep
   // can delete the blog. A claimed workspace keeps its blog forever.
   const revokedAt = managedSnapshot?.revokedAt ?? null
   const claim =
@@ -507,6 +508,8 @@ export async function loadBillingPage(app: AppUserContext) {
     publicUrl,
     suspension,
     billing,
+    // Whether checkout tries the early-user discount; Polar still decides if it is redeemable.
+    earlyUserOffer: { monthly: earlyUserDiscountId('monthly') !== undefined, yearly: earlyUserDiscountId('yearly') !== undefined },
     managed: managedSnapshot
       ? {
           status: managedSnapshot.entitlementStatus,

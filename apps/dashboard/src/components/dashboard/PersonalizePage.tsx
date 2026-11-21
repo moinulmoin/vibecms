@@ -1,4 +1,4 @@
-import { LAUNCH_OFFER, PLAN_SUMMARY, PRICING } from '@vc/config'
+import { PLAN_SUMMARY, PRICING } from '@vc/config'
 import { CopyButton, Skeleton } from '@vc/ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -246,7 +246,7 @@ export function PersonalizePage() {
           {!connect.data.effectiveEntitlement.effective ? (
             <p className="text-[13px] leading-5 text-muted-foreground">
               Free includes {PLAN_SUMMARY.free}. {PRICING.planName} adds {PLAN_SUMMARY.cloud} for{' '}
-              {LAUNCH_OFFER.monthlyLabel} at launch pricing.
+              {PRICING.monthlyLabel}.
             </p>
           ) : null}
           <MessageFounderLink />
