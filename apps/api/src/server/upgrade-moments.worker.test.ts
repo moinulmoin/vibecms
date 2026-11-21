@@ -6,6 +6,8 @@ import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { beforeAll, describe, expect, inject, it } from 'vitest'
 import { app } from '@/index'
 import { hashApiToken } from '@/server/api-keys'
+import { handleMcpRequest } from '@/server/mcp'
+import { FREE_LIMIT_AGENT_MESSAGES, PRICING } from '@vc/config'
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -141,7 +143,36 @@ describe('free plan upgrade moments for agents', () => {
     expect(refused.status).toBe(402)
     expect(refused.body.error.message).toContain('15')
     expect(refused.body.error.message).toMatch(/published posts stay online/i)
-    expect(refused.body.error.message).toContain(UPGRADE_LINK)
+    expect(refused.body.error.message).not.toContain(UPGRADE_LINK)
+    expect(refused.body.error.message).not.toMatch(/\b(pro|cloud)\b|change plans|https?:/i)
+    expect(refused.body.error.details).toEqual({ plansUrl: UPGRADE_LINK })
+  })
+
+  it('agent-facing limit text never names the paid plan or links anywhere', () => {
+    for (const text of Object.values(FREE_LIMIT_AGENT_MESSAGES)) {
+      expect(text).not.toContain(PRICING.planName)
+      expect(text).not.toMatch(/\b(pro|cloud)\b|https?:/i)
+    }
+  })
+
+  it('over MCP, a free-plan refusal names no plan and carries the pricing link only in details.plansUrl', async () => {
+    const blog = await seedBlog('mcp-limit', 'free')
+    await seedPublishedUpTo(blog, 15)
+    const created = await call(blog, '/api/v1/posts', { title: 'mcp-sixteen', slug: 'mcp-sixteen', contentMarkdown: 'A new post.' })
+    expect(created.status).toBe(201)
+    await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(blog.workspaceId).run()
+    const response = await handleMcpRequest(new Request('https://app.basedui.dev/mcp', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${blog.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+        name: 'posts.publish', arguments: { postId: created.body.id, expectedVersionNumber: created.body.currentVersionNumber },
+      } }),
+    }))
+    const json = await response.json() as { result: { isError: boolean; structuredContent: { code: string; message: string; details: unknown }; content: Array<{ text: string }> } }
+    expect(json.result).toMatchObject({ isError: true, structuredContent: { code: 'BILLING_REQUIRED', details: { plansUrl: UPGRADE_LINK } } })
+    const { message } = json.result.structuredContent
+    expect(message).toBe(`${FREE_LIMIT_AGENT_MESSAGES.publishedPosts} Do not retry; tell the blog owner.`)
+    expect(json.result.content[0]!.text.split(UPGRADE_LINK)).toHaveLength(2)
   })
 
   it('gives a Pro blog none of these messages at 12 posts, 16 posts or 80 images, and a managed blog in its claim grace none at 12', async () => {

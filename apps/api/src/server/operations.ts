@@ -350,7 +350,7 @@ export async function getAnalyticsOp(ctx: OperationContext, input: { range: stri
   requireScope(ctx.actor, 'analytics:read');
   const range = input.range === 'all' ? 'all' : Number(input.range) as AnalyticsRange;
   const result = await loadAnalyticsForApp(appUser(ctx), range, { postId: input.postId });
-  if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', `Per-post analytics are on ${PRICING.planName}. The free plan reads site totals for the last ${FREE_TIER.analyticsDays} days: call again without postId.`, 402);
+  if (result.status === 'locked') throw new AppError('ANALYTICS_PAID_PLAN', `Per-post analytics are not on the free plan, which reads site totals for the last ${FREE_TIER.analyticsDays} days: call again without postId.`, 402);
   return result;
 }
 

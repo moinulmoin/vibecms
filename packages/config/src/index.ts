@@ -199,6 +199,20 @@ export const FREE_LIMIT_MESSAGES = {
 } as const;
 
 /**
+ * The same limits as agents read them over MCP and REST: what was refused and
+ * that nothing online goes away, naming no plan and linking nowhere. Agent
+ * directories (ChatGPT, Claude) reject tools that promote an upgrade; the
+ * pricing link travels only in `details.plansUrl`.
+ */
+export const FREE_LIMIT_AGENT_MESSAGES: Record<keyof typeof FREE_LIMIT_MESSAGES, string> = {
+  publishedPosts: `Free plan: up to ${FREE_TIER.publishedPosts} published posts. Published posts stay online and editable.`,
+  drafts: `Free plan: up to ${FREE_TIER.drafts} drafts at a time; publish, archive or delete one to start another. Existing posts stay online and editable.`,
+  media: `Free plan: up to ${FREE_TIER.images} images and ${FREE_TIER.storageLabel} of media. Existing posts and images stay online and editable.`,
+  customDomain: FREE_LIMIT_MESSAGES.customDomain,
+  subpath: "Free plan: a /blog path on the owner's own site is not included, so nothing changed. The blog keeps serving at its current address.",
+};
+
+/**
  * "Getting close" on the free plan: the publish that brings a free blog to
  * this many published posts, and the upload that brings it to this many
  * images, tell the owner once how many are left.
