@@ -36,10 +36,16 @@ export interface BillingRepository {
   // Past-due episodes in their grace whose latest due email is not sent yet, oldest first; never a sponsored or ownerless one.
   listDuePaymentReminders(input: { nowMs: number; graceMs: number; days: readonly number[]; limit: number }): Promise<DuePaymentReminder[]>;
   // Claims one email right before it is sent, only while its episode is still past due, inside its grace, unsponsored,
-  // and no email of this day or later was claimed; false otherwise.
-  claimPaymentReminder(input: { workspaceId: string; pastDueSince: number; day: number; nowMs: number; graceMs: number }): Promise<boolean>;
-  // Gives a claimed email back after a failed send, so the next sweep retries it.
-  releasePaymentReminder(workspaceId: string, pastDueSince: number, day: number): Promise<void>;
+  // the day is still the latest one due, the owner still has this email, and no email of this day or later was claimed.
+  claimPaymentReminder(input: {
+    workspaceId: string;
+    pastDueSince: number;
+    day: number;
+    ownerEmail: string;
+    nowMs: number;
+    graceMs: number;
+    days: readonly number[];
+  }): Promise<boolean>;
 }
 
 export type DuePaymentReminder = {
@@ -78,6 +84,11 @@ const dueEpisodeSql = `b.status = 'past_due' AND b.past_due_since IS NOT NULL
 function dueEpisodeBinds(nowMs: number, graceMs: number): number[] {
   return [nowMs, nowMs, graceMs, nowMs / 1000];
 }
+
+// The workspace's first owner, the one who gets billing email.
+const ownerEmailSql = `(SELECT u.email FROM memberships m JOIN user u ON u.id = m.user_id
+  WHERE m.workspace_id = b.workspace_id AND m.role = 'owner'
+  ORDER BY m.created_at ASC, m.id ASC LIMIT 1)`;
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -180,10 +191,7 @@ export function createBillingRepository(db: D1Database): BillingRepository {
       const { results } = await db
         .prepare(
           `SELECT c.* FROM (
-             SELECT b.workspace_id, b.past_due_since, ${dueDaySql(days)} AS day,
-                    (SELECT u.email FROM memberships m JOIN user u ON u.id = m.user_id
-                      WHERE m.workspace_id = b.workspace_id AND m.role = 'owner'
-                      ORDER BY m.created_at ASC, m.id ASC LIMIT 1) AS owner_email,
+             SELECT b.workspace_id, b.past_due_since, ${dueDaySql(days)} AS day, ${ownerEmailSql} AS owner_email,
                     (SELECT s.id FROM sites s WHERE s.workspace_id = b.workspace_id
                       ORDER BY s.created_at ASC, s.id ASC LIMIT 1) AS site_id,
                     (SELECT s.name FROM sites s WHERE s.workspace_id = b.workspace_id
@@ -218,7 +226,7 @@ export function createBillingRepository(db: D1Database): BillingRepository {
       }));
     },
 
-    async claimPaymentReminder({ workspaceId, pastDueSince, day, nowMs, graceMs }) {
+    async claimPaymentReminder({ workspaceId, pastDueSince, day, ownerEmail, nowMs, graceMs, days }) {
       const result = await db
         .prepare(
           `INSERT OR IGNORE INTO billing_payment_reminders (workspace_id, past_due_since, day, sent_at)
@@ -226,6 +234,7 @@ export function createBillingRepository(db: D1Database): BillingRepository {
             WHERE EXISTS (
               SELECT 1 FROM billing_customers b
                WHERE b.workspace_id = ? AND b.past_due_since = ? AND ${dueEpisodeSql}
+                 AND ${dueDaySql(days)} = ? AND ${ownerEmailSql} = ?
             )
               AND NOT EXISTS (
                 SELECT 1 FROM billing_payment_reminders r
@@ -240,19 +249,15 @@ export function createBillingRepository(db: D1Database): BillingRepository {
           workspaceId,
           pastDueSince,
           ...dueEpisodeBinds(nowMs, graceMs),
+          ...dueDayBinds(nowMs, days),
+          day,
+          ownerEmail,
           workspaceId,
           pastDueSince,
           day,
         )
         .run();
       return (result.meta.changes ?? 0) > 0;
-    },
-
-    async releasePaymentReminder(workspaceId, pastDueSince, day) {
-      await db
-        .prepare("DELETE FROM billing_payment_reminders WHERE workspace_id = ? AND past_due_since = ? AND day = ?")
-        .bind(workspaceId, pastDueSince, day)
-        .run();
     },
   };
 }

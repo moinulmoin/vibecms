@@ -13,7 +13,9 @@ export const Route = createFileRoute('/dashboard')({
       // Back to the page asked for after sign-in, such as a billing email's link.
       throw redirect({ to: '/login', search: { intent: undefined, returnTo: location.href } })
     }
-    if (!context.siteSetupComplete) {
+    // A billing email's link names its blog; that page selects it before any setup check.
+    const billingTarget = location.pathname === '/dashboard/billing' && (location.search as { site?: unknown }).site
+    if (!context.siteSetupComplete && !billingTarget) {
       throw redirect({ to: '/dashboard/setup', search: emptyDashboardStatusSearch })
     }
   },

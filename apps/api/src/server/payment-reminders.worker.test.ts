@@ -147,8 +147,51 @@ describe('failed-payment reminders', () => {
       .bind(workspaceId)
       .run()
 
-    expect(await billing.claimPaymentReminder({ workspaceId, pastDueSince: START, day: 1, nowMs: START + 60_000, graceMs })).toBe(false)
+    const claim = { workspaceId, pastDueSince: START, day: 1, ownerEmail: due!.ownerEmail, nowMs: START + 60_000, graceMs, days: [1, 3, 6] }
+    expect(await billing.claimPaymentReminder(claim)).toBe(false)
     expect(await sentDays(workspaceId)).toEqual([])
+  })
+
+  it('claims nothing read before the day moved on, the grace ended or the owner changed', async () => {
+    const workspaceId = await seedPastDue('stale')
+    const billing = createDataAccess(env.DB).billing
+    const claim = {
+      workspaceId,
+      pastDueSince: START,
+      day: 1,
+      ownerEmail: 'stale@reminder.example.test',
+      graceMs: 7 * DAY_MS,
+      days: [1, 3, 6],
+    }
+
+    expect(await billing.claimPaymentReminder({ ...claim, nowMs: START + 2 * DAY_MS + 60_000 })).toBe(false)
+    expect(await billing.claimPaymentReminder({ ...claim, day: 6, nowMs: START + 7 * DAY_MS })).toBe(false)
+    expect(await billing.claimPaymentReminder({ ...claim, ownerEmail: 'former@reminder.example.test', nowMs: START + 60_000 })).toBe(false)
+    expect(await sentDays(workspaceId)).toEqual([])
+
+    expect(await billing.claimPaymentReminder({ ...claim, nowMs: START + 60_000 })).toBe(true)
+  })
+
+  it('never retries a failed send, so a rejecting recipient never holds back other blogs', async () => {
+    const rejecting: string[] = []
+    for (let index = 0; index < PAYMENT_REMINDERS_PER_RUN; index += 1) {
+      rejecting.push(await seedPastDue(`rejecting-${index}`, START - 2 * DAY_MS))
+    }
+    const reached = await seedPastDue('reached', START - 60_000)
+    const sentTo: { to: string; billingUrl: string }[] = []
+    const send = async (email: { to: string; billingUrl: string }) => {
+      if (email.to.startsWith('rejecting-')) throw new Error('E_RECIPIENT_SUPPRESSED')
+      sentTo.push(email)
+    }
+
+    await runPaymentReminders(env, START, send)
+    await runPaymentReminders(env, START + 60_000, send)
+
+    for (const workspaceId of rejecting) expect(await sentDays(workspaceId, START - 2 * DAY_MS)).toEqual([3])
+    expect(await sentDays(reached, START - 60_000)).toEqual([1])
+    expect(sentTo.filter((email) => email.to === 'reached@reminder.example.test')).toEqual([
+      expect.objectContaining({ billingUrl: expect.stringMatching(/\/dashboard\/billing\?site=reminder-site-reached$/) }),
+    ])
   })
 
   it('never emails a blog AutoSEOPilot sponsors', async () => {
