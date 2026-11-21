@@ -193,7 +193,7 @@ export const FREE_LIMIT_MESSAGES = {
   drafts: `Free plan: up to ${FREE_TIER.drafts} drafts at a time; publish, archive or delete one to start another. Your existing posts stay online and editable. ${PRICING.planName} removes this limit.`,
   media: `Free plan: up to ${FREE_TIER.images} images and ${FREE_TIER.storageLabel} of media. Your existing posts and images stay online and editable. ${PRICING.planName} removes this limit.`,
   customDomain: "Free plan: one own domain per blog. Your connected domain stays online; remove it first to connect a different one.",
-  subpath: `${PRICING.planName} serves your blog at a /blog path on your own site, where search engines count it as part of your main site. Until then, your blog keeps serving at its current address.`,
+  subpath: `${PRICING.planName} puts your blog at a /blog path on your own site, like example.com/blog. Until then, your blog keeps serving at its current address.`,
 } as const;
 
 /**

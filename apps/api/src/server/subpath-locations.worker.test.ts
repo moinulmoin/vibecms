@@ -353,6 +353,17 @@ describe('location app operations', () => {
     expect(stored.proxyId).not.toBe(record.proxyId)
   })
 
+  it('a free owner cannot bring a path that never went live online, and the probe never runs', async () => {
+    const repo = createDataAccess(env.DB).domains
+    await repo.insertSubpath({ siteId: FREE_SITE, hostname: 'pending-free.sloc.test', basePath: '/blog' })
+    const fetchSpy = proxyFetch({})
+    vi.stubGlobal('fetch', fetchSpy)
+    expect(await checkSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))).toEqual({ ok: false, code: 'subpath_paid_plan' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect((await repo.listBySite(FREE_SITE)).map((row) => row.status)).toEqual(['pending'])
+    expect((await removeSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))).ok).toBe(true)
+  })
+
   it('a free owner keeps a connected path and can remove it, but cannot move it', async () => {
     const repo = createDataAccess(env.DB).domains
     await repo.insertSubpath({ siteId: FREE_SITE, hostname: 'free.sloc.test', basePath: '/blog' })

@@ -146,7 +146,7 @@ describe('SubpathLocationSection', () => {
   it('offers Pro instead of the connect form on the free plan, and keeps a connected path manageable', async () => {
     const { container } = await render({ planIncludesSubpath: false })
     expect(container.querySelector('#location-url')).toBeNull()
-    expect(container.textContent).toContain('vibecms Pro serves your blog at a /blog path on your own site')
+    expect(container.textContent).toContain('vibecms Pro puts your blog at a /blog path on your own site')
     expect(container.textContent).toContain('Get Pro')
 
     const connected = await render({ planIncludesSubpath: false, location: subpathLocation() })

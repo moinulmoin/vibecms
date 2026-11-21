@@ -186,6 +186,11 @@ export async function checkSubpathLocationForApp(app: AppUserContext): Promise<C
     const slug = await data.sites.getSiteSlug(app.siteId)
     if (!slug) throw new NotFoundError('Site not found')
     const row = await requireSubpathRow(data, app.siteId)
+    // A path that never went live (claimed on Pro, or before /blog moved to
+    // Pro) is connected for the first time here, so it needs Pro too.
+    if (row.activatedAt == null && !(await resolveEffectiveEntitlementForWorkspace(app.workspaceId)).effective) {
+      return { ok: false, code: 'subpath_paid_plan' }
+    }
     const check = await checkSubpathSetup(row, { id: app.siteId })
     // Conditional write: applies only if the row still carries the proxy id we
     // checked (a rotate/remove mid-probe makes it a no-op), and a failing check
