@@ -46,8 +46,9 @@ const DAY_SECONDS = 24 * 60 * 60
  * D1 queries one sweep run may make. D1 allows 1,000 per Worker invocation
  * (Workers Paid; a `batch()` counts as one). The sweep shares its invocation
  * with media recovery (one list plus at most four queries per each of its
- * 50 operations, 201), and analytics (250). Together these jobs use at most
- * 951 queries, leaving 49 spare. At 96 runs a day the claim sweep has 48,000
+ * 50 operations, 201), analytics (250) and payment reminders (11). Together
+ * these counted jobs use at most 962 queries; OAuth cleanup and suspension
+ * notices share the invocation but are not counted yet. At 96 runs a day the claim sweep has 48,000
  * queries a day available.
  */
 export const SWEEP_QUERY_BUDGET = 500

@@ -1,6 +1,7 @@
 import { runAnalyticsRollup } from '@/server/analytics-rollup'
 import { runManagedClaimSweep } from '@/server/managed-claim-sweep'
 import { reconcileMediaOperations } from '@/server/media-reconciler'
+import { runPaymentReminders } from '@/server/payment-reminders'
 import { revokeGrant } from '@/server/oauth'
 import { processDueSchedules } from '@/server/post-scheduler'
 import { runSuspensionNotices } from '@/server/site-suspension'
@@ -9,19 +10,29 @@ import { recheckActiveSubpathLocations } from '@/server/subpath-recheck'
 /** Daily media reconcile and subpath re-check. */
 export const ANALYTICS_CRON = '17 2 * * *'
 /**
- * Frequent media recovery, claim-window sweep, resumable analytics, OAuth cleanup
- * and the owner email of a newly suspended blog.
+ * Frequent media recovery, claim-window sweep, resumable analytics, OAuth cleanup,
+ * the owner email of a newly suspended blog and failed-payment reminders.
  * Analytics' durable per-site cursor skips sites already refreshed today.
  */
 export const MEDIA_RECONCILE_CRON = '*/15 * * * *'
 export const POST_PUBLISH_CRON = '* * * * *'
 
-export type ScheduledJob = 'analytics' | 'media' | 'posts' | 'subpaths' | 'managed-claim' | 'oauth-cleanup' | 'suspension-notices'
+export type ScheduledJob =
+  | 'analytics'
+  | 'media'
+  | 'posts'
+  | 'subpaths'
+  | 'managed-claim'
+  | 'oauth-cleanup'
+  | 'suspension-notices'
+  | 'payment-reminders'
 
 /** Map Cloudflare ScheduledController.cron to the jobs that should run. */
 export function scheduledJobsForCron(cron: string): ScheduledJob[] {
   if (cron === ANALYTICS_CRON) return ['media', 'subpaths']
-  if (cron === MEDIA_RECONCILE_CRON) return ['media', 'managed-claim', 'analytics', 'oauth-cleanup', 'suspension-notices']
+  if (cron === MEDIA_RECONCILE_CRON) {
+    return ['media', 'managed-claim', 'analytics', 'oauth-cleanup', 'suspension-notices', 'payment-reminders']
+  }
   if (cron === POST_PUBLISH_CRON) return ['posts']
   // Any unexpected cron: media only — never analytics, never the sweep.
   return ['media']
@@ -74,6 +85,7 @@ export async function runScheduledJobs(
   if (jobs.includes('posts')) tasks.push(processDueSchedules(workerEnv.DB))
   if (jobs.includes('oauth-cleanup')) tasks.push(cleanupOAuth(workerEnv.DB))
   if (jobs.includes('suspension-notices')) tasks.push(runSuspensionNotices(workerEnv))
+  if (jobs.includes('payment-reminders')) tasks.push(runPaymentReminders(workerEnv))
   await Promise.all(tasks)
   return { jobs }
 }

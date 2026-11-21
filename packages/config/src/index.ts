@@ -93,6 +93,13 @@ export const PAST_DUE_GRACE_DAYS = 7;
 
 const PAST_DUE_GRACE_MS = PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
+/**
+ * The failed-payment emails of one past-due episode, by day of the grace (day
+ * N begins N-1 days after the failed renewal). Polar's own failed-payment
+ * email is off for the organization, so these are the only ones owners get.
+ */
+export const PAST_DUE_REMINDER_DAYS = [1, 3, 6] as const;
+
 /** Raw Polar billing state; `pastDueSince` is epoch MILLISECONDS of the first failed-payment transition. */
 export interface PaidBillingState {
   status?: string | null;

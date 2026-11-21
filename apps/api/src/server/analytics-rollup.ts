@@ -3,7 +3,8 @@ import { env } from 'cloudflare:workers'
 import { agentRollupValues, queryAnalyticsEngine, type AgentFetchSourceRow } from '@/server/analytics'
 import { budgetedD1, D1QueryBudget } from '@/server/d1-query-budget'
 
-// 500 claim sweep + 201 media recovery + 250 analytics = 951 per frequent invocation.
+// 500 claim sweep + 201 media recovery + 250 analytics + 11 payment reminders = 962 counted per frequent
+// invocation; OAuth cleanup and suspension notices are not counted yet.
 export const ANALYTICS_QUERY_BUDGET = 250
 const MAX_BACKFILL_DAYS_PER_SITE = 7
 const COMPACTION_QUERY_RESERVE = 21

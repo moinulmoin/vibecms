@@ -1,4 +1,4 @@
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 const timestamps = {
@@ -284,7 +284,7 @@ export const billingCustomers = sqliteTable("billing_customers", {
   // Subscription-only fields use a separate strictly-newer millisecond watermark.
   subscriptionUpdatedAt: integer("subscription_updated_at"),
   ...timestamps,
-});
+}, (table) => [index("idx_billing_customers_past_due").on(table.status, table.pastDueSince)]);
 
 export const analyticsRollups = sqliteTable("analytics_rollups", {
   id: text("id").primaryKey(),
@@ -566,6 +566,17 @@ export const autoseopilotPurgeConflicts = sqliteTable("autoseopilot_purge_confli
  * Polar. The id is the duplicate's Polar subscription id. It survives the
  * blog's own rows.
  */
+/** One claimed failed-payment email of a past-due episode (keyed by its past_due_since). */
+export const billingPaymentReminders = sqliteTable("billing_payment_reminders", {
+  workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  // Epoch MILLISECONDS, billing_customers.past_due_since of the episode.
+  pastDueSince: integer("past_due_since").notNull(),
+  // Day of the grace the email belongs to: 1, 3 or 6.
+  day: integer("day").notNull(),
+  // Epoch seconds the send was claimed.
+  sentAt: integer("sent_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.workspaceId, table.pastDueSince, table.day] })]);
+
 export const polarDuplicateSubscriptions = sqliteTable("polar_duplicate_subscriptions", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id").notNull(),

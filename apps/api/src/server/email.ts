@@ -168,6 +168,76 @@ export async function sendSuspensionEmail(input: {
   }
 }
 
+/**
+ * A failed renewal's reminder (days 1, 3 and 6 of the 7-day grace): the blog
+ * and its paid features run until the deadline, and one card update in the
+ * billing portal keeps them on. Same delivery rules as the OTP mail.
+ */
+export async function sendPaymentFailedEmail(input: {
+  to: string
+  siteName: string
+  day: 1 | 3 | 6
+  /** Epoch milliseconds the grace ends. */
+  graceEndsAt: number
+  billingUrl: string
+}) {
+  const isProd = env.APP_ENV === 'production'
+  const deadline = new Date(input.graceEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const blog = `"${input.siteName}"`
+  const subject =
+    input.day === 1
+      ? `Your vibecms payment for ${blog} didn't go through`
+      : input.day === 3
+        ? `Keep vibecms Cloud running for ${blog}`
+        : `Last reminder: paid features for ${blog} pause on ${deadline}`
+  const lines =
+    input.day === 1
+      ? [
+          `We couldn't renew vibecms Cloud for ${blog}. Nothing has changed yet: every paid feature stays on until ${deadline}.`,
+          "Update your card in Plan & billing and we'll retry the payment right away, so your Cloud features keep running.",
+        ]
+      : input.day === 3
+        ? [
+            `The renewal for ${blog} still hasn't gone through. Your paid features keep running until ${deadline}.`,
+            "Update your card and we'll retry the payment, so everything carries on without a break.",
+          ]
+        : [
+            `This is the last reminder: paid features for ${blog} pause on ${deadline} unless the payment goes through.`,
+            "Update your card today and we'll retry the payment to keep your Cloud features running.",
+          ]
+  const footer =
+    'You are receiving this because you own this vibecms blog. The button opens Plan & billing, where Update payment takes you to our secure billing portal.'
+  const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;">${lines
+    .map((line) => `<p style="font-size:15px;line-height:1.6;">${escapeHtml(line)}</p>`)
+    .join('')}<p style="margin:24px 0;"><a href="${input.billingUrl}" style="display:inline-block;padding:12px 24px;background:#111827;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Update payment</a></p><p style="font-size:12px;color:#6b7280;">${escapeHtml(footer)}</p></body></html>`
+  const text = `${lines.join('\n\n')}\n\nUpdate payment: ${input.billingUrl}\n\n${footer}`
+
+  if (!env.EMAIL) {
+    if (isProd && String(env.SELF_HOSTED) !== 'true') {
+      throw new Error('email not configured: add a send_email binding named EMAIL and onboard the sending domain')
+    }
+    console.log(`[payment-reminder] to=${input.to} site=${input.siteName} day=${input.day} deadline=${deadline}`)
+    return
+  }
+  if (!isProd) console.log(`[payment-reminder] to=${input.to} site=${input.siteName} day=${input.day}`)
+  try {
+    await env.EMAIL.send({
+      to: input.to,
+      from: parseFromAddress(env.EMAIL_FROM ?? DEFAULT_FROM),
+      replyTo: SUPPORT_EMAIL,
+      subject,
+      html,
+      text,
+    })
+  } catch (err) {
+    if (!isProd) {
+      console.warn(`[payment-reminder] send failed in non-prod (ok locally): ${String(err)}`)
+      return
+    }
+    throw err
+  }
+}
+
 function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
