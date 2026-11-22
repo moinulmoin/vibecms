@@ -12,7 +12,7 @@ const faqs: readonly { question: string; answer: ReactNode }[] = [
   },
   {
     question: "What does Pro cost?",
-    answer: `${PRICING.planName} is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year, billed in USD with no added fees.${EARLY_USER_OFFER.active ? ` ${EARLY_USER_OFFER.note} Checkout shows the discount and how long it applies before you pay.` : ""}`,
+    answer: `${PRICING.planName} is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year, billed in USD with no added fees.${EARLY_USER_OFFER.active ? ` ${EARLY_USER_OFFER.note} Checkout shows the discount before you pay.` : ""}`,
   },
   {
     question: "Does vibecms write my posts?",

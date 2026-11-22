@@ -171,8 +171,8 @@ export function PlanAndBilling() {
 
         {offer ? (
           // What Pro adds and what it costs, with one button; yearly is the
-          // quiet option. The early-user discount shows only as a note: its size
-          // lives in Polar and checkout applies it.
+          // quiet option. The early-user price shows only as a note; checkout
+          // applies the discount.
           <div className="grid content-start gap-3 border-t border-border bg-card p-5 md:border-l md:border-t-0">
             <h3 className="text-lg font-semibold text-foreground">{PRICING.planName}</h3>
             <p className="flex flex-wrap items-baseline gap-x-2">

@@ -143,6 +143,7 @@ test("Polar pricing fails on wrong interval, amount, a discount for another prod
     ["/v1/discounts/monthly-discount", { products: [{ id: "yearly" }] }, /does not apply to product monthly/],
     ["/v1/discounts/yearly-discount", { amounts: { usd: 15000 } }, /above 0 and below 15000 cents/],
     ["/v1/discounts/yearly-discount", { amounts: { usd: 0 } }, /above 0 and below 15000 cents/],
+    ["/v1/discounts/monthly-discount", { amounts: { usd: 300 } }, /advertises an early-user price of 900 cents; the discount leaves 1200/],
   ] as const) {
     mockPolar({ [path]: override });
     await assert.rejects(checkPricing(env, () => {}), expected);
@@ -165,6 +166,19 @@ test("production pricing reads the early-user discounts from the production conf
   assert.equal(warnings.filter((message) => /no early-user discount configured/.test(message)).length, 2);
   mockPolar();
   await checkPricing(env, () => {});
+});
+
+test("Polar pricing ignores prices in other currencies, since checkout sells only USD", async () => {
+  mockPolar({
+    "/v1/products/monthly": { prices: [{ amount_type: "fixed", price_currency: "usd", price_amount: 1500 }, { amount_type: "fixed", price_currency: "eur", price_amount: 1500 }] },
+    "/v1/products/yearly": { prices: [{ amount_type: "fixed", price_currency: "eur", price_amount: 15000 }] },
+  });
+  await assert.rejects(checkPricing(env, () => {}), /yearly Polar product.*one active fixed USD price of 15000 cents/);
+  mockPolar({
+    "/v1/products/monthly": { prices: [{ amount_type: "fixed", price_currency: "usd", price_amount: 1500 }, { amount_type: "fixed", price_currency: "eur", price_amount: 1500 }] },
+    "/v1/products/yearly": { prices: [{ amount_type: "fixed", price_currency: "usd", price_amount: 15000 }, { amount_type: "fixed", price_currency: "eur", price_amount: 15000 }] },
+  });
+  await checkPricing(env);
 });
 
 test("Polar percentage discounts (40% monthly, 50% yearly) pass as early-user discounts", async () => {

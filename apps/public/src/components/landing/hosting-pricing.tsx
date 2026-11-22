@@ -63,7 +63,7 @@ export function HostingPricing({ loginUrl }: { loginUrl: string }) {
                 {EARLY_USER_OFFER.active ? (
                   <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-brand-bright">
                     <span className="size-1.5 rounded-full bg-brand-bright" aria-hidden="true" />
-                    {EARLY_USER_OFFER.label} discount while spots last
+                    {EARLY_USER_OFFER.label} discount
                   </p>
                 ) : null}
               </div>

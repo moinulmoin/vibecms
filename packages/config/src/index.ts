@@ -144,18 +144,22 @@ export const PRICING = {
 export const POLAR_API_VERSION = "2026-04";
 
 /**
- * The early-user offer: a Polar discount (POLAR_EARLY_USER_DISCOUNT_*_ID) that
- * checkout applies on its own for the first customers, on top of the list
- * price. Its size, redemption cap and end live in Polar, so no surface states
- * an amount; when the discount is unset, disabled or used up, checkout charges
- * the list price. Removing the offer is deleting the discount in Polar and
- * this copy.
+ * The early-user offer: Polar discounts (POLAR_LAUNCH_DISCOUNT_*_ID) that
+ * checkout applies on its own, with no redemption cap, for as long as the
+ * subscription runs. The prices below are what the discounts leave of the list
+ * price; the deploy preflight checks the configured discounts land exactly on
+ * them. When a discount is unset or switched off, checkout charges the list
+ * price. Removing the offer is switching the discounts off in Polar and
+ * setting `active` to false.
  */
+const EARLY_USER_PRICE = { monthlyUsd: 9, annualUsd: 75 } as const;
+
 export const EARLY_USER_OFFER = {
   /** Turn off with the Polar discount: hides the offer everywhere it is promised. */
   active: true as boolean,
   label: "Early user",
-  note: "Early users get a discount, applied automatically at checkout while early spots last.",
+  ...EARLY_USER_PRICE,
+  note: `Early users pay $${EARLY_USER_PRICE.monthlyUsd}/month or $${EARLY_USER_PRICE.annualUsd}/year for as long as they stay subscribed, applied automatically at checkout.`,
 } as const;
 
 /**

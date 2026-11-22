@@ -70,9 +70,10 @@ if (env.selfHosted || !isMarketingHost(Astro.request, env)) {
     <>
       <h2>Early user offer</h2>
       <p>
-        While early spots last, a discount for early users is applied automatically at checkout. The
-        discount and how long it applies are shown at checkout before you pay. We may end or change this
-        offer for new subscriptions at any time.
+        Early users pay ${EARLY_USER_OFFER.monthlyUsd}/month or ${EARLY_USER_OFFER.annualUsd}/year instead of
+        the list price, for as long as the subscription stays active. The discount is applied automatically
+        and shown at checkout before you pay. We may end or change this offer for new subscriptions at any
+        time.
       </p>
     </>
   )}
