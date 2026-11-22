@@ -88,7 +88,7 @@ export async function sendClaimReminderEmail(input: {
     input.daysLeft <= 2
       ? `Your blog "${input.siteName}" will be deleted in ${input.daysLeft} day${input.daysLeft === 1 ? '' : 's'}`
       : `Your blog "${input.siteName}" is paused — ${input.daysLeft} days left to keep it`
-  const line = `Your AutoSEOPilot plan ended, so this blog is paused. To keep the same blog, posts, media and domain, sign in to VibeCMS with ${input.to} and choose vibecms Cloud before ${deadlineText}.`
+  const line = `Your AutoSEOPilot plan ended, so this blog is paused. To keep the same blog, posts, media and domain, sign in to VibeCMS with ${input.to} and choose vibecms Pro before ${deadlineText}.`
   const html = `<!DOCTYPE html><html lang="en"><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;"><p style="font-size:15px;line-height:1.6;">${line}</p><p style="margin:24px 0;"><a href="${input.loginUrl}" style="display:inline-block;padding:12px 24px;background:#111827;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Sign in to VibeCMS</a></p><p style="font-size:12px;color:#6b7280;">You are receiving this because this VibeCMS blog was included with your AutoSEOPilot plan.</p></body></html>`
   const text = `${line}\n\nSign in: ${input.loginUrl}`
 
@@ -188,13 +188,13 @@ export async function sendPaymentFailedEmail(input: {
     input.day === 1
       ? `Your vibecms payment for ${blog} didn't go through`
       : input.day === 3
-        ? `Keep vibecms Cloud running for ${blog}`
+        ? `Keep vibecms Pro running for ${blog}`
         : `Last reminder: paid features for ${blog} pause on ${deadline}`
   const lines =
     input.day === 1
       ? [
-          `We couldn't renew vibecms Cloud for ${blog}. Nothing has changed yet: every paid feature stays on until ${deadline}.`,
-          "Update your card in Plan & billing and we'll retry the payment right away, so your Cloud features keep running.",
+          `We couldn't renew vibecms Pro for ${blog}. Nothing has changed yet: every paid feature stays on until ${deadline}.`,
+          "Update your card in Plan & billing and we'll retry the payment right away, so your Pro features keep running.",
         ]
       : input.day === 3
         ? [
@@ -203,7 +203,7 @@ export async function sendPaymentFailedEmail(input: {
           ]
         : [
             `This is the last reminder: paid features for ${blog} pause on ${deadline} unless the payment goes through.`,
-            "Update your card today and we'll retry the payment to keep your Cloud features running.",
+            "Update your card today and we'll retry the payment to keep your Pro features running.",
           ]
   const footer =
     'You are receiving this because you own this vibecms blog. The button opens Plan & billing, where Update payment takes you to our secure billing portal.'

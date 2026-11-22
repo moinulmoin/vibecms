@@ -82,7 +82,7 @@ describe('DashboardOverview recent-post navigation', () => {
 
 describe('DashboardOverview entitlement status', () => {
   it('shows paid month counts without quota meters and keeps free meters', () => {
-    // Cloud has no monthly cap: the server sends this month's count with a null limit.
+    // Pro has no monthly cap: the server sends this month's count with a null limit.
     const uncapped = { limit: null, remaining: null }
     const paidUsage = { ...baseResponse.apiUsage, enforced: true,
       calls: { ...baseResponse.apiUsage.calls, month: { ...baseResponse.apiUsage.calls.month, used: 42, ...uncapped } },

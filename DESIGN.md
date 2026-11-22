@@ -175,9 +175,9 @@ nesting (per PRODUCT.md "just enough").
 
 Upgrade and status patterns (dashboard):
 
-- **Plan limit notice** (`PlanLimitNotice` in `PlanActions.tsx`): every free-plan refusal (published posts, drafts, media) is guidance, not an error: neutral `bg-muted/40` surface with the `--border` edge, the cap's `FORM_STATUS` title, the shared `FREE_LIMIT_MESSAGES` line, then Get Cloud and Compare plans. Never destructive red. Where the refused action owned the screen's primary button (the publish dialog), Get Cloud takes that place and receives focus, so there is no second failing click.
+- **Plan limit notice** (`PlanLimitNotice` in `PlanActions.tsx`): every free-plan refusal (published posts, drafts, media) is guidance, not an error: neutral `bg-muted/40` surface with the `--border` edge, the cap's `FORM_STATUS` title, the shared `FREE_LIMIT_MESSAGES` line, then Get Pro and Compare plans. Never destructive red. Where the refused action owned the screen's primary button (the publish dialog), Get Pro takes that place and receives focus, so there is no second failing click.
 - **Live status line** (Connect): a dot, a bold word and one muted sentence, unboxed. The dot pulses (reduced-motion safe) while waiting and turns brand green on the first agent request.
-- **Plan card** (Plan & billing, no running subscription): one bounded card split in two; the current plan, and the Cloud offer on `bg-card` with today's price, the standard price struck through, `PLAN_SUMMARY.cloud`, one filled button, and yearly as a text link. Free-plan lines on Overview and Analytics share one weight: bold lead phrase, muted sentence, outline Get Cloud. On Overview the line is dismissible while getting close and stays, without Dismiss, once a cap is reached.
+- **Plan card** (Plan & billing, no running subscription): one bounded card split in two; the current plan, and the Pro offer on `bg-card` with the list price, the early-user note while a discount is configured (never an amount), `PLAN_SUMMARY.cloud`, one filled button, and yearly as a text link. Free-plan lines on Overview and Analytics share one weight: bold lead phrase, muted sentence, outline Get Pro. On Overview the line is dismissible while getting close and stays, without Dismiss, once a cap is reached.
 
 ## Layout
 

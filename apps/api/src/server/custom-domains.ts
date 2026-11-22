@@ -133,7 +133,7 @@ export async function listCustomDomainsForApp(app: AppUserContext): Promise<Cust
   const repo = createD1DomainRepository(env.DB)
   const rows = await listCustomDomains(repo, app.siteId)
   // Own domains are on every plan (free connects one), so provisioning never
-  // depends on paid entitlement: a blog leaving Cloud keeps its domain.
+  // depends on paid entitlement: a blog leaving Pro keeps its domain.
   const provisioning = customHostnameProvisioningEnabled()
 
   const domains: CustomDomainView[] = []

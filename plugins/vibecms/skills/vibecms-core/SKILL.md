@@ -52,7 +52,7 @@ Draft updates do not require publication approval, but they still invalidate any
 - `UNAUTHORIZED` (HTTP `401`, JSON-RPC `-32001`): stop and give the owner the dashboard key-creation link in the error message. Missing, malformed, unknown, revoked, and deleted keys deliberately share one message; do not infer whether a key existed.
 - `NOT_FOUND`: re-list or re-fetch identifiers before retrying.
 - `RATE_LIMIT`: wait until reset, then retry only the still-requested action. When the reset is hours away, tell the owner instead of waiting. Paid plans also have per-minute and per-day limits.
-- `BILLING_REQUIRED` (and `media_quota_free` / `media_quota_paid` on uploads): nothing was saved and a retry cannot succeed. Leave the draft intact, explain the plan or draft-limit blocker, and, if the owner asks about plans, give them the returned `details.plansUrl` (also in the message). Never subscribe or change billing on the owner's behalf.
+- `BILLING_REQUIRED` (and `media_quota_free` / `media_quota_paid` on uploads): nothing was saved and a retry cannot succeed. Leave the draft intact, explain the plan or draft-limit blocker, and, if the owner asks about plans, give them the returned `details.plansUrl`. Never subscribe or change billing on the owner's behalf.
 
 ## Scope reference
 

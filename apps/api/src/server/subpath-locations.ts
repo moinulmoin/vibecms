@@ -18,6 +18,7 @@ import { isPurgeableMount, scheduleSitePurge } from '@/server/purge-scheduler'
 import { appHost, publicBlogBaseDomain } from '@/server/public-url'
 import { checkSubpathSetup, type SubpathCheckResult } from '@/server/subpath-setup'
 import { defaultHostBaseUrl } from '@/server/site-public-url'
+import { resolveEffectiveEntitlementForWorkspace } from '@/server/effective-entitlement'
 
 /**
  * The site's public location (plans/022 phase 3): default host, custom domain,
@@ -142,6 +143,12 @@ export async function getSiteLocationForApp(app: AppUserContext): Promise<Subpat
 export async function setSubpathLocationForApp(app: AppUserContext, url: string): Promise<LocationResult> {
   try {
     await assertAuthorized(app.actor)
+    // A /blog path on the owner's own site is Pro's (or a sponsorship's). Only
+    // connecting one is gated: a path already connected keeps serving, and can
+    // be checked, rotated or removed, on any plan.
+    if (!(await resolveEffectiveEntitlementForWorkspace(app.workspaceId)).effective) {
+      return { ok: false, code: 'subpath_paid_plan' }
+    }
     const validation = validateSubpathLocation(url, { appHost: appHost(), platformZone: publicBlogBaseDomain() ?? '' })
     if (!validation.ok) {
       return { ok: false, code: 'location_invalid' }
@@ -179,6 +186,11 @@ export async function checkSubpathLocationForApp(app: AppUserContext): Promise<C
     const slug = await data.sites.getSiteSlug(app.siteId)
     if (!slug) throw new NotFoundError('Site not found')
     const row = await requireSubpathRow(data, app.siteId)
+    // A path that never went live (claimed on Pro, or before /blog moved to
+    // Pro) is connected for the first time here, so it needs Pro too.
+    if (row.activatedAt == null && !(await resolveEffectiveEntitlementForWorkspace(app.workspaceId)).effective) {
+      return { ok: false, code: 'subpath_paid_plan' }
+    }
     const check = await checkSubpathSetup(row, { id: app.siteId })
     // Conditional write: applies only if the row still carries the proxy id we
     // checked (a rotate/remove mid-probe makes it a no-op), and a failing check

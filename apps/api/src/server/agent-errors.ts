@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { SITE_SUSPENDED_MESSAGE } from "@vc/config";
+import { FREE_LIMIT_AGENT_MESSAGES, FREE_LIMIT_MESSAGES, SITE_SUSPENDED_MESSAGE } from "@vc/config";
 
 export function invalidApiKeyMessage() {
   const keysUrl = new URL("/dashboard/connect", env.APP_URL).href;
@@ -25,16 +25,22 @@ export function plansUrl() {
 const FREE_LIMIT_CODES = ["BILLING_REQUIRED", "ANALYTICS_PAID_PLAN", "billing_required", "media_quota_free"];
 
 /**
- * Refusals a retry cannot fix that also reach paying Cloud customers, so no
+ * Refusals a retry cannot fix that also reach paying Pro customers, so no
  * plans link: a full 10 GB media library, and a blog an operator suspended.
  */
 const OWNER_ONLY_CODES = ["media_quota_paid"];
 
+/** Dashboard limit copy names the paid plan; agents get the neutral version of the same limit. */
+const AGENT_LIMIT_TEXT = new Map<string, string>(
+  (Object.keys(FREE_LIMIT_MESSAGES) as Array<keyof typeof FREE_LIMIT_MESSAGES>).map((kind) => [FREE_LIMIT_MESSAGES[kind], FREE_LIMIT_AGENT_MESSAGES[kind]]),
+);
+
 /**
  * Tell the agent to hand a refusal to the owner instead of retrying a call
- * that cannot succeed. Free-plan limits also carry the plans link in the text
- * agents read and in structured error details. RATE_LIMIT is not here: it
- * clears by waiting.
+ * that cannot succeed. Free-plan limits name no plan and put the public
+ * pricing link only in structured `details.plansUrl`, never in the text, so
+ * no tool response promotes an upgrade. RATE_LIMIT is not here: it clears by
+ * waiting.
  */
 export function agentErrorDetails(code: string, message: string, details?: unknown) {
   if (OWNER_ONLY_CODES.includes(code) || (code === "FORBIDDEN" && message === SITE_SUSPENDED_MESSAGE)) {
@@ -45,7 +51,7 @@ export function agentErrorDetails(code: string, message: string, details?: unkno
   }
   const url = plansUrl();
   return {
-    message: `${message} Do not retry; tell the blog owner, who can change plans in the vibecms dashboard. Plans: ${url}`,
+    message: `${AGENT_LIMIT_TEXT.get(message) ?? message} Do not retry; tell the blog owner.`,
     details: {
       ...(details && typeof details === "object" && !Array.isArray(details) ? details : {}),
       plansUrl: url,

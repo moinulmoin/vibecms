@@ -288,7 +288,7 @@ describe('publishing and media paid gates', () => {
       }),
     ).resolves.toMatchObject({ status: 'published' })
 
-    for (let index = 0; index < 25; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       const post = await createPost(repo, fullActor, {
         siteId: free.siteId,
         title: `Free publish ${index}`,
@@ -304,9 +304,9 @@ describe('publishing and media paid gates', () => {
     }
     const overCap = await createPost(repo, fullActor, {
       siteId: free.siteId,
-      title: 'Free publish 25',
-      slug: 'free-publish-25',
-      contentMarkdown: '# Free publish 25',
+      title: 'Free publish 15',
+      slug: 'free-publish-15',
+      contentMarkdown: '# Free publish 15',
     }, 'none')
     await expect(
       publishPost(repo, fullActor, {
@@ -730,10 +730,10 @@ describe('past_due grace through real entitlement paths', () => {
     const overCap = await createPost(repo, fullActor, draft(10), await getCoreBillingStatusForSite(site.siteId))
     expect(overCap.status).toBe('draft')
 
-    // Publish cap: 25 live posts at the deadline, a 26th only within grace.
+    // Publish cap: 15 live posts at the deadline, a 16th only within grace.
     clockAt(DEADLINE)
     for (const post of drafts) await publish(post)
-    for (let index = 11; index < 26; index += 1) {
+    for (let index = 11; index < 16; index += 1) {
       await publish(await createPost(repo, fullActor, draft(index), await getCoreBillingStatusForSite(site.siteId)))
     }
     await expect(publish(overCap)).rejects.toBeInstanceOf(BillingRequiredError)
@@ -856,19 +856,19 @@ describe('free plan offer through the real handlers', () => {
     })
   }
 
-  it('publishes the 25th post on a free blog and refuses the 26th with the limit error', async () => {
+  it('publishes the 15th post on a free blog and refuses the 16th with the limit error', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     const free = await seedSite('offer-publish')
-    for (let index = 0; index < 25; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       await expect(createAndPublish(free.siteId, index)).resolves.toMatchObject({ status: 'published' })
     }
-    const refused = createAndPublish(free.siteId, 25)
+    const refused = createAndPublish(free.siteId, 15)
     await expect(refused).rejects.toBeInstanceOf(BillingRequiredError)
     await expect(refused).rejects.toMatchObject({
       code: 'BILLING_REQUIRED',
-      message: expect.stringMatching(/up to 25 published posts\..*stay online and editable\..*removes this limit/),
+      message: expect.stringMatching(/up to 15 published posts\..*stay online and editable\..*removes this limit/),
     })
-    expect(await publishedCount(free.siteId)).toBe(25)
+    expect(await publishedCount(free.siteId)).toBe(15)
   })
 
   it('accepts the 100th image on a free blog, refuses the 101st, and refuses an upload past 250 MB', async () => {
@@ -900,7 +900,7 @@ describe('free plan offer through the real handlers', () => {
     expect((await listCustomDomainsForApp(appFor(free))).domains.map((domain) => domain.hostname)).toEqual(['blog.offer-free.test'])
   })
 
-  it('keeps every post and the own domain when a Cloud subscription ends, and refuses the 31st publish', async () => {
+  it('keeps every post and the own domain when a Pro subscription ends, and refuses the 31st publish', async () => {
     mutableEnv.SELF_HOSTED = 'false'
     const cloud = await seedSite('offer-ending', { polarStatus: 'active' })
     for (let index = 0; index < 30; index += 1) await createAndPublish(cloud.siteId, index)

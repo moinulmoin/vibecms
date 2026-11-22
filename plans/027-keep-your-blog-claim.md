@@ -23,9 +23,9 @@ them — the same blog, posts, media and domain, with nothing to migrate.
 - AutoSEOPilot sends one email on day 0. VibeCMS sends the reminders on days
   7, 14, 21 and 28 — each exactly once, and all of them stop as soon as the
   blog is claimed or the AutoSEOPilot plan resumes.
-- Claim = sign in to VibeCMS with the same email and buy VibeCMS Cloud. The
+- Claim = sign in to VibeCMS with the same email and buy VibeCMS Pro. The
   same blog, posts, media and domain come back; nothing moves. A claimed blog
-  is never deleted by this flow again, even if Cloud is cancelled later.
+  is never deleted by this flow again, even if Pro is cancelled later.
 - During the 30 days the owner keeps dashboard access, and can read and
   export. No lockout.
 - No transfer to a different email.
@@ -60,7 +60,7 @@ cron (next to media recovery), inside a 500-query D1 budget per run (D1
 allows 1,000 per invocation); what does not fit waits for the next run:
 
 - Selection: revoked managed sites whose workspace never claimed VibeCMS
-  Cloud (no billing row, or status `none`).
+  Pro (no billing row, or status `none`).
 - Reminders: days 7/14/21/28, each with its own durable marker column
   (`claim_day7_sent_at` … `claim_day28_sent_at`). The marker is claimed
   before the send, so a reminder goes out at most once; a definitive send
@@ -84,7 +84,7 @@ allows 1,000 per invocation); what does not fit waits for the next run:
 ### Dashboard
 
 - The billing payload carries the claim window (`revokedAt`, `pausedAt`,
-  `deadline`) whenever the sponsorship is revoked and Cloud was never bought.
+  `deadline`) whenever the sponsorship is revoked and Pro was never bought.
 - The "Keep your blog" banner appears above every dashboard page with the
   exact deadline and a link to the plan page.
 - The billing page no longer promises "Your posts stay online" for a revoked

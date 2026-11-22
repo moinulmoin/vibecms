@@ -10,6 +10,7 @@ import { env } from 'cloudflare:workers'
 import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { afterEach, beforeAll, describe, expect, inject, it, vi } from 'vitest'
 import { proxyFingerprint } from '@vc/core'
+import { FREE_LIMIT_MESSAGES } from '@vc/config'
 import { createDataAccess } from '@vc/db'
 import { checkSubpathSetup } from '@/server/subpath-setup'
 import { apiUsageKind } from '@/server/mcp'
@@ -244,11 +245,12 @@ describe('location app operations', () => {
     expect(publicView?.snippets).toBeUndefined()
   })
 
-  it('rejects non-owners and lets a free owner host the blog on their site', async () => {
+  it('rejects non-owners, and a free owner cannot connect a /blog path', async () => {
     const editor = await setSubpathLocationForApp(appFor(editorActor), 'https://customer.sloc.test/blog')
     expect(editor).toEqual({ ok: false, code: 'owner_required' })
     const free = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://free-blog.sloc.test/blog')
-    expect(free).toMatchObject({ ok: true, location: { type: 'subpath', status: 'pending', url: 'https://free-blog.sloc.test/blog' } })
+    expect(free).toEqual({ ok: false, code: 'subpath_paid_plan' })
+    expect(await createDataAccess(env.DB).domains.listBySite(FREE_SITE)).toEqual([])
   })
 
   it('check promotes pending to active and records the result', async () => {
@@ -351,11 +353,23 @@ describe('location app operations', () => {
     expect(stored.proxyId).not.toBe(record.proxyId)
   })
 
-  it('owners on the free plan can change and remove the location', async () => {
+  it('a free owner cannot bring a path that never went live online, and the probe never runs', async () => {
+    const repo = createDataAccess(env.DB).domains
+    await repo.insertSubpath({ siteId: FREE_SITE, hostname: 'pending-free.sloc.test', basePath: '/blog' })
+    const fetchSpy = proxyFetch({})
+    vi.stubGlobal('fetch', fetchSpy)
+    expect(await checkSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))).toEqual({ ok: false, code: 'subpath_paid_plan' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect((await repo.listBySite(FREE_SITE)).map((row) => row.status)).toEqual(['pending'])
+    expect((await removeSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))).ok).toBe(true)
+  })
+
+  it('a free owner keeps a connected path and can remove it, but cannot move it', async () => {
     const repo = createDataAccess(env.DB).domains
     await repo.insertSubpath({ siteId: FREE_SITE, hostname: 'free.sloc.test', basePath: '/blog' })
     const set = await setSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'), 'https://free.sloc.test/news')
-    expect(set.ok).toBe(true)
+    expect(set).toEqual({ ok: false, code: 'subpath_paid_plan' })
+    expect(await getSiteLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))).toMatchObject({ type: 'subpath', url: 'https://free.sloc.test/blog' })
     const removed = await removeSubpathLocationForApp(appFor(ownerActor, FREE_SITE, 'ws-sloc-free'))
     expect(removed.ok).toBe(true)
     expect(await repo.listBySite(FREE_SITE)).toEqual([])
@@ -385,6 +399,13 @@ describe('operations dispatch (REST + MCP)', () => {
     const location = await dispatchOperation('sites.location.set_subpath', opCtx(manageKeyActor), { url: 'https://customer.sloc.test/blog' })
     expect(location).toMatchObject({ type: 'subpath', status: 'pending' })
     expect((location as Record<string, unknown>).proxyTarget).toContain('/_vc/p/')
+  })
+
+  it('sites.location.set_subpath on a free blog is BILLING_REQUIRED and changes nothing', async () => {
+    const freeCtx: OperationContext = { actor: manageKeyActor, siteId: FREE_SITE, workspaceId: 'ws-sloc-free', tokenId: manageKeyActor.id }
+    await expect(dispatchOperation('sites.location.set_subpath', freeCtx, { url: 'https://free-agent.sloc.test/blog' }))
+      .rejects.toMatchObject({ code: 'BILLING_REQUIRED', status: 402, message: FREE_LIMIT_MESSAGES.subpath })
+    expect(await createDataAccess(env.DB).domains.listBySite(FREE_SITE)).toEqual([])
   })
 
   it('sites.location.check runs the probe for site:write keys', async () => {

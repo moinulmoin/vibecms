@@ -2,7 +2,7 @@
 
 Operator-only runbook for hosted vibecms. Use it when a blog breaks the [acceptable use rules](../apps/public/src/pages/legal/terms.astro) (spam, malware, attacks): the terms promise we say why when we suspend. Suspension is reversible and deletes nothing. To delete a blog or account, use [account deletion](account-deletion.md) instead.
 
-Reports arrive at `support@vibecms.dev` from the "Report abuse" link in the footer of every free blog (not Cloud, not self-hosted, not AutoSEOPilot-managed). The mail has the blog address filled in. Check the blog yourself before acting.
+Reports arrive at `support@vibecms.dev` from the "Report abuse" link in the footer of every free blog (not Pro, not self-hosted, not AutoSEOPilot-managed). The mail has the blog address filled in. Check the blog yourself before acting.
 
 ## Suspend
 

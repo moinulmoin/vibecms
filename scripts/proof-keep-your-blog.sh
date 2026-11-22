@@ -229,7 +229,7 @@ Next steps (each needs a real trigger):
       pnpm --filter @vc/api exec wrangler d1 execute DB --remote --env development \
         --command "SELECT claim_day7_sent_at FROM autoseopilot_managed_sites WHERE external_workspace_id = '$EXTERNAL_WORKSPACE_ID'"
     The same for days 14, 21 and 28. A second run must not send again.
-  * Claim: buy VibeCMS Cloud on that workspace (Polar sandbox) and re-check the
+  * Claim: buy VibeCMS Pro on that workspace (Polar sandbox) and re-check the
     blog serves again; the sweep must then skip the blog forever.
   * Deletion: backdate to day 31, let the sweep run, then check the rows, the
     R2 prefix and the login are gone:

@@ -1,22 +1,20 @@
 import type { PublicIndexLoaderData } from "../server/public-blog";
 import { sanitizeLlmsField } from "../server/llms-text";
-import { BRAND, LAUNCH_OFFER, PRICING } from "@vc/config";
+import { BRAND, PRICING } from "@vc/config";
 
 /**
- * One subscription offer: `price` is what checkout charges now (the launch
- * rate); the ListPrice spec carries the standard rate it is discounted from.
+ * One subscription offer at the list price. The early-user discount is not
+ * listed: its size lives in Polar and checkout applies it.
  * `unitCode` is UN/CEFACT: MON = month, ANN = year.
  */
-function subscriptionOffer(cadence: "Monthly" | "Annual", launchUsd: number, listUsd: number, unitCode: "MON" | "ANN") {
-  const perUnit = { "@type": "QuantitativeValue", value: 1, unitCode };
+function subscriptionOffer(cadence: "Monthly" | "Annual", listUsd: number, unitCode: "MON" | "ANN") {
   return {
     "@type": "Offer",
-    name: `${PRICING.planName} · ${cadence} (${LAUNCH_OFFER.phaseLabel.toLowerCase()})`,
-    price: String(launchUsd),
+    name: `${PRICING.planName} · ${cadence}`,
+    price: String(listUsd),
     priceCurrency: "USD",
     priceSpecification: [
-      { "@type": "UnitPriceSpecification", price: launchUsd, priceCurrency: "USD", referenceQuantity: perUnit },
-      { "@type": "UnitPriceSpecification", priceType: "https://schema.org/ListPrice", price: listUsd, priceCurrency: "USD", referenceQuantity: perUnit },
+      { "@type": "UnitPriceSpecification", price: listUsd, priceCurrency: "USD", referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode } },
     ],
   };
 }
@@ -35,8 +33,8 @@ export function marketingJsonLd(canonical: string): string {
         operatingSystem: "Web",
         publisher: { "@id": `${canonical}#organization` },
         offers: [
-          subscriptionOffer("Monthly", LAUNCH_OFFER.monthlyUsd, PRICING.monthlyUsd, "MON"),
-          subscriptionOffer("Annual", LAUNCH_OFFER.annualUsd, PRICING.annualUsd, "ANN"),
+          subscriptionOffer("Monthly", PRICING.monthlyUsd, "MON"),
+          subscriptionOffer("Annual", PRICING.annualUsd, "ANN"),
         ],
       },
     ],

@@ -1037,6 +1037,7 @@ export function SettingsPage({ canEdit }: { canEdit?: boolean } = {}) {
             <SubpathLocationSection
               location={data.location}
               customDomainActive={customDomains.domains.some((domain) => domain.status === 'active')}
+              planIncludesSubpath={data.effectiveEntitlement?.effective ?? true}
               feedback={feedback}
               refresh={reload}
             />

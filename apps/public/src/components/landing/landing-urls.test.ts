@@ -1,4 +1,4 @@
-import { FREE_TIER, LAUNCH_OFFER, PRICING } from "@vc/config";
+import { EARLY_USER_OFFER, FREE_TIER, PRICING } from "@vc/config";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -41,16 +41,32 @@ describe("landing URL props", () => {
   it("wires login CTAs through static HostingPricing", () => {
     const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
     expect(html).toContain(`href="${loginUrl}?intent=start"`);
-    expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}`);
     expect(html).toContain(`$${PRICING.monthlyUsd}`);
+    expect(html).toContain(`$${PRICING.annualUsd}`);
+    expect(html).toContain("/blog on your own site");
     expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
     expect(html).toContain(`${FREE_TIER.drafts} drafts at a time`);
     expect(html).toContain(`${FREE_TIER.images} images`);
   });
 
+  it.each([true, false])("promises the early-user discount only while the offer is on (active: %s)", (active) => {
+    const offer = EARLY_USER_OFFER as { active: boolean };
+    const original = offer.active;
+    offer.active = active;
+    try {
+      const html = renderToStaticMarkup(createElement(HostingPricing, { loginUrl }));
+      expect(html.includes(EARLY_USER_OFFER.note)).toBe(active);
+      expect(html.includes(`${EARLY_USER_OFFER.label} discount`)).toBe(active);
+      expect(html).toContain(`$${PRICING.monthlyUsd}`);
+    } finally {
+      offer.active = original;
+    }
+  });
+
   it("keeps FAQ pricing copy in sync with config", () => {
     const html = renderToStaticMarkup(createElement(FaqAccordion));
-    expect(html).toContain(`$${LAUNCH_OFFER.monthlyUsd}/month`);
+    expect(html).toContain(`$${PRICING.monthlyUsd}/month`);
+    expect(html).toContain(`$${PRICING.annualUsd}/year`);
     expect(html).toContain(`${FREE_TIER.publishedPosts} published posts`);
   });
 

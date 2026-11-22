@@ -137,9 +137,9 @@ beforeAll(async () => {
     )
     .run();
 
-  // ---- cap test seed: 25 already-published posts on the cap site -----------
-  // This puts the cap site at the free published limit (25) from the start.
-  for (let i = 1; i <= 25; i++) {
+  // ---- cap test seed: 15 already-published posts on the cap site -----------
+  // This puts the cap site at the free published limit (15) from the start.
+  for (let i = 1; i <= 15; i++) {
     await seedPost(`pr-post-pub${i}`, "pr-site-cap", `Published ${i}`, `pr-post-pub${i}`, {
       status: "published",
       publishedAt: T0,
@@ -278,9 +278,9 @@ it("admits only one of two concurrent free drafts for the last slot", async () =
 // ---------------------------------------------------------------------------
 
 describe("publish — guarded free-published-post cap (CAS)", () => {
-  it("rejects a 26th publish at the free cap (25) when billing is NOT active; the draft is left untouched", async () => {
+  it("rejects a 16th publish at the free cap (15) when billing is NOT active; the draft is left untouched", async () => {
     const repo = createD1PostRepository(env.DB);
-    // The cap site already has 25 published posts -> AT the free cap.
+    // The cap site already has 15 published posts -> AT the free cap.
     const overCap = await createPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
       title: "Cap Rejected",
@@ -289,7 +289,7 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
     });
     expect(overCap.status).toBe("draft");
 
-    // The guarded UPDATE must match 0 rows (count=25, limit=25, billing flag=0)
+    // The guarded UPDATE must match 0 rows (count=15, limit=15, billing flag=0)
     // and the command must surface BillingRequiredError. Asserting the real
     // class identity (not just a name string) so a raw D1/SQLite error reddens it.
     let caught: unknown;
@@ -304,16 +304,16 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(BillingRequiredError);
-    expect((caught as Error).message).toMatch(/up to 25 published posts/i);
+    expect((caught as Error).message).toMatch(/up to 15 published posts/i);
 
     // Teeth: the rejected publish must NOT have mutated the draft.
     const stillDraft = await repo.getPost("pr-site-cap", overCap.id);
     expect(stillDraft?.status).toBe("draft");
-    // And the cap site still has exactly 25 published posts.
-    expect(await countPublished("pr-site-cap")).toBe(25);
+    // And the cap site still has exactly 15 published posts.
+    expect(await countPublished("pr-site-cap")).toBe(15);
   });
 
-  it("publishes the 26th post once billing is active (cap bypassed)", async () => {
+  it("publishes the 16th post once billing is active (cap bypassed)", async () => {
     const repo = createD1PostRepository(env.DB);
     const overCap = await createPost(repo, fullApiActor, {
       siteId: "pr-site-cap",
@@ -332,7 +332,7 @@ describe("publish — guarded free-published-post cap (CAS)", () => {
     expect(published.status).toBe("published");
     expect(published.id).toBe(overCap.id);
     // Billing-active bypassed the cap -> now 26 published posts.
-    expect(await countPublished("pr-site-cap")).toBe(26);
+    expect(await countPublished("pr-site-cap")).toBe(16);
   });
 
   it("rejects publish when expectedVersionNumber is stale (intervening edit)", async () => {

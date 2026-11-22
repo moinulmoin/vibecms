@@ -37,6 +37,10 @@ vi.mock('~/components/dashboard/blocks', () => ({
   Steps: ({ children }: { children?: ReactNode }) => <ol>{children}</ol>,
 }))
 
+vi.mock('~/components/dashboard/PlanActions', () => ({
+  GetProButton: () => <button type="button">Get Pro</button>,
+}))
+
 vi.mock('~/components/dashboard/ConnectAgent', () => ({
   CodeBlock: ({ label, code }: { label: string; code: string }) => (
     <div><span>{label}</span><pre>{code}</pre></div>
@@ -92,6 +96,7 @@ async function render(props: Partial<Parameters<typeof SubpathLocationSection>[0
     <SubpathLocationSection
       location={null}
       customDomainActive={false}
+      planIncludesSubpath
       feedback={feedback}
       refresh={refresh}
       {...props}
@@ -136,6 +141,17 @@ describe('SubpathLocationSection', () => {
     expect(feedback).toHaveBeenCalledWith({ ok: 'location_connected' })
     await act(async () => root.unmount())
     container.remove()
+  })
+
+  it('offers Pro instead of the connect form on the free plan, and keeps a connected path manageable', async () => {
+    const { container } = await render({ planIncludesSubpath: false })
+    expect(container.querySelector('#location-url')).toBeNull()
+    expect(container.textContent).toContain('vibecms Pro puts your blog at a /blog path on your own site')
+    expect(container.textContent).toContain('Get Pro')
+
+    const connected = await render({ planIncludesSubpath: false, location: subpathLocation() })
+    expect(connected.container.textContent).not.toContain('Get Pro')
+    expect(connected.container.textContent).toContain('customer.example.com/blog')
   })
 
   it('shows API validation errors inline, not as a toast', async () => {

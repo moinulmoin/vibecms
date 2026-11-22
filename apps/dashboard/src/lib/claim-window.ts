@@ -48,7 +48,7 @@ export function claimMessage(claim: ClaimWindow, state: ClaimWindowState, blogNa
   if (state === 'expired') {
     return `Your AutoSEOPilot plan ended. The deadline to keep ${blogName.toLowerCase()} passed on ${deadline}.`
   }
-  const keep = `Keep the same posts, media and domain by upgrading to vibecms Cloud before ${deadline}; after that the blog is deleted.`
+  const keep = `Keep the same posts, media and domain by upgrading to vibecms Pro before ${deadline}; after that the blog is deleted.`
   if (state === 'paused') {
     return `Your AutoSEOPilot plan ended and ${blogName.toLowerCase()} is paused. ${keep}`
   }

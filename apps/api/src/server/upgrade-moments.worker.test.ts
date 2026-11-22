@@ -6,6 +6,8 @@ import { applyD1Migrations, type D1Migration } from 'cloudflare:test'
 import { beforeAll, describe, expect, inject, it } from 'vitest'
 import { app } from '@/index'
 import { hashApiToken } from '@/server/api-keys'
+import { handleMcpRequest } from '@/server/mcp'
+import { FREE_LIMIT_AGENT_MESSAGES, PRICING } from '@vc/config'
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -115,47 +117,76 @@ beforeAll(async () => {
 })
 
 describe('free plan upgrade moments for agents', () => {
-  it('tells the agent at the 20th published post that 5 are left, without promoting an upgrade, and not at the 19th', async () => {
+  it('tells the agent at the 12th published post that 3 are left, without promoting an upgrade, and not at the 11th', async () => {
     const blog = await seedBlog('close', 'free')
-    await seedPublishedUpTo(blog, 18)
+    await seedPublishedUpTo(blog, 10)
 
-    const nineteenth = await publishNew(blog, 'post-nineteen')
-    expect(nineteenth.status).toBe(200)
-    expect(JSON.stringify(nineteenth.body)).not.toContain(UPGRADE_LINK)
-    expect(nineteenth.body.planNotice).toBeUndefined()
+    const eleventh = await publishNew(blog, 'post-eleven')
+    expect(eleventh.status).toBe(200)
+    expect(JSON.stringify(eleventh.body)).not.toContain(UPGRADE_LINK)
+    expect(eleventh.body.planNotice).toBeUndefined()
 
-    const twentieth = await publishNew(blog, 'post-twenty')
-    expect(twentieth.status).toBe(200)
-    expect(twentieth.body.planNotice).toContain('5')
+    const twelfth = await publishNew(blog, 'post-twelve')
+    expect(twelfth.status).toBe(200)
+    expect(twelfth.body.planNotice).toContain('3 of its 15')
     // A publish that succeeded names no plan and links nowhere: the ChatGPT
     // directory rejects connectors that promote an upgrade.
-    expect(JSON.stringify(twentieth.body)).not.toContain(UPGRADE_LINK)
-    expect(twentieth.body.planNotice).not.toMatch(/cloud/i)
+    expect(JSON.stringify(twelfth.body)).not.toContain(UPGRADE_LINK)
+    expect(twelfth.body.planNotice).not.toMatch(/\b(pro|cloud)\b/i)
   })
 
-  it('refuses the 26th post naming the limit of 25, that published posts stay online, and the upgrade link', async () => {
+  it('refuses the 16th post naming the limit of 15, that published posts stay online, and the upgrade link', async () => {
     const blog = await seedBlog('limit', 'free')
-    await seedPublishedUpTo(blog, 25)
+    await seedPublishedUpTo(blog, 15)
 
-    const refused = await publishNew(blog, 'post-twenty-six')
+    const refused = await publishNew(blog, 'post-sixteen')
     expect(refused.status).toBe(402)
-    expect(refused.body.error.message).toContain('25')
+    expect(refused.body.error.message).toContain('15')
     expect(refused.body.error.message).toMatch(/published posts stay online/i)
-    expect(refused.body.error.message).toContain(UPGRADE_LINK)
+    expect(refused.body.error.message).not.toContain(UPGRADE_LINK)
+    expect(refused.body.error.message).not.toMatch(/\b(pro|cloud)\b|change plans|https?:/i)
+    expect(refused.body.error.details).toEqual({ plansUrl: UPGRADE_LINK })
   })
 
-  it('gives a Cloud blog none of these messages at 20 posts, 26 posts or 80 images, and a managed blog in its claim grace none at 20', async () => {
+  it('agent-facing limit text never names the paid plan or links anywhere', () => {
+    for (const text of Object.values(FREE_LIMIT_AGENT_MESSAGES)) {
+      expect(text).not.toContain(PRICING.planName)
+      expect(text).not.toMatch(/\b(pro|cloud)\b|https?:/i)
+    }
+  })
+
+  it('over MCP, a free-plan refusal names no plan and carries the pricing link only in details.plansUrl', async () => {
+    const blog = await seedBlog('mcp-limit', 'free')
+    await seedPublishedUpTo(blog, 15)
+    const created = await call(blog, '/api/v1/posts', { title: 'mcp-sixteen', slug: 'mcp-sixteen', contentMarkdown: 'A new post.' })
+    expect(created.status).toBe(201)
+    await env.DB.prepare('DELETE FROM usage_counters WHERE workspace_id = ?').bind(blog.workspaceId).run()
+    const response = await handleMcpRequest(new Request('https://app.basedui.dev/mcp', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${blog.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+        name: 'posts.publish', arguments: { postId: created.body.id, expectedVersionNumber: created.body.currentVersionNumber },
+      } }),
+    }))
+    const json = await response.json() as { result: { isError: boolean; structuredContent: { code: string; message: string; details: unknown }; content: Array<{ text: string }> } }
+    expect(json.result).toMatchObject({ isError: true, structuredContent: { code: 'BILLING_REQUIRED', details: { plansUrl: UPGRADE_LINK } } })
+    const { message } = json.result.structuredContent
+    expect(message).toBe(`${FREE_LIMIT_AGENT_MESSAGES.publishedPosts} Do not retry; tell the blog owner.`)
+    expect(json.result.content[0]!.text.split(UPGRADE_LINK)).toHaveLength(2)
+  })
+
+  it('gives a Pro blog none of these messages at 12 posts, 16 posts or 80 images, and a managed blog in its claim grace none at 12', async () => {
     const blog = await seedBlog('cloud', 'cloud')
-    await seedPublishedUpTo(blog, 19)
+    await seedPublishedUpTo(blog, 11)
 
-    const twentieth = await publishNew(blog, 'cloud-twenty')
-    expect(twentieth.status).toBe(200)
-    expect(JSON.stringify(twentieth.body)).not.toContain(UPGRADE_LINK)
+    const twelfth = await publishNew(blog, 'cloud-twelve')
+    expect(twelfth.status).toBe(200)
+    expect(JSON.stringify(twelfth.body)).not.toContain(UPGRADE_LINK)
 
-    await seedPublishedUpTo(blog, 25)
-    const twentySixth = await publishNew(blog, 'cloud-twenty-six')
-    expect(twentySixth.status).toBe(200)
-    expect(JSON.stringify(twentySixth.body)).not.toContain(UPGRADE_LINK)
+    await seedPublishedUpTo(blog, 15)
+    const sixteenth = await publishNew(blog, 'cloud-sixteen')
+    expect(sixteenth.status).toBe(200)
+    expect(JSON.stringify(sixteenth.body)).not.toContain(UPGRADE_LINK)
 
     await seedImagesUpTo(blog, 79)
     const eightieth = await call(blog, '/api/v1/assets', { filename: 'eighty.png', mimeType: 'image/png', dataBase64: PNG_BASE64, altText: 'A dot' })
@@ -164,9 +195,9 @@ describe('free plan upgrade moments for agents', () => {
 
     // An AutoSEOPilot-managed blog in its claim grace is not offered the free-plan notice either.
     const managed = await seedBlog('managed', 'managed-grace')
-    await seedPublishedUpTo(managed, 19)
-    const managedTwentieth = await publishNew(managed, 'managed-twenty')
-    expect(managedTwentieth.status).toBe(200)
-    expect(managedTwentieth.body.planNotice).toBeUndefined()
+    await seedPublishedUpTo(managed, 11)
+    const managedTwelfth = await publishNew(managed, 'managed-twelve')
+    expect(managedTwelfth.status).toBe(200)
+    expect(managedTwelfth.body.planNotice).toBeUndefined()
   })
 })

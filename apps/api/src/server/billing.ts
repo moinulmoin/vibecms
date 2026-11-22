@@ -2,7 +2,8 @@ import type { BillingStatus } from '@vc/core'
 import { ForbiddenError } from '@vc/core'
 import { createDataAccess, type ManagedPurgeConflict, type PolarDuplicateSubscriptionRow } from '@vc/db'
 import { Polar } from '@polar-sh/sdk'
-import { LAUNCH_OFFER, MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
+import { MANAGED_CLAIM_CHECKOUT_TTL_SECONDS, PRICING, pastDueGraceEndsAt } from '@vc/config'
+import { HTTPValidationError } from '@polar-sh/sdk/models/errors/httpvalidationerror.js'
 import { validatePolarWebhook } from '@/server/polar-webhook-validation'
 import { HTTPClient } from '@polar-sh/sdk/lib/http.js'
 import { POLAR_API_VERSION } from '@vc/config'
@@ -112,20 +113,61 @@ export type PolarOpenCheckout = {
   productId?: string | null
   discountId?: string | null
   currency?: string | null
+  amount?: number | null
   netAmount?: number | null
+  product?: { recurringInterval?: string | null; recurringIntervalCount?: number | null } | null
 }
 
-/** Reuse only an open checkout for the exact offer and pre-tax first-period price. */
+/**
+ * A checkout sells the offer only in USD on the list-price product billed every
+ * month or every year, and its pre-tax first charge is the list price, or with
+ * the early-user discount anything above zero and below it. The discount's
+ * size lives in Polar; the product price (what renewals charge) is never above list.
+ */
+export function isOfferPrice(
+  checkout: Pick<PolarOpenCheckout, 'currency' | 'amount' | 'netAmount' | 'product'>,
+  interval: CheckoutInterval,
+  listAmount: number,
+  discounted: boolean,
+): boolean {
+  const { netAmount, product } = checkout
+  if (product?.recurringInterval !== (interval === 'yearly' ? 'year' : 'month') || product.recurringIntervalCount !== 1) return false
+  if (checkout.currency?.toLowerCase() !== 'usd' || checkout.amount !== listAmount || typeof netAmount !== 'number') return false
+  return discounted ? netAmount > 0 && netAmount < listAmount : netAmount === listAmount
+}
+
+export type PolarDiscountState = {
+  startsAt?: Date | null
+  endsAt?: Date | null
+  maxRedemptions?: number | null
+  redemptionsCount?: number
+}
+
+/** Polar's own redeemability rule (discount_service.is_redeemable_discount). */
+export function isRedeemableDiscount(discount: PolarDiscountState, nowMs: number = Date.now()): boolean {
+  if (discount.startsAt && discount.startsAt.getTime() > nowMs) return false
+  if (discount.endsAt && discount.endsAt.getTime() < nowMs) return false
+  if (discount.maxRedemptions != null && (discount.redemptionsCount ?? 0) >= discount.maxRedemptions) return false
+  return true
+}
+
+/** Polar refuses a discount it cannot redeem (deleted, ended, used up, not for this product) with a 422 on discount_id. */
+export function isDiscountRefusal(error: unknown): boolean {
+  return error instanceof HTTPValidationError && (error.detail ?? []).some((item) => item.loc.includes('discount_id'))
+}
+
+/** Reuse only an open checkout for the exact offer at an allowed pre-tax first-period price. */
 export function pickReusableOpenCheckoutUrl(
   items: PolarOpenCheckout[],
   productId: string,
   discountId: string | undefined,
-  expectedNetAmount: number,
+  interval: CheckoutInterval,
+  listAmount: number,
   nowMs: number = Date.now(),
 ): string | null {
   for (const item of items) {
     if (item.productId !== productId || (item.discountId ?? null) !== (discountId ?? null)) continue
-    if (item.currency?.toLowerCase() !== 'usd' || item.netAmount !== expectedNetAmount) continue
+    if (!isOfferPrice(item, interval, listAmount, discountId !== undefined)) continue
     if (item.status != null && item.status !== 'open') continue
     if (!item.url) continue
     if (item.expiresAt != null) {
@@ -229,10 +271,16 @@ async function notifyDuplicateSubscription(duplicate: PolarDuplicateSubscription
   }
 }
 
+/** The configured early-user Polar discount for this interval, if any. */
+export function earlyUserDiscountId(interval: CheckoutInterval): string | undefined {
+  const discounts = env as unknown as { POLAR_LAUNCH_DISCOUNT_MONTHLY_ID?: string; POLAR_LAUNCH_DISCOUNT_YEARLY_ID?: string }
+  return (interval === 'yearly' ? discounts.POLAR_LAUNCH_DISCOUNT_YEARLY_ID : discounts.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID)?.trim() || undefined
+}
+
 export async function createCheckoutSessionForApp(
   app: AppUserContext,
   interval: CheckoutInterval,
-  deps?: { createCheckout?: CreatePolarCheckout; listOpenCheckouts?: ListOpenPolarCheckouts },
+  deps?: { createCheckout?: CreatePolarCheckout; listOpenCheckouts?: ListOpenPolarCheckouts; getDiscount?: (id: string) => Promise<PolarDiscountState> },
 ): Promise<BillingMutationResult> {
   try {
     requireOwner(app)
@@ -252,7 +300,7 @@ export async function createCheckoutSessionForApp(
   }
   // A workspace with a LIVE AutoSEOPilot sponsorship is not for sale: the
   // plan already includes the blog. A revoked sponsorship is the claim
-  // window: buying VibeCMS Cloud there is exactly how the customer keeps
+  // window: buying VibeCMS Pro there is exactly how the customer keeps
   // the blog, so it must reach the checkout.
   const managed = await db.managedSites.getSnapshotByWorkspaceId(app.workspaceId)
   if (managed && managed.entitlementStatus === 'active') {
@@ -271,16 +319,11 @@ export async function createCheckoutSessionForApp(
   }
 
   const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : env.POLAR_MONTHLY_PRODUCT_ID
-  // Products carry the list price ($15 / $150). While launch pricing runs,
-  // a Polar discount (duration: forever, so it stays while subscribed) brings
-  // new checkouts to the launch price. Unset = list price.
-  const launchDiscounts = env as unknown as { POLAR_LAUNCH_DISCOUNT_MONTHLY_ID?: string; POLAR_LAUNCH_DISCOUNT_YEARLY_ID?: string }
-  const discountId = (interval === 'yearly'
-    ? launchDiscounts.POLAR_LAUNCH_DISCOUNT_YEARLY_ID
-    : launchDiscounts.POLAR_LAUNCH_DISCOUNT_MONTHLY_ID)?.trim() || undefined
-  const expectedNetAmount = interval === 'yearly'
-    ? (discountId ? LAUNCH_OFFER.annualUsd : PRICING.annualUsd) * 100
-    : (discountId ? LAUNCH_OFFER.monthlyUsd : PRICING.monthlyUsd) * 100
+  // Products carry the list price ($15 / $150). The early-user offer is a
+  // Polar discount (POLAR_LAUNCH_DISCOUNT_*_ID) that checkout applies on its
+  // own; its size and redemption cap live in Polar. Unset = list price.
+  const configuredDiscountId = earlyUserDiscountId(interval)
+  const listAmount = (interval === 'yearly' ? PRICING.annualUsd : PRICING.monthlyUsd) * 100
   if (!productId) {
     return {
       kind: 'error',
@@ -323,25 +366,45 @@ export async function createCheckoutSessionForApp(
     return { kind: 'error', code: 'purge_in_progress' }
   }
 
+  // An open checkout keeps its discount until it is paid, and Polar refuses
+  // payment once the last early spot is gone. So a used-up or ended discount
+  // is dropped up front, and the customer gets (or reuses) a list-price
+  // checkout instead of a page that can no longer be paid.
+  // When the discount cannot be read, checkout still tries it, but never
+  // reuses a discounted page it could not vouch for: create validates the
+  // discount, and a refusal falls back to the list price below.
+  const getDiscount = deps?.getDiscount ?? (client ? (id: string) => client.discounts.get({ id }) : null)
+  let discountId = configuredDiscountId
+  let discountConfirmed = false
+  if (discountId && getDiscount) {
+    try {
+      if (isRedeemableDiscount(await getDiscount(discountId))) discountConfirmed = true
+      else discountId = undefined
+    } catch (error) {
+      console.error('polar early-user discount read failed', error)
+    }
+  }
+
   // Prefer reusing an existing open Polar checkout for this workspace/product before creating another.
+  let openItems: PolarOpenCheckout[] = []
   if (listOpenCheckouts) {
     try {
-      const openItems = await listOpenCheckouts({
+      openItems = await listOpenCheckouts({
         externalCustomerId: app.workspaceId,
         productId,
       })
-      const existingUrl = pickReusableOpenCheckoutUrl(openItems, productId, discountId, expectedNetAmount)
+      const existingUrl = discountId && !discountConfirmed ? null : pickReusableOpenCheckoutUrl(openItems, productId, discountId, interval, listAmount)
       if (existingUrl) return { kind: 'ok', url: existingUrl }
     } catch (error) {
       console.error('polar open checkout list failed', error)
     }
   }
 
-  try {
-    const session = await createCheckout(
+  const createOffer = (offerDiscountId: string | undefined) =>
+    createCheckout(
       {
         products: [productId],
-        ...(discountId ? { discountId } : {}),
+        ...(offerDiscountId ? { discountId: offerDiscountId } : {}),
         successUrl: `${env.APP_URL}/dashboard?ok=billing_success&checkout_id={CHECKOUT_ID}`,
         returnUrl: `${env.APP_URL}/dashboard/billing`,
         externalCustomerId: app.workspaceId,
@@ -349,13 +412,29 @@ export async function createCheckoutSessionForApp(
         customerName: app.user.name,
         metadata: { workspaceId: app.workspaceId },
       },
-      { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval, productId, discountId) } },
+      { headers: { 'Idempotency-Key': checkoutIdempotencyKey(app.workspaceId, interval, productId, offerDiscountId) } },
     )
-    if (session.productId !== productId || (session.discountId ?? null) !== (discountId ?? null)
-      || session.currency?.toLowerCase() !== 'usd' || session.netAmount !== expectedNetAmount) {
-      console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: discountId ?? null,
+  try {
+    let appliedDiscountId = discountId
+    let session: PolarOpenCheckout
+    try {
+      session = await createOffer(discountId)
+    } catch (error) {
+      // A used-up or switched-off early-user discount must never block a sale:
+      // the customer checks out at the list price instead.
+      if (!discountId || !isDiscountRefusal(error)) throw error
+      console.warn('polar early-user discount refused; checkout at list price', { discountId, error: String(error) })
+      appliedDiscountId = undefined
+      const listPriceUrl = pickReusableOpenCheckoutUrl(openItems, productId, undefined, interval, listAmount)
+      if (listPriceUrl) return { kind: 'ok', url: listPriceUrl }
+      session = await createOffer(undefined)
+    }
+    if (session.productId !== productId || (session.discountId ?? null) !== (appliedDiscountId ?? null)
+      || !isOfferPrice(session, interval, listAmount, appliedDiscountId !== undefined)) {
+      console.error('polar checkout offer mismatch', { requestedProductId: productId, requestedDiscountId: appliedDiscountId ?? null,
         returnedProductId: session.productId, returnedDiscountId: session.discountId,
-        currency: session.currency, netAmount: session.netAmount, expectedNetAmount })
+        currency: session.currency, amount: session.amount, netAmount: session.netAmount, listAmount,
+        recurringInterval: session.product?.recurringInterval, recurringIntervalCount: session.product?.recurringIntervalCount })
       await resolveCheckoutAttempt(app.workspaceId, Math.floor(Date.now() / 1000))
       return { kind: 'error', code: 'checkout_failed' }
     }

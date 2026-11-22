@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { LAUNCH_OFFER, POLAR_API_VERSION, PRICING } from "../packages/config/src/index.ts";
+import { POLAR_API_VERSION, PRICING } from "../packages/config/src/index.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 let accountId: string;
@@ -118,8 +118,8 @@ if (polarVars.POLAR_SERVER !== "production") {
   missing.push(`Production Worker POLAR_SERVER must be production; got ${polarVars.POLAR_SERVER ?? "missing"}`);
 }
 // The live check against Polar is optional: checkout itself refuses any price
-// that doesn't match the site. Without a token we still require the launch
-// discount ids in config, then verify with a real checkout after deploying.
+// that doesn't match the site, and the early-user discount is optional (an
+// unset, ended or used-up discount checks out at the list price).
 if (process.env.POLAR_ACCESS_TOKEN?.trim()) {
   try {
     await checkPricing(polarVars);
@@ -127,9 +127,6 @@ if (process.env.POLAR_ACCESS_TOKEN?.trim()) {
     missing.push(`Polar pricing: ${error instanceof Error ? error.message : String(error)}`);
   }
 } else {
-  for (const key of ["POLAR_LAUNCH_DISCOUNT_MONTHLY_ID", "POLAR_LAUNCH_DISCOUNT_YEARLY_ID"] as const) {
-    if (!polarVars[key]) missing.push(`${key} is missing from the production API config while the site advertises launch pricing`);
-  }
   console.warn("Polar pricing not checked live (no POLAR_ACCESS_TOKEN). Checkout still refuses mismatched prices; confirm with a real checkout after deploy.");
 }
 
@@ -218,8 +215,8 @@ Notes:
   - Legacy scheduled and unversioned published post counts block production until reconciled
     or explicitly acknowledged with ACK_LEGACY_SCHEDULED_POSTS and ACK_LEGACY_UNVERSIONED_POSTS.
   - Astro sessions are disabled; no SESSION KV is required.
-  - preflight:pricing requires POLAR_ACCESS_TOKEN, POLAR_SERVER, both POLAR_*_PRODUCT_ID
-    and both POLAR_LAUNCH_DISCOUNT_*_ID values in the environment.
+  - preflight:pricing requires POLAR_ACCESS_TOKEN, POLAR_SERVER and both POLAR_*_PRODUCT_ID
+    values in the environment; POLAR_LAUNCH_DISCOUNT_*_ID (the early-user discounts) are optional.
 `);
 }
 
@@ -342,7 +339,13 @@ type PolarDiscount = {
   max_redemptions?: number | null; redemptions_count?: number;
 };
 
-export async function checkPricing(env: PolarEnv): Promise<void> {
+/**
+ * Checks both products carry the list price, and that a configured early-user
+ * discount applies to its product and lowers the price without reaching zero.
+ * A discount that is not redeemable right now only warns: checkout then falls
+ * back to the list price.
+ */
+export async function checkPricing(env: PolarEnv, warn: (message: string) => void = console.warn): Promise<void> {
   const token = env.POLAR_ACCESS_TOKEN?.trim();
   if (!token) throw new Error("Polar pricing preflight requires POLAR_ACCESS_TOKEN");
   const server = env.POLAR_SERVER?.trim();
@@ -360,8 +363,8 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
   }
 
   for (const plan of [
-    { label: "monthly", interval: "month", list: PRICING.monthlyUsd * 100, launch: LAUNCH_OFFER.monthlyUsd * 100, productKey: "POLAR_MONTHLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID" },
-    { label: "yearly", interval: "year", list: PRICING.annualUsd * 100, launch: LAUNCH_OFFER.annualUsd * 100, productKey: "POLAR_YEARLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_YEARLY_ID" },
+    { label: "monthly", interval: "month", list: PRICING.monthlyUsd * 100, productKey: "POLAR_MONTHLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID" },
+    { label: "yearly", interval: "year", list: PRICING.annualUsd * 100, productKey: "POLAR_YEARLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_YEARLY_ID" },
   ]) {
     const productId = env[plan.productKey]?.trim();
     const discountId = env[plan.discountKey]?.trim();
@@ -376,11 +379,12 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
       || prices[0].price_currency?.toLowerCase() !== "usd" || prices[0].price_amount !== plan.list) {
       throw new Error(`${plan.label} Polar product ${productId}: expected one active fixed USD price of ${plan.list} cents; got ${JSON.stringify(prices)}`);
     }
-    if (!discountId) throw new Error(`${plan.discountKey} is required while the site advertises the ${plan.launch}-cent launch price`);
-    const discount = await get<PolarDiscount>(`discounts/${encodeURIComponent(discountId)}`);
-    if (discount.id !== discountId || discount.duration !== "forever") {
-      throw new Error(`${plan.label} Polar discount ${discountId}: expected duration forever; got ${discount.duration ?? "missing"}`);
+    if (!discountId) {
+      warn(`${plan.label}: no early-user discount configured (${plan.discountKey}); checkout charges the list price`);
+      continue;
     }
+    const discount = await get<PolarDiscount>(`discounts/${encodeURIComponent(discountId)}`);
+    if (discount.id !== discountId) throw new Error(`${plan.label} Polar discount ${discountId} was not found`);
     if (discount.products?.length && !discount.products.some((entry) => entry.id === productId)) {
       throw new Error(`${plan.label} Polar discount ${discountId} does not apply to product ${productId}`);
     }
@@ -388,7 +392,7 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
     if ((discount.starts_at && Date.parse(discount.starts_at) > now)
       || (discount.ends_at && Date.parse(discount.ends_at) <= now)
       || (discount.max_redemptions != null && (discount.redemptions_count ?? 0) >= discount.max_redemptions)) {
-      throw new Error(`${plan.label} Polar discount ${discountId} is not currently redeemable`);
+      warn(`${plan.label} Polar discount ${discountId} is not redeemable right now; checkout charges the list price`);
     }
     let effective: number | undefined;
     if (discount.type === "fixed") {
@@ -397,8 +401,8 @@ export async function checkPricing(env: PolarEnv): Promise<void> {
     } else if (discount.type === "percentage" && Number.isInteger(discount.basis_points)) {
       effective = plan.list - Math.round(plan.list * discount.basis_points! / 10_000);
     }
-    if (effective !== plan.launch) {
-      throw new Error(`${plan.label} Polar discount ${discountId}: expected ${plan.launch} cents after discount from ${plan.list} cents; got ${effective ?? "unsupported type/currency"} (type ${discount.type ?? "missing"})`);
+    if (effective === undefined || effective <= 0 || effective >= plan.list) {
+      throw new Error(`${plan.label} Polar discount ${discountId}: expected a price above 0 and below ${plan.list} cents after discount; got ${effective ?? "unsupported type/currency"} (type ${discount.type ?? "missing"})`);
     }
   }
 }

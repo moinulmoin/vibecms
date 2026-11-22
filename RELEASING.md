@@ -46,29 +46,36 @@ before preflight. It needs:
   local run supplies the equivalent read-only (Drafts) agent key from the
   production dashboard, used by the post-deploy smoke test
 
-## Launch pricing in Polar (production)
+## Early user discount in Polar (production)
 
 Dev uses the Polar **sandbox** with the same setup; its ids are already in the
 dev vars of `apps/api/wrangler.jsonc`.
 
 1. Keep the products at the list price: monthly **$15**, yearly **$150**.
-2. Create two discounts, duration **forever**, no code, each limited to its product.
-   Fixed amounts give exact prices (percentages work too; the site shows percentages either way):
-   - monthly: **$6 off** (40%) → $9/month
-   - yearly: **$75 off** (50%) → $75/year
+2. Create the early-user discounts in Polar, no code, each limited to its
+   product. Their size, duration and **max redemptions** (the early spots) are
+   Polar settings; no surface states an amount, so changing them needs no
+   deploy. A discount must lower the price and never make it free.
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
-   `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`.
+   `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`
+   (the names predate the early-user offer). Both are optional.
 4. Optional live check (needs a read-only Polar token; the deploy skips it
    without one, and checkout refuses mismatched prices either way). Standalone
    mode reads your shell, so export all four ids:
    `POLAR_SERVER=production POLAR_ACCESS_TOKEN=… POLAR_MONTHLY_PRODUCT_ID=… POLAR_YEARLY_PRODUCT_ID=… POLAR_LAUNCH_DISCOUNT_MONTHLY_ID=… POLAR_LAUNCH_DISCOUNT_YEARLY_ID=… pnpm preflight:pricing`.
    The deploy's preflight reads the ids from `wrangler.jsonc`, not your shell.
-   With a token, preflight refuses to deploy unless the products and discounts
-   produce exactly the advertised prices. Without one, it only requires the
-   discount ids in config; verify with a real checkout after deploying.
+   With a token, preflight refuses to deploy unless the products carry the list
+   price and each configured discount applies to its product and lowers the
+   price without reaching zero; an unset or used-up discount only warns.
 
-To end launch pricing later: remove the two vars and update `LAUNCH_OFFER` in
-`packages/config`. Existing subscribers keep their discount.
+Checkout applies a configured discount and, when Polar refuses it (deleted,
+ended or out of redemptions), checks out at the list price instead. To end the
+offer: switch the discount off in Polar (checkout falls back at once), then
+unset the two vars and set `EARLY_USER_OFFER.active` to `false` in
+`packages/config`, which hides the offer on the landing page, the FAQ, the
+agent pitch, the terms and Plan & billing. Then run `pnpm gen:agent-skills` and
+`pnpm check` before committing.
+Existing subscribers keep whatever duration their discount had.
 
 ## Legacy data (every deploy)
 
@@ -113,7 +120,7 @@ that was live, then run `pnpm deploy:prod -- --verify-pins` and
 ### 3. After
 
 Reopen writes, then check a published post, a private preview link, a
-scheduled post, and a checkout on both plans (the first charge should be $9 / $75).
+scheduled post, and a checkout on both plans (the first charge is the list price less any early-user discount, never more than $15 / $150).
 
 ## Known limits
 

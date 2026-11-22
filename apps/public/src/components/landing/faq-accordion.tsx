@@ -1,4 +1,4 @@
-import { LAUNCH_OFFER, PLAN_SUMMARY, PRICING } from "@vc/config";
+import { EARLY_USER_OFFER, PLAN_SUMMARY, PRICING } from "@vc/config";
 import type { ReactNode } from "react";
 import { AUTOSEOPILOT_URL } from "../../lib/landing-links";
 import { AskAi } from "./ask-ai";
@@ -8,11 +8,11 @@ import { H2, SectionShell, TEXT_LINK } from "./primitives";
 const faqs: readonly { question: string; answer: ReactNode }[] = [
   {
     question: "What do I get for free?",
-    answer: `A full blog, free forever: ${PLAN_SUMMARY.free}, no card. It is open to search engines and AI assistants like any Cloud blog, and shows a small "Published with vibecms" link at the bottom. ${PRICING.planName} adds ${PLAN_SUMMARY.cloud}.`,
+    answer: `A full blog, free forever: ${PLAN_SUMMARY.free}, no card. It is open to search engines and AI assistants like any Pro blog, and shows a small "Published with vibecms" link at the bottom. ${PRICING.planName} adds ${PLAN_SUMMARY.cloud}.`,
   },
   {
-    question: "What is launch pricing?",
-    answer: `While launch pricing runs, new subscribers get ${LAUNCH_OFFER.monthlyPercentOff}% off monthly or ${LAUNCH_OFFER.annualPercentOff}% off yearly: $${LAUNCH_OFFER.monthlyUsd}/month or $${LAUNCH_OFFER.annualUsd}/year instead of $${PRICING.monthlyUsd} or $${PRICING.annualUsd}. It applies at checkout and stays locked while your subscription is active.`,
+    question: "What does Pro cost?",
+    answer: `${PRICING.planName} is $${PRICING.monthlyUsd}/month or $${PRICING.annualUsd}/year, billed in USD with no added fees.${EARLY_USER_OFFER.active ? ` ${EARLY_USER_OFFER.note} Checkout shows the discount and how long it applies before you pay.` : ""}`,
   },
   {
     question: "Does vibecms write my posts?",

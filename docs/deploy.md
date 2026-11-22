@@ -1,4 +1,4 @@
-# Deploy vibecms Cloud
+# Deploy hosted vibecms
 
 Hosted vibecms uses three Cloudflare Workers with separate failure domains:
 
@@ -372,9 +372,11 @@ pnpm --filter @vc/api exec wrangler secret put CUSTOM_HOSTNAME_API_TOKEN --env p
 pnpm --filter @vc/api exec wrangler secret put AUTOSEOPILOT_INTERNAL_SECRET --env production
 ```
 
-`POLAR_ACCESS_TOKEN` is an organization access token with two scopes:
-`checkouts:write` (create checkouts and reuse open ones) and
-`customer_sessions:write` (Manage billing). Without the second, Manage billing
+`POLAR_ACCESS_TOKEN` is an organization access token with three scopes:
+`checkouts:write` (create checkouts and reuse open ones),
+`discounts:read` (skip an early-user discount that has ended or run out of
+spots; without it checkout still works and lets Polar validate the discount) and
+`customer_sessions:write` (Manage billing). Without `customer_sessions:write`, Manage billing
 fails and the API log shows `polar portal session failed` with Polar's
 `403 insufficient_scope`. Polar asks you to sign in again before it saves a scope
 change; the token value stays the same, so no secret update is needed.

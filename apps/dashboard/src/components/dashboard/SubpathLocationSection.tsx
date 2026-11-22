@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { ExternalLink, LoaderCircle } from 'lucide-react'
+import { FREE_LIMIT_MESSAGES } from '@vc/config'
 import { CopyButton, Field, FieldLabel, Input } from '@vc/ui'
 import { Button, formatRelative } from '~/components/dashboard/DashboardLayout'
 import { PageTabs, Section, StatusBadge, Step, Steps } from '~/components/dashboard/blocks'
 import { CodeBlock } from '~/components/dashboard/ConnectAgent'
 import { Tabs, TabsContent } from '~/components/ui/tabs'
 import { PendingSubmitButton } from '~/components/dashboard/PendingSubmitButton'
+import { GetProButton } from '~/components/dashboard/PlanActions'
 import { SpaConfirmButton } from '~/components/dashboard/SpaConfirmButton'
 import {
   checkSubpathLocationMutation,
@@ -61,12 +63,15 @@ function snippetFor(snippets: SubpathSnippets, platform: (typeof PLATFORM_TABS)[
 export function SubpathLocationSection({
   location,
   customDomainActive,
+  planIncludesSubpath,
   feedback,
   refresh,
 }: {
   /** Missing on stale settings payloads: treated as "no subpath" like the API default. */
   location?: SiteLocationView | null
   customDomainActive: boolean
+  /** Connecting a /blog path is Pro's; a path that is already connected stays manageable on any plan. */
+  planIncludesSubpath: boolean
   feedback: (result: { ok?: string; error?: string }) => void
   refresh: () => Promise<unknown>
 }) {
@@ -163,7 +168,12 @@ export function SubpathLocationSection({
       title="On a path of your site"
       description="Serve the blog at a path of the site you already run, like example.com/blog. Search engines treat it as part of your main site."
     >
-      {!subpath ? (
+      {!subpath && !planIncludesSubpath ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">{FREE_LIMIT_MESSAGES.subpath}</p>
+          <GetProButton />
+        </div>
+      ) : !subpath ? (
           <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => void handleConnect(event)}>
             <Field className="min-w-0 flex-1">
               <FieldLabel htmlFor="location-url">Blog URL</FieldLabel>

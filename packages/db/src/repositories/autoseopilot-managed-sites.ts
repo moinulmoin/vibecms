@@ -619,7 +619,7 @@ export interface ManagedClaimSweepPurgeInput {
  *
  * It is written in one atomic statement while the blog is still revoked, still
  * past its own claim-window deadline and its workspace still never claimed
- * VibeCMS Cloud, and it records the external resources the purge deletes (the
+ * VibeCMS Pro, and it records the external resources the purge deletes (the
  * Cloudflare custom hostname ids and the R2 prefixes). While an intent exists,
  * claiming, plan resumption and re-provisioning are refused, so a resurrection
  * cannot race a running purge. The intent never expires: a crashed run leaves
@@ -724,7 +724,7 @@ export interface ManagedPurgeIntentRequest {
 
 export interface AutoseopilotManagedSitesClaimSweep {
   /**
-   * Revoked managed sites whose workspace has never claimed VibeCMS Cloud
+   * Revoked managed sites whose workspace has never claimed VibeCMS Pro
    * (no billing row, or status 'none') AND whose window has something due
    * (the first reminder, or the purge). A resumed plan clears revoked_at and
    * leaves this set; a claim flips billing away from 'none'. Only due rows
@@ -783,7 +783,7 @@ export interface AutoseopilotManagedPurgeIntents {
    * Writes the purge intent in ONE atomic statement, but only while the
    * binding is still revoked, still past ITS OWN claim-window deadline, still
    * the same lifecycle the candidate was selected at, its workspace still
-   * never claimed VibeCMS Cloud and no claim checkout blocked the purge
+   * never claimed VibeCMS Pro and no claim checkout blocked the purge
    * inside its guard window. Returns the intent (the new one, or the one an
    * earlier run left behind) or null when the guard did not hold and nothing
    * is deleted.
@@ -1817,7 +1817,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
       // ONE atomic statement. The intent appears only while the binding is
       // still revoked, still past ITS OWN claim-window deadline, still the
       // same lifecycle the candidate was selected at, its workspace still
-      // never claimed VibeCMS Cloud, and no claim checkout blocked the purge
+      // never claimed VibeCMS Pro, and no claim checkout blocked the purge
       // inside its guard window. The hostname ids are read from the site's
       // own domain rows in the same statement, so the recorded resources are
       // the ones the purge deletes.
@@ -2175,7 +2175,7 @@ export function createManagedSitesRepository(db: D1Database): AutoseopilotManage
     async purgeRevokedManagedSite(input) {
       // One transactional batch. The first statement is the guard: it deletes
       // the binding only while the site is still revoked past its own
-      // deadline, the workspace still has never claimed Cloud, and the purge
+      // deadline, the workspace still has never claimed Pro, and the purge
       // intent that authorized the cleanup is still there. Every later
       // statement is conditioned on the binding (or dependent rows) already
       // being gone, so a racing claim/resume leaves the whole batch a no-op.

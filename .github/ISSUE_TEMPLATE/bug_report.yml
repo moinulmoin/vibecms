@@ -36,7 +36,7 @@ body:
     attributes:
       label: Mode
       options:
-        - vibecms Cloud / hosted
+        - Hosted vibecms (Free or Pro)
         - Self-hosted Cloudflare Worker
         - Local development
         - Unsure

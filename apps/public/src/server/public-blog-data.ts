@@ -216,7 +216,7 @@ export async function resolveSite(request: Request, db: D1Database, env: PublicR
     if (!effectiveEntitlement) return null;
     // A managed blog past its 7-day claim grace resolves (so every ingress
     // can render the paused page) but never serves content. Own domains are
-    // on every plan: a free blog, or one that left Cloud, keeps serving there.
+    // on every plan: a free blog, or one that left Pro, keeps serving there.
     return toSiteRow(row, effectiveEntitlement);
   }
 
@@ -317,7 +317,7 @@ export function showsPublishedWith(site: SiteRow): boolean {
 }
 
 /**
- * The footer "Report abuse" link: free hosted blogs only, never Cloud,
+ * The footer "Report abuse" link: free hosted blogs only, never Pro,
  * self-hosted or AutoSEOPilot-managed ones. It opens the support address with
  * the blog's address filled in; there is no form and nothing is stored.
  */

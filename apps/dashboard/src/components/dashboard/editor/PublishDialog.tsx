@@ -6,7 +6,7 @@ import { AlertTriangle, CalendarClock, Send } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
-import { GetCloudButton, PlanLimitNotice, isPlanCapCode, type PlanCapCode } from '~/components/dashboard/PlanActions'
+import { GetProButton, PlanLimitNotice, isPlanCapCode, type PlanCapCode } from '~/components/dashboard/PlanActions'
 import { overviewQuery, queryClient } from '~/lib/queries'
 
 export type PublishDialogProps = {
@@ -22,7 +22,7 @@ export type PublishDialogProps = {
   onReviewSeo?: () => void
   pending: boolean
   error: string | null
-  /** Mutation code behind `error`; plan caps (`billing_required`, `draft_limit`, `media_quota_free`) offer one-click Cloud checkout. */
+  /** Mutation code behind `error`; plan caps (`billing_required`, `draft_limit`, `media_quota_free`) offer one-click Pro checkout. */
   errorCode?: string | null
   /** The post's current schedule, so a pending one is explained before it is replaced or bypassed. */
   scheduledPublish?: ScheduledPublish | null
@@ -132,7 +132,7 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
     }
   }
 
-  // Get Cloud opens checkout in a new tab. When the owner comes back to this
+  // Get Pro opens checkout in a new tab. When the owner comes back to this
   // one, re-read the plan; if the blog is no longer at the cap, offer publish again.
   useEffect(() => {
     if (!open || !planCap) return
@@ -323,7 +323,7 @@ export function PublishDialog({ open, onOpenChange, versionNumber, liveVersionNu
             // The server refused at a free-plan cap: offer the way forward
             // instead of a publish button that would fail the same way.
             // Focus moves here: the button that had it is gone.
-            <GetCloudButton variant="default" size="default" newTab autoFocus />
+            <GetProButton variant="default" size="default" newTab autoFocus />
           ) : (
             <Button type="button" disabled={pending || !versionNumber || (mode === 'schedule' && !valid)} onClick={confirm}>
               {mode === 'now' ? <Send aria-hidden className="size-4" /> : <CalendarClock aria-hidden className="size-4" />}
