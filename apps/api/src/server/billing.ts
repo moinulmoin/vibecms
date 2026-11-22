@@ -321,7 +321,7 @@ export async function createCheckoutSessionForApp(
   const productId = interval === 'yearly' ? env.POLAR_YEARLY_PRODUCT_ID : env.POLAR_MONTHLY_PRODUCT_ID
   // Products carry the list price ($15 / $150). The early-user offer is a
   // Polar discount (POLAR_LAUNCH_DISCOUNT_*_ID) that checkout applies on its
-  // own; its size and redemption cap live in Polar. Unset = list price.
+  // own, bringing it to EARLY_USER_OFFER's $9 / $75. Unset = list price.
   const configuredDiscountId = earlyUserDiscountId(interval)
   const listAmount = (interval === 'yearly' ? PRICING.annualUsd : PRICING.monthlyUsd) * 100
   if (!productId) {

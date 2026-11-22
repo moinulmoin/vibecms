@@ -12,7 +12,7 @@ Agentic CMS: agent-first, works for people too. Anything that costs us per use i
 |---|---|
 | Free | **15** published posts (the 12th publish says 3 are left), 10 drafts at a time, 100 images / 250 MB, **one custom domain**, open to search engines and AI assistants, 7-day analytics totals, 300 agent calls a day and 1,000 a month, 20 redirects, the "Published with vibecms" link and the Report abuse link. Published posts above the cap stay online and editable. **Open:** "Try free" CTA wording and what removing the signup form means; recommendation: keep the email sign-in code. |
 | Pro | Renamed from Cloud (2026-11-21; internal keys such as `PLAN_SUMMARY.cloud` and billing statuses keep their names). **$15/month** or **$150/year**, never more at checkout (no processing-fee surcharge). Unlimited posts and visitors; indexing; own domain; **a `/blog` path on the customer's own site (Pro only)**; no attribution link; reader + AI-agent analytics; signup form for audience capture; **10 GB** media and no monthly agent-call caps. Per-minute/day call limits and the daily write cap remain. |
-| Early user offer | Optional Polar discounts (`POLAR_LAUNCH_DISCOUNT_MONTHLY_ID` / `_YEARLY_ID`) that checkout applies on its own for the first 50-100 customers. Size, duration and redemption cap live in Polar; no surface states an amount. A discount Polar refuses (deleted, ended, used up) falls back to a list-price checkout. Removable: switch it off in Polar, then drop the vars and `EARLY_USER_OFFER` copy. |
+| Early user offer | **$9/month or $75/year**, forever, with **no redemption cap** (founder, 2026-11-22). Two Polar discounts (`POLAR_LAUNCH_DISCOUNT_MONTHLY_ID` / `_YEARLY_ID`: $6 off monthly, $75 off yearly, duration forever) that checkout applies on its own; the copy states the price from `EARLY_USER_OFFER` and the deploy preflight checks the discounts land on it. A discount Polar refuses (deleted, ended) falls back to a list-price checkout. Removable: switch it off in Polar, then drop the vars and set `EARLY_USER_OFFER.active` to false. |
 | Self-hosting | Stays free. |
 
 ## AutoSEOPilot cancellation and claim
@@ -45,7 +45,7 @@ Founder planning estimate: a typical Pro blog with 100 images and 100,000 views 
 
 ## Founder decisions, 2026-11-21 (MOI-342)
 
-Confirmed before the VibeCMS production deploy: rename Cloud to **Pro**; move the `/blog` subfolder to Pro and keep one custom domain on Free; Free publishes **15** posts (notice at 12), with posts already published above 15 staying online and editable; base price **$15/month or $150/year** with a removable **Early user** Polar discount for the first 50-100 users instead of the hard-coded $9; no processing-fee surcharge; MCP answers keep naming no plan and linking only to the pricing section.
+Confirmed before the VibeCMS production deploy: rename Cloud to **Pro**; move the `/blog` subfolder to Pro and keep one custom domain on Free; Free publishes **15** posts (notice at 12), with posts already published above 15 staying online and editable; base price **$15/month or $150/year** with a removable **Early user** Polar discount that brings it to $9/$75 for early users, with no redemption cap; no processing-fee surcharge; MCP answers keep naming no plan and linking only to the pricing section.
 
 Connecting a `/blog` path on Free is refused with `BILLING_REQUIRED` (agents get the pricing link); a path that is already connected keeps serving on any plan, like an own domain, because leaving Pro never takes anything offline.
 
@@ -63,7 +63,7 @@ Connecting a `/blog` path on Free is refused with `BILLING_REQUIRED` (agents get
 ## Checked against the code (2026-10-22)
 
 - **Subscriber download is built.** Owner-only CSV export at `GET /api/dashboard/subscribers/export.csv` (`apps/api/src/routes/dashboard.ts:204-218`, `apps/api/src/server/dashboard-api.ts:206-225`). It has no plan gate, so Try free owners can use it too.
-- **Pricing (updated 2026-11-21).** List $15/$150 (`PRICING` in `packages/config/src/index.ts`); the hard-coded $9/$75 launch offer is replaced by the optional early-user Polar discount (`EARLY_USER_OFFER`, same file).
+- **Pricing (updated 2026-11-21).** List $15/$150 (`PRICING` in `packages/config/src/index.ts`); the hard-coded $9/$75 launch offer is now the removable early-user Polar discount at the same $9/$75 (`EARLY_USER_OFFER`, same file).
 - **Paid media storage is now 10 GB**, shipped to production 2026-10-22.
 - **Pro has no monthly agent-call caps**, shipped to production 2026-10-22.
 - **Free blogs show "Published with vibecms"**, shipped to production 2026-10-22.
@@ -78,4 +78,3 @@ Connecting a `/blog` path on Free is refused with `BILLING_REQUIRED` (agents get
 
 - Should the subscriber download be Pro-only? Today every owner can use it.
 - What does "Try free without the signup form" mean? Not built: dropping the sign-in step, dropping the reader signup form from free blogs, and renaming the CTA are different changes. Recommendation: keep the email sign-in code.
-- Early user discount size and duration: the committed discount ids are the earlier 40% / 50% "forever" launch discounts. Whether they stay the early-user discount, and their 50-100 redemption cap, are Polar settings for the founder.

@@ -3,8 +3,8 @@ import { sanitizeLlmsField } from "../server/llms-text";
 import { BRAND, PRICING } from "@vc/config";
 
 /**
- * One subscription offer at the list price. The early-user discount is not
- * listed: its size lives in Polar and checkout applies it.
+ * One subscription offer at the list price. The early-user price is not
+ * listed: it is a removable Polar discount that checkout applies.
  * `unitCode` is UN/CEFACT: MON = month, ANN = year.
  */
 function subscriptionOffer(cadence: "Monthly" | "Annual", listUsd: number, unitCode: "MON" | "ANN") {

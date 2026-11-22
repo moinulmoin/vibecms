@@ -51,11 +51,13 @@ before preflight. It needs:
 Dev uses the Polar **sandbox** with the same setup; its ids are already in the
 dev vars of `apps/api/wrangler.jsonc`.
 
-1. Keep the products at the list price: monthly **$15**, yearly **$150**.
-2. Create the early-user discounts in Polar, no code, each limited to its
-   product. Their size, duration and **max redemptions** (the early spots) are
-   Polar settings; no surface states an amount, so changing them needs no
-   deploy. A discount must lower the price and never make it free.
+1. Keep the products at the list price: monthly **$15**, yearly **$150** in
+   USD (checkout sells only USD; prices in other currencies are ignored).
+2. The early-user discounts are Polar discounts, each limited to its product,
+   duration forever, no max redemptions: **$6 off** monthly and **$75 off**
+   yearly, leaving the $9 / $75 that `EARLY_USER_OFFER` in `packages/config`
+   advertises. Changing the amount means changing that copy too; the
+   preflight refuses a discount that doesn't land on the advertised price.
 3. Add their ids to `apps/api/wrangler.jsonc` under `env.production.vars`:
    `POLAR_LAUNCH_DISCOUNT_MONTHLY_ID`, `POLAR_LAUNCH_DISCOUNT_YEARLY_ID`
    (the names predate the early-user offer). Both are optional.
@@ -66,10 +68,11 @@ dev vars of `apps/api/wrangler.jsonc`.
    The deploy's preflight reads the ids from `wrangler.jsonc`, not your shell.
    With a token, preflight refuses to deploy unless the products carry the list
    price and each configured discount applies to its product and lowers the
-   price without reaching zero; an unset or used-up discount only warns.
+   price to the advertised early-user price; an unset or ended discount only
+   warns.
 
 Checkout applies a configured discount and, when Polar refuses it (deleted,
-ended or out of redemptions), checks out at the list price instead. To end the
+ended), checks out at the list price instead. To end the
 offer: switch the discount off in Polar (checkout falls back at once), then
 unset the two vars and set `EARLY_USER_OFFER.active` to `false` in
 `packages/config`, which hides the offer on the landing page, the FAQ, the

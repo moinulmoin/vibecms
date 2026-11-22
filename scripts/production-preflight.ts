@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { POLAR_API_VERSION, PRICING } from "../packages/config/src/index.ts";
+import { EARLY_USER_OFFER, POLAR_API_VERSION, PRICING } from "../packages/config/src/index.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 let accountId: string;
@@ -340,8 +340,10 @@ type PolarDiscount = {
 };
 
 /**
- * Checks both products carry the list price, and that a configured early-user
- * discount applies to its product and lowers the price without reaching zero.
+ * Checks both products carry the list price in USD (checkout sells only USD, so
+ * other currencies on the product are ignored), and that a configured
+ * early-user discount applies to its product and lowers the price without
+ * reaching zero, to exactly the advertised early-user price while the offer is on.
  * A discount that is not redeemable right now only warns: checkout then falls
  * back to the list price.
  */
@@ -363,8 +365,8 @@ export async function checkPricing(env: PolarEnv, warn: (message: string) => voi
   }
 
   for (const plan of [
-    { label: "monthly", interval: "month", list: PRICING.monthlyUsd * 100, productKey: "POLAR_MONTHLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID" },
-    { label: "yearly", interval: "year", list: PRICING.annualUsd * 100, productKey: "POLAR_YEARLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_YEARLY_ID" },
+    { label: "monthly", interval: "month", list: PRICING.monthlyUsd * 100, early: EARLY_USER_OFFER.monthlyUsd * 100, productKey: "POLAR_MONTHLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_MONTHLY_ID" },
+    { label: "yearly", interval: "year", list: PRICING.annualUsd * 100, early: EARLY_USER_OFFER.annualUsd * 100, productKey: "POLAR_YEARLY_PRODUCT_ID", discountKey: "POLAR_LAUNCH_DISCOUNT_YEARLY_ID" },
   ]) {
     const productId = env[plan.productKey]?.trim();
     const discountId = env[plan.discountKey]?.trim();
@@ -374,9 +376,8 @@ export async function checkPricing(env: PolarEnv, warn: (message: string) => voi
       || product.recurring_interval !== plan.interval || product.recurring_interval_count !== 1) {
       throw new Error(`${plan.label} Polar product ${productId}: expected active recurring ${plan.interval} interval count 1; got ${JSON.stringify({ interval: product.recurring_interval, count: product.recurring_interval_count, archived: product.is_archived })}`);
     }
-    const prices = product.prices?.filter((price) => !price.is_archived) ?? [];
-    if (prices.length !== 1 || prices[0]?.amount_type !== "fixed"
-      || prices[0].price_currency?.toLowerCase() !== "usd" || prices[0].price_amount !== plan.list) {
+    const prices = product.prices?.filter((price) => !price.is_archived && price.price_currency?.toLowerCase() === "usd") ?? [];
+    if (prices.length !== 1 || prices[0]?.amount_type !== "fixed" || prices[0].price_amount !== plan.list) {
       throw new Error(`${plan.label} Polar product ${productId}: expected one active fixed USD price of ${plan.list} cents; got ${JSON.stringify(prices)}`);
     }
     if (!discountId) {
@@ -403,6 +404,9 @@ export async function checkPricing(env: PolarEnv, warn: (message: string) => voi
     }
     if (effective === undefined || effective <= 0 || effective >= plan.list) {
       throw new Error(`${plan.label} Polar discount ${discountId}: expected a price above 0 and below ${plan.list} cents after discount; got ${effective ?? "unsupported type/currency"} (type ${discount.type ?? "missing"})`);
+    }
+    if (EARLY_USER_OFFER.active && effective !== plan.early) {
+      throw new Error(`${plan.label} Polar discount ${discountId}: the site advertises an early-user price of ${plan.early} cents; the discount leaves ${effective}`);
     }
   }
 }
