@@ -23,9 +23,10 @@ import {
 import { getBilling, type BillingSnapshot } from "./billing";
 import { deleteAssetTracked, uploadAsset } from "./media";
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from "./post-live-purge";
+import { captureLiveVersionForIndexNow, scheduleIndexNowSubmission } from "./indexnow";
 import { assertPostImagesPublishable } from "./publishing-images";
 import { assertSiteNotSuspended } from "./site-suspension";
-import { getSiteAssetBaseUrl, getSitePublicBaseUrl } from "./site-public-url";
+import { getSiteAssetBaseUrl, getSitePublicBaseUrl, postPublicUrl } from "./site-public-url";
 import { previewUrlForPost } from "./post-preview";
 import { formatGuideForPreset } from "./format-guide";
 import { getVoiceProfileForSite } from "./voice-profile";
@@ -71,10 +72,6 @@ function appUser(ctx: OperationContext) {
 async function siteBaseUrl(siteId: string) {
   const row = await createDataAccess(env.DB).sites.getCurrentSite(siteId);
   return row ? getSitePublicBaseUrl(siteId, row.slug) : null;
-}
-
-function postPublicUrl(base: string | null, post: { status: string; slug: string; publishedSlug?: string | null }) {
-  return base && post.status === "published" ? `${base}/${post.publishedSlug ?? post.slug}` : null;
 }
 
 async function mapPostWithPreview(post: Parameters<typeof mapPost>[0], url: string | null) {
@@ -480,6 +477,7 @@ export async function publishPostOp(
   await assertSiteNotSuspended(ctx.siteId);
   await assertPostImagesPublishable(ctx.siteId, input.postId);
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
+  const previousLive = await captureLiveVersionForIndexNow(ctx.siteId, input.postId);
   const entitlement = await resolveEffectiveEntitlementForSite(ctx.siteId);
   // Free blogs only: was the post already live? Republishing adds no post.
   const free = getsFreeNotices(entitlement);
@@ -493,6 +491,7 @@ export async function publishPostOp(
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, published.slug);
+  scheduleIndexNowSubmission(ctx.siteId, input.postId, previousLive);
   const base = siteSlug ? await getSitePublicBaseUrl(ctx.siteId, siteSlug) : null;
   const planNotice = free && !wasLive ? await freeCloseNoticeFor(ctx.siteId, "publishedPosts") : undefined;
   return { ...(await mapPostWithPreview(published, postPublicUrl(base, published))), ...(planNotice ? { planNotice } : {}) };
@@ -546,6 +545,7 @@ export async function rotatePostPreviewOp(ctx: OperationContext, input: { postId
 
 export async function archivePostOp(ctx: OperationContext, input: { postId: string; expectedVersionNumber?: number }) {
   const previousLiveSlug = await resolvePublishedVersionSlug(repository(), ctx.siteId, input.postId);
+  const previousLive = await captureLiveVersionForIndexNow(ctx.siteId, input.postId);
   const archived = await archivePost(repository(), ctx.actor, {
     siteId: ctx.siteId,
     postId: input.postId,
@@ -553,6 +553,7 @@ export async function archivePostOp(ctx: OperationContext, input: { postId: stri
   });
   const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(ctx.siteId);
   if (siteSlug) scheduleLiveArticlePurges(ctx.siteId, siteSlug, previousLiveSlug, archived.slug);
+  scheduleIndexNowSubmission(ctx.siteId, input.postId, previousLive);
   return mapPost(archived, null);
 }
 

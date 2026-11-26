@@ -18,6 +18,7 @@ import { createDataAccess, createD1PostRepository } from '@vc/db'
 import { env } from 'cloudflare:workers'
 import { getCoreBillingStatusForSite } from '@/server/effective-entitlement'
 import type { AppUserContext } from '@/server/onboarding'
+import { captureLiveVersionForIndexNow, scheduleIndexNowSubmission } from '@/server/indexnow'
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from '@/server/post-live-purge'
 import { assertPostImagesPublishable } from '@/server/publishing-images'
 import { assertSiteNotSuspended } from '@/server/site-suspension'
@@ -133,6 +134,7 @@ export async function publishPostForApp(
     await assertSiteNotSuspended(app.siteId)
     await assertPostImagesPublishable(app.siteId, postId)
     const previousLiveSlug = await resolvePublishedVersionSlug(repository(), app.siteId, postId)
+    const previousLive = await captureLiveVersionForIndexNow(app.siteId, postId)
     const published = await publishPost(repository(), app.actor, {
       siteId: app.siteId,
       postId,
@@ -141,6 +143,7 @@ export async function publishPostForApp(
     })
     const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
     if (siteSlug) scheduleLiveArticlePurges(app.siteId, siteSlug, previousLiveSlug, published.slug)
+    scheduleIndexNowSubmission(app.siteId, postId, previousLive)
     return { kind: 'ok', code: 'post_published', postId }
   } catch (error) {
     if (error instanceof ConflictError) return { kind: 'error', code: 'version_conflict', postId }
@@ -173,9 +176,11 @@ export async function unschedulePostForApp(app: AppUserContext, postId: string):
 export async function archivePostForApp(app: AppUserContext, postId: string): Promise<MutationResult> {
   try {
     const previousLiveSlug = await resolvePublishedVersionSlug(repository(), app.siteId, postId)
+    const previousLive = await captureLiveVersionForIndexNow(app.siteId, postId)
     const archived = await archivePost(repository(), app.actor, { siteId: app.siteId, postId })
     const siteSlug = await createDataAccess(env.DB).sites.getSiteSlug(app.siteId)
     if (siteSlug) scheduleLiveArticlePurges(app.siteId, siteSlug, previousLiveSlug, archived.slug)
+    scheduleIndexNowSubmission(app.siteId, postId, previousLive)
     return { kind: 'ok', code: 'post_archived', postId }
   } catch (error) {
     return { kind: 'error', code: postMutationErrorCode(error), postId }

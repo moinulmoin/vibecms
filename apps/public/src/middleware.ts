@@ -14,6 +14,7 @@ import { articleResponseForClientAndCache, conditionalCachedArticleResponse, con
 import { directLocation, type PublicLocation } from "./server/public-location";
  import { ingressStateForPass, primaryLocationRedirect, resolvePublicLocationIngress } from "./server/public-location.server";
 import { pausedBlogResponse } from "./server/paused-blog";
+import { indexNowKeyFile } from "./server/indexnow-key";
 import { rewriteProxiedAssetsInHtml } from "./server/proxied-assets";
 import { parsePublicRuntimeEnv } from "./server/public-url";
 import { applyPublicSecurityHeaders } from "./server/secure-response-headers";
@@ -96,6 +97,14 @@ const handleRequest = defineMiddleware(async (context, next) => {
     }
     context.locals.publicLocation = location;
     context.locals.publicPath = pathname;
+  }
+
+  // IndexNow key file: answered on every blog host and under a subpath
+  // blog's base path, before any canonical redirect.
+  const keyFile = indexNowKeyFile(context.request, pathname, publicEnv);
+  if (keyFile) {
+    applyPublicSecurityHeaders(pathname, keyFile.headers.get("content-type"), keyFile.headers, location);
+    return keyFile;
   }
 
   const redirect = canonicalHostRedirect(context.request, publicEnv);

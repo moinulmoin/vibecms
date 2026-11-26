@@ -31,6 +31,9 @@
       },
       "AUTOSEOPILOT_INTERNAL_SECRET": {
         "description": "Required only when enabling the managed AutoSEOPilot routes. Store as a Worker secret and rotate with the AutoSEOPilot caller."
+      },
+      "INDEXNOW_KEY": {
+        "description": "Optional. Turns on IndexNow pings to Bing for new and updated posts. 8-128 letters, digits or `-` (e.g. `openssl rand -hex 16`); set the same value on the public Worker, which serves it at `/<key>.txt`."
       }
     }
   },

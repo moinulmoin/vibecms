@@ -24,6 +24,7 @@ Root `wrangler.jsonc` configures the API/dashboard Worker. Root `wrangler.public
 - A native `send_email` binding named `EMAIL` on the API Worker for real OTP delivery
 - Images binding named `IMAGES` on the public Worker (already declared)
 - Optional Analytics Engine dataset bound as `ANALYTICS` on the public Worker, plus `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` vars on both Workers, for people + agent analytics. Without the binding trio, analytics collects nothing and the dashboard explains what to add; the Workers Free plan allows ~100,000 events/day.
+- Optional `INDEXNOW_KEY` (8 to 128 letters, digits or `-`) set to the same value on both Workers, to tell Bing about new and updated posts as they go live. The public Worker serves it at `/<key>.txt` on every blog address (under a subpath blog's base path); the API sends one background IndexNow request per publish or archive that changes a public page. Unset, nothing is served or sent. See `docs/deploy.md`.
 
 Astro sessions are intentionally disabled in `apps/public/astro.config.mjs` (Better Auth owns app sessions). Self-host does **not** need a `SESSION` KV namespace unless you re-enable Astro sessions and add matching `kv_namespaces` ids in `wrangler.public.jsonc`.
 

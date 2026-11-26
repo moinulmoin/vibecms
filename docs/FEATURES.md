@@ -73,7 +73,8 @@ Last updated: 2026-10-28
 - Cloudflare-for-SaaS custom-hostname provisioning + DNS/SSL verification is wired and enabled at runtime by `CUSTOM_HOSTNAME_API_TOKEN` + zone config (production preflight requires the token/fallback). Reclaim tears down the old custom hostname so a squatter cannot block the real owner. See `docs/deploy.md`.
 
 ### Public output & SEO
-- RSS feed, sitemap.xml, robots.txt, llms.txt (per-site + product variant), `content-signal` AI headers; per-site favicons (PWA manifest + light/dark theme-color only on marketing/legal chrome). `sitemap.xml` emits per-URL `<lastmod>`; RSS carries full sanitized article HTML in `<content:encoded>` plus channel `<lastBuildDate>` and `<atom:link rel="self">`.
+- RSS feed, sitemap.xml, robots.txt, llms.txt (per-site + product variant), `content-signal` AI headers; per-site favicons (PWA manifest + light/dark theme-color only on marketing/legal chrome). `sitemap.xml` emits per-URL `<lastmod>`: the time the live page last substantively changed (a publish whose title, slug, body, excerpt, cover, tags, SEO fields, canonical URL or layout differ from the live version; migration 0050 `posts.live_content_updated_at`), which also drives `dateModified` and the "Updated" label; RSS carries full sanitized article HTML in `<content:encoded>` plus channel `<lastBuildDate>` and `<atom:link rel="self">`.
+- Optional IndexNow (plan 026 §3, simplified): with `INDEXNOW_KEY` set on both Workers, the public Worker serves `/<key>.txt` on every blog host (under a subpath blog's base path) and each publish, page-changing republish or archive sends one background POST with the post's canonical URL (both URLs on a slug change). No queue, retries, per-site keys or settings toggle; paused/suspended blogs and blogs without a public https address are skipped.
 - Per-post OG/Twitter/meta/canonical; every plan is open to search engines and AI assistants (only a paused managed blog is `noindex`).
 - Deterministic SEO and AI-answer (GEO) findings in `posts.preview` and `posts.seo_check` on every plan, Try free included: 31 code rules, 26 for search (metadata, headings, links, content, duplicates, indexing, optional focus keyword) and 5 for AI answers (opening paragraph before the first heading and under 80 words, number claims without a link, sections over 400 words, steps written as prose); no score. Editor SEO rail + publish-dialog findings.
 - Judgment questions (does the opening answer the title, which claims need a source, does each section stand alone when quoted) live in the `vibecms-seo` skill for the customer's own agent; vibecms runs no AI model on content. The Workers AI SEO review was removed on 2026-10-22 (migration 0042 drops its cache table).
@@ -161,7 +162,7 @@ Last updated: 2026-10-28
 
 - **Google/GitHub OAuth sign-in**: code is wired in `auth.ts` and appears only when the corresponding client credentials are provisioned. Email OTP remains the default.
 - **Newsletter delivery by vibecms** (ON HOLD): vibecms sends no email. Owners connect their own tool (signup form posts to it; the `vibecms-newsletter` skill sets up RSS-to-email drafts there). Native confirmation/sends stay deferred.
-- **WebMCP** (plan 025, ON HOLD) and **IndexNow** (plan 026, ON HOLD): design records exist; not started. Plan 026's redirects and original dates shipped 2026-10-28; its server-side import parsers were replaced by the agent-driven `vibecms-import` skill.
+- **WebMCP** (plan 025, ON HOLD): design record exists; not started.
 
 ---
 

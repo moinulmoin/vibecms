@@ -7,6 +7,7 @@ import { billingStatusForCore, resolveEffectiveEntitlementForSite } from './effe
 import { assertPostImagesPublishable } from './publishing-images';
 import { assertSiteNotSuspended } from './site-suspension';
 import { resolvePublishedVersionSlug, scheduleLiveArticlePurges } from './post-live-purge';
+import { captureLiveVersionForIndexNow, scheduleIndexNowSubmission } from './indexnow';
 import { redactErrorText } from './request-logging';
 
 const scheduler: Actor = { type: 'system', id: 'system', name: 'System' };
@@ -69,6 +70,7 @@ export async function processDueSchedules(
     await assertSiteNotSuspended(schedule.siteId, db);
     const repo = createD1PostRepository(db);
     const previousLiveSlug = await resolvePublishedVersionSlug(repo, schedule.siteId, schedule.postId);
+    const previousLive = await captureLiveVersionForIndexNow(schedule.siteId, schedule.postId, db);
     await assertPostImagesPublishable(schedule.siteId, schedule.postId, schedule.versionNumber);
     const entitlement = await resolveEffectiveEntitlementForSite(schedule.siteId);
     const result = await publishScheduledPost(repo, scheduler, {
@@ -81,6 +83,7 @@ export async function processDueSchedules(
     });
     const siteSlug = await createDataAccess(db).sites.getSiteSlug(schedule.siteId);
     if (siteSlug) scheduleLiveArticlePurges(schedule.siteId, siteSlug, previousLiveSlug, result.publishedSlug ?? result.slug);
+    scheduleIndexNowSubmission(schedule.siteId, schedule.postId, previousLive, db);
   },
 ): Promise<ScheduleRunResult> {
   const counts: ScheduleRunResult = { published: 0, failed: 0, retrying: 0 };

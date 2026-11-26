@@ -120,6 +120,8 @@ export const posts = sqliteTable("posts", {
   status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
   publishedAt: integer("published_at"),
   originalPublishedAt: integer("original_published_at"),
+  // When the live page last substantively changed (publish of different public fields).
+  liveContentUpdatedAt: integer("live_content_updated_at"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   canonicalUrl: text("canonical_url"),
