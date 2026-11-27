@@ -145,7 +145,9 @@ const summaryColumns = {
   coverAssetId: postVersions.coverAssetId,
   publishedAt: posts.publishedAt,
   originalPublishedAt: posts.originalPublishedAt,
-  updatedAt: postVersions.createdAt,
+  // When the live page last substantively changed; legacy rows published
+  // before migration 0050 fall back to the pinned version's creation time.
+  updatedAt: sql<number>`coalesce(${posts.liveContentUpdatedAt}, ${postVersions.createdAt})`.mapWith(Number),
   seoTitle: postVersions.seoTitle,
   seoDescription: postVersions.seoDescription,
   canonicalUrl: postVersions.canonicalUrl,

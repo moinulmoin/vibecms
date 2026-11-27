@@ -41,6 +41,10 @@ The API Worker's `wrangler.jsonc` declares three cron triggers — three of the 
 
 Blog analytics turn on when the public Worker has an `analytics_engine_datasets` binding named `ANALYTICS` and both Workers set `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_DATASET`, and `ANALYTICS_API_TOKEN` (see [`docs/self-hosting.md`](https://github.com/moinulmoin/vibecms/blob/dev/docs/self-hosting.md)). Without them, analytics collects nothing.
 
+## Optional IndexNow
+
+Set `INDEXNOW_KEY` (8 to 128 letters, digits or `-`, for example from `openssl rand -hex 16`) to the same value on the API Worker and the public Worker to tell Bing about new and updated posts as soon as they go live. The public Worker serves the key at `/<key>.txt` on every blog address (under the base path for a blog served at a path of your site), and each publish or archive that changes a public page sends one background request with that post's URL. Without the setting, nothing is served or sent.
+
 ## Deploy
 
 After replacing the placeholder resource IDs, names, service target, and hosts in the root Wrangler files:

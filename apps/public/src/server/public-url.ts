@@ -1,3 +1,4 @@
+import { parseIndexNowKey } from "@vc/core";
 import type { PublicRuntimeEnv } from "../env";
 
 export function publicBlogBaseDomain(env: PublicRuntimeEnv) {
@@ -43,5 +44,6 @@ export function parsePublicRuntimeEnv(raw: Env): PublicRuntimeEnv {
     publicBlogDomain,
     selfHosted: String(raw.SELF_HOSTED) === "true",
     generatedCards: Boolean(raw.OG),
+    indexNowKey: parseIndexNowKey(raw.INDEXNOW_KEY),
   };
 }

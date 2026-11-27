@@ -44,6 +44,12 @@ export async function getSitePublicBaseUrl(siteId: string, siteSlug: string): Pr
   return defaultHostBaseUrl(db, siteId, siteSlug)
 }
 
+// A post's public URL under a site base from getSitePublicBaseUrl: its live
+// slug while published, otherwise none.
+export function postPublicUrl(base: string | null, post: { status: string; slug: string; publishedSlug?: string | null }) {
+  return base && post.status === 'published' ? `${base}/${post.publishedSlug ?? post.slug}` : null
+}
+
 // Media, logos, favicons and preview links are served only from our default
 // host; always the slug.<zone> origin regardless of the site's primary location.
 export async function getSiteAssetBaseUrl(siteId: string, siteSlug: string): Promise<string | null> {

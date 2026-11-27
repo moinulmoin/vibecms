@@ -632,6 +632,11 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
         return { post: before, capReached: false, versionConflict: false };
       }
 
+      const live = before.status === "published" && before.publishedVersionNumber !== null
+        ? await this.getPostVersion(siteId, postId, before.publishedVersionNumber)
+        : null;
+      const liveContentChanged = !live || changedPostFields(live, approved).length > 0;
+
       const timestamp = now();
       const activityId = crypto.randomUUID();
       const after: Post = {
@@ -647,6 +652,10 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
 
       // Atomically pin the approved tip version. No new version row is created —
       // publish only moves the public pointer (and status on first publish).
+      // live_content_updated_at moves only when the post goes live or the
+      // pinned public fields change (core changedPostFields, the same rule
+      // IndexNow uses); re-pinning identical content keeps it. If the live pin
+      // moved after this read, the CASE falls back to "changed".
       let updateResult: D1Result;
       try {
         [updateResult] = await db.batch([
@@ -655,6 +664,12 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
              SET status = 'published',
                published_at = coalesce(published_at, ?),
                original_published_at = coalesce(?, original_published_at),
+               live_content_updated_at = CASE
+                 WHEN ? = 0 AND status = 'published'
+                   AND (SELECT version_number FROM post_versions WHERE id = posts.published_version_id) IS ?
+                 THEN coalesce(live_content_updated_at, (SELECT created_at FROM post_versions WHERE id = posts.published_version_id))
+                 ELSE ?
+               END,
                published_version_id = (
                  SELECT pv.id FROM post_versions AS pv
                  WHERE pv.post_id = posts.id AND pv.site_id = posts.site_id
@@ -711,6 +726,9 @@ export function createD1PostRepository(db: D1Database): D1PostRepository {
           ).bind(
             timestamp,
             options.originalPublishedAt ?? null,
+            liveContentChanged ? 1 : 0,
+            before.publishedVersionNumber,
+            timestamp,
             expectedVersionNumber,
             timestamp,
             actor.type,

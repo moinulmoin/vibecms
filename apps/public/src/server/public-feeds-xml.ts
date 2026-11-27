@@ -1,4 +1,4 @@
-import { formatW3CDate, maxPublishEpoch } from '../lib/seo-meta';
+import { formatIsoDate, maxPublishEpoch } from '../lib/seo-meta';
 import type { PostBodyRow, PostSummaryRow, SiteRow } from './public-blog-data';
 
 /**
@@ -23,7 +23,7 @@ export function xmlEscape(value: string): string {
     .replace(/'/g, '&apos;');
 }
 
-/** One sitemap `<url>`: absolute `loc`, optional W3C-date `lastmod`. */
+/** One sitemap `<url>`: absolute `loc`, optional W3C date or datetime `lastmod`. */
 export type SitemapEntry = { loc: string; lastmod?: string | null };
 
 /** Serialize entries, in the order given, as a sitemap `<urlset>` document. */
@@ -38,7 +38,8 @@ export function buildUrlsetXml(entries: readonly SitemapEntry[]): string {
  * Build a sitemap.xml document. The home entry (`${origin}/`) comes first and
  * carries a `<lastmod>` set to the newest `max(published_at, updated_at)` across
  * all posts. Each post entry follows with its own `<lastmod>` derived from
- * `max(published_at, updated_at)`. A `<lastmod>` is omitted whenever no date can
+ * `max(published_at, updated_at)`, as a full UTC datetime so two changes on
+ * the same day still differ. A `<lastmod>` is omitted whenever no date can
  * be resolved. Posts are emitted in the order given.
  */
 export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string {
@@ -47,10 +48,10 @@ export function buildSitemapXml(origin: string, posts: PostSummaryRow[]): string
     return epoch == null ? max : Math.max(max ?? 0, epoch);
   }, null);
   return buildUrlsetXml([
-    { loc: `${origin}/`, lastmod: formatW3CDate(homeEpoch) },
+    { loc: `${origin}/`, lastmod: formatIsoDate(homeEpoch) },
     ...posts.map((post) => ({
       loc: `${origin}/${post.slug}`,
-      lastmod: formatW3CDate(maxPublishEpoch(post.real_published_at ?? post.published_at, post.updated_at)),
+      lastmod: formatIsoDate(maxPublishEpoch(post.real_published_at ?? post.published_at, post.updated_at)),
     })),
   ]);
 }

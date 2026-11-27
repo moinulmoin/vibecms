@@ -395,6 +395,23 @@ jobs:
 `/internal/autoseopilot` routes and must be a separate high-entropy value
 shared only with the AutoSEOPilot service.
 
+`INDEXNOW_KEY` is optional; it turns on IndexNow (Bing and the engines that
+share its submissions, which ChatGPT Search draws on). Use 8 to 128 letters,
+digits or `-` (for example `openssl rand -hex 16`) and set the same value on
+the API Worker and the public Worker. The key is public by design: the public
+Worker serves it as `text/plain` at `/<key>.txt` on every blog host, and under
+the base path of a subpath blog. After a publish, a republish that changes the
+page, or an archive, the API sends one background POST naming the post's
+canonical URL (old and new URL on a slug change) and logs only the response
+status. It never retries and never delays or fails the publish. Paused and
+suspended blogs, and blogs without a public https address, are skipped.
+Unset or invalid, nothing is served or sent.
+
+```sh
+pnpm --filter @vc/api exec wrangler secret put INDEXNOW_KEY --env production
+pnpm --filter @vc/public exec wrangler secret put INDEXNOW_KEY --name vibecms-public-prod
+```
+
 Google and GitHub OAuth secrets are optional. Configure both the client ID and client secret for each provider you enable. OTP delivery uses the native `EMAIL` send-email binding and `EMAIL_FROM` var.
 
 ## Health and rollback

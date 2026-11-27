@@ -131,12 +131,6 @@ export function resolveSocialImage(
   return generatedCards ? generatedCard(origin, null, site) : null;
 }
 
-/** W3C date (`YYYY-MM-DD`); empty string for null/undefined/NaN. */
-export function formatW3CDate(epochSeconds: number | null): string {
-  if (epochSeconds == null || Number.isNaN(epochSeconds)) return '';
-  return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
-}
-
 /** ISO-8601 date-time; empty string for null. */
 export function formatIsoDate(epochSeconds: number | null): string {
   if (epochSeconds == null) return '';
