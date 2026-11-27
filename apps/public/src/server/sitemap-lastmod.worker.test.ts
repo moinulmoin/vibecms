@@ -36,8 +36,8 @@ function at(epochSeconds: number) {
   vi.spyOn(Date, "now").mockReturnValue(epochSeconds * 1000);
 }
 
-function day(epochSeconds: number) {
-  return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+function iso(epochSeconds: number) {
+  return new Date(epochSeconds * 1000).toISOString();
 }
 
 async function lastmodOf(slug: string) {
@@ -55,17 +55,17 @@ describe("sitemap lastmod", () => {
     const post = await createPost(repo, agent, { siteId: SITE, title: "Lastmod", slug: "lastmod-post", contentMarkdown: "First body." }, "active");
     at(T0 + 2 * DAY);
     await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, billingStatus: "active" });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 2 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 2 * DAY));
 
     // A draft edit on a live post changes nothing public.
     at(T0 + 4 * DAY);
     const draft = await updatePost(repo, human, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, contentMarkdown: "Second body." });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 2 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 2 * DAY));
 
     // Publishing that edit days later changes the page at publish time.
     at(T0 + 6 * DAY);
     await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: draft.versionNumber, billingStatus: "active" });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 6 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 6 * DAY));
 
     // An agent re-save with no changes, then publishing it, renders the same page.
     at(T0 + 8 * DAY);
@@ -73,18 +73,45 @@ describe("sitemap lastmod", () => {
     expect(resaved.versionNumber).toBeGreaterThan(draft.versionNumber);
     at(T0 + 9 * DAY);
     await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: resaved.versionNumber, billingStatus: "active" });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 6 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 6 * DAY));
 
     // Re-approving the version that is already live is a no-op.
     at(T0 + 10 * DAY);
     await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: resaved.versionNumber, billingStatus: "active" });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 6 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 6 * DAY));
 
     // A metadata-only change (SEO description) alters the rendered page.
     at(T0 + 12 * DAY);
     const seo = await updatePost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: resaved.versionNumber, seoDescription: "A sharper summary." });
     at(T0 + 13 * DAY);
     await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: seo.versionNumber, billingStatus: "active" });
-    expect(await lastmodOf("lastmod-post")).toBe(day(T0 + 13 * DAY));
+    expect(await lastmodOf("lastmod-post")).toBe(iso(T0 + 13 * DAY));
+  });
+it("moves for a second substantive publish on the same day", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const T1 = T0 + 30 * DAY;
+    at(T1);
+    const post = await createPost(repo, agent, { siteId: SITE, title: "Same day", slug: "same-day-post", contentMarkdown: "Morning body." }, "active");
+    await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, billingStatus: "active" });
+    expect(await lastmodOf("same-day-post")).toBe(iso(T1));
+    at(T1 + 3_600);
+    const edited = await updatePost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, contentMarkdown: "Afternoon body." });
+    await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: edited.versionNumber, billingStatus: "active" });
+    expect(await lastmodOf("same-day-post")).toBe(iso(T1 + 3_600));
+  });
+
+  it("does not move when a blank SEO field saved as empty text is re-saved as no value", async () => {
+    const repo = createD1PostRepository(env.DB);
+    const T2 = T0 + 40 * DAY;
+    at(T2);
+    const post = await createPost(repo, agent, { siteId: SITE, title: "Blank", slug: "blank-seo-post", contentMarkdown: "Body.", seoDescription: "" }, "active");
+    await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, billingStatus: "active" });
+    at(T2 + 2 * DAY);
+    const resaved = await updatePost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 1, seoDescription: "" });
+    expect(resaved.versionNumber).toBe(2);
+    expect((await repo.getPostVersion(SITE, post.id, 1))?.seoDescription).toBe("");
+    expect((await repo.getPostVersion(SITE, post.id, 2))?.seoDescription).toBeNull();
+    await publishPost(repo, agent, { siteId: SITE, postId: post.id, expectedVersionNumber: 2, billingStatus: "active" });
+    expect(await lastmodOf("blank-seo-post")).toBe(iso(T2));
   });
 });

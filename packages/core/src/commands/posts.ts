@@ -32,12 +32,21 @@ const POST_FIELD_LABELS: Array<[keyof Post, string]> = [
   ["presentation", "layout"],
 ];
 
-/** Human labels for the fields that differ between two post states, deduped, in display order. */
+// A blank optional field renders the same whether it was stored as "" or NULL.
+function comparable(value: unknown): string {
+  return JSON.stringify(value === "" || value === undefined ? null : value);
+}
+
+/**
+ * Human labels for the fields that differ between two post states, deduped,
+ * in display order. Also the one rule for whether a publish changes the live
+ * page (sitemap lastmod, IndexNow).
+ */
 export function changedPostFields(before: Partial<Post>, after: Partial<Post>): string[] {
   const labels: string[] = [];
   for (const [key, label] of POST_FIELD_LABELS) {
     if (!(key in after)) continue;
-    if (JSON.stringify(before[key] ?? null) === JSON.stringify(after[key] ?? null)) continue;
+    if (comparable(before[key]) === comparable(after[key])) continue;
     if (!labels.includes(label)) labels.push(label);
   }
   return labels;
